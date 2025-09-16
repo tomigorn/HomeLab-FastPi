@@ -1,0 +1,20 @@
+# ───────────────────────────────
+# Environment & Secrets
+# ───────────────────────────────
+.env
+docker/.env
+secrets.tfvars
+infra/secrets.tfvars
+Terraform/Authentik/scripts/wake_proxy/config.yml
+
+# ───────────────────────────────
+# Terraform
+# ───────────────────────────────
+# Local state files
+*.tfstate
+*.tfstate.backup
+
+# Terraform working directories
+.terraform/
+state/
+data/
