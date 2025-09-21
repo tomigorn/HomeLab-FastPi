@@ -40,6 +40,11 @@ resource "docker_container" "portainer" {
 
   ports {
     internal = 9000
+    external = var.portainer_port_http
+  }
+
+  ports {
+    internal = 9443
     external = var.portainer_port
   }
 

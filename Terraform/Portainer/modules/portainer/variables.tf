@@ -24,6 +24,11 @@ variable "portainer_port" {
   default = 9443
 }
 
+variable "portainer_port_http" {
+  type    = number
+  default = 9000
+}
+
 variable "restart_policy" {
   type    = string
   default = "unless-stopped"
