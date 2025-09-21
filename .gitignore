@@ -3,8 +3,6 @@
 # ───────────────────────────────
 .env
 docker/.env
-secrets.tfvars
-infra/secrets.tfvars
 Terraform/Authentik/scripts/wake_proxy/config.yml
 
 # ───────────────────────────────
