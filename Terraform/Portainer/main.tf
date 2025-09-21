@@ -31,6 +31,26 @@ variable "bootstrap_admin_password" {
   default = ""
 }
 
+variable "create_beefy_agent" {
+  type    = bool
+  default = true
+}
+
+variable "beefy_agent_host" {
+  type    = string
+  default = "beefy.local"
+}
+
+variable "beefy_agent_name" {
+  type    = string
+  default = "beefy"
+}
+
+variable "beefy_agent_port" {
+  type    = number
+  default = 9001
+}
+
 resource "null_resource" "bootstrap_portainer" {
   # only run when password provided
   triggers = {
@@ -42,6 +62,19 @@ resource "null_resource" "bootstrap_portainer" {
   provisioner "local-exec" {
     when    = create
     command = "bash ${path.module}/bootstrap_portainer_full.sh localhost 9000 '${var.bootstrap_admin_password}'"
+    interpreter = ["/bin/bash", "-c"]
+  }
+}
+
+resource "null_resource" "create_beefy_agent" {
+  triggers = {
+    create = tostring(var.create_beefy_agent)
+  }
+  depends_on = [null_resource.bootstrap_portainer]
+
+  provisioner "local-exec" {
+    when    = create
+    command = "bash ${path.module}/create_agent_endpoint.sh ${var.beefy_agent_host} ${var.beefy_agent_name} '${var.bootstrap_admin_password}' ${var.create_beefy_agent} ${var.beefy_agent_port}"
     interpreter = ["/bin/bash", "-c"]
   }
 }
