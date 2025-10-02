@@ -1,0 +1,150 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Traefik #################################################
+# #########################################################
+  traefik:
+    image: traefik
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker.constraints=Label(`traefik.enable`, `true`)"
+    ports:
+      - "82:80"
+      - "8082:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - proxy
+# #########################################################
+# authentik ###############################################
+# #########################################################
+  redis:
+    image: docker.io/library/redis
+    container_name: redis
+    command: --save 60 1 --loglevel warning
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      test:
+      - CMD-SHELL
+      - redis-cli ping | grep PONG
+      timeout: 3s
+    ports:
+      - $REDIS_PORT:6379
+    restart: unless-stopped
+    volumes:
+    - redis_data:/data
+
+  postgresql:
+    image: postgres
+    container_name: postgresql
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d postgres -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    networks:
+      - proxy
+    ports:
+      - "$POSTGRESQL_PORT:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_PASSWORD=$AUTHENTIK_POSTGRESQL__PASSWORD
+  
+#   authentik-server:
+#     image: ghcr.io/goauthentik/server:latest
+#     container_name: authentik-server
+#     environment:
+#       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+#       AUTHENTIK_BOOTSTRAP_USERNAME: ${AUTHENTIK_BOOTSTRAP_USERNAME}
+#       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+#       AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+#       AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
+#       AUTHENTIK_REDIS__HOST: authentik-redis
+#       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+#       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+#       AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB}
+#       AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
+#     volumes:
+#       - ./authentik/blueprints:/blueprints/custom
+#     depends_on:
+#       - authentik-postgres
+#       - authentik-redis
+#     labels:
+#       - "traefik.enable=true"
+#       - "traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_HOST}`)"
+#       - "traefik.http.routers.authentik.entrypoints=websecure"
+#       - "traefik.http.routers.authentik.tls.certresolver=myresolver"
+#       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+#     networks:
+#       - proxy
+#       - authentik-internal
+#     restart: unless-stopped
+
+#   authentik-worker:
+#     image: ghcr.io/goauthentik/server:latest
+#     container_name: authentik-worker
+#     command: worker
+#     environment:
+#       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+#       AUTHENTIK_REDIS__HOST: authentik-redis
+#       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+#       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+#       AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB}
+#       AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
+#     depends_on:
+#       - authentik-postgres
+#       - authentik-redis
+#     networks:
+#       - authentik-internal
+#     labels:
+#       - "traefik.enable=false"
+#     restart: unless-stopped
+
+#   authentik-postgres:
+#     image: postgres:15
+#     container_name: authentik-postgres
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#       POSTGRES_DB: ${POSTGRES_DB}
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     networks:
+#       - authentik-internal
+#     restart: unless-stopped
+  # authentik-redis:
+  #   image: redis
+  #   container_name: authentik-redis
+  #   command: --save 60 1 --loglevel warning
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - authentik-internal
+  #   restart: unless-stopped
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  postgres_data:
+  redis_data:
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  proxy:
+    external: true
+  authentik-internal:
+    driver: bridge
