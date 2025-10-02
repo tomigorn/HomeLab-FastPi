@@ -1,0 +1,69 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Traefik #################################################
+# #########################################################
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    environment:
+      - TZ=${TZ}
+    ports:
+      - "82:80"
+      - "4431:443"
+      - "8081:8080" # dashboard
+    volumes:
+      - ./traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ./traefik/dynamic.yaml:/etc/traefik/dynamic/dynamic.yaml:ro
+      - ./traefik/logs:/var/log/traefik
+      - ./traefik/acme.json:/acme.json
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-net
+    restart: unless-stopped
+# #########################################################
+# Redis ###################################################
+# #########################################################
+  redis:
+    image: redis:7-alpine
+    container_name: traefik_wol_redis
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - traefik-net
+    restart: unless-stopped
+# #########################################################
+# NodeRed #################################################
+# #########################################################
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./node-red/data:/data
+      - ./traefik/logs:/var/log/traefik # Node-RED will read traefik access log if needed
+    depends_on:
+      - redis
+    networks:
+      - traefik-net
+    restart: unless-stopped
+# #########################################################
+# WOL-API #################################################
+# #########################################################
+  wol-api:
+    build: ./wol-api
+    container_name: wol_api
+    restart: unless-stopped
+    ports:
+      - "5001:5000"
+    networks:
+      - traefik-net
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik-net:
+    driver: bridge
