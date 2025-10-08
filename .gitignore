@@ -19,3 +19,4 @@ data/
 
 # Ignore generated HelloWorld output
 Terraform/HelloWorld/hello.txt
+Docker/infra/DuckDNS/config/logrotate.conf
