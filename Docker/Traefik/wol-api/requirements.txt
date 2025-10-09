@@ -1,3 +1,0 @@
-flask
-wakeonlan
-gunicorn
