@@ -1,0 +1,49 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Traefik #################################################
+# #########################################################
+  traefik:
+    image: traefik:v3.4
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker=true
+      - --providers.docker.network=proxy
+      - --api.dashboard=true
+      - --certificatesresolvers.duckdns.acme.httpchallenge=true
+      - --certificatesresolvers.duckdns.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.duckdns.acme.email=${LETSENCRYPT_EMAIL}
+      - --certificatesresolvers.duckdns.acme.storage=/letsencrypt/acme.json
+    ports:
+      - 80:80       # HTTP
+      - 443:443     # HTTPS
+      - 8080:8080   # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
+      - ./traefik/acme.json:/letsencrypt/acme.json
+    networks:
+      - traefik_proxy
+
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+
