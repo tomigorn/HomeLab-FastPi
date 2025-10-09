@@ -30,3 +30,6 @@ Docker/DuckDNS/config/
 
 # WireGuard VPN
 Docker/WireguardVPN/wg-easy/
+
+# Traefik
+Docker/Traefik/traefik/
