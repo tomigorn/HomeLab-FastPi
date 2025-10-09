@@ -8,6 +8,7 @@ Terraform/Authentik/scripts/wake_proxy/config.yml
 # ───────────────────────────────
 # Terraform
 # ───────────────────────────────
+
 # Local state files
 *.tfstate
 *.tfstate.backup
@@ -23,5 +24,9 @@ Terraform/HelloWorld/hello.txt
 # ───────────────────────────────
 # Docker
 # ───────────────────────────────
+
 # DuckDNS
 Docker/DuckDNS/config/
+
+# WireGuard VPN
+Docker/WireguardVPN/wg-easy/
