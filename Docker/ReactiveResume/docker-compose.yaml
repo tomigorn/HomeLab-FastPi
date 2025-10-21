@@ -1,0 +1,93 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Reactive Resume #########################################
+# #########################################################
+  reactiveresume:
+    container_name: reactiveresume
+    image: amruthpillai/reactive-resume:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      - postgres
+      - browserless
+    volumes:
+      - reactiveresume_data:/app/data
+
+# #########################################################
+# PostgreSQL ##############################################
+# #########################################################
+  postgres:
+    image: postgres:15
+    container_name: reactive_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - reactive_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reactive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# #########################################################
+# Browserless Chromium ####################################
+# #########################################################
+  browserless:
+    image: browserless/chrome:latest
+    container_name: browserless
+    restart: unless-stopped
+    environment:
+      - PREBOOT_CHROME=true
+      - MAX_CONCURRENT_SESSIONS=2
+      - API_TOKEN=${CHROME_TOKEN}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# #########################################################
+# MinIO (S3 Compatible Storage) ###########################
+# #########################################################
+  minio:
+    image: minio/minio:latest
+    container_name: reactive_minio
+    restart: unless-stopped
+    environment:
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
+    command: server /data
+    ports:
+      - "9000:9000"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set local http://localhost:9000 ${STORAGE_ACCESS_KEY} ${STORAGE_SECRET_KEY} && mc ls local/reactive-resume || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  reactiveresume_data:
+  reactive_postgres_data:
+  minio_data:
