@@ -1,93 +1,122 @@
-# =========================================================
-# Services ================================================
-# =========================================================
+# In this Docker Compose example, it assumes that you maintain a reverse proxy externally (or chose not to).
+# The only two exposed ports here are from minio (:9000) and the app itself (:3000).
+# If these ports are changed, ensure that the env vars passed to the app are also changed accordingly.
+
 services:
-# #########################################################
-# Reactive Resume #########################################
-# #########################################################
-  reactiveresume:
-    container_name: reactiveresume
-    image: amruthpillai/reactive-resume:latest
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    depends_on:
-      - postgres
-      - browserless
-    volumes:
-      - reactiveresume_data:/app/data
-
-# #########################################################
-# PostgreSQL ##############################################
-# #########################################################
+  # Database (Postgres)
   postgres:
-    image: postgres:15
-    container_name: reactive_postgres
+    image: postgres:16-alpine
     restart: unless-stopped
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
-      - reactive_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U reactive"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-# #########################################################
-# Browserless Chromium ####################################
-# #########################################################
-  browserless:
-    image: browserless/chrome:latest
-    container_name: browserless
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
     environment:
-      - PREBOOT_CHROME=true
-      - MAX_CONCURRENT_SESSIONS=2
-      - API_TOKEN=${CHROME_TOKEN}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-# #########################################################
-# MinIO (S3 Compatible Storage) ###########################
-# #########################################################
+  # Storage (for image uploads)
   minio:
     image: minio/minio:latest
-    container_name: reactive_minio
     restart: unless-stopped
-    environment:
-      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
     command: server /data
     ports:
-      - "9000:9000"
+      - ${STORAGE_PORT}:9000
     volumes:
       - minio_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "mc alias set local http://localhost:9000 ${STORAGE_ACCESS_KEY} ${STORAGE_SECRET_KEY} && mc ls local/reactive-resume || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY}
 
-# =========================================================
-# Networks ================================================
-# =========================================================
+  # Chrome Browser (for printing and previews)
+  chrome:
+    image: ghcr.io/browserless/chromium:latest
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HEALTH: "true"
+      TOKEN: ${CHROME_TOKEN}
+      PROXY_HOST: "chrome"
+      PROXY_PORT: 3000
+      PROXY_SSL: "false"
 
+  app:
+    image: amruthpillai/reactive-resume:latest
+    restart: unless-stopped
+    ports:
+      - ${APP_PORT}:3000
+    depends_on:
+      - postgres
+      - minio
+      - chrome
+    environment:
+      # -- Environment Variables --
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV}
 
-# =========================================================
-# Volumes =================================================
-# =========================================================
+      # -- URLs --
+      PUBLIC_URL: http://localhost:${APP_PORT}
+      STORAGE_URL: http://localhost:${STORAGE_PORT}/default
+
+      # -- Printer (Chrome) --
+      CHROME_TOKEN: ${CHROME_TOKEN}
+      CHROME_URL: ws://chrome:3000
+
+      # -- Database (Postgres) --
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+
+      # -- Auth --
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
+
+      # -- Emails --
+      MAIL_FROM: noreply@localhost
+      # SMTP_URL: smtp://user:pass@smtp:587 # Optional
+
+      # -- Storage (Minio) --
+      STORAGE_ENDPOINT: minio
+      STORAGE_PORT: 9000
+      STORAGE_REGION: us-east-1 # Optional
+      STORAGE_BUCKET: default
+      STORAGE_ACCESS_KEY: minioadmin
+      STORAGE_SECRET_KEY: minioadmin
+      STORAGE_USE_SSL: "false"
+      STORAGE_SKIP_BUCKET_CHECK: "false"
+
+      # -- Crowdin (Optional) --
+      # CROWDIN_PROJECT_ID:
+      # CROWDIN_PERSONAL_TOKEN:
+
+      # -- Email (Optional) --
+      # DISABLE_SIGNUPS: "false"
+      # DISABLE_EMAIL_AUTH: "false"
+
+      # -- GitHub (Optional) --
+      # GITHUB_CLIENT_ID: github_client_id
+      # GITHUB_CLIENT_SECRET: github_client_secret
+      # GITHUB_CALLBACK_URL: http://localhost:3000/api/auth/github/callback
+
+      # -- Google (Optional) --
+      # GOOGLE_CLIENT_ID: google_client_id
+      # GOOGLE_CLIENT_SECRET: google_client_secret
+      # GOOGLE_CALLBACK_URL: http://localhost:3000/api/auth/google/callback
+
+      # -- OpenID (Optional) --
+      # VITE_OPENID_NAME: OpenID
+      # OPENID_AUTHORIZATION_URL:
+      # OPENID_CALLBACK_URL: http://localhost:3000/api/auth/openid/callback
+      # OPENID_CLIENT_ID:
+      # OPENID_CLIENT_SECRET:
+      # OPENID_ISSUER:
+      # OPENID_SCOPE: openid profile email
+      # OPENID_TOKEN_URL:
+      # OPENID_USER_INFO_URL:
+
 volumes:
-  reactiveresume_data:
-  reactive_postgres_data:
   minio_data:
+  postgres_data:
