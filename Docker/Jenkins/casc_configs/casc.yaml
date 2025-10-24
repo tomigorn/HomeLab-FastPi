@@ -1,0 +1,5 @@
+jenkins:
+  systemMessage: "Jenkins configured with JCasC"
+  numExecutors: 2
+
+# Security (users) is created by init Groovy script. Keep other config here.
