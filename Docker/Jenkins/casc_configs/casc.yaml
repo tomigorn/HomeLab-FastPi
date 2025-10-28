@@ -3,3 +3,7 @@ jenkins:
   numExecutors: 2
 
 # Security (users) is created by init Groovy script. Keep other config here.
+
+# (Credentials and location configuration removed temporarily)
+# Add credentials using the UI or a JCasC snippet later once the required
+# credentials-related plugins are available and verified.

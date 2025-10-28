@@ -18,9 +18,16 @@ services:
       - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/casc.yaml
       - JENKINS_ADMIN_ID=${JENKINS_ADMIN_ID:-admin}
       - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD:-changeme}
+      - GITHUB_TOKEN_FILE=${GITHUB_TOKEN_FILE:-/run/secrets/github_token}
+      - GITHUB_CREDENTIAL_ID=${GITHUB_CREDENTIAL_ID:-github-token}
     volumes:
+      # Docker socket for Docker-in-Docker builds
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Jenkins home directory
       - jenkins_home:/var/jenkins_home
       - ./casc_configs:/var/jenkins_home/casc_configs:ro
+      # Mount for secret token file (create ./secrets/github_token on host, do NOT commit)
+      - ./secrets/github_token:${GITHUB_TOKEN_FILE:-/run/secrets/github_token}:ro
     restart: unless-stopped
     logging:
       driver: json-file
@@ -33,6 +40,39 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    networks:
+      - traefik_proxy
+      - default
+    labels:
+      - "traefik.enable=true"
+      # HTTPS router (main)
+      - "traefik.http.routers.jenkins.rule=Host(`hephaestus-jenkins.duckdns.org`)"
+      - "traefik.http.routers.jenkins.entrypoints=websecure"
+      - "traefik.http.routers.jenkins.tls=true"
+      - "traefik.http.routers.jenkins.tls.certresolver=duckdns"
+      # HTTP router (redirect to HTTPS)
+      - "traefik.http.routers.jenkins-http.rule=Host(`hephaestus-jenkins.duckdns.org`)"
+      - "traefik.http.routers.jenkins-http.entrypoints=web"
+      - "traefik.http.routers.jenkins-http.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      # Service port inside container
+      - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+      
+      
+      
+      # - "traefik.http.routers.jenkins.rule=Host(`hephaestus-jenkins.duckdns.org`)"
+      # - "traefik.http.routers.jenkins.entrypoints=websecure"
+      # - "traefik.http.routers.jenkins-http.middlewares=https-redirect"
+      # - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      # - "traefik.http.routers.jenkins.tls=true"
+      # - "traefik.http.routers.jenkins.tls.certresolver=duckdns"
+      # Optional: force redirect HTTP→HTTPS if Traefik handles web entrypoint
+      # - "traefik.http.routers.jenkins-secure.entrypoints=websecure"
+      # Service port mapping (inside Jenkins container)
+      # - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+      # Optional middlewares (you can remove these if not used)
+      # - "traefik.http.routers.jenkins.middlewares=secHeaders@file"
+    
 # #########################################################
 # SSH Agent #################################################
 # #########################################################
@@ -43,7 +83,10 @@ services:
 # =========================================================
 # Networks ================================================
 # =========================================================
-
+networks:
+  traefik_proxy:
+    external: true
+  default:
 
 # =========================================================
 # Volumes =================================================
