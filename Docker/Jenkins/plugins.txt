@@ -7,3 +7,6 @@ credentials-binding
 ssh-credentials
 prometheus
 pipeline-stage-view
+github
+github-branch-source
+job-dsl
