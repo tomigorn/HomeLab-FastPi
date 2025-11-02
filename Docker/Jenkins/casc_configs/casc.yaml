@@ -2,8 +2,11 @@ jenkins:
   systemMessage: "Jenkins configured with JCasC"
   numExecutors: 2
 
-# Security (users) is created by init Groovy script. Keep other config here.
-
-# (Credentials and location configuration removed temporarily)
-# Add credentials using the UI or a JCasC snippet later once the required
-# credentials-related plugins are available and verified.
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "agent1-secret"
+              secret: "${readFile:/run/secrets/agent1_secret}"
