@@ -5,38 +5,35 @@ services:
 # #########################################################
 # Jenkins Docker ##########################################
 # #########################################################
-  jenkins-docker:
-    image: docker:dind
-    container_name: jenkins-docker
+  jenkins:
+    build: 
+      context: .
+      dockerfile: ./Dockerfile
+    image: jenkins-jdk-21
+    container_name: jenkins-jdk-21
     privileged: true
-    networks:
-      jenkins:
-        aliases:
-          - docker
-    environment:
-      DOCKER_TLS_CERTDIR: /certs
-      timezone: ${TZ}
-    volumes:
-      - jenkins-docker-certs:/certs/client
-      - jenkins-data:/var/jenkins_home
-    command: --storage-driver overlay2
-    ports:
-      - ${JENKINS_DOCKER_PORT}:2376
+    user: root
     restart: always
+    ports:
+      - ${JENKINS_DOCKER_PORT}:8080
+      - ${JENKINS_AGENT_PORT}:50000
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+
 
 # =========================================================
 # Networks ================================================
 # =========================================================
-networks:
-  jenkins:
-    external: true
-
+# networks:
+  
 # =========================================================
 # Volumes =================================================
 # =========================================================
 volumes:
-  jenkins-docker-certs:
-  jenkins-data:
+  jenkins_home:
+    name: jenkins_home
 
 # =========================================================
 # Secrets =================================================
