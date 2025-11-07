@@ -46,6 +46,23 @@ services:
       - ./jenkins/casc_configs:/var/jenkins_home/casc_configs
       # GitHub App private key
       - ./secrets:/run/secrets:ro
+    labels:
+      - "traefik.enable=true"
+      # Route the registered DuckDNS domain to this Jenkins service
+      - "traefik.http.routers.jenkins.rule=Host(`${JENKINS_DOMAIN}`)"
+      - "traefik.http.routers.jenkins.entrypoints=websecure"
+      - "traefik.http.routers.jenkins.tls=true"
+      - "traefik.http.routers.jenkins.tls.certresolver=le"
+      - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+      # Middleware to redirect plain HTTP -> HTTPS
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # HTTP router that redirects to HTTPS
+      - "traefik.http.routers.jenkins-http.rule=Host(`${JENKINS_DOMAIN}`)"
+      - "traefik.http.routers.jenkins-http.entrypoints=web"
+      - "traefik.http.routers.jenkins-http.middlewares=redirect-to-https@docker"
+      - "traefik.http.routers.jenkins-http.priority=1"
+    networks:
+      - traefik_proxy
 
 # =========================================================
 # Networks ================================================
@@ -63,3 +80,7 @@ volumes:
 # Secrets =================================================
 # =========================================================
 # secrets:
+
+networks:
+  traefik_proxy:
+    external: true
