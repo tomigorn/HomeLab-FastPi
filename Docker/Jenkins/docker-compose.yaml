@@ -14,14 +14,24 @@ services:
     privileged: true
     user: root
     restart: always
+    environment:
+      - TZ=${TZ}
+      # JCasC config location and disable the interactive setup wizard so JCasC is applied
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/jenkins.yaml
+      # Admin user credentials
+      - JENKINS_ADMIN_USER=${JENKINS_ADMIN_USER}
+      - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD}
     ports:
       - ${JENKINS_DOCKER_PORT}:8080
       - ${JENKINS_AGENT_PORT}:50000
     volumes:
+      # Persist Jenkins data
       - jenkins_home:/var/jenkins_home
+      # Docker socket and binary for Docker-in-Docker functionality
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker
-
+      # JCasC configuration files
+      - ./jenkins/casc_configs:/var/jenkins_home/casc_configs
 
 # =========================================================
 # Networks ================================================

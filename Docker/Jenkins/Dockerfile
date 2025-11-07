@@ -1,6 +1,9 @@
 # Jenkins JDK 21
 FROM jenkins/jenkins:latest-jdk21
 
+# Allow timezone to be provided at build/run time
+ARG TZ="Europe/Zurich"
+
 USER root
 
 RUN apt-get update && apt-get install -y lsb-release
@@ -17,6 +20,10 @@ RUN apt-get update && apt-get install -y docker-ce-cli
 
 RUN apt update && apt install tzdata -y
 
-ENV TZ="Europe/Zurich"
+ENV TZ=${TZ}
+ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false ${JAVA_OPTS:-}"
 
+COPY jenkins/plugins.txt /usr/share/jenkins/ref/plugins.txt
+USER root
+RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt || true
 USER jenkins
