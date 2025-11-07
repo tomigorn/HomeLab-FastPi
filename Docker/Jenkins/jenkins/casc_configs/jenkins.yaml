@@ -1,5 +1,5 @@
 jenkins:
-  systemMessage: "Homelab Jenkins configured by YAML / JCasC"
+  systemMessage: "Homelab Jenkins configured by YAML / JCasC - Configuration is managed as code"
   securityRealm:
     local:
       allowsSignup: false
@@ -7,8 +7,38 @@ jenkins:
         - id: "${JENKINS_ADMIN_USER}"
           name: "${JENKINS_ADMIN_USER}"
           password: "${JENKINS_ADMIN_PASSWORD}"
+        - id: "testuser"
+          name: "Test User (Read-only for Demonstration Purposes)"
+          password: "${JENKINS_TESTUSER_PASSWORD}"
   authorizationStrategy:
     globalMatrix:
       permissions:
+        # Admin can do everything
         - "Overall/Administer:${JENKINS_ADMIN_USER}"
-        - "Overall/Read:${JENKINS_ADMIN_USER}"
+
+        # Anonymous/authenticated users can only view and build
+        - "Overall/Read:authenticated"
+        - "Job/Read:authenticated"
+        - "Job/Build:authenticated"
+        - "Job/Cancel:authenticated"
+        - "Job/Discover:authenticated"
+        - "Job/Workspace:authenticated"
+        - "View/Read:authenticated"
+  
+  # Disable plugin installation via UI
+  disabledAdministrativeMonitors:
+    - "jenkins.diagnostics.SecurityIsOffMonitor"
+  
+  # Security settings
+  remotingSecurity:
+    enabled: true
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - gitHubApp:
+              appID: "${GITHUB_APP_ID}"
+              description: "GitHub App for CI/CD"
+              id: "github-app"
+              privateKey: "${readFile:/run/secrets/jenkins-ci-fastpi.2025-10-24.private-key.pem.PKCS8}"

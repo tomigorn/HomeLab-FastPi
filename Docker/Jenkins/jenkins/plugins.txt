@@ -5,10 +5,10 @@ workflow-aggregator
 pipeline-stage-view
 matrix-auth
 github
+github-branch-source
 ssh-credentials
 docker-workflow
 credentials-binding
 plain-credentials
 pipeline-model-definition
-pipeline-stage-view
 blueocean

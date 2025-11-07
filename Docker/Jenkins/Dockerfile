@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y docker-ce-cli
 RUN apt update && apt install tzdata -y
 
 ENV TZ=${TZ}
-ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false ${JAVA_OPTS:-}"
 
 COPY jenkins/plugins.txt /usr/share/jenkins/ref/plugins.txt
 USER root
