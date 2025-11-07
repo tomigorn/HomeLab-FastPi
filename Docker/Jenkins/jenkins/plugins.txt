@@ -1,0 +1,14 @@
+configuration-as-code
+credentials
+git
+workflow-aggregator
+pipeline-stage-view
+matrix-auth
+github
+ssh-credentials
+docker-workflow
+credentials-binding
+plain-credentials
+pipeline-model-definition
+pipeline-stage-view
+blueocean
