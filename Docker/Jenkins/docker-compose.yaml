@@ -18,9 +18,21 @@ services:
       - TZ=${TZ}
       # JCasC config location and disable the interactive setup wizard so JCasC is applied
       - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/jenkins.yaml
+      # JCasC settings - make configuration read-only and reload on changes
+      - IO_JENKINS_PLUGINS_CASC_READONLY=true
+      - CASC_JENKINS_CONFIG_RELOAD=true
+
       # Admin user credentials
       - JENKINS_ADMIN_USER=${JENKINS_ADMIN_USER}
       - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD}
+      - JENKINS_TESTUSER_PASSWORD=${JENKINS_TESTUSER_PASSWORD}
+
+      # GitHub App configuration
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      
+      # Disable setup wizard
+      # Disable plugin manager UI
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Dhudson.PluginManager.workDir=/var/jenkins_home/plugins
     ports:
       - ${JENKINS_DOCKER_PORT}:8080
       - ${JENKINS_AGENT_PORT}:50000
@@ -32,6 +44,8 @@ services:
       - /usr/bin/docker:/usr/bin/docker
       # JCasC configuration files
       - ./jenkins/casc_configs:/var/jenkins_home/casc_configs
+      # GitHub App private key
+      - ./secrets:/run/secrets:ro
 
 # =========================================================
 # Networks ================================================
