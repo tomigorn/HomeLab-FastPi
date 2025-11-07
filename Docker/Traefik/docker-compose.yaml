@@ -42,31 +42,31 @@ services:
       - 8.8.8.8
 
 
-# #########################################################
-# whoami ##################################################
-# #########################################################
-  whoami:
-    image: containous/whoami
-    container_name: whoami
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      # Route the registered DuckDNS domain to this service
-      - "traefik.http.routers.whoami.rule=Host(`${WHOAMI_DOMAIN}`)"
-      - "traefik.http.routers.whoami.entrypoints=websecure"
-      - "traefik.http.routers.whoami.tls=true"
-      - "traefik.http.routers.whoami.tls.certresolver=le"
-      - "traefik.http.services.whoami.loadbalancer.server.port=80"
-      # Middleware to redirect plain HTTP -> HTTPS
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      # HTTP router that uses the redirect middleware on entrypoint web
-      - "traefik.http.routers.whoami-http.rule=Host(`${WHOAMI_DOMAIN}`)"
-      - "traefik.http.routers.whoami-http.entrypoints=web"
-      - "traefik.http.routers.whoami-http.middlewares=redirect-to-https@docker"
-      - "traefik.http.routers.whoami-http.priority=1"
-    networks:
-      - traefik_proxy
-    # no host ports required: Traefik will route traffic internally
+# # #########################################################
+# # whoami ##################################################
+# # #########################################################
+#   whoami:
+#     image: containous/whoami
+#     container_name: whoami
+#     restart: unless-stopped
+#     labels:
+#       - "traefik.enable=true"
+#       # Route the registered DuckDNS domain to this service
+#       - "traefik.http.routers.whoami.rule=Host(`${WHOAMI_DOMAIN}`)"
+#       - "traefik.http.routers.whoami.entrypoints=websecure"
+#       - "traefik.http.routers.whoami.tls=true"
+#       - "traefik.http.routers.whoami.tls.certresolver=le"
+#       - "traefik.http.services.whoami.loadbalancer.server.port=80"
+#       # Middleware to redirect plain HTTP -> HTTPS
+#       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+#       # HTTP router that uses the redirect middleware on entrypoint web
+#       - "traefik.http.routers.whoami-http.rule=Host(`${WHOAMI_DOMAIN}`)"
+#       - "traefik.http.routers.whoami-http.entrypoints=web"
+#       - "traefik.http.routers.whoami-http.middlewares=redirect-to-https@docker"
+#       - "traefik.http.routers.whoami-http.priority=1"
+#     networks:
+#       - traefik_proxy
+#     # no host ports required: Traefik will route traffic internally
 
 
 # =========================================================
