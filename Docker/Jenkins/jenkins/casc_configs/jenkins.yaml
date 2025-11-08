@@ -1,3 +1,4 @@
+# Jenkins Configuration as Code (JCasC) YAML file
 jenkins:
   systemMessage: "Homelab Jenkins configured by YAML / JCasC - Configuration is managed as code"
   securityRealm:
@@ -32,7 +33,8 @@ jenkins:
   # Security settings
   remotingSecurity:
     enabled: true
-
+ 
+# GitHub App configuration
 credentials:
   system:
     domainCredentials:
@@ -42,3 +44,28 @@ credentials:
               description: "GitHub App for CI/CD"
               id: "github-app"
               privateKey: "${readFile:/run/secrets/jenkins-ci-fastpi.2025-10-24.private-key.pem.PKCS8}"
+
+# Job creation via JCasC - using simple Pipeline jobs (not Job DSL)
+# This approach works because it uses Jenkins' native job configurators
+jobs:
+  - script: |
+      pipelineJob('LoyaltyCards-main') {
+        description('Pipeline for LoyaltyCards main branch')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/tomigorn/LoyaltyCards.git')
+                  credentials('github-app')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+        triggers {
+          githubPush()
+        }
+      }

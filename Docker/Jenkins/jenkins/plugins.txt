@@ -12,3 +12,4 @@ credentials-binding
 plain-credentials
 pipeline-model-definition
 blueocean
+job-dsl
