@@ -45,27 +45,20 @@ credentials:
               id: "github-app"
               privateKey: "${readFile:/run/secrets/jenkins-ci-fastpi.2025-10-24.private-key.pem.PKCS8}"
 
-# Job creation via JCasC - using simple Pipeline jobs (not Job DSL)
-# This approach works because it uses Jenkins' native job configurators
 jobs:
-  - script: |
-      pipelineJob('LoyaltyCards-main') {
-        description('Pipeline for LoyaltyCards main branch')
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://github.com/tomigorn/LoyaltyCards.git')
-                  credentials('github-app')
-                }
-                branch('*/main')
-              }
-            }
-            scriptPath('Jenkinsfile')
+  - script: >
+      multibranchPipelineJob('LoyaltyCards Multibranch Pipeline') {
+        branchSources {
+          github {
+            id('12312313')
+            scanCredentialsId('github-app')
+            repoOwner('tomigorn')
+            repository('LoyaltyCards')
           }
         }
-        triggers {
-          githubPush()
+        orphanedItemStrategy {
+          discardOldItems {
+            numToKeep(1)
+          }
         }
       }

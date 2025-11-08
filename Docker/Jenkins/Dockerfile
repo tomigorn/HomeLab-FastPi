@@ -23,6 +23,9 @@ RUN apt update && apt install tzdata -y
 ENV TZ=${TZ}
 
 COPY jenkins/plugins.txt /usr/share/jenkins/ref/plugins.txt
+
 USER root
+
 RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt || true
+
 USER jenkins
