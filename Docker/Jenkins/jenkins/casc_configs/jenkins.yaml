@@ -49,11 +49,32 @@ jobs:
   - script: >
       multibranchPipelineJob('LoyaltyCards Multibranch Pipeline') {
         branchSources {
-          github {
-            id('12312313')
-            scanCredentialsId('github-app')
-            repoOwner('tomigorn')
-            repository('LoyaltyCards')
+          branchSource {
+            source {
+              github {
+                id('loyalty-cards-repo')
+                credentialsId('github-app')
+                repoOwner('tomigorn')
+                repository('LoyaltyCards')
+                repositoryUrl('https://github.com/tomigorn/LoyaltyCards')
+                configuredByUrl(true)
+                traits {
+                  gitHubBranchDiscovery {
+                    strategyId(1) // Exclude branches that are also filed as PRs
+                  }
+                  gitHubPullRequestDiscovery {
+                    strategyId(2) // The current pull request revision
+                  }
+                  gitHubForkDiscovery {
+                    strategyId(2) // The current pull request revision
+                    trust {
+                      gitHubTrustPermissions() // From users with Admin or Write permissions
+                    }
+                  }
+                  gitHubTagDiscovery()
+                }
+              }
+            }
           }
         }
         orphanedItemStrategy {
