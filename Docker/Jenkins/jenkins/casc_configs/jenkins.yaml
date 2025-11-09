@@ -1,6 +1,14 @@
-# Jenkins Configuration as Code (JCasC) YAML file
+# =========================================================
+# Jenkins - Root Element ==================================
+# =========================================================
 jenkins:
+  # ###########################
+  # Jenkins System Message
+  # ###########################
   systemMessage: "Homelab Jenkins configured by YAML / JCasC - Configuration is managed as code"
+  # ###########################
+  # Security Realm: define users and their passwords
+  # ###########################
   securityRealm:
     local:
       allowsSignup: false
@@ -11,12 +19,14 @@ jenkins:
         - id: "testuser"
           name: "Test User (Read-only for Demonstration Purposes)"
           password: "${JENKINS_TESTUSER_PASSWORD}"
+  # ###########################
+  # Authorization Strategy: permissions for users, incl. anonymous/not logged in ones
+  # ###########################
   authorizationStrategy:
     globalMatrix:
       permissions:
         # Admin can do everything
         - "Overall/Administer:${JENKINS_ADMIN_USER}"
-
         # Anonymous/authenticated users can only view and build
         - "Overall/Read:authenticated"
         - "Job/Read:authenticated"
@@ -25,33 +35,42 @@ jenkins:
         - "Job/Discover:authenticated"
         - "Job/Workspace:authenticated"
         - "View/Read:authenticated"
-  
-  # Disable plugin installation via UI
-  disabledAdministrativeMonitors:
-    - "jenkins.diagnostics.SecurityIsOffMonitor"
-  
-  # Security settings
+  # ###########################
+  # Remoting Security Settings
+  # ###########################
   remotingSecurity:
     enabled: true
- 
-# GitHub App configuration
+# =========================================================
+# Credentials - Root Element ==============================
+# =========================================================
 credentials:
   system:
     domainCredentials:
       - credentials:
+          # ###########################
+          # GitHub App configuration
+          # ###########################
           - gitHubApp:
               appID: "${GITHUB_APP_ID}"
               description: "GitHub App for CI/CD"
               id: "github-app"
               privateKey: "${readFile:/run/secrets/jenkins-ci-fastpi.2025-10-24.private-key.pem.PKCS8}"
+          # ###########################
+          # Docker Hub credentials
+          # ###########################
           - usernamePassword:
               scope: GLOBAL
               id: "docker-hub"
               description: "Docker Hub credentials (created from /run/secrets/docker_hub_*)"
               username: "${readFile:/run/secrets/docker_hub_username}"
               password: "${readFile:/run/secrets/docker_hub_token}"
-
+# =========================================================
+# Jobs - Root Element =====================================
+# =========================================================
 jobs:
+  # ###########################
+  # LoyaltyCards Multibranch Pipeline
+  # ###########################
   - script: >
       multibranchPipelineJob('LoyaltyCards Multibranch Pipeline') {
         branchSources {
