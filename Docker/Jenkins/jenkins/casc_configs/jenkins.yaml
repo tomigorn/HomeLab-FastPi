@@ -44,6 +44,12 @@ credentials:
               description: "GitHub App for CI/CD"
               id: "github-app"
               privateKey: "${readFile:/run/secrets/jenkins-ci-fastpi.2025-10-24.private-key.pem.PKCS8}"
+          - usernamePassword:
+              scope: GLOBAL
+              id: "docker-hub"
+              description: "Docker Hub credentials (created from /run/secrets/docker_hub_*)"
+              username: "${readFile:/run/secrets/docker_hub_username}"
+              password: "${readFile:/run/secrets/docker_hub_token}"
 
 jobs:
   - script: >
