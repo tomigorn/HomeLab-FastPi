@@ -64,6 +64,25 @@ credentials:
               description: "Docker Hub credentials (created from /run/secrets/docker_hub_*)"
               username: "${readFile:/run/secrets/docker_hub_username}"
               password: "${readFile:/run/secrets/docker_hub_token}"
+          # ###########################
+          # Deploy SSH key for Raspberry Pi: used to install deploments
+          # ###########################
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "pi-ssh-deploy-key"
+              description: "SSH key for deploy user on Raspberry Pi"
+              username: "deploy"              
+              privateKeySource:
+                directEntry:
+                  privateKey: "${readFile:/run/secrets/pi_ssh_deploy_key}"
+          # ###########################
+          # Deploy host IP stored as a secret string
+          # ###########################
+          - string:
+              scope: GLOBAL
+              id: "pi-deploy-host-ip"
+              secret: "${readFile:/run/secrets/pi_deploy_host_ip}"
+              description: "IP address of the Raspberry Pi deployment target"
 # =========================================================
 # Jobs - Root Element =====================================
 # =========================================================
