@@ -10,6 +10,8 @@ git
 github
 github-branch-source
 
+ssh-agent
+
 job-dsl
 
 blueocean
