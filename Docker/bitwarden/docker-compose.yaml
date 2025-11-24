@@ -1,0 +1,52 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# NAME ####################################################
+# #########################################################
+  bitwarden:
+    image: vaultwarden/server:latest
+    container_name: bitwarden
+    environment:
+      WEBSOCKET_ENABLED: "true" # Enable WebSocket notifications
+      SIGNUPS_ALLOWED: "false"  # Disable new user signups
+      ADMIN_TOKEN: ${ADMIN_TOKEN} # Set your admin token
+      BITWARDEN_DOMAIN: https://${BITWARDEN_DOMAIN}  # Set the server URL
+    # ports removed in favor of Traefik reverse proxy
+    # ports:
+    #   - 8083:80
+    #   - 4431:443
+    #   - 3012:3012 # WebSocket port
+    volumes:
+      - ./data:/data # make sure to create this directory
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route the registered DuckDNS domain to this Jenkins service
+      - "traefik.http.routers.bitwarden.rule=Host(`${BITWARDEN_DOMAIN}`)"
+      - "traefik.http.routers.bitwarden.entrypoints=websecure"
+      - "traefik.http.routers.bitwarden.tls=true"
+      - "traefik.http.routers.bitwarden.tls.certresolver=le"
+      - "traefik.http.services.bitwarden.loadbalancer.server.port=80"
+      # Middleware to redirect plain HTTP -> HTTPS
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # HTTP router that redirects to HTTPS
+      - "traefik.http.routers.bitwarden-http.rule=Host(`${BITWARDEN_DOMAIN}`)"
+      - "traefik.http.routers.bitwarden-http.entrypoints=web"
+      - "traefik.http.routers.bitwarden-http.middlewares=redirect-to-https@docker"
+      - "traefik.http.routers.bitwarden-http.priority=1"
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+
