@@ -1,0 +1,59 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# NAME ####################################################
+# #########################################################
+  dashy:
+    image: lissy93/dashy:latest
+    container_name: Dashy
+    # Pass in your config file below, by specifying the path on your host machine
+    volumes:
+      - ./data/conf.yml:/app/user-data/conf.yml
+    ports:
+      - 8082:8080
+    # Set any environmental variables
+    environment:
+      - NODE_ENV=production
+    # Specify your user ID and group ID. You can find this by running `id -u` and `id -g`
+    #  - UID=1000
+    #  - GID=1000
+    # Specify restart policy
+    restart: unless-stopped
+    # Configure healthchecks
+    healthcheck:
+      test: ['CMD', 'node', '/app/services/healthcheck']
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # labels:
+    #   - "traefik.enable=true"
+    #   # Route the registered DuckDNS domain to this Jenkins service
+    #   - "traefik.http.routers.dashy.rule=Host(`${DASHY_DOMAIN}`)"
+    #   - "traefik.http.routers.dashy.entrypoints=websecure"
+    #   - "traefik.http.routers.dashy.tls=true"
+    #   - "traefik.http.routers.dashy.tls.certresolver=le"
+    #   - "traefik.http.services.dashy.loadbalancer.server.port=8080"
+    #   # Middleware to redirect plain HTTP -> HTTPS
+    #   # - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    #   # HTTP router that redirects to HTTPS
+    #   - "traefik.http.routers.dashy-http.rule=Host(`${DASHY_DOMAIN}`)"
+    #   - "traefik.http.routers.dashy-http.entrypoints=web"
+    #   - "traefik.http.routers.dashy-http.middlewares=redirect-to-https@docker"
+    #   - "traefik.http.routers.dashy-http.priority=1"
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+
