@@ -89,7 +89,9 @@ services:
     environment:
       - QBIT_USER=admin
       - QBIT_PASS=${QBIT_PASS}
-      - CHECK_INTERVAL=30
+      - CHECK_INTERVAL=300
+      - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
+      - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
     command:
       - sh
       - -c
@@ -126,8 +128,8 @@ services:
             --data-urlencode "password=$$QBIT_PASS" \
             http://172.32.0.2:8080/api/v2/auth/login >/dev/null 2>&1
           
-          # Get VPN forwarded port
-          PORT=$$(curl -s http://172.32.0.2:8000/v1/portforward | sed -n 's/.*"port":[ ]*\([0-9]*\).*/\1/p')
+          # Get VPN forwarded port (use control server basic auth)
+          PORT=$$(curl -s -u "$$GLUETUN_AUTH_USER:$$GLUETUN_AUTH_PASS" http://172.32.0.2:8000/v1/portforward | sed -n 's/.*"port":[ ]*\([0-9]*\).*/\1/p')
           
           # Get current qBittorrent listen port (using authenticated cookie)
           QBIT_PORT=$$(curl -s -b /tmp/qbit_cookie http://172.32.0.2:8080/api/v2/app/preferences | sed -n 's/.*"listen_port":\s*\([0-9]*\).*/\1/p')
