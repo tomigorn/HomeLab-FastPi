@@ -3,6 +3,27 @@
 # =========================================================
 services:
 # #########################################################
+# Samba ###################################################
+# #########################################################
+  samba:
+    image: dperson/samba
+    container_name: samba-qb
+    network_mode: "host"            # recommended for SMB (keeps NetBIOS/SMB discovery simple)
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Zurich            # adjust timezone
+      - USERID=1000
+      - GROUPID=1000
+      - NMBD=true
+      - PERMISSIONS=true
+      - 'SHARE=mouse;/share;true;false;false;mouse'
+      - 'USER=mouse;${Samba_Password}'
+    volumes:
+      - /mnt/seagate/qbittorrent/downloads:/share:rw
+      - ./samba:/etc/samba           # persist/edit samba config here if needed
+
+
+# #########################################################
 # Gluetun VPN #############################################
 # #########################################################
   gluetun:
