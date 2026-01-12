@@ -50,7 +50,7 @@ services:
       - PGID=1000
       - TZ=Europe/Zurich
       - WEBUI_PORT=8080
-      - TORRENTING_PORT=1111
+      - TORRENTING_PORT=1
     volumes:
       - /mnt/seagate/qbittorrent/config:/config
       - /mnt/seagate/qbittorrent/downloads:/downloads
@@ -94,23 +94,29 @@ services:
         apk add --no-cache curl
         LAST_PORT=0
         while true; do
+          # Login to qBittorrent (cookie persists for checks)
+          curl -s -c /tmp/qbit_cookie -X POST \
+            --data-urlencode "username=$$QBIT_USER" \
+            --data-urlencode "password=$$QBIT_PASS" \
+            http://172.32.0.2:8080/api/v2/auth/login >/dev/null 2>&1
+          
+          # Get VPN forwarded port
           PORT=$$(curl -s http://172.32.0.2:8000/v1/portforward | sed -n 's/.*"port":[ ]*\([0-9]*\).*/\1/p')
-          if [ -n "$$PORT" ] && [ "$$PORT" != "0" ] && [ "$$PORT" != "$$LAST_PORT" ]; then
-            echo "New forwarded port detected: $$PORT (was $$LAST_PORT)"
-            # Login and save cookie to file
-            curl -s -c /tmp/qbit_cookie -X POST \
-              --data-urlencode "username=$$QBIT_USER" \
-              --data-urlencode "password=$$QBIT_PASS" \
-              http://172.32.0.2:8080/api/v2/auth/login
-            echo "Logged in, updating port to $$PORT..."
-            # Use cookie jar for API call
+          
+          # Get current qBittorrent listen port (using authenticated cookie)
+          QBIT_PORT=$$(curl -s -b /tmp/qbit_cookie http://172.32.0.2:8080/api/v2/app/preferences | sed -n 's/.*"listen_port":\s*\([0-9]*\).*/\1/p')
+          
+          # Update if: forwarded port changed OR qBittorrent port is 1 (default/unset)
+          if [ -n "$$PORT" ] && [ "$$PORT" != "0" ] && { [ "$$PORT" != "$$LAST_PORT" ] || [ "$$QBIT_PORT" = "1" ]; }; then
+            echo "Port update needed: VPN=$$PORT, qBit=$$QBIT_PORT (last=$$LAST_PORT)"
+            # Update port via API
             curl -s -b /tmp/qbit_cookie \
               --data-urlencode "json={\"listen_port\":$$PORT}" \
               http://172.32.0.2:8080/api/v2/app/setPreferences
-            echo "Port update sent"
+            echo "Port updated to $$PORT"
             LAST_PORT=$$PORT
           else
-            echo "Port unchanged: $$LAST_PORT"
+            echo "Port OK: VPN=$$PORT, qBit=$$QBIT_PORT"
           fi
           sleep $$CHECK_INTERVAL
         done
