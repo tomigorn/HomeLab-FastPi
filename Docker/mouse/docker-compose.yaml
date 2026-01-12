@@ -35,6 +35,7 @@ services:
     restart: unless-stopped
     volumes:
       - gluetun-data:/tmp/gluetun
+      - ./secrets/gluetun:/gluetun
     networks:
       mouse_network:
         ipv4_address: 172.32.0.2
@@ -78,6 +79,8 @@ services:
   port-updater:
     image: alpine:3.19
     container_name: port_updater
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - mouse_network
     depends_on:
@@ -91,10 +94,33 @@ services:
       - sh
       - -c
       - |
-        apk add --no-cache curl
+        apk add --no-cache curl docker-cli
+        
+        # Wait for qBittorrent to be ready
+        echo "Waiting for qBittorrent..."
+        sleep 15
+        
+        # Login once at startup
+        curl -s -c /tmp/qbit_cookie -X POST \
+          --data-urlencode "username=$$QBIT_USER" \
+          --data-urlencode "password=$$QBIT_PASS" \
+          http://172.32.0.2:8080/api/v2/auth/login >/dev/null 2>&1
+        
+        # Set qBittorrent to use tun0 interface (VPN tunnel)
+        echo "Setting qBittorrent to use tun0 interface..."
+        curl -s -b /tmp/qbit_cookie \
+          --data-urlencode 'json={"current_network_interface":"tun0"}' \
+          http://172.32.0.2:8080/api/v2/app/setPreferences
+        
+        # Restart qBittorrent to apply binding
+        echo "Restarting qBittorrent to apply settings..."
+        docker restart qbittorrent_mouse
+        sleep 15
+        
+        echo "Starting port monitoring loop..."
         LAST_PORT=0
         while true; do
-          # Login to qBittorrent (cookie persists for checks)
+          # Re-login periodically (cookie expires)
           curl -s -c /tmp/qbit_cookie -X POST \
             --data-urlencode "username=$$QBIT_USER" \
             --data-urlencode "password=$$QBIT_PASS" \
