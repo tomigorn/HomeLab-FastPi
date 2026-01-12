@@ -1,0 +1,6 @@
+[[roles]]
+name = "portupdater"
+routes = ["GET /v1/portforward", "GET /v1/publicip/ip"]
+auth = "basic"
+username = "yourusername"
+password = "verysecurepassword"
