@@ -2,26 +2,52 @@
 # Services ================================================
 # =========================================================
 services:
+
 # #########################################################
 # Samba ###################################################
 # #########################################################
   samba:
-    image: dperson/samba
-    container_name: samba-qb
-    network_mode: "host"            # recommended for SMB (keeps NetBIOS/SMB discovery simple)
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
     restart: unless-stopped
-    environment:
-      - TZ=Europe/Zurich            # adjust timezone
-      - USERID=1000
-      - GROUPID=1000
-      - NMBD=true
-      - PERMISSIONS=true
-      - 'SHARE=mouse;/share;true;false;false;mouse'
-      - 'USER=mouse;${Samba_Password}'
-    volumes:
-      - /mnt/seagate/qbittorrent/downloads:/share:rw
-      - ./samba:/etc/samba           # persist/edit samba config here if needed
 
+    network_mode: host
+
+    environment:
+      # --- USERS ---
+      ACCOUNT_mouse: ${SAMBA_ACCOUNT_MOUSE}
+      UID_mouse: 1101
+
+      # --- GROUP ---
+      GROUP_sambashare: 1100
+
+      # Add users to group
+      GROUPS_mouse: sambashare
+
+      # --- SAMBA SETTINGS ---
+      SAMBA_CONF_WORKGROUP: WORKGROUP
+      SAMBA_CONF_SERVER_STRING: Samba Server
+      SAMBA_CONF_MAP_TO_GUEST: Bad User
+      SAMBA_CONF_LOG_LEVEL: 1
+
+      # --- SHARE ---
+      SAMBA_VOLUME_CONFIG_seagate: |
+        [seagate]
+        path = /mnt/seagate
+        browseable = yes
+        read only = no
+        writable = yes
+        valid users = mouse
+        force group = sambashare
+        create mask = 0664
+        directory mask = 0775
+        inherit permissions = yes
+        veto oplock files = /*.mdb/*.ldb/*.lock/
+        oplocks = no
+        level2 oplocks = no
+
+    volumes:
+      - /mnt/seagate:/mnt/seagate
 
 # #########################################################
 # Gluetun VPN #############################################
@@ -69,7 +95,7 @@ services:
     container_name: qbittorrent_mouse
     environment:
       - PUID=1000
-      - PGID=1000
+      - PGID=1100
       - TZ=Europe/Zurich
       - WEBUI_PORT=8080
       - TORRENTING_PORT=1
