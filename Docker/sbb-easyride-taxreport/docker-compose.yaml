@@ -1,0 +1,52 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# SBB EasyRide TaxReport ##################################
+# #########################################################
+  sbb_easyride_taxreport:
+    image: tomigorn/sbb-easyride-taxreport:latest
+    container_name: sbb-easyride-taxreport
+    ports:
+      - "8083:8081"
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=https://+:8081
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/app/localhost.pfx
+      # Azure AD Configuration (populated from .env file)
+      - AzureAd__Instance=https://login.microsoftonline.com/
+      - AzureAd__TenantId=${AZURE_TENANT_ID}
+      - AzureAd__ClientId=${AZURE_CLIENT_ID}
+      - AzureAd__ClientSecret=${AZURE_CLIENT_SECRET}
+      - AzureAd__ClientSecretExpiration=${AZURE_CLIENT_SECRET_EXPIRATION}
+      - AzureAd__CallbackPath=/signin-oidc
+      - AzureAd__SignedOutCallbackPath=/signout-callback-oidc
+      # Microsoft Graph Configuration
+      - MicrosoftGraph__BaseUrl=https://graph.microsoft.com/v1.0
+      - MicrosoftGraph__Scopes=User.Read Mail.Read Mail.ReadBasic
+    restart: unless-stopped
+    networks:
+      - app-network
+    # volumes:
+      # Optional: mount your own PFX at /app/localhost.pfx to use a custom certificate
+      # Uncomment the following if you have a cert file you want to use:
+      # - ./certs/localhost.pfx:./app/localhost.pfx:ro
+    # Example for passing the PFX password via Docker secrets (optional):
+    # secrets:
+    #   - cert_password
+    # or set the password via environment variable in .env file:
+    # ASPNETCORE_Kestrel__Certificates__Default__Password=
+    # Note: If you do not mount a PFX file, the container will generate a untrusted self-signed cert at startup.
+
+networks:
+  app-network:
+    driver: bridge
+
+# If you want to use Docker secrets for the PFX password, uncomment and create the secret:
+# echo -n "YourPfxPassword" > cert_password.txt
+# docker secret create cert_password cert_password.txt
+# and add the secret name under the service's `secrets:` section above.
+ 
