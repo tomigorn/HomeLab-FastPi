@@ -1,0 +1,64 @@
+# #########################################################
+# Services ################################################
+# #########################################################
+services:
+# ---------------------------------------------------------
+# Cloudflared ---------------------------------------------
+# ---------------------------------------------------------
+  cloudflared:
+    container_name: cloudflared
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: always
+
+
+
+# # ---------------------------------------------------------
+# # Cloudflare DDNS Minecraft -------------------------------
+# # ---------------------------------------------------------
+#   cloudflare-ddns-minecraft:
+#     image: oznu/cloudflare-ddns
+#     container_name: cloudflare-ddns-minecraft
+#     restart: always
+#     environment:
+#       - API_KEY=${CLOUDFLARE_API_TOKEN}
+#       - ZONE=holy-grail.ch
+#       - SUBDOMAIN=port-minecraft
+# # ---------------------------------------------------------
+# # Cloudflare DDNS Minecraft -------------------------------
+# # ---------------------------------------------------------
+#   cloudflare-ddns-minecraft:
+#     image: oznu/cloudflare-ddns
+#     container_name: cloudflare-ddns-minecraft
+#     restart: always
+#     environment:
+#       - API_KEY=${CLOUDFLARE_API_TOKEN}
+#       - ZONE=holy-grail.ch
+#       - SUBDOMAIN=minecraft
+# # ---------------------------------------------------------
+# # Cloudflare DDNS VPN -------------------------------------
+# # ---------------------------------------------------------
+#   cloudflare-ddns-vpn:
+#     image: oznu/cloudflare-ddns
+#     container_name: cloudflare-ddns-vpn
+#     restart: always
+#     environment:
+#       - API_KEY=${CLOUDFLARE_API_TOKEN}
+#       - ZONE=holy-grail.ch
+#       - SUBDOMAIN=vpn
+# #########################################################
+# Network #################################################
+# #########################################################
+# networks:
+# #########################################################
+# Volumes #################################################
+# #########################################################
+# volumes:
+# #########################################################
+# Configs #################################################
+# #########################################################
+# configs:
+# #########################################################
+# Secrets #################################################
+# #########################################################
+# secrets:
