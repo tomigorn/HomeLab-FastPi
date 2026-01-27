@@ -19,6 +19,23 @@ services:
     volumes:
       - ./config:/config
     restart: unless-stopped
+# #########################################################
+# No-IP ###################################################
+# #########################################################
+  noip:
+    image: ghcr.io/noipcom/noip-duc:latest
+    container_name: noip
+    network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Zurich
+      - NOIP_USERNAME=${NOIP_USERNAME}
+      - NOIP_PASSWORD=${NOIP_PASSWORD}
+      - NOIP_HOSTNAMES=${NOIP_HOSTNAMES}
+    volumes:
+      - ./noip_config:/config
+    restart: unless-stopped
     
 # =========================================================
 # Networks ================================================
