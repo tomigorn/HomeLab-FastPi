@@ -31,7 +31,7 @@ services:
     networks:
       wireguard:
         ipv4_address: 10.42.42.42
-    restart: unless-stopped
+    restart: always
 
 # =========================================================
 # Networks ================================================
