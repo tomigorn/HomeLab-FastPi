@@ -39,12 +39,24 @@ services:
       SAMBA_CONF_SERVER_MAX_PROTOCOL: SMB3
       SAMBA_CONF_SMB_ENCRYPT: required
 
-
-
       # --- SHARE ---
       SAMBA_VOLUME_CONFIG_mouse: |
         [mouse]
-        path = /mnt/seagate
+        path = /mnt/seagate-red
+        browseable = yes
+        read only = no
+        writable = yes
+        valid users = mouse
+        force group = sambashare
+        create mask = 0664
+        directory mask = 0775
+        inherit permissions = yes
+        oplocks = no
+        level2 oplocks = no
+
+      SAMBA_VOLUME_CONFIG_admin_books: |
+        [admin_books]
+        path = /mnt/seagate-black/library
         browseable = yes
         read only = no
         writable = yes
@@ -58,7 +70,7 @@ services:
 
       SAMBA_VOLUME_CONFIG_books: |
         [books]
-        path = /mnt/seagate/library
+        path = /mnt/seagate-black/library
         browseable = yes
         read only = yes
         writable = no
@@ -71,7 +83,8 @@ services:
         level2 oplocks = no
 
     volumes:
-      - /mnt/seagate:/mnt/seagate
+      - /mnt/seagate-red:/mnt/seagate-red
+      - /mnt/seagate-black:/mnt/seagate-black
 
 # #########################################################
 # Gluetun VPN #############################################
@@ -103,7 +116,7 @@ services:
       - "5010:5010"
       # gluetun control server
       # - "8000:8000"
-    restart: unless-stopped
+    restart: always
     volumes:
       - gluetun-data:/tmp/gluetun
       - ./secrets/gluetun:/gluetun
@@ -118,15 +131,15 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent_mouse
     environment:
-      - PUID=1000
+      - PUID=1101
       - PGID=1100
       - TZ=Europe/Zurich
       - WEBUI_PORT=8080
       - TORRENTING_PORT=1
     volumes:
-      - /mnt/seagate/qbittorrent/config:/config
-      - /mnt/seagate/qbittorrent/downloads:/downloads
-    restart: unless-stopped
+      - /mnt/seagate-red/qbittorrent/config:/config
+      - /mnt/seagate-red/qbittorrent/downloads:/downloads
+    restart: always
     network_mode: "service:gluetun"
 
 # #########################################################
@@ -142,7 +155,7 @@ services:
     network_mode: service:gluetun
     environment:
       - TZ=Europe/Zurich
-    restart: unless-stopped
+    restart: always
 
 # #########################################################
 # Port Updater ############################################
@@ -153,7 +166,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - mouse_network
+      mouse_network:
+        ipv4_address: 172.32.0.3
     depends_on:
       - gluetun
       - qbittorrent
