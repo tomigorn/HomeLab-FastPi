@@ -229,12 +229,11 @@ services:
             echo "Port updated to $$PORT"
             LAST_PORT=$$PORT
 
-          echo "Reannouncing all torrents..."
-          curl -s -b /tmp/qbit_cookie -X POST \
-              --data-urlencode "hashes=all" \
+            echo "Reannouncing all torrents..."
+            curl -s -b /tmp/qbit_cookie -X POST \
+              -d "hashes=all" \
               http://172.32.0.2:8080/api/v2/torrents/reannounce
-          echo "Reannounce triggered."
-
+            echo "Reannounce triggered."
 
           else
             echo "Port OK: VPN=$$PORT, qBit=$$QBIT_PORT"
