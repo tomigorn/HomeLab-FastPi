@@ -110,6 +110,7 @@ services:
       # web UI (host_port:container_port) - use 8085:8080 (8080 already used by Traefik)
       - "8085:8080"
       # # torrent listening port (TCP/UDP)
+      # # unfortunately we can't choose the port. ProtonVPN assigns a random port on each connection, so we need to expose the default torrent port and let the port updater container handle the dynamic forwarding.
       # - "43210:43210"
       # - "43210:43210/udp"
       # mousehole port
@@ -242,7 +243,6 @@ services:
         done
     restart: unless-stopped
 
-
 # =========================================================
 # Networks ================================================
 # =========================================================
@@ -253,7 +253,6 @@ networks:
       config:
         - subnet: 172.32.0.0/16
           gateway: 172.32.0.1
-
 
 # =========================================================
 # Volumes =================================================
