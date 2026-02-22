@@ -1,0 +1,32 @@
+http:
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+
+  routers:
+
+    whoami-http:
+      rule: "Host(`hephaestus-jenkins.duckdns.org`)"
+      entryPoints: ["web"]
+      middlewares: ["redirect-to-https"]
+      priority: 1
+      service: noop
+    whoami:
+      rule: "Host(`hephaestus-jenkins.duckdns.org`)"
+      entryPoints: ["websecure"]
+      service: "whoami"
+      tls: {}
+
+  services:
+
+    whoami:
+      loadBalancer:
+        servers:
+          - url: "http://whoami:80"
+        passHostHeader: true
+
+    noop:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1"
