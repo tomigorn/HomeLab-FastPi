@@ -1,0 +1,71 @@
+http:
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    secure-headers:
+      headers:
+        # HSTS – force HTTPS for 1 year including subdomains
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        # Prevent MIME sniffing
+        contentTypeNosniff: true
+        # Referrer policy – send origin only on cross-origin requests
+        referrerPolicy: "strict-origin-when-cross-origin"
+        # Permissions policy – deny all browser APIs (app needs none)
+        permissionsPolicy: "accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), display-capture=(), document-domain=(), encrypted-media=(), fullscreen=(), gamepad=(), geolocation=(), gyroscope=(), hid=(), identity-credentials-get=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), otp-credentials=(), payment=(), picture-in-picture=(), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), speaker-selection=(), storage-access=(), usb=(), web-share=(), xr-spatial-tracking=()"
+        # Frame options (belt-and-suspenders alongside the backend's header)
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        # CSP – tuned for Blazor (needs unsafe-inline + wasm-unsafe-eval)
+        # Tighten this once you know all asset origins your app loads.
+        customResponseHeaders:
+          Content-Security-Policy: >-
+            default-src 'self';
+            script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';
+            style-src 'self' 'unsafe-inline';
+            img-src 'self' data:;
+            font-src 'self';
+            connect-src 'self' wss://wg-aemtli.ddns.net;
+            frame-ancestors 'self'
+          # Hide the backend server signature
+          Server: ""
+
+  routers:
+    # security scan http headers with https://securityheaders.com/
+
+    # HTTP router - redirects to HTTPS
+    wg-aemtli-http:
+      rule: "Host(`wg-aemtli.ddns.net`)"
+      entryPoints: ["web"]
+      priority: 1
+      middlewares:
+        - redirect-to-https
+      service: wg-chores
+
+    # HTTPS router
+    wg-aemtli:
+      rule: "Host(`wg-aemtli.ddns.net`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: wg-chores
+      middlewares:
+        - secure-headers
+      tls:
+        certResolver: le
+
+  services:
+
+    wg-chores:
+      loadBalancer:
+        servers:
+          - url: "http://wg-chores-app:8080"
+        passHostHeader: true
+
+    noop:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1"
