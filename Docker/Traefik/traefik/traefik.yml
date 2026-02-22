@@ -1,0 +1,28 @@
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+  traefik:
+    address: ":8080"
+
+api:
+  dashboard: true
+  insecure: true
+
+log:
+  level: INFO
+
+certificatesResolvers:
+  le:
+    acme:
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+providers:
+  file:
+    directory: /dynamic
+    watch: true
+
+# Note: Docker provider intentionally omitted to use file-based dynamic configuration
