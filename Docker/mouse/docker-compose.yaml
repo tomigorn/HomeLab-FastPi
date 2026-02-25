@@ -103,6 +103,7 @@ services:
       - SERVER_COUNTRIES=Switzerland
       - TZ=Europe/Zurich
       - VPN_PORT_FORWARDING=on
+      - WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL=25s
       - CONTROL_SERVER=on
       - CONTROL_SERVER_ADDRESS=:8000
     # expose host ports here because other containers share gluetun's network namespace
@@ -118,6 +119,12 @@ services:
       # gluetun control server
       # - "8000:8000"
     restart: always
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     volumes:
       - gluetun-data:/tmp/gluetun
       - ./secrets/gluetun:/gluetun
@@ -131,6 +138,9 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent_mouse
+    depends_on:
+      gluetun:
+        condition: service_healthy
     environment:
       - PUID=1101
       - PGID=1100
@@ -149,6 +159,9 @@ services:
   mousehole:
     container_name: mousehole
     image: tmmrtn/mousehole:latest
+    depends_on:
+      gluetun:
+        condition: service_healthy
     # ports:
     #   - "5010:5010"
     volumes:
@@ -207,6 +220,8 @@ services:
         
         echo "Starting port monitoring loop..."
         LAST_PORT=0
+        ZERO_PORT_COUNT=0
+        ZERO_PORT_LIMIT=3
         while true; do
           # Re-login periodically (cookie expires)
           curl -s -c /tmp/qbit_cookie -X POST \
@@ -229,12 +244,26 @@ services:
               http://172.32.0.2:8080/api/v2/app/setPreferences
             echo "Port updated to $$PORT"
             LAST_PORT=$$PORT
+            ZERO_PORT_COUNT=0
 
             echo "Reannouncing all torrents..."
             curl -s -b /tmp/qbit_cookie -X POST \
               -d "hashes=all" \
               http://172.32.0.2:8080/api/v2/torrents/reannounce
             echo "Reannounce triggered."
+
+          elif [ -z "$$PORT" ] || [ "$$PORT" = "0" ]; then
+            ZERO_PORT_COUNT=$$((ZERO_PORT_COUNT + 1))
+            echo "Port is 0 ($$ZERO_PORT_COUNT/$$ZERO_PORT_LIMIT): VPN=$$PORT, qBit=$$QBIT_PORT"
+            # If port has been 0 for too long, the VPN lease has likely expired — restart gluetun
+            if [ "$$ZERO_PORT_COUNT" -ge "$$ZERO_PORT_LIMIT" ]; then
+              echo "Port has been 0 for $$(( ZERO_PORT_COUNT * CHECK_INTERVAL / 60 )) minutes — restarting gluetun to get a new lease..."
+              docker restart gluetun_mouse
+              ZERO_PORT_COUNT=0
+              LAST_PORT=0
+              echo "Gluetun restarted. Waiting for new port lease..."
+              sleep 30
+            fi
 
           else
             echo "Port OK: VPN=$$PORT, qBit=$$QBIT_PORT"
