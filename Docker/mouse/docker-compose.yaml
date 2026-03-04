@@ -10,6 +10,8 @@ services:
     image: ghcr.io/servercontainers/samba:latest
     container_name: samba
     restart: unless-stopped
+    labels:
+      - autoheal-mouse=true
 
     network_mode: host
 
@@ -87,6 +89,20 @@ services:
       - /mnt/seagate-black:/mnt/seagate-black
 
 # #########################################################
+# Autoheal ###############################################
+# #########################################################
+  autoheal-mouse:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal-mouse
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal-mouse
+      - AUTOHEAL_INTERVAL=3600
+      - AUTOHEAL_START_PERIOD=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+# #########################################################
 # Gluetun VPN #############################################
 # #########################################################
   gluetun:
@@ -119,6 +135,8 @@ services:
       # gluetun control server
       # - "8000:8000"
     restart: always
+    labels:
+      - autoheal-mouse=true
     healthcheck:
       test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
       interval: 10s
@@ -151,6 +169,8 @@ services:
       - /mnt/seagate-red/qbittorrent/config:/config
       - /mnt/seagate-red/qbittorrent/downloads:/downloads
     restart: always
+    labels:
+      - autoheal-mouse=true
     network_mode: "service:gluetun"
 
 # #########################################################
@@ -170,6 +190,8 @@ services:
     environment:
       - TZ=Europe/Zurich
     restart: always
+    labels:
+      - autoheal-mouse=true
 
 # #########################################################
 # Port Updater ############################################
@@ -188,7 +210,7 @@ services:
     environment:
       - QBIT_USER=admin
       - QBIT_PASS=${QBIT_PASS}
-      - CHECK_INTERVAL=300
+      - CHECK_INTERVAL=600
       - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
       - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
     command:
@@ -271,6 +293,8 @@ services:
           sleep $$CHECK_INTERVAL
         done
     restart: unless-stopped
+    labels:
+      - autoheal-mouse=true
 
 # =========================================================
 # Networks ================================================
