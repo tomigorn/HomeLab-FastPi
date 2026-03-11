@@ -319,6 +319,9 @@ services:
 
           # Update if: forwarded port changed, or qBit port is unset (1) or empty (e.g. after a restart)
           if [ -n "$$PORT" ] && [ "$$PORT" != "0" ] && { [ "$$PORT" != "$$LAST_PORT" ] || [ "$$QBIT_PORT" = "1" ] || [ -z "$$QBIT_PORT" ]; }; then
+            echo ">>>"
+            echo "      ProtonVPN assigned a new forwarded port: $$PORT (was: $$LAST_PORT) — triggering qBittorrent update"
+            echo "<<<"
             echo "Port update needed: VPN=$$PORT, qBit=$$QBIT_PORT (last=$$LAST_PORT)"
             curl -s -b /tmp/qbit_cookie \
               --data-urlencode "json={\"listen_port\":$$PORT}" \
