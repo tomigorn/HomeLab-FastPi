@@ -211,6 +211,7 @@ services:
       - QBIT_USER=admin
       - QBIT_PASS=${QBIT_PASS}
       - CHECK_INTERVAL=600
+      - ZERO_RETRY_INTERVAL=60
       - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
       - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
     command:
@@ -345,6 +346,10 @@ services:
               ZERO_PORT_COUNT=0
               LAST_PORT=0
               echo "Stack restarted. Checking for new port immediately..."
+              continue
+            else
+              echo "Port is 0 — will retry in $$ZERO_RETRY_INTERVAL seconds (faster retry)..."
+              sleep $$ZERO_RETRY_INTERVAL
               continue
             fi
 
