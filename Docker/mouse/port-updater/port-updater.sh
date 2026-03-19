@@ -77,7 +77,37 @@ restart_stack() {
   apply_qbittorrent_settings
 }
 
+# Print a friendly startup banner similar to other containers
+print_banner() {
+  NAME="port-updater"
+  SERVICE_NAME="port-updater"
+  CONTAINER_NAME="port_updater"
+  VERSION="local build"
+  # If TZ is provided via docker-compose, display local time in that zone.
+  # Otherwise default to UTC.
+  if [ -n "$TZ" ]; then
+    STARTED_AT=$(TZ="$TZ" date +"%Y-%m-%d %H:%M:%S %Z")
+  else
+    STARTED_AT=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+  fi
+
+  echo
+  echo "============================================"
+  echo ""
+  echo "=============== ${NAME} ==============="
+  echo ""
+  echo "Service: ${SERVICE_NAME}  Container: ${CONTAINER_NAME}"
+  echo "Version: ${VERSION}"
+  echo "Started : ${STARTED_AT}"
+  echo ""
+  echo "--- Purpose: keep qBittorrent listen port in sync with VPN forwarded port ---"
+  echo ""
+  echo "============================================"
+  echo
+}
+
 # --- Initial startup ---
+print_banner
 echo "Waiting for qBittorrent to be ready..."
 wait_for_qbittorrent || true
 
