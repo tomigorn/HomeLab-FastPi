@@ -13,6 +13,7 @@ services:
       - WG_HOST=${HOST_DOMAIN}
       - WG_PORT=51820
       - PASSWORD_HASH=${PASSWORD_HASH}
+      - WG_DEFAULT_DNS=192.168.1.2
       - UI_CHART_TYPE=0
     volumes:
       - ./wg-easy:/etc/wireguard
