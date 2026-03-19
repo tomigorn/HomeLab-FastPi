@@ -214,6 +214,7 @@ services:
       - ZERO_RETRY_INTERVAL=60
       - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
       - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
+      - TZ=Europe/Zurich
     restart: unless-stopped
     labels:
       - autoheal-mouse=true
