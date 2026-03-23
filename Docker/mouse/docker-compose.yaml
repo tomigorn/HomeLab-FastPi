@@ -199,8 +199,11 @@ services:
   port-updater:
     build: ./port-updater
     container_name: port_updater
+    ports:
+      - "${WEB_PORT:-8088}:${WEB_PORT:-8088}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - port-updater-data:/data
     networks:
       mouse_network:
         ipv4_address: 172.32.0.3
@@ -215,6 +218,7 @@ services:
       - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
       - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
       - TZ=Europe/Zurich
+      - WEB_PORT=${WEB_PORT:-8088}
     restart: unless-stopped
     labels:
       - autoheal-mouse=true
@@ -236,3 +240,4 @@ networks:
 volumes:
   mousehole:
   gluetun-data:
+  port-updater-data:

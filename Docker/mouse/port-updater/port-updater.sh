@@ -56,6 +56,28 @@ apply_qbittorrent_settings() {
   login_qbittorrent
 }
 
+log_event() {
+  _event="$1"
+  _port="${2:-0}"
+  _old_port="${3:-0}"
+  _message="$4"
+  _vpn_ip="${5:-}"
+  if [ -n "$TZ" ]; then
+    _ts=$(TZ="$TZ" date +"%Y-%m-%dT%H:%M:%S%z")
+  else
+    _ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  fi
+  mkdir -p /data
+  printf '{"timestamp":"%s","event":"%s","port":%s,"old_port":%s,"vpn_ip":"%s","message":"%s"}\n' \
+    "$_ts" "$_event" "$_port" "$_old_port" "$_vpn_ip" "$_message" >> /data/port-history.json || true
+}
+
+get_vpn_ip() {
+  curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" \
+    http://172.32.0.2:8000/v1/publicip/ip 2>/dev/null | \
+    sed -n 's/.*"public_ip":"\([^"]*\)".*/\1/p'
+}
+
 # Stop dependent containers, restart gluetun, then bring everything back up.
 # qbittorrent and mousehole share gluetun's network namespace — simply restarting
 # gluetun leaves them with a broken network, so we must manage them explicitly.
@@ -108,6 +130,7 @@ print_banner() {
 
 # --- Initial startup ---
 print_banner
+log_event "startup" "0" "0" "Port updater started"
 echo "Waiting for qBittorrent to be ready..."
 wait_for_qbittorrent || true
 
@@ -123,8 +146,9 @@ while true; do
   # Re-login periodically (cookie expires)
   login_qbittorrent
 
-  # Get VPN forwarded port (use control server basic auth)
+  # Get VPN forwarded port and current VPN public IP (use control server basic auth)
   PORT=$(curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" http://172.32.0.2:8000/v1/portforward | sed -n 's/.*"port":[ ]*\([0-9]*\).*/\1/p')
+  VPN_IP=$(get_vpn_ip)
 
   # Get current qBittorrent listen port
   QBIT_PORT=$(curl -s -b /tmp/qbit_cookie http://172.32.0.2:8080/api/v2/app/preferences | sed -n 's/.*"listen_port":\s*\([0-9]*\).*/\1/p')
@@ -139,6 +163,7 @@ while true; do
       --data-urlencode "json={\"listen_port\":$PORT}" \
       http://172.32.0.2:8080/api/v2/app/setPreferences
     echo "Port updated to $PORT"
+    log_event "port_update" "$PORT" "$LAST_PORT" "ProtonVPN assigned new port $PORT (was $LAST_PORT)" "$VPN_IP"
     LAST_PORT=$PORT
     ZERO_PORT_COUNT=0
 
@@ -151,8 +176,10 @@ while true; do
   elif [ -z "$PORT" ] || [ "$PORT" = "0" ]; then
     ZERO_PORT_COUNT=$((ZERO_PORT_COUNT + 1))
     echo "Port is 0 ($ZERO_PORT_COUNT/$ZERO_PORT_LIMIT): VPN=$PORT, qBit=$QBIT_PORT"
+    log_event "zero_port" "0" "$LAST_PORT" "Port is 0 ($ZERO_PORT_COUNT/$ZERO_PORT_LIMIT)" "$VPN_IP"
     if [ "$ZERO_PORT_COUNT" -ge "$ZERO_PORT_LIMIT" ]; then
       echo "Port has been 0 for $(( ZERO_PORT_COUNT * CHECK_INTERVAL / 60 )) minutes — restarting stack..."
+      log_event "stack_restart" "0" "$LAST_PORT" "Port remained 0 for ${ZERO_PORT_COUNT} cycles — restarting stack" "$VPN_IP"
       restart_stack
       ZERO_PORT_COUNT=0
       LAST_PORT=0
