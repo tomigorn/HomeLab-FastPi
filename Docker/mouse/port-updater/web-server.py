@@ -84,7 +84,7 @@ HTML = """<!DOCTYPE html>
     .msg { color: #4b5563; font-size: 0.8rem; max-width: 300px; }
     .num { color: #2d3748; }
     .card-value.ip { font-size: 1.05rem; font-family: 'Courier New', monospace; }
-    .uptime { color: #a78bfa; font-size: 0.82rem; white-space: nowrap; }
+    .uptime { color: #a78bfa; font-size: 0.82rem; font-family: 'Courier New', monospace; white-space: pre; }
     .uptime-dash { color: #2d3748; }
   </style>
 </head>
@@ -128,7 +128,7 @@ HTML = """<!DOCTYPE html>
         <th>Timestamp</th>
         <th>New Port</th>
         <th>Old Port</th>
-        <th>Port Uptime</th>
+        <th style="text-align:right">Port Uptime</th>
         <th>VPN IP</th>
         <th>Message</th>
       </tr>
@@ -145,20 +145,24 @@ HTML = """<!DOCTYPE html>
     function fmtDuration(ms) {
       if (ms < 0) return '—';
       const s = Math.floor(ms / 1000);
-      if (s < 60)    return s + 's';
-      if (s < 3600)  return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
-      if (s < 86400) return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
-      return Math.floor(s / 86400) + 'd ' + Math.floor((s % 86400) / 3600) + 'h';
+      const sec = s % 60;
+      const min = Math.floor(s / 60) % 60;
+      const hr  = Math.floor(s / 3600) % 24;
+      const day = Math.floor(s / 86400);
+      const p = (n, u) => String(n).padStart(2) + u;
+      const e = '   ';
+      if (s < 60)    return `${e} ${e} ${e} ${p(sec,'s')}`;
+      if (s < 3600)  return `${e} ${e} ${p(min,'m')} ${p(sec,'s')}`;
+      if (s < 86400) return `${e} ${p(hr,'h')} ${p(min,'m')} ${p(sec,'s')}`;
+      return `${p(day,'d')} ${p(hr,'h')} ${p(min,'m')} ${p(sec,'s')}`;
     }
 
     function fmtTimeSince(ts) {
       if (!ts) return 'never';
       const delta = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
-      if (delta < 0) return 'just now';
-      if (delta < 60) return delta + 's ago';
-      if (delta < 3600) return Math.floor(delta / 60) + 'm ' + (delta % 60) + 's ago';
-      if (delta < 86400) return Math.floor(delta / 3600) + 'h ' + Math.floor((delta % 3600) / 60) + 'm ago';
-      return Math.floor(delta / 86400) + 'd ' + Math.floor((delta % 86400) / 3600) + 'h ago';
+      if (delta < 3600) return Math.floor(delta / 60) + 'm';
+      if (delta < 86400) return Math.floor(delta / 3600) + 'h ' + Math.floor((delta % 3600) / 60) + 'm';
+      return Math.floor(delta / 86400) + 'd ' + Math.floor((delta % 86400) / 3600) + 'h';
     }
 
     function badgeClass(event)  { return 'badge badge-' + (event || 'startup'); }
@@ -223,7 +227,7 @@ HTML = """<!DOCTYPE html>
           <td class="ts">${e.timestamp || ''}</td>
           <td>${portCell(e.port)}</td>
           <td>${portCell(e.old_port)}</td>
-          <td>${uptimeCell}</td>
+          <td style="text-align:right">${uptimeCell}</td>
           <td>${ipCell(e.vpn_ip)}</td>
           <td class="msg">${e.message || ''}</td>
         </tr>`;
