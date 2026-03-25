@@ -14,3 +14,7 @@ etc-pihole/migration_backup/
 # Contains password hash — managed via .env instead
 # Comment out the line below to commit pihole.toml if repo is private
 etc-pihole/pihole.toml
+
+# TLS key & cert — sensitive, regenerate locally
+etc-pihole/tls.pem
+etc-pihole/tls.crt
