@@ -6,8 +6,7 @@ users:
 dns:
   upstream_dns:
     - 192.168.1.1 # Galaxus Router
-    - 1.1.1.1  # Cloudflare
-    - 9.9.9.9  # Quad9
+  cache_enabled: true
 filtering:
   rewrites:
     - domain: fastpi.homelab
