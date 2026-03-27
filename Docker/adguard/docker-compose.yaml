@@ -1,0 +1,39 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# AdGuard Home ############################################
+# #########################################################
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: always
+    network_mode: host
+    # ports not needed with network_mode: host (container binds directly to host)
+    # ports:
+    #   - "53:53/tcp"       # DNS
+    #   - "53:53/udp"       # DNS
+    #   - "853:853/tcp"     # DNS-over-TLS
+    #   - "853:853/udp"     # DNS-over-QUIC
+    #   - "3080:3080/tcp"   # Web UI
+    volumes:
+      - ./conf:/opt/adguardhome/conf
+      - ./filters:/opt/adguardhome/conf/filters
+      - adguardhome-data:/opt/adguardhome/work
+    environment:
+      TZ: 'Europe/Zurich'
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  adguardhome-data:
+

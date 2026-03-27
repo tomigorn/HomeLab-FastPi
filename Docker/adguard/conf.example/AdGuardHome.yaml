@@ -1,0 +1,14 @@
+http:
+  address: 0.0.0.0:3000
+users:
+  - name: admin
+    password: $SAMPLE.BCRYPT.HASH # in terminal run: htpasswd -nB admin
+dns:
+  upstream_dns:
+    - 1.1.1.1  # Cloudflare
+    - 9.9.9.9  # Quad9
+filtering:
+  rewrites:
+    - domain: fastpi.homelab
+      answer: 192.168.1.2
+schema_version: 29

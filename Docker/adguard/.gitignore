@@ -1,0 +1,4 @@
+.env
+
+# Runtime config & data (managed by AdGuard)
+conf/*
