@@ -35,6 +35,26 @@ wait_for_qbittorrent() {
   return 1
 }
 
+# Check quick HTTP reachability to qBittorrent WebUI
+is_qbittorrent_available() {
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://172.32.0.2:8080 2>/dev/null || echo "000")
+  if [ "$CODE" = "200" ] || [ "$CODE" = "302" ]; then
+    return 0
+  fi
+  return 1
+}
+
+# Try to reattach qBittorrent (and mousehole) to gluetun's network namespace
+# by restarting those containers and waiting for the WebUI to come up.
+try_reattach_qbittorrent() {
+  echo "Attempting to reattach qBittorrent/mousehole to gluetun network..."
+  docker restart qbittorrent_mouse mousehole 2>/dev/null || true
+  sleep 5
+  echo "Waiting for qBittorrent after reattach..."
+  wait_for_qbittorrent || true
+  is_qbittorrent_available && return 0 || return 1
+}
+
 login_qbittorrent() {
   curl -s -c /tmp/qbit_cookie -X POST \
     --data-urlencode "username=$QBIT_USER" \
@@ -132,7 +152,10 @@ print_banner() {
 print_banner
 log_event "startup" "0" "0" "Port updater started"
 echo "Waiting for qBittorrent to be ready..."
-wait_for_qbittorrent || true
+if ! wait_for_qbittorrent; then
+  echo "qBittorrent did not become ready within timeout; attempting to reattach containers..."
+  try_reattach_qbittorrent || true
+fi
 
 login_qbittorrent
 apply_qbittorrent_settings
@@ -144,6 +167,13 @@ ZERO_PORT_COUNT=0
 ZERO_PORT_LIMIT=3
 while true; do
   # Re-login periodically (cookie expires)
+  # If qBittorrent is unreachable (often due to gluetun having restarted and
+  # containers needing to reattach to the new network namespace), attempt a
+  # lightweight reattach before continuing.
+  if ! is_qbittorrent_available; then
+    echo "qBittorrent unreachable from port-updater; attempting reattach..."
+    try_reattach_qbittorrent || true
+  fi
   login_qbittorrent
 
   # Get VPN forwarded port and current VPN public IP (use control server basic auth)
