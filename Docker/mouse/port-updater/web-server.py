@@ -196,16 +196,24 @@ HTML = """<!DOCTYPE html>
       el.textContent = restarts;
       el.className = 'card-value ' + (restarts > 0 ? 'red' : 'muted');
 
-      // Build uptime map: for each port_update (except the first and the most recent),
-      // compute how long the PREVIOUS port was active.
+      // Build uptime map: for each port_update (except the most recent),
+      // compute how long THIS port (the "new port" in the row) remained active
+      // by measuring time until the next port_update.
       const portUpdates = history
         .map((e, idx) => ({ idx, ts: e.timestamp, event: e.event }))
         .filter(e => e.event === 'port_update');
       const uptimeMap = {};
-      // portUpdates[0] = first ever (no predecessor → no uptime)
-      // portUpdates[last] = current active port → no uptime (live counter shows it)
-      for (let i = 1; i < portUpdates.length - 1; i++) {
-        const ms = new Date(portUpdates[i].ts) - new Date(portUpdates[i - 1].ts);
+      // Helper to parse timestamps that may include timezone offsets like "+0200"
+      function parseTs(ts) {
+        if (!ts) return NaN;
+        // Normalize "+HHMM" or "-HHMM" to "+HH:MM" for reliable Date parsing.
+        const normalized = ts.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+        return new Date(normalized).getTime();
+      }
+      // For each port update except the last one (current active port),
+      // compute how long that port remained active until the next update.
+      for (let i = 0; i < portUpdates.length - 1; i++) {
+        const ms = parseTs(portUpdates[i + 1].ts) - parseTs(portUpdates[i].ts);
         uptimeMap[portUpdates[i].idx] = fmtDuration(ms);
       }
 
