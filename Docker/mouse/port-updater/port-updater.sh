@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+GLUETUN_IP="${GLUETUN_IP:-172.32.0.2}"
+
 # --- Helper functions ---
 
 wait_for_gluetun() {
@@ -23,7 +25,7 @@ wait_for_qbittorrent() {
   echo "Waiting for qBittorrent web UI..."
   i=0
   while [ $i -lt 24 ]; do
-    CODE=$(curl -s -o /dev/null -w "%{http_code}" http://172.32.0.2:8080 2>/dev/null)
+    CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${GLUETUN_IP}:8080 2>/dev/null)
     if [ "$CODE" = "200" ] || [ "$CODE" = "302" ]; then
       echo "qBittorrent is ready."
       return 0
@@ -37,7 +39,7 @@ wait_for_qbittorrent() {
 
 # Check quick HTTP reachability to qBittorrent WebUI
 is_qbittorrent_available() {
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://172.32.0.2:8080 2>/dev/null || echo "000")
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://${GLUETUN_IP}:8080 2>/dev/null || echo "000")
   if [ "$CODE" = "200" ] || [ "$CODE" = "302" ]; then
     return 0
   fi
@@ -59,14 +61,14 @@ login_qbittorrent() {
   curl -s -c /tmp/qbit_cookie -X POST \
     --data-urlencode "username=$QBIT_USER" \
     --data-urlencode "password=$QBIT_PASS" \
-    http://172.32.0.2:8080/api/v2/auth/login >/dev/null 2>&1
+    http://${GLUETUN_IP}:8080/api/v2/auth/login >/dev/null 2>&1
 }
 
 apply_qbittorrent_settings() {
   echo "Setting qBittorrent to use tun0 interface..."
   curl -s -b /tmp/qbit_cookie \
     --data-urlencode 'json={"current_network_interface":"tun0"}' \
-    http://172.32.0.2:8080/api/v2/app/setPreferences
+    http://${GLUETUN_IP}:8080/api/v2/app/setPreferences
 
   echo "Restarting qBittorrent to apply interface binding..."
   docker restart qbittorrent_mouse
@@ -94,7 +96,7 @@ log_event() {
 
 get_vpn_ip() {
   curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" \
-    http://172.32.0.2:8000/v1/publicip/ip 2>/dev/null | \
+    http://${GLUETUN_IP}:8000/v1/publicip/ip 2>/dev/null | \
     jq -r '.public_ip // empty'
 }
 
@@ -177,11 +179,11 @@ while true; do
   login_qbittorrent
 
   # Get VPN forwarded port and current VPN public IP (use control server basic auth)
-  PORT=$(curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" http://172.32.0.2:8000/v1/portforward | jq -r '.port // empty')
+  PORT=$(curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" http://${GLUETUN_IP}:8000/v1/portforward | jq -r '.port // empty')
   VPN_IP=$(get_vpn_ip)
 
   # Get current qBittorrent listen port
-  QBIT_PORT=$(curl -s -b /tmp/qbit_cookie http://172.32.0.2:8080/api/v2/app/preferences | jq -r '.listen_port // empty')
+  QBIT_PORT=$(curl -s -b /tmp/qbit_cookie http://${GLUETUN_IP}:8080/api/v2/app/preferences | jq -r '.listen_port // empty')
 
   # Update if: forwarded port changed, or qBit port is unset (1) or empty (e.g. after a restart)
   if [ -n "$PORT" ] && [ "$PORT" != "0" ] && { [ "$PORT" != "$LAST_PORT" ] || [ "$QBIT_PORT" = "1" ] || [ -z "$QBIT_PORT" ]; }; then
@@ -191,7 +193,7 @@ while true; do
     echo "Port update needed: VPN=$PORT, qBit=$QBIT_PORT (last=$LAST_PORT)"
     curl -s -b /tmp/qbit_cookie \
       --data-urlencode "json={\"listen_port\":$PORT}" \
-      http://172.32.0.2:8080/api/v2/app/setPreferences
+      http://${GLUETUN_IP}:8080/api/v2/app/setPreferences
     echo "Port updated to $PORT"
     log_event "port_update" "$PORT" "$LAST_PORT" "ProtonVPN assigned new port $PORT (was $LAST_PORT)" "$VPN_IP"
     LAST_PORT=$PORT
@@ -200,7 +202,7 @@ while true; do
     echo "Reannouncing all torrents..."
     curl -s -b /tmp/qbit_cookie -X POST \
       -d "hashes=all" \
-      http://172.32.0.2:8080/api/v2/torrents/reannounce
+      http://${GLUETUN_IP}:8080/api/v2/torrents/reannounce
     echo "Reannounce triggered."
 
   elif [ -z "$PORT" ] || [ "$PORT" = "0" ]; then
