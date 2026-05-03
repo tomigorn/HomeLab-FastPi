@@ -4,6 +4,6 @@
 .env
 
 # ───────────────────────────────
-# Gluetun secrest
+# Gluetun secrets
 # ───────────────────────────────
 /secrets
