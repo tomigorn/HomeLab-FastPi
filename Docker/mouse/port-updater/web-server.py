@@ -30,12 +30,16 @@ def _fetch_real_ip() -> str | None:
 def get_real_ip() -> str:
     with _real_ip_lock:
         now = time.monotonic()
-        if _real_ip_cache["ip"] is None or now - _real_ip_cache["ts"] > 600:
-            ip = _fetch_real_ip()
-            if ip:
+        cached = _real_ip_cache["ip"]
+        stale = cached is None or now - _real_ip_cache["ts"] > 600
+    if stale:
+        ip = _fetch_real_ip()
+        if ip:
+            with _real_ip_lock:
                 _real_ip_cache["ip"] = ip
-                _real_ip_cache["ts"] = now
-        return _real_ip_cache["ip"] or "unknown"
+                _real_ip_cache["ts"] = time.monotonic()
+            return ip
+    return cached or "unknown"
 
 
 def get_latest_vpn_ip() -> str | None:
