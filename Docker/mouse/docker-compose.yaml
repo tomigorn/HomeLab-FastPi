@@ -253,6 +253,8 @@ services:
       - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
       - TZ=Europe/Zurich
       - WEB_PORT=${WEB_PORT:-8088}
+      - WEB_USER=${WEB_USER}
+      - WEB_PASS=${WEB_PASS}
     restart: unless-stopped
     labels:
       - autoheal-mouse=true

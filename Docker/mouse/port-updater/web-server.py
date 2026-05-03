@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import json
 import os
 import http.server
@@ -10,6 +11,8 @@ import urllib.error
 
 DATA_FILE = "/data/port-history.json"
 PORT = int(os.getenv("WEB_PORT", "8088"))
+WEB_USER = os.getenv("WEB_USER", "")
+WEB_PASS = os.getenv("WEB_PASS", "")
 
 _real_ip_cache: dict = {"ip": None, "ts": 0.0}
 _real_ip_lock = threading.Lock()
@@ -304,6 +307,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass  # suppress per-request access logs
 
     def do_GET(self):
+        if WEB_USER and WEB_PASS:
+            auth = self.headers.get("Authorization", "")
+            expected = "Basic " + base64.b64encode(f"{WEB_USER}:{WEB_PASS}".encode()).decode()
+            if auth != expected:
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", 'Basic realm="port-updater"')
+                self.end_headers()
+                return
         if self.path == "/api/history":
             data = json.dumps(load_history()).encode("utf-8")
             self.send_response(200)
