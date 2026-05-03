@@ -166,7 +166,7 @@ apply_qbittorrent_settings
 echo "Starting port monitoring loop..."
 LAST_PORT=0
 ZERO_PORT_COUNT=0
-ZERO_PORT_LIMIT=3
+ZERO_PORT_LIMIT="${ZERO_PORT_LIMIT:-3}"
 while true; do
   # Re-login periodically (cookie expires)
   # If qBittorrent is unreachable (often due to gluetun having restarted and
