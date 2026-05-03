@@ -95,7 +95,7 @@ log_event() {
 get_vpn_ip() {
   curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" \
     http://172.32.0.2:8000/v1/publicip/ip 2>/dev/null | \
-    sed -n 's/.*"public_ip":"\([^"]*\)".*/\1/p'
+    jq -r '.public_ip // empty'
 }
 
 # Stop dependent containers, restart gluetun, then bring everything back up.
@@ -177,11 +177,11 @@ while true; do
   login_qbittorrent
 
   # Get VPN forwarded port and current VPN public IP (use control server basic auth)
-  PORT=$(curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" http://172.32.0.2:8000/v1/portforward | sed -n 's/.*"port":[ ]*\([0-9]*\).*/\1/p')
+  PORT=$(curl -s -u "$GLUETUN_AUTH_USER:$GLUETUN_AUTH_PASS" http://172.32.0.2:8000/v1/portforward | jq -r '.port // empty')
   VPN_IP=$(get_vpn_ip)
 
   # Get current qBittorrent listen port
-  QBIT_PORT=$(curl -s -b /tmp/qbit_cookie http://172.32.0.2:8080/api/v2/app/preferences | sed -n 's/.*"listen_port":\s*\([0-9]*\).*/\1/p')
+  QBIT_PORT=$(curl -s -b /tmp/qbit_cookie http://172.32.0.2:8080/api/v2/app/preferences | jq -r '.listen_port // empty')
 
   # Update if: forwarded port changed, or qBit port is unset (1) or empty (e.g. after a restart)
   if [ -n "$PORT" ] && [ "$PORT" != "0" ] && { [ "$PORT" != "$LAST_PORT" ] || [ "$QBIT_PORT" = "1" ] || [ -z "$QBIT_PORT" ]; }; then
