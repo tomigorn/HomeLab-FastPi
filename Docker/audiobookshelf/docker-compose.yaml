@@ -18,6 +18,12 @@ services:
     environment:
       - TZ=Europe/Zurich
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - traefik_proxy
 
