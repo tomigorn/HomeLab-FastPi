@@ -10,8 +10,6 @@ services:
     container_name: audiobookshelf
     hostname: audiobookshelf
     image: ghcr.io/advplyr/audiobookshelf:latest
-    ports:
-      - 13378:80
     volumes:
       - /mnt/seagate-black/library/audiobooks:/audiobooks
       - /mnt/seagate-black/library/podcasts:/podcasts
@@ -20,9 +18,15 @@ services:
     environment:
       - TZ=Europe/Zurich
     restart: unless-stopped
+    networks:
+      - traefik_proxy
+
 # =========================================================
 # Networks ================================================
 # =========================================================
+networks:
+  traefik_proxy:
+    external: true
 
 
 # =========================================================
