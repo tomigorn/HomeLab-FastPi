@@ -25,6 +25,12 @@ services:
     dns:
       - 1.1.1.1 # Cloudflare
       - 9.9.9.9 # Quad9
+    healthcheck:
+      test: ["CMD", "nslookup", "localhost", "127.0.0.1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 # =========================================================
 # Networks ================================================
