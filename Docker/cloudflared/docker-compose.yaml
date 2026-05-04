@@ -8,8 +8,14 @@ services:
   cloudflared:
     container_name: cloudflared
     image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --token-file /run/secrets/cloudflared_tunnel_token
+    command: tunnel --no-autoupdate run --token-file /run/secrets/cloudflared_tunnel_token --metrics localhost:20241
     restart: always
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "localhost:20241", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     secrets:
       - cloudflared_tunnel_token
 
