@@ -4,9 +4,9 @@
 .env
 
 # ───────────────────────────────
-# Traefik Private Keys
+# Traefik State (certs, logs)
 # ───────────────────────────────
-/traefik/letsencrypt/acme.json
+/traefik/letsencrypt/
 /traefik/logs/
 
 # ───────────────────────────────
