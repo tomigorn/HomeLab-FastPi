@@ -1,0 +1,39 @@
+http:
+  routers:
+    # HTTP router - serves directly (Cloudflare Tunnel is the TLS terminator)
+    audiobookshelf-http:
+      rule: "Host(`audiobookshelf.holy-grail.ch`)"
+      entryPoints: ["web"]
+      priority: 1
+      service: audiobookshelf
+
+    # HTTPS router
+    audiobookshelf:
+      rule: "Host(`audiobookshelf.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: audiobookshelf
+      middlewares:
+        - audiobookshelf-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    audiobookshelf-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    audiobookshelf:
+      loadBalancer:
+        servers:
+          - url: "http://audiobookshelf:80"
+        passHostHeader: true
