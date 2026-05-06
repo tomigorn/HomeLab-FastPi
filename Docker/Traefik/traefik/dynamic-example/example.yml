@@ -1,9 +1,5 @@
 http:
   middlewares:
-    redirect-to-https:
-      redirectScheme:
-        scheme: https
-
     secure-headers:
       headers:
         # HSTS – force HTTPS for 1 year including subdomains
@@ -28,15 +24,7 @@ http:
   routers:
     # security scan http headers with https://securityheaders.com/
 
-    # HTTP router
-    whoami-http:
-      rule: "Host(`hephaestus-jenkins.duckdns.org`)"
-      entryPoints: ["web"]
-      middlewares: ["redirect-to-https"]
-      priority: 1
-      service: noop
-      
-    # HTTPS router
+    # HTTPS router — HTTP is redirected globally at the entrypoint level
     whoami:
       rule: "Host(`hephaestus-jenkins.duckdns.org`)"
       entryPoints: ["websecure"]
@@ -51,8 +39,3 @@ http:
         servers:
           - url: "http://whoami:80"
         passHostHeader: true
-
-    noop:
-      loadBalancer:
-        servers:
-          - url: "http://127.0.0.1"

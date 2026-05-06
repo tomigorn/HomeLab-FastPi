@@ -1,13 +1,5 @@
 http:
   routers:
-    # HTTP router - serves directly (Cloudflare Tunnel is the TLS terminator)
-    audiobookshelf-http:
-      rule: "Host(`audiobookshelf.holy-grail.ch`)"
-      entryPoints: ["web"]
-      priority: 1
-      service: audiobookshelf
-
-    # HTTPS router
     audiobookshelf:
       rule: "Host(`audiobookshelf.holy-grail.ch`)"
       entryPoints: ["websecure"]
