@@ -12,7 +12,6 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-    - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
     - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     ports:
       - 80:80       # HTTP
