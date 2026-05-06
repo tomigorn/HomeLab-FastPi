@@ -16,6 +16,10 @@ api:
 log:
   level: INFO
 
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+  bufferingSize: 100
+
 certificatesResolvers:
   le:
     acme:
