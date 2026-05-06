@@ -1,0 +1,22 @@
+http:
+  routers:
+    dashboard:
+      rule: "Host(`fastpi.homelab`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      entryPoints: ["web"]
+      service: api@internal
+      middlewares:
+        - dashboard-ipallowlist
+        - dashboard-auth
+
+  middlewares:
+    dashboard-auth:
+      basicAuth:
+        usersFile: /dynamic/dashboard.users
+
+    dashboard-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "::1/128"
+          - "192.168.1.0/24"   # LAN
+          - "172.24.0.0/16"    # traefik_proxy bridge — covers LAN and VPN traffic NATted by Docker
