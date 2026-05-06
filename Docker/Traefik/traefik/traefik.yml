@@ -9,6 +9,9 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+    http:
+      middlewares:
+        - default-rate-limit@file
 
 api:
   dashboard: true
@@ -23,12 +26,12 @@ accessLog:
 certificatesResolvers:
   le:
     acme:
-      storage: /letsencrypt/acme.json
+      storage: /letsencrypt/acme-http.json
       httpChallenge:
         entryPoint: web
   cloudflare:
     acme:
-      storage: /letsencrypt/acme.json
+      storage: /letsencrypt/acme-dns.json
       dnsChallenge:
         provider: cloudflare
         resolvers:
