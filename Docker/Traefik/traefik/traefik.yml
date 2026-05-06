@@ -9,6 +9,8 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+  internal:
+    address: ":8080"
     http:
       middlewares:
         - default-rate-limit@file

@@ -2,7 +2,7 @@ http:
   routers:
     dashboard:
       rule: "Host(`fastpi.homelab`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
-      entryPoints: ["web"]
+      entryPoints: ["internal"]
       service: api@internal
       middlewares:
         - dashboard-ipallowlist
