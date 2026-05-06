@@ -1,6 +1,6 @@
 http:
   middlewares:
-    secure-headers:
+    wg-aemtli-secure-headers:
       headers:
         # HSTS – force HTTPS for 1 year including subdomains
         stsSeconds: 31536000
@@ -37,7 +37,7 @@ http:
       priority: 1
       service: wg-chores
       middlewares:
-        - secure-headers
+        - wg-aemtli-secure-headers
       tls:
         certResolver: le
 
