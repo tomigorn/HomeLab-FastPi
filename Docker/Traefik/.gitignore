@@ -7,6 +7,7 @@
 # Traefik Private Keys
 # ───────────────────────────────
 /traefik/letsencrypt/acme.json
+/traefik/logs/
 
 # ───────────────────────────────
 # Dashboard Credentials

@@ -21,6 +21,7 @@ services:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/dynamic:ro
       - ./traefik/letsencrypt:/letsencrypt    # this is hidden from git via .gitignore
+      - ./traefik/logs:/var/log/traefik       # this is hidden from git via .gitignore
     networks:
       - traefik_proxy
     dns:
