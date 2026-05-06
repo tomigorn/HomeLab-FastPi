@@ -19,8 +19,9 @@ services:
       - ./wg-easy:/etc/wireguard
       - /lib/modules:/lib/modules:ro
     ports:
-      - "51820:51820/udp"
-      - "51821:51821/tcp"
+      - "51820:51820/udp" # WireGuard VPN port
+      # not needed because we will use the web UI through the reverse proxy (Traefik)
+      # - "51821:51821/tcp" # Web UI port
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -31,6 +32,7 @@ services:
     #   - adguard
     networks:
       - wireguard
+      - traefik_proxy
     restart: unless-stopped
 
 # =========================================================
@@ -43,6 +45,8 @@ networks:
       driver: default
       config:
         - subnet: 10.42.42.0/24
+  traefik_proxy:
+    external: true
 
 # =========================================================
 # Volumes =================================================
