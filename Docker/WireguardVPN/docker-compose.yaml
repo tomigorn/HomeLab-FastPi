@@ -38,7 +38,6 @@ services:
     # If the UI becomes unreachable (e.g. AdGuard DNS is down), use the Cloudflare
     # SSH tunnel as a break-glass — see README.md.
     networks:
-      - wireguard
       - traefik_proxy
     restart: unless-stopped
 
@@ -46,12 +45,6 @@ services:
 # Networks ================================================
 # =========================================================
 networks:
-  wireguard:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 10.42.42.0/24
   traefik_proxy:
     external: true
 
