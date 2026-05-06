@@ -18,9 +18,7 @@ services:
     volumes:
       - ./wg-easy:/etc/wireguard
       - /lib/modules:/lib/modules:ro
-    ports:
-      - "51820:51820/udp"
-      - "51821:51821/tcp"
+    network_mode: host
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -29,21 +27,7 @@ services:
       net.ipv4.ip_forward: '1'
     # depends_on:
     #   - adguard
-    networks:
-      wireguard:
-        ipv4_address: 10.42.42.42
     restart: always
-
-# =========================================================
-# Networks ================================================
-# =========================================================
-networks:
-  wireguard:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 10.42.42.0/24
 
 # =========================================================
 # Volumes =================================================
