@@ -30,6 +30,13 @@ services:
       net.ipv4.ip_forward: '1'
     # depends_on:
     #   - adguard
+    # NOTE: traefik_proxy is required for the wg-easy UI to be reachable via Traefik
+    # (http://wg-easy.fastpi.homelab:8080). A side effect is that the container's
+    # default gateway becomes the traefik_proxy bridge, meaning all VPN client traffic
+    # exits through that network. If traefik_proxy is removed, VPN routing breaks.
+    #
+    # If the UI becomes unreachable (e.g. AdGuard DNS is down), use the Cloudflare
+    # SSH tunnel as a break-glass — see README.md.
     networks:
       - wireguard
       - traefik_proxy
