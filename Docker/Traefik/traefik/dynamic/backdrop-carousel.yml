@@ -1,0 +1,33 @@
+http:
+  routers:
+    backdrop-carousel:
+      rule: "Host(`backdrop-carousel.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: backdrop-carousel
+      middlewares:
+        - default-rate-limit@file
+        - backdrop-carousel-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    backdrop-carousel-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Content-Security-Policy: "default-src 'none'; img-src 'self'; frame-ancestors 'none'"
+          Server: ""
+
+  services:
+    backdrop-carousel:
+      loadBalancer:
+        servers:
+          - url: "http://backdrop-carousel:8000"
+        passHostHeader: true
