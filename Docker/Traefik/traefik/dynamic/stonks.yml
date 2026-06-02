@@ -1,0 +1,43 @@
+http:
+  routers:
+    stonks:
+      rule: "Host(`stonks.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: stonks
+      middlewares:
+        - default-rate-limit@file
+        - stonks-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    stonks-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          # The web UI loads Chart.js from jsDelivr and uses a small inline
+          # chart-init script plus an inline <style> block; forms POST to self.
+          Content-Security-Policy: >-
+            default-src 'self';
+            script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline';
+            style-src 'self' 'unsafe-inline';
+            img-src 'self' data:;
+            connect-src 'self';
+            form-action 'self';
+            base-uri 'self';
+            frame-ancestors 'none'
+          Server: ""
+
+  services:
+    stonks:
+      loadBalancer:
+        servers:
+          - url: "http://stonks:8000"
+        passHostHeader: true
