@@ -1,0 +1,32 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials, secrets & tokens
+secrets/
+*.secret
+*.token
+credentials.json
+auth.json
+
+# Logs
+*.log
+
+# App data (SQLite DB)
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
