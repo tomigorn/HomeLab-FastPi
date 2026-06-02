@@ -20,3 +20,4 @@
 | infrastructure-OLD | ❌ | ❌ | | |  |
 | mouse | ✅ | ✅ | (qBit) v5.1.4 | 05.05.2026 | latest |
 | sbb-easyride-taxreport | ❌ | ❌ | | |  |
+| Stonks | ❌ | ❌ | | |  |
