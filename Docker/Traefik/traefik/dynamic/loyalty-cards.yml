@@ -1,0 +1,41 @@
+http:
+  routers:
+    loyalty-cards:
+      rule: "Host(`loyalty-cards.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: loyalty-cards
+      middlewares:
+        - default-rate-limit@file
+        - loyalty-cards-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    loyalty-cards-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(self), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Content-Security-Policy: >-
+            default-src 'self';
+            img-src 'self' data: blob:;
+            script-src 'self';
+            style-src 'self' 'unsafe-inline';
+            connect-src 'self' https://logo.clearbit.com;
+            worker-src 'self' blob:;
+            manifest-src 'self';
+            frame-ancestors 'none'
+          Server: ""
+
+  services:
+    loyalty-cards:
+      loadBalancer:
+        servers:
+          - url: "http://loyalty-cards:80"
+        passHostHeader: true
