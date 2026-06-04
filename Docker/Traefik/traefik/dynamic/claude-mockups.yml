@@ -1,0 +1,38 @@
+http:
+  routers:
+    claude-mockups:
+      rule: "Host(`claude-mockups.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: claude-mockups
+      middlewares:
+        - default-rate-limit@file
+        - claude-mockups-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # NOTE: basic auth is enforced by the Caddy container itself (credentials
+    # in the project's .env), not here. Traefik does TLS + rate-limit + headers.
+    claude-mockups-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          # NOTE: deliberately NO Content-Security-Policy here. Mockups are
+          # throwaway demos that legitimately load CDN scripts, fonts, and use
+          # inline <script>/<style>. A strict CSP would break them. The space
+          # is gated behind basic auth and serves only our own static files.
+          Server: ""
+
+  services:
+    claude-mockups:
+      loadBalancer:
+        servers:
+          - url: "http://claude-mockups:80"
+        passHostHeader: true
