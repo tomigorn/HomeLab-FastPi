@@ -1,0 +1,34 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Claude-Mockups ##########################################
+# #########################################################
+  claude-mockups:
+    image: caddy:alpine
+    container_name: claude-mockups
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Basic-auth credentials (see .env). Caddy enforces the auth itself;
+      # Traefik still handles TLS, rate-limiting and security headers.
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER}
+      - BASIC_AUTH_HASH=${BASIC_AUTH_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro   # serves /srv with browse + basic auth
+      - ./www:/srv:ro                          # demo content, one subfolder per mockup
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================

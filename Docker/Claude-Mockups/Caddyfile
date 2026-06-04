@@ -1,0 +1,11 @@
+# Static mockup host.
+# Auth + directory browsing are handled here; TLS, rate-limiting and security
+# headers are handled upstream by Traefik. Credentials come from the container
+# environment (see .env): BASIC_AUTH_USER and a bcrypt BASIC_AUTH_HASH.
+:80 {
+	root * /srv
+	file_server browse
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+}

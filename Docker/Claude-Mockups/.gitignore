@@ -1,0 +1,13 @@
+# ───────────────────────────────
+# Environment & Secrets
+# ───────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ───────────────────────────────
+# Demo content — throwaway mockups are not committed.
+# Keep the folder in git via www/.gitkeep.
+# ───────────────────────────────
+/www/*
+!/www/.gitkeep
