@@ -22,3 +22,4 @@
 | sbb-easyride-taxreport | ❌ | ❌ | | |  |
 | Stonks | ❌ | ❌ | | |  |
 | Claude-Mockups | ❌ | ❌ | | |  |
+| LoyaltyCards | ❌ | ❌ | | |  |
