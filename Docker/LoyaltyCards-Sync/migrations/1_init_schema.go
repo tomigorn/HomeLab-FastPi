@@ -47,6 +47,10 @@ func InitSchema(app core.App) error {
 		&core.NumberField{Name: "clientCreatedAt"},
 		&core.NumberField{Name: "clientUpdatedAt"},
 		&core.BoolField{Name: "deleted"},
+		// Server-clock autodate fields — the sync engine pages through changes using
+		// `updated` as a monotonic cursor (sort/filter), so the collection must expose it.
+		&core.AutodateField{Name: "created", OnCreate: true},
+		&core.AutodateField{Name: "updated", OnCreate: true, OnUpdate: true},
 	)
 	cards.AddIndex("idx_cards_owner_cardId", true, "owner, cardId", "")
 	cards.ListRule = types.Pointer(OwnerRule)
