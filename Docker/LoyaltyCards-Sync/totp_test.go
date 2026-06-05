@@ -11,6 +11,74 @@ import (
 	"github.com/pquerna/otp/totp"
 )
 
+// setupAppNoMFA creates a fresh test app with our schema applied and with
+// the users collection MFA disabled (we manage TOTP ourselves).
+func setupAppNoMFA(t *testing.T) *tests.TestApp {
+	app := setupApp(t)
+	col, err := app.FindCollectionByNameOrId("users")
+	if err != nil {
+		t.Fatalf("users collection: %v", err)
+	}
+	col.MFA.Enabled = false
+	if err := app.Save(col); err != nil {
+		t.Fatalf("save users collection: %v", err)
+	}
+	return app
+}
+
+func TestStandardPasswordEndpointBlocksTotpUser(t *testing.T) {
+	// 2FA-enabled user: standard auth endpoint must return 400.
+	blocked := tests.ApiScenario{
+		Name:            "2FA user blocked on standard password endpoint",
+		Method:          http.MethodPost,
+		URL:             "/api/collections/users/auth-with-password",
+		Body:            strings.NewReader(`{"identity":"guard2fa@example.com","password":"password123"}`),
+		ExpectedStatus:  400,
+		ExpectedContent: []string{"Two-factor authentication required"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupAppNoMFA(t.(*testing.T))
+			registerAuthGuards(app)
+			col, _ := app.FindCollectionByNameOrId("users")
+			u := core.NewRecord(col)
+			u.SetEmail("guard2fa@example.com")
+			u.SetPassword("password123")
+			u.Set("verified", true)
+			secret, _, _ := totpEnroll("guard2fa@example.com")
+			u.Set("totpSecret", secret)
+			u.Set("totpEnabled", true)
+			if err := app.Save(u); err != nil {
+				t.Fatal(err)
+			}
+			return app
+		},
+	}
+	blocked.Test(t)
+
+	// non-2FA user: standard auth endpoint must still work (200 + token).
+	okPlain := tests.ApiScenario{
+		Name:            "non-2FA user allowed on standard password endpoint",
+		Method:          http.MethodPost,
+		URL:             "/api/collections/users/auth-with-password",
+		Body:            strings.NewReader(`{"identity":"guardplain@example.com","password":"password123"}`),
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"\"token\":"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupAppNoMFA(t.(*testing.T))
+			registerAuthGuards(app)
+			col, _ := app.FindCollectionByNameOrId("users")
+			u2 := core.NewRecord(col)
+			u2.SetEmail("guardplain@example.com")
+			u2.SetPassword("password123")
+			u2.Set("verified", true)
+			if err := app.Save(u2); err != nil {
+				t.Fatal(err)
+			}
+			return app
+		},
+	}
+	okPlain.Test(t)
+}
+
 func TestTotpGenerateAndValidate(t *testing.T) {
 	secret, _, err := totpEnroll("user@example.com")
 	if err != nil {
