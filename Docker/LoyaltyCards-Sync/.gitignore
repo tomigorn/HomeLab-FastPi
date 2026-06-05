@@ -1,0 +1,29 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials, secrets & tokens
+secrets/
+*.secret
+*.token
+credentials.json
+auth.json
+
+# Logs
+*.log
+
+# Pocketbase runtime data (DB, uploaded files, logs)
+pb_data/
+
+# Go build output
+/loyaltycards-sync
