@@ -1,0 +1,66 @@
+/* answer.css — unobtrusive defaults for the Confirm/answer widgets.
+   Scoped to the data-* hooks and the "sent" overlay so it won't fight a
+   mockup's own styling. Everything here is overridable. */
+
+[data-choice] {
+  cursor: pointer;
+  transition: box-shadow .12s ease, border-color .12s ease, background-color .12s ease;
+}
+[data-choice].selected {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, .18);
+}
+
+[data-confirm] {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  padding: .7rem 1.4rem;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: #4f46e5;
+  cursor: pointer;
+}
+[data-confirm]:hover:not(:disabled) { background: #4338ca; }
+[data-confirm]:disabled { opacity: .45; cursor: not-allowed; }
+
+[data-indicator] {
+  font-size: .9rem;
+  opacity: .75;
+}
+
+.claude-answer-sent {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, .72);
+  backdrop-filter: blur(3px);
+  animation: claude-answer-fade .18s ease;
+}
+.claude-answer-card {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 16px;
+  padding: 2.4rem 2.6rem;
+  max-width: 26rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.claude-answer-card h2 { margin: .6rem 0 .4rem; font-size: 1.3rem; }
+.claude-answer-card p  { margin: 0; opacity: .7; line-height: 1.5; }
+.claude-answer-check {
+  width: 56px; height: 56px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 56px;
+}
+@keyframes claude-answer-fade { from { opacity: 0; } to { opacity: 1; } }

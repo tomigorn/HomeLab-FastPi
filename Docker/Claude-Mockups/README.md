@@ -30,6 +30,10 @@ Files that make this work:
 | `.env` | `BASIC_AUTH_USER` + bcrypt `BASIC_AUTH_HASH` (gitignored) |
 | `set-password.sh` | interactively set the password (no plaintext in history) |
 | `www/` | demo content, one subfolder per mockup (gitignored) |
+| `assets/` | durable client lib for interactive answers (`answer.js`/`.css`), served at `/_assets/*` |
+| `inbox/server.js` | tiny dependency-free `answer-inbox` service (records selections) |
+| `answers/` | received selections, `<token>.json` (gitignored) — Claude reads these |
+| `wait-for-answer.sh` | blocks until `answers/<token>.json` arrives, then prints it (Claude runs this in the background) |
 | `../Traefik/traefik/dynamic/claude-mockups.yml` | Traefik route: TLS, rate-limit, headers |
 
 ## Add a demo
@@ -54,6 +58,58 @@ a different demo, edit both target paths in `www/index.html`:
 ```
 
 It's served from the live volume, so the change is instant — no restart.
+
+## Interactive answers (pick → Confirm → back to Claude)
+
+A mockup can let the user **choose an option and press Confirm, and the choice is
+sent straight back to Claude** — no returning to the terminal to retype it.
+
+How it's wired:
+
+```
+browser  --POST /_inbox/submit-->  Caddy (basic auth)  --strip /_inbox-->  answer-inbox:8080
+                                                                              writes answers/<token>.json
+Claude (on the Pi)  <--reads--  answers/<token>.json   (and waits for it to appear)
+```
+
+- `answer-inbox` is a tiny dependency-free Node service on an **internal-only**
+  network — never exposed via Traefik. It only accepts a validated `token`
+  (`[A-Za-z0-9_-]{6,64}`, which also blocks path traversal) and atomically
+  writes `answers/<token>.json`.
+- The POST rides the page's existing basic-auth session (same origin), so it's
+  gated exactly like the rest of the site.
+
+**Make a question page** — give the `<body>` a unique token, mark options with
+`data-choice`, add a Confirm button, and include the client lib:
+
+```html
+<link rel="stylesheet" href="/_assets/answer.css">
+<body data-claude-token="UNIQUE_TOKEN_HERE">
+  <div data-options>                          <!-- add data-multiselect to allow many -->
+    <div data-choice="a">Option A</div>
+    <div data-choice="b">Option B</div>
+  </div>
+  <button data-confirm disabled>Confirm</button>
+  <span data-indicator></span>                <!-- optional live status -->
+  <textarea data-note></textarea>             <!-- optional free-text note -->
+  <script src="/_assets/answer.js" defer></script>
+</body>
+```
+
+Working reference: `www/_example-question/index.html`
+(live at https://claude-mockups.holy-grail.ch/_example-question/).
+
+**Claude's loop per question:**
+
+1. Generate a unique token, e.g. `openssl rand -hex 8`.
+2. Write `www/<demo>/index.html` from the snippet above (mockup + options +
+   Confirm + the token), and point the root redirect at it if appropriate.
+3. Give the user the demo URL.
+4. **Watch in the background** — launch `./wait-for-answer.sh <token>` with
+   `run_in_background: true`. It blocks until `answers/<token>.json` appears,
+   then prints it (exit 0); `TIMEOUT` + exit 1 if nothing arrives in time
+   (default 30 min). Claude never ends its turn waiting for the user to report
+   back — the user's Confirm wakes it.
 
 ## Deploy / run
 

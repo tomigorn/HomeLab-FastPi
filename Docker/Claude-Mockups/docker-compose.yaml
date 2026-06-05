@@ -17,10 +17,35 @@ services:
       - BASIC_AUTH_USER=${BASIC_AUTH_USER}
       - BASIC_AUTH_HASH=${BASIC_AUTH_HASH}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro   # serves /srv with browse + basic auth
-      - ./www:/srv:ro                          # demo content, one subfolder per mockup
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro    # serves /srv with browse + basic auth
+      - ./www:/srv:ro                           # demo content, one subfolder per mockup
+      - ./assets:/assets:ro                     # durable client lib (served at /_assets/*)
     networks:
       - traefik_proxy
+      - mockups_internal
+
+# #########################################################
+# Answer-Inbox ############################################
+# #########################################################
+  answer-inbox:
+    image: node:22-alpine
+    container_name: claude-mockups-inbox
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    command: ["node", "/app/server.js"]
+    environment:
+      - PORT=8080
+      - DATA_DIR=/data
+    volumes:
+      - ./inbox:/app:ro                         # the tiny dependency-free HTTP server
+      - ./answers:/data                         # received selections (Claude reads these)
+    tmpfs:
+      - /tmp
+    networks:
+      - mockups_internal
 
 # =========================================================
 # Networks ================================================
@@ -28,6 +53,11 @@ services:
 networks:
   traefik_proxy:
     external: true
+  # Internal-only: lets Caddy reach answer-inbox without exposing it (and gives
+  # answer-inbox no outbound internet access).
+  mockups_internal:
+    driver: bridge
+    internal: true
 
 # =========================================================
 # Volumes =================================================
