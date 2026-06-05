@@ -11,3 +11,10 @@
 # ───────────────────────────────
 /www/*
 !/www/.gitkeep
+
+# ───────────────────────────────
+# Received answers — user selections, not committed.
+# Keep the folder in git via answers/.gitkeep.
+# ───────────────────────────────
+/answers/*
+!/answers/.gitkeep

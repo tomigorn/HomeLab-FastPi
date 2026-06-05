@@ -1,11 +1,30 @@
-# Static mockup host.
+# Static mockup host + interactive answer back-channel.
 # Auth + directory browsing are handled here; TLS, rate-limiting and security
 # headers are handled upstream by Traefik. Credentials come from the container
 # environment (see .env): BASIC_AUTH_USER and a bcrypt BASIC_AUTH_HASH.
 :80 {
-	root * /srv
-	file_server browse
+	# Site-wide basic auth — applies to the static files AND the answer endpoint.
 	basic_auth {
 		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	# Answer back-channel: mockup pages POST a selection here. The prefix is
+	# stripped, so /_inbox/submit reaches the answer-inbox service as /submit.
+	# answer-inbox lives on an internal-only network (never exposed directly).
+	handle_path /_inbox/* {
+		reverse_proxy answer-inbox:8080
+	}
+
+	# Durable client assets (answer.js / answer.css), mounted separately so the
+	# demo volume can stay read-only. /_assets/answer.js -> /assets/answer.js.
+	handle_path /_assets/* {
+		root * /assets
+		file_server
+	}
+
+	# Everything else: serve the demos with a styled directory listing.
+	handle {
+		root * /srv
+		file_server browse
 	}
 }
