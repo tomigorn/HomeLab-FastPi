@@ -17,6 +17,14 @@ func main() {
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		ensureSuperuser(app)
+		// Set auth token duration to ~3 years (max allowed by PocketBase validation)
+		// so that the PWA session effectively never expires; only explicit logout ends it.
+		if uc, err := app.FindCollectionByNameOrId("users"); err == nil {
+			if uc.AuthToken.Duration != 94670856 {
+				uc.AuthToken.Duration = 94670856 // ~3 years (max allowed, seconds)
+				_ = app.Save(uc)
+			}
+		}
 		registerTOTPRoutes(se)
 		return se.Next()
 	})
