@@ -1,0 +1,36 @@
+# Traefik dynamic config for the LoyaltyCards-Sync (Pocketbase) backend.
+# DEPLOY STEP (do on your cadence): copy this file to
+#   /home/pi/Projects/Docker/Traefik/traefik/dynamic/loyalty-sync.yml
+# Mirrors the loyalty-cards.yml pattern. The PWA reaches Pocketbase over the
+# traefik_proxy network at http://loyalty-sync:8090.
+http:
+  routers:
+    loyalty-sync:
+      rule: "Host(`loyalty-sync.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: loyalty-sync
+      middlewares:
+        - default-rate-limit@file
+        - loyalty-sync-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    loyalty-sync-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    loyalty-sync:
+      loadBalancer:
+        servers:
+          - url: "http://loyalty-sync:8090"
+        passHostHeader: true

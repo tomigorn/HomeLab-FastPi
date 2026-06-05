@@ -27,7 +27,7 @@ http:
             img-src 'self' data: blob: https://img.logo.dev https://icon.horse https://icons.duckduckgo.com;
             script-src 'self' 'wasm-unsafe-eval';
             style-src 'self' 'unsafe-inline';
-            connect-src 'self' https://img.logo.dev https://icon.horse https://icons.duckduckgo.com;
+            connect-src 'self' https://img.logo.dev https://icon.horse https://icons.duckduckgo.com https://loyalty-sync.holy-grail.ch;
             worker-src 'self' blob:;
             manifest-src 'self';
             frame-ancestors 'none'
