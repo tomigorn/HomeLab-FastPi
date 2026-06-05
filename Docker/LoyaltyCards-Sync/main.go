@@ -15,6 +15,9 @@ func main() {
 	app := pocketbase.New()
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{Automigrate: true})
 
+	// C1: block standard password auth for TOTP-enabled users.
+	registerAuthGuards(app)
+
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		ensureSuperuser(app)
 		// Set auth token duration to ~3 years (max allowed by PocketBase validation)
@@ -25,6 +28,14 @@ func main() {
 				_ = app.Save(uc)
 			}
 		}
+		// I1: enable rate limiting on auth routes (6 req / 60 s per client).
+		s := app.Settings()
+		s.RateLimits.Enabled = true
+		s.RateLimits.Rules = []core.RateLimitRule{
+			{Label: "/api/loyalty/totp/", MaxRequests: 6, Duration: 60},
+			{Label: "/api/collections/users/auth-with-password", MaxRequests: 6, Duration: 60},
+		}
+		_ = app.Save(s)
 		registerTOTPRoutes(se)
 		return se.Next()
 	})
