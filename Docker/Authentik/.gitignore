@@ -1,0 +1,24 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials, secrets & tokens
+secrets/
+*.secret
+*.token
+
+# Authentik runtime data
+media/
+certs/
+custom-templates/
+postgres-data/
