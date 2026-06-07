@@ -1,0 +1,32 @@
+http:
+  routers:
+    authentik:
+      rule: "Host(`sso.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: authentik
+      middlewares:
+        - authentik-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    authentik-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    authentik:
+      loadBalancer:
+        servers:
+          - url: "http://authentik-server:9000"
+        passHostHeader: true
