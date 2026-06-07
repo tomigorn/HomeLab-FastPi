@@ -8,6 +8,7 @@ services:
   sbb_easyride_taxreport:
     image: tomigorn/sbb-easyride-taxreport:latest
     container_name: sbb-easyride-taxreport
+    mem_limit: 512m
     ports:
       - "8083:8081"
     env_file:
