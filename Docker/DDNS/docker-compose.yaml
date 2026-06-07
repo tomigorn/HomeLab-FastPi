@@ -8,6 +8,7 @@ services:
   duckdns:
     image: lscr.io/linuxserver/duckdns:latest
     container_name: duckdns
+    mem_limit: 64m
     network_mode: host
     environment:
       - PUID=1000
@@ -25,6 +26,7 @@ services:
   noip:
     image: ghcr.io/noipcom/noip-duc:latest
     container_name: noip
+    mem_limit: 64m
     network_mode: host
     environment:
       - PUID=1000
