@@ -9,6 +9,7 @@ services:
   samba:
     image: ghcr.io/servercontainers/samba:latest
     container_name: samba
+    mem_limit: 256m
     restart: unless-stopped
     labels:
       - autoheal-mouse=true
@@ -99,6 +100,7 @@ services:
   autoheal-mouse:
     image: willfarrell/autoheal:latest
     container_name: autoheal-mouse
+    mem_limit: 64m
     restart: always
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal-mouse
@@ -118,6 +120,7 @@ services:
   gluetun:
     image: qmcgaw/gluetun
     container_name: gluetun_mouse
+    mem_limit: 256m
     cap_add:
       - NET_ADMIN
     devices:
@@ -171,6 +174,7 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent_mouse
+    mem_limit: 512m
     depends_on:
       gluetun:
         condition: service_healthy
@@ -199,6 +203,7 @@ services:
   mousehole:
     container_name: mousehole
     image: tmmrtn/mousehole:latest
+    mem_limit: 256m
     depends_on:
       gluetun:
         condition: service_healthy
@@ -224,6 +229,7 @@ services:
   port-updater:
     build: ./port-updater
     container_name: port_updater
+    mem_limit: 64m
     ports:
       - "${WEB_PORT:-8088}:${WEB_PORT:-8088}"
     volumes:
