@@ -1,0 +1,24 @@
+http:
+  routers:
+    portainer:
+      rule: "Host(`portainer.fastpi.homelab`)"
+      entryPoints: ["internal"]
+      service: portainer
+      middlewares:
+        - portainer-ipallowlist
+
+  middlewares:
+    portainer-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "::1/128"
+          - "192.168.1.0/24"   # LAN
+          - "172.24.0.0/16"    # traefik_proxy bridge — covers LAN and VPN traffic NATted by Docker
+
+  services:
+    portainer:
+      loadBalancer:
+        servers:
+          - url: "http://portainer:9000"
+        passHostHeader: true
