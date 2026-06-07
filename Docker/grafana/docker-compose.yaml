@@ -80,6 +80,8 @@ services:
     container_name: telegraf
     mem_limit: 256m
     user: telegraf
+    environment:
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
     volumes:
       - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
       - /proc:/host/proc:ro

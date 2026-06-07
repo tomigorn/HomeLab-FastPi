@@ -20,8 +20,8 @@
 
 [[outputs.influxdb_v2]]
   urls = ["http://influxdb:8086"]
-  # Real token lives in telegraf/telegraf.conf (gitignored). Copy this file to
-  # telegraf.conf and paste the InfluxDB API token below.
-  token = "REPLACE_WITH_INFLUXDB_TOKEN"
+  # Token is injected from the INFLUX_TOKEN env var (set in .env, passed to the
+  # telegraf container by docker-compose). Telegraf expands ${INFLUX_TOKEN} at load.
+  token = "${INFLUX_TOKEN}"
   organization = "myorg"
   bucket = "rpi"
