@@ -1,0 +1,3 @@
+# Live telegraf config contains an inline InfluxDB API token — keep it out of git.
+# Track telegraf/telegraf.conf.example instead (copy it to telegraf.conf and add the token).
+telegraf/telegraf.conf

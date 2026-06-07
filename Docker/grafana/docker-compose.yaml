@@ -1,0 +1,101 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Prometheus ##############################################
+# #########################################################
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    mem_limit: 1g
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+
+# #########################################################
+# Node Exporter ###########################################
+# #########################################################
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    mem_limit: 128m
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+# #########################################################
+# Grafana #################################################
+# #########################################################
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    mem_limit: 512m
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+
+# #########################################################
+# InfluxDB ################################################
+# #########################################################
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    mem_limit: 1g
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=myorg
+      - DOCKER_INFLUXDB_INIT_BUCKET=rpi
+    restart: unless-stopped
+
+# #########################################################
+# Telegraf ################################################
+# #########################################################
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    mem_limit: 256m
+    user: telegraf
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  grafana_data:
+  prometheus_data:
+  influxdb_data:

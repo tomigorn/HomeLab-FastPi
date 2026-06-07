@@ -1,0 +1,27 @@
+[[inputs.cpu]]
+  percpu = true
+  totalcpu = true
+  collect_cpu_time = false
+  report_active = false
+
+[[inputs.mem]]
+[[inputs.swap]]
+[[inputs.disk]]
+  ignore_fs = ["tmpfs","devtmpfs"]
+[[inputs.net]]
+[[inputs.system]]
+[[inputs.processes]]
+[[inputs.kernel]]
+[[inputs.file]]
+  files = ["/sys/class/thermal/thermal_zone0/temp"]
+  name_override = "cpu_temperature"
+  data_format = "value"
+  data_type = "integer"
+
+[[outputs.influxdb_v2]]
+  urls = ["http://influxdb:8086"]
+  # Real token lives in telegraf/telegraf.conf (gitignored). Copy this file to
+  # telegraf.conf and paste the InfluxDB API token below.
+  token = "REPLACE_WITH_INFLUXDB_TOKEN"
+  organization = "myorg"
+  bucket = "rpi"
