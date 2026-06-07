@@ -8,6 +8,7 @@ services:
   traefik:
     image: traefik:latest
     container_name: traefik
+    mem_limit: 256m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
