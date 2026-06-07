@@ -1,6 +1,12 @@
 # =========================================================
 # Services ================================================
 # =========================================================
+# Based on the official authentik docker-compose
+# (https://goauthentik.io/docker-compose.yml), adapted for this homelab:
+#   - explicit container_name for Traefik file-provider routing
+#   - authentik_internal + external traefik_proxy networks
+#   - no published host ports (ingress is handled by Traefik)
+# All AUTHENTIK_* / PG_* config (including email) is read from .env via env_file.
 services:
 # #########################################################
 # PostgreSQL ##############################################
@@ -8,7 +14,6 @@ services:
   postgresql:
     image: docker.io/library/postgres:16-alpine
     container_name: authentik-postgresql
-    mem_limit: 512m
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
@@ -16,12 +21,14 @@ services:
       interval: 30s
       retries: 5
       timeout: 5s
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ${PG_USER}
-      POSTGRES_DB: ${PG_DB}
-      POSTGRES_PASSWORD: ${PG_PASS}
+      POSTGRES_USER: ${PG_USER:-authentik}
+      POSTGRES_DB: ${PG_DB:-authentik}
+      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+    volumes:
+      - database:/var/lib/postgresql/data
     networks:
       - authentik_internal
 
@@ -29,30 +36,22 @@ services:
 # Authentik Server ########################################
 # #########################################################
   server:
-    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
     container_name: authentik-server
-    mem_limit: 1g
     restart: unless-stopped
     command: server
+    shm_size: 512mb
+    env_file:
+      - .env
     environment:
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
       AUTHENTIK_POSTGRESQL__HOST: postgresql
-      AUTHENTIK_POSTGRESQL__USER: ${PG_USER}
-      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB}
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
-      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
-      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
-      AUTHENTIK_EMAIL__HOST: ${EMAIL_HOST}
-      AUTHENTIK_EMAIL__PORT: ${EMAIL_PORT}
-      AUTHENTIK_EMAIL__USERNAME: ${EMAIL_USERNAME}
-      AUTHENTIK_EMAIL__PASSWORD: ${EMAIL_PASSWORD}
-      AUTHENTIK_EMAIL__USE_TLS: ${EMAIL_USE_TLS}
-      AUTHENTIK_EMAIL__USE_SSL: ${EMAIL_USE_SSL}
-      AUTHENTIK_EMAIL__TIMEOUT: ${EMAIL_TIMEOUT}
-      AUTHENTIK_EMAIL__FROM: ${EMAIL_FROM}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
     volumes:
-      - ./media:/media
+      - ./data:/data
+      - ./custom-templates:/templates
     depends_on:
       postgresql:
         condition: service_healthy
@@ -64,33 +63,25 @@ services:
 # Authentik Worker ########################################
 # #########################################################
   worker:
-    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
     container_name: authentik-worker
-    mem_limit: 1g
     restart: unless-stopped
     command: worker
-    environment:
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
-      AUTHENTIK_POSTGRESQL__HOST: postgresql
-      AUTHENTIK_POSTGRESQL__USER: ${PG_USER}
-      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
-      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
-      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
-      AUTHENTIK_EMAIL__HOST: ${EMAIL_HOST}
-      AUTHENTIK_EMAIL__PORT: ${EMAIL_PORT}
-      AUTHENTIK_EMAIL__USERNAME: ${EMAIL_USERNAME}
-      AUTHENTIK_EMAIL__PASSWORD: ${EMAIL_PASSWORD}
-      AUTHENTIK_EMAIL__USE_TLS: ${EMAIL_USE_TLS}
-      AUTHENTIK_EMAIL__USE_SSL: ${EMAIL_USE_SSL}
-      AUTHENTIK_EMAIL__TIMEOUT: ${EMAIL_TIMEOUT}
-      AUTHENTIK_EMAIL__FROM: ${EMAIL_FROM}
+    shm_size: 512mb
     user: root
+    env_file:
+      - .env
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./media:/media
+      - ./data:/data
       - ./certs:/certs
+      - ./custom-templates:/templates
     depends_on:
       postgresql:
         condition: service_healthy
@@ -109,3 +100,6 @@ networks:
 # =========================================================
 # Volumes =================================================
 # =========================================================
+volumes:
+  database:
+    driver: local
