@@ -8,6 +8,7 @@ services:
   bitwarden:
     image: vaultwarden/server:latest
     container_name: bitwarden
+    mem_limit: 512m
     environment:
       WEBSOCKET_ENABLED: "true" # Enable WebSocket notifications
       SIGNUPS_ALLOWED: "false"  # Disable new user signups
