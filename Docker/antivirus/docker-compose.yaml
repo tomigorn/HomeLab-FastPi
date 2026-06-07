@@ -1,0 +1,97 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+
+# #########################################################
+# Autoheal ################################################
+# #########################################################
+  autoheal-antivirus:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal-antivirus
+    mem_limit: 64m
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal-antivirus
+      - AUTOHEAL_INTERVAL=3600
+      - AUTOHEAL_START_PERIOD=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# #########################################################
+# ClamAV ##################################################
+# #########################################################
+  clamav:
+    build: ./clamav
+    image: clamav-local:latest
+    container_name: clamav
+    mem_limit: 2g
+    restart: unless-stopped
+    labels:
+      - autoheal-antivirus=true
+    environment:
+      - FRESHCLAM_CHECK_INTERVAL=${FRESHCLAM_CHECK_INTERVAL:-60}
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-db:/var/lib/clamav
+      - /mnt/seagate-red/sabnzbd/config/Downloads:/scan/sabnzbd:ro
+      - /mnt/seagate-red/qbittorrent/downloads:/scan/qbittorrent:ro
+    healthcheck:
+      test: ["CMD-SHELL", "echo PING | nc -w3 127.0.0.1 3310 | grep -q PONG"]
+      interval: 60s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - antivirus_network
+
+# #########################################################
+# VirusTotal ##############################################
+# #########################################################
+  virustotal:
+    build: ./virustotal
+    image: virustotal-local:latest
+    container_name: virustotal
+    mem_limit: 256m
+    restart: unless-stopped
+    labels:
+      - autoheal-antivirus=true
+    environment:
+      - VT_API_KEY=${VT_API_KEY}
+    volumes:
+      - /mnt/seagate-red/sabnzbd/config/Downloads:/scan/sabnzbd:ro
+      - /mnt/seagate-red/qbittorrent/downloads:/scan/qbittorrent:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - antivirus_network
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  antivirus_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.34.0.0/16
+          gateway: 172.34.0.1
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  clamav-db:
