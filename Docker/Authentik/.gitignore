@@ -1,0 +1,28 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials, secrets & tokens
+secrets/
+*.secret
+*.token
+credentials.json
+auth.json
+
+# Logs (may leak sensitive data)
+*.log
+
+# Authentik runtime data (bind mounts)
+postgres-data/
+media/
+certs/
