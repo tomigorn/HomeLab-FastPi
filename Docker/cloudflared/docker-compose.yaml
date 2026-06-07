@@ -8,6 +8,7 @@ services:
   cloudflared:
     container_name: cloudflared
     image: cloudflare/cloudflared:latest
+    mem_limit: 256m
     command: tunnel --no-autoupdate --metrics localhost:20241 run --token-file /run/secrets/cloudflared_tunnel_token
     restart: always
     healthcheck:
