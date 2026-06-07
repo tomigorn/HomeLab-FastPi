@@ -1,0 +1,104 @@
+# ============================================================================
+#  EXAMPLE ROUTES — copy/paste templates (everything here is COMMENTED OUT)
+# ----------------------------------------------------------------------------
+#  Two patterns, side by side:
+#    EXAMPLE 1 — a normal public HTTPS service (the everyday pattern, like
+#                audiobookshelf.yml / dashy.yml).
+#    EXAMPLE 2 — the SAME service, but gated behind an Authentik login using
+#                the reusable `authentik` forward-auth middleware
+#                (authentik-forwardauth.yml). Use this for apps with NO native
+#                login of their own. See:
+#                Docker/Authentik/docs/auth-integration-modes.md
+#
+#  To use either: copy the block into a new <app>.yml, uncomment, and replace
+#  example* / myapp* / the backend URL with the real values.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXAMPLE 1 — normal public HTTPS service (no auth gate)
+# ----------------------------------------------------------------------------
+# http:
+#   routers:
+#     example1:
+#       rule: "Host(`example1.holy-grail.ch`)"
+#       entryPoints: ["websecure"]
+#       priority: 1
+#       service: example1
+#       middlewares:
+#         - example1-secure-headers
+#       tls:
+#         certResolver: cloudflare
+#
+#   middlewares:
+#     example1-secure-headers:
+#       headers:
+#         stsSeconds: 31536000
+#         stsIncludeSubdomains: true
+#         stsPreload: true
+#         contentTypeNosniff: true
+#         referrerPolicy: "strict-origin-when-cross-origin"
+#         frameDeny: false
+#         customFrameOptionsValue: "SAMEORIGIN"
+#         permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+#         customResponseHeaders:
+#           Server: ""
+#
+#   services:
+#     example1:
+#       loadBalancer:
+#         servers:
+#           - url: "http://example1-container:8080"
+#         passHostHeader: true
+
+# ----------------------------------------------------------------------------
+# EXAMPLE 2 — same service, GATED behind an Authentik login
+#   Difference vs Example 1: ONE extra middleware on the router — `authentik`
+#   (defined in authentik-forwardauth.yml). Everything else is identical.
+#   Requires the Authentik side to exist (Proxy Provider + outpost) — see
+#   Docker/Authentik/docs/auth-integration-modes.md.
+# ----------------------------------------------------------------------------
+# http:
+#   routers:
+#     example2:
+#       rule: "Host(`example2.holy-grail.ch`)"
+#       entryPoints: ["websecure"]
+#       priority: 1
+#       service: example2
+#       middlewares:
+#         - authentik              # <── the Authentik forward-auth gate
+#         - example2-secure-headers
+#       tls:
+#         certResolver: cloudflare
+#
+#     # --- ONLY needed in "Forward auth (single application)" mode ---
+#     # Lets the login redirect/callback resolve on THIS host. If you use a
+#     # domain-level Proxy Provider (auth at sso.holy-grail.ch covering
+#     # *.holy-grail.ch), delete this router — it isn't needed.
+#     example2-outpost:
+#       rule: "Host(`example2.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+#       entryPoints: ["websecure"]
+#       priority: 10              # higher than the app router so it wins the path
+#       service: authentik        # the Authentik server (see sso.yml)
+#       tls:
+#         certResolver: cloudflare
+#
+#   middlewares:
+#     example2-secure-headers:
+#       headers:
+#         stsSeconds: 31536000
+#         stsIncludeSubdomains: true
+#         stsPreload: true
+#         contentTypeNosniff: true
+#         referrerPolicy: "strict-origin-when-cross-origin"
+#         frameDeny: false
+#         customFrameOptionsValue: "SAMEORIGIN"
+#         permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+#         customResponseHeaders:
+#           Server: ""
+#
+#   services:
+#     example2:
+#       loadBalancer:
+#         servers:
+#           - url: "http://example2-container:8080"
+#         passHostHeader: true
