@@ -18,11 +18,41 @@ Specs/plans: `docs/superpowers/specs/` and `docs/superpowers/plans/`.
 
 ## What's wired today
 
-- **Groups:** `admin`, `streaming`
-- **OIDC apps (Mode 2):** Portainer (admin group only) and Audiobookshelf
-  (admin + streaming). ABS maps the `admin` group claim → ABS Admin role
-  automatically; Portainer CE can't map groups → role, so the first admin
+- **Groups:** `super-admin`, `streaming`
+- **OIDC apps (Mode 2):** Portainer (super-admin only) and Audiobookshelf
+  (super-admin + streaming). ABS maps the `super-admin` group claim → ABS Admin
+  role automatically; Portainer CE can't map groups → role, so the first admin
   Portainer login is promoted manually once.
+
+## Inviting users
+
+New accounts are created by **single-use, expiring invite links** — there is no
+open self-registration. Signup forces a local account (username/email/password)
+**and** mandatory MFA (TOTP **or** WebAuthn passkey). New users are created
+**groupless**; you assign them to `super-admin` / `streaming` manually afterward
+(Directory → Groups → *group* → Users → Add existing user).
+
+The enrollment flow (`enroll`) and its stages are declared in
+`blueprints/enrollment.yaml`.
+
+**Create an invite** — admin UI: Directory → Invitations → Create (pick flow
+`Account enrollment`, set an expiry, single-use). Or via API:
+
+```bash
+TOKEN=$(grep '^AUTHENTIK_BOOTSTRAP_TOKEN=' .env | cut -d= -f2)
+api(){ docker compose exec -T server curl -s -H "Authorization: Bearer $TOKEN" "$@"; }
+FPK=$(api "http://localhost:9000/api/v3/flows/instances/enroll/" | python3 -c "import sys,json;print(json.load(sys.stdin)['pk'])")
+EXP=$(docker compose exec -T server python3 -c "from datetime import datetime,timedelta,timezone;print((datetime.now(timezone.utc)+timedelta(days=7)).isoformat())")
+api -X POST -H "Content-Type: application/json" \
+  -d "{\"name\":\"invite-alice\",\"flow\":\"$FPK\",\"single_use\":true,\"expires\":\"$EXP\"}" \
+  "http://localhost:9000/api/v3/stages/invitation/invitations/" \
+  | python3 -c "import sys,json;d=json.load(sys.stdin);print('https://sso.holy-grail.ch/if/flow/enroll/?itoken='+d['pk'])"
+```
+
+The printed link is what you hand to the invitee. (`name` is required.)
+
+> Deferred: "Sign up with Google" — needs a Google Cloud OAuth client; add as a
+> social source + an OAuth-source step in the enroll flow later.
 
 ## Identity source — **Authentik is the source of truth** (decided 2026-06-07)
 
