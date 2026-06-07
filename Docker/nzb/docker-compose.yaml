@@ -1,0 +1,112 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+
+# #########################################################
+# Autoheal ################################################
+# #########################################################
+  autoheal-nzb:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal-nzb
+    mem_limit: 64m
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal-nzb
+      - AUTOHEAL_INTERVAL=3600
+      - AUTOHEAL_START_PERIOD=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# #########################################################
+# Gluetun VPN #############################################
+# #########################################################
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun_nzb
+    mem_limit: 256m
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${ProtonVPN_Private_Key}
+      - SERVER_COUNTRIES=Switzerland
+      - TZ=Europe/Zurich
+      - WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL=25s
+    # expose host ports here because sabnzbd shares gluetun's network namespace
+    ports:
+      # SABnzbd web UI (host_port:container_port)
+      - "8090:8080"
+    restart: always
+    labels:
+      - autoheal-nzb=true
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - gluetun-data:/tmp/gluetun
+      - ./secrets/gluetun:/gluetun
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      nzb_network:
+        ipv4_address: 172.33.0.2
+
+# #########################################################
+# SABnzbd #################################################
+# #########################################################
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    mem_limit: 1g
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      - PUID=1101
+      - PGID=1100
+      - TZ=Europe/Zurich
+      - HOST_WHITELIST_ENTRIES=fastpi,fastpi.homelab
+    volumes:
+      - /mnt/seagate-red/sabnzbd/config:/config
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: always
+    labels:
+      - autoheal-nzb=true
+    # SABnzbd has no direct network access — all traffic routed through gluetun/ProtonVPN
+    network_mode: "service:gluetun"
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  nzb_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.33.0.0/16
+          gateway: 172.33.0.1
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  gluetun-data:
