@@ -8,6 +8,7 @@ services:
   stonks:
     image: stonks:latest
     container_name: stonks
+    mem_limit: 512m
     restart: unless-stopped
     env_file: .env
     volumes:
