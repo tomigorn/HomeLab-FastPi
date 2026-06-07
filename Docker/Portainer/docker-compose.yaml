@@ -8,6 +8,7 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
+    mem_limit: 256m
     environment:
       TZ: Europe/Zurich
     ports:
@@ -16,6 +17,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
     restart: unless-stopped
+    networks:
+      - traefik_proxy
 # =========================================================
 # Volumes =================================================
 # =========================================================
@@ -24,4 +27,6 @@ volumes:
 # =========================================================
 # Networks ================================================
 # =========================================================
-# networks:
+networks:
+  traefik_proxy:
+    external: true
