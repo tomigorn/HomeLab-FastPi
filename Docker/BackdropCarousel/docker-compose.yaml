@@ -8,6 +8,7 @@ services:
   backdrop-carousel:
     build: .
     container_name: backdrop-carousel
+    mem_limit: 256m
     restart: unless-stopped
     environment:
       - PHOTOS_DIR=/photos
