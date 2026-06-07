@@ -9,6 +9,7 @@ services:
   audiobookshelf:
     container_name: audiobookshelf
     hostname: audiobookshelf
+    mem_limit: 512m
     image: ghcr.io/advplyr/audiobookshelf:latest
     volumes:
       - /mnt/seagate-black/library/audiobooks:/audiobooks
