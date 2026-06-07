@@ -46,6 +46,9 @@ entries:
     attrs:
       name: Audiobookshelf
       client_type: confidential
+      grant_types:
+        - authorization_code
+        - refresh_token
       client_id: !Context abs_client_id
       client_secret: !Context abs_client_secret
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
@@ -56,6 +59,11 @@ entries:
           url: "https://audiobookshelf.holy-grail.ch/auth/openid/callback"
         - matching_mode: strict
           url: "https://audiobookshelf.holy-grail.ch/auth/openid/mobile-redirect"
+        # ABS instance uses a /audiobookshelf base-path prefix on its callback:
+        - matching_mode: strict
+          url: "https://audiobookshelf.holy-grail.ch/audiobookshelf/auth/openid/callback"
+        - matching_mode: strict
+          url: "https://audiobookshelf.holy-grail.ch/audiobookshelf/auth/openid/mobile-redirect"
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-openid"]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
@@ -79,6 +87,9 @@ entries:
     attrs:
       name: Portainer
       client_type: confidential
+      grant_types:
+        - authorization_code
+        - refresh_token
       client_id: !Context portainer_client_id
       client_secret: !Context portainer_client_secret
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
