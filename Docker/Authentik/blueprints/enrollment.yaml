@@ -1,0 +1,108 @@
+version: 1
+metadata:
+  name: "Invite enrollment (local accounts + mandatory MFA)"
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+entries:
+  # ---- Prompt fields ----
+  - model: authentik_stages_prompt.prompt
+    id: prompt-username
+    identifiers: {field_key: username}
+    attrs: {field_key: username, label: Username, type: username, required: true, order: 0, placeholder: Username}
+  - model: authentik_stages_prompt.prompt
+    id: prompt-email
+    identifiers: {field_key: email}
+    attrs: {field_key: email, label: Email, type: email, required: true, order: 1, placeholder: Email}
+  - model: authentik_stages_prompt.prompt
+    id: prompt-name
+    identifiers: {field_key: name}
+    attrs: {field_key: name, label: Display name, type: text, required: true, order: 2, placeholder: Name}
+  - model: authentik_stages_prompt.prompt
+    id: prompt-password
+    identifiers: {field_key: password}
+    attrs: {field_key: password, label: Password, type: password, required: true, order: 3, placeholder: Password}
+  - model: authentik_stages_prompt.prompt
+    id: prompt-password-repeat
+    identifiers: {field_key: password_repeat}
+    attrs: {field_key: password_repeat, label: Confirm password, type: password, required: true, order: 4, placeholder: Confirm password}
+
+  # ---- Stages ----
+  - model: authentik_stages_invitation.invitationstage
+    id: stage-invitation
+    identifiers: {name: enroll-invitation}
+    attrs: {name: enroll-invitation, continue_flow_without_invitation: false}
+
+  - model: authentik_stages_prompt.promptstage
+    id: stage-prompt
+    identifiers: {name: enroll-prompt}
+    attrs:
+      name: enroll-prompt
+      fields:
+        - !KeyOf prompt-username
+        - !KeyOf prompt-email
+        - !KeyOf prompt-name
+        - !KeyOf prompt-password
+        - !KeyOf prompt-password-repeat
+
+  - model: authentik_stages_user_write.userwritestage
+    id: stage-user-write
+    identifiers: {name: enroll-user-write}
+    attrs:
+      name: enroll-user-write
+      user_creation_mode: always_create
+      user_type: internal
+      # No create_users_group -> users are created groupless (assigned manually later).
+
+  - model: authentik_stages_authenticator_totp.authenticatortotpstage
+    id: stage-totp
+    identifiers: {name: enroll-totp-setup}
+    attrs: {name: enroll-totp-setup, friendly_name: Authenticator app (TOTP), digits: 6}
+
+  - model: authentik_stages_authenticator_webauthn.authenticatorwebauthnstage
+    id: stage-webauthn
+    identifiers: {name: enroll-webauthn-setup}
+    attrs: {name: enroll-webauthn-setup, friendly_name: Passkey / security key}
+
+  - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+    id: stage-mfa
+    identifiers: {name: enroll-mfa-validate}
+    attrs:
+      name: enroll-mfa-validate
+      not_configured_action: configure
+      device_classes: [totp, webauthn]
+      configuration_stages:
+        - !KeyOf stage-totp
+        - !KeyOf stage-webauthn
+
+  - model: authentik_stages_user_login.userloginstage
+    id: stage-login
+    identifiers: {name: enroll-login}
+    attrs: {name: enroll-login}
+
+  # ---- Enrollment flow ----
+  - model: authentik_flows.flow
+    id: flow-enroll
+    identifiers: {slug: enroll}
+    attrs:
+      name: Account enrollment
+      slug: enroll
+      title: Create your account
+      designation: enrollment
+      authentication: require_unauthenticated
+
+  # ---- Stage bindings (order defines flow sequence) ----
+  - model: authentik_flows.flowstagebinding
+    identifiers: {target: !KeyOf flow-enroll, stage: !KeyOf stage-invitation, order: 10}
+    attrs: {evaluate_on_plan: true, re_evaluate_policies: false}
+  - model: authentik_flows.flowstagebinding
+    identifiers: {target: !KeyOf flow-enroll, stage: !KeyOf stage-prompt, order: 20}
+    attrs: {evaluate_on_plan: true, re_evaluate_policies: false}
+  - model: authentik_flows.flowstagebinding
+    identifiers: {target: !KeyOf flow-enroll, stage: !KeyOf stage-user-write, order: 30}
+    attrs: {evaluate_on_plan: true, re_evaluate_policies: false}
+  - model: authentik_flows.flowstagebinding
+    identifiers: {target: !KeyOf flow-enroll, stage: !KeyOf stage-mfa, order: 40}
+    attrs: {evaluate_on_plan: true, re_evaluate_policies: false}
+  - model: authentik_flows.flowstagebinding
+    identifiers: {target: !KeyOf flow-enroll, stage: !KeyOf stage-login, order: 50}
+    attrs: {evaluate_on_plan: true, re_evaluate_policies: false}
