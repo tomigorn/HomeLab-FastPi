@@ -11,6 +11,7 @@ services:
       dockerfile: ./Dockerfile
     image: jenkins-jdk-21
     container_name: jenkins-jdk-21
+    mem_limit: 2g
     privileged: true
     user: root
     restart: always
