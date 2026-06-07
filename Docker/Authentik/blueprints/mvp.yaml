@@ -13,9 +13,9 @@ entries:
   - model: authentik_core.group
     id: group-admin
     identifiers:
-      name: admin
+      name: super-admin
     attrs:
-      name: admin
+      name: super-admin
   - model: authentik_core.group
     id: group-streaming
     identifiers:
@@ -34,7 +34,7 @@ entries:
       scope_name: groups
       description: "Emits admin/user for Audiobookshelf role mapping"
       expression: |
-        if ak_is_group_member(user, name="admin"):
+        if ak_is_group_member(user, name="super-admin"):
             return {"groups": ["admin"]}
         return {"groups": ["user"]}
 
