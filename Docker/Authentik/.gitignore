@@ -23,6 +23,6 @@ auth.json
 *.log
 
 # Authentik runtime data (bind mounts)
-postgres-data/
-media/
+data/
 certs/
+custom-templates/

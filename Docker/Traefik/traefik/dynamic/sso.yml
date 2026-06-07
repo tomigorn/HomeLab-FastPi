@@ -6,6 +6,7 @@ http:
       priority: 1
       service: authentik
       middlewares:
+        - default-rate-limit@file
         - authentik-secure-headers
       tls:
         certResolver: cloudflare
