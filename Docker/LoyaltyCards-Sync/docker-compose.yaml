@@ -9,6 +9,7 @@ services:
     build: .
     image: loyaltycards-sync:local
     container_name: loyalty-sync
+    mem_limit: 256m
     restart: unless-stopped
     environment:
       - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL}
