@@ -9,6 +9,7 @@
 | Jenkins | ❌ | ❌ | | |  |
 | Portainer | ❌ | ❌ | | |  |
 | Traefik | ✅ | ✅ | 3.7.0 | 06.05.2026 | latest |
+| Authentik | ❌ | ❌ | | |  |
 | Watchtower | ❌ | ❌ | | |  |
 | WireguardVPN | ❌ | ❌ | | |  |
 | AdGuard | ✅ | ✅ | v0.107.74 | 05.05.2026 | latest |
@@ -23,3 +24,4 @@
 | Stonks | ❌ | ❌ | | |  |
 | Claude-Mockups | ❌ | ❌ | | |  |
 | LoyaltyCards | ❌ | ❌ | | |  |
+| LoyaltyCards-Sync | ❌ | ❌ | | |  |
