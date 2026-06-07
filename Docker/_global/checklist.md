@@ -24,3 +24,4 @@
 | Claude-Mockups | ❌ | ❌ | | |  |
 | LoyaltyCards | ❌ | ❌ | | |  |
 | LoyaltyCards-Sync | ❌ | ❌ | | |  |
+| Authentik | ❌ | ❌ | | |  |
