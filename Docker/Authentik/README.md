@@ -43,11 +43,21 @@ authentik-worker ──SMTP 587 (STARTTLS)──> Brevo ──> recipient inbox
    certificate for `sso.holy-grail.ch` is issued by Traefik via the Cloudflare
    DNS-01 resolver (see `Docker/Traefik/traefik/dynamic/sso.yml`).
 
-3. **Brevo (email)** — create a free Brevo account, authenticate the
-   `holy-grail.ch` domain, and add the SPF/DKIM/DMARC records Brevo provides
-   into Cloudflare DNS. Create an SMTP key — its login/key become
-   `AUTHENTIK_EMAIL__USERNAME` / `AUTHENTIK_EMAIL__PASSWORD`. Any equivalent
-   provider (Resend, MailerSend, SendGrid…) works — change `AUTHENTIK_EMAIL__*`.
+3. **Brevo (email)** — create a free Brevo account, then:
+   - **Authenticate the domain (automatic — recommended):** Brevo → *Senders,
+     Domains & Dedicated IPs → Domains* → add `holy-grail.ch` → choose
+     **"Authenticate the domain automatically"** → Continue. In the pop-up, Brevo
+     detects the DNS provider (Cloudflare); **log in to Cloudflare and click
+     Allow/Authorize** — Brevo then **creates the DNS records itself** (Brevo
+     code, DKIM, DMARC). No manual copy-paste. Re-check via *View Configuration →
+     Authenticate this email domain* (can take up to ~48h, usually minutes).
+     *(Manual fallback: if it can't auto-detect, Brevo lists the records to add by
+     hand under Cloudflare → DNS → Records.)*
+   - **SMTP key:** Brevo → *SMTP & API → SMTP* → copy the **Login** and generate
+     an **SMTP key**; these become `AUTHENTIK_EMAIL__USERNAME` /
+     `AUTHENTIK_EMAIL__PASSWORD`.
+   - Any equivalent provider (Resend, MailerSend, Scaleway TEM…) works — just
+     change `AUTHENTIK_EMAIL__*`.
 
 4. **Secrets** — copy the template and fill it in:
    ```bash

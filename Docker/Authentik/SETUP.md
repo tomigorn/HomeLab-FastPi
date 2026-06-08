@@ -52,13 +52,18 @@ actual delivery. There is **no** self-hosted mail server and **no** inbound mail
 
 ### One-time Brevo setup
 1. Create a Brevo account.
-2. **Authenticate the domain:** Brevo → *Senders, Domains & Dedicated IPs → Domains*
-   → add `holy-grail.ch`. Brevo gives you DNS records (a `brevo-code` TXT, two
-   `brevo1/brevo2._domainkey` DKIM records, an SPF include).
-3. **Add those records in Cloudflare DNS** (DNS-only / grey-cloud). Ensure a single
-   SPF record includes `include:spf.brevo.com`. Optionally add a `_dmarc` TXT.
-   Click *Authenticate* in Brevo until green.
-4. **SMTP credentials:** Brevo → *SMTP & API → SMTP* → note the **Login** and
+2. **Authenticate the domain — automatic (recommended, this is how it was set up):**
+   Brevo → *Senders, Domains & Dedicated IPs → Domains* → add `holy-grail.ch` →
+   choose **"Authenticate the domain automatically"** → Continue. A pop-up detects
+   your DNS provider (Cloudflare); **log in to Cloudflare and click Allow/Authorize**.
+   Brevo then **creates all required DNS records for you** (Brevo code, DKIM, DMARC) —
+   no manual copy-paste. Verification can take up to ~48h (usually minutes); re-check
+   with *View Configuration → Authenticate this email domain*.
+   - *Manual fallback* (only if auto-detect/authorize fails): Brevo lists the records
+     — a `brevo-code` TXT, two `brevo1/brevo2._domainkey` DKIM records, an SPF
+     `include:spf.brevo.com`, and an optional `_dmarc` TXT — to add by hand under
+     Cloudflare → DNS → Records (DNS-only / grey-cloud).
+3. **SMTP credentials:** Brevo → *SMTP & API → SMTP* → note the **Login** and
    generate an **SMTP key** (this is the password).
 
 ### How Authentik is wired to it
