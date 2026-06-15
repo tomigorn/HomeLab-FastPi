@@ -37,9 +37,9 @@ environment and Claude credentials.
 ```ini
 [Unit]
 Description=Claude Code Remote Control (drive local sessions from claude.ai/code & the Claude mobile app)
-# Keep retrying if the network/auth isn't ready yet at boot
-StartLimitIntervalSec=300
-StartLimitBurst=10
+# Never permanently give up: always keep retrying (no start-rate limit) so a
+# transient crash-loop (auth/network blip) can't leave the service dead until reboot.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -57,6 +57,11 @@ ExecStart=%h/.local/bin/claude remote-control --name fastpi --permission-mode au
 Restart=always
 RestartSec=10
 
+# Memory ceiling so a long-running/leaking session can't take the Pi down.
+# MemoryHigh throttles first (soft), MemoryMax is the hard kill line.
+MemoryHigh=1500M
+MemoryMax=2G
+
 [Install]
 WantedBy=default.target
 ```
@@ -69,10 +74,55 @@ WantedBy=default.target
   This is the key piece; a user service without linger only runs while you're logged in.
 - **`Restart=always` / `RestartSec=10`** — auto-recovers from crashes, network blips or
   transient auth hiccups.
-- **`StartLimitBurst=10` over 300s** — keeps retrying at boot if the network/auth isn't
-  ready yet, instead of giving up.
+- **`StartLimitIntervalSec=0`** — no start-rate limit, so a transient crash-loop can't
+  trip systemd's "give up" threshold and leave the service dead until the next reboot.
+- **Memory ceiling (`MemoryHigh=1500M` / `MemoryMax=2G`)** — long-running Claude sessions
+  accumulate memory; this throttles then hard-caps the cgroup so a leak can't OOM the Pi.
+- **Nightly restart timer** (see below) — reclaims memory, refreshes auth, and picks up
+  any manually-installed `claude` update once a day.
 - **Pinned PATH** — uses the absolute fnm node path, not the per-shell
   `/run/user/.../fnm_multishells` path which doesn't exist outside an interactive shell.
+
+### Nightly restart timer
+
+A oneshot service + timer restart Remote Control every night at 04:00. This is the
+standard "just restart it" mitigation for the three long-uptime risks above (memory
+growth, silent OAuth-refresh stalls, running a stale binary after a manual update).
+
+**`~/.config/systemd/user/claude-remote-restart.service`**
+
+```ini
+[Unit]
+Description=Nightly restart of Claude Code Remote Control (reclaim memory, refresh auth, pick up updates)
+Wants=claude-remote.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user restart claude-remote.service
+```
+
+**`~/.config/systemd/user/claude-remote-restart.timer`**
+
+```ini
+[Unit]
+Description=Nightly restart timer for Claude Code Remote Control
+
+[Timer]
+# Every day at 04:00 local time; Persistent catches up if the Pi was off at 04:00.
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable + inspect:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now claude-remote-restart.timer
+systemctl --user list-timers claude-remote-restart.timer
+```
 
 ---
 
@@ -137,9 +187,14 @@ auth + MFA).
 
 ```bash
 mkdir -p ~/.config/systemd/user
-# write ~/.config/systemd/user/claude-remote.service with the unit above
+# write the three unit files above:
+#   ~/.config/systemd/user/claude-remote.service
+#   ~/.config/systemd/user/claude-remote-restart.service
+#   ~/.config/systemd/user/claude-remote-restart.timer
 loginctl enable-linger pi
 systemctl --user daemon-reload
 systemctl --user enable --now claude-remote.service
+systemctl --user enable --now claude-remote-restart.timer
 systemctl --user status claude-remote.service
+systemctl --user list-timers claude-remote-restart.timer
 ```
