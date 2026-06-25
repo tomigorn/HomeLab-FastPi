@@ -1,16 +1,17 @@
 # Wakes beefy (via the Beefy-Waker gate) before proxying any beefy-bound route.
 #
-# forwardAuth -> http://192.168.1.2:9001/   (fastpi LAN IP; the Beefy-Waker
+# forwardAuth -> http://192.168.1.2:9001/gate   (fastpi LAN IP; the Beefy-Waker
 #   container runs host-network there)
 #     beefy up   -> 200       -> request is proxied straight through
 #     beefy down -> 503 + page -> the gate sends a WoL magic packet and returns
 #                                 an auto-refreshing "waking up" page
 #
+# (The Beefy-Waker root / serves the manual LAN wake page instead — see beefy-wol.yml.)
 # Attach to a router:   middlewares: [beefy-wake]
 # Project: /home/pi/Projects/Docker/Beefy-Waker
 http:
   middlewares:
     beefy-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/"
+        address: "http://192.168.1.2:9001/gate"
         trustForwardHeader: false   # the gate ignores X-Forwarded-* anyway

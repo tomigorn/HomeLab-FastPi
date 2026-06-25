@@ -1,0 +1,36 @@
+# Manual "wake beefy" page — LAN-only, no Cloudflare route.
+#
+# https://beefy-wol.fastpi.homelab/   (add this name -> 192.168.1.2 in the LAN DNS)
+#   - websecure (443) with Traefik's DEFAULT self-signed cert (tls: {}, no ACME):
+#     a `.homelab` name can't get a public cert, so the browser warns once — fine
+#     for a LAN tool. No edits to the global 80->443 redirect needed.
+#   - Not added to the Cloudflare tunnel, so it is unreachable from the internet;
+#     the IP-allowlist is a second guard (LAN clients hit Traefik directly, so
+#     their real source IP is seen).
+#   - Backend is the Beefy-Waker page at :9001 (root /), which fires the WoL packet
+#     and polls beefy until it answers.
+# Project: /home/pi/Projects/Docker/Beefy-Waker
+http:
+  routers:
+    beefy-wol:
+      rule: "Host(`beefy-wol.fastpi.homelab`)"
+      entryPoints: ["websecure"]
+      service: beefy-wol
+      middlewares:
+        - beefy-wol-ipallowlist
+      tls: {}                       # default self-signed cert; no certResolver
+
+  middlewares:
+    beefy-wol-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "::1/128"
+          - "192.168.1.0/24"   # LAN
+          - "172.24.0.0/16"    # traefik_proxy bridge — covers LAN/VPN NATted by Docker
+
+  services:
+    beefy-wol:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:9001"
