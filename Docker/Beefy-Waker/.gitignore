@@ -22,6 +22,10 @@ auth.json
 # Logs (may leak sensitive data)
 *.log
 
+# Python bytecode
+__pycache__/
+*.pyc
+
 # Project data/config dirs that may hold secrets — uncomment as needed
 # data/
 # config/
