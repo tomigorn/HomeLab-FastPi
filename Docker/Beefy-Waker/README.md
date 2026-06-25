@@ -6,18 +6,26 @@ automatically on first access. Runs on **fastpi**, the always-on Traefik edge.
 
 Part of the [beefy migration](https://github.com/tomigorn/HomeLab-BeefyServer)
 wake-on-demand phase. The off/on mechanism (`ssh beefy-poweroff` /
-`wakeonlan`) already exists; this is the **wake-on-request** half.
+`wakeonlan`) already exists; this is the **wake** half. beefy decides when to
+*sleep* itself (see `Server/8-Idle-Watcher.md` in the beefy repo).
 
-## How it works
+beefy can be woken **two ways**, both served by the one tiny `app/waker.py`
+(host network, `:9001`):
+
+1. **Automatically** — Traefik's `forwardAuth` gate (`/gate`) fires the WoL when a
+   request arrives for a beefy service that's asleep.
+2. **Manually** — open the **LAN wake page** (`/`) in a browser to wake beefy on
+   demand, with a countdown and live status.
+
+## 1. Automatic gate (`/gate`)
 
 Traefik cannot run a script as middleware — a middleware is only a built-in, a
 Go plugin, or **`forwardAuth`** (Traefik calls an HTTP endpoint and acts on the
-status code). So the whole thing is: a native `forwardAuth` middleware pointing
-at a tiny HTTP gate we own.
+status code). So it's a native `forwardAuth` middleware pointing at our gate:
 
 ```
 request → Traefik router (a beefy host)
-            → forwardAuth: GET http://192.168.1.2:9001/   (this service)
+            → forwardAuth: GET http://192.168.1.2:9001/gate
                  ├─ beefy reachable?  TCP-probe 192.168.1.102:22
                  │     yes → 200  → Traefik proxies straight to beefy
                  │     no  → send WoL magic packet to 192.168.1.255:9,
@@ -26,22 +34,46 @@ request → Traefik router (a beefy host)
 ```
 
 - **No third-party WoL package.** The magic packet is ~3 lines of stdlib
-  `socket` (`app/waker.py`). The only reason a service exists at all is that
-  `forwardAuth` speaks HTTP, not shell.
-- **No Traefik restart.** The middleware is pure dynamic config
-  (`Traefik/traefik/dynamic/beefy-wake.yml`), hot-reloaded by the file provider.
-- First cold request blocks only as long as the browser keeps refreshing the
-  waiting page (~51 s beefy cold boot); no long-held connection, so Cloudflare's
-  ~100 s tunnel timeout is never in play.
+  `socket`. The only reason a service exists at all is that `forwardAuth` speaks
+  HTTP, not shell.
+- **No Traefik restart.** Pure dynamic config (`dynamic/beefy-wake.yml`),
+  hot-reloaded.
+
+## 2. Manual LAN wake page (`/`)
+
+Open **`https://beefy-wol.fastpi.homelab/`** in a browser. On load it fires the
+WoL packet, shows a ~`WAKE_COUNTDOWN`s countdown to beefy's typical boot time,
+polls `/status` in the background, and switches to **"beefy is up and running"**
+once it answers.
+
+- Routed by Traefik (`dynamic/beefy-wol.yml`) on **websecure with the default
+  self-signed cert** (`tls: {}`) — a `.homelab` name can't get a public cert, so
+  the browser warns once; fine for a LAN tool. No change to the global 80→443
+  redirect.
+- **LAN-only:** the hostname is not in the Cloudflare tunnel (so unreachable from
+  the internet), and an `ipAllowList` (LAN + bridge ranges) is a second guard.
+- **DNS:** add `beefy-wol.fastpi.homelab → 192.168.1.2` to the LAN DNS (router).
+  Works immediately without that via `http://fastpi.local:9001/` (mDNS) or
+  `http://192.168.1.2:9001/`.
+
+### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/` | Interactive wake page (HTML) |
+| GET | `/status` | `{"up": true\|false}` — TCP-probes beefy |
+| POST | `/wake` | Fire the WoL magic packet → `{"sent": …}` |
+| GET | `/gate` | forwardAuth gate (`?host=` `?port=` override) |
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `app/waker.py` | The gate. Stdlib only, no deps. |
+| `app/waker.py` | Gate + status/wake endpoints + the manual page. Stdlib only, no deps. |
 | `docker-compose.yaml` | `python:3.13-alpine`, host network, runs the script. |
-| `.env` | MAC, broadcast, probe target, listen port (no secrets). |
-| `Traefik/.../dynamic/beefy-wake.yml` | The `beefy-wake` forwardAuth middleware (lives in the Traefik project). |
+| `.env` | MAC, broadcast, probe target, listen port, countdown (no secrets). |
+| `Traefik/.../dynamic/beefy-wake.yml` | The `beefy-wake` forwardAuth middleware (auto gate). |
+| `Traefik/.../dynamic/beefy-wol.yml` | The LAN-only `beefy-wol.fastpi.homelab` route (manual page). |
 
 ## Deploy
 
@@ -79,8 +111,11 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `BEEFY_MAC` | MAC to wake. |
 | `BEEFY_BROADCAST` | LAN subnet broadcast (`192.168.1.255`, not `255.255.255.255` — fastpi has many docker bridges). |
 | `BEEFY_PROBE_HOST` / `BEEFY_PROBE_PORT` | TCP probe target for "is beefy up". `22` = booted. |
+| `WAKE_COUNTDOWN` | Manual page countdown seconds (typical cold boot). Default `60`. |
 
-## Not included (future)
+## The sleep half (elsewhere)
 
-Idle auto-poweroff is a **separate** task: a timer that calls
-`ssh beefy-poweroff` after N minutes of no requests. This project only wakes.
+This project only **wakes** beefy. beefy decides when to **sleep itself** via the
+`beefy-idle-watcher` systemd service in the beefy repo
+(`Server/8-Idle-Watcher.md`) — it powers off after sustained inactivity, and the
+WoL here brings it back.
