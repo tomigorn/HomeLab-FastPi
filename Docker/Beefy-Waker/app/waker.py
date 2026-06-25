@@ -46,6 +46,9 @@ COUNTDOWN = int(os.environ.get("WAKE_COUNTDOWN", "60"))
 SSH_USER = os.environ.get("BEEFY_SSH_USER", "buntu")  # for /history journal fetch
 HISTORY_KEY = "/key"            # mounted read-only forced-command key
 HISTORY_KNOWN_HOSTS = "/known_hosts"
+# Only show boots starting at/after this epoch-MICROSECONDS cutoff (0 = show all).
+# Set it to "now" to start the history fresh, hiding old experimental boots.
+HISTORY_SINCE = int(os.environ.get("BEEFY_HISTORY_SINCE", "0"))
 
 WAKE_UDP_PORT = 9     # UDP port magic packets are sent to
 PROBE_TIMEOUT = 1.0   # seconds per TCP probe
@@ -178,7 +181,8 @@ function fmtDate(ms){
     hour:'2-digit', minute:'2-digit'});
 }
 function renderHist(boots){
-  if(!Array.isArray(boots) || !boots.length) return '<p class="muted">No history.</p>';
+  if(!Array.isArray(boots) || !boots.length) return '<p class="muted">No sessions recorded '
+    + 'yet \\u2014 tracking from now on.</p>';
   boots.sort((a,b)=> b.index - a.index); // most recent first
   let html = '<div class="tl">';
   for(let i=0;i<boots.length;i++){
@@ -278,7 +282,11 @@ class Handler(BaseHTTPRequestHandler):
                 capture_output=True, text=True, timeout=12)
             out = r.stdout.strip()
             if r.returncode == 0 and out.startswith("["):
-                self._send(200, "application/json", out.encode())
+                boots = json.loads(out)
+                if HISTORY_SINCE:  # drop boots that started before the cutoff
+                    boots = [b for b in boots
+                             if b.get("first_entry", 0) >= HISTORY_SINCE]
+                self._send(200, "application/json", json.dumps(boots).encode())
             else:
                 self.log_message("history fetch failed rc=%d: %s",
                                  r.returncode, (r.stderr or "").strip()[:120])
