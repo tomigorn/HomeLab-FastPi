@@ -87,6 +87,16 @@ ENTRY="command=\"journalctl --list-boots -o json --no-pager\",no-pty,no-port-for
 ssh beefy "grep -q beefy-history ~/.ssh/authorized_keys || echo '$ENTRY' >> ~/.ssh/authorized_keys"
 ```
 
+**Starting the history fresh** (drop old/experimental boots, track only from now on):
+set `BEEFY_HISTORY_SINCE` (epoch microseconds) in `.env` to the current boot's start,
+then `docker compose up -d`. **Non-destructive** — beefy's journal is untouched; old
+boots are just filtered out of the panel.
+```sh
+curl -s http://127.0.0.1:9001/history | python3 -c \
+  "import sys,json;print([x for x in json.load(sys.stdin) if x['index']==0][0]['first_entry'])"
+# put that number in .env as BEEFY_HISTORY_SINCE=<value>, then: docker compose up -d
+```
+
 ## Files
 
 | File | Purpose |
@@ -94,7 +104,7 @@ ssh beefy "grep -q beefy-history ~/.ssh/authorized_keys || echo '$ENTRY' >> ~/.s
 | `app/waker.py` | Gate + status/wake/history endpoints + the manual page. Stdlib only. |
 | `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`). |
 | `docker-compose.yaml` | Builds the image, host network, runs the script. |
-| `.env` | MAC, broadcast, probe target, port, countdown, ssh user (no secrets). |
+| `.env` | MAC, broadcast, probe, port, countdown, ssh user, history cutoff (no secrets). |
 | `secrets/` | Read-only history SSH key + `known_hosts` (gitignored). |
 | `Traefik/.../dynamic/beefy-wake.yml` | The `beefy-wake` forwardAuth middleware (auto gate). |
 | `Traefik/.../dynamic/beefy-wol.yml` | The LAN-only `beefy-wol.fastpi.homelab` route (manual page). |
@@ -107,8 +117,8 @@ docker compose up -d --build
 ```
 
 The `beefy-wake.yml` / `beefy-wol.yml` files in Traefik's dynamic dir are picked
-up automatically — no Traefik restart. (`/history` needs the one-time key setup
-below; the page works without it, just without the history panel.)
+up automatically — no Traefik restart. (`/history` needs the one-time key setup in
+the "beefy history" section above; the page works without it, just without the panel.)
 
 ## Attach to a route
 
@@ -137,6 +147,8 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `BEEFY_BROADCAST` | LAN subnet broadcast (`192.168.1.255`, not `255.255.255.255` — fastpi has many docker bridges). |
 | `BEEFY_PROBE_HOST` / `BEEFY_PROBE_PORT` | TCP probe target for "is beefy up". `22` = booted. |
 | `WAKE_COUNTDOWN` | Manual page countdown seconds (typical cold boot). Default `60`. |
+| `BEEFY_SSH_USER` | SSH user for the `/history` boot-list fetch. Default `buntu`. |
+| `BEEFY_HISTORY_SINCE` | Hide boots that started before this epoch-µs cutoff (`0` = show all). See "Starting the history fresh" below. |
 
 ## The sleep half (elsewhere)
 
