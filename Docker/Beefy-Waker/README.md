@@ -63,15 +63,39 @@ once it answers.
 | GET | `/` | Interactive wake page (HTML) |
 | GET | `/status` | `{"up": true\|false}` — TCP-probes beefy |
 | POST | `/wake` | Fire the WoL magic packet → `{"sent": …}` |
+| GET | `/history` | beefy's boot/sleep timeline (JSON) — fetched from its journal |
 | GET | `/gate` | forwardAuth gate (`?host=` `?port=` override) |
+
+### "beefy history" panel
+
+The wake page has a collapsed **"beefy history"** section; opening it lazy-fetches
+`/history` and renders a timeline of awake sessions (and the sleeps between them).
+
+`/history` runs a one-shot SSH to beefy using a **read-only forced-command key** —
+beefy's `authorized_keys` pins the command to `journalctl --list-boots -o json`, so
+the key can do *nothing else* (no pty, no forwarding). beefy's journal is
+persistent, so this is real history across reboots. It only loads while beefy is
+awake; otherwise the panel shows "history loads once beefy is awake".
+
+**One-time key setup** (run on fastpi; the private key lives in gitignored `secrets/`):
+```sh
+cd /home/pi/Projects/Docker/Beefy-Waker && mkdir -p secrets
+ssh-keygen -t ed25519 -N "" -C beefy-history -f secrets/beefy-history
+chmod 600 secrets/beefy-history
+ssh-keyscan -t ed25519 192.168.1.102 > secrets/known_hosts
+ENTRY="command=\"journalctl --list-boots -o json --no-pager\",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding $(cat secrets/beefy-history.pub)"
+ssh beefy "grep -q beefy-history ~/.ssh/authorized_keys || echo '$ENTRY' >> ~/.ssh/authorized_keys"
+```
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `app/waker.py` | Gate + status/wake endpoints + the manual page. Stdlib only, no deps. |
-| `docker-compose.yaml` | `python:3.13-alpine`, host network, runs the script. |
-| `.env` | MAC, broadcast, probe target, listen port, countdown (no secrets). |
+| `app/waker.py` | Gate + status/wake/history endpoints + the manual page. Stdlib only. |
+| `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`). |
+| `docker-compose.yaml` | Builds the image, host network, runs the script. |
+| `.env` | MAC, broadcast, probe target, port, countdown, ssh user (no secrets). |
+| `secrets/` | Read-only history SSH key + `known_hosts` (gitignored). |
 | `Traefik/.../dynamic/beefy-wake.yml` | The `beefy-wake` forwardAuth middleware (auto gate). |
 | `Traefik/.../dynamic/beefy-wol.yml` | The LAN-only `beefy-wol.fastpi.homelab` route (manual page). |
 
@@ -79,11 +103,12 @@ once it answers.
 
 ```sh
 cd /home/pi/Projects/Docker/Beefy-Waker
-docker compose up -d
+docker compose up -d --build
 ```
 
-The `beefy-wake.yml` middleware file is dropped into Traefik's dynamic dir and
-picked up automatically — no Traefik restart.
+The `beefy-wake.yml` / `beefy-wol.yml` files in Traefik's dynamic dir are picked
+up automatically — no Traefik restart. (`/history` needs the one-time key setup
+below; the page works without it, just without the history panel.)
 
 ## Attach to a route
 
