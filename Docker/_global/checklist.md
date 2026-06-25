@@ -25,3 +25,4 @@
 | LoyaltyCards | ❌ | ❌ | | |  |
 | LoyaltyCards-Sync | ❌ | ❌ | | |  |
 | Authentik | ❌ | ❌ | | |  |
+| Beefy-Waker | ❌ | ❌ | | |  |

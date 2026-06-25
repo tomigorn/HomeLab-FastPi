@@ -1,0 +1,31 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Beefy-Waker #############################################
+# #########################################################
+  waker:
+    image: python:3.13-alpine
+    container_name: beefy-waker
+    restart: unless-stopped
+    # Host network so the magic packet can be broadcast onto the LAN
+    # and so Traefik can reach the gate at <fastpi-ip>:${WAKER_LISTEN_PORT}.
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./app/waker.py:/app/waker.py:ro
+    command: ["python", "/app/waker.py"]
+    mem_limit: 64m
+    security_opt:
+      - no-new-privileges:true
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+# (none — uses host networking)
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+# (none — app is a single bind-mounted script)
