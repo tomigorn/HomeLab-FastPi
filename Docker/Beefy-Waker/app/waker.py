@@ -83,7 +83,9 @@ WAKE_PAGE = """<!doctype html>
   html,body{height:100%;margin:0}
   body{display:flex;align-items:center;justify-content:center;
        font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
-  .card{text-align:center;max-width:30rem;padding:2rem}
+  .card{text-align:center;width:min(95vw,80rem);padding:1.5rem}
+  /* keep the hero a tidy centered column; the history log uses the full width */
+  #waiting,#done{max-width:32rem;margin:0 auto}
   .spin{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border:4px solid #30363d;
         border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
   .ok{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border-radius:50%;
@@ -94,8 +96,8 @@ WAKE_PAGE = """<!doctype html>
   .hidden{display:none}
   details.hist{margin-top:2.2rem;text-align:left;border-top:1px solid #21262d;padding-top:1rem}
   summary{cursor:pointer;color:#8b949e;font-size:.95rem;user-select:none}
-  .tl{margin:.9rem 0 0;font-size:.82rem;line-height:1.6;
-      max-height:16rem;overflow:auto}
+  .tl{margin:.9rem 0 0;font-size:.85rem;line-height:1.7;
+      max-height:60vh;overflow-y:auto}
   .tl .up{color:#3fb950}
   .tl .sleep{color:#6e7681;padding-left:.15rem}
   .muted{color:#6e7681}
