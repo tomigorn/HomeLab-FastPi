@@ -6,7 +6,8 @@ services:
 # Beefy-Waker #############################################
 # #########################################################
   waker:
-    image: python:3.13-alpine
+    build: .                       # python:3.13-alpine + openssh-client (see Dockerfile)
+    image: beefy-waker:local
     container_name: beefy-waker
     restart: unless-stopped
     # Host network so the magic packet can be broadcast onto the LAN
@@ -15,6 +16,9 @@ services:
     env_file: .env
     volumes:
       - ./app/waker.py:/app/waker.py:ro
+      # read-only forced-command key (journalctl --list-boots only) for /history
+      - ./secrets/beefy-history:/key:ro
+      - ./secrets/known_hosts:/known_hosts:ro
     command: ["python", "/app/waker.py"]
     mem_limit: 64m
     security_opt:

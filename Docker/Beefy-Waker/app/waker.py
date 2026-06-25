@@ -32,6 +32,7 @@ Stdlib only; no dependencies.
 import json
 import os
 import socket
+import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -42,6 +43,9 @@ BROADCAST = os.environ.get("BEEFY_BROADCAST", "255.255.255.255")
 PROBE_HOST = os.environ.get("BEEFY_PROBE_HOST", "")
 PROBE_PORT = int(os.environ.get("BEEFY_PROBE_PORT", "22"))
 COUNTDOWN = int(os.environ.get("WAKE_COUNTDOWN", "60"))
+SSH_USER = os.environ.get("BEEFY_SSH_USER", "buntu")  # for /history journal fetch
+HISTORY_KEY = "/key"            # mounted read-only forced-command key
+HISTORY_KNOWN_HOSTS = "/known_hosts"
 
 WAKE_UDP_PORT = 9     # UDP port magic packets are sent to
 PROBE_TIMEOUT = 1.0   # seconds per TCP probe
@@ -88,6 +92,14 @@ WAKE_PAGE = """<!doctype html>
   p{color:#8b949e;margin:.3rem 0}
   .count{font-size:2.6rem;font-variant-numeric:tabular-nums;margin:.4rem 0;color:#58a6ff}
   .hidden{display:none}
+  details.hist{margin-top:2.2rem;text-align:left;border-top:1px solid #21262d;padding-top:1rem}
+  summary{cursor:pointer;color:#8b949e;font-size:.95rem;user-select:none}
+  .tl{margin:.9rem 0 0;font-size:.82rem;line-height:1.6;
+      max-height:16rem;overflow:auto}
+  .tl .up{color:#3fb950}
+  .tl .sleep{color:#6e7681;padding-left:.15rem}
+  .muted{color:#6e7681}
+  .hist a{color:#58a6ff}
 </style></head>
 <body><div class="card">
   <div id="waiting">
@@ -101,6 +113,7 @@ WAKE_PAGE = """<!doctype html>
     <h1>beefy is up and running</h1>
     <p>You can reach its services now.</p>
   </div>
+  <details class="hist" id="hist"><summary>beefy history</summary><div id="histbody"></div></details>
 <script>
 const TOTAL = __COUNTDOWN__;
 let left = TOTAL;
@@ -132,6 +145,52 @@ async function poll(){
 fetch('/wake', {method:'POST'}).catch(()=>{});
 setInterval(tick, 1000);
 poll();
+
+// --- collapsed "beefy history" panel: lazy-fetch on first open ---
+const hist = document.getElementById('hist');
+let histLoaded = false;
+hist.addEventListener('toggle', async () => {
+  if(!hist.open || histLoaded) return;
+  histLoaded = true;
+  const body = document.getElementById('histbody');
+  body.innerHTML = '<p class="muted">Loading\\u2026</p>';
+  try{
+    const r = await fetch('/history', {cache:'no-store'});
+    if(!r.ok) throw new Error('unreachable');
+    body.innerHTML = renderHist(await r.json());
+  }catch(e){
+    histLoaded = false; // allow a retry
+    body.innerHTML = '<p class="muted">History loads once beefy is awake. '
+      + '<a href="#" id="retry">\\u21BB retry</a></p>';
+    document.getElementById('retry').onclick = ev => {
+      ev.preventDefault(); hist.dispatchEvent(new Event('toggle')); };
+  }
+});
+function fmtDur(ms){
+  const s = Math.max(0, Math.round(ms/1000));
+  const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+  if(d) return d+'d '+h+'h'; if(h) return h+'h '+m+'m'; return m+'m';
+}
+function fmtDate(ms){
+  return new Date(ms).toLocaleString([], {month:'short', day:'numeric',
+    hour:'2-digit', minute:'2-digit'});
+}
+function renderHist(boots){
+  if(!Array.isArray(boots) || !boots.length) return '<p class="muted">No history.</p>';
+  boots.sort((a,b)=> b.index - a.index); // most recent first
+  let html = '<div class="tl">';
+  for(let i=0;i<boots.length;i++){
+    const start = boots[i].first_entry/1000, end = boots[i].last_entry/1000;
+    html += '<div class="up">\\u{1F7E2} ' + fmtDate(start) + ' \\u2192 ' + fmtDate(end)
+          + ' <span class="muted">(up ' + fmtDur(end-start) + ')</span></div>';
+    const older = boots[i+1];
+    if(older){
+      const gap = start - older.last_entry/1000;
+      if(gap > 0) html += '<div class="sleep">\\u{1F634} asleep ' + fmtDur(gap) + '</div>';
+    }
+  }
+  return html + '</div>';
+}
 </script>
 </div></body></html>"""
 
@@ -173,6 +232,8 @@ class Handler(BaseHTTPRequestHandler):
             self._status()
         elif path == "/wake":
             self._wake()
+        elif path == "/history":
+            self._history()
         elif path == "/gate":
             self._gate()
         else:
@@ -196,6 +257,34 @@ class Handler(BaseHTTPRequestHandler):
             self.log_message("WoL send failed: %s", e)
             sent = False
         self._send(200, "application/json", json.dumps({"sent": sent}).encode())
+
+    def _history(self):
+        # Fetch beefy's boot/sleep history via the read-only forced-command key.
+        # The forced command (in beefy's authorized_keys) only ever returns
+        # `journalctl --list-boots -o json`; whatever we "ask" is ignored.
+        if not (os.path.exists(HISTORY_KEY) and os.path.exists(HISTORY_KNOWN_HOSTS)):
+            self._send(503, "application/json",
+                       json.dumps({"error": "history key not installed"}).encode())
+            return
+        try:
+            r = subprocess.run(
+                ["ssh", "-T", "-i", HISTORY_KEY, "-o", "BatchMode=yes",
+                 "-o", "StrictHostKeyChecking=yes",
+                 "-o", "UserKnownHostsFile=" + HISTORY_KNOWN_HOSTS,
+                 "-o", "ConnectTimeout=4",
+                 "%s@%s" % (SSH_USER, PROBE_HOST)],
+                capture_output=True, text=True, timeout=12)
+            out = r.stdout.strip()
+            if r.returncode == 0 and out.startswith("["):
+                self._send(200, "application/json", out.encode())
+            else:
+                self.log_message("history fetch failed rc=%d: %s",
+                                 r.returncode, (r.stderr or "").strip()[:120])
+                self._send(503, "application/json",
+                           json.dumps({"error": "beefy unreachable"}).encode())
+        except Exception as e:
+            self._send(503, "application/json",
+                       json.dumps({"error": str(e)}).encode())
 
     # --- the Traefik forwardAuth gate ---------------------------------------
     def _gate(self):
