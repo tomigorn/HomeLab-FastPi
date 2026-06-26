@@ -64,7 +64,7 @@ once it answers.
 | GET | `/status` | `{"up": true\|false}` — TCP-probes beefy |
 | POST | `/wake` | Fire the WoL magic packet → `{"sent": …}` |
 | GET | `/history` | beefy's boot/sleep timeline (JSON) — fetched from its journal |
-| GET | `/gate` | forwardAuth gate (`?host=` `?port=` override) |
+| GET | `/gate` | forwardAuth gate; `?port=` override (host is hard-wired to beefy) |
 
 ### "beefy history" panel
 
