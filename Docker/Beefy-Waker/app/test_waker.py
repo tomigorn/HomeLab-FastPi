@@ -71,6 +71,10 @@ class ServerTest(unittest.TestCase):
             _, body = self.req("GET", path)
             self.assertIn(expected, body)
 
+    def test_handler_has_request_timeout(self):
+        # a slow / never-finishing client must not tie up a worker thread forever
+        self.assertTrue(waker.Handler.timeout and waker.Handler.timeout > 0)
+
 
 if __name__ == "__main__":
     unittest.main()
