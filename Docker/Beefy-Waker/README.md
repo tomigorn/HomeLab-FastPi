@@ -39,12 +39,18 @@ request → Traefik router (a beefy host)
 - **No Traefik restart.** Pure dynamic config (`dynamic/beefy-wake.yml`),
   hot-reloaded.
 
-## 2. Manual LAN wake page (`/`)
+## 2. Manual LAN wake page (`/` and `/wol`)
 
-Open **`https://beefy-wol.fastpi.homelab/`** in a browser. On load it fires the
-WoL packet, shows a ~`WAKE_COUNTDOWN`s countdown to beefy's typical boot time,
-polls `/status` in the background, and switches to **"beefy is up and running"**
-once it answers.
+Open **`https://beefy-wol.fastpi.homelab/`** in a browser:
+
+- **`/`** (root) — shows beefy's **current state** and a big **Wake** button; it does
+  **not** wake beefy just because you opened it. Asleep → "beefy is asleep" + Wake
+  button; up → "beefy is up and running". It polls `/status` every 3 s and live-updates.
+  Pressing **Wake** fires the packet and switches to the countdown.
+- **`/wol`** — the one-click variant: on load it **immediately** fires the WoL packet,
+  shows a ~`WAKE_COUNTDOWN`s countdown, and polls `/status` until beefy answers.
+
+Both show the collapsed **beefy history** panel and the app version in the footer.
 
 - Routed by Traefik (`dynamic/beefy-wol.yml`) on **websecure with the default
   self-signed cert** (`tls: {}`) — a `.homelab` name can't get a public cert, so
@@ -60,7 +66,8 @@ once it answers.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Interactive wake page (HTML) |
+| GET | `/` | State + manual wake page (HTML) — shows beefy's status + a Wake button; does **not** auto-wake |
+| GET | `/wol` | Same page, but **auto-fires** WoL on load (countdown) |
 | GET | `/status` | `{"up": true\|false}` — TCP-probes beefy |
 | POST | `/wake` | Fire the WoL magic packet → `{"sent": …}` |
 | GET | `/history` | beefy's boot/sleep timeline (JSON) — fetched from its journal |
@@ -150,6 +157,36 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `WAKE_COUNTDOWN` | Manual page countdown seconds (typical cold boot). Default `60`. |
 | `BEEFY_SSH_USER` | SSH user for the `/history` boot-list fetch. Default `buntu`. |
 | `BEEFY_HISTORY_SINCE` | Hide boots that started before this epoch-µs cutoff (`0` = show all). See "Starting the history fresh" below. |
+
+## Operations & known limitations
+
+See [`docs/2026-06-26-power-management-review.md`](docs/2026-06-26-power-management-review.md)
+for the full adversarial review. The essentials:
+
+**Waking beefy**
+- Automatic: any request to a beefy service routed through the `beefy-wake` middleware.
+- Manual: the wake page (`/wol`, or `/` + Wake button), or `wakeonlan 74:56:3c:96:79:a3`
+  from fastpi (out-of-band fallback if this container is down).
+
+**Keeping beefy awake / not sleeping when it shouldn't**
+- beefy sleeps after **15 min** with no SSH, no VS Code Remote, no inbound service
+  connection, and low CPU/net/disk. A **detached low-resource job** (compute, download, a
+  paused `apt`) can read as idle → real poweroff mid-job. Before any unattended work:
+  `sudo touch /run/beefy-keep-awake` on beefy (clears on reboot; `sudo rm` to release).
+- Conversely, **any persistent connection to a service port** (a keepalive monitor, a
+  left-open browser tab, an idle WebSocket) pins beefy awake indefinitely.
+
+**Known gaps (see review for detail & fixes)**
+- When attaching `beefy-wake` to a real beefy route, gate on the **service port**
+  (`?port=<n>`), not host:22 — else a cold boot / shutdown can 502 instead of showing the
+  waking page.
+- The raw `:9001` host port is **not** behind Traefik's `ipAllowList` (LAN/bridge-reachable,
+  not the internet). Consider binding to the LAN IP or a host firewall rule.
+- This waker is a **single point of failure** for automatic wakes and has **no Docker
+  healthcheck** yet — a *hung* (not crashed) process isn't auto-restarted.
+
+**Versions:** Beefy-Waker `v1.0.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+(its startup log banner).
 
 ## The sleep half (elsewhere)
 
