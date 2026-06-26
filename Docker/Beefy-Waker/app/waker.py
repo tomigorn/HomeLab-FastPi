@@ -14,7 +14,8 @@ Two jobs, one tiny stdlib server on fastpi (host network, :9001):
    `https://beefy-wol.fastpi.homelab/`.
 
 Endpoints:
-  GET  /          interactive wake page (HTML)
+  GET  /          state + manual wake page (HTML); no auto-wake on load
+  GET  /wol       same page but auto-fires WoL on load (countdown)
   GET  /status    JSON {"up": true|false}   (TCP-probes beefy)
   POST /wake      fire the WoL magic packet; JSON {"sent": true|false}
   GET  /gate      forwardAuth gate (200 up / 503 + page down); ?port= override
@@ -88,7 +89,12 @@ WAKE_PAGE = """<!doctype html>
        font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
   .card{text-align:center;width:min(95vw,80rem);padding:1.5rem}
   /* keep the hero a tidy centered column; the history log uses the full width */
-  #waiting,#done{max-width:32rem;margin:0 auto}
+  #checking,#asleep,#waiting,#done{max-width:32rem;margin:0 auto}
+  .btn{display:inline-block;border:0;cursor:pointer;font:inherit;font-weight:600;
+       font-size:1.35rem;padding:1rem 2.6rem;margin:.9rem 0;border-radius:.7rem;
+       background:#238636;color:#fff}
+  .btn:hover{background:#2ea043} .btn:active{transform:translateY(1px)}
+  .moon{font-size:3rem;line-height:1;margin:0 auto 1rem}
   .spin{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border:4px solid #30363d;
         border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
   .ok{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border-radius:50%;
@@ -107,7 +113,18 @@ WAKE_PAGE = """<!doctype html>
   .hist a{color:#58a6ff}
 </style></head>
 <body><div class="card">
-  <div id="waiting">
+  <div id="checking">
+    <div class="spin"></div>
+    <h1>Checking beefy&hellip;</h1>
+    <p>Reading current state&hellip;</p>
+  </div>
+  <div id="asleep" class="hidden">
+    <div class="moon">&#128164;</div>
+    <h1>beefy is asleep</h1>
+    <p>Send a wake-up packet to start it.</p>
+    <button id="wakeBtn" class="btn">Wake beefy</button>
+  </div>
+  <div id="waiting" class="hidden">
     <div class="spin"></div>
     <h1>Waking up beefy&hellip;</h1>
     <div class="count" id="count">~__COUNTDOWN__s</div>
@@ -120,16 +137,19 @@ WAKE_PAGE = """<!doctype html>
   </div>
   <details class="hist" id="hist"><summary>beefy history</summary><div id="histbody"></div></details>
 <script>
+const AUTOWAKE = __AUTOWAKE__;
 const TOTAL = __COUNTDOWN__;
 let left = TOTAL;
+let mode = 'idle';            // 'idle' = live state view, 'waking' = countdown
+let countTimer = null;
 const countEl = document.getElementById('count');
 const subEl = document.getElementById('sub');
 
-function showUp(){
-  document.getElementById('waiting').classList.add('hidden');
-  document.getElementById('done').classList.remove('hidden');
-  document.title = 'beefy is up';
+function show(id){
+  for(const v of ['checking','asleep','waiting','done'])
+    document.getElementById(v).classList.toggle('hidden', v !== id);
 }
+function showUp(){ show('done'); document.title = 'beefy is up'; }
 function tick(){
   left -= 1;
   if(left > 0){ countEl.textContent = '~' + left + 's'; }
@@ -138,17 +158,28 @@ function tick(){
     subEl.textContent = 'Taking a little longer than usual, still trying\\u2026';
   }
 }
+function startWaking(){
+  mode = 'waking'; left = TOTAL;
+  countEl.textContent = '~' + TOTAL + 's';
+  subEl.textContent = 'Magic packet sent. Checking when it answers\\u2026';
+  show('waiting');
+  fetch('/wake', {method:'POST'}).catch(()=>{});
+  if(!countTimer) countTimer = setInterval(tick, 1000);
+}
 async function poll(){
-  try{
-    const r = await fetch('/status', {cache:'no-store'});
-    const j = await r.json();
-    if(j.up){ showUp(); return; }
-  }catch(e){}
+  let up = false;
+  try{ up = (await (await fetch('/status', {cache:'no-store'})).json()).up; }
+  catch(e){}
+  if(up){
+    if(countTimer){ clearInterval(countTimer); countTimer = null; }
+    mode = 'idle'; showUp();
+  } else if(mode === 'idle'){
+    show('asleep');
+  }
   setTimeout(poll, 3000);
 }
-// fire the magic packet, then start the clock + polling
-fetch('/wake', {method:'POST'}).catch(()=>{});
-setInterval(tick, 1000);
+document.getElementById('wakeBtn').addEventListener('click', startWaking);
+if(AUTOWAKE) startWaking();
 poll();
 
 // --- collapsed "beefy history" panel: lazy-fetch on first open ---
@@ -233,7 +264,9 @@ class Handler(BaseHTTPRequestHandler):
     def _route(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
         if path == "/":
-            self._page()
+            self._page(autowake=False)
+        elif path == "/wol":
+            self._page(autowake=True)
         elif path == "/status":
             self._status()
         elif path == "/wake":
@@ -246,8 +279,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     # --- the interactive manual wake page -----------------------------------
-    def _page(self):
-        body = WAKE_PAGE.replace("__COUNTDOWN__", str(COUNTDOWN)).encode()
+    def _page(self, autowake):
+        body = (WAKE_PAGE
+                .replace("__COUNTDOWN__", str(COUNTDOWN))
+                .replace("__AUTOWAKE__", "true" if autowake else "false")
+                .encode())
         self._send(200, "text/html; charset=utf-8", body)
 
     def _status(self):
