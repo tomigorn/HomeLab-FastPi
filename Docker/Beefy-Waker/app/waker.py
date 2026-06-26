@@ -17,7 +17,7 @@ Endpoints:
   GET  /          interactive wake page (HTML)
   GET  /status    JSON {"up": true|false}   (TCP-probes beefy)
   POST /wake      fire the WoL magic packet; JSON {"sent": true|false}
-  GET  /gate      forwardAuth gate (200 up / 503 + page down); ?host= ?port= override
+  GET  /gate      forwardAuth gate (200 up / 503 + page down); ?port= override
 
 Config via env (see .env):
   WAKER_LISTEN_PORT  port to listen on (host network)        default 9001
@@ -255,6 +255,10 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, "application/json", json.dumps({"up": up}).encode())
 
     def _wake(self):
+        if self.command != "POST":   # POST-only: avoid drive-by GET/<img> wakes
+            self._send(405, "application/json",
+                       json.dumps({"error": "POST only"}).encode())
+            return
         try:
             send_wol(MAC, BROADCAST)
             self.log_message("manual wake -> sent WoL to %s via %s", MAC, BROADCAST)
@@ -283,9 +287,11 @@ class Handler(BaseHTTPRequestHandler):
             out = r.stdout.strip()
             if r.returncode == 0 and out.startswith("["):
                 boots = json.loads(out)
+                if not isinstance(boots, list):
+                    raise ValueError("unexpected history payload")
                 if HISTORY_SINCE:  # drop boots that started before the cutoff
-                    boots = [b for b in boots
-                             if b.get("first_entry", 0) >= HISTORY_SINCE]
+                    boots = [b for b in boots if isinstance(b, dict)
+                             and b.get("first_entry", 0) >= HISTORY_SINCE]
                 self._send(200, "application/json", json.dumps(boots).encode())
             else:
                 self.log_message("history fetch failed rc=%d: %s",
@@ -293,21 +299,32 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(503, "application/json",
                            json.dumps({"error": "beefy unreachable"}).encode())
         except Exception as e:
+            self.log_message("history error: %s", e)   # don't leak details to client
             self._send(503, "application/json",
-                       json.dumps({"error": str(e)}).encode())
+                       json.dumps({"error": "history unavailable"}).encode())
 
     # --- the Traefik forwardAuth gate ---------------------------------------
     def _gate(self):
+        # host is hard-wired to beefy. `?port=` lets a sibling middleware probe a
+        # specific beefy service port for precise readiness; it is range-checked and
+        # falls back to the default on bad input. We intentionally do NOT honour a
+        # `?host=` override (it would turn this LAN-reachable endpoint into an
+        # arbitrary-host TCP-probe oracle), and a malformed `?port=` must not crash
+        # this forwardAuth handler.
         q = parse_qs(urlparse(self.path).query)
-        host = q.get("host", [PROBE_HOST])[0]
-        port = int(q.get("port", [str(PROBE_PORT)])[0])
-        if is_up(host, port):
+        try:
+            port = int(q.get("port", [str(PROBE_PORT)])[0])
+            if not (1 <= port <= 65535):
+                raise ValueError(port)
+        except (ValueError, TypeError):
+            port = PROBE_PORT
+        if is_up(PROBE_HOST, port):
             self._send(200, "text/plain", b"")
             return
         try:
             send_wol(MAC, BROADCAST)
             self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
-                             host, port, MAC, BROADCAST)
+                             PROBE_HOST, port, MAC, BROADCAST)
         except Exception as e:
             self.log_message("WoL send failed: %s", e)
         self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)

@@ -20,6 +20,12 @@ services:
       - ./secrets/beefy-history:/key:ro
       - ./secrets/known_hosts:/known_hosts:ro
     command: ["python", "/app/waker.py"]
+    # Non-root + no capabilities: it binds :9001 (>1024), sends a broadcast UDP
+    # packet (SO_BROADCAST is unprivileged), reads the mounted key, and runs ssh —
+    # none of which need root or any capability. uid 1000 owns app/secrets on the host.
+    user: "1000:1000"        # the "waker" user created in the Dockerfile
+    cap_drop:
+      - ALL
     mem_limit: 64m
     security_opt:
       - no-new-privileges:true
