@@ -102,6 +102,7 @@ curl -s http://127.0.0.1:9001/history | python3 -c \
 | File | Purpose |
 |------|---------|
 | `app/waker.py` | Gate + status/wake/history endpoints + the manual page. Stdlib only. |
+| `app/VERSION` | App version (semver) shown in the page footer. **Bump on each user-facing change.** |
 | `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`). |
 | `docker-compose.yaml` | Builds the image, host network, runs the script. |
 | `.env` | MAC, broadcast, probe, port, countdown, ssh user, history cutoff (no secrets). |

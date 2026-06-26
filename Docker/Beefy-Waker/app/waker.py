@@ -54,6 +54,18 @@ HISTORY_SINCE = int(os.environ.get("BEEFY_HISTORY_SINCE", "0"))
 WAKE_UDP_PORT = 9     # UDP port magic packets are sent to
 PROBE_TIMEOUT = 1.0   # seconds per TCP probe
 
+
+def _read_version():
+    """App version from the VERSION file next to this script (bumped per release)."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as f:
+            return f.read().strip() or "dev"
+    except OSError:
+        return "dev"
+
+
+VERSION = _read_version()
+
 # Simple auto-refresh page returned by the forwardAuth gate (/gate) on a miss.
 WAKING_PAGE = b"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -111,6 +123,7 @@ WAKE_PAGE = """<!doctype html>
   .tl .sleep{color:#6e7681;padding-left:.15rem}
   .muted{color:#6e7681}
   .hist a{color:#58a6ff}
+  .ver{margin-top:1.4rem;color:#484f58;font-size:.75rem;letter-spacing:.02em}
 </style></head>
 <body><div class="card">
   <div id="checking">
@@ -136,6 +149,7 @@ WAKE_PAGE = """<!doctype html>
     <p>You can reach its services now.</p>
   </div>
   <details class="hist" id="hist"><summary>beefy history</summary><div id="histbody"></div></details>
+  <div class="ver">v__VERSION__</div>
 <script>
 const AUTOWAKE = __AUTOWAKE__;
 const TOTAL = __COUNTDOWN__;
@@ -283,6 +297,7 @@ class Handler(BaseHTTPRequestHandler):
         body = (WAKE_PAGE
                 .replace("__COUNTDOWN__", str(COUNTDOWN))
                 .replace("__AUTOWAKE__", "true" if autowake else "false")
+                .replace("__VERSION__", VERSION)
                 .encode())
         self._send(200, "text/html; charset=utf-8", body)
 

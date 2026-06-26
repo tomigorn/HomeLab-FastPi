@@ -16,6 +16,7 @@ services:
     env_file: .env
     volumes:
       - ./app/waker.py:/app/waker.py:ro
+      - ./app/VERSION:/app/VERSION:ro        # app version shown in the page footer
       # read-only forced-command key (journalctl --list-boots only) for /history
       - ./secrets/beefy-history:/key:ro
       - ./secrets/known_hosts:/known_hosts:ro

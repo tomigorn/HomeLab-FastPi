@@ -63,6 +63,14 @@ class ServerTest(unittest.TestCase):
         status, _ = self.req("GET", "/nope")
         self.assertEqual(status, 404)
 
+    def test_page_shows_version_from_file(self):
+        vfile = os.path.join(os.path.dirname(os.path.abspath(waker.__file__)), "VERSION")
+        with open(vfile) as f:
+            expected = "v" + f.read().strip()
+        for path in ("/", "/wol"):
+            _, body = self.req("GET", path)
+            self.assertIn(expected, body)
+
 
 if __name__ == "__main__":
     unittest.main()
