@@ -195,6 +195,37 @@ for the full adversarial review. The essentials:
 **Versions:** Beefy-Waker `v1.0.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
+## SSH wake (optional): make `ssh beefy` auto-wake the box
+
+`wake-beefy-connect` (in this repo, run in place) lets `ssh beefy` — and `scp`, `rsync`,
+`git`, `ssh beefy '<cmd>'` — transparently wake beefy when it's asleep, using **fastpi as a
+jump host**. It's an SSH `ProxyCommand`: it runs on fastpi, fires a WoL via the waker
+(`POST /wake`) if beefy is down, waits for sshd, then pipes the connection through.
+
+- **On fastpi:** the script lives here in the repo (executable, tracked). It's referenced by
+  absolute path in the client config, so there's **no install step** — it runs straight from
+  the repo. Needs `nc` (`netcat-openbsd`).
+- **On your client** (`~/.ssh/config`):
+
+  ```
+  Host beefy
+      HostName 192.168.1.102
+      User buntu
+      ProxyCommand ssh fastpi /home/pi/Projects/Docker/Beefy-Waker/wake-beefy-connect %h %p
+      ConnectTimeout 120
+      ServerAliveInterval 30
+  ```
+
+  Requires `ssh fastpi` to work from the client (fastpi is the always-on entry — reachable on
+  LAN, or remotely via VPN). Your client's own key still authenticates to beefy; the
+  ProxyCommand only provides wake + transport.
+
+- **Behaviour:** an interactive `ssh beefy` keeps beefy awake (the idle-watcher counts it
+  busy); a one-off `ssh beefy '<cmd>'` wakes, runs, and lets it sleep again ~15 min later.
+
+Verified end-to-end 2026-06-26: beefy auto-slept, `ssh beefy` fired WoL → ~1 min boot →
+proxied login succeeded.
+
 ## The sleep half (elsewhere)
 
 This project only **wakes** beefy. beefy decides when to **sleep itself** via the

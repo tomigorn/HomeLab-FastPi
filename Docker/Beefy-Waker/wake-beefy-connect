@@ -1,0 +1,22 @@
+#!/bin/sh
+# Wake beefy if it's asleep, wait for sshd, then pipe a TCP stream to it.
+# Used as an SSH ProxyCommand from fastpi so `ssh beefy` (and scp/rsync/git/
+# `ssh beefy cmd`) transparently wake the box. Usage: wake-beefy-connect <host> <port>
+host="${1:-192.168.1.102}"
+port="${2:-22}"
+
+if ! nc -z -w1 "$host" "$port" 2>/dev/null; then
+    # Not reachable -> fire WoL via the always-on waker (the tested WoL path);
+    # fall back to wakeonlan if the waker is unavailable.
+    curl -fsS -X POST http://192.168.1.2:9001/wake >/dev/null 2>&1 \
+        || wakeonlan 74:56:3c:96:79:a3 >/dev/null 2>&1 || true
+    # Wait up to ~90s for sshd to answer (cold boot is ~1 min).
+    i=0
+    while [ "$i" -lt 90 ]; do
+        nc -z -w1 "$host" "$port" 2>/dev/null && break
+        i=$((i + 1))
+        sleep 1
+    done
+fi
+
+exec nc "$host" "$port"
