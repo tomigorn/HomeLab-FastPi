@@ -197,10 +197,15 @@ for the full adversarial review. The essentials:
 
 ## SSH wake (optional): make `ssh beefy` auto-wake the box
 
-`wake-beefy-connect` (in this repo, run in place) lets `ssh beefy` — and `scp`, `rsync`,
-`git`, `ssh beefy '<cmd>'` — transparently wake beefy when it's asleep, using **fastpi as a
-jump host**. It's an SSH `ProxyCommand`: it runs on fastpi, fires a WoL via the waker
-(`POST /wake`) if beefy is down, waits for sshd, then pipes the connection through.
+Two ways — pick per client depending on whether it can SSH to fastpi or just needs the LAN.
+Both make `ssh beefy` (and `scp`/`rsync`/`git`/`ssh beefy '<cmd>'`) transparently wake beefy,
+with no change to beefy or the waker.
+
+### A) fastpi as jump host — `wake-beefy-connect` (client can reach fastpi, even remotely)
+
+An SSH `ProxyCommand` that runs on fastpi: fires a WoL via the waker (`POST /wake`) if beefy is
+down, waits for sshd, then pipes the connection through. The whole session routes via fastpi,
+so it works even for clients that can reach **only** fastpi (e.g. remote over VPN).
 
 - **On fastpi:** the script lives here in the repo (executable, tracked). It's referenced by
   absolute path in the client config, so there's **no install step** — it runs straight from
@@ -220,11 +225,41 @@ jump host**. It's an SSH `ProxyCommand`: it runs on fastpi, fires a WoL via the 
   LAN, or remotely via VPN). Your client's own key still authenticates to beefy; the
   ProxyCommand only provides wake + transport.
 
-- **Behaviour:** an interactive `ssh beefy` keeps beefy awake (the idle-watcher counts it
-  busy); a one-off `ssh beefy '<cmd>'` wakes, runs, and lets it sleep again ~15 min later.
+### B) LAN client, no fastpi SSH — `wake-beefy-client` via `Match exec`
+
+For clients **on the LAN** (can reach beefy directly) but **without** fastpi SSH. The client
+connects straight to beefy; only the *wake* goes over HTTP to the waker, which any LAN host can
+hit at `http://192.168.1.2:9001`. Needs only `curl` + LAN reachability to `192.168.1.2:9001`
+and `192.168.1.102:22` — no fastpi SSH, no DNS, no cert. This is the one to hand to **every
+user who needs beefy** but isn't a fastpi admin.
+
+Drop `wake-beefy-client` (in this repo) into the client's `PATH` and reference it:
+
+```
+Host beefy
+    HostName 192.168.1.102
+    User buntu
+    ConnectTimeout 15
+Match host beefy exec "wake-beefy-client"
+```
+
+…or inline it (nothing to install — just paste this block):
+
+```
+Host beefy
+    HostName 192.168.1.102
+    User buntu
+    ConnectTimeout 15
+Match host beefy exec "curl -fsS --max-time 3 http://192.168.1.2:9001/status | grep -q '\"up\": *true' || { curl -fsS --max-time 5 -X POST http://192.168.1.2:9001/wake >/dev/null 2>&1; n=0; while [ $n -lt 90 ]; do curl -fsS --max-time 3 http://192.168.1.2:9001/status | grep -q '\"up\": *true' && break; n=$((n+1)); sleep 1; done; }; true"
+```
+
+### Behaviour (both)
+
+An interactive `ssh beefy` keeps beefy awake (the idle-watcher counts it busy); a one-off
+`ssh beefy '<cmd>'` wakes, runs, and lets it sleep again ~15 min later.
 
 Verified end-to-end 2026-06-26: beefy auto-slept, `ssh beefy` fired WoL → ~1 min boot →
-proxied login succeeded.
+connection succeeded.
 
 ## The sleep half (elsewhere)
 

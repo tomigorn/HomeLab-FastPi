@@ -1,0 +1,13 @@
+#!/bin/sh
+# Wake beefy from a LAN client that does NOT have fastpi SSH access.
+# Use as an SSH `Match exec` (see README): `ssh beefy` (and scp/rsync/git) fires a WoL
+# via the waker's HTTP endpoint, waits for sshd, then SSH connects DIRECTLY to beefy.
+# Needs only `curl` + LAN reachability to the waker (192.168.1.2:9001) and beefy:22.
+W="http://192.168.1.2:9001"
+up() { curl -fsS --max-time 3 "$W/status" 2>/dev/null | grep -q '"up": *true'; }
+
+up && exit 0                                                # already awake -> connect now
+curl -fsS --max-time 5 -X POST "$W/wake" >/dev/null 2>&1    # fire WoL
+n=0
+while [ "$n" -lt 90 ]; do up && break; n=$((n + 1)); sleep 1; done
+exit 0                                                      # never block the ssh attempt
