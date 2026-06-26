@@ -176,14 +176,21 @@ for the full adversarial review. The essentials:
 - Conversely, **any persistent connection to a service port** (a keepalive monitor, a
   left-open browser tab, an idle WebSocket) pins beefy awake indefinitely.
 
-**Known gaps (see review for detail & fixes)**
+**Hardening applied 2026-06-26**
+- `:9001` binds to the **LAN IP** (`WAKER_BIND`), so the raw port isn't exposed on docker
+  bridges / other interfaces (Traefik still reaches it — verified).
+- A **Docker `healthcheck`** (`GET /status`) reports liveness. Note: plain compose does **not**
+  auto-restart on unhealthy (only crashes/OOM are) — it's for observability + future
+  autoheal/swarm.
+- A **per-request socket timeout** (`Handler.timeout`) so slow / never-finishing clients can't
+  exhaust worker threads.
+
+**Known gaps still open (see review for detail)**
 - When attaching `beefy-wake` to a real beefy route, gate on the **service port**
-  (`?port=<n>`), not host:22 — else a cold boot / shutdown can 502 instead of showing the
-  waking page.
-- The raw `:9001` host port is **not** behind Traefik's `ipAllowList` (LAN/bridge-reachable,
-  not the internet). Consider binding to the LAN IP or a host firewall rule.
-- This waker is a **single point of failure** for automatic wakes and has **no Docker
-  healthcheck** yet — a *hung* (not crashed) process isn't auto-restarted.
+  (`?port=<n>`), not host:22 — else a cold boot / shutdown can 502 instead of the waking page.
+  *(Applies only once a beefy service is actually routed.)*
+- The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
+  the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
 **Versions:** Beefy-Waker `v1.0.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).

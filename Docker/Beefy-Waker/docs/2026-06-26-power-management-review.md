@@ -84,8 +84,17 @@ its unit + design doc. idle-watcher = **v1.1.0 (armed)**, Beefy-Waker = **v1.0.0
 - **Non-root container**, `cap_drop: ALL`, `no-new-privileges`, read-only mounts.
 - **DRY_RUN-first rollout** — validated "would sleep" timing before arming.
 
-## Status of fixes
+## Status of fixes (updated 2026-06-26)
 
-None applied yet — this review is documentation only. Items 2, 3, 6, 7 are the cheapest
-high-value follow-ups on the fastpi side; items 1, 4, 5, 6 on the beefy side. Track here as
-they're addressed.
+- **#2 — bind `:9001` to LAN IP** — **DONE** (`WAKER_BIND=192.168.1.2` in `.env`; `127.0.0.1`
+  now refused, Traefik path verified 200).
+- **#3 — Docker healthcheck** — **DONE** (`GET /status`; reports healthy. Observability only —
+  plain compose doesn't auto-restart on unhealthy; `restart:unless-stopped` covers crashes/OOM).
+- **#7 — request timeout / thread guard** — **DONE** (`Handler.timeout = 10`).
+- **#5 — DATA_DISKS basenames** — **VERIFIED OK** (`lsblk`: sda/sdb = 7.3T, sdc = 27.3T data
+  disks; nvme0n1 = 931.5G OS, correctly excluded).
+- **#6 — doc vs code (second confirmation)** — **doc aligned to code**; an actual second-sample
+  re-check remains a possible future enhancement.
+- **#4 — apt inhibit hook** — **applying on beefy** (`/etc/apt/apt.conf.d/99-beefy-keep-awake`).
+- **#1 — `?port=` gating** — **deferred** until a beefy service is attached to `beefy-wake`.
+- **#8 / #9 / #10** — documented; monitor (persistent-conn pinning, regex brittleness, ssh-user).

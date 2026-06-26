@@ -21,6 +21,15 @@ services:
       - ./secrets/beefy-history:/key:ro
       - ./secrets/known_hosts:/known_hosts:ro
     command: ["python", "/app/waker.py"]
+    # Liveness probe for observability (docker ps shows healthy/unhealthy). NOTE:
+    # plain compose does NOT auto-restart on unhealthy — restart:unless-stopped only
+    # catches crashes/OOM. /status answers whenever the gate loop is alive.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://192.168.1.2:9001/status', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     # Non-root + no capabilities: it binds :9001 (>1024), sends a broadcast UDP
     # packet (SO_BROADCAST is unprivileged), reads the mounted key, and runs ssh —
     # none of which need root or any capability. uid 1000 owns app/secrets on the host.

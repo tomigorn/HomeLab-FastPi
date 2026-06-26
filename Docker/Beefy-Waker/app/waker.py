@@ -39,6 +39,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 LISTEN_PORT = int(os.environ.get("WAKER_LISTEN_PORT", "9001"))
+# Bind address. Default all-interfaces; set WAKER_BIND to the LAN IP so the raw
+# port isn't reachable from docker bridges / other interfaces (defence in depth —
+# the wake-page route is IP-allowlisted at Traefik, but :9001 itself is not).
+BIND = os.environ.get("WAKER_BIND", "0.0.0.0")
 MAC = os.environ.get("BEEFY_MAC", "")
 BROADCAST = os.environ.get("BEEFY_BROADCAST", "255.255.255.255")
 PROBE_HOST = os.environ.get("BEEFY_PROBE_HOST", "")
@@ -269,6 +273,11 @@ def is_up(host, port):
 
 
 class Handler(BaseHTTPRequestHandler):
+    timeout = 10        # per-request socket timeout: drop slow/never-finishing
+                        # clients so they can't pin a worker thread (the server is
+                        # threading + memory-capped, so unbounded slow clients
+                        # would otherwise risk thread/OOM exhaustion under load).
+
     def do_GET(self):
         self._route()
 
@@ -401,9 +410,9 @@ def main():
     if missing:
         sys.exit("missing required env: %s" % ", ".join(missing))
     magic_packet(MAC)  # validate MAC format at startup
-    srv = ThreadingHTTPServer(("0.0.0.0", LISTEN_PORT), Handler)
-    print("beefy-waker listening on :%d - page=/ gate=/gate, wake %s via %s, probe %s:%d"
-          % (LISTEN_PORT, MAC, BROADCAST, PROBE_HOST, PROBE_PORT), flush=True)
+    srv = ThreadingHTTPServer((BIND, LISTEN_PORT), Handler)
+    print("beefy-waker listening on %s:%d - page=/ gate=/gate, wake %s via %s, probe %s:%d"
+          % (BIND, LISTEN_PORT, MAC, BROADCAST, PROBE_HOST, PROBE_PORT), flush=True)
     srv.serve_forever()
 
 
