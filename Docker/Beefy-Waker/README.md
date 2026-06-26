@@ -195,71 +195,47 @@ for the full adversarial review. The essentials:
 **Versions:** Beefy-Waker `v1.0.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
-## SSH wake (optional): make `ssh beefy` auto-wake the box
+## SSH wake: `ssh beefy` auto-wakes the box
 
-Two ways — pick per client depending on whether it can SSH to fastpi or just needs the LAN.
-Both make `ssh beefy` (and `scp`/`rsync`/`git`/`ssh beefy '<cmd>'`) transparently wake beefy,
-with no change to beefy or the waker.
+`ssh beefy` (and `scp`/`rsync`/`git`) transparently wakes beefy when it's asleep — **no script,
+no proxy, nothing to install.** It connects straight to beefy and fires the wake over HTTP.
+Works on the LAN and over the WireGuard VPN, on macOS / Linux / Windows alike.
 
-### A) fastpi as jump host — `wake-beefy-connect` (client can reach fastpi, even remotely)
+Add this to your client's `~/.ssh/config`:
 
-An SSH `ProxyCommand` that runs on fastpi: fires a WoL via the waker (`POST /wake`) if beefy is
-down, waits for sshd, then pipes the connection through. The whole session routes via fastpi,
-so it works even for clients that can reach **only** fastpi (e.g. remote over VPN).
+```sshconfig
+# Fire the Wake-on-LAN (via the waker) before connecting, then SSH straight to beefy.
+Match host beefy exec "curl -fsSk -X POST https://beefy-wol.fastpi.homelab/wake"
 
-- **On fastpi:** the script lives here in the repo (executable, tracked). It's referenced by
-  absolute path in the client config, so there's **no install step** — it runs straight from
-  the repo. Needs `nc` (`netcat-openbsd`).
-- **On your client** (`~/.ssh/config`):
-
-  ```
-  Host beefy
-      HostName 192.168.1.102
-      User buntu
-      ProxyCommand ssh fastpi /home/pi/Projects/Docker/Beefy-Waker/wake-beefy-connect %h %p
-      ConnectTimeout 120
-      ServerAliveInterval 30
-  ```
-
-  Requires `ssh fastpi` to work from the client (fastpi is the always-on entry — reachable on
-  LAN, or remotely via VPN). Your client's own key still authenticates to beefy; the
-  ProxyCommand only provides wake + transport.
-
-### B) LAN client, no fastpi SSH — `wake-beefy-client` via `Match exec`
-
-For clients **on the LAN** (can reach beefy directly) but **without** fastpi SSH. The client
-connects straight to beefy; only the *wake* goes over HTTP to the waker, which any LAN host can
-hit at `http://192.168.1.2:9001`. Needs only `curl` + LAN reachability to `192.168.1.2:9001`
-and `192.168.1.102:22` — no fastpi SSH, no DNS, no cert. This is the one to hand to **every
-user who needs beefy** but isn't a fastpi admin.
-
-Drop `wake-beefy-client` (in this repo) into the client's `PATH` and reference it:
-
-```
 Host beefy
-    HostName 192.168.1.102
+    HostName beefy.homelab               # beefy's own name -> 192.168.1.102 (nothing hidden)
     User buntu
-    ConnectTimeout 15
-Match host beefy exec "wake-beefy-client"
+    IdentityFile ~/.ssh/your-beefy-key   # your key that's in beefy's authorized_keys
+    IdentitiesOnly yes
+    ConnectTimeout 5
+    ConnectionAttempts 30                # keep retrying the connection while beefy boots (~1 min)
 ```
 
-…or inline it (nothing to install — just paste this block):
+**How it works:** the `Match exec` fires one `curl` at the wake URL (sends the WoL packet); then
+SSH connects to `beefy.homelab` and `ConnectionAttempts` retries (~1/sec) until beefy's sshd
+answers (~1 min later). The address is beefy's real name/IP — the only mention of fastpi is the
+wake URL.
 
-```
-Host beefy
-    HostName 192.168.1.102
-    User buntu
-    ConnectTimeout 15
-Match host beefy exec "curl -fsS --max-time 3 http://192.168.1.2:9001/status | grep -q '\"up\": *true' || { curl -fsS --max-time 5 -X POST http://192.168.1.2:9001/wake >/dev/null 2>&1; n=0; while [ $n -lt 90 ]; do curl -fsS --max-time 3 http://192.168.1.2:9001/status | grep -q '\"up\": *true' && break; n=$((n+1)); sleep 1; done; }; true"
-```
+**Works because:**
+- `curl` is built into macOS, Linux, **and Windows 10+**, and the `Match exec` is a single command
+  (no shell pipes), so the *same block* works on Windows too.
+- On the LAN the client reaches beefy directly. Over **WireGuard**, the tunnel routes the LAN and
+  hands clients **AdGuard** (`192.168.1.2`) as DNS, which resolves `beefy.homelab` ->
+  `192.168.1.102` and `beefy-wol.fastpi.homelab` -> `192.168.1.2` — verified on LAN and VPN.
+- If a client can't resolve the `.homelab` names, use the IP form for the wake:
+  `Match host beefy exec "curl -fsS -X POST http://192.168.1.2:9001/wake"` (and drop the `-k`).
 
-### Behaviour (both)
+**Behaviour:** an interactive `ssh beefy` keeps beefy awake (the idle-watcher counts it busy); a
+one-off `ssh beefy '<cmd>'` wakes, runs, and lets it sleep again ~15 min later. The wake fires on
+every connect (a harmless idempotent WoL); use `/gate` instead of `/wake` to only wake when beefy
+is actually down.
 
-An interactive `ssh beefy` keeps beefy awake (the idle-watcher counts it busy); a one-off
-`ssh beefy '<cmd>'` wakes, runs, and lets it sleep again ~15 min later.
-
-Verified end-to-end 2026-06-26: beefy auto-slept, `ssh beefy` fired WoL → ~1 min boot →
-connection succeeded.
+Verified end-to-end 2026-06-26 — on the LAN and over WireGuard VPN.
 
 ## The sleep half (elsewhere)
 
