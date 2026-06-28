@@ -19,7 +19,7 @@ input_number:
     mode: box
     unit_of_measurement: "CHF/kWh"
     icon: mdi:cash-plus
-    initial: 0.28          # PLACEHOLDER — replace with real EWZ high tariff
+    initial: 0.2988        # EWZ Hochtarif 2026: 29.88 Rp/kWh
   electricity_price_low:
     name: "Electricity price (low tariff)"
     min: 0
@@ -28,7 +28,7 @@ input_number:
     mode: box
     unit_of_measurement: "CHF/kWh"
     icon: mdi:cash-minus
-    initial: 0.22          # PLACEHOLDER — replace with real EWZ low tariff
+    initial: 0.1870        # EWZ Niedertarif 2026: 18.70 Rp/kWh
 
 # --- Per-period energy meters ----------------------------------------------
 # Tariff-split meters create sensor.<name>_high / _low + select.<name>.
