@@ -1,0 +1,39 @@
+# Config-as-code dashboard. Registered in configuration.yaml under lovelace.dashboards.
+# Edit + save, then reload from the UI (browser refresh) — no restart needed for YAML dashboards.
+title: Home
+views:
+  - title: Home
+    path: home
+    icon: mdi:home
+    cards:
+      - type: entities
+        title: MyStrom Plug
+        state_color: true
+        entities:
+          - entity: switch.mystrom_plug
+            name: Switch
+          - entity: sensor.mystrom_plug_power
+            name: Power
+          - entity: sensor.mystrom_plug_energy
+            name: Energy (total)
+          - entity: sensor.mystrom_plug_temperature
+            name: Temperature
+          - entity: binary_sensor.mystrom_plug_relay
+            name: Relay state
+
+      - type: gauge
+        entity: sensor.mystrom_plug_power
+        name: Power draw
+        unit: W
+        min: 0
+        max: 2300
+        severity:
+          green: 0
+          yellow: 1000
+          red: 2000
+
+      - type: history-graph
+        title: Power (last 24h)
+        hours_to_show: 24
+        entities:
+          - entity: sensor.mystrom_plug_power
