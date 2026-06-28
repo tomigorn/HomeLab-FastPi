@@ -26,3 +26,4 @@
 | LoyaltyCards-Sync | ❌ | ❌ | | |  |
 | Authentik | ❌ | ❌ | | |  |
 | Beefy-Waker | ❌ | ❌ | | |  |
+| Home-Assistant | ❌ | ❌ | | |  |

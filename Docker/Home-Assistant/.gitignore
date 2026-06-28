@@ -1,0 +1,53 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials, secrets & tokens
+secrets/
+*.secret
+*.token
+credentials.json
+auth.json
+
+# Logs (may leak sensitive data)
+*.log
+
+# --- Home Assistant config dir (config/) ---
+# Commit the human-authored YAML (configuration, automations, scripts, scenes,
+# dashboards, themes, packages). Ignore secrets, the database, logs, and the
+# .storage runtime registry (auth tokens, device/entity registries, integration
+# config entries) — those are machine-managed and/or sensitive.
+
+# Secrets (commit secrets.yaml.example instead)
+config/secrets.yaml
+
+# Database
+config/*.db
+config/*.db-*
+
+# Logs
+config/*.log
+config/*.log.*
+
+# Runtime state, registries, tokens, caches
+config/.storage/
+config/.cloud/
+config/.uuid
+config/.HA_VERSION
+config/.ha_run.lock
+config/deps/
+config/tts/
+config/.cache/
+
+# Backups
+config/backups/
