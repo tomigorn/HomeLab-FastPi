@@ -129,6 +129,42 @@ If the plug ever gets a new IP, update **both** the reservation **and** the IP i
 > auto-updates on IP change — but the device entry then lives in `.storage`
 > (not committed). We chose YAML + static lease to keep everything in git.
 
+## Electricity metering, tariffs & cost
+
+`config/packages/electricity.yaml` builds the metering layer on top of the plug's
+`sensor.mystrom_plug_energy` (lifetime kWh) and `sensor.mystrom_plug_power` (W).
+
+- **Forever history** — any sensor with a `state_class` keeps **long-term
+  statistics** (hourly aggregates) **forever**; only the every-5s detail is purged
+  (recorder default 10 days). The dashboard's `statistics-graph` cards read these.
+- **Per-period kWh** — `utility_meter` cycles: `sensor.mystrom_hourly`,
+  `…_weekly`, and tariff-split `mystrom_daily/monthly/yearly/total` →
+  `sensor.mystrom_<cycle>_high` / `_low` (+ a `select.mystrom_<cycle>`).
+- **Tariff (City of Zürich)** — **HIGH 06:00–22:00, LOW 22:00–06:00**. Three
+  automations switch all tariff `select`s at 06:00 / 22:00 and set the correct one
+  on HA start. `sensor.mystrom_current_tariff` shows the active one.
+- **Prices** — two `input_number` helpers (`electricity_price_high` / `_low`,
+  CHF/kWh), **editable in the UI** (Energy view). Defined in YAML with
+  **PLACEHOLDER** defaults (0.28 / 0.22) — **replace with real EWZ tariffs.**
+- **Cost** — `sensor.mystrom_cost_today/this_month/this_year/total` =
+  `high_kWh × price_high + low_kWh × price_low` (true time-of-use cost).
+
+Shown on the dashboard's **Energy** view (live, per-period kWh, by-tariff, cost,
+and forever day/month/power graphs).
+
+### Setting the real tariff prices
+
+Open the **Energy** view → edit **Price — high** and **Price — low**. Values
+persist in `.storage` (not git). To bake new defaults into git, change `initial:`
+in `electricity.yaml` (only applied on a fresh install).
+
+### Optional: native Energy dashboard
+
+For HA's built-in Energy UI (Settings → Dashboards → Energy): add
+`sensor.mystrom_plug_energy` as an *Individual device*, and for cost pick
+*"Use an entity with current price"* → `sensor.mystrom_current_price` (follows the
+tariff automatically). This config lives in `.storage`, not YAML.
+
 ## Notes
 
 - **Bluetooth disabled.** The Pi's onboard adapter (`hci0`) is auto-detected and
