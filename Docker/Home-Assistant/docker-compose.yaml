@@ -1,0 +1,33 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Home Assistant ##########################################
+# #########################################################
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    mem_limit: 1g
+    restart: unless-stopped
+    # Host networking lets HA reach the myStrom plug on the LAN and
+    # use mDNS/SSDP auto-discovery. With host mode HA serves on the
+    # host directly at http://<pi-ip>:8123 (the "ports:" key is ignored).
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+# Using host networking (see above) — no custom networks needed yet.
+
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+# HA config is a bind mount (./config) so it is easy to inspect/back up —
+# no named volumes needed yet.
