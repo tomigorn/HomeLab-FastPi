@@ -140,9 +140,10 @@ If the plug ever gets a new IP, update **both** the reservation **and** the IP i
 - **Per-period kWh** — `utility_meter` cycles: `sensor.mystrom_hourly`,
   `…_weekly`, and tariff-split `mystrom_daily/monthly/yearly/total` →
   `sensor.mystrom_<cycle>_high` / `_low` (+ a `select.mystrom_<cycle>`).
-- **Tariff (City of Zürich)** — **HIGH 06:00–22:00, LOW 22:00–06:00**. Three
-  automations switch all tariff `select`s at 06:00 / 22:00 and set the correct one
-  on HA start. `sensor.mystrom_current_tariff` shows the active one.
+- **Tariff (City of Zürich / EWZ)** — **HIGH** = Mon–Sat 06:00–22:00; **LOW** =
+  nights 22:00–06:00 **and all day Sunday**. One automation applies the correct
+  tariff to all `select`s at 06:00 / 22:00 / on start (`now().weekday() != 6 and
+  6 <= hour < 22` → high). `sensor.mystrom_current_tariff` shows the active one.
 - **Prices** — two `input_number` helpers (`electricity_price_high` / `_low`,
   CHF/kWh), **editable in the UI** (Energy view). Defined in YAML with
   **PLACEHOLDER** defaults (0.28 / 0.22) — **replace with real EWZ tariffs.**

@@ -4,8 +4,10 @@
 # Builds on sensor.mystrom_plug_energy (lifetime kWh) and
 # sensor.mystrom_plug_power (live W) from packages/mystrom_plug.yaml.
 #
-# Tariff (City of Zürich): HIGH 06:00-22:00, LOW 22:00-06:00.
-# Prices are editable in the UI (input_number) — set real EWZ tariffs there.
+# Tariff (City of Zürich / EWZ):
+#   HIGH (Hochtarif)  = Mon-Sat 06:00-22:00
+#   LOW  (Niedertarif)= nights 22:00-06:00  AND  ALL of Sunday
+# now().weekday(): Mon=0 ... Sun=6.  High only when weekday != 6 and 6<=hour<22.
 
 # --- Editable tariff prices (CHF/kWh) --------------------------------------
 input_number:
@@ -53,43 +55,17 @@ utility_meter:
     source: sensor.mystrom_plug_energy
     tariffs: [high, low]
 
-# --- Tariff switching (06:00 high / 22:00 low / correct on restart) --------
+# --- Tariff switching ------------------------------------------------------
+# One rule applies the correct tariff at the boundaries and on start.
+# (06:00 -> high on Mon-Sat, stays low on Sun; 22:00 -> low always.)
 automation:
-  - id: electricity_tariff_high
-    alias: "Electricity: switch to HIGH tariff at 06:00"
+  - id: electricity_apply_tariff
+    alias: "Electricity: apply correct tariff (06:00 / 22:00 / start)"
     triggers:
       - trigger: time
         at: "06:00:00"
-    actions:
-      - action: select.select_option
-        target:
-          entity_id:
-            - select.mystrom_daily
-            - select.mystrom_monthly
-            - select.mystrom_yearly
-            - select.mystrom_total
-        data:
-          option: high
-
-  - id: electricity_tariff_low
-    alias: "Electricity: switch to LOW tariff at 22:00"
-    triggers:
       - trigger: time
         at: "22:00:00"
-    actions:
-      - action: select.select_option
-        target:
-          entity_id:
-            - select.mystrom_daily
-            - select.mystrom_monthly
-            - select.mystrom_yearly
-            - select.mystrom_total
-        data:
-          option: low
-
-  - id: electricity_tariff_startup
-    alias: "Electricity: set correct tariff on start"
-    triggers:
       - trigger: homeassistant
         event: start
     actions:
@@ -101,21 +77,22 @@ automation:
             - select.mystrom_yearly
             - select.mystrom_total
         data:
-          option: "{{ 'high' if 6 <= now().hour < 22 else 'low' }}"
+          option: "{{ 'high' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'low' }}"
 
 # --- Derived helpers: current tariff/price, combined totals, cost ----------
 template:
   - sensor:
       - name: "MyStrom Current Tariff"
         unique_id: mystrom_current_tariff
-        state: "{{ 'high' if 6 <= now().hour < 22 else 'low' }}"
-        icon: "{{ 'mdi:weather-sunny' if 6 <= now().hour < 22 else 'mdi:weather-night' }}"
+        state: "{{ 'high' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'low' }}"
+        icon: "{{ 'mdi:weather-sunny' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'mdi:weather-night' }}"
 
       - name: "MyStrom Current Price"
         unique_id: mystrom_current_price
         unit_of_measurement: "CHF/kWh"
         state: >-
-          {{ (states('input_number.electricity_price_high') if 6 <= now().hour < 22
+          {{ (states('input_number.electricity_price_high')
+              if (now().weekday() != 6 and 6 <= now().hour < 22)
               else states('input_number.electricity_price_low')) | float(0) }}
 
       - name: "MyStrom Current Cost Rate"
