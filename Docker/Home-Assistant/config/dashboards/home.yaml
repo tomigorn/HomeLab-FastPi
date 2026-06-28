@@ -1,7 +1,8 @@
 # Config-as-code dashboard. Registered in configuration.yaml under lovelace.dashboards.
-# Edit + save, then reload from the UI (browser refresh) — no restart needed for YAML dashboards.
+# Edit + save, then just refresh the browser (no restart needed for YAML dashboards).
 title: Home
 views:
+  # ---------------------------------------------------------------- Overview
   - title: Home
     path: home
     icon: mdi:home
@@ -14,8 +15,10 @@ views:
             name: Switch
           - entity: sensor.mystrom_plug_power
             name: Power
-          - entity: sensor.mystrom_plug_energy
-            name: Energy (total)
+          - entity: sensor.mystrom_current_cost_rate
+            name: Cost rate
+          - entity: sensor.mystrom_current_tariff
+            name: Current tariff
           - entity: sensor.mystrom_plug_temperature
             name: Temperature
           - entity: binary_sensor.mystrom_plug_relay
@@ -37,3 +40,107 @@ views:
         hours_to_show: 24
         entities:
           - entity: sensor.mystrom_plug_power
+
+  # ----------------------------------------------------------------- Energy
+  - title: Energy
+    path: energy
+    icon: mdi:lightning-bolt
+    cards:
+      - type: glance
+        title: Live
+        columns: 3
+        entities:
+          - entity: sensor.mystrom_plug_power
+            name: Power
+          - entity: sensor.mystrom_current_tariff
+            name: Tariff
+          - entity: sensor.mystrom_current_cost_rate
+            name: Cost/h
+
+      - type: entities
+        title: Tariff & price
+        entities:
+          - entity: sensor.mystrom_current_tariff
+            name: Current tariff
+          - entity: sensor.mystrom_current_price
+            name: Current price
+          - type: divider
+          - entity: input_number.electricity_price_high
+            name: Price — high (06–22)
+          - entity: input_number.electricity_price_low
+            name: Price — low (22–06)
+
+      - type: entities
+        title: Energy used (kWh)
+        entities:
+          - entity: sensor.mystrom_hourly
+            name: This hour
+          - entity: sensor.mystrom_energy_today
+            name: Today
+          - entity: sensor.mystrom_weekly
+            name: This week
+          - entity: sensor.mystrom_energy_this_month
+            name: This month
+          - entity: sensor.mystrom_energy_this_year
+            name: This year
+          - type: divider
+          - entity: sensor.mystrom_plug_energy
+            name: Overall (lifetime)
+
+      - type: entities
+        title: By tariff (kWh)
+        entities:
+          - entity: sensor.mystrom_daily_high
+            name: Today — high
+          - entity: sensor.mystrom_daily_low
+            name: Today — low
+          - type: divider
+          - entity: sensor.mystrom_monthly_high
+            name: Month — high
+          - entity: sensor.mystrom_monthly_low
+            name: Month — low
+          - type: divider
+          - entity: sensor.mystrom_total_high
+            name: Total — high
+          - entity: sensor.mystrom_total_low
+            name: Total — low
+
+      - type: entities
+        title: Cost (CHF)
+        entities:
+          - entity: sensor.mystrom_cost_today
+            name: Today
+          - entity: sensor.mystrom_cost_this_month
+            name: This month
+          - entity: sensor.mystrom_cost_this_year
+            name: This year
+          - type: divider
+          - entity: sensor.mystrom_cost_total
+            name: Overall
+
+      - type: statistics-graph
+        title: Energy per day (kWh)
+        chart_type: bar
+        period: day
+        stat_types:
+          - change
+        entities:
+          - sensor.mystrom_plug_energy
+
+      - type: statistics-graph
+        title: Energy per month (kWh)
+        chart_type: bar
+        period: month
+        stat_types:
+          - change
+        entities:
+          - sensor.mystrom_plug_energy
+
+      - type: statistics-graph
+        title: Power (W) — hourly mean / max
+        period: hour
+        stat_types:
+          - mean
+          - max
+        entities:
+          - sensor.mystrom_plug_power

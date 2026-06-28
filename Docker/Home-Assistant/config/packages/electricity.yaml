@@ -1,0 +1,180 @@
+# =========================================================
+# Electricity metering, tariffs & cost — config-as-code
+# =========================================================
+# Builds on sensor.mystrom_plug_energy (lifetime kWh) and
+# sensor.mystrom_plug_power (live W) from packages/mystrom_plug.yaml.
+#
+# Tariff (City of Zürich): HIGH 06:00-22:00, LOW 22:00-06:00.
+# Prices are editable in the UI (input_number) — set real EWZ tariffs there.
+
+# --- Editable tariff prices (CHF/kWh) --------------------------------------
+input_number:
+  electricity_price_high:
+    name: "Electricity price (high tariff)"
+    min: 0
+    max: 5
+    step: 0.001
+    mode: box
+    unit_of_measurement: "CHF/kWh"
+    icon: mdi:cash-plus
+    initial: 0.28          # PLACEHOLDER — replace with real EWZ high tariff
+  electricity_price_low:
+    name: "Electricity price (low tariff)"
+    min: 0
+    max: 5
+    step: 0.001
+    mode: box
+    unit_of_measurement: "CHF/kWh"
+    icon: mdi:cash-minus
+    initial: 0.22          # PLACEHOLDER — replace with real EWZ low tariff
+
+# --- Per-period energy meters ----------------------------------------------
+# Tariff-split meters create sensor.<name>_high / _low + select.<name>.
+utility_meter:
+  mystrom_hourly:
+    source: sensor.mystrom_plug_energy
+    cycle: hourly
+  mystrom_weekly:
+    source: sensor.mystrom_plug_energy
+    cycle: weekly
+  mystrom_daily:
+    source: sensor.mystrom_plug_energy
+    cycle: daily
+    tariffs: [high, low]
+  mystrom_monthly:
+    source: sensor.mystrom_plug_energy
+    cycle: monthly
+    tariffs: [high, low]
+  mystrom_yearly:
+    source: sensor.mystrom_plug_energy
+    cycle: yearly
+    tariffs: [high, low]
+  mystrom_total:
+    source: sensor.mystrom_plug_energy
+    tariffs: [high, low]
+
+# --- Tariff switching (06:00 high / 22:00 low / correct on restart) --------
+automation:
+  - id: electricity_tariff_high
+    alias: "Electricity: switch to HIGH tariff at 06:00"
+    triggers:
+      - trigger: time
+        at: "06:00:00"
+    actions:
+      - action: select.select_option
+        target:
+          entity_id:
+            - select.mystrom_daily
+            - select.mystrom_monthly
+            - select.mystrom_yearly
+            - select.mystrom_total
+        data:
+          option: high
+
+  - id: electricity_tariff_low
+    alias: "Electricity: switch to LOW tariff at 22:00"
+    triggers:
+      - trigger: time
+        at: "22:00:00"
+    actions:
+      - action: select.select_option
+        target:
+          entity_id:
+            - select.mystrom_daily
+            - select.mystrom_monthly
+            - select.mystrom_yearly
+            - select.mystrom_total
+        data:
+          option: low
+
+  - id: electricity_tariff_startup
+    alias: "Electricity: set correct tariff on start"
+    triggers:
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: select.select_option
+        target:
+          entity_id:
+            - select.mystrom_daily
+            - select.mystrom_monthly
+            - select.mystrom_yearly
+            - select.mystrom_total
+        data:
+          option: "{{ 'high' if 6 <= now().hour < 22 else 'low' }}"
+
+# --- Derived helpers: current tariff/price, combined totals, cost ----------
+template:
+  - sensor:
+      - name: "MyStrom Current Tariff"
+        unique_id: mystrom_current_tariff
+        state: "{{ 'high' if 6 <= now().hour < 22 else 'low' }}"
+        icon: "{{ 'mdi:weather-sunny' if 6 <= now().hour < 22 else 'mdi:weather-night' }}"
+
+      - name: "MyStrom Current Price"
+        unique_id: mystrom_current_price
+        unit_of_measurement: "CHF/kWh"
+        state: >-
+          {{ (states('input_number.electricity_price_high') if 6 <= now().hour < 22
+              else states('input_number.electricity_price_low')) | float(0) }}
+
+      - name: "MyStrom Current Cost Rate"
+        unique_id: mystrom_current_cost_rate
+        unit_of_measurement: "CHF/h"
+        state: >-
+          {{ (states('sensor.mystrom_plug_power') | float(0) / 1000
+              * states('sensor.mystrom_current_price') | float(0)) | round(3) }}
+
+      # Combined per-period energy (high + low)
+      - name: "MyStrom Energy Today"
+        unique_id: mystrom_energy_today
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.mystrom_daily_high')|float(0) + states('sensor.mystrom_daily_low')|float(0)) | round(3) }}"
+      - name: "MyStrom Energy This Month"
+        unique_id: mystrom_energy_this_month
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.mystrom_monthly_high')|float(0) + states('sensor.mystrom_monthly_low')|float(0)) | round(3) }}"
+      - name: "MyStrom Energy This Year"
+        unique_id: mystrom_energy_this_year
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.mystrom_yearly_high')|float(0) + states('sensor.mystrom_yearly_low')|float(0)) | round(3) }}"
+
+      # Cost per period = high_kWh*price_high + low_kWh*price_low
+      - name: "MyStrom Cost Today"
+        unique_id: mystrom_cost_today
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.mystrom_daily_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.mystrom_daily_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "MyStrom Cost This Month"
+        unique_id: mystrom_cost_this_month
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.mystrom_monthly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.mystrom_monthly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "MyStrom Cost This Year"
+        unique_id: mystrom_cost_this_year
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.mystrom_yearly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.mystrom_yearly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "MyStrom Cost Total"
+        unique_id: mystrom_cost_total
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.mystrom_total_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.mystrom_total_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
