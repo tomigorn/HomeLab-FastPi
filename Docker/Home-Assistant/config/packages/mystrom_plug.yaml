@@ -40,7 +40,7 @@ rest:
 # --- The on/off switch (reads relay state, calls the rest_commands) ---------
 template:
   - switch:
-      - name: "MyStrom Plug"
+      - name: "MyStrom Plug Rafi PC Desk"
         unique_id: mystrom_plug_61a328_switch
         state: "{{ is_state('binary_sensor.mystrom_plug_relay', 'on') }}"
         turn_on:
