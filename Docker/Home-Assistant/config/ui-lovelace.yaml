@@ -67,9 +67,9 @@ views:
             name: Current price
           - type: divider
           - entity: input_number.electricity_price_high
-            name: Price — high (06–22)
+            name: Price — high (Mon–Sat 06–22)
           - entity: input_number.electricity_price_low
-            name: Price — low (22–06)
+            name: Price — low (nights + all Sun)
 
       - type: entities
         title: Energy used (kWh)
