@@ -12,11 +12,13 @@ the device + charts on the **Overview** page itself, kept config-as-code.
 
 ## Decision
 
-Promote the existing `Home` YAML dashboard to **be** the default Overview, rather
-than duplicate its cards. The auto-generated Overview clutter is replaced.
+Promote the existing `Home` YAML dashboard to a single committed, config-as-code
+dashboard (titled **Electricity**) instead of duplicating its cards.
 
-Trade-off (accepted): the default Overview becomes YAML-managed, losing UI
-drag-and-drop editing. This matches the project's config-as-code philosophy.
+This matches the project's config-as-code philosophy. **Caveat (see Result):** on
+HA 2026.6 a config-as-code dashboard can no longer *replace* the auto-generated
+default Overview — it coexists as a separate sidebar entry, and the landing page
+is chosen per-user (profile → default dashboard).
 
 ## Changes
 
@@ -51,10 +53,16 @@ at the reserved `lovelace` key is the fix.
 
 Config files are root-owned → filesystem edits via `sudo`; git staged as `pi`.
 
-## Result
+## Result (as actually observed on HA 2026.6)
 
-Sidebar: **Overview** (device + charts, two views: Overview + Energy, in git) +
-**Map**. No duplicated dashboard. The `Map` storage dashboard is untouched.
+- Our dashboard ships as `config/ui-lovelace.yaml`, registered via
+  `lovelace.dashboards` and titled **Electricity** (icon `mdi:power-plug`),
+  with two views: **Overview** (plug + charts) and **Energy**.
+- It did **not** take over the default Overview slot. HA 2026's auto-generated
+  "home" dashboard remains the top **Overview** (Welcome / Areas / Summaries /
+  auto-**Favorites**); our dashboard is a **separate** sidebar entry.
+- To land on it, set **Electricity** as the per-user **default dashboard**
+  (profile → Dashboard). The **Map** storage dashboard is untouched.
 
 ## Out of scope
 

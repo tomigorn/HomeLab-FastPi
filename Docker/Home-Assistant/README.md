@@ -87,10 +87,8 @@ docker compose restart
 
 ## Dashboards
 
-The default **Overview** dashboard is config-as-code: `config/ui-lovelace.yaml`,
-registered in `configuration.yaml` under `lovelace.dashboards` at the reserved
-`lovelace` url-path. That key **claims the default Overview slot**, replacing HA's
-auto-generated "home" dashboard:
+Our config-as-code dashboard is `config/ui-lovelace.yaml`, registered in
+`configuration.yaml` under `lovelace.dashboards`:
 
 ```yaml
 lovelace:
@@ -111,6 +109,19 @@ In the sidebar it shows as **Electricity** 🔌, with two views:
 Editing the YAML content only needs a **browser refresh**; changing the
 registration (title/icon/mode) needs `docker compose restart`.
 
+### The default "Overview" is HA's own auto dashboard (not ours)
+
+In HA **2026** the default landing page — the top **Overview** in the sidebar —
+is HA's **auto-generated "home" dashboard** (Welcome / Areas / Summaries, plus a
+**Favorites** row that auto-picks your ~8 most-used devices). It is *generated*,
+not config-as-code, and **registering `dashboards.lovelace` did not replace it** —
+in this HA version our dashboard simply shows up as a **second** sidebar entry
+(Electricity). Nothing for it lives in `.storage`; the Favorites are automatic.
+
+To **land on the Electricity dashboard** instead of the auto Overview, set it as
+your default: avatar (bottom-left) → **Dashboard** → *Electricity* (per-user,
+stored in your profile — not config-as-code).
+
 > **Pitfall:** the old top-level `lovelace: mode: yaml` is **deprecated** (removed
 > in HA 2026.8) and in current HA no longer claims the Overview slot — it leaves
 > the auto "home" dashboard in place and shows your YAML as a *duplicate* Overview.
@@ -120,6 +131,9 @@ registration (title/icon/mode) needs `docker compose restart`.
 Other dashboards (e.g. **Map**) stay storage-mode (UI-managed, in `.storage`).
 
 ## myStrom plug
+
+> Friendly name **"MyStrom Plug Rafi PC Desk"**, in area **Schlafzimmer Rafi**
+> (the `switch.mystrom_plug` entity_id is unchanged).
 
 A **myStrom WiFi Switch** (`myStrom-Switch-61A328`), defined **entirely in YAML**
 (`config/packages/mystrom_plug.yaml`) via its **local HTTP API** — no cloud, no
