@@ -10,17 +10,19 @@ homeassistant:
 frontend:
   themes: !include_dir_merge_named themes
 
-# Dashboards: keep the auto "Overview" (UI-editable, storage) AND add a
-# committed YAML "Home" dashboard (config-as-code).
+# Dashboards (config-as-code):
+# Claim the default "Overview" slot (url_path "lovelace") with our committed
+# YAML dashboard, replacing HA's auto-generated home dashboard. This is the
+# supported replacement for the deprecated top-level `lovelace: mode: yaml`
+# (removed in HA 2026.8). Other dashboards (e.g. "Map") stay storage-mode.
 lovelace:
-  mode: storage
   dashboards:
-    home-yaml:
+    lovelace:
       mode: yaml
-      title: Home
-      icon: mdi:home
+      filename: ui-lovelace.yaml
+      title: Electricity
+      icon: mdi:power-plug
       show_in_sidebar: true
-      filename: dashboards/home.yaml
 
 automation: !include automations.yaml
 script: !include scripts.yaml

@@ -56,7 +56,10 @@ runtime store (`.storage/`), the database, logs, and secrets are not.
 
 **Committed** (`config/`):
 - `configuration.yaml` — loads `default_config`, enables `packages/`, themes,
-  and the `automations`/`scripts`/`scenes` includes.
+  the `automations`/`scripts`/`scenes` includes, and the dashboard registration
+  (see [Dashboards](#dashboards)).
+- `ui-lovelace.yaml` — the default **Overview** dashboard, config-as-code
+  (see [Dashboards](#dashboards)).
 - `packages/*.yaml` — one file per feature (see [myStrom plug](#mystrom-plug)).
 - `automations.yaml`, `scripts.yaml`, `scenes.yaml` — the UI editors write here.
 - `secrets.yaml.example` — template; copy to `secrets.yaml` and fill real values.
@@ -81,6 +84,40 @@ docker exec homeassistant python -m homeassistant --script check_config -c /conf
 # or restart for core/package changes:
 docker compose restart
 ```
+
+## Dashboards
+
+The default **Overview** dashboard is config-as-code: `config/ui-lovelace.yaml`,
+registered in `configuration.yaml` under `lovelace.dashboards` at the reserved
+`lovelace` url-path. That key **claims the default Overview slot**, replacing HA's
+auto-generated "home" dashboard:
+
+```yaml
+lovelace:
+  dashboards:
+    lovelace:
+      mode: yaml
+      filename: ui-lovelace.yaml
+      title: Electricity
+      icon: mdi:power-plug
+      show_in_sidebar: true
+```
+
+In the sidebar it shows as **Electricity** 🔌, with two views:
+- **Overview** — myStrom plug controls, power gauge, 24 h power history.
+- **Energy** — live + per-period kWh, by-tariff, cost, and long-term
+  day/month/power graphs.
+
+Editing the YAML content only needs a **browser refresh**; changing the
+registration (title/icon/mode) needs `docker compose restart`.
+
+> **Pitfall:** the old top-level `lovelace: mode: yaml` is **deprecated** (removed
+> in HA 2026.8) and in current HA no longer claims the Overview slot — it leaves
+> the auto "home" dashboard in place and shows your YAML as a *duplicate* Overview.
+> Use the `dashboards.lovelace` form above. Full decision record:
+> [`docs/2026-06-29-overview-electricity-dashboard.md`](docs/2026-06-29-overview-electricity-dashboard.md).
+
+Other dashboards (e.g. **Map**) stay storage-mode (UI-managed, in `.storage`).
 
 ## myStrom plug
 
@@ -145,8 +182,8 @@ If the plug ever gets a new IP, update **both** the reservation **and** the IP i
   tariff to all `select`s at 06:00 / 22:00 / on start (`now().weekday() != 6 and
   6 <= hour < 22` → high). `sensor.mystrom_current_tariff` shows the active one.
 - **Prices** — two `input_number` helpers (`electricity_price_high` / `_low`,
-  CHF/kWh), **editable in the UI** (Energy view). Defined in YAML with
-  **PLACEHOLDER** defaults (0.28 / 0.22) — **replace with real EWZ tariffs.**
+  CHF/kWh), **editable in the UI** (Energy view). The YAML `initial:` defaults are
+  the **real EWZ 2026 tariffs**: high **0.2988**, low **0.1870** CHF/kWh.
 - **Cost** — `sensor.mystrom_cost_today/this_month/this_year/total` =
   `high_kWh × price_high + low_kWh × price_low` (true time-of-use cost).
 
@@ -159,12 +196,34 @@ Open the **Energy** view → edit **Price — high** and **Price — low**. Valu
 persist in `.storage` (not git). To bake new defaults into git, change `initial:`
 in `electricity.yaml` (only applied on a fresh install).
 
-### Optional: native Energy dashboard
+### Native Energy dashboard (configured — UI-only)
 
-For HA's built-in Energy UI (Settings → Dashboards → Energy): add
-`sensor.mystrom_plug_energy` as an *Individual device*, and for cost pick
-*"Use an entity with current price"* → `sensor.mystrom_current_price` (follows the
-tariff automatically). This config lives in `.storage`, not YAML.
+HA's built-in **Energy** dashboard is set up (Settings → Dashboards → Energy).
+It is **UI-configured and lives in `.storage/energy`** — there is no YAML for it.
+
+- **Grid consumption** = `sensor.mystrom_plug_energy`. (Only grid sources get cost
+  tracking; an *Individual device* would be energy-only.)
+- **Cost** = *"Use an entity with current price"* → `sensor.mystrom_current_price`
+  (tariff-aware). HA auto-creates `sensor.mystrom_plug_energy_cost`.
+- The Energy panel's **date-range picker** then shows kWh **and** CHF for any
+  period (hourly/daily resolution — long-term stats are hourly). Cost accrues
+  **from setup onward**; historical kWh is present but past cost is not
+  back-calculated.
+
+## Areas & device location
+
+HA **areas** (rooms) are UI/registry data in `.storage` (not YAML). The home's
+rooms are:
+
+> WC · Dusche · Eingang · Schlafzimmer Tomas · Schlafzimmer Rafi · Küche ·
+> Esszimmer · Reduit · Wohnzimmer · Balkon
+
+The myStrom plug lives in **Schlafzimmer Rafi**. Because it's defined in YAML
+(no auto-created *device*), the room is assigned at the **entity** level — the
+physical entities (`switch.mystrom_plug`, `binary_sensor.mystrom_plug_relay`,
+`sensor.mystrom_plug_power` / `_temperature` / `_energy` / `_energy_cost`) carry
+`area_id: schlafzimmer_rafi`. The derived tariff/price/cost sensors are left
+unassigned (they're calculations, not physically located).
 
 ## Notes
 
@@ -172,6 +231,10 @@ tariff automatically). This config lives in `.storage`, not YAML.
   spams the log (no D-Bus in the container). It is not needed (we use WiFi +
   future Zigbee USB), so the **Bluetooth integration is deleted in the UI**
   (*Settings → Devices & Services → Bluetooth → Delete*).
+- **Animated rain-forecast map — shelved.** Evaluated Windy, meteoblue, RainViewer
+  and the `weather-radar-card`. MeteoSwiss's own radar/nowcast **can't be embedded**
+  in HA (its integration provides forecast *numbers* only), and the alternatives
+  didn't fit cleanly. Dropped for now.
 
 ## TODO / future
 

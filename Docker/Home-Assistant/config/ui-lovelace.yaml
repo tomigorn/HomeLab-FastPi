@@ -1,10 +1,11 @@
-# Config-as-code dashboard. Registered in configuration.yaml under lovelace.dashboards.
-# Edit + save, then just refresh the browser (no restart needed for YAML dashboards).
-title: Home
+# "Electricity" dashboard — config-as-code. Registered in configuration.yaml
+# under lovelace.dashboards. Edit + save, then just refresh the browser
+# (no restart needed for YAML dashboard content changes).
+title: Electricity
 views:
   # ---------------------------------------------------------------- Overview
-  - title: Home
-    path: home
+  - title: Overview
+    path: overview
     icon: mdi:home
     cards:
       - type: entities
