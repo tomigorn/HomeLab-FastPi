@@ -51,3 +51,7 @@ config/.cache/
 
 # Backups
 config/backups/
+
+# Stock blueprints shipped by HA (regenerated on start) — keep any custom
+# blueprints (other author folders) committable.
+config/blueprints/*/homeassistant/
