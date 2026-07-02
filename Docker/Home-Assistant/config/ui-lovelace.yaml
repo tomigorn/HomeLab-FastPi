@@ -1,6 +1,9 @@
 # "Electricity" dashboard — config-as-code. Registered in configuration.yaml
 # under lovelace.dashboards. Edit + save, then just refresh the browser
 # (no restart needed for YAML dashboard content changes).
+#
+# Two plugs: FastPi (fastpi_plug_*) and Beefy (beefy_plug_*), plus the
+# combined "Plugs Total ..." household totals from packages/electricity.yaml.
 title: Electricity
 views:
   # ---------------------------------------------------------------- Overview
@@ -8,26 +11,50 @@ views:
     path: overview
     icon: mdi:home
     cards:
+      - type: glance
+        title: Total — both plugs
+        columns: 3
+        entities:
+          - entity: sensor.plugs_total_power
+            name: Power
+          - entity: sensor.electricity_current_tariff
+            name: Tariff
+          - entity: sensor.plugs_total_current_cost_rate
+            name: Cost/h
+
       - type: entities
-        title: MyStrom Plug
+        title: FastPi Plug
         state_color: true
         entities:
-          - entity: switch.mystrom_plug
+          - entity: switch.fastpi_plug
             name: Switch
-          - entity: sensor.mystrom_plug_power
+          - entity: sensor.fastpi_plug_power
             name: Power
-          - entity: sensor.mystrom_current_cost_rate
+          - entity: sensor.fastpi_plug_current_cost_rate
             name: Cost rate
-          - entity: sensor.mystrom_current_tariff
-            name: Current tariff
-          - entity: sensor.mystrom_plug_temperature
+          - entity: sensor.fastpi_plug_temperature
             name: Temperature
-          - entity: binary_sensor.mystrom_plug_relay
+          - entity: binary_sensor.fastpi_plug_relay
+            name: Relay state
+
+      - type: entities
+        title: Beefy Plug
+        state_color: true
+        entities:
+          - entity: switch.beefy_plug
+            name: Switch
+          - entity: sensor.beefy_plug_power
+            name: Power
+          - entity: sensor.beefy_plug_current_cost_rate
+            name: Cost rate
+          - entity: sensor.beefy_plug_temperature
+            name: Temperature
+          - entity: binary_sensor.beefy_plug_relay
             name: Relay state
 
       - type: gauge
-        entity: sensor.mystrom_plug_power
-        name: Power draw
+        entity: sensor.plugs_total_power
+        name: Total power draw
         unit: W
         min: 0
         max: 2300
@@ -40,7 +67,12 @@ views:
         title: Power (last 24h)
         hours_to_show: 24
         entities:
-          - entity: sensor.mystrom_plug_power
+          - entity: sensor.fastpi_plug_power
+            name: FastPi
+          - entity: sensor.beefy_plug_power
+            name: Beefy
+          - entity: sensor.plugs_total_power
+            name: Total
 
   # ----------------------------------------------------------------- Energy
   - title: Energy
@@ -51,19 +83,19 @@ views:
         title: Live
         columns: 3
         entities:
-          - entity: sensor.mystrom_plug_power
+          - entity: sensor.plugs_total_power
             name: Power
-          - entity: sensor.mystrom_current_tariff
+          - entity: sensor.electricity_current_tariff
             name: Tariff
-          - entity: sensor.mystrom_current_cost_rate
+          - entity: sensor.plugs_total_current_cost_rate
             name: Cost/h
 
       - type: entities
         title: Tariff & price
         entities:
-          - entity: sensor.mystrom_current_tariff
+          - entity: sensor.electricity_current_tariff
             name: Current tariff
-          - entity: sensor.mystrom_current_price
+          - entity: sensor.electricity_current_price
             name: Current price
           - type: divider
           - entity: input_number.electricity_price_high
@@ -74,50 +106,74 @@ views:
       - type: entities
         title: Energy used (kWh)
         entities:
-          - entity: sensor.mystrom_hourly
-            name: This hour
-          - entity: sensor.mystrom_energy_today
-            name: Today
-          - entity: sensor.mystrom_weekly
-            name: This week
-          - entity: sensor.mystrom_energy_this_month
-            name: This month
-          - entity: sensor.mystrom_energy_this_year
-            name: This year
-          - type: divider
-          - entity: sensor.mystrom_plug_energy
-            name: Overall (lifetime)
-
-      - type: entities
-        title: By tariff (kWh)
-        entities:
-          - entity: sensor.mystrom_daily_high
-            name: Today — high
-          - entity: sensor.mystrom_daily_low
-            name: Today — low
-          - type: divider
-          - entity: sensor.mystrom_monthly_high
-            name: Month — high
-          - entity: sensor.mystrom_monthly_low
-            name: Month — low
-          - type: divider
-          - entity: sensor.mystrom_total_high
-            name: Total — high
-          - entity: sensor.mystrom_total_low
-            name: Total — low
+          - type: section
+            label: Today
+          - entity: sensor.fastpi_plug_energy_today
+            name: FastPi
+          - entity: sensor.beefy_plug_energy_today
+            name: Beefy
+          - entity: sensor.plugs_total_energy_today
+            name: Total
+          - type: section
+            label: This month
+          - entity: sensor.fastpi_plug_energy_this_month
+            name: FastPi
+          - entity: sensor.beefy_plug_energy_this_month
+            name: Beefy
+          - entity: sensor.plugs_total_energy_this_month
+            name: Total
+          - type: section
+            label: This year
+          - entity: sensor.fastpi_plug_energy_this_year
+            name: FastPi
+          - entity: sensor.beefy_plug_energy_this_year
+            name: Beefy
+          - entity: sensor.plugs_total_energy_this_year
+            name: Total
+          - type: section
+            label: Lifetime
+          - entity: sensor.fastpi_plug_energy
+            name: FastPi
+          - entity: sensor.beefy_plug_energy
+            name: Beefy
+          - entity: sensor.plugs_total_energy
+            name: Total
 
       - type: entities
         title: Cost (CHF)
         entities:
-          - entity: sensor.mystrom_cost_today
-            name: Today
-          - entity: sensor.mystrom_cost_this_month
-            name: This month
-          - entity: sensor.mystrom_cost_this_year
-            name: This year
-          - type: divider
-          - entity: sensor.mystrom_cost_total
-            name: Overall
+          - type: section
+            label: Today
+          - entity: sensor.fastpi_plug_cost_today
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_today
+            name: Beefy
+          - entity: sensor.plugs_total_cost_today
+            name: Total
+          - type: section
+            label: This month
+          - entity: sensor.fastpi_plug_cost_this_month
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_this_month
+            name: Beefy
+          - entity: sensor.plugs_total_cost_this_month
+            name: Total
+          - type: section
+            label: This year
+          - entity: sensor.fastpi_plug_cost_this_year
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_this_year
+            name: Beefy
+          - entity: sensor.plugs_total_cost_this_year
+            name: Total
+          - type: section
+            label: Overall
+          - entity: sensor.fastpi_plug_cost_total
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_total
+            name: Beefy
+          - entity: sensor.plugs_total_cost_total
+            name: Total
 
       - type: statistics-graph
         title: Energy per day (kWh)
@@ -126,7 +182,10 @@ views:
         stat_types:
           - change
         entities:
-          - sensor.mystrom_plug_energy
+          - entity: sensor.fastpi_plug_energy
+            name: FastPi
+          - entity: sensor.beefy_plug_energy
+            name: Beefy
 
       - type: statistics-graph
         title: Energy per month (kWh)
@@ -135,7 +194,10 @@ views:
         stat_types:
           - change
         entities:
-          - sensor.mystrom_plug_energy
+          - entity: sensor.fastpi_plug_energy
+            name: FastPi
+          - entity: sensor.beefy_plug_energy
+            name: Beefy
 
       - type: statistics-graph
         title: Power (W) — hourly mean / max
@@ -144,4 +206,5 @@ views:
           - mean
           - max
         entities:
-          - sensor.mystrom_plug_power
+          - entity: sensor.plugs_total_power
+            name: Total

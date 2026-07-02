@@ -1,0 +1,149 @@
+# =========================================================
+# myStrom Switch — "Beefy" plug (powers the Beefy server)
+# =========================================================
+# Talks to the plug's LOCAL API only (no cloud, no subscription):
+#   GET /report          -> {"power":W, "Ws":.., "relay":bool, "temperature":C}
+#   GET /relay?state=1|0 -> switch the relay on/off
+#
+# Device : myStrom-Beefy   MAC 3c:e9:0e:7c:7e:80   (Wi-Fi 2.4 GHz)
+# NOTE   : hardcodes IP 192.168.1.152 — keep a DHCP reservation for it!
+#
+# Entity namespace: sensor.beefy_plug_*  /  switch.beefy_plug
+# Tariff/price + combined-totals live in packages/electricity.yaml.
+
+# --- Relay control (on/off) -------------------------------------------------
+rest_command:
+  plug_beefy_on:
+    url: "http://192.168.1.152/relay?state=1"
+    method: get
+  plug_beefy_off:
+    url: "http://192.168.1.152/relay?state=0"
+    method: get
+
+# --- Telemetry (polled every 5s) -------------------------------------------
+rest:
+  - resource: "http://192.168.1.152/report"
+    scan_interval: 5
+    sensor:
+      - name: "Beefy Plug Power"
+        unique_id: beefy_plug_power
+        value_template: "{{ value_json.power | round(1) }}"
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: "Beefy Plug Temperature"
+        unique_id: beefy_plug_temperature
+        value_template: "{{ value_json.temperature | round(1) }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+    binary_sensor:
+      - name: "Beefy Plug Relay"
+        unique_id: beefy_plug_relay
+        value_template: "{{ 'on' if value_json.relay else 'off' }}"
+
+# --- The on/off switch (reads relay state, calls the rest_commands) ---------
+template:
+  - switch:
+      - name: "Beefy Plug"
+        unique_id: beefy_plug_switch
+        state: "{{ is_state('binary_sensor.beefy_plug_relay', 'on') }}"
+        turn_on:
+          - action: rest_command.plug_beefy_on
+        turn_off:
+          - action: rest_command.plug_beefy_off
+
+  # --- Derived per-plug energy (combined high+low) & cost -------------------
+  - sensor:
+      - name: "Beefy Plug Current Cost Rate"
+        unique_id: beefy_plug_current_cost_rate
+        unit_of_measurement: "CHF/h"
+        state: >-
+          {{ (states('sensor.beefy_plug_power') | float(0) / 1000
+              * states('sensor.electricity_current_price') | float(0)) | round(3) }}
+
+      - name: "Beefy Plug Energy Today"
+        unique_id: beefy_plug_energy_today
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.beefy_plug_daily_high')|float(0) + states('sensor.beefy_plug_daily_low')|float(0)) | round(3) }}"
+      - name: "Beefy Plug Energy This Month"
+        unique_id: beefy_plug_energy_this_month
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.beefy_plug_monthly_high')|float(0) + states('sensor.beefy_plug_monthly_low')|float(0)) | round(3) }}"
+      - name: "Beefy Plug Energy This Year"
+        unique_id: beefy_plug_energy_this_year
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.beefy_plug_yearly_high')|float(0) + states('sensor.beefy_plug_yearly_low')|float(0)) | round(3) }}"
+
+      - name: "Beefy Plug Cost Today"
+        unique_id: beefy_plug_cost_today
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.beefy_plug_daily_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.beefy_plug_daily_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "Beefy Plug Cost This Month"
+        unique_id: beefy_plug_cost_this_month
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.beefy_plug_monthly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.beefy_plug_monthly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "Beefy Plug Cost This Year"
+        unique_id: beefy_plug_cost_this_year
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.beefy_plug_yearly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.beefy_plug_yearly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "Beefy Plug Cost Total"
+        unique_id: beefy_plug_cost_total
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.beefy_plug_total_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.beefy_plug_total_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+
+# --- Lifetime energy (kWh) integrated from live power ----------------------
+sensor:
+  - platform: integration
+    source: sensor.beefy_plug_power
+    name: "Beefy Plug Energy"
+    unique_id: beefy_plug_energy
+    unit_prefix: k
+    round: 3
+    method: trapezoidal
+
+# --- Per-period meters (tariff-split create _high / _low + select.<name>) ---
+utility_meter:
+  beefy_plug_hourly:
+    source: sensor.beefy_plug_energy
+    cycle: hourly
+  beefy_plug_weekly:
+    source: sensor.beefy_plug_energy
+    cycle: weekly
+  beefy_plug_daily:
+    source: sensor.beefy_plug_energy
+    cycle: daily
+    tariffs: [high, low]
+  beefy_plug_monthly:
+    source: sensor.beefy_plug_energy
+    cycle: monthly
+    tariffs: [high, low]
+  beefy_plug_yearly:
+    source: sensor.beefy_plug_energy
+    cycle: yearly
+    tariffs: [high, low]
+  beefy_plug_total:
+    source: sensor.beefy_plug_energy
+    tariffs: [high, low]
