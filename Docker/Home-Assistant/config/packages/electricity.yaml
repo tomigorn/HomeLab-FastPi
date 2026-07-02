@@ -158,7 +158,7 @@ template:
         state_class: total
         state: "{{ (states('sensor.fastpi_plug_cost_total')|float(0) + states('sensor.beefy_plug_cost_total')|float(0)) | round(2) }}"
 
-      # ---- Projected yearly cost (Hochrechnung / estimate) — sum of both plugs
+      # ---- Projected yearly cost (estimate) — sum of both plugs
       - name: "Plugs Total Cost Year Proj Week"
         unique_id: plugs_total_cost_year_proj_week
         unit_of_measurement: "CHF"
