@@ -115,6 +115,14 @@ views:
           - entity: sensor.plugs_total_energy_today
             name: Total
           - type: section
+            label: This week
+          - entity: sensor.fastpi_plug_energy_this_week
+            name: FastPi
+          - entity: sensor.beefy_plug_energy_this_week
+            name: Beefy
+          - entity: sensor.plugs_total_energy_this_week
+            name: Total
+          - type: section
             label: This month
           - entity: sensor.fastpi_plug_energy_this_month
             name: FastPi
@@ -151,6 +159,14 @@ views:
           - entity: sensor.plugs_total_cost_today
             name: Total
           - type: section
+            label: This week
+          - entity: sensor.fastpi_plug_cost_this_week
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_this_week
+            name: Beefy
+          - entity: sensor.plugs_total_cost_this_week
+            name: Total
+          - type: section
             label: This month
           - entity: sensor.fastpi_plug_cost_this_month
             name: FastPi
@@ -174,6 +190,34 @@ views:
             name: Beefy
           - entity: sensor.plugs_total_cost_total
             name: Total
+
+      - type: markdown
+        content: >
+          ### 📈 Projected yearly cost — *Hochrechnung*
+
+          **Estimate only.** These figures extrapolate the spending rate *so far
+          this week / this month* out to a full year. They are **not** a bill —
+          early in a week or month they are noisy and can swing a lot.
+
+      - type: entities
+        title: Projected / year (Hochrechnung ≈)
+        entities:
+          - type: section
+            label: ≈ from this week's rate
+          - entity: sensor.fastpi_plug_cost_year_proj_week
+            name: FastPi ≈
+          - entity: sensor.beefy_plug_cost_year_proj_week
+            name: Beefy ≈
+          - entity: sensor.plugs_total_cost_year_proj_week
+            name: Total ≈
+          - type: section
+            label: ≈ from this month's rate
+          - entity: sensor.fastpi_plug_cost_year_proj_month
+            name: FastPi ≈
+          - entity: sensor.beefy_plug_cost_year_proj_month
+            name: Beefy ≈
+          - entity: sensor.plugs_total_cost_year_proj_month
+            name: Total ≈
 
       - type: statistics-graph
         title: Energy per day (kWh)

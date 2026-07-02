@@ -68,6 +68,12 @@ template:
         device_class: energy
         state_class: total
         state: "{{ (states('sensor.beefy_plug_daily_high')|float(0) + states('sensor.beefy_plug_daily_low')|float(0)) | round(3) }}"
+      - name: "Beefy Plug Energy This Week"
+        unique_id: beefy_plug_energy_this_week
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.beefy_plug_weekly_high')|float(0) + states('sensor.beefy_plug_weekly_low')|float(0)) | round(3) }}"
       - name: "Beefy Plug Energy This Month"
         unique_id: beefy_plug_energy_this_month
         unit_of_measurement: "kWh"
@@ -89,6 +95,14 @@ template:
         state: >-
           {{ (states('sensor.beefy_plug_daily_high')|float(0) * states('input_number.electricity_price_high')|float(0)
             + states('sensor.beefy_plug_daily_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+      - name: "Beefy Plug Cost This Week"
+        unique_id: beefy_plug_cost_this_week
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {{ (states('sensor.beefy_plug_weekly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
+            + states('sensor.beefy_plug_weekly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
       - name: "Beefy Plug Cost This Month"
         unique_id: beefy_plug_cost_this_month
         unit_of_measurement: "CHF"
@@ -114,6 +128,28 @@ template:
           {{ (states('sensor.beefy_plug_total_high')|float(0) * states('input_number.electricity_price_high')|float(0)
             + states('sensor.beefy_plug_total_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
 
+      # --- Projected yearly cost (Hochrechnung / estimate) --------------------
+      # Extrapolate the spend-so-far this week / this month to a full year.
+      # Noisy early in a period; clearly an estimate (see dashboard note + icon).
+      - name: "Beefy Plug Cost Year Proj Week"
+        unique_id: beefy_plug_cost_year_proj_week
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        icon: mdi:chart-line-variant
+        state: >-
+          {% set frac = (now().hour*3600 + now().minute*60 + now().second) / 86400 %}
+          {% set days = [now().weekday() + frac, 0.5] | max %}
+          {{ (states('sensor.beefy_plug_cost_this_week')|float(0) / days * 365) | round(2) }}
+      - name: "Beefy Plug Cost Year Proj Month"
+        unique_id: beefy_plug_cost_year_proj_month
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        icon: mdi:chart-line-variant
+        state: >-
+          {% set frac = (now().hour*3600 + now().minute*60 + now().second) / 86400 %}
+          {% set days = [(now().day - 1) + frac, 0.5] | max %}
+          {{ (states('sensor.beefy_plug_cost_this_month')|float(0) / days * 365) | round(2) }}
+
 # --- Lifetime energy (kWh) integrated from live power ----------------------
 sensor:
   - platform: integration
@@ -132,6 +168,7 @@ utility_meter:
   beefy_plug_weekly:
     source: sensor.beefy_plug_energy
     cycle: weekly
+    tariffs: [high, low]
   beefy_plug_daily:
     source: sensor.beefy_plug_energy
     cycle: daily
