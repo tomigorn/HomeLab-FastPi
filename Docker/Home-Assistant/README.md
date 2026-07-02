@@ -126,8 +126,7 @@ stored in your profile — not config-as-code).
 > **Pitfall:** the old top-level `lovelace: mode: yaml` is **deprecated** (removed
 > in HA 2026.8) and in current HA no longer claims the Overview slot — it leaves
 > the auto "home" dashboard in place and shows your YAML as a *duplicate* Overview.
-> Use the `dashboards.lovelace` form above. Full decision record:
-> [`docs/2026-06-29-overview-electricity-dashboard.md`](docs/2026-06-29-overview-electricity-dashboard.md).
+> Use the `dashboards.lovelace` form above.
 
 Other dashboards (e.g. **Map**) stay storage-mode (UI-managed, in `.storage`).
 
