@@ -60,7 +60,7 @@ runtime store (`.storage/`), the database, logs, and secrets are not.
   (see [Dashboards](#dashboards)).
 - `ui-lovelace.yaml` — the default **Overview** dashboard, config-as-code
   (see [Dashboards](#dashboards)).
-- `packages/*.yaml` — one file per feature (see [myStrom plug](#mystrom-plug)).
+- `packages/*.yaml` — one file per feature (see [Smart plugs](#smart-plugs-mystrom)).
 - `automations.yaml`, `scripts.yaml`, `scenes.yaml` — the UI editors write here.
 - `secrets.yaml.example` — template; copy to `secrets.yaml` and fill real values.
 
@@ -77,7 +77,7 @@ runtime store (`.storage/`), the database, logs, and secrets are not.
 HA runs as **root**, so `config/*` files are root-owned — edit with `sudo`.
 
 ```bash
-sudo nano config/packages/mystrom_plug.yaml
+sudo nano config/packages/plug_fastpi.yaml
 # validate before applying:
 docker exec homeassistant python -m homeassistant --script check_config -c /config
 # apply: reload the domain in Developer Tools → YAML (REST/Template/Automations),
@@ -102,9 +102,10 @@ lovelace:
 ```
 
 In the sidebar it shows as **Electricity** 🔌, with two views:
-- **Overview** — myStrom plug controls, power gauge, 24 h power history.
-- **Energy** — live + per-period kWh, by-tariff, cost, and long-term
-  day/month/power graphs.
+- **Overview** — per-plug (FastPi + Beefy) controls, combined-power gauge, 24 h
+  power history (per plug + total).
+- **Energy** — live + per-period kWh, by-tariff, cost — per plug **and** combined
+  — plus long-term day/month/power graphs.
 
 Editing the YAML content only needs a **browser refresh**; changing the
 registration (title/icon/mode) needs `docker compose restart`.
@@ -130,50 +131,54 @@ stored in your profile — not config-as-code).
 
 Other dashboards (e.g. **Map**) stay storage-mode (UI-managed, in `.storage`).
 
-## myStrom plug
+## Smart plugs (myStrom)
 
-> Friendly name **"MyStrom Plug Rafi PC Desk"**, in area **Schlafzimmer Rafi**
-> (the `switch.mystrom_plug` entity_id is unchanged).
+Two **myStrom WiFi Switches**, each defined **entirely in YAML** via its **local
+HTTP API** — no cloud, no myStrom account, **no subscription** (HA talks to the
+device directly on the LAN):
 
-A **myStrom WiFi Switch** (`myStrom-Switch-61A328`), defined **entirely in YAML**
-(`config/packages/mystrom_plug.yaml`) via its **local HTTP API** — no cloud, no
-myStrom account, **no subscription** (the app's paid "myStrom PLUS" abo is
-irrelevant; HA talks to the device directly on the LAN).
+| Plug | Powers | File | IP | MAC |
+|---|---|---|---|---|
+| **FastPi** | the FastPi server | `config/packages/plug_fastpi.yaml` | `192.168.1.151` | `3c:e9:0e:7d:85:8c` |
+| **Beefy**  | the Beefy server  | `config/packages/plug_beefy.yaml`  | `192.168.1.152` | `3c:e9:0e:7c:7e:80` |
 
-Local API used:
+Local API used (both plugs — same model):
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /report` | `{"power":W, "Ws":.., "relay":bool, "temperature":C}` |
 | `GET /relay?state=1` / `?state=0` | switch the relay on / off |
 
-Entities created (all config-as-code):
+Per-plug entities (all config-as-code; `<p>` = `fastpi` or `beefy`):
 
 | Entity | Purpose |
 |---|---|
-| `switch.mystrom_plug` | on/off button (template switch → `rest_command`) |
-| `sensor.mystrom_plug_power` | live power (W) |
-| `sensor.mystrom_plug_energy` | derived kWh (Riemann `integration`) → Energy dashboard |
-| `sensor.mystrom_plug_temperature` | plug temperature (°C) |
-| `binary_sensor.mystrom_plug_relay` | relay state feedback |
+| `switch.<p>_plug` | on/off button (template switch → `rest_command`) |
+| `sensor.<p>_plug_power` | live power (W) |
+| `sensor.<p>_plug_energy` | derived kWh (Riemann `integration`) |
+| `sensor.<p>_plug_temperature` | plug temperature (°C) |
+| `binary_sensor.<p>_plug_relay` | relay state feedback |
 
-### ⚠️ IP address — static DHCP reservation REQUIRED
+> **⚠️ Foot-gun:** `switch.fastpi_plug` cuts power to the very host HA runs on —
+> toggling it off **hard-kills Home Assistant** (and FastPi). `switch.beefy_plug`
+> is a hard power switch for Beefy (pairs with its WOL / S5-poweroff automation).
 
-The YAML **hardcodes the plug's IP**, so the address must never change. HA talks
-to devices over **IP** (a MAC is layer-2, not routable — you can't HTTP to a
-MAC), and the plain `rest:` integration has no discovery, so it cannot re-find a
-device whose IP moved. The fix is a **static DHCP reservation** on the router.
+### ⚠️ IP addresses — static DHCP reservations REQUIRED
+
+Each plug's YAML **hardcodes its IP**, so the addresses must never change. HA
+talks to devices over **IP** (a MAC is layer-2, not routable — you can't HTTP to
+a MAC), and the plain `rest:` integration has no discovery, so it cannot re-find
+a device whose IP moved. The fix is a **static DHCP reservation** per plug.
 
 Router: **AX7501-B1 → Home Networking → Static DHCP**
 
-| Field | Value |
-|---|---|
-| **MAC** | `34:98:7A:61:A3:28` |
-| **Reserved IP** | `192.168.1.150` |
-| **Band** | WiFi 2.4 GHz |
+| Plug | MAC | Reserved IP | Band |
+|---|---|---|---|
+| FastPi | `3c:e9:0e:7d:85:8c` | `192.168.1.151` | WiFi 2.4 GHz |
+| Beefy  | `3c:e9:0e:7c:7e:80` | `192.168.1.152` | WiFi 2.4 GHz |
 
-If the plug ever gets a new IP, update **both** the reservation **and** the IP in
-`config/packages/mystrom_plug.yaml` (4 references), then `docker compose restart`.
+If a plug ever gets a new IP, update **both** the reservation **and** the IP in
+its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart`.
 
 > **Alternative if you dislike hardcoding:** the native myStrom integration (UI)
 > uses mDNS discovery and tracks the device by its MAC-derived unique ID, so it
@@ -182,24 +187,31 @@ If the plug ever gets a new IP, update **both** the reservation **and** the IP i
 
 ## Electricity metering, tariffs & cost
 
-`config/packages/electricity.yaml` builds the metering layer on top of the plug's
-`sensor.mystrom_plug_energy` (lifetime kWh) and `sensor.mystrom_plug_power` (W).
+`config/packages/electricity.yaml` holds the **shared tariff/price** and the
+**combined "both plugs" totals**; each plug's own meters live in its
+`plug_<p>.yaml` (built on `sensor.<p>_plug_energy` / `_power`).
 
 - **Forever history** — any sensor with a `state_class` keeps **long-term
   statistics** (hourly aggregates) **forever**; only the every-5s detail is purged
   (recorder default 10 days). The dashboard's `statistics-graph` cards read these.
-- **Per-period kWh** — `utility_meter` cycles: `sensor.mystrom_hourly`,
-  `…_weekly`, and tariff-split `mystrom_daily/monthly/yearly/total` →
-  `sensor.mystrom_<cycle>_high` / `_low` (+ a `select.mystrom_<cycle>`).
+- **Per-plug per-period kWh** — `utility_meter` cycles per plug:
+  `sensor.<p>_plug_hourly`, `…_weekly`, and tariff-split
+  `<p>_plug_daily/monthly/yearly/total` → `sensor.<p>_plug_<cycle>_high` / `_low`
+  (+ a `select.<p>_plug_<cycle>`).
 - **Tariff (City of Zürich / EWZ)** — **HIGH** = Mon–Sat 06:00–22:00; **LOW** =
   nights 22:00–06:00 **and all day Sunday**. One automation applies the correct
-  tariff to all `select`s at 06:00 / 22:00 / on start (`now().weekday() != 6 and
-  6 <= hour < 22` → high). `sensor.mystrom_current_tariff` shows the active one.
+  tariff to **both plugs'** `select`s at 06:00 / 22:00 / on start
+  (`now().weekday() != 6 and 6 <= hour < 22` → high).
+  `sensor.electricity_current_tariff` shows the active one.
 - **Prices** — two `input_number` helpers (`electricity_price_high` / `_low`,
   CHF/kWh), **editable in the UI** (Energy view). The YAML `initial:` defaults are
   the **real EWZ 2026 tariffs**: high **0.2988**, low **0.1870** CHF/kWh.
-- **Cost** — `sensor.mystrom_cost_today/this_month/this_year/total` =
+- **Per-plug cost** — `sensor.<p>_plug_cost_today/this_month/this_year/total` =
   `high_kWh × price_high + low_kWh × price_low` (true time-of-use cost).
+- **Combined totals** — `sensor.plugs_total_power`, `…_energy` (lifetime; feeds
+  the Energy dashboard), `…_energy_today/this_month/this_year`,
+  `…_cost_today/this_month/this_year/total`, and `…_current_cost_rate` — each the
+  sum of both plugs.
 
 Shown on the dashboard's **Energy** view (live, per-period kWh, by-tariff, cost,
 and forever day/month/power graphs).
@@ -215,10 +227,10 @@ in `electricity.yaml` (only applied on a fresh install).
 HA's built-in **Energy** dashboard is set up (Settings → Dashboards → Energy).
 It is **UI-configured and lives in `.storage/energy`** — there is no YAML for it.
 
-- **Grid consumption** = `sensor.mystrom_plug_energy`. (Only grid sources get cost
-  tracking; an *Individual device* would be energy-only.)
-- **Cost** = *"Use an entity with current price"* → `sensor.mystrom_current_price`
-  (tariff-aware). HA auto-creates `sensor.mystrom_plug_energy_cost`.
+- **Grid consumption** = `sensor.plugs_total_energy` (combined both plugs). (Only
+  grid sources get cost tracking; an *Individual device* would be energy-only.)
+- **Cost** = *"Use an entity with current price"* → `sensor.electricity_current_price`
+  (tariff-aware). HA auto-creates `sensor.plugs_total_energy_cost`.
 - The Energy panel's **date-range picker** then shows kWh **and** CHF for any
   period (hourly/daily resolution — long-term stats are hourly). Cost accrues
   **from setup onward**; historical kWh is present but past cost is not
@@ -232,12 +244,12 @@ rooms are:
 > WC · Dusche · Eingang · Schlafzimmer Tomas · Schlafzimmer Rafi · Küche ·
 > Esszimmer · Reduit · Wohnzimmer · Balkon
 
-The myStrom plug lives in **Schlafzimmer Rafi**. Because it's defined in YAML
-(no auto-created *device*), the room is assigned at the **entity** level — the
-physical entities (`switch.mystrom_plug`, `binary_sensor.mystrom_plug_relay`,
-`sensor.mystrom_plug_power` / `_temperature` / `_energy` / `_energy_cost`) carry
-`area_id: schlafzimmer_rafi`. The derived tariff/price/cost sensors are left
-unassigned (they're calculations, not physically located).
+The two server plugs are defined in YAML (no auto-created *device*), so any room
+is assigned at the **entity** level in the UI (Settings → Entities → pick entity
+→ area). They're unassigned by default; assign each plug's physical entities
+(`switch.<p>_plug`, `binary_sensor.<p>_plug_relay`, `sensor.<p>_plug_power` /
+`_temperature` / `_energy`) to a room if you want them grouped there. The derived
+tariff/price/cost sensors are left unassigned (calculations, not physically located).
 
 ## Notes
 

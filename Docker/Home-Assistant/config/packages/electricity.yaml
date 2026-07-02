@@ -1,8 +1,9 @@
 # =========================================================
-# Electricity metering, tariffs & cost — config-as-code
+# Electricity tariffs, prices & household totals — config-as-code
 # =========================================================
-# Builds on sensor.mystrom_plug_energy (lifetime kWh) and
-# sensor.mystrom_plug_power (live W) from packages/mystrom_plug.yaml.
+# Global tariff/price (shared by every plug) + the combined "both plugs"
+# totals. Per-plug devices & meters live in packages/plug_fastpi.yaml and
+# packages/plug_beefy.yaml.
 #
 # Tariff (City of Zürich / EWZ):
 #   HIGH (Hochtarif)  = Mon-Sat 06:00-22:00
@@ -30,33 +31,9 @@ input_number:
     icon: mdi:cash-minus
     initial: 0.1870        # EWZ Niedertarif 2026: 18.70 Rp/kWh
 
-# --- Per-period energy meters ----------------------------------------------
-# Tariff-split meters create sensor.<name>_high / _low + select.<name>.
-utility_meter:
-  mystrom_hourly:
-    source: sensor.mystrom_plug_energy
-    cycle: hourly
-  mystrom_weekly:
-    source: sensor.mystrom_plug_energy
-    cycle: weekly
-  mystrom_daily:
-    source: sensor.mystrom_plug_energy
-    cycle: daily
-    tariffs: [high, low]
-  mystrom_monthly:
-    source: sensor.mystrom_plug_energy
-    cycle: monthly
-    tariffs: [high, low]
-  mystrom_yearly:
-    source: sensor.mystrom_plug_energy
-    cycle: yearly
-    tariffs: [high, low]
-  mystrom_total:
-    source: sensor.mystrom_plug_energy
-    tariffs: [high, low]
-
 # --- Tariff switching ------------------------------------------------------
-# One rule applies the correct tariff at the boundaries and on start.
+# One rule applies the correct tariff at the boundaries and on start, to the
+# tariff-split meters of BOTH plugs.
 # (06:00 -> high on Mon-Sat, stays low on Sun; 22:00 -> low always.)
 automation:
   - id: electricity_apply_tariff
@@ -72,86 +49,97 @@ automation:
       - action: select.select_option
         target:
           entity_id:
-            - select.mystrom_daily
-            - select.mystrom_monthly
-            - select.mystrom_yearly
-            - select.mystrom_total
+            - select.fastpi_plug_daily
+            - select.fastpi_plug_monthly
+            - select.fastpi_plug_yearly
+            - select.fastpi_plug_total
+            - select.beefy_plug_daily
+            - select.beefy_plug_monthly
+            - select.beefy_plug_yearly
+            - select.beefy_plug_total
         data:
           option: "{{ 'high' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'low' }}"
 
-# --- Derived helpers: current tariff/price, combined totals, cost ----------
+# --- Global tariff/price + combined household totals -----------------------
 template:
   - sensor:
-      - name: "MyStrom Current Tariff"
-        unique_id: mystrom_current_tariff
+      - name: "Electricity Current Tariff"
+        unique_id: electricity_current_tariff
         state: "{{ 'high' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'low' }}"
         icon: "{{ 'mdi:weather-sunny' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'mdi:weather-night' }}"
 
-      - name: "MyStrom Current Price"
-        unique_id: mystrom_current_price
+      - name: "Electricity Current Price"
+        unique_id: electricity_current_price
         unit_of_measurement: "CHF/kWh"
         state: >-
           {{ (states('input_number.electricity_price_high')
               if (now().weekday() != 6 and 6 <= now().hour < 22)
               else states('input_number.electricity_price_low')) | float(0) }}
 
-      - name: "MyStrom Current Cost Rate"
-        unique_id: mystrom_current_cost_rate
+      # ---- Combined live power & cost rate (both plugs) ----
+      - name: "Plugs Total Power"
+        unique_id: plugs_total_power
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: "{{ (states('sensor.fastpi_plug_power')|float(0) + states('sensor.beefy_plug_power')|float(0)) | round(1) }}"
+
+      - name: "Plugs Total Current Cost Rate"
+        unique_id: plugs_total_current_cost_rate
         unit_of_measurement: "CHF/h"
-        state: >-
-          {{ (states('sensor.mystrom_plug_power') | float(0) / 1000
-              * states('sensor.mystrom_current_price') | float(0)) | round(3) }}
+        state: "{{ (states('sensor.fastpi_plug_current_cost_rate')|float(0) + states('sensor.beefy_plug_current_cost_rate')|float(0)) | round(3) }}"
 
-      # Combined per-period energy (high + low)
-      - name: "MyStrom Energy Today"
-        unique_id: mystrom_energy_today
+      # ---- Combined lifetime energy (feeds the Energy dashboard) ----
+      - name: "Plugs Total Energy"
+        unique_id: plugs_total_energy
         unit_of_measurement: "kWh"
         device_class: energy
-        state_class: total
-        state: "{{ (states('sensor.mystrom_daily_high')|float(0) + states('sensor.mystrom_daily_low')|float(0)) | round(3) }}"
-      - name: "MyStrom Energy This Month"
-        unique_id: mystrom_energy_this_month
-        unit_of_measurement: "kWh"
-        device_class: energy
-        state_class: total
-        state: "{{ (states('sensor.mystrom_monthly_high')|float(0) + states('sensor.mystrom_monthly_low')|float(0)) | round(3) }}"
-      - name: "MyStrom Energy This Year"
-        unique_id: mystrom_energy_this_year
-        unit_of_measurement: "kWh"
-        device_class: energy
-        state_class: total
-        state: "{{ (states('sensor.mystrom_yearly_high')|float(0) + states('sensor.mystrom_yearly_low')|float(0)) | round(3) }}"
+        state_class: total_increasing
+        availability: "{{ is_number(states('sensor.fastpi_plug_energy')) and is_number(states('sensor.beefy_plug_energy')) }}"
+        state: "{{ (states('sensor.fastpi_plug_energy')|float(0) + states('sensor.beefy_plug_energy')|float(0)) | round(3) }}"
 
-      # Cost per period = high_kWh*price_high + low_kWh*price_low
-      - name: "MyStrom Cost Today"
-        unique_id: mystrom_cost_today
+      # ---- Combined per-period energy (high+low, both plugs) ----
+      - name: "Plugs Total Energy Today"
+        unique_id: plugs_total_energy_today
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.fastpi_plug_energy_today')|float(0) + states('sensor.beefy_plug_energy_today')|float(0)) | round(3) }}"
+      - name: "Plugs Total Energy This Month"
+        unique_id: plugs_total_energy_this_month
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.fastpi_plug_energy_this_month')|float(0) + states('sensor.beefy_plug_energy_this_month')|float(0)) | round(3) }}"
+      - name: "Plugs Total Energy This Year"
+        unique_id: plugs_total_energy_this_year
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.fastpi_plug_energy_this_year')|float(0) + states('sensor.beefy_plug_energy_this_year')|float(0)) | round(3) }}"
+
+      # ---- Combined cost (both plugs) ----
+      - name: "Plugs Total Cost Today"
+        unique_id: plugs_total_cost_today
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
-        state: >-
-          {{ (states('sensor.mystrom_daily_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.mystrom_daily_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
-      - name: "MyStrom Cost This Month"
-        unique_id: mystrom_cost_this_month
+        state: "{{ (states('sensor.fastpi_plug_cost_today')|float(0) + states('sensor.beefy_plug_cost_today')|float(0)) | round(2) }}"
+      - name: "Plugs Total Cost This Month"
+        unique_id: plugs_total_cost_this_month
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
-        state: >-
-          {{ (states('sensor.mystrom_monthly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.mystrom_monthly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
-      - name: "MyStrom Cost This Year"
-        unique_id: mystrom_cost_this_year
+        state: "{{ (states('sensor.fastpi_plug_cost_this_month')|float(0) + states('sensor.beefy_plug_cost_this_month')|float(0)) | round(2) }}"
+      - name: "Plugs Total Cost This Year"
+        unique_id: plugs_total_cost_this_year
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
-        state: >-
-          {{ (states('sensor.mystrom_yearly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.mystrom_yearly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
-      - name: "MyStrom Cost Total"
-        unique_id: mystrom_cost_total
+        state: "{{ (states('sensor.fastpi_plug_cost_this_year')|float(0) + states('sensor.beefy_plug_cost_this_year')|float(0)) | round(2) }}"
+      - name: "Plugs Total Cost Total"
+        unique_id: plugs_total_cost_total
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
-        state: >-
-          {{ (states('sensor.mystrom_total_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.mystrom_total_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+        state: "{{ (states('sensor.fastpi_plug_cost_total')|float(0) + states('sensor.beefy_plug_cost_total')|float(0)) | round(2) }}"
