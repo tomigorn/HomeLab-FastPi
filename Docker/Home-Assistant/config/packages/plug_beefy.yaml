@@ -128,7 +128,7 @@ template:
           {{ (states('sensor.beefy_plug_total_high')|float(0) * states('input_number.electricity_price_high')|float(0)
             + states('sensor.beefy_plug_total_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
 
-      # --- Projected yearly cost (Hochrechnung / estimate) --------------------
+      # --- Projected yearly cost (estimate) -----------------------------------
       # Extrapolate the spend-so-far this week / this month to a full year.
       # Noisy early in a period; clearly an estimate (see dashboard note + icon).
       - name: "Beefy Plug Cost Year Proj Week"

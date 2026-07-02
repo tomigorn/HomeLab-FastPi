@@ -193,31 +193,29 @@ views:
 
       - type: markdown
         content: >
-          ### 📈 Projected yearly cost — *Hochrechnung*
-
-          **Estimate only.** These figures extrapolate the spending rate *so far
-          this week / this month* out to a full year. They are **not** a bill —
-          early in a week or month they are noisy and can swing a lot.
+          **Projected yearly cost — estimate.** Extrapolates the spending rate so
+          far this week / this month out to a full year. This is not a bill; early
+          in a week or month it is noisy and can swing a lot.
 
       - type: entities
-        title: Projected / year (Hochrechnung ≈)
+        title: Projected yearly cost (estimate)
         entities:
           - type: section
-            label: ≈ from this week's rate
+            label: From this week's rate
           - entity: sensor.fastpi_plug_cost_year_proj_week
-            name: FastPi ≈
+            name: FastPi
           - entity: sensor.beefy_plug_cost_year_proj_week
-            name: Beefy ≈
+            name: Beefy
           - entity: sensor.plugs_total_cost_year_proj_week
-            name: Total ≈
+            name: Total
           - type: section
-            label: ≈ from this month's rate
+            label: From this month's rate
           - entity: sensor.fastpi_plug_cost_year_proj_month
-            name: FastPi ≈
+            name: FastPi
           - entity: sensor.beefy_plug_cost_year_proj_month
-            name: Beefy ≈
+            name: Beefy
           - entity: sensor.plugs_total_cost_year_proj_month
-            name: Total ≈
+            name: Total
 
       - type: statistics-graph
         title: Energy per day (kWh)
