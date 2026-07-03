@@ -209,6 +209,12 @@ its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart
   publishes them. Because EWZ changes prices on **Jan 1** — the same instant the
   yearly and monthly meters reset — per-year and per-month costs are **exact**.
   Seeded with the **real EWZ 2026 tariffs**: high **0.2988**, low **0.1870** CHF/kWh.
+- **No silent wrong numbers** — if the current year is **not** in the table, the
+  price sensors go **unavailable** (they never guess with last year's price), and
+  every cost sensor carries an `availability:` guard so it follows suit — you get
+  a visible blank, never a plausible-looking wrong figure.
+  `sensor.electricity_tariff_coverage` shows `OK` / `MISSING — add <year>` and is
+  on the dashboard's *Tariff & price* card.
 - **Per-plug cost (per period, resets)** —
   `sensor.<p>_plug_cost_today/this_week/this_month/this_year` =
   `high_kWh × price_high + low_kWh × price_low`. Each is tied to a meter that
