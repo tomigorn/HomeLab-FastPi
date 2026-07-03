@@ -90,6 +90,7 @@ Home-lab "fastpi" server (always-on tier: Docker host, Traefik, Home Assistant, 
 
 - **Boot drive** is the NVMe (`nvme0n1p2` = `/`, `nvme0n1p1` = `/boot/firmware`).
 - **NVMe carrier:** Geekworm X1001 PCIe-to-NVMe shield with metal case (purchased 2024-07-20, ~CHF 24.59).
+- **NVMe cooling:** be quiet! MC1 M.2 SSD heatsink on the PM961 (~CHF 11.20, one of a 2-pack).
 - **PCIe link:** running at **Gen2 x1 (5.0 GT/s)** — the Pi 5 default. The slot advertises up to 8.0 GT/s (Gen3), so `dtparam=pcie_gen=3` in `config.txt` could raise it (not currently set).
 - USB IDs: `0bc2:231a` (Seagate Expansion), `0bc2:ab53` (Seagate One Touch).
 
@@ -133,11 +134,12 @@ Prices as paid (CHF). Serial numbers omitted; some drive prices are no longer on
 | Official Raspberry Pi Active Cooler | 10.20 | with board |
 | Geekworm X1001 PCIe-to-NVMe carrier + metal case | 24.59 | 2024-07-20 |
 | Samsung PM961 512 GB NVMe SSD | *n/a — not recorded* | — |
+| be quiet! MC1 M.2 SSD heatsink | 11.20 | (1 of a 2-pack @ CHF 22.40) |
 | Seagate Expansion Portable 2 TB (USB HDD) | 59.– | — |
 | Seagate One Touch 2 TB (USB HDD) | *n/a — not recorded* | — |
 | DIYzone 3-layer acrylic case (incl. PWM fan) | 8.49 | 2024-08-23 |
 | Official Raspberry Pi 27W USB-C PSU | 15.35 | 2024-08-23 |
-| **Total (recorded items)** | **≈ 207.53** | |
+| **Total (recorded items)** | **≈ 218.73** | |
 
 *(Two drives — the Samsung PM961 NVMe and the Seagate One Touch 2 TB — have no recorded purchase price, so the total above excludes them.)*
 
