@@ -286,3 +286,19 @@ template:
         icon: mdi:chart-line-variant
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_year_proj_month')|float(0) + states('sensor.beefy_plug_cost_year_proj_month')|float(0)) | round(2) }}"
+
+      # ---- Projected yearly cost incl. vampire (both plugs + vampire) ----
+      - name: "Total Incl Vampire Cost Year Proj Week"
+        unique_id: total_incl_vampire_cost_year_proj_week
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        icon: mdi:chart-line-variant
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_year_proj_week')|float(0) + states('sensor.vampire_plug_cost_year_proj_week')|float(0)) | round(2) }}"
+      - name: "Total Incl Vampire Cost Year Proj Month"
+        unique_id: total_incl_vampire_cost_year_proj_month
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        icon: mdi:chart-line-variant
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_year_proj_month')|float(0) + states('sensor.vampire_plug_cost_year_proj_month')|float(0)) | round(2) }}"

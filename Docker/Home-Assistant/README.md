@@ -117,8 +117,9 @@ In the sidebar it shows as **Electricity** 🔌, with two views:
     the selected period** (via one `conditional` card per timeframe), instead of
     one giant always-on table of every period.
   - a **Show-vampire toggle** (`input_boolean.measured_show_vampire`) — adds a
-    **Vampire** row and a **Total incl. vampire** row to those tables (via
-    `conditional` entity rows). Off by default; the graphs stay plugs-only.
+    **Vampire** row and a **Total incl. vampire** row to those tables and to the
+    projected-yearly-cost card (via `conditional` entity rows). Off by default;
+    the graphs stay plugs-only.
 
     Both helpers live in `config/packages/measured_controls.yaml`. Lifetime shows
     energy only (no reset-period lifetime cost — see below).

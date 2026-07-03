@@ -60,6 +60,27 @@ template:
           {{ states('sensor.vampire_plug_power') | float(0) / 1000
              * states('sensor.electricity_current_price') | float(0) }}
 
+      # --- Projected yearly cost (estimate) — same extrapolation as the plugs,
+      # so the toggle can add a Vampire row to the projected-cost card.
+      - name: "Vampire Plug Cost Year Proj Week"
+        unique_id: vampire_plug_cost_year_proj_week
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        icon: mdi:chart-line-variant
+        state: >-
+          {% set frac = (now().hour*3600 + now().minute*60 + now().second) / 86400 %}
+          {% set days = [now().weekday() + frac, 0.5] | max %}
+          {{ (states('sensor.vampire_cost_weekly')|float(0) / days * 365) | round(2) }}
+      - name: "Vampire Plug Cost Year Proj Month"
+        unique_id: vampire_plug_cost_year_proj_month
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        icon: mdi:chart-line-variant
+        state: >-
+          {% set frac = (now().hour*3600 + now().minute*60 + now().second) / 86400 %}
+          {% set days = [(now().day - 1) + frac, 0.5] | max %}
+          {{ (states('sensor.vampire_cost_monthly')|float(0) / days * 365) | round(2) }}
+
 # --- Lifetime energy (kWh) & cost (CHF) integrated from the live power/rate ---
 # Odometer method: because the cost rate already uses the current tariff price,
 # the accumulated cost — and every per-period cost meter built on it below — is
