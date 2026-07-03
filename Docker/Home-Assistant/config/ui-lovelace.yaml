@@ -145,199 +145,417 @@ views:
   - title: Measured
     path: measured
     icon: mdi:gauge
+    # Same treatment as Overview: panel mode + one vertical-stack of full-width
+    # rows, so the ~dozen cards land on a deliberate grid instead of being
+    # scattered by masonry. The tables below are driven by two controls under
+    # Live: a vampire toggle (adds Vampire + Total-incl-vampire rows) and a
+    # timeframe dropdown (which period the tables show) — via input_boolean /
+    # input_select in packages/measured_controls.yaml and `conditional` cards.
+    panel: true
     cards:
-      - type: glance
-        title: Live
-        columns: 3
-        entities:
-          - entity: sensor.plugs_total_power
-            name: Power
-          - entity: sensor.electricity_current_tariff
-            name: Tariff
-          - entity: sensor.plugs_total_current_cost_rate
-            name: Cost/h
+      - type: vertical-stack
+        cards:
+          # -------- Row 1: Live (+ controls) | Tariff & price | Projected
+          - type: horizontal-stack
+            cards:
+              - type: vertical-stack
+                cards:
+                  - type: glance
+                    title: Live
+                    columns: 3
+                    entities:
+                      - entity: sensor.plugs_total_power
+                        name: Power
+                      - entity: sensor.electricity_current_tariff
+                        name: Tariff
+                      - entity: sensor.plugs_total_current_cost_rate
+                        name: Cost/h
+                  # Controls directly under Live (equal-height, side by side):
+                  # vampire show/hide toggle + timeframe dropdown.
+                  - type: horizontal-stack
+                    cards:
+                      - type: entities
+                        entities:
+                          - entity: input_boolean.measured_show_vampire
+                            name: Show vampire
+                      - type: entities
+                        entities:
+                          - entity: input_select.measured_timeframe
+                            name: Timeframe
 
-      - type: entities
-        title: Tariff & price
-        entities:
-          - entity: sensor.electricity_current_tariff
-            name: Current tariff
-          - entity: sensor.electricity_current_price
-            name: Current price
-          - type: divider
-          - entity: sensor.electricity_price_high
-            name: Price — high (Mon–Sat 06–22)
-          - entity: sensor.electricity_price_low
-            name: Price — low (nights + all Sun)
-          - entity: sensor.electricity_tariff_coverage
-            name: Price table coverage
+              - type: entities
+                title: Tariff & price
+                entities:
+                  - entity: sensor.electricity_current_tariff
+                    name: Current tariff
+                  - entity: sensor.electricity_current_price
+                    name: Current price
+                  - type: divider
+                  - entity: sensor.electricity_price_high
+                    name: Price — high (Mon–Sat 06–22)
+                  - entity: sensor.electricity_price_low
+                    name: Price — low (nights + all Sun)
+                  - entity: sensor.electricity_tariff_coverage
+                    name: Price table coverage
 
-      - type: entities
-        title: Energy used (kWh)
-        entities:
-          - type: section
-            label: Today
-          - entity: sensor.fastpi_plug_energy_today
-            name: FastPi
-          - entity: sensor.beefy_plug_energy_today
-            name: Beefy
-          - entity: sensor.plugs_total_energy_today
-            name: Total
-          - type: section
-            label: This week
-          - entity: sensor.fastpi_plug_energy_this_week
-            name: FastPi
-          - entity: sensor.beefy_plug_energy_this_week
-            name: Beefy
-          - entity: sensor.plugs_total_energy_this_week
-            name: Total
-          - type: section
-            label: This month
-          - entity: sensor.fastpi_plug_energy_this_month
-            name: FastPi
-          - entity: sensor.beefy_plug_energy_this_month
-            name: Beefy
-          - entity: sensor.plugs_total_energy_this_month
-            name: Total
-          - type: section
-            label: This year
-          - entity: sensor.fastpi_plug_energy_this_year
-            name: FastPi
-          - entity: sensor.beefy_plug_energy_this_year
-            name: Beefy
-          - entity: sensor.plugs_total_energy_this_year
-            name: Total
-          - type: section
-            label: Lifetime
-          - entity: sensor.fastpi_plug_energy
-            name: FastPi
-          - entity: sensor.beefy_plug_energy
-            name: Beefy
-          - entity: sensor.plugs_total_energy
-            name: Total
+              - type: vertical-stack
+                cards:
+                  - type: markdown
+                    content: >
+                      **Projected yearly cost — estimate.** Extrapolates the
+                      spending rate so far this week / this month out to a full
+                      year. Not a bill; early in a week or month it is noisy and
+                      can swing a lot.
+                  - type: entities
+                    title: Projected yearly cost (estimate)
+                    entities:
+                      - type: section
+                        label: From this week's rate
+                      - entity: sensor.fastpi_plug_cost_year_proj_week
+                        name: FastPi
+                      - entity: sensor.beefy_plug_cost_year_proj_week
+                        name: Beefy
+                      - entity: sensor.plugs_total_cost_year_proj_week
+                        name: Total
+                      - type: section
+                        label: From this month's rate
+                      - entity: sensor.fastpi_plug_cost_year_proj_month
+                        name: FastPi
+                      - entity: sensor.beefy_plug_cost_year_proj_month
+                        name: Beefy
+                      - entity: sensor.plugs_total_cost_year_proj_month
+                        name: Total
 
-      - type: entities
-        title: Cost (CHF)
-        entities:
-          - type: section
-            label: Today
-          - entity: sensor.fastpi_plug_cost_today
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_today
-            name: Beefy
-          - entity: sensor.plugs_total_cost_today
-            name: Total
-          - type: section
-            label: This week
-          - entity: sensor.fastpi_plug_cost_this_week
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_this_week
-            name: Beefy
-          - entity: sensor.plugs_total_cost_this_week
-            name: Total
-          - type: section
-            label: This month
-          - entity: sensor.fastpi_plug_cost_this_month
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_this_month
-            name: Beefy
-          - entity: sensor.plugs_total_cost_this_month
-            name: Total
-          - type: section
-            label: This year
-          - entity: sensor.fastpi_plug_cost_this_year
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_this_year
-            name: Beefy
-          - entity: sensor.plugs_total_cost_this_year
-            name: Total
+          # -------- Row 2: per-timeframe Energy | Cost tables.
+          # One `conditional` card per timeframe (only the selected one renders);
+          # the Vampire / Total-incl-vampire rows appear only when the toggle is on.
 
-      - type: markdown
-        content: >
-          **Projected yearly cost — estimate.** Extrapolates the spending rate so
-          far this week / this month out to a full year. This is not a bill; early
-          in a week or month it is noisy and can swing a lot.
+          # ---- Today ----
+          - type: conditional
+            conditions:
+              - entity: input_select.measured_timeframe
+                state: Today
+            card:
+              type: horizontal-stack
+              cards:
+                - type: entities
+                  title: Energy — Today (kWh)
+                  entities:
+                    - entity: sensor.fastpi_plug_energy_today
+                      name: FastPi
+                    - entity: sensor.beefy_plug_energy_today
+                      name: Beefy
+                    - entity: sensor.plugs_total_energy_today
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_energy_daily
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_energy_today
+                        name: Total incl. vampire
+                - type: entities
+                  title: Cost — Today (CHF)
+                  entities:
+                    - entity: sensor.fastpi_plug_cost_today
+                      name: FastPi
+                    - entity: sensor.beefy_plug_cost_today
+                      name: Beefy
+                    - entity: sensor.plugs_total_cost_today
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_cost_daily
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_cost_today
+                        name: Total incl. vampire
 
-      - type: entities
-        title: Projected yearly cost (estimate)
-        entities:
-          - type: section
-            label: From this week's rate
-          - entity: sensor.fastpi_plug_cost_year_proj_week
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_year_proj_week
-            name: Beefy
-          - entity: sensor.plugs_total_cost_year_proj_week
-            name: Total
-          - type: section
-            label: From this month's rate
-          - entity: sensor.fastpi_plug_cost_year_proj_month
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_year_proj_month
-            name: Beefy
-          - entity: sensor.plugs_total_cost_year_proj_month
-            name: Total
+          # ---- This week ----
+          - type: conditional
+            conditions:
+              - entity: input_select.measured_timeframe
+                state: This week
+            card:
+              type: horizontal-stack
+              cards:
+                - type: entities
+                  title: Energy — This week (kWh)
+                  entities:
+                    - entity: sensor.fastpi_plug_energy_this_week
+                      name: FastPi
+                    - entity: sensor.beefy_plug_energy_this_week
+                      name: Beefy
+                    - entity: sensor.plugs_total_energy_this_week
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_energy_weekly
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_energy_this_week
+                        name: Total incl. vampire
+                - type: entities
+                  title: Cost — This week (CHF)
+                  entities:
+                    - entity: sensor.fastpi_plug_cost_this_week
+                      name: FastPi
+                    - entity: sensor.beefy_plug_cost_this_week
+                      name: Beefy
+                    - entity: sensor.plugs_total_cost_this_week
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_cost_weekly
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_cost_this_week
+                        name: Total incl. vampire
 
-      - type: statistics-graph
-        title: Energy per day (kWh)
-        chart_type: bar
-        period: day
-        stat_types:
-          - change
-        entities:
-          - entity: sensor.fastpi_plug_energy
-            name: FastPi
-          - entity: sensor.beefy_plug_energy
-            name: Beefy
+          # ---- This month ----
+          - type: conditional
+            conditions:
+              - entity: input_select.measured_timeframe
+                state: This month
+            card:
+              type: horizontal-stack
+              cards:
+                - type: entities
+                  title: Energy — This month (kWh)
+                  entities:
+                    - entity: sensor.fastpi_plug_energy_this_month
+                      name: FastPi
+                    - entity: sensor.beefy_plug_energy_this_month
+                      name: Beefy
+                    - entity: sensor.plugs_total_energy_this_month
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_energy_monthly
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_energy_this_month
+                        name: Total incl. vampire
+                - type: entities
+                  title: Cost — This month (CHF)
+                  entities:
+                    - entity: sensor.fastpi_plug_cost_this_month
+                      name: FastPi
+                    - entity: sensor.beefy_plug_cost_this_month
+                      name: Beefy
+                    - entity: sensor.plugs_total_cost_this_month
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_cost_monthly
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_cost_this_month
+                        name: Total incl. vampire
 
-      - type: statistics-graph
-        title: Energy per month (kWh)
-        chart_type: bar
-        period: month
-        stat_types:
-          - change
-        entities:
-          - entity: sensor.fastpi_plug_energy
-            name: FastPi
-          - entity: sensor.beefy_plug_energy
-            name: Beefy
+          # ---- This year ----
+          - type: conditional
+            conditions:
+              - entity: input_select.measured_timeframe
+                state: This year
+            card:
+              type: horizontal-stack
+              cards:
+                - type: entities
+                  title: Energy — This year (kWh)
+                  entities:
+                    - entity: sensor.fastpi_plug_energy_this_year
+                      name: FastPi
+                    - entity: sensor.beefy_plug_energy_this_year
+                      name: Beefy
+                    - entity: sensor.plugs_total_energy_this_year
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_energy_yearly
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_energy_this_year
+                        name: Total incl. vampire
+                - type: entities
+                  title: Cost — This year (CHF)
+                  entities:
+                    - entity: sensor.fastpi_plug_cost_this_year
+                      name: FastPi
+                    - entity: sensor.beefy_plug_cost_this_year
+                      name: Beefy
+                    - entity: sensor.plugs_total_cost_this_year
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_cost_yearly
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_cost_this_year
+                        name: Total incl. vampire
 
-      - type: statistics-graph
-        title: Cost per day (CHF)
-        chart_type: bar
-        period: day
-        stat_types:
-          - change
-        entities:
-          - entity: sensor.fastpi_plug_cost_accumulated
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_accumulated
-            name: Beefy
+          # ---- Lifetime (energy only — no reset-period lifetime cost, by design) ----
+          - type: conditional
+            conditions:
+              - entity: input_select.measured_timeframe
+                state: Lifetime
+            card:
+              type: horizontal-stack
+              cards:
+                - type: entities
+                  title: Energy — Lifetime (kWh)
+                  entities:
+                    - entity: sensor.fastpi_plug_energy
+                      name: FastPi
+                    - entity: sensor.beefy_plug_energy
+                      name: Beefy
+                    - entity: sensor.plugs_total_energy
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_plug_energy
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_energy
+                        name: Total incl. vampire
+                - type: markdown
+                  content: >
+                    **No lifetime cost — by design.** Costs reset each period, so
+                    they never run as a single lifetime total. Use **This year**,
+                    or the native **Energy** dashboard for an arbitrary date range.
 
-      - type: statistics-graph
-        title: Cost per month (CHF)
-        chart_type: bar
-        period: month
-        stat_types:
-          - change
-        entities:
-          - entity: sensor.fastpi_plug_cost_accumulated
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_accumulated
-            name: Beefy
+          # -------- Row 3: per-day graphs — energy | cost
+          - type: horizontal-stack
+            cards:
+              - type: statistics-graph
+                title: Energy per day (kWh)
+                chart_type: bar
+                period: day
+                stat_types:
+                  - change
+                entities:
+                  - entity: sensor.fastpi_plug_energy
+                    name: FastPi
+                  - entity: sensor.beefy_plug_energy
+                    name: Beefy
 
-      - type: markdown
-        content: >
-          For any custom date range across years — kWh **and** CHF, time-of-use
-          priced — use the built-in **Energy** dashboard in the sidebar. Its date
-          picker shows exactly the period you select, starting from 0.
+              - type: statistics-graph
+                title: Cost per day (CHF)
+                chart_type: bar
+                period: day
+                stat_types:
+                  - change
+                entities:
+                  - entity: sensor.fastpi_plug_cost_accumulated
+                    name: FastPi
+                  - entity: sensor.beefy_plug_cost_accumulated
+                    name: Beefy
 
-      - type: statistics-graph
-        title: Power (W) — hourly mean / max
-        period: hour
-        stat_types:
-          - mean
-          - max
-        entities:
-          - entity: sensor.plugs_total_power
-            name: Total
+          # -------- Row 4: per-month graphs — energy | cost
+          - type: horizontal-stack
+            cards:
+              - type: statistics-graph
+                title: Energy per month (kWh)
+                chart_type: bar
+                period: month
+                stat_types:
+                  - change
+                entities:
+                  - entity: sensor.fastpi_plug_energy
+                    name: FastPi
+                  - entity: sensor.beefy_plug_energy
+                    name: Beefy
+
+              - type: statistics-graph
+                title: Cost per month (CHF)
+                chart_type: bar
+                period: month
+                stat_types:
+                  - change
+                entities:
+                  - entity: sensor.fastpi_plug_cost_accumulated
+                    name: FastPi
+                  - entity: sensor.beefy_plug_cost_accumulated
+                    name: Beefy
+
+          # -------- Row 5: full-width power graph
+          - type: statistics-graph
+            title: Power (W) — hourly mean / max
+            period: hour
+            stat_types:
+              - mean
+              - max
+            entities:
+              - entity: sensor.plugs_total_power
+                name: Total
+
+          # -------- Row 6: full-width note
+          - type: markdown
+            content: >
+              For any custom date range across years — kWh **and** CHF,
+              time-of-use priced — use the built-in **Energy** dashboard in the
+              sidebar. Its date picker shows exactly the period you select,
+              starting from 0.

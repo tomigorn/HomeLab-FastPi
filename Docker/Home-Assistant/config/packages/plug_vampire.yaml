@@ -50,3 +50,65 @@ template:
         state: >-
           {{ (states('sensor.vampire_plug_power') | float(0) / 1000
               * states('sensor.electricity_current_price') | float(0)) | round(3) }}
+
+      # Unrounded CHF/h — integration source for the cost odometer (rounding the
+      # display rate to 3 dp would floor this few-watt load's cost to ~0).
+      - name: "Vampire Plug Cost Rate Raw"
+        unique_id: vampire_plug_cost_rate_raw
+        unit_of_measurement: "CHF/h"
+        state: >-
+          {{ states('sensor.vampire_plug_power') | float(0) / 1000
+             * states('sensor.electricity_current_price') | float(0) }}
+
+# --- Lifetime energy (kWh) & cost (CHF) integrated from the live power/rate ---
+# Odometer method: because the cost rate already uses the current tariff price,
+# the accumulated cost — and every per-period cost meter built on it below — is
+# correct across price changes, WITHOUT needing tariff-split meters (so, unlike
+# the plugs, vampire needs no entry in the tariff-switching automation).
+sensor:
+  - platform: integration
+    source: sensor.vampire_plug_power
+    name: "Vampire Plug Energy"
+    unique_id: vampire_plug_energy
+    unit_prefix: k
+    round: 3
+    method: trapezoidal
+    max_sub_interval: "00:05:00"   # keep accruing even at dead-constant standby
+
+  - platform: integration
+    source: sensor.vampire_plug_cost_rate_raw
+    name: "Vampire Plug Cost Accumulated"
+    unique_id: vampire_plug_cost_accum
+    unit_time: h
+    round: 4
+    method: trapezoidal
+    max_sub_interval: "00:05:00"
+
+# --- Per-period meters (plain — no tariff split needed, price is baked into the
+# odometers above). Energy in kWh, cost in CHF, each resetting at period start. ---
+utility_meter:
+  vampire_energy_daily:
+    source: sensor.vampire_plug_energy
+    cycle: daily
+  vampire_energy_weekly:
+    source: sensor.vampire_plug_energy
+    cycle: weekly
+  vampire_energy_monthly:
+    source: sensor.vampire_plug_energy
+    cycle: monthly
+  vampire_energy_yearly:
+    source: sensor.vampire_plug_energy
+    cycle: yearly
+
+  vampire_cost_daily:
+    source: sensor.vampire_plug_cost_accumulated
+    cycle: daily
+  vampire_cost_weekly:
+    source: sensor.vampire_plug_cost_accumulated
+    cycle: weekly
+  vampire_cost_monthly:
+    source: sensor.vampire_plug_cost_accumulated
+    cycle: monthly
+  vampire_cost_yearly:
+    source: sensor.vampire_plug_cost_accumulated
+    cycle: yearly
