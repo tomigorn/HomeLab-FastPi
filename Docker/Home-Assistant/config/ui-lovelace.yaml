@@ -188,16 +188,22 @@ views:
                     name: Current tariff
                   - entity: sensor.electricity_current_price
                     name: Current price
-                  - type: divider
+                  # Schedule as a full-width section header above each price, so
+                  # it wraps to its own line instead of being truncated in the name.
+                  - type: section
+                    label: High tariff · Mon–Sat 06:00–22:00
                   - entity: sensor.electricity_price_high
-                    name: Price — high (Mon–Sat 06–22)
+                    name: Price
+                  - type: section
+                    label: Low tariff · nights 22:00–06:00 + all Sunday
                   - entity: sensor.electricity_price_low
-                    name: Price — low (nights + all Sun)
+                    name: Price
+                  - type: divider
                   - entity: sensor.electricity_tariff_coverage
-                    name: Price table coverage
+                    name: Price table status
 
               - type: entities
-                title: Projected yearly cost (estimate)
+                title: Projected yearly cost
                 entities:
                   - type: section
                     label: From this week's rate
