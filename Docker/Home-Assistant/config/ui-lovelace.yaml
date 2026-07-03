@@ -584,3 +584,100 @@ views:
               time-of-use priced — use the built-in **Energy** dashboard in the
               sidebar. Its date picker shows exactly the period you select,
               starting from 0.
+
+  # ----------------------------------------------------------------- Uptime
+  # A server counts as "up" when its plug pulls > 3 W; at/below that it is off,
+  # sleeping or hibernating. Entities live in packages/uptime.yaml.
+  - title: Uptime
+    path: uptime
+    icon: mdi:server
+    panel: true
+    cards:
+      - type: vertical-stack
+        cards:
+          # -------- Top row: current status + how long, per host
+          - type: horizontal-stack
+            cards:
+              - type: entities
+                title: FastPi
+                state_color: true
+                entities:
+                  - entity: binary_sensor.fastpi_up
+                    name: Status
+                    secondary_info: last-changed
+                  - entity: sensor.fastpi_plug_power
+                    name: Power draw
+                  - type: section
+                    label: Uptime
+                  - entity: sensor.fastpi_uptime_today
+                    name: Today
+                  - entity: sensor.fastpi_uptime_24h
+                    name: Last 24 h
+                  - entity: sensor.fastpi_uptime_today_ratio
+                    name: Today (%)
+                  - entity: sensor.fastpi_uptime_7d_ratio
+                    name: Last 7 days (%)
+
+              - type: entities
+                title: Beefy
+                state_color: true
+                entities:
+                  - entity: binary_sensor.beefy_up
+                    name: Status
+                    secondary_info: last-changed
+                  - entity: sensor.beefy_plug_power
+                    name: Power draw
+                  - type: section
+                    label: Uptime
+                  - entity: sensor.beefy_uptime_today
+                    name: Today
+                  - entity: sensor.beefy_uptime_24h
+                    name: Last 24 h
+                  - entity: sensor.beefy_uptime_today_ratio
+                    name: Today (%)
+                  - entity: sensor.beefy_uptime_7d_ratio
+                    name: Last 7 days (%)
+
+          # -------- Uptime % gauges (last 7 days)
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.fastpi_uptime_7d_ratio
+                name: FastPi up (7 days)
+                unit: "%"
+                min: 0
+                max: 100
+                needle: true
+                severity:
+                  red: 0
+                  yellow: 50
+                  green: 90
+              - type: gauge
+                entity: sensor.beefy_uptime_7d_ratio
+                name: Beefy up (7 days)
+                unit: "%"
+                min: 0
+                max: 100
+                needle: true
+                severity:
+                  red: 0
+                  yellow: 50
+                  green: 90
+
+          # -------- Up/Down timeline (last 7 days)
+          - type: history-graph
+            title: Up / down (last 7 days)
+            hours_to_show: 168
+            entities:
+              - entity: binary_sensor.fastpi_up
+                name: FastPi
+              - entity: binary_sensor.beefy_up
+                name: Beefy
+
+          - type: markdown
+            content: >
+              **"Up" = plug drawing more than 3 W.** At or below 3 W the server
+              is shut off, sleeping or hibernating (only standby / WOL trickle).
+              Uptime totals are computed from the recorded on/off history, so
+              the 24 h / 7-day figures fill in as history accumulates after this
+              tab was added.

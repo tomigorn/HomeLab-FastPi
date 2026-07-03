@@ -101,7 +101,7 @@ lovelace:
       show_in_sidebar: true
 ```
 
-In the sidebar it shows as **Electricity** 🔌, with two views:
+In the sidebar it shows as **Electricity** 🔌, with three views:
 - **Overview** 🔌 — a `panel`-mode two-row grid (`vertical-stack` of
   `horizontal-stack`s, so each row spans full width instead of being scattered
   by masonry): **row 1** = total-power gauge · *Total — measured* (both plugs) ·
@@ -123,6 +123,16 @@ In the sidebar it shows as **Electricity** 🔌, with two views:
 
     Both helpers live in `config/packages/measured_controls.yaml`. Lifetime shows
     energy only (no reset-period lifetime cost — see below).
+- **Uptime** 🖥️ (`mdi:server`, path `/uptime`) — is each server up right now, and
+  for how long has it been so. A server counts as **up when its plug pulls
+  > 3 W**; at or below that it is shut off, sleeping or hibernating (only the
+  sub-watt standby / WOL-NIC trickle). Per host it shows the current Up/Down
+  state (with time-in-state via `secondary_info: last-changed`), live power
+  draw, and uptime totals for **today** (h + %), the **last 24 h** (h) and the
+  **last 7 days** (%); plus two 7-day uptime-% gauges and a 7-day Up/Down
+  timeline graph. All entities live in `config/packages/uptime.yaml` (see
+  [Server uptime](#server-uptime)). The 24 h / 7-day figures fill in from the
+  recorded on/off history, so they start near zero right after the tab is added.
 
 Editing the YAML content only needs a **browser refresh**; changing the
 registration (title/icon/mode) needs `docker compose restart`.
@@ -200,6 +210,34 @@ its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart
 > uses mDNS discovery and tracks the device by its MAC-derived unique ID, so it
 > auto-updates on IP change — but the device entry then lives in `.storage`
 > (not committed). We chose YAML + static lease to keep everything in git.
+
+## Server uptime
+
+`config/packages/uptime.yaml` derives **whether each server is up** purely from
+its plug's power draw — a box counts as **up when the plug pulls > 3 W**, and at
+or below 3 W it is shut off, sleeping or hibernating (a hibernating/off machine
+only draws the sub-watt standby / WOL-NIC trickle, well under the threshold). No
+agent on the servers, no ping — it is a side-effect of the metering already in
+place. Powers the **Uptime** dashboard view (see [Dashboards](#dashboards)).
+
+Entities (`<p>` = `fastpi` or `beefy`):
+
+| Entity | Purpose |
+|---|---|
+| `binary_sensor.<p>_up` | Up/Down (`device_class: running`) — on when `sensor.<p>_plug_power` > 3 W; an unavailable plug reading reads as Down |
+| `sensor.<p>_uptime_today` | hours up since local midnight (`history_stats`, `type: time`) |
+| `sensor.<p>_uptime_today_ratio` | % of today spent up (`type: ratio`) |
+| `sensor.<p>_uptime_24h` | hours up over the last 24 h |
+| `sensor.<p>_uptime_7d_ratio` | % up over the last 7 days |
+
+The totals are computed by the built-in **`history_stats`** integration from the
+binary sensor's recorded history — no extra cards or HACS needed — so the 24 h /
+7-day figures start near zero and fill in as history accumulates after the
+package is first added. The threshold is hardcoded (`> 3`) in both binary
+sensors; change it in both if the "up" cut-off ever needs tuning.
+
+> **Why 3 W:** it sits comfortably above a hibernating/off machine's standby draw
+> yet well below any running server's idle draw, so it cleanly separates the two.
 
 ## Electricity metering, tariffs & cost
 
