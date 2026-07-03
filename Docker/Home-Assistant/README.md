@@ -342,6 +342,41 @@ Settings → Entities → pick entity → area). Each plug's physical entities c
 derived tariff/price/cost sensors are left unassigned (calculations, not
 physically located). Area assignments live in `.storage` (not git).
 
+## Zigbee (ZHA)
+
+Local Zigbee network via the SONOFF **ZBDongle-P** (TI CC2652P) coordinator on
+the host, driven by HA's built-in **ZHA** integration (chosen over Zigbee2MQTT —
+no MQTT broker / extra containers). Full hardware detail in
+`/home/pi/Projects/Specs/specs.md` (Zigbee section).
+
+- **USB passthrough** (in `docker-compose.yaml`): the dongle is mapped from its
+  stable by-id path to a fixed `/dev/ttyUSB0` inside the container, plus
+  `group_add: dialout` for serial access:
+  ```yaml
+  devices:
+    - /dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_…-if00-port0:/dev/ttyUSB0
+  group_add: [dialout]
+  ```
+  Add ZHA in the UI (*Settings → Devices & Services → Add → Zigbee Home
+  Automation*), serial port `/dev/ttyUSB0`, radio type **znp**, 115200 baud.
+- **Coordinator** shows as `Texas Instruments CC2652`, renamed to **"Zigbee
+  Antenna"**.
+- **Paired end-devices** (battery Tuya sensors, no cloud/hub):
+  - Vibration `TS0210` → **Eingang** (2nd of the pair still to pair).
+  - Contact/window `TS0203` → **Schlafzimmer Tomas**.
+- **Gotcha — `TS0203` duplicate:** it exposes the real IAS-Zone entity (cluster
+  `1280`, keep) *and* a bogus On/Off entity (cluster `6`, unique-id `…-1-6`) that
+  never tracks the reed switch. Disable the cluster-6 one (`disabled_by: user` in
+  `.storage/core.entity_registry`, HA stopped) so the door shows once.
+- **Range / mesh:** 2.4 GHz is heavily blocked by the flat's concrete walls.
+  Fixes (cheapest first): USB extension cable on the dongle; then mains-powered
+  **Zigbee routers** — battery sensors don't repeat, only mains devices do.
+  Planned: Swiss Type-J pass-through Zigbee plug, or a Sonoff ZBMINI/-L2 in-wall
+  module (no free outlet). Re-pair a far sensor *next to* the new router.
+- ⚠️ **ZHA registry edits** (rename, disable, area): HA holds registries in
+  memory and overwrites the file on shutdown — always **stop HA first**, edit
+  `.storage/core.*_registry`, then start.
+
 ## Notes
 
 - **Bluetooth disabled.** The Pi's onboard adapter (`hci0`) is auto-detected and
@@ -355,9 +390,10 @@ physically located). Area assignments live in `.storage` (not git).
 
 ## TODO / future
 
-- **Zigbee** via the SONOFF **ZBDongle-P** (CC2652P) — USB passthrough
-  (`/dev/serial/by-id/...`), ZHA built-in (simplest) or Zigbee2MQTT + Mosquitto
-  (extra containers). Use the USB extension cable (2.4 GHz interference).
+- **Zigbee mesh** — pair the 2nd vibration sensor; add mains-powered Zigbee
+  router(s) (Swiss Type-J pass-through plug or Sonoff ZBMINI in-wall) to reach
+  the far rooms through the concrete walls; USB-extension the dongle. (Coordinator
+  + first sensors already done — see the **Zigbee (ZHA)** section above.)
 - **Traefik route + HTTPS** — `homeassistant.holy-grail.ch` (file provider,
   service `http://192.168.1.2:8123` since HA is host-networked). Needs HA's
   reverse-proxy trust block (`http: use_x_forwarded_for + trusted_proxies`).

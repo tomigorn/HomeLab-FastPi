@@ -16,6 +16,14 @@ services:
     network_mode: host
     environment:
       - TZ=${TZ}
+    # Pass the SONOFF ZBDongle-P Zigbee coordinator into the container so the
+    # built-in ZHA integration can drive it. Mapped from the stable by-id path
+    # (immune to ttyUSB renumbering) to a fixed /dev/ttyUSB0 inside the container.
+    devices:
+      - /dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_542098354555ef11a1835673cc32aab1-if00-port0:/dev/ttyUSB0
+    # The host node is owned by root:dialout; join that group for serial access.
+    group_add:
+      - dialout
     volumes:
       - ./config:/config
       - /etc/localtime:/etc/localtime:ro
