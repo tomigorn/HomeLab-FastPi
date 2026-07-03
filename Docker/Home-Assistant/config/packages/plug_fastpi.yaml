@@ -62,6 +62,15 @@ template:
           {{ (states('sensor.fastpi_plug_power') | float(0) / 1000
               * states('sensor.electricity_current_price') | float(0)) | round(3) }}
 
+      # Unrounded CHF/h — integration source for the cost odometer (rounding the
+      # display rate to 3 dp would floor a few-watt load's cost to ~0).
+      - name: "FastPi Plug Cost Rate Raw"
+        unique_id: fastpi_plug_cost_rate_raw
+        unit_of_measurement: "CHF/h"
+        state: >-
+          {{ states('sensor.fastpi_plug_power') | float(0) / 1000
+             * states('sensor.electricity_current_price') | float(0) }}
+
       - name: "FastPi Plug Energy Today"
         unique_id: fastpi_plug_energy_today
         unit_of_measurement: "kWh"
@@ -93,40 +102,32 @@ template:
         device_class: monetary
         state_class: total
         state: >-
-          {{ (states('sensor.fastpi_plug_daily_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.fastpi_plug_daily_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+          {{ (states('sensor.fastpi_plug_daily_high')|float(0) * states('sensor.electricity_price_high')|float(0)
+            + states('sensor.fastpi_plug_daily_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
       - name: "FastPi Plug Cost This Week"
         unique_id: fastpi_plug_cost_this_week
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         state: >-
-          {{ (states('sensor.fastpi_plug_weekly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.fastpi_plug_weekly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+          {{ (states('sensor.fastpi_plug_weekly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
+            + states('sensor.fastpi_plug_weekly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
       - name: "FastPi Plug Cost This Month"
         unique_id: fastpi_plug_cost_this_month
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         state: >-
-          {{ (states('sensor.fastpi_plug_monthly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.fastpi_plug_monthly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+          {{ (states('sensor.fastpi_plug_monthly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
+            + states('sensor.fastpi_plug_monthly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
       - name: "FastPi Plug Cost This Year"
         unique_id: fastpi_plug_cost_this_year
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         state: >-
-          {{ (states('sensor.fastpi_plug_yearly_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.fastpi_plug_yearly_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
-      - name: "FastPi Plug Cost Total"
-        unique_id: fastpi_plug_cost_total
-        unit_of_measurement: "CHF"
-        device_class: monetary
-        state_class: total
-        state: >-
-          {{ (states('sensor.fastpi_plug_total_high')|float(0) * states('input_number.electricity_price_high')|float(0)
-            + states('sensor.fastpi_plug_total_low')|float(0)  * states('input_number.electricity_price_low')|float(0)) | round(2) }}
+          {{ (states('sensor.fastpi_plug_yearly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
+            + states('sensor.fastpi_plug_yearly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
 
       # --- Projected yearly cost (estimate) -----------------------------------
       # Extrapolate the spend-so-far this week / this month to a full year.
@@ -159,6 +160,20 @@ sensor:
     unit_prefix: k
     round: 3
     method: trapezoidal
+    max_sub_interval: "00:05:00"
+
+  # --- Accumulated cost (CHF): integral of the live CHF/h cost rate ---------
+  # Monotonic odometer (never shown directly). Its per-day / per-month *change*
+  # drives the historical cost-per-timeframe graphs, and because the cost rate
+  # already uses the current period's price it is correct across price changes.
+  - platform: integration
+    source: sensor.fastpi_plug_cost_rate_raw
+    name: "FastPi Plug Cost Accumulated"
+    unique_id: fastpi_plug_cost_accum
+    unit_time: h
+    round: 4
+    method: trapezoidal
+    max_sub_interval: "00:05:00"   # keep accruing even when power is dead-constant
 
 # --- Per-period meters (tariff-split create _high / _low + select.<name>) ---
 utility_meter:

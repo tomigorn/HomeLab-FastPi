@@ -10,26 +10,9 @@
 #   LOW  (Niedertarif)= nights 22:00-06:00  AND  ALL of Sunday
 # now().weekday(): Mon=0 ... Sun=6.  High only when weekday != 6 and 6<=hour<22.
 
-# --- Editable tariff prices (CHF/kWh) --------------------------------------
-input_number:
-  electricity_price_high:
-    name: "Electricity price (high tariff)"
-    min: 0
-    max: 5
-    step: 0.001
-    mode: box
-    unit_of_measurement: "CHF/kWh"
-    icon: mdi:cash-plus
-    initial: 0.2988        # EWZ Hochtarif 2026: 29.88 Rp/kWh
-  electricity_price_low:
-    name: "Electricity price (low tariff)"
-    min: 0
-    max: 5
-    step: 0.001
-    mode: box
-    unit_of_measurement: "CHF/kWh"
-    icon: mdi:cash-minus
-    initial: 0.1870        # EWZ Niedertarif 2026: 18.70 Rp/kWh
+# Prices are no longer editable input_numbers: they now come from the dated
+# tariff schedule in `sensor.electricity_tariff_now` below (single source of
+# truth, in git), so different price periods can apply across time automatically.
 
 # --- Tariff switching ------------------------------------------------------
 # One rule applies the correct tariff at the boundaries and on start, to the
@@ -70,13 +53,50 @@ template:
         state: "{{ 'high' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'low' }}"
         icon: "{{ 'mdi:weather-sunny' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'mdi:weather-night' }}"
 
+      # ==========================================================
+      # EWZ tariff schedule — SINGLE SOURCE OF TRUTH (edit here only)
+      # ==========================================================
+      # Each row is valid for the half-open date range [from, until): 'until' is
+      # EXCLUSIVE, so set the next row's 'from' equal to the previous 'until'
+      # (no gaps, no overlaps). Dates are ISO YYYY-MM-DD; prices are CHF/kWh.
+      # EWZ currently publishes yearly, but this handles any cadence — just add a
+      # row with the new dates + prices. Enter the NEXT period before it starts so
+      # cost accrues at the right price from its first day. The active row's high
+      # and low are exposed as sensor.electricity_price_high / _low.
+      - name: "Electricity Tariff Now"
+        unique_id: electricity_tariff_now
+        icon: mdi:cash-clock
+        state: >-
+          {% set periods = [
+              {"from": "2026-01-01", "until": "2027-01-01", "high": 0.2988, "low": 0.1870}
+            ] %}
+          {% set today = now().strftime('%Y-%m-%d') %}
+          {% set ns = namespace(p=none) %}
+          {% for p in periods %}
+            {% if p['from'] <= today and today < p['until'] %}{% set ns.p = p %}{% endif %}
+          {% endfor %}
+          {{ (ns.p if ns.p is not none else periods[-1]) | to_json }}
+
+      - name: "Electricity Price High"
+        unique_id: electricity_price_high
+        unit_of_measurement: "CHF/kWh"
+        icon: mdi:cash-plus
+        availability: "{{ states('sensor.electricity_tariff_now') not in ['unknown','unavailable',''] }}"
+        state: "{{ (states('sensor.electricity_tariff_now') | from_json).high | float(0) }}"
+      - name: "Electricity Price Low"
+        unique_id: electricity_price_low
+        unit_of_measurement: "CHF/kWh"
+        icon: mdi:cash-minus
+        availability: "{{ states('sensor.electricity_tariff_now') not in ['unknown','unavailable',''] }}"
+        state: "{{ (states('sensor.electricity_tariff_now') | from_json).low | float(0) }}"
+
       - name: "Electricity Current Price"
         unique_id: electricity_current_price
         unit_of_measurement: "CHF/kWh"
         state: >-
-          {{ (states('input_number.electricity_price_high')
+          {{ (states('sensor.electricity_price_high')
               if (now().weekday() != 6 and 6 <= now().hour < 22)
-              else states('input_number.electricity_price_low')) | float(0) }}
+              else states('sensor.electricity_price_low')) | float(0) }}
 
       # ---- Combined live power & cost rate (both plugs) ----
       - name: "Plugs Total Power"
@@ -151,12 +171,6 @@ template:
         device_class: monetary
         state_class: total
         state: "{{ (states('sensor.fastpi_plug_cost_this_year')|float(0) + states('sensor.beefy_plug_cost_this_year')|float(0)) | round(2) }}"
-      - name: "Plugs Total Cost Total"
-        unique_id: plugs_total_cost_total
-        unit_of_measurement: "CHF"
-        device_class: monetary
-        state_class: total
-        state: "{{ (states('sensor.fastpi_plug_cost_total')|float(0) + states('sensor.beefy_plug_cost_total')|float(0)) | round(2) }}"
 
       # ---- Projected yearly cost (estimate) — sum of both plugs
       - name: "Plugs Total Cost Year Proj Week"
