@@ -295,6 +295,14 @@ tariff-split meters**, so (unlike the plugs) vampire needs **no entry in the
 tariff-switching automation**. The values are estimates-derived, so they stay out
 of the native Energy dashboard and the bar graphs (plugs-only).
 
+> **Seeding caveat — no backfill.** Like any HA integration, these meters only
+> accrue *while the sensor exists*; HA cannot reconstruct draw from before they
+> were created. So the first partial period reads low — "today" counts only from
+> creation, and this-week/month/year are mid-period seeds — until each cycle rolls
+> over fresh (next Mon / 1st / Jan 1), after which they are exact. Projected-yearly
+> is correspondingly noisy at first. This is the same warm-up the plugs had when
+> first added; it self-corrects and cannot be backfilled.
+
 ### Changing the tariff prices (add a year)
 
 Edit the year map in `sensor.electricity_tariff_now` (in
