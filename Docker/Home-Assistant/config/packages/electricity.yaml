@@ -54,28 +54,24 @@ template:
         icon: "{{ 'mdi:weather-sunny' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'mdi:weather-night' }}"
 
       # ==========================================================
-      # EWZ tariff schedule — SINGLE SOURCE OF TRUTH (edit here only)
+      # EWZ tariff prices per YEAR — SINGLE SOURCE OF TRUTH (edit here)
       # ==========================================================
-      # Each row is valid for the half-open date range [from, until): 'until' is
-      # EXCLUSIVE, so set the next row's 'from' equal to the previous 'until'
-      # (no gaps, no overlaps). Dates are ISO YYYY-MM-DD; prices are CHF/kWh.
-      # EWZ currently publishes yearly, but this handles any cadence — just add a
-      # row with the new dates + prices. Enter the NEXT period before it starts so
-      # cost accrues at the right price from its first day. The active row's high
-      # and low are exposed as sensor.electricity_price_high / _low.
+      # One entry per calendar year: { year: {high, low} }, prices in CHF/kWh.
+      # The row for the current year (now().year) wins and is exposed as
+      # sensor.electricity_price_high / _low. Add next year's prices when EWZ
+      # publishes them (ideally before Jan 1). A year not listed falls back to the
+      # latest listed year. Prices change on Jan 1 = the yearly & monthly meter
+      # reset, so per-year and per-month costs are exact; only the single week
+      # spanning New Year mixes two years' prices (tiny, once a year).
       - name: "Electricity Tariff Now"
         unique_id: electricity_tariff_now
         icon: mdi:cash-clock
         state: >-
-          {% set periods = [
-              {"from": "2026-01-01", "until": "2027-01-01", "high": 0.2988, "low": 0.1870}
-            ] %}
-          {% set today = now().strftime('%Y-%m-%d') %}
-          {% set ns = namespace(p=none) %}
-          {% for p in periods %}
-            {% if p['from'] <= today and today < p['until'] %}{% set ns.p = p %}{% endif %}
-          {% endfor %}
-          {{ (ns.p if ns.p is not none else periods[-1]) | to_json }}
+          {% set tariffs = {
+              2026: {"high": 0.2988, "low": 0.1870}
+            } %}
+          {% set y = now().year %}
+          {{ (tariffs.get(y, tariffs[tariffs.keys() | max])) | to_json }}
 
       - name: "Electricity Price High"
         unique_id: electricity_price_high

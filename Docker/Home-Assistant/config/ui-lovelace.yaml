@@ -102,8 +102,6 @@ views:
             name: Price — high (Mon–Sat 06–22)
           - entity: sensor.electricity_price_low
             name: Price — low (nights + all Sun)
-          - entity: sensor.electricity_tariff_now
-            name: Price period (from EWZ schedule)
 
       - type: entities
         title: Energy used (kWh)
