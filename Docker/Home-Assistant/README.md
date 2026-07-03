@@ -266,12 +266,13 @@ rooms are:
 > WC · Dusche · Eingang · Schlafzimmer Tomas · Schlafzimmer Rafi · Küche ·
 > Esszimmer · Reduit · Wohnzimmer · Balkon
 
-The two server plugs are defined in YAML (no auto-created *device*), so any room
-is assigned at the **entity** level in the UI (Settings → Entities → pick entity
-→ area). They're unassigned by default; assign each plug's physical entities
-(`switch.<p>_plug`, `binary_sensor.<p>_plug_relay`, `sensor.<p>_plug_power` /
-`_temperature` / `_energy`) to a room if you want them grouped there. The derived
-tariff/price/cost sensors are left unassigned (calculations, not physically located).
+Both plugs live in **Wohnzimmer**. Because they're defined in YAML (no
+auto-created *device*), the room is assigned at the **entity** level (in the UI:
+Settings → Entities → pick entity → area). Each plug's physical entities carry
+`area_id: wohnzimmer` — `switch.<p>_plug`, `binary_sensor.<p>_plug_relay`, and
+`sensor.<p>_plug_power` / `_temperature` / `_energy` (10 entities total). The
+derived tariff/price/cost sensors are left unassigned (calculations, not
+physically located). Area assignments live in `.storage` (not git).
 
 ## Notes
 
