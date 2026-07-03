@@ -1,0 +1,110 @@
+# =========================================================
+# Server uptime — derived from plug power draw
+# =========================================================
+# A server is considered UP when its plug pulls **more than 3 W**; at or below
+# that it is shut off, sleeping or hibernating (a hibernating/off box only
+# draws the sub-watt standby / WOL-NIC trickle, well under 3 W).
+#
+# Feeds the "Uptime" dashboard tab:
+#   binary_sensor.fastpi_up / beefy_up   -> current Up/Down state
+#   sensor.<host>_uptime_today           -> hours up since local midnight
+#   sensor.<host>_uptime_today_ratio     -> % of today spent up
+#   sensor.<host>_uptime_24h             -> hours up in the last 24 h
+#   sensor.<host>_uptime_7d_ratio        -> % up over the last 7 days
+#
+# Threshold lives once here (POWER_UP_W below) — change it in both binary
+# sensors if the "up" cut-off ever needs tuning.
+
+# --- Up/Down state (power > 3 W) -------------------------------------------
+template:
+  - binary_sensor:
+      - name: "FastPi Up"
+        unique_id: fastpi_up
+        device_class: running
+        # Unavailable plug reading -> float(0) -> treated as Down.
+        state: "{{ states('sensor.fastpi_plug_power') | float(0) > 3 }}"
+        icon: >-
+          {{ 'mdi:server' if states('sensor.fastpi_plug_power') | float(0) > 3
+             else 'mdi:server-off' }}
+
+      - name: "Beefy Up"
+        unique_id: beefy_up
+        device_class: running
+        state: "{{ states('sensor.beefy_plug_power') | float(0) > 3 }}"
+        icon: >-
+          {{ 'mdi:server' if states('sensor.beefy_plug_power') | float(0) > 3
+             else 'mdi:server-off' }}
+
+# --- Uptime totals (history_stats over binary_sensor history) --------------
+sensor:
+  # ---- FastPi ----
+  - platform: history_stats
+    name: "FastPi Uptime Today"
+    unique_id: fastpi_uptime_today
+    entity_id: binary_sensor.fastpi_up
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "FastPi Uptime Today Ratio"
+    unique_id: fastpi_uptime_today_ratio
+    entity_id: binary_sensor.fastpi_up
+    state: "on"
+    type: ratio
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "FastPi Uptime 24h"
+    unique_id: fastpi_uptime_24h
+    entity_id: binary_sensor.fastpi_up
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+  - platform: history_stats
+    name: "FastPi Uptime 7d Ratio"
+    unique_id: fastpi_uptime_7d_ratio
+    entity_id: binary_sensor.fastpi_up
+    state: "on"
+    type: ratio
+    end: "{{ now() }}"
+    duration:
+      days: 7
+
+  # ---- Beefy ----
+  - platform: history_stats
+    name: "Beefy Uptime Today"
+    unique_id: beefy_uptime_today
+    entity_id: binary_sensor.beefy_up
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Beefy Uptime Today Ratio"
+    unique_id: beefy_uptime_today_ratio
+    entity_id: binary_sensor.beefy_up
+    state: "on"
+    type: ratio
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Beefy Uptime 24h"
+    unique_id: beefy_uptime_24h
+    entity_id: binary_sensor.beefy_up
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+  - platform: history_stats
+    name: "Beefy Uptime 7d Ratio"
+    unique_id: beefy_uptime_7d_ratio
+    entity_id: binary_sensor.beefy_up
+    state: "on"
+    type: ratio
+    end: "{{ now() }}"
+    duration:
+      days: 7
