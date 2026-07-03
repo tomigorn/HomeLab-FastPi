@@ -202,24 +202,39 @@ its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart
   tariff to **both plugs'** `select`s at 06:00 / 22:00 / on start
   (`now().weekday() != 6 and 6 <= hour < 22` → high).
   `sensor.electricity_current_tariff` shows the active one.
-- **Prices** — two `input_number` helpers (`electricity_price_high` / `_low`,
-  CHF/kWh), **editable in the UI** (Energy view). The YAML `initial:` defaults are
-  the **real EWZ 2026 tariffs**: high **0.2988**, low **0.1870** CHF/kWh.
-- **Per-plug cost** — `sensor.<p>_plug_cost_today/this_month/this_year/total` =
-  `high_kWh × price_high + low_kWh × price_low` (true time-of-use cost).
-- **Combined totals** — `sensor.plugs_total_power`, `…_energy` (lifetime; feeds
-  the Energy dashboard), `…_energy_today/this_month/this_year`,
-  `…_cost_today/this_month/this_year/total`, and `…_current_cost_rate` — each the
-  sum of both plugs.
+- **Prices — dated schedule in git** — prices come from a single source of truth,
+  the `sensor.electricity_tariff_now` template in `electricity.yaml`. It holds a
+  list of periods, each valid for a half-open date range `[from, until)` with a
+  `high` and `low` price; the row covering today wins and is exposed as
+  `sensor.electricity_price_high` / `_low`. This handles **prices changing over
+  time** (EWZ publishes yearly, but any cadence works) — just add a row. Seeded
+  with the **real EWZ 2026 tariffs**: high **0.2988**, low **0.1870** CHF/kWh.
+- **Per-plug cost (per period, resets)** —
+  `sensor.<p>_plug_cost_today/this_week/this_month/this_year` =
+  `high_kWh × price_high + low_kWh × price_low`. Each is tied to a meter that
+  **resets at the start of its period** (so "this week" starts at 0 every Monday
+  — it is *not* a running total). There is deliberately **no lifetime cost sum**.
+- **Per-plug cost odometer** — `sensor.<p>_plug_cost_accumulated` integrates the
+  live CHF/h rate (Riemann, `max_sub_interval` so it accrues even at constant
+  standby power). Never shown directly; its per-day / per-month *change* drives
+  the historical **Cost per day / month** graphs, and it is correct across price
+  changes because the rate already uses the current period's price.
+- **Combined totals** — `sensor.plugs_total_power`, `…_energy` (lifetime kWh;
+  feeds the Energy dashboard), `…_energy_today/this_week/this_month/this_year`,
+  `…_cost_today/this_week/this_month/this_year`, and `…_current_cost_rate` — each
+  the sum of both plugs. (No combined lifetime cost, by design.)
 
-Shown on the dashboard's **Energy** view (live, per-period kWh, by-tariff, cost,
-and forever day/month/power graphs).
+Shown on the dashboard's **Energy** view (live, per-period kWh + cost by tariff,
+projected-year estimate, and forever day/month/power/cost graphs).
 
-### Setting the real tariff prices
+### Changing the tariff prices (add a new period)
 
-Open the **Energy** view → edit **Price — high** and **Price — low**. Values
-persist in `.storage` (not git). To bake new defaults into git, change `initial:`
-in `electricity.yaml` (only applied on a fresh install).
+Edit the `periods` list in `sensor.electricity_tariff_now` (in
+`config/packages/electricity.yaml`) and restart. Add the next period **before**
+it starts (set its `from` = the previous row's `until`, no gaps/overlaps) so cost
+accrues at the right price from day one. Because HA banks cost at time-of-use,
+editing a price only affects consumption **from then on** — it never rewrites
+already-recorded cost, and old periods stay correct at their old prices.
 
 ### Native Energy dashboard (configured — UI-only)
 

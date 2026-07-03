@@ -98,10 +98,12 @@ views:
           - entity: sensor.electricity_current_price
             name: Current price
           - type: divider
-          - entity: input_number.electricity_price_high
+          - entity: sensor.electricity_price_high
             name: Price — high (Mon–Sat 06–22)
-          - entity: input_number.electricity_price_low
+          - entity: sensor.electricity_price_low
             name: Price — low (nights + all Sun)
+          - entity: sensor.electricity_tariff_now
+            name: Price period (from EWZ schedule)
 
       - type: entities
         title: Energy used (kWh)
@@ -182,14 +184,6 @@ views:
             name: Beefy
           - entity: sensor.plugs_total_cost_this_year
             name: Total
-          - type: section
-            label: Overall
-          - entity: sensor.fastpi_plug_cost_total
-            name: FastPi
-          - entity: sensor.beefy_plug_cost_total
-            name: Beefy
-          - entity: sensor.plugs_total_cost_total
-            name: Total
 
       - type: markdown
         content: >
@@ -240,6 +234,36 @@ views:
             name: FastPi
           - entity: sensor.beefy_plug_energy
             name: Beefy
+
+      - type: statistics-graph
+        title: Cost per day (CHF)
+        chart_type: bar
+        period: day
+        stat_types:
+          - change
+        entities:
+          - entity: sensor.fastpi_plug_cost_accumulated
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_accumulated
+            name: Beefy
+
+      - type: statistics-graph
+        title: Cost per month (CHF)
+        chart_type: bar
+        period: month
+        stat_types:
+          - change
+        entities:
+          - entity: sensor.fastpi_plug_cost_accumulated
+            name: FastPi
+          - entity: sensor.beefy_plug_cost_accumulated
+            name: Beefy
+
+      - type: markdown
+        content: >
+          For any custom date range across years — kWh **and** CHF, time-of-use
+          priced — use the built-in **Energy** dashboard in the sidebar. Its date
+          picker shows exactly the period you select, starting from 0.
 
       - type: statistics-graph
         title: Power (W) — hourly mean / max
