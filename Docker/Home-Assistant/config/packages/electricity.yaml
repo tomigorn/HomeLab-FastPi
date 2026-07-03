@@ -127,6 +127,21 @@ template:
         unit_of_measurement: "CHF/h"
         state: "{{ (states('sensor.fastpi_plug_current_cost_rate')|float(0) + states('sensor.beefy_plug_current_cost_rate')|float(0)) | round(3) }}"
 
+      # ---- Combined live power & cost incl. the "vampire" standby draw ----
+      # Both real plugs PLUS the estimated parasitic loads from
+      # packages/plug_vampire.yaml (sensor.vampire_plug_*).
+      - name: "Total Incl Vampire Power"
+        unique_id: total_incl_vampire_power
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: "{{ (states('sensor.plugs_total_power')|float(0) + states('sensor.vampire_plug_power')|float(0)) | round(1) }}"
+
+      - name: "Total Incl Vampire Current Cost Rate"
+        unique_id: total_incl_vampire_current_cost_rate
+        unit_of_measurement: "CHF/h"
+        state: "{{ (states('sensor.plugs_total_current_cost_rate')|float(0) + states('sensor.vampire_plug_current_cost_rate')|float(0)) | round(3) }}"
+
       # ---- Combined lifetime energy (feeds the Energy dashboard) ----
       - name: "Plugs Total Energy"
         unique_id: plugs_total_energy

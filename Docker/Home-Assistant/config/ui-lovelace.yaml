@@ -9,75 +9,142 @@ views:
   # ---------------------------------------------------------------- Overview
   - title: Overview
     path: overview
-    icon: mdi:home
+    icon: mdi:power-plug
+    # panel mode: the single vertical-stack below fills the full width, so each
+    # horizontal-stack renders as a real full-width row (masonry would instead
+    # scatter the stacks across auto-columns — that's what broke the layout).
+    panel: true
     cards:
-      - type: glance
-        title: Total — both plugs
-        columns: 3
-        entities:
-          - entity: sensor.plugs_total_power
-            name: Power
-          - entity: sensor.electricity_current_tariff
-            name: Tariff
-          - entity: sensor.plugs_total_current_cost_rate
-            name: Cost/h
+      - type: vertical-stack
+        cards:
+          # -------- Top row: total power draw | measured | incl. vampire
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.plugs_total_power
+                name: Total power draw
+                unit: W
+                min: 0
+                max: 2300
+                severity:
+                  green: 0
+                  yellow: 1000
+                  red: 2000
 
-      - type: entities
-        title: FastPi Plug
-        state_color: true
-        entities:
-          - entity: switch.fastpi_plug
-            name: Switch
-          - entity: sensor.fastpi_plug_power
-            name: Power
-          - entity: sensor.fastpi_plug_current_cost_rate
-            name: Cost rate
-          - entity: sensor.fastpi_plug_temperature
-            name: Temperature
-          - entity: binary_sensor.fastpi_plug_relay
-            name: Relay state
+              - type: glance
+                title: Total — measured
+                columns: 3
+                entities:
+                  - entity: sensor.plugs_total_power
+                    name: Power
+                  - entity: sensor.electricity_current_tariff
+                    name: Tariff
+                  - entity: sensor.plugs_total_current_cost_rate
+                    name: Cost/h
 
-      - type: entities
-        title: Beefy Plug
-        state_color: true
-        entities:
-          - entity: switch.beefy_plug
-            name: Switch
-          - entity: sensor.beefy_plug_power
-            name: Power
-          - entity: sensor.beefy_plug_current_cost_rate
-            name: Cost rate
-          - entity: sensor.beefy_plug_temperature
-            name: Temperature
-          - entity: binary_sensor.beefy_plug_relay
-            name: Relay state
+              - type: glance
+                title: Total — incl. vampire
+                columns: 3
+                entities:
+                  - entity: sensor.total_incl_vampire_power
+                    name: Power
+                  - entity: sensor.electricity_current_tariff
+                    name: Tariff
+                  - entity: sensor.total_incl_vampire_current_cost_rate
+                    name: Cost/h
 
-      - type: gauge
-        entity: sensor.plugs_total_power
-        name: Total power draw
-        unit: W
-        min: 0
-        max: 2300
-        severity:
-          green: 0
-          yellow: 1000
-          red: 2000
+          # -------- Second row: FastPi | Beefy | Vampire
+          - type: horizontal-stack
+            cards:
+              - type: entities
+                title: FastPi Plug
+                state_color: true
+                entities:
+                  - entity: switch.fastpi_plug
+                    name: Switch
+                  - entity: sensor.fastpi_plug_power
+                    name: Power
+                  - entity: sensor.fastpi_plug_current_cost_rate
+                    name: Cost rate
+                  - entity: sensor.fastpi_plug_temperature
+                    name: Temperature
+                  - entity: binary_sensor.fastpi_plug_relay
+                    name: Relay state
+                  - type: section
+                    label: "Plug self-draw ≈ 1.4 W on / 0.9 W off — its own use, on top of Power above (counted in Vampire draw)"
 
-      - type: history-graph
-        title: Power (last 24h)
-        hours_to_show: 24
-        entities:
-          - entity: sensor.fastpi_plug_power
-            name: FastPi
-          - entity: sensor.beefy_plug_power
-            name: Beefy
-          - entity: sensor.plugs_total_power
-            name: Total
+              - type: entities
+                title: Beefy Plug
+                state_color: true
+                entities:
+                  - entity: switch.beefy_plug
+                    name: Switch
+                  - entity: sensor.beefy_plug_power
+                    name: Power
+                  - entity: sensor.beefy_plug_current_cost_rate
+                    name: Cost rate
+                  - entity: sensor.beefy_plug_temperature
+                    name: Temperature
+                  - entity: binary_sensor.beefy_plug_relay
+                    name: Relay state
+                  - type: section
+                    label: "Plug self-draw ≈ 1.4 W on / 0.9 W off — its own use, on top of Power above (counted in Vampire draw)"
+
+              - type: entities
+                title: Vampire draw
+                entities:
+                  - entity: sensor.vampire_plug_power
+                    name: Total vampire draw
+                  - entity: sensor.vampire_plug_current_cost_rate
+                    name: Cost rate
+                  - type: section
+                    label: "Components — measured (static; the two plugs follow their on/off state)"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: fastpi_plug_self_draw_w
+                    name: FastPi plug (self-draw)
+                    suffix: " W"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: beefy_plug_self_draw_w
+                    name: Beefy plug (self-draw)
+                    suffix: " W"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: noctua_fan_w
+                    name: Noctua fan + AC→DC header
+                    suffix: " W"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: tuya_legacy_plug_w
+                    name: Tuya legacy plug (spare / future NAS)
+                    suffix: " W"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: netgear_switch_w
+                    name: Netgear 1 GbE switch
+                    suffix: " W"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: power_strip_w
+                    name: Power strip
+                    suffix: " W"
+
+          - type: history-graph
+            title: Power (last 24h)
+            hours_to_show: 24
+            entities:
+              - entity: sensor.fastpi_plug_power
+                name: FastPi
+              - entity: sensor.beefy_plug_power
+                name: Beefy
+              - entity: sensor.plugs_total_power
+                name: Total
 
   # ----------------------------------------------------------------- Energy
-  - title: Energy
-    path: energy
-    icon: mdi:lightning-bolt
+  - title: Measured
+    path: measured
+    icon: mdi:gauge
     cards:
       - type: glance
         title: Live

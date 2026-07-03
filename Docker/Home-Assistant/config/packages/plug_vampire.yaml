@@ -1,0 +1,52 @@
+# =========================================================
+# "Vampire" draw — virtual plug for standby / parasitic loads
+# =========================================================
+# NOT a physical device: a template "plug" that sums the small always-on
+# (or off-state) loads that the two real myStrom plugs do NOT measure.
+# A myStrom plug meters only the DOWNSTREAM load behind it; its OWN
+# electronics draw is invisible to it, so that self-draw is accounted for
+# here instead (see the FastPi/Beefy cards' self-draw remark on the dashboard).
+#
+# Component values (measured; roughly static except the two myStrom plugs,
+# which follow their relay on/off state):
+#   myStrom plug self-draw ...... 1.4 W when ON, 0.9 W when OFF  (each, x2, dynamic)
+#   Noctua fan + AC->DC header ... 0.4 W
+#   Tuya legacy smart plug ....... 1.2 W  (spare, maybe for the not-yet-set-up NAS)
+#   Netgear 1 GbE switch ......... 2.0 W
+#   Power strip .................. 0.4 W
+#
+# Fixed part = 0.4 + 1.2 + 2.0 + 0.4 = 4.0 W; the two plugs add 1.8 W (both off)
+# to 2.8 W (both on), so total vampire draw ranges ~5.8 W .. ~6.8 W.
+#
+# Entity namespace: sensor.vampire_plug_*
+# Tariff/price lives in packages/electricity.yaml; the combined
+# "total incl. vampire" sensors live there too.
+
+template:
+  - sensor:
+      - name: "Vampire Plug Power"
+        unique_id: vampire_plug_power
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        icon: mdi:sleep
+        # myStrom self-draw is dynamic (relay state); the rest are fixed.
+        state: >-
+          {{ ((1.4 if is_state('binary_sensor.fastpi_plug_relay', 'on') else 0.9)
+            + (1.4 if is_state('binary_sensor.beefy_plug_relay', 'on') else 0.9)
+            + 0.4 + 1.2 + 2.0 + 0.4) | round(1) }}
+        attributes:
+          fastpi_plug_self_draw_w: "{{ 1.4 if is_state('binary_sensor.fastpi_plug_relay', 'on') else 0.9 }}"
+          beefy_plug_self_draw_w: "{{ 1.4 if is_state('binary_sensor.beefy_plug_relay', 'on') else 0.9 }}"
+          noctua_fan_w: 0.4
+          tuya_legacy_plug_w: 1.2
+          netgear_switch_w: 2.0
+          power_strip_w: 0.4
+
+      - name: "Vampire Plug Current Cost Rate"
+        unique_id: vampire_plug_current_cost_rate
+        unit_of_measurement: "CHF/h"
+        icon: mdi:cash-clock
+        state: >-
+          {{ (states('sensor.vampire_plug_power') | float(0) / 1000
+              * states('sensor.electricity_current_price') | float(0)) | round(3) }}
