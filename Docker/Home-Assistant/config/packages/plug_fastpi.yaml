@@ -101,6 +101,7 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {{ (states('sensor.fastpi_plug_daily_high')|float(0) * states('sensor.electricity_price_high')|float(0)
             + states('sensor.fastpi_plug_daily_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
@@ -109,6 +110,7 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {{ (states('sensor.fastpi_plug_weekly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
             + states('sensor.fastpi_plug_weekly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
@@ -117,6 +119,7 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {{ (states('sensor.fastpi_plug_monthly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
             + states('sensor.fastpi_plug_monthly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
@@ -125,6 +128,7 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {{ (states('sensor.fastpi_plug_yearly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
             + states('sensor.fastpi_plug_yearly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
@@ -137,6 +141,7 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         icon: mdi:chart-line-variant
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {% set frac = (now().hour*3600 + now().minute*60 + now().second) / 86400 %}
           {% set days = [now().weekday() + frac, 0.5] | max %}
@@ -146,6 +151,7 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         icon: mdi:chart-line-variant
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {% set frac = (now().hour*3600 + now().minute*60 + now().second) / 86400 %}
           {% set days = [(now().day - 1) + frac, 0.5] | max %}

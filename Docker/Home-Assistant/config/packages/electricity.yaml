@@ -59,10 +59,14 @@ template:
       # One entry per calendar year: { year: {high, low} }, prices in CHF/kWh.
       # The row for the current year (now().year) wins and is exposed as
       # sensor.electricity_price_high / _low. Add next year's prices when EWZ
-      # publishes them (ideally before Jan 1). A year not listed falls back to the
-      # latest listed year. Prices change on Jan 1 = the yearly & monthly meter
-      # reset, so per-year and per-month costs are exact; only the single week
-      # spanning New Year mixes two years' prices (tiny, once a year).
+      # publishes them (before Jan 1). Prices change on Jan 1 = the yearly &
+      # monthly meter reset, so per-year and per-month costs are exact; only the
+      # single week spanning New Year mixes two years' prices (tiny, once a year).
+      #
+      # NO SILENT FALLBACK: if the current year is not in the table, the price
+      # sensors go UNAVAILABLE (never guess with a stale price), every cost sensor
+      # follows suit, and sensor.electricity_tariff_coverage flags it. Better a
+      # visible gap than a plausible-looking wrong number.
       - name: "Electricity Tariff Now"
         unique_id: electricity_tariff_now
         icon: mdi:cash-clock
@@ -71,24 +75,40 @@ template:
               2026: {"high": 0.2988, "low": 0.1870}
             } %}
           {% set y = now().year %}
-          {{ (tariffs.get(y, tariffs[tariffs.keys() | max])) | to_json }}
+          {{ (tariffs[y] if y in tariffs else {"high": None, "low": None}) | to_json }}
+
+      - name: "Electricity Tariff Coverage"
+        unique_id: electricity_tariff_coverage
+        icon: mdi:calendar-alert
+        state: >-
+          {% set t = states('sensor.electricity_tariff_now') %}
+          {% if t not in ['unknown','unavailable',''] and (t | from_json).high is not none %}
+          OK — {{ now().year }} prices loaded
+          {% else %}
+          MISSING — add {{ now().year }} to the tariff table
+          {% endif %}
 
       - name: "Electricity Price High"
         unique_id: electricity_price_high
         unit_of_measurement: "CHF/kWh"
         icon: mdi:cash-plus
-        availability: "{{ states('sensor.electricity_tariff_now') not in ['unknown','unavailable',''] }}"
+        availability: >-
+          {{ states('sensor.electricity_tariff_now') not in ['unknown','unavailable','']
+             and (states('sensor.electricity_tariff_now') | from_json).high is not none }}
         state: "{{ (states('sensor.electricity_tariff_now') | from_json).high | float(0) }}"
       - name: "Electricity Price Low"
         unique_id: electricity_price_low
         unit_of_measurement: "CHF/kWh"
         icon: mdi:cash-minus
-        availability: "{{ states('sensor.electricity_tariff_now') not in ['unknown','unavailable',''] }}"
+        availability: >-
+          {{ states('sensor.electricity_tariff_now') not in ['unknown','unavailable','']
+             and (states('sensor.electricity_tariff_now') | from_json).low is not none }}
         state: "{{ (states('sensor.electricity_tariff_now') | from_json).low | float(0) }}"
 
       - name: "Electricity Current Price"
         unique_id: electricity_current_price
         unit_of_measurement: "CHF/kWh"
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: >-
           {{ (states('sensor.electricity_price_high')
               if (now().weekday() != 6 and 6 <= now().hour < 22)
@@ -148,24 +168,28 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_today')|float(0) + states('sensor.beefy_plug_cost_today')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost This Week"
         unique_id: plugs_total_cost_this_week
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_this_week')|float(0) + states('sensor.beefy_plug_cost_this_week')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost This Month"
         unique_id: plugs_total_cost_this_month
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_this_month')|float(0) + states('sensor.beefy_plug_cost_this_month')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost This Year"
         unique_id: plugs_total_cost_this_year
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_this_year')|float(0) + states('sensor.beefy_plug_cost_this_year')|float(0)) | round(2) }}"
 
       # ---- Projected yearly cost (estimate) — sum of both plugs
@@ -174,10 +198,12 @@ template:
         unit_of_measurement: "CHF"
         device_class: monetary
         icon: mdi:chart-line-variant
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_year_proj_week')|float(0) + states('sensor.beefy_plug_cost_year_proj_week')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost Year Proj Month"
         unique_id: plugs_total_cost_year_proj_month
         unit_of_measurement: "CHF"
         device_class: monetary
         icon: mdi:chart-line-variant
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_year_proj_month')|float(0) + states('sensor.beefy_plug_cost_year_proj_month')|float(0)) | round(2) }}"
