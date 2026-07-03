@@ -198,9 +198,10 @@ views:
                     label: Low tariff · nights 22:00–06:00 + all Sunday
                   - entity: sensor.electricity_price_low
                     name: Price
-                  - type: divider
+                  - type: section
+                    label: Price table
                   - entity: sensor.electricity_tariff_coverage
-                    name: Price table status
+                    name: Status
 
               - type: entities
                 title: Projected yearly cost
