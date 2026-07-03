@@ -103,15 +103,22 @@ Home-lab "fastpi" server (always-on tier: Docker host, Traefik, Home Assistant, 
 | Interface | Device | Speed / State |
 |---|---|---|
 | `eth0` (onboard) | Gigabit Ethernet via RP1 I/O controller (Broadcom BCM54213PE PHY; driver `macb`) | 1000 Mb/s, full duplex, link up |
-| `wlan0` (onboard) | Cypress/Infineon CYW43455 dual-band 802.11ac Wi-Fi + Bluetooth 5.0 | DOWN (unused) |
+| `wlan0` (onboard) | Cypress/Infineon CYW43455 dual-band 802.11ac Wi-Fi + Bluetooth 5.0 | DOWN (Wi-Fi unused) |
+| Bluetooth | CYW43455 BT 5.0 (UART, `hci0`) | UP/RUNNING (not used by services) |
 
-- **eth0 MAC:** `2c:cf:67:26:3a:c8`  ·  **wlan0 MAC:** `2c:cf:67:26:3a:c9`
+- **eth0 MAC:** `2c:cf:67:26:3a:c8`  ·  **wlan0 MAC:** `2c:cf:67:26:3a:c9`  ·  **BT:** `2c:cf:67:26:3a:ca`
 - The Pi 5 I/O (USB, Ethernet, GPIO) is fronted by the **Raspberry Pi RP1** southbridge (`RP1 PCIe 2.0 South Bridge`).
 - *(Many `br-*` / `veth*` / `docker0` interfaces are Docker virtual bridges — omitted.)*
 
 ## USB
 
-- Pi 5 provides **2× USB 3.0 + 2× USB 2.0** ports (plus internal). Both Seagate HDDs are on USB 3.0 root hubs.
+- Pi 5 provides **2× USB 3.0 + 2× USB 2.0** ports (plus internal). Both Seagate HDDs are on USB 3.0 (5 Gb/s, `uas` driver). No USB hub in the path.
+
+## Other
+
+- **microSD:** no card fitted — the system boots entirely from NVMe (SD slot is empty).
+- **RTC:** Pi 5 built-in real-time clock (`rpi-rtc`, `/dev/rtc0`). **No backup battery appears fitted** — on a cold boot the clock resets to `1970-01-01` (time is restored from NTP once networked). A coin-cell on the Pi 5 RTC connector would preserve time across power loss. *(Confirm whether a battery is installed.)*
+- **No GPIO HATs** or other add-on boards present (no HAT EEPROM detected).
 
 ---
 
