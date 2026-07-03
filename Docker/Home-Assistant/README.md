@@ -102,10 +102,17 @@ lovelace:
 ```
 
 In the sidebar it shows as **Electricity** 🔌, with two views:
-- **Overview** — per-plug (FastPi + Beefy) controls, combined-power gauge, 24 h
-  power history (per plug + total).
-- **Energy** — live + per-period kWh, by-tariff, cost — per plug **and** combined
-  — plus long-term day/month/power graphs.
+- **Overview** 🔌 — a `panel`-mode two-row grid (`vertical-stack` of
+  `horizontal-stack`s, so each row spans full width instead of being scattered
+  by masonry): **row 1** = total-power gauge · *Total — measured* (both plugs) ·
+  *Total — incl. vampire*; **row 2** = FastPi · Beefy · **Vampire draw** cards;
+  then the 24 h power history (per plug + total). See
+  [Vampire draw](#vampire-draw-standby--parasitic-loads).
+- **Measured** 📟 (`mdi:gauge`, path `/measured`) — live + per-period kWh,
+  by-tariff, cost — per plug **and** combined — plus long-term day/month/power
+  graphs. (Renamed from "Energy" to avoid clashing with HA's native Energy
+  dashboard; only the two real, *metered* plugs appear here — vampire draw is
+  estimated-static and deliberately excluded.)
 
 Editing the YAML content only needs a **browser refresh**; changing the
 registration (title/icon/mode) needs `docker compose restart`.
@@ -231,9 +238,38 @@ its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart
   feeds the Energy dashboard), `…_energy_today/this_week/this_month/this_year`,
   `…_cost_today/this_week/this_month/this_year`, and `…_current_cost_rate` — each
   the sum of both plugs. (No combined lifetime cost, by design.)
+- **Grand totals incl. vampire** — `sensor.total_incl_vampire_power` and
+  `sensor.total_incl_vampire_current_cost_rate` add the estimated standby draw
+  (below) on top of the two metered plugs; shown as the *Total — incl. vampire*
+  glance on Overview. Live-only (no energy/cost odometer — the vampire figure is
+  an estimate and is kept out of the metered history).
 
-Shown on the dashboard's **Energy** view (live, per-period kWh + cost by tariff,
+Shown on the dashboard's **Measured** view (live, per-period kWh + cost by tariff,
 projected-year estimate, and forever day/month/power/cost graphs).
+
+### Vampire draw (standby / parasitic loads)
+
+`config/packages/plug_vampire.yaml` is a **virtual "plug"** (no hardware) that
+sums the small always-on / off-state loads the two real myStrom plugs do **not**
+meter — a myStrom plug measures only the load *behind* it, so its own electronics
+draw is invisible to it and is counted here instead.
+
+`sensor.vampire_plug_power` (W) = sum of, with a per-component attribute breakdown:
+
+| Component | Draw |
+| --- | --- |
+| myStrom plug self-draw (each, ×2) | **1.4 W on / 0.9 W off** — dynamic, follows `binary_sensor.<p>_plug_relay` |
+| Noctua fan + AC→DC header | 0.4 W |
+| Tuya legacy plug (spare / future NAS) | 1.2 W |
+| Netgear 1 GbE switch | 2.0 W |
+| Power strip | 0.4 W |
+
+Fixed part = 4.0 W; the two plugs add 1.8 W (both off) … 2.8 W (both on) → total
+**≈ 5.8–6.8 W**. `sensor.vampire_plug_current_cost_rate` prices it at the live
+tariff. These are **measured** values, roughly static except the two plugs which
+track their relay state. Shown as the **Vampire draw** card on Overview; a
+self-draw remark also sits on each plug card. The plugs' own metered
+`sensor.<p>_plug_power` values are untouched.
 
 ### Changing the tariff prices (add a year)
 
