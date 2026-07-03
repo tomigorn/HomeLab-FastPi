@@ -112,7 +112,33 @@ Home-lab "fastpi" server (always-on tier: Docker host, Traefik, Home Assistant, 
 
 ## USB
 
-- Pi 5 provides **2× USB 3.0 + 2× USB 2.0** ports (plus internal). Both Seagate HDDs are on USB 3.0 (5 Gb/s, `uas` driver). No USB hub in the path.
+- Pi 5 provides **2× USB 3.0 + 2× USB 2.0** ports (plus internal). Both Seagate HDDs are on USB 3.0 (5 Gb/s, `uas` driver). The **SONOFF Zigbee coordinator** (see below) sits on a USB 2.0 port. No USB hub in the path.
+
+## Zigbee (Home-Automation Radio)
+
+Added **2026-07-03**: a **SONOFF ZBDongle-P** Zigbee 3.0 USB coordinator, plugged into a USB 2.0 port. It gives Home Assistant a local Zigbee network — via the built-in **ZHA** integration — so battery Zigbee sensors pair directly to the Pi, with no separate hub/gateway and no vendor cloud.
+
+| | |
+|---|---|
+| **Model** | SONOFF ZBDongle-P (ITead) — Zigbee 3.0 USB Dongle Plus |
+| **Radio chipset** | Texas Instruments **CC2652P** (the USB side enumerates as a Silicon Labs CP210x UART bridge, `10c4:ea60`) |
+| **Role** | Zigbee **Coordinator** (works with HA ZHA *and* Zigbee2MQTT) |
+| **Kernel driver / node** | `cp210x` → `/dev/ttyUSB0` |
+| **Stable path (use this in configs)** | `/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_542098354555ef11a1835673cc32aab1-if00-port0` |
+| **Serial baud** | 115200 (CC2652P coordinator default) |
+| **Purchased** | 2024-11-29 (AliExpress, SONOFF Smart Home Store) — CHF **19.67** incl. |
+
+**Zigbee end-devices** (Tuya / Smart-Life battery sensors — pair locally to the SONOFF coordinator; the "needs gateway" label just means the dongle *is* the gateway — no Tuya hub or cloud required):
+
+| Device | ZHA model | Qty | Purchased | Cost (CHF) | Status (2026-07-03) |
+|---|---|---|---|---|---|
+| Tuya Zigbee Vibration Sensor | `TS0210` | 2 | 2025-07-25 | 7.75 (for 2) | 1 paired → **Eingang** (IEEE `a4:c1:38:79:b3:3a:0e:a5`); 1 still to pair |
+| Tuya Zigbee Contact Sensor | `TS0203` | 1 | 2025-07-25 | 5.30 | Paired → **Schlafzimmer Tomas** (IEEE `a4:c1:38:08:38:6a:88:86`) |
+
+**Notes / gotchas:**
+- Coordinator enumerated as `Texas Instruments CC2652` in ZHA, renamed to **"Zigbee Antenna"**.
+- **`TS0203` contact sensor exposes a bogus duplicate** — besides the real IAS-Zone entity (cluster `1280`, keep this one) it also creates an On/Off entity (cluster `6`, unique-id suffix `-1-6`) that never tracks the reed switch. **Disable the cluster-6 entity** (`disabled_by: user`) so the door shows once. Same likely applies to future `TS0203`/`TS0210` sensors.
+- **Range / mesh:** 2.4 GHz Zigbee is heavily attenuated by the flat's concrete walls — a sensor placed far from the dongle went unreachable. Fixes, cheapest first: (1) put the dongle on a short **USB extension** away from the Pi 5 (USB3/NVMe noise); (2) add mains-powered **Zigbee routers** — battery sensors do **not** repeat; only mains devices do. Chosen repeater: **pass-through Zigbee 3.0 smart plug, Swiss Type J (CH)** (e.g. BORUIDAPLS WK35, ~CHF 15.6, ZHA-compatible, energy metering) — or a **Sonoff ZBMINI / ZBMINI-L2** in-wall module where no free outlet exists (ZBMINI needs neutral; L2 is no-neutral). After adding a router, **re-pair the far sensor next to it** so it attaches to that router as parent.
 
 ## Other
 
@@ -146,7 +172,10 @@ Prices as paid (CHF). Serial numbers omitted; some drive prices are no longer on
 | Seagate One Touch 2 TB (USB HDD) | *n/a — not recorded* | — |
 | DIYzone 3-layer acrylic case (incl. PWM fan) | 8.49 | 2024-08-23 |
 | Official Raspberry Pi 27W USB-C PSU | 15.35 | 2024-08-23 |
-| **Total (recorded items)** | **≈ 218.73** | |
+| SONOFF ZBDongle-P Zigbee 3.0 coordinator | 19.67 | 2024-11-29 |
+| Tuya Zigbee Vibration Sensor (2-pack) | 7.75 | 2025-07-25 |
+| Tuya Zigbee Contact (door/window) Sensor | 5.30 | 2025-07-25 |
+| **Total (recorded items)** | **≈ 251.45** | |
 
 *(Two drives — the Samsung PM961 NVMe and the Seagate One Touch 2 TB — have no recorded purchase price, so the total above excludes them.)*
 
@@ -165,4 +194,5 @@ Prices as paid (CHF). Serial numbers omitted; some drive prices are no longer on
 | Boot | Samsung PM961 512 GB NVMe on Geekworm X1001 (PCIe Gen2 x1) |
 | Data | 2× Seagate 2 TB USB 3.0 HDD (`/mnt/seagate-black`, `/mnt/seagate-red`) |
 | Net | 1× Gigabit Ethernet (192.168.1.2), Wi-Fi/BT present but unused |
+| Zigbee | SONOFF ZBDongle-P coordinator (TI CC2652P) → `/dev/ttyUSB0`, for HA ZHA |
 | OS | Debian 12 (bookworm), kernel 6.12.75+rpt-rpi-2712 |
