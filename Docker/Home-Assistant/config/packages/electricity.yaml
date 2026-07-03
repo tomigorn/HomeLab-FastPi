@@ -128,7 +128,7 @@ template:
         state: "{{ (states('sensor.fastpi_plug_current_cost_rate')|float(0) + states('sensor.beefy_plug_current_cost_rate')|float(0)) | round(3) }}"
 
       # ---- Combined live power & cost incl. the "vampire" standby draw ----
-      # Both real plugs PLUS the estimated parasitic loads from
+      # Both real plugs PLUS the measured parasitic loads from
       # packages/plug_vampire.yaml (sensor.vampire_plug_*).
       - name: "Total Incl Vampire Power"
         unique_id: total_incl_vampire_power
@@ -141,6 +141,70 @@ template:
         unique_id: total_incl_vampire_current_cost_rate
         unit_of_measurement: "CHF/h"
         state: "{{ (states('sensor.plugs_total_current_cost_rate')|float(0) + states('sensor.vampire_plug_current_cost_rate')|float(0)) | round(3) }}"
+
+      # ---- Per-period energy incl. vampire (both plugs + vampire meters) ----
+      # Feeds the Measured view's "Total incl. vampire" row when the toggle is on.
+      - name: "Total Incl Vampire Energy Today"
+        unique_id: total_incl_vampire_energy_today
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.plugs_total_energy_today')|float(0) + states('sensor.vampire_energy_daily')|float(0)) | round(3) }}"
+      - name: "Total Incl Vampire Energy This Week"
+        unique_id: total_incl_vampire_energy_this_week
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.plugs_total_energy_this_week')|float(0) + states('sensor.vampire_energy_weekly')|float(0)) | round(3) }}"
+      - name: "Total Incl Vampire Energy This Month"
+        unique_id: total_incl_vampire_energy_this_month
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.plugs_total_energy_this_month')|float(0) + states('sensor.vampire_energy_monthly')|float(0)) | round(3) }}"
+      - name: "Total Incl Vampire Energy This Year"
+        unique_id: total_incl_vampire_energy_this_year
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ (states('sensor.plugs_total_energy_this_year')|float(0) + states('sensor.vampire_energy_yearly')|float(0)) | round(3) }}"
+      - name: "Total Incl Vampire Energy"
+        unique_id: total_incl_vampire_energy
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        availability: "{{ is_number(states('sensor.plugs_total_energy')) and is_number(states('sensor.vampire_plug_energy')) }}"
+        state: "{{ (states('sensor.plugs_total_energy')|float(0) + states('sensor.vampire_plug_energy')|float(0)) | round(3) }}"
+
+      # ---- Per-period cost incl. vampire (both plugs + vampire cost meters) ----
+      - name: "Total Incl Vampire Cost Today"
+        unique_id: total_incl_vampire_cost_today
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_today')|float(0) + states('sensor.vampire_cost_daily')|float(0)) | round(2) }}"
+      - name: "Total Incl Vampire Cost This Week"
+        unique_id: total_incl_vampire_cost_this_week
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_this_week')|float(0) + states('sensor.vampire_cost_weekly')|float(0)) | round(2) }}"
+      - name: "Total Incl Vampire Cost This Month"
+        unique_id: total_incl_vampire_cost_this_month
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_this_month')|float(0) + states('sensor.vampire_cost_monthly')|float(0)) | round(2) }}"
+      - name: "Total Incl Vampire Cost This Year"
+        unique_id: total_incl_vampire_cost_this_year
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_this_year')|float(0) + states('sensor.vampire_cost_yearly')|float(0)) | round(2) }}"
 
       # ---- Combined lifetime energy (feeds the Energy dashboard) ----
       - name: "Plugs Total Energy"

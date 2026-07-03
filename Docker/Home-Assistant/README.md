@@ -108,11 +108,20 @@ In the sidebar it shows as **Electricity** 🔌, with two views:
   *Total — incl. vampire*; **row 2** = FastPi · Beefy · **Vampire draw** cards;
   then the 24 h power history (per plug + total). See
   [Vampire draw](#vampire-draw-standby--parasitic-loads).
-- **Measured** 📟 (`mdi:gauge`, path `/measured`) — live + per-period kWh,
-  by-tariff, cost — per plug **and** combined — plus long-term day/month/power
-  graphs. (Renamed from "Energy" to avoid clashing with HA's native Energy
-  dashboard; only the two real, *metered* plugs appear here — vampire draw is
-  estimated-static and deliberately excluded.)
+- **Measured** 📟 (`mdi:gauge`, path `/measured`) — live snapshot, tariff &
+  price, projected yearly cost, per-period kWh + cost tables, and long-term
+  day/month/power graphs. (Renamed from "Energy" to avoid clashing with HA's
+  native Energy dashboard.) Two controls sit directly under **Live**:
+  - a **timeframe dropdown** (`input_select.measured_timeframe`: Today / This
+    week / This month / This year / Lifetime) — the kWh + CHF tables show **only
+    the selected period** (via one `conditional` card per timeframe), instead of
+    one giant always-on table of every period.
+  - a **Show-vampire toggle** (`input_boolean.measured_show_vampire`) — adds a
+    **Vampire** row and a **Total incl. vampire** row to those tables (via
+    `conditional` entity rows). Off by default; the graphs stay plugs-only.
+
+    Both helpers live in `config/packages/measured_controls.yaml`. Lifetime shows
+    energy only (no reset-period lifetime cost — see below).
 
 Editing the YAML content only needs a **browser refresh**; changing the
 registration (title/icon/mode) needs `docker compose restart`.
@@ -238,11 +247,13 @@ its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart
   feeds the Energy dashboard), `…_energy_today/this_week/this_month/this_year`,
   `…_cost_today/this_week/this_month/this_year`, and `…_current_cost_rate` — each
   the sum of both plugs. (No combined lifetime cost, by design.)
-- **Grand totals incl. vampire** — `sensor.total_incl_vampire_power` and
-  `sensor.total_incl_vampire_current_cost_rate` add the estimated standby draw
-  (below) on top of the two metered plugs; shown as the *Total — incl. vampire*
-  glance on Overview. Live-only (no energy/cost odometer — the vampire figure is
-  an estimate and is kept out of the metered history).
+- **Grand totals incl. vampire** — add the standby draw (below) on top of the two
+  metered plugs: `sensor.total_incl_vampire_power` /
+  `…_current_cost_rate` (live, shown as the *Total — incl. vampire* glance on
+  Overview), plus per-period `sensor.total_incl_vampire_energy` (lifetime) /
+  `…_energy_today/this_week/this_month/this_year` and
+  `…_cost_today/this_week/this_month/this_year`. These feed the *Total incl.
+  vampire* rows the Measured view shows when the vampire toggle is on.
 
 Shown on the dashboard's **Measured** view (live, per-period kWh + cost by tariff,
 projected-year estimate, and forever day/month/power/cost graphs).
@@ -270,6 +281,18 @@ tariff. These are **measured** values, roughly static except the two plugs which
 track their relay state. Shown as the **Vampire draw** card on Overview; a
 self-draw remark also sits on each plug card. The plugs' own metered
 `sensor.<p>_plug_power` values are untouched.
+
+**Per-period energy & cost (odometer method).** So the *Show-vampire* toggle can
+populate the Measured view's timeframe tables, vampire has its own history:
+`sensor.vampire_plug_energy` (Riemann integration of the power) and
+`sensor.vampire_plug_cost_accumulated` (integration of the price-aware cost
+rate), each fed into plain day/week/month/year `utility_meter`s
+(`sensor.vampire_energy_<cycle>` / `sensor.vampire_cost_<cycle>`). Because the
+cost rate already carries the current tariff price, the accumulated cost — and
+every per-period cost meter — is **correct across price changes without any
+tariff-split meters**, so (unlike the plugs) vampire needs **no entry in the
+tariff-switching automation**. The values are estimates-derived, so they stay out
+of the native Energy dashboard and the bar graphs (plugs-only).
 
 ### Changing the tariff prices (add a year)
 

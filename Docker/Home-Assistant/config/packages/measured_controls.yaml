@@ -1,0 +1,25 @@
+# =========================================================
+# Measured-dashboard controls (UI helper entities, config-as-code)
+# =========================================================
+# Two input helpers that drive the "Measured" view's per-timeframe tables:
+#   - input_select.measured_timeframe -> which period the tables show
+#   - input_boolean.measured_show_vampire -> add Vampire + Total-incl-vampire rows
+# The dashboard uses `conditional` cards/rows keyed on these, so no automation
+# is needed. Defined in YAML (not the UI) so they stay in git.
+
+input_select:
+  measured_timeframe:
+    name: Timeframe
+    icon: mdi:calendar-clock
+    options:
+      - Today
+      - This week
+      - This month
+      - This year
+      - Lifetime
+    initial: Today
+
+input_boolean:
+  measured_show_vampire:
+    name: Show vampire draw
+    icon: mdi:sleep
