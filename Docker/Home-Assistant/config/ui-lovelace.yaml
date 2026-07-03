@@ -170,18 +170,16 @@ views:
                         name: Tariff
                       - entity: sensor.plugs_total_current_cost_rate
                         name: Cost/h
-                  # Controls directly under Live (equal-height, side by side):
-                  # vampire show/hide toggle + timeframe dropdown.
-                  - type: horizontal-stack
-                    cards:
-                      - type: entities
-                        entities:
-                          - entity: input_boolean.measured_show_vampire
-                            name: Show vampire
-                      - type: entities
-                        entities:
-                          - entity: input_select.measured_timeframe
-                            name: Timeframe
+                  # Controls directly under Live, stacked: vampire show/hide
+                  # toggle, then the timeframe dropdown.
+                  - type: entities
+                    entities:
+                      - entity: input_boolean.measured_show_vampire
+                        name: Show vampire
+                  - type: entities
+                    entities:
+                      - entity: input_select.measured_timeframe
+                        name: Timeframe
 
               - type: entities
                 title: Tariff & price
@@ -198,33 +196,53 @@ views:
                   - entity: sensor.electricity_tariff_coverage
                     name: Price table coverage
 
-              - type: vertical-stack
-                cards:
-                  - type: markdown
-                    content: >
-                      **Projected yearly cost — estimate.** Extrapolates the
-                      spending rate so far this week / this month out to a full
-                      year. Not a bill; early in a week or month it is noisy and
-                      can swing a lot.
-                  - type: entities
-                    title: Projected yearly cost (estimate)
-                    entities:
-                      - type: section
-                        label: From this week's rate
-                      - entity: sensor.fastpi_plug_cost_year_proj_week
-                        name: FastPi
-                      - entity: sensor.beefy_plug_cost_year_proj_week
-                        name: Beefy
-                      - entity: sensor.plugs_total_cost_year_proj_week
-                        name: Total
-                      - type: section
-                        label: From this month's rate
-                      - entity: sensor.fastpi_plug_cost_year_proj_month
-                        name: FastPi
-                      - entity: sensor.beefy_plug_cost_year_proj_month
-                        name: Beefy
-                      - entity: sensor.plugs_total_cost_year_proj_month
-                        name: Total
+              - type: entities
+                title: Projected yearly cost (estimate)
+                entities:
+                  - type: section
+                    label: From this week's rate
+                  - entity: sensor.fastpi_plug_cost_year_proj_week
+                    name: FastPi
+                  - entity: sensor.beefy_plug_cost_year_proj_week
+                    name: Beefy
+                  - entity: sensor.plugs_total_cost_year_proj_week
+                    name: Total
+                  - type: conditional
+                    conditions:
+                      - entity: input_boolean.measured_show_vampire
+                        state: "on"
+                    row:
+                      entity: sensor.vampire_plug_cost_year_proj_week
+                      name: Vampire
+                  - type: conditional
+                    conditions:
+                      - entity: input_boolean.measured_show_vampire
+                        state: "on"
+                    row:
+                      entity: sensor.total_incl_vampire_cost_year_proj_week
+                      name: Total incl. vampire
+                  - type: section
+                    label: From this month's rate
+                  - entity: sensor.fastpi_plug_cost_year_proj_month
+                    name: FastPi
+                  - entity: sensor.beefy_plug_cost_year_proj_month
+                    name: Beefy
+                  - entity: sensor.plugs_total_cost_year_proj_month
+                    name: Total
+                  - type: conditional
+                    conditions:
+                      - entity: input_boolean.measured_show_vampire
+                        state: "on"
+                    row:
+                      entity: sensor.vampire_plug_cost_year_proj_month
+                      name: Vampire
+                  - type: conditional
+                    conditions:
+                      - entity: input_boolean.measured_show_vampire
+                        state: "on"
+                    row:
+                      entity: sensor.total_incl_vampire_cost_year_proj_month
+                      name: Total incl. vampire
 
           # -------- Row 2: per-timeframe Energy | Cost tables.
           # One `conditional` card per timeframe (only the selected one renders);
