@@ -1,0 +1,41 @@
+# Cup — Docker image update checker UI (fetch-only, no login).
+# Project: /home/pi/Projects/Docker/Cup
+#
+# NOTE: Cup has no built-in authentication and its dashboard enumerates every
+# container + exact image version. This route is public (behind Cloudflare) with
+# no login, matching the Dashy pattern. To gate it behind Authentik, add an
+# authentik forwardAuth middleware to the router's `middlewares` list.
+http:
+  routers:
+    cup:
+      rule: "Host(`cup.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: cup
+      middlewares:
+        - default-rate-limit@file
+        - cup-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    cup-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'"
+          Server: ""
+
+  services:
+    cup:
+      loadBalancer:
+        servers:
+          - url: "http://Cup:8000"
+        passHostHeader: true
