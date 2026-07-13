@@ -1,0 +1,46 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# CUP #####################################################
+# #########################################################
+# Cup — lightweight Docker image update checker (web UI, fetch-only).
+# It never updates anything: it lists running containers and tells you
+# which images have a newer version available. Config lives in cup.json.
+  cup:
+    image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
+    container_name: Cup
+    command: -c /config/cup.json serve
+    volumes:
+      # Read-only Docker socket: Cup only *reads* the container list and
+      # queries registries — it never writes to the daemon.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Committed, config-as-code (see cup.json)
+      - ./cup.json:/config/cup.json:ro
+    ports:
+      # Direct LAN access. Traefik reaches Cup over traefik_proxy by
+      # container name (http://Cup:8000), so this publish is just a
+      # convenient fallback if Traefik/Cloudflare are down.
+      - "8000:8000"
+    mem_limit: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/v3/json"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
