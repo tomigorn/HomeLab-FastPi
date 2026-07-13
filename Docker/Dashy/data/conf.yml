@@ -1,0 +1,63 @@
+---
+pageInfo:
+  title: Home Lab
+
+sections:
+
+- name: Public
+  displayData:
+    collapsed: false
+  items:
+  - title: Audiobookshelf
+    description: Audiobook & podcast server
+    icon: hl-audiobookshelf
+    url: https://audiobookshelf.holy-grail.ch
+  - title: WG Chores
+    description: WireGuard task tracker
+    url: https://wg-aemtli.ddns.net
+  - title: Dashy
+    description: This dashboard
+    icon: hl-dashy
+    url: https://dashy.holy-grail.ch
+
+- name: Infrastructure
+  displayData:
+    collapsed: true
+  items:
+  - title: Traefik
+    description: Reverse proxy
+    icon: hl-traefik
+    url: http://fastpi.homelab:8080/dashboard/
+  - title: Portainer
+    description: Container management
+    icon: hl-portainer
+    url: https://fastpi.homelab:9443/#!/home
+  - title: AdGuard Home
+    description: DNS & ad blocking
+    icon: hl-adguard-home
+    url: http://fastpi.homelab:3000/
+  - title: WireGuard Easy
+    description: VPN management
+    icon: hl-wireguard
+    url: http://wg-easy.fastpi.homelab:8080
+  - title: Cup
+    description: Docker image update checker
+    icon: https://cup.holy-grail.ch/favicon.svg
+    url: https://cup.holy-grail.ch
+
+- name: Downloads
+  displayData:
+    collapsed: true
+  items:
+  - title: qBittorrent
+    description: Torrent client
+    icon: hl-qbittorrent
+    url: http://fastpi.homelab:8085/
+  - title: SABnzbd
+    description: Usenet downloader
+    icon: hl-sabnzbd
+    url: http://fastpi.homelab:8090/
+  - title: Port Updater
+    description: VPN port forwarding helper
+    icon: fas fa-network-wired
+    url: http://fastpi.homelab:8087/
