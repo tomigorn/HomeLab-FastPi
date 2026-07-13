@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/sergi0g/cup/main/cup.schema.json",
   "version": 3,
   "theme": "default",
-  "refresh_interval": "0 0 */6 * * *",
+  "refresh_interval": "0 0 4 * * Sun",
   "ignore_update_type": "none",
   "images": {
     "exclude": [],
