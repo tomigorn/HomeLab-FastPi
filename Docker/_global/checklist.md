@@ -27,3 +27,4 @@
 | Authentik | ❌ | ❌ | | |  |
 | Beefy-Waker | ❌ | ❌ | | |  |
 | Home-Assistant | ❌ | ❌ | | |  |
+| Cup | ❌ | ❌ | | |  |
