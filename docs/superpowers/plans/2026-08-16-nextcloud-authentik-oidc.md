@@ -403,14 +403,18 @@ docker exec -u www-data nextcloud php occ user_oidc:provider authentik \
   --clientid="<CLIENT_ID>" \
   --clientsecret="<CLIENT_SECRET>" \
   --discoveryuri="https://sso.holy-grail.ch/application/o/nextcloud/.well-known/openid-configuration" \
-  --scope="openid profile email" \
+  --scope="openid profile email nextcloud" \
   --mapping-uid=sub \
   --mapping-display-name=name \
   --mapping-email=email \
+  --mapping-groups=groups \
+  --group-provisioning=1 \
   --unique-uid=0
 ```
 
-If the `occ user_oidc:provider` subcommand is unavailable in the installed version, configure the identical values in Settings → Administration → OpenID Connect instead: Identifier `authentik`, the client ID/secret, the discovery endpoint above, scope `openid profile email`, User ID mapping `sub`, Display name mapping `name`, Email mapping `email`, "Use group provisioning" **off**.
+If the `occ user_oidc:provider` subcommand is unavailable in the installed version, configure the identical values in Settings → Administration → OpenID Connect instead: Identifier `authentik`, the client ID/secret, the discovery endpoint above, scope `openid profile email nextcloud`, User ID mapping `sub`, Display name mapping `name`, Email mapping `email`, Groups mapping `groups`, "Use group provisioning" **on**.
+
+The custom `nextcloud` scope carries the groups claim. Without it in the scope list, `cloud-admins` members get no admin rights.
 
 - [ ] **Step 3: Verify the provider registered**
 
@@ -480,6 +484,13 @@ Expected: `members: []`. Log out of Nextcloud, retry login as `testuser` → ref
 Upload a file over 100MB through the web UI at `https://cloud.holy-grail.ch`.
 
 Expected: succeeds via chunking. A 413 means `max_chunk_size` from Task 5 Step 3 did not apply.
+
+- [ ] **Step 4b: Confirm admin rights follow cloud-admins**
+
+Add a user to `cloud-admins`, log in again, and confirm the Settings → Administration
+section appears. Then remove them from `cloud-admins`, log in again, and confirm it is
+gone. If admin rights persist after removal, group provisioning is not applying the
+groups claim.
 
 - [ ] **Step 5: Add the real user to the group**
 
