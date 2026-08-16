@@ -122,10 +122,23 @@ the strict redirect URI match fails:
 
 - `trusted_domains` += `cloud.holy-grail.ch`
 - `overwrite.cli.url` = `https://cloud.holy-grail.ch`
-- `overwriteprotocol` = `https`
-- `overwritehost` = `cloud.holy-grail.ch`
-- `trusted_proxies` += `192.168.1.2` (fastpi — Traefik NATs to the host address on the
-  way to tower; confirm against the Nextcloud access log rather than assuming)
+- `trusted_proxies` = `172.24.0.1`, `192.168.1.2`
+
+**Corrected as-built (2026-08-16).** Two changes from the original plan, both verified
+against the running system:
+
+1. The proxy address is **`172.24.0.1`**, not `192.168.1.2`. Nextcloud's access log shows
+   requests arriving through Cloudflare/Traefik from `172.24.0.1` — the gateway of
+   fastpi's `traefik_proxy` bridge (`172.24.0.0/16`, Traefik itself at `172.24.0.9`),
+   which reaches tower un-masqueraded. `192.168.1.2` appears only for requests made
+   directly from the fastpi host. Both are listed. The original `192.168.1.2`-only guess
+   would have silently broken OIDC.
+2. **`overwritehost` and `overwriteprotocol` are deliberately NOT set.** With
+   `trusted_proxies` correct, Nextcloud honours Traefik's `X-Forwarded-Proto`/`Host` and
+   builds correct URLs on its own — verified: `https://cloud.holy-grail.ch/` returns a
+   302 to `https://cloud.holy-grail.ch/login`. Forcing the host would canonicalise every
+   request to the public name and degrade LAN access at `192.168.1.101:8080`, which is
+   still a listed trusted domain.
 
 Also set the upload chunk size below Cloudflare's free-tier 100MB per-request cap.
 Nextcloud chunks uploads already; the default chunk can exceed the cap, so pin it
