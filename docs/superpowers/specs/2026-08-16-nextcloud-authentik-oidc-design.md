@@ -171,9 +171,19 @@ which already stops a passing bot from using the tunnel as a power switch. Front
 Nextcloud with an Authentik *proxy* provider would hide the login page but breaks WebDAV
 and the sync clients, so it is rejected.
 
-**Lockout.** Keep the local Nextcloud admin account and local password login enabled
-throughout. Do not disable password login until OIDC is verified end to end, and even
-then keep the local admin as the break-glass path.
+**Lockout.** Keep the local Nextcloud admin account (`admin`) as the break-glass path.
+
+**OIDC-only login (added 2026-08-16, at user request).**
+`occ config:app:set user_oidc allow_multiple_user_backends --value=0` makes `/login`
+302 straight to Authentik; the password form is no longer offered. The local form
+remains reachable at **`/login?direct=1`**, which is the break-glass route and
+**cannot be turned off by this setting**.
+
+That leaves one real gap: `admin` is a database-backend account with a local password
+and no MFA, reachable from the internet via `?direct=1` — the single path around an
+otherwise mandatory-MFA IdP. Mitigate by giving `admin` a long random password and
+enabling Nextcloud's own TOTP on it, rather than by trying to block `?direct=1` (doing
+so would also destroy the only recovery path if OIDC breaks).
 
 **tower is asleep at login time.** The WoL gate returns its self-refreshing "waking up"
 page. Worst case the OIDC redirect lands during boot and the user retries; the
