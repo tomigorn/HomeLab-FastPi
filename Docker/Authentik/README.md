@@ -112,6 +112,32 @@ Authentik on first apply and read back from the provider, never written here.
   looked up by `name` rather than `scope_name` (two mappings share the scope
   name `email`).
 
+### ⚠️ Known issue — `ak_groups` is deprecated (raised 2026-08-16, NOT fixed)
+
+**Do not upgrade authentik before fixing this.**
+
+`nextcloud-oidc.yaml`'s scope mapping uses `request.user.ak_groups`, which
+authentik has deprecated in favour of `request.user.groups`. It logs a
+`configuration_warning` on every evaluation and still works on **2026.5.2**.
+
+The reason it matters is *how* it will break. When authentik removes the
+attribute, the expression raises and the `groups` claim comes back **empty** —
+so login keeps working, nobody sees an error, and every user silently loses
+Nextcloud admin rights and group membership. A quiet permissions regression is
+far worse to diagnose than a loud failure.
+
+Fix: replace both `ak_groups` calls with `groups`, re-apply the blueprint, then
+verify a `cloud-admins` member still resolves to all three groups:
+
+```bash
+docker exec -i authentik-server ak shell -c "
+from authentik.core.models import User
+from authentik.providers.oauth2.models import ScopeMapping
+print(ScopeMapping.objects.get(name='Nextcloud Profile').evaluate(
+    user=User.objects.get(username='akadmin'), request=None))"
+# expected: {'name': ..., 'groups': ['cloud-users', 'cloud-admins', 'admin']}
+```
+
 Editor note: the blueprint pins a deliberately loose local schema
 (`blueprints/blueprint.schema.json`) via a modeline. Authentik's published schema
 describes the resolved API shape and rejects its own `!Find`/`!KeyOf` tags; with

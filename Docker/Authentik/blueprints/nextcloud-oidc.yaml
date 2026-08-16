@@ -86,6 +86,27 @@ entries:
     attrs:
       scope_name: nextcloud
       description: Nextcloud display name and group membership
+      # ###################################################################
+      # KNOWN BUG - MUST BE FIXED BEFORE UPGRADING AUTHENTIK
+      # ###################################################################
+      # `ak_groups` below is DEPRECATED. authentik logs a configuration_warning
+      # on every evaluation:
+      #   "authentik.core.models.User.ak_groups is deprecated and will be removed
+      #    in a future version. Please use User.groups instead."
+      #
+      # It still works on 2026.5.2. When authentik removes it, this expression
+      # raises, the groups claim comes back EMPTY, and the failure is quiet and
+      # nasty: login still succeeds, but every user silently loses Nextcloud
+      # admin rights and group membership. Nothing errors at the login screen.
+      #
+      # Fix: swap both `request.user.ak_groups.filter(...)` calls below for
+      # `request.user.groups.filter(...)`, re-apply this blueprint, then verify
+      # with the snippet in README.md -> Blueprints -> Known issues. A member of
+      # cloud-admins must still resolve to ['cloud-users','cloud-admins','admin'].
+      #
+      # Raised 2026-08-16. Deliberately left unfixed for now (no time to verify);
+      # do NOT upgrade authentik without doing this first.
+      # ###################################################################
       expression: |
         groups = []
         if request.user.ak_groups.filter(name="cloud-users").exists():
