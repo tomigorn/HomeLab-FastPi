@@ -1,0 +1,50 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Tower-Waker #############################################
+# #########################################################
+  waker:
+    build: .                       # python:3.13-alpine + openssh-client (see Dockerfile)
+    image: tower-waker:local
+    container_name: tower-waker
+    restart: unless-stopped
+    # Host network so the magic packet can be broadcast onto the LAN
+    # and so Traefik can reach the gate at <fastpi-ip>:${WAKER_LISTEN_PORT}.
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./app/waker.py:/app/waker.py:ro
+      - ./app/VERSION:/app/VERSION:ro        # app version shown in the page footer
+      # NOTE: no /history key mount, unlike Beefy-Waker. /history shells out to
+      # `journalctl --list-boots`; Unraid is not systemd and has no journal, so
+      # that endpoint cannot work for tower.
+    command: ["python", "/app/waker.py"]
+    # Liveness probe for observability (docker ps shows healthy/unhealthy). NOTE:
+    # plain compose does NOT auto-restart on unhealthy — restart:unless-stopped only
+    # catches crashes/OOM. /status answers whenever the gate loop is alive.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://192.168.1.2:9002/status', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    # Non-root + no capabilities: it binds :9002 (>1024), sends a broadcast UDP
+    # packet (SO_BROADCAST is unprivileged) — neither needs root or any capability.
+    user: "1000:1000"        # the "waker" user created in the Dockerfile
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    security_opt:
+      - no-new-privileges:true
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+# (none — uses host networking)
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+# (none — app is a single bind-mounted script)
