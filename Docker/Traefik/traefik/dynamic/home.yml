@@ -1,0 +1,41 @@
+http:
+  routers:
+    # Public — reachable from anywhere via the Cloudflare tunnel.
+    homelab-dashboard:
+      rule: "Host(`home.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: homelab-dashboard
+      middlewares:
+        - homelab-dashboard-secure-headers
+      tls:
+        certResolver: cloudflare
+
+    # LAN — http://home.fastpi.homelab (internal entrypoint, IP-restricted).
+    homelab-dashboard-internal:
+      rule: "Host(`home.fastpi.homelab`)"
+      entryPoints: ["internal"]
+      service: homelab-dashboard
+
+  middlewares:
+    homelab-dashboard-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          # Self-hosted static page: only loads its own assets + inline SVG favicon.
+          Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'self'"
+          Server: ""
+
+  services:
+    homelab-dashboard:
+      loadBalancer:
+        servers:
+          - url: "http://homelab-dashboard:80"
+        passHostHeader: true
