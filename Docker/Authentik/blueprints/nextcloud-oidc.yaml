@@ -1,0 +1,138 @@
+# Nextcloud SSO via OIDC.
+#
+# Apply with:
+#   docker compose cp blueprints/nextcloud-oidc.yaml server:/tmp/nextcloud-oidc.yaml
+#   docker compose exec -T server ak apply_blueprint /tmp/nextcloud-oidc.yaml
+# Applying is idempotent - re-running after an edit is safe.
+#
+# ACCESS CONTROL lives in the two policybinding entries at the bottom of this
+# file. Remove them and every Authentik user gets Nextcloud.
+#
+# client_id / client_secret are deliberately NOT stored here. Authentik
+# generates them on first apply; read them back with the ak shell snippet in
+# docs/superpowers/plans/2026-08-16-nextcloud-authentik-oidc.md and enter them
+# in Nextcloud. That keeps this file secret-free and committable, matching
+# export-config.sh.
+#
+# NOTE: scope mappings are looked up by NAME, not scope_name. There are two
+# mappings with scope_name "email" (the authentik default plus the custom
+# "audiobookshelf email (verified)"), so a scope_name lookup is ambiguous.
+version: 1
+metadata:
+  name: nextcloud-oidc
+  labels:
+    blueprints.goauthentik.io/description: Nextcloud OIDC provider, cloud-users / cloud-admins groups and access gate
+
+entries:
+  # -------------------------------------------------------------------------
+  # Groups
+  # -------------------------------------------------------------------------
+  # Membership of cloud-users grants access to Nextcloud at all.
+  - model: authentik_core.group
+    id: cloud-users-group
+    identifiers:
+      name: cloud-users
+    attrs:
+      is_superuser: false
+
+  # Membership of cloud-admins additionally grants Nextcloud administrator
+  # rights, via the "admin" entry the scope mapping below adds to the groups
+  # claim. is_superuser stays false: that flag is about Authentik itself, not
+  # Nextcloud, and setting it would hand out authentik admin by accident.
+  - model: authentik_core.group
+    id: cloud-admins-group
+    identifiers:
+      name: cloud-admins
+    attrs:
+      is_superuser: false
+
+  # -------------------------------------------------------------------------
+  # Scope mapping - emits the groups claim Nextcloud provisions from
+  # -------------------------------------------------------------------------
+  # Only Nextcloud-relevant groups are emitted. Sending every authentik group
+  # would make Nextcloud provision noise like "streaming-users" and
+  # "authentik Admins" as Nextcloud groups.
+  #
+  # "admin" is hard-coded in Nextcloud as its administrator group and cannot be
+  # renamed, so cloud-admins members must receive literally that string.
+  - model: authentik_providers_oauth2.scopemapping
+    id: nextcloud-scope
+    identifiers:
+      name: Nextcloud Profile
+    attrs:
+      scope_name: nextcloud
+      description: Nextcloud display name and group membership
+      expression: |
+        groups = []
+        if request.user.ak_groups.filter(name="cloud-users").exists():
+            groups.append("cloud-users")
+        if request.user.ak_groups.filter(name="cloud-admins").exists():
+            groups.append("cloud-admins")
+            # Nextcloud's built-in administrator group. Hard-coded upstream.
+            groups.append("admin")
+        return {
+            "name": request.user.name,
+            "groups": groups,
+        }
+
+  # -------------------------------------------------------------------------
+  # OIDC provider
+  # -------------------------------------------------------------------------
+  - model: authentik_providers_oauth2.oauth2provider
+    id: nextcloud-provider
+    identifiers:
+      name: Nextcloud
+    attrs:
+      authorization_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      sub_mode: user_uuid
+      include_claims_in_id_token: true
+      redirect_uris:
+        - matching_mode: strict
+          url: https://cloud.holy-grail.ch/apps/user_oidc/code
+        - matching_mode: strict
+          url: https://cloud.holy-grail.ch
+      signing_key:
+        !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
+        - !KeyOf nextcloud-scope
+
+  # -------------------------------------------------------------------------
+  # Application
+  # -------------------------------------------------------------------------
+  # policy_engine_mode "any" is required: a user in cloud-admins but not
+  # cloud-users must still pass. With "all" they would be refused.
+  - model: authentik_core.application
+    id: nextcloud-app
+    identifiers:
+      slug: nextcloud
+    attrs:
+      name: Nextcloud
+      provider: !KeyOf nextcloud-provider
+      meta_launch_url: https://cloud.holy-grail.ch
+      policy_engine_mode: any
+
+  # -------------------------------------------------------------------------
+  # THE ACCESS GATE
+  # -------------------------------------------------------------------------
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf nextcloud-app
+      group: !KeyOf cloud-users-group
+      order: 0
+    attrs:
+      enabled: true
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf nextcloud-app
+      group: !KeyOf cloud-admins-group
+      order: 1
+    attrs:
+      enabled: true

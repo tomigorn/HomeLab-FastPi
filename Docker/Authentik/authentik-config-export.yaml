@@ -38,10 +38,37 @@ entries:
     name: streaming-users
     parents: []
     roles: []
-    users: []
+    users:
+    - 11
   conditions: []
   identifiers:
     pk: d2ba3ab1-2b87-4706-b532-853201d0448a
+  model: authentik_core.group
+  permissions: []
+  state: present
+- attrs:
+    attributes: {}
+    is_superuser: false
+    name: cloud-users
+    parents: []
+    roles: []
+    users: []
+  conditions: []
+  identifiers:
+    pk: ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
+  model: authentik_core.group
+  permissions: []
+  state: present
+- attrs:
+    attributes: {}
+    is_superuser: false
+    name: cloud-admins
+    parents: []
+    roles: []
+    users: []
+  conditions: []
+  identifiers:
+    pk: 613bc864-37df-4f07-819b-50ae607c13d5
   model: authentik_core.group
   permissions: []
   state: present
@@ -67,9 +94,27 @@ entries:
     attributes: {}
     email: tsmil@live.com
     groups:
+    - d2ba3ab1-2b87-4706-b532-853201d0448a
+    is_active: true
+    last_login: '2026-06-08T12:05:35.453169Z'
+    name: testuser
+    path: users/internal
+    roles: []
+    type: internal
+    username: testuser
+  conditions: []
+  identifiers:
+    pk: 11
+  model: authentik_core.user
+  permissions: []
+  state: present
+- attrs:
+    attributes: {}
+    email: tomigorn@gmail.com
+    groups:
     - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
     is_active: true
-    last_login: '2026-06-07T23:01:06.700057Z'
+    last_login: '2026-07-03T02:12:04.885212Z'
     name: authentik Default Admin
     path: users
     roles: []
@@ -82,20 +127,41 @@ entries:
   permissions: []
   state: present
 - attrs:
-    attributes: {}
-    email: tsmil@live.com
-    groups: []
-    is_active: true
-    last_login: '2026-06-07T22:58:52.658480Z'
-    name: testuser
-    path: users/internal
-    roles: []
-    type: internal
-    username: testuser
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://audiobookshelf.holy-grail.ch
+    meta_publisher: ''
+    name: Audiobookshelf
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 1
+    slug: audiobookshelf
   conditions: []
   identifiers:
-    pk: 11
-  model: authentik_core.user
+    pk: 4d7bf2ca-58bb-4ad3-ac66-368290eb8863
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://cloud.holy-grail.ch
+    meta_publisher: ''
+    name: Nextcloud
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 3
+    slug: nextcloud
+  conditions: []
+  identifiers:
+    pk: 5c14b402-a2c0-4c58-b534-ac35e1b5f029
+  model: authentik_core.application
   permissions: []
   state: present
 - attrs:
@@ -1190,6 +1256,18 @@ entries:
   permissions: []
   state: present
 - attrs:
+    execution_logging: false
+    expression: "if ak_is_group_member(request.user, name=\"streaming-users\"):\n\
+      \    return True\nak_message(\"You don't have access to this application. Please\
+      \ contact the administrator to request access.\")\nreturn False\n"
+    name: audiobookshelf-access
+  conditions: []
+  identifiers:
+    pk: 44300c74-ce76-4015-affa-5996778d6841
+  model: authentik_policies_expression.expressionpolicy
+  permissions: []
+  state: present
+- attrs:
     amount_digits: 1
     amount_lowercase: 1
     amount_symbols: 1
@@ -1444,6 +1522,54 @@ entries:
   permissions: []
   state: present
 - attrs:
+    enabled: true
+    failure_result: false
+    group: null
+    negate: false
+    order: 0
+    policy: 44300c74-ce76-4015-affa-5996778d6841
+    target: 4d7bf2ca-58bb-4ad3-ac66-368290eb8863
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: cc7e67ed-0a59-4c40-8356-be27f76115af
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
+    negate: false
+    order: 0
+    policy: null
+    target: 5c14b402-a2c0-4c58-b534-ac35e1b5f029
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: abcfa487-2ce3-4c46-ae18-9d45a79bda3d
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: 613bc864-37df-4f07-819b-50ae607c13d5
+    negate: false
+    order: 1
+    policy: null
+    target: 5c14b402-a2c0-4c58-b534-ac35e1b5f029
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 9cfd70c6-98d6-4518-a42f-95d95b7b9f15
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
     description: authentik Proxy - User information
     expression: "# This mapping is used by the authentik proxy. It passes extra user\
       \ attributes,\n# which are used for example for the HTTP-Basic Authentication\
@@ -1552,6 +1678,124 @@ entries:
   identifiers:
     pk: ac8e3e90-957e-4005-b51e-f45fb67afe2f
   model: authentik_providers_oauth2.scopemapping
+  permissions: []
+  state: present
+- attrs:
+    description: ''
+    expression: "return {\n    \"email\": request.user.email,\n    \"email_verified\"\
+      : True,\n}\n"
+    managed: null
+    name: audiobookshelf email (verified)
+    scope_name: email
+  conditions: []
+  identifiers:
+    pk: 40904f13-91b7-46e5-b1c1-eb52a594cecd
+  model: authentik_providers_oauth2.scopemapping
+  permissions: []
+  state: present
+- attrs:
+    description: Nextcloud display name and group membership
+    expression: "groups = []\nif request.user.ak_groups.filter(name=\"cloud-users\"\
+      ).exists():\n    groups.append(\"cloud-users\")\nif request.user.ak_groups.filter(name=\"\
+      cloud-admins\").exists():\n    groups.append(\"cloud-admins\")\n    # Nextcloud's\
+      \ built-in administrator group. Hard-coded upstream.\n    groups.append(\"admin\"\
+      )\nreturn {\n    \"name\": request.user.name,\n    \"groups\": groups,\n}"
+    managed: null
+    name: Nextcloud Profile
+    scope_name: nextcloud
+  conditions: []
+  identifiers:
+    pk: 0774c996-38c7-426c-886a-571955ba04e3
+  model: authentik_providers_oauth2.scopemapping
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: minutes=5
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: 9ShsJo848wMTkgaXveUi0aUABpVBc2p0b20o7ZZD
+    client_secret: iIie36SoQeUMnPzuTNGpTqXouGa6bfdoWkRpecp2kYl4bWCzvLSXSyVZ3f0VmgvRxsqQXRfZCtxaNxviCWciax21ixwnvMFIXGhQJGX4Zi2ZYG2P9PFIQI1XKkzW0Q8g
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - implicit
+    - hybrid
+    - refresh_token
+    - client_credentials
+    - password
+    - urn:ietf:params:oauth:grant-type:device_code
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: audiobookshelf
+    property_mappings:
+    - 40904f13-91b7-46e5-b1c1-eb52a594cecd
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://audiobookshelf.holy-grail.ch/audiobookshelf/auth/openid/callback
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://audiobookshelf.holy-grail.ch/audiobookshelf/auth/openid/mobile-redirect
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: audiobookshelf://oauth
+    refresh_token_threshold: hours=1
+    refresh_token_validity: days=30
+    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 1
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=1
+    authentication_flow: null
+    authorization_flow: d6ea4fc6-4643-4b47-aab2-1e4cacf92f5b
+    client_id: QuNycoUb9HuQQWqmMJMtcG5ufD1u5vWShOzwiMb5
+    client_secret: b7u0uPk5MIhLdJl63SvCGbMpt46xEwK1yOl4IZ3QPQrrl6MKhS8ShiumyIcPXrugsTE14PQBIrlQZkIQbCLpqbX8fP8j57bQs9zogsjgEhQYVBsO8mnpIn3R6sIzMLi9
+    client_type: confidential
+    encryption_key: null
+    grant_types: []
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: Nextcloud
+    property_mappings:
+    - 0774c996-38c7-426c-886a-571955ba04e3
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cloud.holy-grail.ch/apps/user_oidc/code
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cloud.holy-grail.ch
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
+    sub_mode: user_uuid
+  conditions: []
+  identifiers:
+    pk: 3
+  model: authentik_providers_oauth2.oauth2provider
   permissions: []
   state: present
 - attrs:
@@ -2676,22 +2920,32 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 19 * * * *
+    crontab: 32 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
+    pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
 - attrs:
-    crontab: 46 */8 * * *
+    crontab: 3-59/15 * * * *
+    paused: false
+    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
+  conditions: []
+  identifiers:
+    pk: b3855804-2d23-4d99-b095-cca3a492a032
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 35 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 51668dac-cd68-4783-9bf0-470c01fff2cd
+    pk: 3e3e16cb-007a-4445-9414-4185df579b15
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -2706,6 +2960,16 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 46 */8 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 51668dac-cd68-4783-9bf0-470c01fff2cd
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 44 22 * * 5
     paused: false
     rel_obj_id: null
@@ -2716,32 +2980,22 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 21 * * * *
+    crontab: 9-59/5 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
 - attrs:
-    crontab: 29 */4 * * *
-    paused: false
-    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
-  conditions: []
-  identifiers:
-    pk: edd1641d-35f5-45dc-a4a8-83b027848529
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 2-59/5 * * * *
+    crontab: 59 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: c457abd3-1325-46dc-ae47-6ed899816277
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -2756,22 +3010,22 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 2-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: c457abd3-1325-46dc-ae47-6ed899816277
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 54 0 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 66d9399a-2c60-48b8-97e9-1bc9abdad5c4
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 9-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -2796,22 +3050,32 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 19 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 21 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 16 8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -2826,32 +3090,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 32 */8 * * *
+    crontab: 29 */4 * * *
     paused: false
-    rel_obj_id: null
+    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
   conditions: []
   identifiers:
-    pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 35 */8 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 3e3e16cb-007a-4445-9414-4185df579b15
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 3-59/15 * * * *
-    paused: false
-    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
-  conditions: []
-  identifiers:
-    pk: b3855804-2d23-4d99-b095-cca3a492a032
+    pk: edd1641d-35f5-45dc-a4a8-83b027848529
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3284,5 +3528,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-06-07 23:24:46.188962+00:00
+  name: authentik Export - 2026-08-16 20:46:38.831822+00:00
 version: 1
