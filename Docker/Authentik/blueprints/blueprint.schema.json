@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://holy-grail.ch/schemas/authentik-blueprint-permissive.json",
+  "title": "authentik blueprint (permissive, local)",
+  "description": "Deliberately loose schema for authentik blueprints. Exists to solve a specific editor problem, NOT to validate blueprints properly - use `ak apply_blueprint` for that. Two failure modes it avoids: (1) with NO schema, the VS Code YAML extension auto-matches an unrelated schema from SchemaStore and reports 'Missing property spec_version' / 'Property entries is not allowed'; (2) with authentik's OWN published schema, every !Find / !KeyOf line is reported as 'Incorrect type. Expected string', because that schema describes the resolved API shape (authorization_flow is type string/uuid) and contains zero references to the template tags. This schema checks only the outer envelope and leaves entry contents unconstrained, so the tags pass. Reference it with a modeline: # yaml-language-server: $schema=./blueprint.schema.json",
+  "type": "object",
+  "required": ["version", "entries"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "description": "Blueprint format version. authentik currently uses 1."
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "labels": { "type": "object" }
+      }
+    },
+    "context": { "type": "object" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["model"],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "e.g. authentik_core.group, authentik_providers_oauth2.oauth2provider"
+          },
+          "id": { "type": "string" },
+          "state": {
+            "type": "string",
+            "enum": ["absent", "present", "created", "must_created"]
+          },
+          "conditions": { "type": "array" },
+          "identifiers": { "type": "object" },
+          "attrs": { "type": "object" },
+          "permissions": { "type": "array" }
+        }
+      }
+    }
+  }
+}
