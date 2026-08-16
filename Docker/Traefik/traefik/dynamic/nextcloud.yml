@@ -14,6 +14,43 @@
 # Docker/Authentik/blueprints/nextcloud-oidc.yaml.
 http:
   routers:
+    # -------------------------------------------------------------------
+    # Local password login is NOT available on the public hostname.
+    # -------------------------------------------------------------------
+    # Higher priority than the main router, so it wins for these requests.
+    #
+    # Two paths make up Nextcloud's local password login:
+    #   ?direct=1     the only way to reach the form once user_oidc's
+    #                 allow_multiple_user_backends=0 hides it
+    #   POST /login   the form's submit target - blocking only the form
+    #                 would be cosmetic, since the POST can be sent directly
+    # Exact Path(`/login`) is used, NOT a prefix: /login/v2 and /login/flow
+    # belong to Login Flow v2, which the desktop and mobile sync clients use
+    # and which must stay public.
+    #
+    # This is a hard block, not an IP allowlist, and that is deliberate.
+    # An allowlist cannot express "from the LAN" here: cloudflared reaches
+    # Traefik from 172.20.0.2 / 192.168.1.2, so a 192.168.1.0/24 sourceRange
+    # would match the tunnel itself and allow the entire internet. And a LAN
+    # browser opening cloud.holy-grail.ch still exits to Cloudflare and comes
+    # back through that same tunnel, so it is indistinguishable from a remote
+    # one at the IP layer. 192.0.2.1/32 is TEST-NET-1 (RFC 5737) and can
+    # never match a real client, so every request here gets a 403.
+    #
+    # Admin logs in on the LAN instead, where Nextcloud is reachable directly
+    # and the public internet is not: http://192.168.1.101:8080/login?direct=1
+    # (already a trusted_domain). Remotely, connect the WireGuard VPN first.
+    nextcloud-local-login-denied:
+      rule: "Host(`cloud.holy-grail.ch`) && (Query(`direct`, `1`) || (Path(`/login`) && Method(`POST`)))"
+      priority: 100
+      entryPoints: ["websecure"]
+      service: nextcloud
+      middlewares:
+        - nextcloud-login-ratelimit
+        - nextcloud-deny
+      tls:
+        certResolver: cloudflare
+
     nextcloud:
       rule: "Host(`cloud.holy-grail.ch`)"
       entryPoints: ["websecure"]
@@ -48,6 +85,33 @@ http:
       rateLimit:
         average: 100
         burst: 200
+
+    # Hard deny. Traefik has no explicit "deny" middleware; an ipAllowList
+    # whose sourceRange cannot match any real client is the idiomatic way.
+    # 192.0.2.0/24 is TEST-NET-1 (RFC 5737), reserved for documentation and
+    # never routed.
+    nextcloud-deny:
+      ipAllowList:
+        sourceRange:
+          - "192.0.2.1/32"
+
+    # ~5 attempts per 5 minutes, as requested. Scoped ONLY to the local-login
+    # router above, never to the main router - a limit this tight applied to
+    # normal traffic is what caused the earlier "too many requests" breakage,
+    # since one Nextcloud page pulls dozens of assets.
+    #
+    # This is defence in depth, not the primary control: these requests are
+    # already denied. The real brute-force protection for the surfaces that
+    # remain public (WebDAV, OCS, app passwords) is Nextcloud's own, which
+    # returns 429 after 10 failed attempts in 30 minutes and applies delays up
+    # to 25s. That one is deliberately NOT duplicated at Traefik, because a
+    # rate limit tight enough to matter on /remote.php/dav would break every
+    # sync client.
+    nextcloud-login-ratelimit:
+      rateLimit:
+        average: 5
+        period: 5m
+        burst: 5
 
     nextcloud-secure-headers:
       headers:

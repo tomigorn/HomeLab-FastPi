@@ -179,11 +179,31 @@ and the sync clients, so it is rejected.
 remains reachable at **`/login?direct=1`**, which is the break-glass route and
 **cannot be turned off by this setting**.
 
-That leaves one real gap: `admin` is a database-backend account with a local password
-and no MFA, reachable from the internet via `?direct=1` — the single path around an
-otherwise mandatory-MFA IdP. Mitigate by giving `admin` a long random password and
-enabling Nextcloud's own TOTP on it, rather than by trying to block `?direct=1` (doing
-so would also destroy the only recovery path if OIDC breaks).
+**Local login blocked on the public hostname (2026-08-16).** The `?direct=1` gap above
+is now closed at Traefik. A priority-100 router matches
+``Host(`cloud.holy-grail.ch`) && (Query(`direct`, `1`) || (Path(`/login`) && Method(`POST`)))``
+and returns 403. Both halves are needed: blocking only the form would be cosmetic since
+the POST can be sent directly. `Path` is exact, not a prefix, so Login Flow v2
+(`/login/v2`, `/login/flow`) stays public for sync clients.
+
+It is a hard deny, not an IP allowlist, because **"LAN only" is not expressible here**:
+cloudflared reaches Traefik from `172.20.0.2`/`192.168.1.2`, so a `192.168.1.0/24`
+sourceRange would match the tunnel and allow the whole internet; and a LAN browser
+opening `cloud.holy-grail.ch` still exits to Cloudflare and returns through that same
+tunnel, indistinguishable from a remote client at the IP layer.
+
+Admin therefore logs in over the LAN at `http://192.168.1.101:8080/login?direct=1`
+(already a trusted domain, not internet-routable), or via WireGuard when remote.
+
+**Brute force.** Nextcloud's built-in protection is enabled by default and is the
+primary control: 429 after 10 failed attempts in 30 minutes, delays up to 25s, and it
+covers WebDAV/OCS/app-passwords — surfaces a proxy rate limit cannot police without
+breaking sync clients. Thresholds are hardcoded; only enable/disable and IP whitelisting
+are configurable. A 5-per-5-minute Traefik `rateLimit` is scoped **only** to the denied
+login router as defence in depth, never to the main router.
+
+Residual: `admin`'s password still authenticates against WebDAV/OCS publicly. Give it a
+long random password and enable Nextcloud's own TOTP on it.
 
 **tower is asleep at login time.** The WoL gate returns its self-refreshing "waking up"
 page. Worst case the OIDC redirect lands during boot and the user retries; the
