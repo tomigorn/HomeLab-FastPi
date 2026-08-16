@@ -27,3 +27,6 @@
 | Beefy-Waker | ❌ | ❌ | | |  |
 | Home-Assistant | ❌ | ❌ | | |  |
 | Cup | ❌ | ❌ | | |  |
+| Tower-Waker | ❌ | ❌ | | |  |
+| LanguageTool | ❌ | ❌ | | |  |
+| landingpage | ❌ | ❌ | | |  |
