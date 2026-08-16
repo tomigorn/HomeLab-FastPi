@@ -1,0 +1,28 @@
+{
+  // authentik blueprints use custom YAML tags that are not part of standard YAML.
+  // Without declaring them here the editor reports every one as "Unresolved tag"
+  // and then mis-types the node it is attached to ("Incorrect type. Expected
+  // string."). None of those are real errors - the blueprints validate clean
+  // against authentik's own importer.
+  //
+  // Tags are declared in both scalar and sequence form where authentik accepts
+  // both, e.g. `!Env VAR` and `!Env [VAR, default]`.
+  //
+  // The schema itself is pinned per-file with a modeline:
+  //   # yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+  "yaml.customTags": [
+    "!Find sequence",
+    "!KeyOf scalar",
+    "!Context scalar",
+    "!Context sequence",
+    "!Env scalar",
+    "!Env sequence",
+    "!Format sequence",
+    "!Condition sequence",
+    "!If sequence",
+    "!Enumerate sequence",
+    "!Index scalar",
+    "!Value scalar",
+    "!AtIndex scalar"
+  ]
+}
