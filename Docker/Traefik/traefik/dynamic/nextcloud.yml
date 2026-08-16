@@ -20,12 +20,35 @@ http:
       priority: 1
       service: nextcloud
       middlewares:
-        - tower-wake-public
+        - nextcloud-ratelimit
+        - tower-wake
         - nextcloud-secure-headers
       tls:
         certResolver: cloudflare
 
   middlewares:
+    # Deliberately NOT tower-wake-public. That chain includes tower-wake-ratelimit
+    # (6 requests per MINUTE, burst 3), which is sized to bound how often a passing
+    # bot can trigger a wake - not to serve a web application. A single Nextcloud
+    # page load pulls dozens of CSS/JS assets, so under that limit the first 3
+    # requests succeed and every asset after them gets a 429: the page renders
+    # unstyled, and a refresh shows "too many requests". Verified 2026-08-16.
+    #
+    # This limit is generous by comparison: it exists only to stop a runaway
+    # client, not to police normal use. Sync clients burst heavily, and a limit
+    # tight enough to be interesting here would surface later as unexplained
+    # sync failures. Cloudflare already absorbs volumetric abuse in front of this,
+    # and Nextcloud runs its own brute-force protection behind it.
+    #
+    # The wake gate (tower-wake) is still attached, so a request to a sleeping
+    # tower still fires the magic packet. Wake-frequency limiting belongs in the
+    # waker itself, which knows whether tower is down - not in a middleware that
+    # sees every asset request.
+    nextcloud-ratelimit:
+      rateLimit:
+        average: 100
+        burst: 200
+
     nextcloud-secure-headers:
       headers:
         stsSeconds: 31536000
