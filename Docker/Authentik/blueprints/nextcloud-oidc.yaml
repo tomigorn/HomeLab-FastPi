@@ -90,6 +90,17 @@ entries:
       client_type: confidential
       sub_mode: user_uuid
       include_claims_in_id_token: true
+      # REQUIRED. Creating a provider through the UI wizard fills these in for
+      # you; creating one through a blueprint does NOT - the field defaults to
+      # an empty list. With no grant types, authentik rejects every single
+      # authorization request with "invalid_request / The request is otherwise
+      # malformed", including a minimal scope=openid one, and Nextcloud shows
+      # "Access forbidden - The identity provider failed to authenticate the
+      # user". Diagnosed 2026-08-16 by diffing against the working
+      # audiobookshelf provider, which had grants and this one had [].
+      grant_types:
+        - authorization_code
+        - refresh_token
       redirect_uris:
         - matching_mode: strict
           url: https://cloud.holy-grail.ch/apps/user_oidc/code
