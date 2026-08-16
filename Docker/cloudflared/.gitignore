@@ -1,2 +1,29 @@
+# Environment files (contain secrets) — keep .env.example tracked
 .env
+.env.*
+!.env.example
+
+# Tunnel credentials
 secrets/
+*.secret
+*.token
+# ...but the committed template stays tracked. It holds setup instructions,
+# not a token — the real one lives in secrets/ and never leaves this host.
+!secrets.example/
+!secrets.example/*
+
+# Keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials
+credentials.json
+auth.json
+
+# Logs (may leak sensitive data)
+*.log
