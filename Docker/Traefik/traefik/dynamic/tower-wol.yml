@@ -1,0 +1,30 @@
+# Manual wake page for tower, mirroring beefy-wol.yml.
+#
+# Deploy to: /home/pi/Projects/Docker/Traefik/traefik/dynamic/tower-wol.yml
+#
+# The allowlist is not optional: this endpoint powers on a machine, so it must
+# never be reachable from the internet.
+http:
+  routers:
+    tower-wol:
+      rule: "Host(`tower-wol.fastpi.homelab`)"
+      entryPoints: ["websecure"]
+      service: tower-wol
+      middlewares:
+        - tower-wol-ipallowlist
+      tls: {}
+
+  middlewares:
+    tower-wol-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "::1/128"
+          - "192.168.1.0/24"
+          - "172.24.0.0/16"
+
+  services:
+    tower-wol:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:9002"
