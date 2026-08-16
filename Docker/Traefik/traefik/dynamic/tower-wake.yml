@@ -1,0 +1,40 @@
+# Wake-on-request gate for tower.
+#
+# Attach this middleware to any router whose backend lives on tower. When a
+# request arrives and tower is asleep, the waker fires a WoL magic packet and
+# returns a self-refreshing "waking up" page until the backend answers.
+#
+# Deploy to: /home/pi/Projects/Docker/Traefik/traefik/dynamic/tower-wake.yml
+# Mirrors the existing beefy-wake.yml.
+#
+# NOTE the ?port=8080 - this is deliberate and differs from beefy.
+# Beefy probes port 22, but on Unraid SSH answers roughly 21 SECONDS before the
+# array is mounted, so a port-22 probe reports "up" while every share is still
+# missing. Nextcloud on 8080 cannot answer until Docker started, which cannot
+# happen until the array mounted, so the service port is a strictly better
+# readiness signal.
+http:
+  middlewares:
+    tower-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9002/gate?port=8080"
+        trustForwardHeader: false
+
+    # Bounds how often a request can trigger a wake.
+    #
+    # Needed here in a way it is not for beefy: beefy's services are internal,
+    # but Nextcloud is meant to be public. Without this, any internet request -
+    # including a bot scanning the tunnel - powers the server on, which both
+    # defeats the power saving and hands a stranger a power switch.
+    tower-wake-ratelimit:
+      rateLimit:
+        average: 6
+        period: 1m
+        burst: 3
+
+    # Attach this to public routers: rate limit first, then the wake gate.
+    tower-wake-public:
+      chain:
+        middlewares:
+          - tower-wake-ratelimit
+          - tower-wake
