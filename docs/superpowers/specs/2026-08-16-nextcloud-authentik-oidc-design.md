@@ -23,10 +23,19 @@ group is refused by Authentik before Nextcloud is ever reached.
   holding all the files. OIDC applies the existing flows unchanged.
 - LDAP needs an outpost container deployed on tower. OIDC needs no extra container.
 
-**`cloud-users` only.** One group, matching the existing `streaming-users` naming.
-Nextcloud admin rights stay local to Nextcloud, so no group provisioning and no
-custom scope mapping are needed — `openid profile email` is enough. This drops the
-"Nextcloud Profile" scope mapping from Authentik's guide as YAGNI.
+**`cloud-users` + `cloud-admins`**, matching the existing `streaming-users` naming.
+`cloud-users` grants access at all; `cloud-admins` additionally grants Nextcloud
+administrator rights. Both are bound to the application with `policy_engine_mode: any`,
+so a `cloud-admins` member who is not also in `cloud-users` still gets in.
+
+Admin rights require a custom `Nextcloud Profile` scope mapping (scope `nextcloud`)
+because Nextcloud's administrator group is hard-coded upstream as literally `admin` and
+cannot be renamed — the mapping appends that string to the groups claim for
+`cloud-admins` members. It emits only Nextcloud-relevant groups, not every Authentik
+group, so Nextcloud does not provision noise like `streaming-users`.
+
+Neither group sets `is_superuser`: that flag governs Authentik itself, and setting it
+would hand out Authentik admin by accident.
 
 **Published at `cloud.holy-grail.ch`**, Cloudflare Tunnel → Traefik → tower:8080,
 matching every other service in this homelab.
@@ -131,11 +140,12 @@ Install the **OpenID Connect user backend** (`user_oidc`) app, then configure:
 | Identifier | `authentik` |
 | Client ID / secret | from step 2 |
 | Discovery endpoint | `https://sso.holy-grail.ch/application/o/nextcloud/.well-known/openid-configuration` |
-| Scope | `openid profile email` |
+| Scope | `openid profile email nextcloud` |
 | User ID mapping | `sub` |
 | Display name mapping | `name` |
 | Email mapping | `email` |
-| Group provisioning | off |
+| Groups mapping | `groups` |
+| Group provisioning | on |
 
 Sync clients (desktop, iOS, Android) work with OIDC via Nextcloud's Login Flow v2, which
 opens a browser — no special handling needed.
@@ -166,8 +176,12 @@ page. Worst case the OIDC redirect lands during boot and the user retries; the
 4. Remove from `cloud-users` → next login refused.
 5. Upload a file larger than 100MB → succeeds via chunking.
 
+**Group provisioning can fight manual group edits.** With provisioning on, `user_oidc`
+owns group membership for the groups it manages: a user manually added to `admin` inside
+Nextcloud can be removed again at next login. Manage Nextcloud group membership from
+Authentik once this is live, not from Nextcloud.
+
 ## Out of scope
 
-- Group provisioning / Nextcloud admin rights from Authentik.
 - Any LDAP provider or outpost.
 - Migrating existing local Nextcloud accounts onto Authentik identities.

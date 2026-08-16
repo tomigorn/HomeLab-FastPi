@@ -1,0 +1,47 @@
+# Nextcloud on tower (192.168.1.101:8080), published via Cloudflare Tunnel -> Traefik.
+#
+# tower sleeps. The tower-wake-public chain (defined in tower-wake.yml) rate
+# limits first, then fires a WoL packet and holds the request behind a
+# self-refreshing page until tower:8080 answers. The rate limit matters here
+# specifically because this router is public - without it any internet scan
+# becomes a power switch for the server.
+#
+# Deliberately NO Content-Security-Policy: Nextcloud sends its own and an
+# injected policy breaks the web UI. This differs from audiobookshelf.yml.
+#
+# Login is handled by Authentik OIDC (application slug "nextcloud"); access is
+# gated by the cloud-users / cloud-admins groups. See
+# Docker/Authentik/blueprints/nextcloud-oidc.yaml.
+http:
+  routers:
+    nextcloud:
+      rule: "Host(`cloud.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: nextcloud
+      middlewares:
+        - tower-wake-public
+        - nextcloud-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    nextcloud-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    nextcloud:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.101:8080"
+        passHostHeader: true
