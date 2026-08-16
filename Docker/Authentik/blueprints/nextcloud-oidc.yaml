@@ -1,4 +1,15 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
 # Nextcloud SSO via OIDC.
+#
+# The modeline above pins this file to authentik's OWN blueprint schema. Without
+# it, editors auto-match some unrelated schema from SchemaStore and report a pile
+# of false errors ("Property entries is not allowed", "Missing property
+# spec_version"). The published schema is byte-identical to the 2026.5.2 copy
+# inside the container at /blueprints/schema.json.
+#
+# The !Find / !KeyOf tags below are authentik's, not standard YAML. Editors flag
+# them as "unresolved tag" unless yaml.customTags is set - see
+# Projects/.vscode/settings.json.
 #
 # Apply with:
 #   docker compose cp blueprints/nextcloud-oidc.yaml server:/tmp/nextcloud-oidc.yaml
