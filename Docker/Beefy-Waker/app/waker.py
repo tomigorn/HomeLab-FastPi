@@ -27,6 +27,8 @@ Config via env (see .env):
   BEEFY_PROBE_HOST   host to TCP-probe for "is it up"        required
   BEEFY_PROBE_PORT   default probe port                      default 22
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
+  WAKE_RETRY_INTERVAL seconds between magic-packet resends       default 20
+  WAKE_RETRY_WINDOW  stop resending after this many seconds   default 300
 
 Stdlib only; no dependencies.
 """
@@ -35,6 +37,8 @@ import os
 import socket
 import subprocess
 import sys
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -56,6 +60,10 @@ HISTORY_KNOWN_HOSTS = "/known_hosts"
 HISTORY_SINCE = int(os.environ.get("BEEFY_HISTORY_SINCE", "0"))
 
 WAKE_UDP_PORT = 9     # UDP port magic packets are sent to
+
+# How the retry campaign behaves. A single packet is not enough — see wake().
+WAKE_RETRY_INTERVAL = int(os.environ.get("WAKE_RETRY_INTERVAL", "20"))  # seconds between resends
+WAKE_RETRY_WINDOW = int(os.environ.get("WAKE_RETRY_WINDOW", "300"))     # give up after this long
 PROBE_TIMEOUT = 1.0   # seconds per TCP probe
 
 
@@ -264,6 +272,59 @@ def send_wol(mac, broadcast):
         s.sendto(pkt, (broadcast, WAKE_UDP_PORT))
 
 
+# --- wake campaign -------------------------------------------------------
+# One magic packet is not enough. A machine that has just been told to power off
+# keeps ignoring packets until it actually reaches S5, and that window is both
+# long and variable: measured on tower 2026-08-16, three packets across
+# 20:54-20:57 UTC did nothing while a fourth at 20:59 woke it instantly — yet an
+# earlier cycle the same day woke from the first packet in ~34 s. A fixed
+# "wait, then send once" cannot cover a window that moves, so instead we resend
+# until the host actually answers.
+#
+# Without this the failure is silent and expensive: the packet is UDP, nothing
+# acknowledges it, and the user just sees a page that never loads.
+#
+# Runs on a background thread so the HTTP request returns straight away — the
+# gate has to serve its 503 "waking up" page without blocking on any of this.
+_campaign_lock = threading.Lock()
+_campaign_running = False
+
+
+def _wake_campaign():
+    """Resend the magic packet until the host answers or the window expires."""
+    global _campaign_running
+    try:
+        deadline = time.monotonic() + WAKE_RETRY_WINDOW
+        while time.monotonic() < deadline:
+            time.sleep(WAKE_RETRY_INTERVAL)
+            if is_up(PROBE_HOST, PROBE_PORT):
+                return
+            try:
+                send_wol(MAC, BROADCAST)
+            except OSError:
+                pass          # transient send error — keep trying until the window ends
+    finally:
+        with _campaign_lock:
+            _campaign_running = False
+
+
+def wake():
+    """Send a packet now, then keep resending in the background until it is up.
+
+    Single-flight on purpose: the gate is called for EVERY asset on a page, so
+    without the guard one page load would spawn dozens of identical threads.
+    monotonic() is used rather than wall-clock so an NTP correction cannot cut
+    the window short or extend it forever.
+    """
+    global _campaign_running
+    send_wol(MAC, BROADCAST)          # raises on failure, as the callers expect
+    with _campaign_lock:
+        if _campaign_running:
+            return
+        _campaign_running = True
+    threading.Thread(target=_wake_campaign, daemon=True).start()
+
+
 def is_up(host, port):
     try:
         with socket.create_connection((host, port), timeout=PROBE_TIMEOUT):
@@ -320,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
                        json.dumps({"error": "POST only"}).encode())
             return
         try:
-            send_wol(MAC, BROADCAST)
+            wake()
             self.log_message("manual wake -> sent WoL to %s via %s", MAC, BROADCAST)
             sent = True
         except Exception as e:
@@ -382,7 +443,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, "text/plain", b"")
             return
         try:
-            send_wol(MAC, BROADCAST)
+            wake()
             self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
                              PROBE_HOST, port, MAC, BROADCAST)
         except Exception as e:
