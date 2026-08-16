@@ -7,6 +7,56 @@ No inbound mail. Flows are configured in the Authentik web UI after first start;
 applications added since then are declared as blueprints in `blueprints/` (see
 [Blueprints](#blueprints)).
 
+## Project status — last reviewed 2026-08-17
+
+Read this first when picking the project back up. Detail lives in `SETUP.md`;
+this is just where things stand.
+
+### Working, and verified by test (not just configured)
+
+| Area | State | How it was verified |
+|---|---|---|
+| IdP | live at `sso.holy-grail.ch`, 2026.5.2 | in daily use |
+| Outbound mail (Brevo) | **working** | 2026-08-17: connected from `authentik-worker`, `EHLO 250`, STARTTLS offered, **SMTP AUTH succeeded**. No mail sent. |
+| Brevo domain auth | in place | `brevo-code` TXT at root, DKIM at `brevo1._domainkey` + `brevo2._domainkey`, DMARC present. (`mail._domainkey` is Brevo's *old* selector and is empty — that is expected, not a fault. No root SPF: normal for Brevo's automatic flow, which uses its own return-path.) |
+| Invite-only enrollment | **built and gated** | Invitation stage has `continue_flow_without_invitation=False`, so the flow refuses without a valid `itoken`. Stage order matches SETUP.md §3. |
+| Mandatory MFA | enforced | TOTP at order 40 + login-flow backstop denying device-less accounts |
+| Nextcloud SSO (OIDC) | **working end to end** | 2026-08-16: a real login provisioned `user_oidc` account with groups `cloud-users`, `cloud-admins`, `admin` — Nextcloud admin rights confirmed |
+
+### Not done yet — this is the next step
+
+**No invitation has ever been issued.** Count is zero. The mechanism is built and
+correctly gated, but it has never been exercised by a real person, so the
+enrollment path — invite link → form → Brevo email → click → TOTP → logged in —
+is **unproven in practice**, even though every component of it is configured.
+
+Next time, start here:
+
+1. Admin interface → **Directory → Invitations → Create**, flow `enrollment`, set an expiry.
+2. Send yourself the link: `https://sso.holy-grail.ch/if/flow/enrollment/?itoken=<token>`
+3. Walk the whole flow through with a throwaway address. This is the first real
+   test that Brevo delivers to an inbox — SMTP auth succeeding proves the relay
+   accepts us, **not** that mail arrives and passes spam filters.
+4. Add the new user to `cloud-users` (and `cloud-admins` if they should administer
+   Nextcloud), or Authentik will refuse them at the Nextcloud gate.
+
+Also outstanding, unrelated to invites: give Nextcloud's local `admin` account a
+long random password and enable Nextcloud's own TOTP on it — it is the one login
+that bypasses this IdP (see the Nextcloud project docs).
+
+### Known issues, both unfixed
+
+1. **`ak_groups` is deprecated** — blocks upgrading authentik. See the section
+   below; it fails *silently* by emptying the groups claim.
+2. **The default `profile` scope also emits a `groups` claim** containing every
+   authentik group, so group names such as `authentik Admins` and
+   `streaming-users` leak into Nextcloud as Nextcloud groups. Harmless today —
+   only the literal `admin` group grants rights, and access is still gated by the
+   policy binding — but two mappings emitting the same claim name is fragile: if
+   the default one ever wins the merge, `admin` disappears and admin rights are
+   silently lost. Fix by setting `user_oidc`'s `--group-whitelist-regex` so
+   Nextcloud only provisions `cloud-*` and `admin`.
+
 ## Stack
 
 - `authentik-postgresql` — PostgreSQL 16 (data in the `database` named volume)
