@@ -13,3 +13,8 @@
 # Dashboard Credentials
 # ───────────────────────────────
 /traefik/dynamic/dashboard.users
+
+# ───────────────────────────────
+# Service-specific htpasswd files
+# ───────────────────────────────
+/traefik/dynamic/languagetool.users
