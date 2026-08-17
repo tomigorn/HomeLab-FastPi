@@ -1,0 +1,38 @@
+# Swiss Standard German (de-CH) — Helvetisms accepted as correct
+# One word per line. Lines beginning with # and blank lines are ignored.
+# This file is APPENDED to LanguageTool's built-in German spelling list
+# at container startup by shared/bin/lt-entrypoint.sh.
+#
+# To add a word: append it here, commit, push. Both Pi and Mac pick it up
+# within ~60 s via the sync timer + restart watcher.
+
+Velo
+Trottoir
+Glace
+Apéro
+Gipfeli
+Rahm
+Coiffeur
+Billett
+Camion
+Tram
+parkieren
+grillieren
+allenfalls
+Spital
+Estrich
+Beiz
+Znüni
+Zvieri
+Sackmesser
+Pneu
+Natel
+retour
+jassen
+Müesli
+Cervelat
+Bünzli
+Schoggi
+Nidel
+Morgenessen
+Nachtessen

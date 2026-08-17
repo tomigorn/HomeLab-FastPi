@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Custom British English rules (fragment) — variant-scoped.
+
+  Merged by shared/bin/lt-entrypoint.sh into LanguageTool's built-in
+  /LanguageTool/org/languagetool/rules/en/en-GB/grammar.xml at container
+  start, so these fire ONLY for language=en-GB.
+
+  The outer <rules lang="en-GB"> wrapper is discarded on merge and kept
+  only for editor / xmllint validation.
+-->
+<rules lang="en-GB"
+       xsi:noNamespaceSchemaLocation="../../../../../../languagetool-core/src/main/resources/org/languagetool/rules/rules.xsd"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <category id="EN_GB_HOUSE_STYLE" name="British English house style" type="style" default="on">
+
+    <!-- ================================================================
+         -ise consistency. British convention here is -ise (not the
+         Oxford/-ize spelling). This is an EXPLICIT allow-list of word
+         families that genuinely take -ise in BrE, each matched with all
+         inflections, so it can never mis-"correct" words that have no
+         -ise form (size, prize, seize, capsize, maize, …). The single
+         z in every listed word is the -ize target, so replacing z→s is
+         safe and preserves the original capitalisation.
+         Extend the stem list below as needed.
+         ================================================================ -->
+    <rule id="EN_GB_ISE_CONSISTENCY" name="Use -ise spelling (British)">
+      <pattern case_sensitive="no">
+        <token regexp="yes">(organiz|recogniz|realiz|apologiz|emphasiz|prioritiz|summariz|criticiz|maximiz|minimiz|optimiz|standardiz|customiz|authoriz|characteriz|specializ|generaliz|normaliz|utiliz|coloniz|memoriz|symboliz|familiariz|categoriz)(e|es|ed|ing|ation|ations)</token>
+      </pattern>
+      <message>British convention here is the <suggestion><match no="1" regexp_match="z" regexp_replace="s"/></suggestion> (-ise) spelling.</message>
+      <short>British -ise spelling</short>
+      <example correction="organise">We need to <marker>organize</marker> the files.</example>
+      <example correction="Realisation">This <marker>Realization</marker> came late.</example>
+      <example>We need to organise the files.</example>
+    </rule>
+
+    <!-- ================================================================
+         A British spelling convention LT's speller does not force:
+         airplane (AmE) -> aeroplane (BrE).
+         ================================================================ -->
+    <rule id="EN_GB_AEROPLANE" name="airplane → aeroplane (British)">
+      <pattern>
+        <token inflected="yes" regexp="yes">airplane</token>
+      </pattern>
+      <message>British English uses <suggestion><match no="1" regexp_match="airplane" regexp_replace="aeroplane"/></suggestion>.</message>
+      <short>British: aeroplane</short>
+      <example correction="aeroplane">We boarded the <marker>airplane</marker>.</example>
+      <example correction="aeroplanes">Two <marker>airplanes</marker> landed.</example>
+      <example>We boarded the aeroplane.</example>
+    </rule>
+
+  </category>
+
+</rules>

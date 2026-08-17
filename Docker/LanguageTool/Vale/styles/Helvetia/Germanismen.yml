@@ -1,0 +1,17 @@
+extends: substitution
+message: "Helvetism: prefer '%s' over '%s' in Swiss Standard German."
+level: warning
+ignorecase: false
+# House-style nudges toward Swiss vocabulary. These are style, not errors
+# (the German words are correct German) — hence level: warning. Extend
+# freely; this is your list to own.
+swap:
+  Fahrrad: Velo
+  Sahne: Rahm
+  Straßenbahn: Tram
+  Strassenbahn: Tram
+  Bürgersteig: Trottoir
+  Abitur: Matura
+  Frühstück: Morgenessen
+  Brötchen: Brötli
+  Tüte: Sack

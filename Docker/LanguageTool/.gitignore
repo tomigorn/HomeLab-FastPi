@@ -1,0 +1,27 @@
+# ───────────────────────────────
+# Environment & Secrets
+# ───────────────────────────────
+**/.env
+# Plaintext credential notes (never commit)
+**/CREDENTIALS.local.txt
+*.local.txt
+
+# ───────────────────────────────
+# N-gram data (downloadable, ~25 GB)
+# ───────────────────────────────
+**/ngrams/
+
+# ───────────────────────────────
+# Hunspell dictionaries fetched for Vale (re-downloadable)
+# ───────────────────────────────
+Vale/dicts/
+
+# ───────────────────────────────
+# Basic-auth htpasswd files
+# ───────────────────────────────
+**/*.users
+
+# ───────────────────────────────
+# Backups created during the 2026-08 rebuild
+# ───────────────────────────────
+*.bak.*

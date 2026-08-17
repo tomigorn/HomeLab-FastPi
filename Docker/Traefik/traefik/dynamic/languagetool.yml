@@ -1,5 +1,21 @@
 http:
   routers:
+    # CORS preflight: browsers send an UNAUTHENTICATED OPTIONS before any
+    # cross-origin request that carries an Authorization header. Basic-auth
+    # would 401 that preflight (and LanguageTool itself answers OPTIONS with
+    # 400 + no Access-Control-Allow-Headers), so a dedicated higher-priority
+    # router answers preflights via the CORS middleware WITHOUT auth. Real
+    # GET/POST requests still hit the authenticated router below.
+    languagetool-preflight:
+      rule: "Host(`languagetool.holy-grail.ch`) && Method(`OPTIONS`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: languagetool
+      middlewares:
+        - languagetool-cors
+      tls:
+        certResolver: cloudflare
+
     languagetool:
       rule: "Host(`languagetool.holy-grail.ch`)"
       entryPoints: ["websecure"]
@@ -12,6 +28,19 @@ http:
         certResolver: cloudflare
 
   middlewares:
+    # Handles CORS preflight responses. Traefik answers the OPTIONS request
+    # itself (200) with these headers, so the backend is never reached.
+    # LT already sends "Access-Control-Allow-Origin: *" on real responses,
+    # so CORS is intentionally NOT added to the authenticated router to
+    # avoid a duplicate ACAO header.
+    languagetool-cors:
+      headers:
+        accessControlAllowMethods: ["GET", "POST", "OPTIONS"]
+        accessControlAllowHeaders: ["Authorization", "Content-Type"]
+        accessControlAllowOriginList: ["*"]
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
     languagetool-basic-auth:
       basicAuth:
         usersFile: "/dynamic/languagetool.users"
@@ -33,10 +62,9 @@ http:
         customResponseHeaders:
           # LT is an API; deny embedding and disable scripts via CSP.
           Content-Security-Policy: "default-src 'none'; frame-ancestors 'none'"
-          # The browser extension needs to call this from arbitrary
-          # pages, so allow cross-origin XHR via Access-Control-*
-          # (LT itself already sends "Access-Control-Allow-Origin: *"
-          # because it's started with --allow-origin '*').
+          # LT itself sends "Access-Control-Allow-Origin: *" on real
+          # responses (started with --allow-origin '*'), so the browser
+          # extension can call it cross-origin.
           Server: ""
 
   services:

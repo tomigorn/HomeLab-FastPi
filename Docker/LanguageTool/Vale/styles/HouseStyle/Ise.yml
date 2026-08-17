@@ -1,0 +1,32 @@
+extends: substitution
+message: "British house style: use '%s' rather than '%s' (-ise, not -ize)."
+level: warning
+# Case-insensitive match; the replacement preserves your casing because
+# these are whole-word swaps. Explicit list only — never a blanket
+# -ize→-ise, which would wrongly "fix" size/prize/seize/capsize/maize.
+ignorecase: true
+swap:
+  organize: organise
+  organizes: organises
+  organized: organised
+  organizing: organising
+  organization: organisation
+  organizations: organisations
+  recognize: recognise
+  recognized: recognised
+  realize: realise
+  realized: realised
+  apologize: apologise
+  emphasize: emphasise
+  prioritize: prioritise
+  summarize: summarise
+  criticize: criticise
+  maximize: maximise
+  minimize: minimise
+  optimize: optimise
+  standardize: standardise
+  customize: customise
+  authorize: authorise
+  specialize: specialise
+  analyze: analyse
+  analyzed: analysed
