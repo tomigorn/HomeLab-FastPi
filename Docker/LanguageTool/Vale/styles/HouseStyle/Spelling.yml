@@ -1,0 +1,13 @@
+extends: spelling
+message: "Did you really mean '%s'? (en_GB Hunspell)"
+level: error
+# Uses the LibreOffice en_GB Hunspell dictionary fetched by
+# ../../download-dicts.sh into ../dicts/. English compounding is not an
+# issue, so Vale's Go/Hunspell handles this fine (unlike German — which
+# is deliberately left to LanguageTool).
+dicpath: ../dicts
+dictionaries:
+  - en_GB
+# Extra accepted words live in the House vocabulary (accept.txt).
+ignore:
+  - ../config/vocabularies/House/accept.txt

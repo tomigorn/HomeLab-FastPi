@@ -1,0 +1,68 @@
+# =========================================================
+# disabled-rules.txt — global, permanent rule kill-switch
+# =========================================================
+# One LanguageTool rule ID per line. Comments (#) and blank lines are
+# ignored. At container start, shared/bin/lt-entrypoint.sh compiles the
+# active lines into a comma-separated list and passes it to the server
+# as `disabledRuleIds`, which disables those rules GLOBALLY — for every
+# request, every client, permanently — until you remove the line and
+# restart.
+#
+# This is the traceability contract: every finding LanguageTool reports
+# carries a rule ID, and adding that ID here makes the finding never
+# appear again. Nothing here is heuristic or fuzzy — a disabled ID is a
+# disabled ID.
+#
+# ---------------------------------------------------------
+# HOW TO DISABLE A FALSE POSITIVE (full procedure in README.md)
+# ---------------------------------------------------------
+#   1. Get the rule ID behind a wrong suggestion:
+#        curl -s http://localhost:8010/v2/check \
+#          --data-urlencode 'language=de-CH' \
+#          --data-urlencode 'level=picky' \
+#          --data-urlencode 'text=YOUR SENTENCE HERE' \
+#        | jq -r '.matches[] | "\(.rule.id)\t\(.rule.description)"'
+#   2. Add the ID (the part before the tab) as a new line below.
+#   3. Commit, pull on each machine, `docker compose restart`.
+#   4. Re-run the curl: the match is gone.
+#
+# Disable the *narrowest* thing that kills the false positive. Rules
+# often live in a rulegroup; the ID LanguageTool returns is the exact
+# sub-rule, which is what you want here.
+#
+# ---------------------------------------------------------
+# ACTIVE DISABLES
+# ---------------------------------------------------------
+# Oxford-spelling family: LanguageTool's default en-GB ships these rules
+# which enforce the Oxford -IZE spelling and actively flag correct
+# British -ISE words (e.g. they mark "organise" wrong and suggest
+# "organize"). That is the opposite of the -ise house convention set in
+# rules/en/en-GB/grammar.xml (EN_GB_ISE_CONSISTENCY), so the whole family
+# is disabled here. Verified: OXFORD_SPELLING_Z_NOT_S fires on "organise".
+OXFORD_SPELLING_Z_NOT_S
+OXFORD_SPELLING_ISE_VERBS
+OXFORD_SPELLING_IZE
+OXFORD_SPELLING_NOUNS
+OXFORD_SPELLING_ADJECTIVES
+OXFORD_SPELLING_ADVERBS
+OXFORD_SPELLING_GRAM
+#
+# German thousands separator: LT's built-in ZAHL_PUNKT_KOMMA flags
+# comma-grouped numbers but suggests the German thin-space ("1 000 000")
+# or dot ("1.000.000") separators, which are wrong for Swiss usage.
+# SWISS_THOUSANDS_APOSTROPHE (rules/de/de-CH/grammar.xml) replaces it
+# with the Swiss apostrophe form. Verified: it suggests "1 000 000".
+ZAHL_PUNKT_KOMMA
+#
+# Everything below is precision-first curation you add AFTER seeing a
+# rule mis-fire on your own text — not pre-emptive guessing. Picky mode
+# (enabled per client) turns on many opinionated style rules; park the
+# annoying ones here. Examples, commented so they do NOT take effect:
+#
+#   # GERMAN_PARAGRAPH_REPEAT_BEGINNING_RULE   # style: consecutive sentences starting alike
+#   # STYLE_REPEATED_WORD_RULE_DE              # style: same word repeated nearby
+#   # EN_REPEATEDWORDS_*                       # style: repeated-word family (en)
+#   # TOO_LONG_SENTENCE_DE                     # style: long-sentence nag
+#   # WHITESPACE_RULE                          # DO NOT disable lightly — catches real errors
+#
+# Add your own below this line:

@@ -1,0 +1,90 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# LanguageTool ############################################
+# #########################################################
+  languagetool:
+    # LanguageTool 6.8 (community/self-hosted). Pinned, never :latest.
+    # Tags: https://hub.docker.com/r/erikvl87/languagetool/tags
+    image: erikvl87/languagetool:6.8
+    container_name: languagetool
+    hostname: languagetool
+    restart: unless-stopped
+    # Hardening: never gain privileges; cap memory above the JVM Xmx so a
+    # runaway can't OOM-freeze the shared Pi (RSS runs ~0.5-1G over -Xmx).
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2560m
+    mem_reservation: 1g
+    # No published ports — public access is via Traefik on the
+    # traefik_proxy network, fronted by the Cloudflared tunnel.
+    #
+    # Our wrapper runs first: it appends spelling, merges custom grammar,
+    # and compiles shared/config/disabled-rules.txt into
+    # langtool_disabledRuleIds, then execs the image's start.sh.
+    entrypoint: ["/usr/local/bin/lt-entrypoint.sh"]
+    environment:
+      TZ: 'Europe/Zurich'
+
+      # --- JVM heap. No n-grams loaded, so en+de fit in ~1.5G even with
+      #     picky rules + pipeline prewarming. Kept modest because the Pi
+      #     is shared with many services. Raise to 2g if you see GC churn
+      #     or add n-grams. ---
+      Java_Xms: 512m
+      Java_Xmx: 1536m
+
+      # --- LanguageTool server config ------------------------------
+      # Every langtool_* var is written verbatim into config.properties
+      # by the image's start.sh (key = value) and read by the server.
+      # See HTTPServerConfig for the full key list.
+
+      # Speed: reuse analysis pipelines and pre-warm them at boot so the
+      # first request per language is not slow. Cache identical requests.
+      langtool_pipelineCaching: 'true'
+      langtool_pipelinePrewarming: 'true'
+      langtool_pipelineExpireTimeInSeconds: '600'
+      langtool_maxPipelinePoolSize: '4'
+      # Result cache: number of recently-checked sentences kept in memory.
+      langtool_cacheSize: '1000'
+      langtool_cacheTTLSeconds: '3600'
+      # Concurrency: modest on the Pi (4 cores worth of checking).
+      langtool_maxCheckThreads: '4'
+
+      # --- Deliberately NOT set (see REVIEW.md) --------------------
+      # langtool_languageModel: /ngrams
+      #   n-gram confusion rules are statistical ("corpus-majority")
+      #   suggestions — the opposite of this setup's precision-first,
+      #   every-finding-traceable stance. Left OFF on purpose. To turn
+      #   on: run scripts/download-ngrams.sh, re-add the ./ngrams mount
+      #   below, and uncomment this line.
+      # No word2vec, no remoteRulesFile, no fastText override: the
+      # server makes ZERO external/AI calls. Pure rule-based checking.
+    volumes:
+      # Read-only customization tree (shared by the Pi and Mac instances).
+      - ../shared:/shared:ro
+      - ../shared/bin/lt-entrypoint.sh:/usr/local/bin/lt-entrypoint.sh:ro
+      # Quiet logging (ERROR/WARN only).
+      - ./config/logback.xml:/LanguageTool/logback.xml:ro
+      # n-gram data intentionally NOT mounted (see above).
+      # - ./ngrams:/ngrams:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--data", "language=en-US&text=test", "http://localhost:8010/v2/check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================

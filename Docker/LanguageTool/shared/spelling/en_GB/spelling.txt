@@ -1,0 +1,6 @@
+# British English (en-GB) — domain-specific terms accepted as correct
+# One word per line. Lines beginning with # and blank lines are ignored.
+# This file is APPENDED to LanguageTool's built-in English spelling list
+# at container startup by shared/bin/lt-entrypoint.sh.
+#
+# Add your own terms below.

@@ -1,0 +1,5 @@
+# One accepted term per line (case-insensitive). Add product names,
+# Helvetisms, jargon that Vale's en_GB speller should not flag.
+holy-grail
+homelab
+LanguageTool

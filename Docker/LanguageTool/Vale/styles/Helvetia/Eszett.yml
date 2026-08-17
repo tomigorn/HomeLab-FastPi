@@ -1,0 +1,8 @@
+extends: existence
+message: "Swiss Standard German uses 'ss', never 'ß'."
+level: error
+# Vale uses Go's RE2 engine, which DOES support \p{L} (unlike
+# LanguageTool's token engine). Matches any word containing ß.
+nonword: true
+tokens:
+  - '\p{L}*ß\p{L}*'

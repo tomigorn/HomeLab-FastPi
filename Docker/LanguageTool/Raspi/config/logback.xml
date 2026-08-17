@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LanguageTool log configuration — ERROR level only.
+
+  Mounted at /LanguageTool/logback.xml inside the container, picked up
+  automatically by start.sh (it adds -Dlogback.configurationFile= when
+  the file is present).
+-->
+<configuration>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Quiet everything by default -->
+  <root level="ERROR">
+    <appender-ref ref="STDOUT"/>
+  </root>
+
+  <!-- Keep LT's own logger at WARN so startup banner + ngrams loaded -->
+  <!-- messages still appear (useful for verifying the entrypoint).   -->
+  <logger name="org.languagetool" level="WARN" additivity="false">
+    <appender-ref ref="STDOUT"/>
+  </logger>
+
+</configuration>

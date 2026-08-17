@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Custom Swiss Standard German rules (fragment) — variant-scoped.
+
+  Parsed by shared/bin/lt-entrypoint.sh: every category/rule/rulegroup
+  inside the outer <rules lang="de-CH"> wrapper is inserted before the
+  closing tag of LanguageTool's built-in
+  /LanguageTool/org/languagetool/rules/de/de-CH/grammar.xml at container
+  start. Because it lives in the de-CH variant file, it fires ONLY when
+  a client checks with language=de-CH — never for de-DE or de-AT.
+
+  The outer <rules lang="de-CH"> wrapper is discarded on merge; it is
+  kept only so the file validates in an editor / with xmllint.
+
+  Rule reference: https://dev.languagetool.org/development-overview
+  Quick syntax primer is in ../../../README.md ("Writing rules").
+-->
+<rules lang="de-CH"
+       xsi:noNamespaceSchemaLocation="../../../../../../languagetool-core/src/main/resources/org/languagetool/rules/rules.xsd"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!-- ===================================================================
+       Helvetism hints — Germanism is not wrong, but the Swiss word is
+       idiomatic. type="style" so they are picky-ish, not hard errors,
+       and each has its own ID you can disable in disabled-rules.txt.
+       =================================================================== -->
+  <category id="HELVETISM_HINTS" name="Swiss Standard German hints" type="style" default="on">
+
+    <rulegroup id="HELVETISM_FAHRRAD" name="„Fahrrad“ → „Velo“ (CH)">
+      <rule>
+        <pattern>
+          <token inflected="yes">Fahrrad</token>
+        </pattern>
+        <message>In der Schweiz ist <suggestion>Velo</suggestion> idiomatisch.</message>
+        <short>Helvetismus: Velo</short>
+        <example correction="Velo">Ich fahre mit dem <marker>Fahrrad</marker> zur Arbeit.</example>
+        <example>Ich fahre mit dem Velo zur Arbeit.</example>
+      </rule>
+    </rulegroup>
+
+    <rulegroup id="HELVETISM_SAHNE" name="„Sahne“ → „Rahm“ (CH)">
+      <rule>
+        <pattern>
+          <token inflected="yes">Sahne</token>
+        </pattern>
+        <message>In der Schweiz heisst es üblicherweise <suggestion>Rahm</suggestion> (geschlagen: „Schlagrahm“).</message>
+        <short>Helvetismus: Rahm</short>
+        <example correction="Rahm">Ich nehme <marker>Sahne</marker> in den Kaffee.</example>
+        <example>Ich nehme Rahm in den Kaffee.</example>
+      </rule>
+    </rulegroup>
+
+    <rulegroup id="HELVETISM_STRASSENBAHN" name="„Straßenbahn“ → „Tram“ (CH)">
+      <rule>
+        <pattern>
+          <token regexp="yes" inflected="yes">Straßenbahn|Strassenbahn</token>
+        </pattern>
+        <message>In der Schweiz spricht man üblicherweise vom <suggestion>Tram</suggestion>.</message>
+        <short>Helvetismus: Tram</short>
+        <example correction="Tram">Ich nehme die <marker>Straßenbahn</marker>.</example>
+        <example>Ich nehme das Tram.</example>
+      </rule>
+    </rulegroup>
+
+  </category>
+
+  <!-- ===================================================================
+       Swiss orthography — ß never appears in Swiss Standard German.
+       NOTE: LT's SwissGermanSpellerRule already flags ß words as
+       misspelled; this rule is kept deliberately because it is a single,
+       named, independently-disableable rule with a guaranteed ss
+       suggestion, whereas the speller match is buried under the generic
+       GERMAN_SPELLER_RULE id. If the double match ever annoys you,
+       disable exactly one of them in disabled-rules.txt.
+       =================================================================== -->
+  <category id="SWISS_ORTHOGRAPHY" name="Swiss orthography" type="typographical" default="on">
+
+    <!-- Match any single token containing ß. NB: LanguageTool's token
+         regex engine does NOT accept Java's \p{L} Unicode property (it
+         throws "Illegal repetition"); ".*ß.*" is the portable form, and
+         since a token never contains whitespace it is equivalent. -->
+    <rule id="SWISS_NO_ESZETT" name="ß in Swiss Standard German">
+      <pattern>
+        <token regexp="yes">.*ß.*</token>
+      </pattern>
+      <message>Im Schweizer Hochdeutsch wird kein „ß“ verwendet — stets <suggestion><match no="1" regexp_match="ß" regexp_replace="ss"/></suggestion>.</message>
+      <short>Kein ß im Schweizer Hochdeutsch</short>
+      <example correction="grosse">Wir hatten einen <marker>große</marker> Erfolg.</example>
+      <example>Wir hatten einen grosse Erfolg.</example>
+    </rule>
+
+  </category>
+
+  <!-- ===================================================================
+       Swiss number & currency formats.
+       =================================================================== -->
+  <category id="SWISS_NUMBERS" name="Swiss numeric formats" type="typographical" default="on">
+
+    <!-- These use <regexp> (raw-text match with \1 back-references), NOT
+         <pattern>/<token>. LanguageTool splits "1,000,000" and "1.500,00"
+         into several tokens, so a single-token regex can never match a
+         grouped number; <regexp> is exactly how LT's own built-in
+         ZAHL_PUNKT_KOMMA does it. Note: ZAHL_PUNKT_KOMMA is disabled in
+         config/disabled-rules.txt because it suggests the German thin-
+         space / dot separators, which are wrong for Swiss usage. -->
+
+    <!-- CHF / Fr. amount with German-EU separators (1.500,00) ->
+         Swiss form CHF 1'500.00 (apostrophe thousands, dot decimal). -->
+    <rule id="SWISS_CHF_FORMAT" name="CHF amount uses wrong separators">
+      <regexp>(CHF|Fr\.)\s+([0-9]{1,3})\.([0-9]{3}),([0-9]{2})</regexp>
+      <message>Schweizer Frankenbeträge verwenden Apostroph als Tausender- und Punkt als Dezimaltrennzeichen: <suggestion>\1 \2'\3.\4</suggestion>.</message>
+      <short>Schweizer Zahlenformat</short>
+      <example correction="CHF 1'500.00">Der Preis beträgt <marker>CHF 1.500,00</marker>.</example>
+      <example>Der Preis beträgt CHF 1'500.00.</example>
+    </rule>
+
+    <!-- Bare integer with comma-grouped thousands (English style) ->
+         Swiss apostrophe grouping. Two explicit forms (thousands and
+         millions); lookarounds keep the match from starting or ending in
+         the middle of a longer digit/comma run, so "1,000,000" matches
+         the millions rule only, never the thousands rule on its prefix.
+         Decimals (written with a dot) and bare 4-digit years are never
+         touched. Extend with a billions form if you need it. -->
+    <rulegroup id="SWISS_THOUSANDS_APOSTROPHE" name="Thousands separator should be an apostrophe">
+      <rule>
+        <regexp>(?&lt;![0-9,])([0-9]{1,3}),([0-9]{3}),([0-9]{3})(?![0-9,])</regexp>
+        <message>In der Schweiz ist der Apostroph das Tausendertrennzeichen: <suggestion>\1'\2'\3</suggestion>.</message>
+        <short>Tausendertrennzeichen: Apostroph</short>
+        <example correction="1'000'000">Die Stadt hat <marker>1,000,000</marker> Einwohner.</example>
+        <example>Die Stadt hat 1'000'000 Einwohner.</example>
+      </rule>
+      <rule>
+        <regexp>(?&lt;![0-9,])([0-9]{1,3}),([0-9]{3})(?![0-9,])</regexp>
+        <message>In der Schweiz ist der Apostroph das Tausendertrennzeichen: <suggestion>\1'\2</suggestion>.</message>
+        <short>Tausendertrennzeichen: Apostroph</short>
+        <example correction="12'000">Das kostet <marker>12,000</marker> Franken.</example>
+        <example>Das kostet 12'000 Franken.</example>
+      </rule>
+    </rulegroup>
+
+  </category>
+
+  <!-- ===================================================================
+       Swiss guillemets. Swiss German uses «…» (angle quotes, points
+       outward, no inner spaces). Flag the German „…“ typographic quotes
+       and suggest the guillemet. Two single-character rules so each is
+       independently disableable; type="typographical", default on.
+       =================================================================== -->
+  <category id="SWISS_QUOTES" name="Swiss guillemets" type="typographical" default="on">
+
+    <rule id="SWISS_GUILLEMET_OPEN" name="German opening quote „ → «">
+      <pattern>
+        <token>„</token>
+      </pattern>
+      <message>Schweizer Anführungszeichen sind Guillemets: <suggestion>«</suggestion>.</message>
+      <short>Schweizer Guillemets «…»</short>
+      <example correction="«">Er sagte <marker>„</marker>Grüezi“.</example>
+      <example>Er sagte «Grüezi».</example>
+    </rule>
+
+    <rule id="SWISS_GUILLEMET_CLOSE" name="German closing quote “ → »">
+      <pattern>
+        <token>“</token>
+      </pattern>
+      <message>Schweizer Anführungszeichen sind Guillemets: <suggestion>»</suggestion>.</message>
+      <short>Schweizer Guillemets «…»</short>
+      <example correction="»">Er sagte „Grüezi<marker>“</marker>.</example>
+      <example>Er sagte «Grüezi».</example>
+    </rule>
+
+  </category>
+
+</rules>
