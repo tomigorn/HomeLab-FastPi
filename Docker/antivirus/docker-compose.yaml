@@ -36,14 +36,13 @@ services:
       - autoheal-antivirus=true
     environment:
       - FRESHCLAM_CHECK_INTERVAL=${FRESHCLAM_CHECK_INTERVAL:-60}
-    ports:
-      - "3310:3310"
     volumes:
       - clamav-db:/var/lib/clamav
-      - /mnt/seagate-red/sabnzbd/config/Downloads:/scan/sabnzbd:ro
-      - /mnt/seagate-red/qbittorrent/downloads:/scan/qbittorrent:ro
+      - /mnt/seagate-red/sabnzbd/config/Downloads:/scan/sabnzbd
+      - /mnt/seagate-red/qbittorrent/downloads:/scan/qbittorrent
+      - /mnt/seagate-red/antivirus-quarantine:/scan/quarantine
     healthcheck:
-      test: ["CMD-SHELL", "echo PING | nc -w3 127.0.0.1 3310 | grep -q PONG"]
+      test: ["CMD-SHELL", "pgrep inotifywait >/dev/null || exit 1"]
       interval: 60s
       retries: 3
       start_period: 120s
