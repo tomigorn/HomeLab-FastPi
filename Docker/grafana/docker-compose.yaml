@@ -80,10 +80,13 @@ services:
     container_name: telegraf
     mem_limit: 256m
     user: telegraf
+    group_add:
+      - "991"          # docker group — required for telegraf (non-root) to read docker.sock
     environment:
       - INFLUX_TOKEN=${INFLUX_TOKEN}
     volumes:
       - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro

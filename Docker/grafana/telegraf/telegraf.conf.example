@@ -18,6 +18,15 @@
   data_format = "value"
   data_type = "integer"
 
+[[inputs.docker]]
+  endpoint = "unix:///var/run/docker.sock"
+  gather_services = false
+  container_name_include = []
+  container_name_exclude = []
+  timeout = "5s"
+  docker_label_include = []
+  docker_label_exclude = []
+
 [[outputs.influxdb_v2]]
   urls = ["http://influxdb:8086"]
   # Token is injected from the INFLUX_TOKEN env var (set in .env, passed to the
