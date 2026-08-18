@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────
+# EXAMPLE / TEMPLATE for dynamic/languagetool-token.yml (the real file is
+# gitignored because it contains a live access token).
+#
+# WHY THIS EXISTS: the official LanguageTool browser add-on CANNOT send HTTP
+# Basic-Auth (no auth field; its fetch() never triggers the browser login
+# dialog), so it cannot use the authenticated `languagetool` router. This
+# router grants the extension access via an unguessable token in the URL path
+# instead — the same principle as a signed webhook URL.
+#
+# TO ACTIVATE:
+#   1. token=$(openssl rand -hex 24)
+#   2. cp dynamic-example/languagetool-token.yml dynamic/languagetool-token.yml
+#   3. Replace every REPLACE_WITH_TOKEN below with "lt-$token"
+#   4. docker restart traefik   (file provider does not hot-reload NEW files)
+#   5. Point the browser extension's "Other server" at:
+#        https://languagetool.holy-grail.ch/lt-$token
+#      The extension appends "/check", so requests arrive as
+#      /lt-$token/check and the ReplacePathRegex maps them to /v2/check.
+#
+# Priority 5: above `languagetool` basic-auth (1) so the token path skips
+# auth, but below `languagetool-preflight` (10) so CORS preflights (OPTIONS)
+# are still answered by the existing preflight router.
+# ─────────────────────────────────────────────────────────────────────────
+http:
+  routers:
+    languagetool-token:
+      rule: "Host(`languagetool.holy-grail.ch`) && PathPrefix(`/REPLACE_WITH_TOKEN`)"
+      entryPoints: ["websecure"]
+      priority: 5
+      service: languagetool          # defined in languagetool.yml
+      middlewares:
+        - languagetool-token-strip
+        - languagetool-secure-headers # defined in languagetool.yml
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    languagetool-token-strip:
+      # Strip the token plus any optional api//v2/ prefix and map whatever
+      # endpoint remains onto the backend's real /v2/... path:
+      #   /REPLACE_WITH_TOKEN/check         -> /v2/check
+      #   /REPLACE_WITH_TOKEN/api/v2/check  -> /v2/check
+      #   /REPLACE_WITH_TOKEN/v2/languages  -> /v2/languages
+      replacePathRegex:
+        regex: "^/REPLACE_WITH_TOKEN/(?:api/)?(?:v2/)?(.*)"
+        replacement: "/v2/$1"

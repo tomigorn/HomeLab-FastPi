@@ -45,9 +45,11 @@ http:
       basicAuth:
         usersFile: "/dynamic/languagetool.users"
         realm: "LanguageTool"
-        # Browser extension stores credentials internally and re-sends
-        # them on every request; users see the password prompt once
-        # per device when they paste credentials into the extension.
+        # Guards the human-facing URL (browsers prompt for login). NOTE: the
+        # official LanguageTool browser add-on CANNOT send Basic-Auth (no auth
+        # field; its fetch() never triggers the login dialog), so it uses the
+        # separate secret-token bypass router instead — see the gitignored
+        # dynamic/languagetool-token.yml (template in dynamic-example/).
         removeHeader: true
 
     languagetool-secure-headers:
