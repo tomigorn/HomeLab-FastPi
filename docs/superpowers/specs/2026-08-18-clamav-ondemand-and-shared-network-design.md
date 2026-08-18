@@ -47,19 +47,22 @@ Repurpose the `clamav` container:
 
 ---
 
-## Part B — Home Assistant ↔ InfluxDB shared Docker network
+## Part B — Home Assistant → InfluxDB: replace the LAN IP with loopback
 
 ### Problem
-HA and InfluxDB are in different compose projects → different bridge networks → HA cannot resolve the name `influxdb`. Task 3 worked around this with the Pi LAN IP (`host: 192.168.1.2`). Best practice is a shared network so the name resolves and traffic stays inside Docker (and survives a LAN-IP change).
+Task 3 pointed HA at InfluxDB via the Pi LAN IP (`host: 192.168.1.2`) because HA could not resolve the container name `influxdb`. That LAN IP is fragile (DHCP/renumbering) and hair-pins traffic out to the LAN and back.
 
-### Design
-- Create one external Docker network (e.g. `fastpi-shared`), created once via `docker network create`.
-- Attach `influxdb` (grafana project) and `homeassistant` (HA project) to it as an additional network. InfluxDB stays on the grafana project network too, so Grafana's existing `http://influxdb:8086` keeps working; Grafana is unaffected.
-- Change `Home-Assistant/config/packages/influxdb.yaml` `host:` from `192.168.1.2` back to `influxdb`.
-- Recreate `influxdb` and `homeassistant`; verify HA still writes (query the `homeassistant` bucket).
+### Why the original "shared Docker network" idea does NOT apply
+Home Assistant runs with **`network_mode: host`** (required so it can discover the myStrom plug on the LAN). A host-networked container cannot join a bridge network and cannot resolve Docker service names, so `host: influxdb` is impossible here.
+
+### Design (better fit for host mode)
+Because HA is on the host network and InfluxDB **publishes 8086 on the host** (`ports: "8086:8086"`), HA can reach it on the loopback:
+- Change `Home-Assistant/config/packages/influxdb.yaml` `host:` from `192.168.1.2` to **`127.0.0.1`** (port 8086 unchanged).
+- This is stable (never changes), stays on loopback (no LAN round-trip), and needs no network/compose changes.
+- Restart HA; verify it still writes (query the `homeassistant` bucket) and the Grafana dashboard still populates.
 
 ### Non-goals
-- Do not move other services onto the shared network; only the two that must talk.
+- No Docker network creation or compose network changes (unnecessary and impossible with host mode).
 
 ---
 
