@@ -15,15 +15,27 @@ Endpoints:
 
 ## Browser extension (Chrome / Firefox / Edge)
 
+**The official add-on CANNOT do Basic-Auth** — it has no username/password
+field and its `fetch()` never triggers the browser login dialog, so the
+normal `https://languagetool.holy-grail.ch` URL just returns 401. Instead it
+authenticates via a **secret token in the URL path** (Traefik router
+`languagetool-token`, defined in the gitignored
+`Traefik/traefik/dynamic/languagetool-token.yml`; template + setup steps in
+`dynamic-example/languagetool-token.yml`).
+
 Official *LanguageTool* extension → Settings (gear):
 
-1. **Advanced settings → "Use your own LanguageTool server"** →
-   `https://languagetool.holy-grail.ch` (Mac: `http://localhost:8010`).
-2. It will prompt for the basic-auth login once per device — enter the
-   `languagetool.users` credentials; the extension stores and re-sends
-   them (that's why the Traefik middleware keeps the header).
-3. Turn **Picky Mode** on. Set the mother-tongue / variant to British
-   English and Swiss German so it doesn't auto-pick de-DE.
+1. **Advanced settings → "Other server — requires LanguageTool server
+   running there"** → paste the **token URL** (the whole thing acts as the
+   password — anyone with it can use the server):
+   `https://languagetool.holy-grail.ch/lt-<TOKEN>`
+   The extension appends `/check`, so requests arrive as
+   `/lt-<TOKEN>/check` and Traefik rewrites them to `/v2/check`.
+   (Mac local: `http://localhost:8010`, no token needed.)
+2. **Save.** No login prompt appears — the token *is* the auth.
+3. Turn **Picky Mode** on. Set the English variant to **British** and German
+   to **Swiss** so it doesn't auto-pick de-DE. Leave **"Prefer Oxford
+   spelling" OFF** (Oxford = -ize; we want British -ise).
 
 ## VS Code
 
