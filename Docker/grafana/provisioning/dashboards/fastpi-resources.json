@@ -1,0 +1,48 @@
+{
+  "uid": "fastpi-resources",
+  "title": "fastpi — RAM, containers & electricity",
+  "tags": ["fastpi", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Host memory & swap",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "used", "query": "from(bucket:\"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"mem\" and r._field==\"used\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> set(key:\"_field\", value:\"mem_used\")" },
+        { "refId": "available", "query": "from(bucket:\"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"mem\" and r._field==\"available\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> set(key:\"_field\", value:\"mem_available\")" },
+        { "refId": "swap", "query": "from(bucket:\"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"swap\" and r._field==\"used\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> set(key:\"_field\", value:\"swap_used\")" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Per-container memory (stacked)",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "decbytes", "custom": { "stacking": { "mode": "normal", "group": "A" }, "fillOpacity": 30, "showPoints": "never" } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "query": "from(bucket:\"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"docker_container_mem\" and r._field==\"usage\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> group(columns:[\"container_name\"]) |> keep(columns:[\"_time\",\"_value\",\"container_name\"])" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Electricity — power (W)",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 19 },
+      "fieldConfig": { "defaults": { "unit": "watt" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "query": "from(bucket:\"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"W\" and r._field==\"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> group(columns:[\"entity_id\"]) |> keep(columns:[\"_time\",\"_value\",\"entity_id\"])" }
+      ]
+    }
+  ]
+}

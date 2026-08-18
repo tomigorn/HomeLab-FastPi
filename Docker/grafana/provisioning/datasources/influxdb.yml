@@ -1,0 +1,15 @@
+apiVersion: 1
+datasources:
+  - name: InfluxDB-fastpi
+    uid: influxdb_fastpi
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: myorg
+      defaultBucket: rpi
+    secureJsonData:
+      token: ${GRAFANA_INFLUX_TOKEN}
+    isDefault: false
+    editable: true
