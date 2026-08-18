@@ -14,7 +14,7 @@ services:
     mem_limit: 2g
     privileged: true
     user: root
-    restart: always
+    restart: unless-stopped
     environment:
       - TZ=${TZ}
       # JCasC config location and disable the interactive setup wizard so JCasC is applied
