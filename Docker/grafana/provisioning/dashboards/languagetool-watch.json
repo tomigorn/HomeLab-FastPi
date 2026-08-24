@@ -1,0 +1,95 @@
+{
+  "uid": "languagetool-watch",
+  "title": "LanguageTool — usage watch",
+  "tags": ["languagetool", "fastpi"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Used CPU — overall",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu\" and r.cpu == \"cpu-total\" and r._field == \"usage_idle\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _value: 100.0 - r._value })) |> keep(columns: [\"_time\", \"_value\"])" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Used RAM — overall",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"mem\" and r._field == \"used\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Used swap — overall",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"swap\" and r._field == \"used\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "LanguageTool — RAM",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "LanguageTool — CPU",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_cpu\" and r._field == \"usage_percent\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "text",
+      "title": "LanguageTool — swap",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Per-container swap isn't exposed** by Docker/cgroup through the metrics agent, so LanguageTool's *own* swap can't be graphed directly.\n\nIn practice it's ~0: LanguageTool is capped (`mem_limit` 1.25 GB) and runs under that, so it barely swaps itself. The **Used swap — overall** panel captures the real swap pressure on the Pi."
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "LanguageTool — requests / sec (per person)",
+      "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "stacking": { "mode": "normal", "group": "A" }, "fillOpacity": 30, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" }, "expr": "sum by (router) (rate(traefik_router_requests_total{router=~\"languagetool-token-.*\"}[$__rate_interval]))", "legendFormat": "{{router}}" }
+      ]
+    }
+  ]
+}
