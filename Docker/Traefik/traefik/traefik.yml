@@ -18,6 +18,16 @@ entryPoints:
 api:
   dashboard: true
 
+# Prometheus metrics (per-entrypoint/router/service request counters) served on
+# the internal entrypoint (:8080, LAN-only) at /metrics. Router labels give
+# per-person request counts (each LanguageTool token is its own router).
+metrics:
+  prometheus:
+    entryPoint: internal
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+
 log:
   level: INFO
 
