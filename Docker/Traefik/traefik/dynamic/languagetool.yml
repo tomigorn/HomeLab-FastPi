@@ -1,38 +1,32 @@
 http:
   routers:
-    # CORS preflight: browsers send an UNAUTHENTICATED OPTIONS before any
-    # cross-origin request that carries an Authorization header. Basic-auth
-    # would 401 that preflight (and LanguageTool itself answers OPTIONS with
-    # 400 + no Access-Control-Allow-Headers), so a dedicated higher-priority
-    # router answers preflights via the CORS middleware WITHOUT auth. Real
-    # GET/POST requests still hit the authenticated router below.
+    # LanguageTool is served ONLY on lang-tool.ddns.net (direct ingress + Let's
+    # Encrypt HTTP challenge, same as wg-aemtli). Access is exclusively via
+    # per-person secret-token URLs (gitignored languagetool-token.yml). There is
+    # intentionally NO basic-auth / bare door: a request without a valid token
+    # path matches no router and returns 404. The languagetool.holy-grail.ch
+    # route (Cloudflare tunnel + basic-auth) was retired 2026-08-24 — the
+    # Cloudflare dashboard DNS/tunnel entry for that hostname can be removed
+    # separately.
+    #
+    # CORS preflight: the browser add-on sends an unauthenticated OPTIONS before
+    # its cross-origin POST. This higher-priority router answers it via the CORS
+    # middleware; real POSTs fall through to the token routers (priority 5).
     languagetool-preflight:
-      rule: "Host(`languagetool.holy-grail.ch`) && Method(`OPTIONS`)"
+      rule: "Host(`lang-tool.ddns.net`) && Method(`OPTIONS`)"
       entryPoints: ["websecure"]
       priority: 10
       service: languagetool
       middlewares:
         - languagetool-cors
       tls:
-        certResolver: cloudflare
-
-    languagetool:
-      rule: "Host(`languagetool.holy-grail.ch`)"
-      entryPoints: ["websecure"]
-      priority: 1
-      service: languagetool
-      middlewares:
-        - languagetool-basic-auth
-        - languagetool-secure-headers
-      tls:
-        certResolver: cloudflare
+        certResolver: le
 
   middlewares:
-    # Handles CORS preflight responses. Traefik answers the OPTIONS request
-    # itself (200) with these headers, so the backend is never reached.
-    # LT already sends "Access-Control-Allow-Origin: *" on real responses,
-    # so CORS is intentionally NOT added to the authenticated router to
-    # avoid a duplicate ACAO header.
+    # Traefik answers the OPTIONS preflight itself (200) with these headers, so
+    # the backend is never reached. LT sends "Access-Control-Allow-Origin: *" on
+    # real responses (started with --allow-origin '*'), so CORS is NOT added to
+    # the token routers, to avoid a duplicate ACAO header.
     languagetool-cors:
       headers:
         accessControlAllowMethods: ["GET", "POST", "OPTIONS"]
@@ -40,17 +34,6 @@ http:
         accessControlAllowOriginList: ["*"]
         accessControlMaxAge: 86400
         addVaryHeader: true
-
-    languagetool-basic-auth:
-      basicAuth:
-        usersFile: "/dynamic/languagetool.users"
-        realm: "LanguageTool"
-        # Guards the human-facing URL (browsers prompt for login). NOTE: the
-        # official LanguageTool browser add-on CANNOT send Basic-Auth (no auth
-        # field; its fetch() never triggers the login dialog), so it uses the
-        # separate secret-token bypass router instead — see the gitignored
-        # dynamic/languagetool-token.yml (template in dynamic-example/).
-        removeHeader: true
 
     languagetool-secure-headers:
       headers:
@@ -64,9 +47,6 @@ http:
         customResponseHeaders:
           # LT is an API; deny embedding and disable scripts via CSP.
           Content-Security-Policy: "default-src 'none'; frame-ancestors 'none'"
-          # LT itself sends "Access-Control-Allow-Origin: *" on real
-          # responses (started with --allow-origin '*'), so the browser
-          # extension can call it cross-origin.
           Server: ""
 
   services:
