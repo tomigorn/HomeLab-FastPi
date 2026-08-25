@@ -4,7 +4,7 @@
   "tags": ["languagetool", "fastpi"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
   "templating": { "list": [] },
@@ -23,12 +23,13 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Used RAM — overall",
+      "title": "Used RAM — overall (GB + % of total)",
       "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
-      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [ { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "custom.axisLabel", "value": "% of total RAM" } ] } ] },
       "targets": [
-        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"mem\" and r._field == \"used\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"mem\" and r._field == \"used\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> set(key: \"_field\", value: \"used (GB)\") |> keep(columns: [\"_time\", \"_value\", \"_field\"])" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"mem\" and r._field == \"used_percent\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> set(key: \"_field\", value: \"used (% of total)\") |> keep(columns: [\"_time\", \"_value\", \"_field\"])" }
       ]
     },
     {
@@ -45,23 +46,24 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "LanguageTool — RAM",
+      "title": "LanguageTool — RAM (GB + % of total)",
       "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [ { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "custom.axisLabel", "value": "% of total RAM" } ] } ] },
       "targets": [
-        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> set(key: \"_field\", value: \"RAM (GB)\") |> keep(columns: [\"_time\", \"_value\", \"_field\"])" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _value: float(v: r._value) / 8454668288.0 * 100.0 })) |> set(key: \"_field\", value: \"RAM (% of total)\") |> keep(columns: [\"_time\", \"_value\", \"_field\"])" }
       ]
     },
     {
       "id": 5,
       "type": "timeseries",
-      "title": "LanguageTool — CPU",
+      "title": "LanguageTool — CPU (% of total, all 4 cores)",
       "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
       "targets": [
-        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_cpu\" and r._field == \"usage_percent\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_cpu\" and r._field == \"usage_percent\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _value: r._value / 4.0 })) |> keep(columns: [\"_time\", \"_value\"])" }
       ]
     },
     {
@@ -79,6 +81,84 @@
       },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" }, "expr": "sum by (router) (rate(traefik_router_requests_total{router=~\"languagetool-token-.*\"}[$__rate_interval]))", "legendFormat": "{{router}}" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Response codes (LanguageTool) — 200 good, 400 malformed, 5xx = backend problem",
+      "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "stacking": { "mode": "normal", "group": "A" }, "fillOpacity": 40, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" }, "expr": "sum by (code) (rate(traefik_router_requests_total{router=~\"languagetool-token-.*\"}[$__rate_interval]))", "legendFormat": "HTTP {{code}}" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Response latency (LanguageTool)",
+      "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" }, "expr": "histogram_quantile(0.95, sum by (le) (rate(traefik_router_request_duration_seconds_bucket{router=~\"languagetool-token-.*\"}[$__rate_interval])))", "legendFormat": "p95" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" }, "expr": "histogram_quantile(0.99, sum by (le) (rate(traefik_router_request_duration_seconds_bucket{router=~\"languagetool-token-.*\"}[$__rate_interval])))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Total requests per person (selected time range)",
+      "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "dfc6abdxzsem8a" }, "expr": "sum by (router) (increase(traefik_router_requests_total{router=~\"languagetool-token-.*\"}[$__range]))", "legendFormat": "{{router}}", "instant": true, "range": false }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "CPU temperature",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 80 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_temperature\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _value: float(v: r._value) / 1000.0 })) |> keep(columns: [\"_time\", \"_value\"])" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "gauge",
+      "title": "LanguageTool RAM vs its limit",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" }, "query": "from(bucket: \"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage_percent\" and r.container_name == \"languagetool\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])" }
       ]
     }
   ]
