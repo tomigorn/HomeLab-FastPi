@@ -1,7 +1,7 @@
 {% extends "email/base.html" %}
 {% load i18n %}
 
-{#
+{% comment %}
   Human-readable notification for "a user account was created".
 
   Used by `new-account-email-transport`, bound to the `notify-admins-user-created`
@@ -26,7 +26,7 @@
 
   Do NOT render key_value wholesale: user_write's context also contains the
   masked password fields and the full HTML of every prompt on the enrolment form.
-#}
+{% endcomment %}
 
 {% block content %}
 <tr>
