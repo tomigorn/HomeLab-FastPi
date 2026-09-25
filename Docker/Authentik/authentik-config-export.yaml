@@ -34,20 +34,6 @@ entries:
 - attrs:
     attributes: {}
     is_superuser: false
-    name: streaming-users
-    parents: []
-    roles: []
-    users:
-    - 15
-  conditions: []
-  identifiers:
-    pk: d2ba3ab1-2b87-4706-b532-853201d0448a
-  model: authentik_core.group
-  permissions: []
-  state: present
-- attrs:
-    attributes: {}
-    is_superuser: false
     name: cloud-users
     parents: []
     roles: []
@@ -76,8 +62,23 @@ entries:
 - attrs:
     attributes: {}
     is_superuser: false
-    name: streaming-admins
+    name: streaming-users
     parents: []
+    roles: []
+    users:
+    - 15
+  conditions: []
+  identifiers:
+    pk: d2ba3ab1-2b87-4706-b532-853201d0448a
+  model: authentik_core.group
+  permissions: []
+  state: present
+- attrs:
+    attributes: {}
+    is_superuser: false
+    name: streaming-admins
+    parents:
+    - d2ba3ab1-2b87-4706-b532-853201d0448a
     roles: []
     users:
     - 4
@@ -1326,9 +1327,13 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "if ak_is_group_member(request.user, name=\"streaming-users\"):\n    return True\nif ak_is_group_member(request.user,\
-      \ name=\"streaming-admins\"):\n    return True\nak_message(\"You don't have access to this application.\
-      \ Please contact the administrator to request access.\")\nreturn False"
+    expression: "# ak_is_group_member uses user.all_groups(), which includes ancestors, so\n# the streaming-users\
+      \ check alone already covers admins via the group\n# nesting above. The explicit streaming-admins\
+      \ check is a deliberate\n# backstop: if the parent link is ever removed, admins keep access rather\n\
+      # than being locked out silently.\nif ak_is_group_member(request.user, name=\"streaming-users\"\
+      ):\n    return True\nif ak_is_group_member(request.user, name=\"streaming-admins\"):\n    return\
+      \ True\nak_message(\"You don't have access to this application. Please contact the administrator\
+      \ to request access.\")\nreturn False"
     name: audiobookshelf-access
   conditions: []
   identifiers:
@@ -3083,16 +3088,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 44 22 * * 5
     paused: false
     rel_obj_id: null
@@ -3123,16 +3118,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 2-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: c457abd3-1325-46dc-ae47-6ed899816277
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 32 */8 * * *
     paused: false
     rel_obj_id: null
@@ -3143,22 +3128,22 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 9-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 35 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 3e3e16cb-007a-4445-9414-4185df579b15
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 2-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: c457abd3-1325-46dc-ae47-6ed899816277
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3183,12 +3168,32 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 59 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 29 */4 * * *
     paused: false
     rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
   conditions: []
   identifiers:
     pk: edd1641d-35f5-45dc-a4a8-83b027848529
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 9-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3685,5 +3690,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 22:56:19.713723+00:00
+  name: authentik Export - 2026-09-25 22:59:54.848980+00:00
 version: 1

@@ -46,11 +46,34 @@ metadata:
 
 entries:
   - model: authentik_core.group
+    id: group-streaming-users
+    identifiers:
+      name: streaming-users
+    attrs:
+      is_superuser: false
+
+  # streaming-admins is nested INSIDE streaming-users: streaming-users is listed
+  # as its PARENT. Direction matters and is easy to invert.
+  #
+  # authentik resolves membership UPWARDS - User.all_groups() is
+  # `self.groups.all().with_ancestors()` - so a member of a child group is also a
+  # member of every ancestor. Admins therefore inherit streaming-users
+  # automatically, and nobody has to remember to add them to both.
+  #
+  # The reverse (streaming-users.parent = streaming-admins) would make every
+  # ordinary listener inherit ADMIN. Do not swap these.
+  - model: authentik_core.group
     id: group-streaming-admins
     identifiers:
       name: streaming-admins
     attrs:
       is_superuser: false
+      # NOTE: the field is `parents` (plural, many-to-many) - authentik models the
+      # hierarchy as a DAG, so a group can have several parents. Writing `parent:`
+      # is accepted by the importer and SILENTLY IGNORED, leaving no nesting at
+      # all; check `Group.parents` after applying rather than trusting a clean run.
+      parents:
+        - !KeyOf group-streaming-users
 
   - model: authentik_providers_oauth2.scopemapping
     id: mapping-abs-profile
@@ -92,6 +115,11 @@ entries:
       name: audiobookshelf-access
     attrs:
       expression: |
+        # ak_is_group_member uses user.all_groups(), which includes ancestors, so
+        # the streaming-users check alone already covers admins via the group
+        # nesting above. The explicit streaming-admins check is a deliberate
+        # backstop: if the parent link is ever removed, admins keep access rather
+        # than being locked out silently.
         if ak_is_group_member(request.user, name="streaming-users"):
             return True
         if ak_is_group_member(request.user, name="streaming-admins"):
