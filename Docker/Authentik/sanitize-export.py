@@ -16,8 +16,17 @@ import sys
 
 import yaml
 
-# Entire entries dropped: the pk is the redeemable token.
-DROP_MODELS = {"authentik_stages_invitation.invitation"}
+# Entire entries dropped.
+#   invitation - the pk IS the redeemable ?itoken= value.
+#   token      - FlowTokens (password reset, email verification) are transient
+#                credentials, not configuration. authentik's exporter omits the
+#                secret `key`, but the `identifier` embeds the user's uid hash,
+#                which is a stable per-person identifier in a public repo. They
+#                also expire within the hour, so exporting them is pure noise.
+DROP_MODELS = {
+    "authentik_stages_invitation.invitation",
+    "authentik_core.token",
+}
 
 # Value replaced when the key matches and the value looks like real material.
 SECRET_KEYS = re.compile(
