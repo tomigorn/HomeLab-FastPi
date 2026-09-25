@@ -40,9 +40,14 @@ entries:
   - model: authentik_stages_prompt.prompt
     id: prompt-invite-warning
     identifiers:
-      field_key: invite_one_time_warning
-    attrs:
+      # Prompt.name is unique; Prompt.field_key is NOT. The importer matches with
+      # .filter(query).first(), so identifying by field_key would silently bind to
+      # an arbitrary row if another prompt ever reused the key - and if the key
+      # were edited in the UI, the import would instead try to create a second
+      # prompt with this same (unique) name and fail.
       name: enrollment-invite-one-time-warning
+    attrs:
+      field_key: invite_one_time_warning
       label: One-time invitation link
       type: alert_warning
       required: false
@@ -56,9 +61,14 @@ entries:
   - model: authentik_stages_prompt.prompt
     id: prompt-invite-checklist
     identifiers:
-      field_key: invite_checklist
-    attrs:
+      # Prompt.name is unique; Prompt.field_key is NOT. The importer matches with
+      # .filter(query).first(), so identifying by field_key would silently bind to
+      # an arbitrary row if another prompt ever reused the key - and if the key
+      # were edited in the UI, the import would instead try to create a second
+      # prompt with this same (unique) name and fail.
       name: enrollment-invite-checklist
+    attrs:
+      field_key: invite_checklist
       label: Have these ready before you continue
       type: static
       required: false
@@ -104,9 +114,9 @@ entries:
       evaluate_on_plan: true
       re_evaluate_policies: false
 
-  - model: authentik_flows.flowstagebinding
-    identifiers:
-      target: !Find [authentik_flows.flow, [slug, enrollment]]
-      stage: !Find [authentik_stages_invitation.invitationstage, [name, enrollment-invitation]]
-    attrs:
-      order: 5
+  # The invitation stage's own order-5 binding is deliberately NOT declared here.
+  # It is part of the base enrollment flow (captured in authentik-config-export.yaml),
+  # and re-asserting it from this blueprint was fragile: FlowStageBinding's
+  # unique_together is (target, stage, order), so identifiers of (target, stage)
+  # alone are not unique, and the !Find on the stage name resolves to null if that
+  # stage is ever renamed - which fails the import on a NOT NULL violation.

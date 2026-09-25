@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=./blueprint.schema.json
+#
+# Two things that make invited accounts actually usable, and visible:
+#
+# 1. DEFAULT GROUP. The enrollment user-write stage had create_users_group unset,
+#    so a newly invited person finished sign-up - password, email verification,
+#    TOTP - and landed in NO groups at all. Audiobookshelf refuses them (needs
+#    streaming-users) and Nextcloud refuses them (needs cloud-users), so they saw
+#    a working login with nothing behind it and no error explaining why. They now
+#    get `streaming-users`, and only that; anything more is granted by hand.
+#
+# 2. ADMIN NOTIFICATION. An EventMatcherPolicy on model_created for
+#    authentik_core.user, bound to a NotificationRule that mails the members of
+#    `authentik Admins` through the existing Brevo email transport.
+#
+#    Timing to be aware of: this fires when the account row is CREATED, which is
+#    the user-write stage - BEFORE email verification and TOTP enrolment. So the
+#    mail means "somebody redeemed an invite and submitted the form", not "they
+#    finished". That is deliberate: it is the earliest reliable signal, and an
+#    account that never completes is itself worth seeing, because it leaves an
+#    inactive user behind. It also fires for accounts an admin creates by hand.
+#
+# Apply with:
+#   docker cp blueprints/enrollment-defaults-and-notify.yaml \
+#     authentik-server:/blueprints/enrollment-defaults-and-notify.yaml
+#   docker exec -i authentik-server ak apply_blueprint enrollment-defaults-and-notify.yaml
+version: 1
+metadata:
+  name: enrollment-defaults-and-notify
+  labels:
+    blueprints.goauthentik.io/description: |
+      Default group for invited users + admin email when an account is created.
+
+entries:
+  # ---------------------------------------------------------------------------
+  # 1. Invited users land in streaming-users, and nothing else
+  # ---------------------------------------------------------------------------
+  - model: authentik_stages_user_write.userwritestage
+    identifiers:
+      name: invitation-enrollment-user-write-enrollment
+    attrs:
+      create_users_group:
+        !Find [authentik_core.group, [name, streaming-users]]
+
+  # ---------------------------------------------------------------------------
+  # 2. Match "a user object was created"
+  # ---------------------------------------------------------------------------
+  - model: authentik_policies_event_matcher.eventmatcherpolicy
+    id: policy-user-created
+    identifiers:
+      name: enrollment-user-created
+    attrs:
+      action: model_created
+      # `app` MUST stay null. It looks like it should be the model's app label,
+      # and the API even offers "authentik.core" as a choice - but passes_app()
+      # compares it against Event.app, which is the SOURCE MODULE PATH of
+      # whatever emitted the event (e.g.
+      # "authentik.core.management.commands.shell", or the stage module during
+      # enrolment). Setting it silently matches nothing, and because the rule
+      # then just never fires there is no error to notice. `model` alone is
+      # precise: passes_model() builds "<app_label>.<model_name>" from the event
+      # context, which is exactly authentik_core.user.
+      app: null
+      model: authentik_core.user
+
+  # ---------------------------------------------------------------------------
+  # 3. Mail the admins when it matches
+  # ---------------------------------------------------------------------------
+  - model: authentik_events.notificationrule
+    id: rule-user-created
+    identifiers:
+      name: notify-admins-user-created
+    attrs:
+      severity: notice
+      destination_group:
+        !Find [authentik_core.group, [name, authentik Admins]]
+      transports:
+        - !Find [authentik_events.notificationtransport, [name, default-email-transport]]
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf rule-user-created
+      policy: !KeyOf policy-user-created
+    attrs:
+      order: 0
+      enabled: true
