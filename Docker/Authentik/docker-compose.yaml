@@ -52,6 +52,12 @@ services:
     volumes:
       - ./data:/data
       - ./custom-templates:/templates
+      # Rebrands the logo in EVERY email. logo_data() (stages/email/utils.py)
+      # reads web/icons/icon_left_brand.png relative to CWD (/), falling back to
+      # the bundled authentik PNG when that path is absent - and tasks.py attaches
+      # it to every message as cid:logo. No Brand setting reaches it; this mount is
+      # the only way. It is lru_cached, so a restart is required after changing it.
+      - ./branding/email-logo.png:/web/icons/icon_left_brand.png:ro
     depends_on:
       postgresql:
         condition: service_healthy
@@ -82,6 +88,8 @@ services:
       - ./data:/data
       - ./certs:/certs
       - ./custom-templates:/templates
+      # The WORKER is what actually sends mail - see the note on the server service.
+      - ./branding/email-logo.png:/web/icons/icon_left_brand.png:ro
     depends_on:
       postgresql:
         condition: service_healthy

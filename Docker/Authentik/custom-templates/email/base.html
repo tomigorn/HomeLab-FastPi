@@ -107,16 +107,19 @@
                 <table width="100%" style="background-color: #FFFFFF; border-spacing: 0; margin-top: 15px;">
                   <tr height="80">
                     <td align="center" style="padding: 20px 0;">
-                      {% comment %} Wordmark instead of the bundled authentik PNG. The logo is a
-                         hardcoded cid: attachment (logo_data() in
-                         authentik/stages/email/utils.py reads
-                         web/dist/assets/icons/icon_left_brand.png and is lru_cached),
-                         so there is no Brand setting that changes it - only this
-                         template. Text also survives mail-client dark mode, which an
-                         image does not: the client inverts text but leaves the orange
-                         PNG orange. {% endcomment %}
-                      <div style="font-family: Arial, Helvetica, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 1px; color: #c9a227; line-height: 1.2;">HOLY&nbsp;GRAIL</div>
-                      <div style="font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #6a6e73; padding-top: 6px;">holy-grail.ch</div>
+                      {% comment %} Icon + wordmark, the whole block linking to holy-grail.ch.
+                         cid:logo is OUR png: tasks.py attaches logo_data() to every message, and
+                         logo_data() reads web/icons/icon_left_brand.png relative to CWD (/) before
+                         falling back to the bundled authentik one. docker-compose.yaml mounts
+                         ./branding/email-logo.png there for BOTH server and worker. It is
+                         lru_cached, so restart both containers after changing that file.
+                         Deliberately NOT class="logo": base.html caps img.logo at max-height 35px,
+                         too small for the grail to read. The wordmark stays TEXT, not part of the
+                         image, because text inverts correctly in mail-client dark mode. {% endcomment %}
+                      <a href="https://holy-grail.ch" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                        <img src="cid:logo" width="64" height="64" alt="" style="display: block; margin: 0 auto 12px auto; border: 0;">
+                        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 1px; color: #c9a227; line-height: 1.2;">HOLY&nbsp;GRAIL</div>
+                      </a>
                     </td>
                   </tr>
                   {% block content %}
