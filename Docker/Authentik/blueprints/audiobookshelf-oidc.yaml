@@ -80,3 +80,21 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
         - !Find [authentik_providers_oauth2.scopemapping, [name, "audiobookshelf email (verified)"]]
         - !KeyOf mapping-abs-profile
+
+  # Application access gate. Previously this accepted only streaming-users, so an
+  # account in streaming-admins alone was refused by authentik before
+  # Audiobookshelf ever saw it ("Policy binding ... returned result 'False'").
+  # Being an admin must imply access - otherwise every admin has to be in BOTH
+  # groups and someone will eventually forget.
+  - model: authentik_policies_expression.expressionpolicy
+    id: policy-abs-access
+    identifiers:
+      name: audiobookshelf-access
+    attrs:
+      expression: |
+        if ak_is_group_member(request.user, name="streaming-users"):
+            return True
+        if ak_is_group_member(request.user, name="streaming-admins"):
+            return True
+        ak_message("You don't have access to this application. Please contact the administrator to request access.")
+        return False

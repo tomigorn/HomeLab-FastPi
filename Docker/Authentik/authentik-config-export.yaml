@@ -109,6 +109,27 @@ entries:
     attributes: {}
     email: <redacted-by-sanitize-export>
     groups:
+    - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
+    - ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
+    - 613bc864-37df-4f07-819b-50ae607c13d5
+    - 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    is_active: true
+    last_login: '2026-09-25T22:54:49.294941Z'
+    name: authentik Default Admin
+    path: users
+    roles: []
+    type: internal
+    username: akadmin
+  conditions: []
+  identifiers:
+    pk: 4
+  model: authentik_core.user
+  permissions: []
+  state: present
+- attrs:
+    attributes: {}
+    email: <redacted-by-sanitize-export>
+    groups:
     - d2ba3ab1-2b87-4706-b532-853201d0448a
     is_active: true
     last_login: '2026-09-25T19:37:34.107474Z'
@@ -120,27 +141,6 @@ entries:
   conditions: []
   identifiers:
     pk: 15
-  model: authentik_core.user
-  permissions: []
-  state: present
-- attrs:
-    attributes: {}
-    email: <redacted-by-sanitize-export>
-    groups:
-    - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
-    - ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
-    - 613bc864-37df-4f07-819b-50ae607c13d5
-    - 1288b46a-e357-489d-92c2-15d57f7d6ddd
-    is_active: true
-    last_login: '2026-09-25T19:55:19.031558Z'
-    name: authentik Default Admin
-    path: users
-    roles: []
-    type: internal
-    username: akadmin
-  conditions: []
-  identifiers:
-    pk: 4
   model: authentik_core.user
   permissions: []
   state: present
@@ -1315,24 +1315,24 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "if ak_is_group_member(request.user, name=\"streaming-users\"):\n    return True\nak_message(\"\
-      You don't have access to this application. Please contact the administrator to request access.\"\
-      )\nreturn False\n"
-    name: audiobookshelf-access
-  conditions: []
-  identifiers:
-    pk: 44300c74-ce76-4015-affa-5996778d6841
-  model: authentik_policies_expression.expressionpolicy
-  permissions: []
-  state: present
-- attrs:
-    execution_logging: false
     expression: "event = request.context.get(\"event\")\nif not event:\n    return False\nreturn event.context.get(\"\
       created\") is True"
     name: enrollment-user-write-is-creation
   conditions: []
   identifiers:
     pk: 5d7ac852-84e6-4c9c-bda9-d8afaec0b480
+  model: authentik_policies_expression.expressionpolicy
+  permissions: []
+  state: present
+- attrs:
+    execution_logging: false
+    expression: "if ak_is_group_member(request.user, name=\"streaming-users\"):\n    return True\nif ak_is_group_member(request.user,\
+      \ name=\"streaming-admins\"):\n    return True\nak_message(\"You don't have access to this application.\
+      \ Please contact the administrator to request access.\")\nreturn False"
+    name: audiobookshelf-access
+  conditions: []
+  identifiers:
+    pk: 44300c74-ce76-4015-affa-5996778d6841
   model: authentik_policies_expression.expressionpolicy
   permissions: []
   state: present
@@ -3123,16 +3123,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 9-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 2-59/5 * * * *
     paused: false
     rel_obj_id: null
@@ -3149,6 +3139,16 @@ entries:
   conditions: []
   identifiers:
     pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 9-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3685,5 +3685,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 22:52:54.526207+00:00
+  name: authentik Export - 2026-09-25 22:56:19.713723+00:00
 version: 1
