@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=./blueprint.schema.json
+#
+# Enrollment interstitial - warn before the invitation is consumed.
+#
+# WHY THIS EXISTS
+# authentik's InvitationStageView.dispatch() deletes a single_use invitation the
+# moment the stage is REACHED. There is no consume-on-completion option: the same
+# stage both validates and consumes. So whatever stage sits first decides when the
+# link dies.
+#
+# With the invitation stage first (order 5), a bare GET of the invite link burned
+# it - a mail-client link prefetcher, a URL/malware scanner or an accidental
+# reload was enough, and the recipient then saw "Invalid invite/invite not found".
+#
+# This blueprint puts a static, display-only prompt stage at order 1, BEFORE the
+# invitation stage. A GET only renders the warning; the invitation is not touched
+# until the person presses Continue, which is a POST. That keeps the gate ahead of
+# the signup form (so the form stays invite-only and the password policy is not
+# reachable by strangers) and keeps invite.fixed_data prefill working, because the
+# invitation stage still runs before the credentials prompt.
+#
+# Apply with:
+#   docker cp blueprints/enrollment-invite-warning.yaml \
+#     authentik-server:/blueprints/enrollment-invite-warning.yaml
+#   docker exec -i authentik-server ak apply_blueprint enrollment-invite-warning.yaml
+#
+# Resulting stage order: 1 warning -> 5 invitation -> 10 prompt -> 20 user-write
+#                        -> 30 email verify -> 40 TOTP -> 100 login
+version: 1
+metadata:
+  name: enrollment-invite-warning
+  labels:
+    blueprints.goauthentik.io/description: |
+      One-time-link warning shown before the invitation stage consumes the invite.
+
+entries:
+  # ---------------------------------------------------------------------------
+  # Prompts (display-only: no field_key of these is ever written to the user)
+  # ---------------------------------------------------------------------------
+  - model: authentik_stages_prompt.prompt
+    id: prompt-invite-warning
+    identifiers:
+      field_key: invite_one_time_warning
+    attrs:
+      name: enrollment-invite-one-time-warning
+      label: One-time invitation link
+      type: alert_warning
+      required: false
+      order: 0
+      placeholder: >-
+        This invitation link can be used only once. It is used up the moment you
+        press Continue - even if you do not finish creating your account. If you
+        are not ready yet, just close this page; the link stays valid until it
+        expires, and you can come back to it later.
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-invite-checklist
+    identifiers:
+      field_key: invite_checklist
+    attrs:
+      name: enrollment-invite-checklist
+      label: Have these ready before you continue
+      type: static
+      required: false
+      order: 10
+      placeholder: Creating your account takes about two minutes, in one sitting.
+      sub_text: >-
+        <ul>
+        <li><strong>A username</strong> - your login name, lowercase, no spaces.</li>
+        <li><strong>Your email address</strong> - we send you a confirmation link
+        and you must click it to activate the account, so pick an inbox you can
+        open right now.</li>
+        <li><strong>A password of at least 15 characters</strong> - it is checked
+        against known breached passwords and rejected if it is weak or reused. A
+        passphrase of a few unrelated words works well.</li>
+        <li><strong>An authenticator app on your phone</strong> - Aegis, Google
+        Authenticator, 1Password or similar. Two-factor is mandatory and you set
+        it up during sign-up, not afterwards.</li>
+        </ul>
+
+  # ---------------------------------------------------------------------------
+  # The interstitial stage itself
+  # ---------------------------------------------------------------------------
+  - model: authentik_stages_prompt.promptstage
+    id: stage-invite-warning
+    identifiers:
+      name: enrollment-invite-warning
+    attrs:
+      fields:
+        - !KeyOf prompt-invite-warning
+        - !KeyOf prompt-invite-checklist
+
+  # ---------------------------------------------------------------------------
+  # Bindings. Order 1 puts the warning ahead of the invitation stage; the second
+  # entry restores the invitation stage to order 5 (it was temporarily moved to
+  # 15 on 2026-09-25 while trialling consume-on-submit).
+  # ---------------------------------------------------------------------------
+  - model: authentik_flows.flowstagebinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, enrollment]]
+      stage: !KeyOf stage-invite-warning
+    attrs:
+      order: 1
+      evaluate_on_plan: true
+      re_evaluate_policies: false
+
+  - model: authentik_flows.flowstagebinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, enrollment]]
+      stage: !Find [authentik_stages_invitation.invitationstage, [name, enrollment-invitation]]
+    attrs:
+      order: 5
