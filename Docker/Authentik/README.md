@@ -369,12 +369,29 @@ the token returns 404 - that is correct, not a fault.
 tracked copies live in `branding/` and must be deployed by hand:
 
 ```bash
+N=/path/to/new/icon-set
+LH=$(md5sum $N/logo-1024.png | cut -c1-8)
+FH=$(md5sum $N/favicon.svg   | cut -c1-8)
 sudo mkdir -p data/media/public
-sudo cp branding/grail-icons/favicon.svg   data/media/public/holy-grail-icon.svg
-sudo cp branding/grail-icons/logo-1024.png data/media/public/holy-grail-logo.png
+sudo chmod 755 data/media/public && sudo rm -f data/media/public/*
+sudo cp $N/logo-1024.png "data/media/public/holy-grail-logo-$LH.png"
+sudo cp $N/favicon.svg   "data/media/public/holy-grail-icon-$FH.svg"
 sudo chown root:root data/media/public data/media/public/*
-sudo chmod 755 data/media/public && sudo chmod 444 data/media/public/*
+sudo chmod 444 data/media/public/* && sudo chmod 755 data/media/public
+# then point branding_logo / branding_favicon at the new filenames
 ```
+
+### Filenames carry a content hash, on purpose — Cloudflare caches these
+
+These assets are served through Cloudflare with `cache-control: public,
+max-age=14400`, i.e. **four hours**. Replacing a file *in place* therefore appears
+to do nothing: the container serves the new bytes, Cloudflare keeps returning the
+old ones (`cf-cache-status: HIT`), and the only symptom is a stale logo. This
+happened during the icon-set update and looked exactly like a failed deploy.
+
+Embedding the file's md5 prefix in its name means new content is a new URL, so the
+edge cache is bypassed automatically with no purge token or waiting. Recompute the
+hash whenever the artwork changes - do not reuse a filename.
 
 `branding/grail-icons/` holds the full generated set - `.ico`, 16/32/48 PNGs,
 apple-touch-icon, android 192/512 and `site.webmanifest`. authentik uses only the
