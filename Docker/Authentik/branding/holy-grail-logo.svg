@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 96" role="img" aria-label="Holy Grail">
+  <g fill="#c9a227">
+    <!-- chalice -->
+    <path d="M34 20h34c0 14-4 22-12 26v14h9v6H37v-6h9V46c-8-4-12-12-12-26zm5 6c1 9 4 14 12 17 8-3 11-8 12-17z"/>
+  </g>
+  <text x="92" y="62" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="44" font-weight="700" letter-spacing="1.5" fill="#c9a227">HOLY GRAIL</text>
+</svg>

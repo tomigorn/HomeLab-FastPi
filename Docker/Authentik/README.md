@@ -335,6 +335,48 @@ expired`, `No session`) write **no log line at all**, which is why the original
 failure left no trace. Only the passport-error path logs, and it redirects to
 `/login?error=...`.
 
+## Branding
+
+The login page, flow titles, favicon and emails all say **Holy Grail**, not
+authentik. Three separate mechanisms, because authentik has no single switch:
+
+**1. Brand object** (System -> Brands, or the ORM). Controls the login page:
+
+| Field | Value |
+|---|---|
+| `branding_title` | `Holy Grail` |
+| `branding_logo` | `holy-grail-logo.svg` |
+| `branding_favicon` | `holy-grail-icon.svg` |
+| `footer_links` (on the **Tenant**, not the Brand) | holy-grail.ch + a small authentik credit |
+
+**2. Flow titles.** The big "Welcome to authentik!" line is the *flow's* `title`,
+not a brand setting. Four flows carried it: `default-authentication-flow`,
+`default-source-authentication`, `default-source-enrollment` and `initial-setup`.
+
+**3. Emails** — see `custom-templates/email/base.html`.
+
+### Where the logo files live, and why
+
+`branding_logo` is **not** a free-form URL. `FileManager.file_url()` passes a value
+through untouched only if it starts with `http:`, `https://` or `fa://`; anything
+else is resolved as a managed file at `{base_dir}/media/{schema}`, i.e.
+`/data/media/public`. A `data:` URI does **not** work - it gets prefixed into
+`/files/media/public/data:image/svg+xml;...` and 404s. Files are then served over
+a **signed** URL (`?token=...`), so fetching `/files/media/public/<name>` without
+the token returns 404 - that is correct, not a fault.
+
+`./data` is bind-mounted, so the files persist; but `data/` is gitignored, so the
+tracked copies live in `branding/` and must be deployed by hand:
+
+```bash
+sudo mkdir -p data/media/public
+sudo cp branding/*.svg data/media/public/
+sudo chmod 644 data/media/public/*.svg
+```
+
+To use a real logo instead of the wordmark, drop it in `branding/`, copy it across
+as above, and point `branding_logo` at the filename. No restart needed.
+
 ## Routing
 
 `sso.holy-grail.ch` is routed by Traefik's file provider

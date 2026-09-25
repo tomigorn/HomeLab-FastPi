@@ -397,23 +397,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    authentication: none
-    background: ''
-    compatibility_mode: false
-    denied_action: message_continue
-    designation: enrollment
-    layout: stacked
-    name: Welcome to authentik! Please select a username.
-    policy_engine_mode: any
-    slug: default-source-enrollment
-    title: Welcome to authentik! Please select a username.
-  conditions: []
-  identifiers:
-    pk: 737f0963-3004-485b-9aa3-aaf2d9acff18
-  model: authentik_flows.flow
-  permissions: []
-  state: present
-- attrs:
     authentication: require_authenticated
     background: ''
     compatibility_mode: false
@@ -452,15 +435,49 @@ entries:
     background: ''
     compatibility_mode: false
     denied_action: message_continue
-    designation: stage_configuration
+    designation: authentication
     layout: stacked
-    name: Pre-Authentication
+    name: Welcome to authentik!
     policy_engine_mode: any
-    slug: default-source-pre-authentication
-    title: Pre-authentication
+    slug: default-authentication-flow
+    title: Welcome to Holy Grail
   conditions: []
   identifiers:
-    pk: e9a9135b-1eb4-4af9-9b7f-710f88723088
+    pk: 009a3193-97aa-439b-b26a-7415b2800c45
+  model: authentik_flows.flow
+  permissions: []
+  state: present
+- attrs:
+    authentication: require_unauthenticated
+    background: ''
+    compatibility_mode: false
+    denied_action: message_continue
+    designation: authentication
+    layout: stacked
+    name: Welcome to authentik!
+    policy_engine_mode: any
+    slug: default-source-authentication
+    title: Welcome to Holy Grail
+  conditions: []
+  identifiers:
+    pk: 2b6bb77c-fc53-4edd-a74f-0cedc6ccaaa1
+  model: authentik_flows.flow
+  permissions: []
+  state: present
+- attrs:
+    authentication: none
+    background: ''
+    compatibility_mode: false
+    denied_action: message_continue
+    designation: enrollment
+    layout: stacked
+    name: Welcome to authentik! Please select a username.
+    policy_engine_mode: any
+    slug: default-source-enrollment
+    title: Welcome to Holy Grail. Please pick a username.
+  conditions: []
+  identifiers:
+    pk: 737f0963-3004-485b-9aa3-aaf2d9acff18
   model: authentik_flows.flow
   permissions: []
   state: present
@@ -474,10 +491,27 @@ entries:
     name: default-oobe-setup
     policy_engine_mode: any
     slug: initial-setup
-    title: Welcome to authentik!
+    title: Welcome to Holy Grail
   conditions: []
   identifiers:
     pk: 9de28d8b-ae7d-467a-874f-e819be12dd32
+  model: authentik_flows.flow
+  permissions: []
+  state: present
+- attrs:
+    authentication: none
+    background: ''
+    compatibility_mode: false
+    denied_action: message_continue
+    designation: stage_configuration
+    layout: stacked
+    name: Pre-Authentication
+    policy_engine_mode: any
+    slug: default-source-pre-authentication
+    title: Pre-authentication
+  conditions: []
+  identifiers:
+    pk: e9a9135b-1eb4-4af9-9b7f-710f88723088
   model: authentik_flows.flow
   permissions: []
   state: present
@@ -537,23 +571,6 @@ entries:
     background: ''
     compatibility_mode: false
     denied_action: message_continue
-    designation: authentication
-    layout: stacked
-    name: Welcome to authentik!
-    policy_engine_mode: any
-    slug: default-authentication-flow
-    title: Welcome to authentik!
-  conditions: []
-  identifiers:
-    pk: 009a3193-97aa-439b-b26a-7415b2800c45
-  model: authentik_flows.flow
-  permissions: []
-  state: present
-- attrs:
-    authentication: none
-    background: ''
-    compatibility_mode: false
-    denied_action: message_continue
     designation: invalidation
     layout: stacked
     name: Logout
@@ -580,23 +597,6 @@ entries:
   conditions: []
   identifiers:
     pk: 9d275f25-c578-4516-be62-258fe86d7114
-  model: authentik_flows.flow
-  permissions: []
-  state: present
-- attrs:
-    authentication: require_unauthenticated
-    background: ''
-    compatibility_mode: false
-    denied_action: message_continue
-    designation: authentication
-    layout: stacked
-    name: Welcome to authentik!
-    policy_engine_mode: any
-    slug: default-source-authentication
-    title: Welcome to authentik!
-  conditions: []
-  identifiers:
-    pk: 2b6bb77c-fc53-4edd-a74f-0cedc6ccaaa1
   model: authentik_flows.flow
   permissions: []
   state: present
@@ -3086,22 +3086,32 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 21 * * * *
+    crontab: 16 8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
+    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
 - attrs:
-    crontab: 26 */2 * * *
+    crontab: 59 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 9-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3166,16 +3176,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 29 */4 * * *
-    paused: false
-    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
-  conditions: []
-  identifiers:
-    pk: edd1641d-35f5-45dc-a4a8-83b027848529
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 19 * * * *
     paused: false
     rel_obj_id: null
@@ -3226,32 +3226,22 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 9-59/5 * * * *
+    crontab: 21 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
+    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
 - attrs:
-    crontab: 16 8 * * *
+    crontab: 26 */2 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
+    pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3266,12 +3256,22 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 29 */4 * * *
+    paused: false
+    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
+  conditions: []
+  identifiers:
+    pk: edd1641d-35f5-45dc-a4a8-83b027848529
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     attributes: {}
     branding_custom_css: ''
     branding_default_flow_background: /static/dist/assets/images/flow_background.jpg
-    branding_favicon: /static/dist/assets/icons/icon.png
-    branding_logo: /static/dist/assets/icons/icon_left_brand.svg
-    branding_title: authentik
+    branding_favicon: holy-grail-icon.svg
+    branding_logo: holy-grail-logo.svg
+    branding_title: Holy Grail
     client_certificates: []
     default: true
     default_application: null
@@ -3688,5 +3688,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 20:15:49.816105+00:00
+  name: authentik Export - 2026-09-25 20:28:48.849653+00:00
 version: 1
