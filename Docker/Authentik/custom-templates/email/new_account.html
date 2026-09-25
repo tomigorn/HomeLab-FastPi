@@ -1,0 +1,100 @@
+{% extends "email/base.html" %}
+{% load i18n %}
+
+{#
+  Human-readable notification for "a user account was created".
+
+  Used by the `new-account-email-transport` notification transport, which is
+  bound to the `notify-admins-user-created` rule.
+
+  Why this exists: the stock email/event_notification.html titles the message
+  with the raw event action ("model_created") and dumps the event context as a
+  Python dict. It is accurate and unreadable - you cannot tell from the subject
+  line that someone signed up.
+
+  Context available here (built in NotificationTransport.send_email):
+    title      - the raw event action, e.g. "model_created"
+    body       - the full event dump
+    key_value  - user_email / user_username  = the RECIPIENT (you, the admin)
+                 event_user_email / event_user_username = whoever the event was
+                 attributed to. For a self-service enrolment that is the new
+                 account. For an admin-created account it is the ADMIN, not the
+                 new user, because the created object's name lives in
+                 event.context["model"], a dict, which send_email() skips (it
+                 only copies string values into key_value). That is why the raw
+                 dump is still shown at the bottom - it is the only place the
+                 created username appears in that case.
+#}
+
+{% block content %}
+<tr>
+  <td align="center">
+    <h1>New account created</h1>
+  </td>
+</tr>
+<tr>
+  <td align="center">
+    <table border="0">
+      <tr>
+        <td align="center" style="max-width: 360px; padding: 12px 0; color: #212124;">
+          Someone now has an account on <strong>holy-grail.ch</strong>.
+        </td>
+      </tr>
+
+      {% if key_value.event_user_username %}
+      <tr>
+        <td>
+          <table class="properties-table" width="100%">
+            <tbody>
+              <tr>
+                <td class="td-right">Account</td>
+                <td class="td-left"><strong>{{ key_value.event_user_username }}</strong></td>
+              </tr>
+              {% if key_value.event_user_email %}
+              <tr>
+                <td class="td-right">Email</td>
+                <td class="td-left">{{ key_value.event_user_email }}</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </td>
+      </tr>
+      {% endif %}
+
+      <tr>
+        <td align="center" style="max-width: 360px; padding: 12px 0; color: #212124; font-size: 13px;">
+          They were added to <code>streaming-users</code> automatically, which
+          gives them Audiobookshelf. If they should also reach Nextcloud, add
+          <code>cloud-users</code> by hand.
+        </td>
+      </tr>
+
+      <tr>
+        <td align="center" class="btn btn-primary">
+          <a href="https://sso.holy-grail.ch/if/admin/#/identity/users"
+             rel="noopener noreferrer" target="_blank">Open users in authentik</a>
+        </td>
+      </tr>
+
+      <tr>
+        <td align="center" style="padding: 18px 8px 0 8px; color: #6a6e73; font-size: 11px; word-break: break-all;">
+          {{ body }}
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+{% endblock %}
+
+{% block sub_content %}
+{% if source %}
+<tr>
+  <td style="padding: 20px; font-size: 12px; color: #212124;" align="center">
+    {% blocktranslate with name=source.from %}
+    This email was sent from the notification transport <code>{{ name }}</code>.
+    {% endblocktranslate %}
+  </td>
+</tr>
+{% endif %}
+{% endblock %}

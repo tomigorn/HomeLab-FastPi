@@ -66,6 +66,29 @@ entries:
   # ---------------------------------------------------------------------------
   # 3. Mail the admins when it matches
   # ---------------------------------------------------------------------------
+  # Dedicated transport so the stock one is left alone for other notifications.
+  #
+  # The stock email/event_notification.html titles the mail with the raw event
+  # action ("model_created") and dumps the event context as a Python dict - you
+  # cannot tell from it that somebody signed up. `email/new_account.html` lives
+  # in ./custom-templates (bind-mounted at /templates, so it survives a recreate,
+  # unlike this blueprints/ directory) and renders the username and email plainly.
+  #
+  # The SUBJECT still ends in "model_created" and that cannot be fixed here:
+  # send_email() builds it as `email_subject_prefix + event.action` with no way to
+  # override the second half. Note also that a TRAILING SPACE in the prefix does
+  # not survive - DRF's CharField trims whitespace on save - so the prefix has to
+  # read correctly with the action jammed straight onto its end.
+  - model: authentik_events.notificationtransport
+    id: transport-new-account
+    identifiers:
+      name: new-account-email-transport
+    attrs:
+      mode: email
+      email_template: email/new_account.html
+      email_subject_prefix: "New account on holy-grail.ch ·"
+      send_once: false
+
   - model: authentik_events.notificationrule
     id: rule-user-created
     identifiers:
@@ -75,7 +98,7 @@ entries:
       destination_group:
         !Find [authentik_core.group, [name, authentik Admins]]
       transports:
-        - !Find [authentik_events.notificationtransport, [name, default-email-transport]]
+        - !KeyOf transport-new-account
 
   - model: authentik_policies.policybinding
     identifiers:

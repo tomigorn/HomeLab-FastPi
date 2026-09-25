@@ -25,4 +25,10 @@ auth.json
 # Authentik runtime data (bind mounts)
 data/
 certs/
-custom-templates/
+# custom-templates is a bind mount, but the templates in it are SOURCE, not
+# runtime data - and unlike blueprints/ this directory IS mounted, so what lives
+# here is what authentik actually renders. Track the templates, ignore the rest.
+custom-templates/*
+!custom-templates/email/
+custom-templates/email/*
+!custom-templates/email/*.html
