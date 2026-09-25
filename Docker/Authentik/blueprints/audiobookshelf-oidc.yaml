@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=./blueprint.schema.json
+#
+# Audiobookshelf roles, driven by authentik groups.
+#
+# Audiobookshelf derives a user's role from an OIDC group claim, but it matches
+# the LITERAL strings "admin", "user" or "guest" (lowercased) inside the claim
+# array - see setUserGroup() in server/auth/OidcAuthStrategy.js. Anything else is
+# not a downgrade, it is a HARD FAILURE:
+#
+#     throw new Error(`No valid group found in userinfo: ...`)
+#
+# i.e. the login is denied. That is upstream issue #3659 (the "auth loop"). So the
+# mapping below ALWAYS emits a non-empty list: admins get ["admin"], everyone else
+# gets ["user"]. Never return [].
+#
+# WHY THIS REPLACES THE DEFAULT PROFILE MAPPING RATHER THAN JOINING IT
+# authentik's default "OpenID 'profile'" mapping already emits a groups claim
+# containing every authentik group's display name - 'authentik Admins',
+# 'streaming-users' and so on. None of those equal "admin", so with that mapping
+# in place, switching on authOpenIDGroupClaim denies EVERY login. Two mappings
+# emitting the same claim name is also the fragility recorded as known issue #2 in
+# README.md for Nextcloud. One mapping owns the claim; the default is removed from
+# this provider's property_mappings below.
+#
+# The scope_name is deliberately "profile", because Audiobookshelf requests
+# `openid profile email` and cannot be told to ask for a custom scope.
+#
+# Audiobookshelf reads these exact fields (models/User.js
+# createUserFromOpenIdUserInfo): preferred_username || name || sub for the
+# username, and email + email_verified for the address - the latter still comes
+# from the separate "audiobookshelf email (verified)" mapping, which stays.
+#
+# Apply with:
+#   docker cp blueprints/audiobookshelf-oidc.yaml authentik-server:/blueprints/
+#   docker exec -i authentik-server ak apply_blueprint audiobookshelf-oidc.yaml
+#
+# THEN, and only after verifying the claim renders correctly, set
+# authOpenIDGroupClaim = "groups" in Audiobookshelf. Keep local password auth
+# enabled until that is proven - it is the way back in if the claim is wrong.
+version: 1
+metadata:
+  name: audiobookshelf-oidc-roles
+  labels:
+    blueprints.goauthentik.io/description: |
+      streaming-admins group + the profile/groups scope mapping Audiobookshelf needs.
+
+entries:
+  - model: authentik_core.group
+    id: group-streaming-admins
+    identifiers:
+      name: streaming-admins
+    attrs:
+      is_superuser: false
+
+  - model: authentik_providers_oauth2.scopemapping
+    id: mapping-abs-profile
+    identifiers:
+      name: Audiobookshelf Profile
+    attrs:
+      scope_name: profile
+      description: Audiobookshelf username and role (admin/user)
+      expression: |
+        # Audiobookshelf matches the literal strings admin/user/guest.
+        # Never return an empty list - that is a denied login, not a downgrade.
+        if request.user.groups.filter(name="streaming-admins").exists():
+            groups = ["admin"]
+        else:
+            groups = ["user"]
+        return {
+            "preferred_username": request.user.username,
+            "name": request.user.name,
+            "groups": groups,
+        }
+
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: audiobookshelf
+    attrs:
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [name, "audiobookshelf email (verified)"]]
+        - !KeyOf mapping-abs-profile
