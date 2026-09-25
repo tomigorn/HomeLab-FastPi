@@ -2601,14 +2601,14 @@ entries:
   state: present
 - attrs:
     field_key: invite_one_time_warning
-    initial_value: ''
+    initial_value: <p>This link works <strong>only once</strong>. It is used up the moment you press Continue
+      - even if you do not finish creating your account.</p> <p>Not ready yet? Just close this page. The
+      link stays valid until it expires, and you can come back to it later.</p>
     initial_value_expression: false
     label: One-time invitation link
     name: enrollment-invite-one-time-warning
     order: 0
-    placeholder: This invitation link can be used only once. It is used up the moment you press Continue
-      - even if you do not finish creating your account. If you are not ready yet, just close this page;
-      the link stays valid until it expires, and you can come back to it later.
+    placeholder: ''
     placeholder_expression: false
     required: false
     sub_text: ''
@@ -2616,30 +2616,6 @@ entries:
   conditions: []
   identifiers:
     pk: 85c53e44-ba41-4212-ab83-92328056e762
-  model: authentik_stages_prompt.prompt
-  permissions: []
-  state: present
-- attrs:
-    field_key: invite_checklist
-    initial_value: ''
-    initial_value_expression: false
-    label: Have these ready before you continue
-    name: enrollment-invite-checklist
-    order: 10
-    placeholder: Creating your account takes about two minutes, in one sitting.
-    placeholder_expression: false
-    required: false
-    sub_text: <ul> <li><strong>A username</strong> - your login name, lowercase, no spaces.</li> <li><strong>Your
-      email address</strong> - we send you a confirmation link and you must click it to activate the account,
-      so pick an inbox you can open right now.</li> <li><strong>A password of at least 15 characters</strong>
-      - it is checked against known breached passwords and rejected if it is weak or reused. A passphrase
-      of a few unrelated words works well.</li> <li><strong>An authenticator app on your phone</strong>
-      - Aegis, Google Authenticator, 1Password or similar. Two-factor is mandatory and you set it up during
-      sign-up, not afterwards.</li> </ul>
-    type: static
-  conditions: []
-  identifiers:
-    pk: 6ea12eb5-34aa-442e-ab3d-bed9db24aa11
   model: authentik_stages_prompt.prompt
   permissions: []
   state: present
@@ -2771,6 +2747,30 @@ entries:
   permissions: []
   state: present
 - attrs:
+    field_key: invite_checklist
+    initial_value: <ul> <li><strong>A username</strong> - your login name, lowercase, no spaces.</li>
+      <li><strong>An email address you can open right now</strong> - we send a confirmation link and you
+      must click it to activate the account.</li> <li><strong>A password of at least 15 characters</strong>
+      - checked against known breached passwords and rejected if weak or reused. A passphrase of a few
+      unrelated words works well.</li> <li><strong>An authenticator app on your phone</strong> - Aegis,
+      Google Authenticator, 1Password or similar. Two-factor is mandatory and you set it up now, not afterwards.</li>
+      </ul> <p>It takes about two minutes, in one sitting.</p>
+    initial_value_expression: false
+    label: Before you press Continue, have these ready
+    name: enrollment-invite-checklist
+    order: 10
+    placeholder: ''
+    placeholder_expression: false
+    required: false
+    sub_text: ''
+    type: alert_info
+  conditions: []
+  identifiers:
+    pk: 6ea12eb5-34aa-442e-ab3d-bed9db24aa11
+  model: authentik_stages_prompt.prompt
+  permissions: []
+  state: present
+- attrs:
     fields:
     - 5951db28-bf43-4da9-ba43-f58c21ea8c16
     - 1f5e38cc-d2bf-4b09-91fc-552c73ef0346
@@ -2785,8 +2785,8 @@ entries:
   state: present
 - attrs:
     fields:
-    - 95e92006-a7af-431e-8ffa-8b23ff836180
     - b04dfd10-c101-4a77-b13f-519158b37b31
+    - 95e92006-a7af-431e-8ffa-8b23ff836180
     - 475f9a75-a761-4439-9485-b5fc726fe115
     - 46a0cb8c-28b7-48ec-b992-69358114fa7b
     name: default-user-settings
@@ -2800,10 +2800,10 @@ entries:
   state: present
 - attrs:
     fields:
-    - 717e7013-236b-422b-a050-086bf946c517
     - 922ca912-1c1c-400f-9694-ae631a09a4c0
-    - 28248e92-7b6e-42a4-8a9f-0e9a5d62f9e7
     - 7235b845-2acc-4fc3-ac2a-bf1c9334faa8
+    - 717e7013-236b-422b-a050-086bf946c517
+    - 28248e92-7b6e-42a4-8a9f-0e9a5d62f9e7
     name: stage-default-oobe-password
     validation_policies: []
   conditions: []
@@ -2828,8 +2828,8 @@ entries:
     - faaff550-51b0-48d6-99ed-4355e5917bae
     - f0178250-c29e-483e-ba87-8f17f7a34329
     - 638363ce-7bd9-4c9d-9a0c-9617195ec679
-    - 240669b4-b309-4af8-81b7-f1f9ae7d9387
     - 6d5e85d7-7567-4b44-b2ee-1b670b32ffa6
+    - 240669b4-b309-4af8-81b7-f1f9ae7d9387
     name: invitation-enrollment-prompt-credentials-enrollment
     validation_policies:
     - ddb5de7b-c785-433d-94b2-0ef31d4ae20c
@@ -2841,8 +2841,8 @@ entries:
   state: present
 - attrs:
     fields:
-    - 240669b4-b309-4af8-81b7-f1f9ae7d9387
     - 6d5e85d7-7567-4b44-b2ee-1b670b32ffa6
+    - 240669b4-b309-4af8-81b7-f1f9ae7d9387
     name: invitation-enrollment-prompt-details-enrollment
     validation_policies: []
   conditions: []
@@ -3030,6 +3030,26 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 21 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 24 */3 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 46 * * * *
     paused: false
     rel_obj_id: null
@@ -3046,6 +3066,36 @@ entries:
   conditions: []
   identifiers:
     pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 9-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 2-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: c457abd3-1325-46dc-ae47-6ed899816277
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 3-59/15 * * * *
+    paused: false
+    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
+  conditions: []
+  identifiers:
+    pk: b3855804-2d23-4d99-b095-cca3a492a032
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3090,32 +3140,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 19 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 35 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 3e3e16cb-007a-4445-9414-4185df579b15
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 21 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3150,32 +3180,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 9-59/5 * * * *
+    crontab: 19 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 2-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: c457abd3-1325-46dc-ae47-6ed899816277
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 3-59/15 * * * *
-    paused: false
-    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
-  conditions: []
-  identifiers:
-    pk: b3855804-2d23-4d99-b095-cca3a492a032
+    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3186,16 +3196,6 @@ entries:
   conditions: []
   identifiers:
     pk: 51668dac-cd68-4783-9bf0-470c01fff2cd
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 24 */3 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3622,5 +3622,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 18:18:08.713626+00:00
+  name: authentik Export - 2026-09-25 18:33:13.072796+00:00
 version: 1

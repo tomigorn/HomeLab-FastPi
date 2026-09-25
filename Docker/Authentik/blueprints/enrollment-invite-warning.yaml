@@ -48,45 +48,57 @@ entries:
       name: enrollment-invite-one-time-warning
     attrs:
       field_key: invite_one_time_warning
-      label: One-time invitation link
+      # Explicitly blank. Blueprint attrs only SET what they name - they do not
+      # clear what they omit, so an earlier revision's sub_text survived a
+      # re-apply and rendered the checklist a second time as helper text.
+      placeholder: ""
+      sub_text: ""
       type: alert_warning
       required: false
       order: 0
-      placeholder: >-
-        This invitation link can be used only once. It is used up the moment you
-        press Continue - even if you do not finish creating your account. If you
-        are not ready yet, just close this page; the link stays valid until it
-        expires, and you can come back to it later.
+      # RENDERING, the short version: for alert_* and static prompts the frontend
+      # renders `label` as the alert title and `initial_value` as the body (as
+      # HTML). `placeholder` is NEVER rendered for these types - it is only used
+      # for real input fields. An earlier version of this file put the text in
+      # `placeholder`, which produced an alert box containing nothing but a
+      # heading. Keep body copy in initial_value.
+      label: One-time invitation link
+      initial_value: >-
+        <p>This link works <strong>only once</strong>. It is used up the moment
+        you press Continue - even if you do not finish creating your account.</p>
+        <p>Not ready yet? Just close this page. The link stays valid until it
+        expires, and you can come back to it later.</p>
 
   - model: authentik_stages_prompt.prompt
     id: prompt-invite-checklist
     identifiers:
-      # Prompt.name is unique; Prompt.field_key is NOT. The importer matches with
-      # .filter(query).first(), so identifying by field_key would silently bind to
-      # an arbitrary row if another prompt ever reused the key - and if the key
-      # were edited in the UI, the import would instead try to create a second
-      # prompt with this same (unique) name and fail.
       name: enrollment-invite-checklist
     attrs:
       field_key: invite_checklist
-      label: Have these ready before you continue
-      type: static
+      placeholder: ""
+      sub_text: ""
+      # alert_info, NOT static, on purpose. The static branch renders
+      # `<p>${initial_value}</p>`, so a <ul> inside it is invalid HTML: the
+      # browser hoists the list out of the paragraph and it loses PatternFly's
+      # list styling, which is why the bullets disappeared. An alert renders its
+      # body inside a `pf-c-content` div, where <ul>/<li> are styled correctly.
+      type: alert_info
       required: false
       order: 10
-      placeholder: Creating your account takes about two minutes, in one sitting.
-      sub_text: >-
+      label: Before you press Continue, have these ready
+      initial_value: >-
         <ul>
         <li><strong>A username</strong> - your login name, lowercase, no spaces.</li>
-        <li><strong>Your email address</strong> - we send you a confirmation link
-        and you must click it to activate the account, so pick an inbox you can
-        open right now.</li>
-        <li><strong>A password of at least 15 characters</strong> - it is checked
-        against known breached passwords and rejected if it is weak or reused. A
+        <li><strong>An email address you can open right now</strong> - we send a
+        confirmation link and you must click it to activate the account.</li>
+        <li><strong>A password of at least 15 characters</strong> - checked
+        against known breached passwords and rejected if weak or reused. A
         passphrase of a few unrelated words works well.</li>
         <li><strong>An authenticator app on your phone</strong> - Aegis, Google
         Authenticator, 1Password or similar. Two-factor is mandatory and you set
-        it up during sign-up, not afterwards.</li>
+        it up now, not afterwards.</li>
         </ul>
+        <p>It takes about two minutes, in one sitting.</p>
 
   # ---------------------------------------------------------------------------
   # The interstitial stage itself
