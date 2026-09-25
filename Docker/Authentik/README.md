@@ -377,6 +377,27 @@ sudo chmod 644 data/media/public/*.svg
 To use a real logo instead of the wordmark, drop it in `branding/`, copy it across
 as above, and point `branding_logo` at the filename. No restart needed.
 
+### The files are deliberately read-only to authentik
+
+The container runs as uid 1000, which is `pi` on the host - so by default it could
+write into its own media directory, meaning **anyone with admin access to the web
+UI could upload a file straight over the logo**. Both the directory and the files
+are therefore owned by root, with the files mode `444` and the directory `755`:
+
+```bash
+sudo chown root:root data/media/public data/media/public/*
+sudo chmod 755 data/media/public
+sudo chmod 444 data/media/public/*
+```
+
+Verified: authentik can still READ them (serving works), but cannot overwrite an
+existing file or create a new one in that directory.
+
+The trade-off is that **uploading images through the authentik UI no longer
+works** - brand images have to be installed from the host, as above. That is the
+intent; if you ever need the UI upload, `chown` the directory back to 1000:1000
+temporarily.
+
 ## Routing
 
 `sso.holy-grail.ch` is routed by Traefik's file provider
