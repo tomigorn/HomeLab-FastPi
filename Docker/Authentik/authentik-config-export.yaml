@@ -2600,26 +2600,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    field_key: invite_one_time_warning
-    initial_value: <p>This link works <strong>only once</strong>. It is used up the moment you press Continue
-      - even if you do not finish creating your account.</p> <p>Not ready yet? Just close this page. The
-      link stays valid until it expires, and you can come back to it later.</p>
-    initial_value_expression: false
-    label: One-time invitation link
-    name: enrollment-invite-one-time-warning
-    order: 0
-    placeholder: ''
-    placeholder_expression: false
-    required: false
-    sub_text: ''
-    type: alert_warning
-  conditions: []
-  identifiers:
-    pk: 85c53e44-ba41-4212-ab83-92328056e762
-  model: authentik_stages_prompt.prompt
-  permissions: []
-  state: present
-- attrs:
     field_key: password
     initial_value: ''
     initial_value_expression: false
@@ -2743,6 +2723,35 @@ entries:
   conditions: []
   identifiers:
     pk: 46a0cb8c-28b7-48ec-b992-69358114fa7b
+  model: authentik_stages_prompt.prompt
+  permissions: []
+  state: present
+- attrs:
+    field_key: invite_one_time_warning
+    initial_value: "warning = (\n    \"<p>This link works <strong>only once</strong>. It is used up the\
+      \ moment \"\n    \"you press Continue - even if you do not finish creating your account.</p>\"\n\
+      )\ntail = (\n    \"<p>Not ready yet? Just close this page - nothing is used up until you \"\n  \
+      \  \"press Continue, and you can come back to this link later.</p>\"\n)\ntry:\n    from zoneinfo\
+      \ import ZoneInfo\n\n    from authentik.stages.invitation.models import Invitation\n\n    token\
+      \ = (http_request.session.get(\"authentik/flows/get\", {}) or {}).get(\"itoken\")\n    invite =\
+      \ Invitation.objects.filter(pk=token).first() if token else None\n    if invite and invite.expires:\n\
+      \        try:\n            when = invite.expires.astimezone(ZoneInfo(\"Europe/Zurich\"))\n     \
+      \   except Exception:\n            when = invite.expires\n        tail = (\n            \"<p>Not\
+      \ ready yet? Just close this page - nothing is used up \"\n            \"until you press Continue.\
+      \ This invitation stays valid until \"\n            \"<strong>\" + when.strftime(\"%A %d %B %Y,\
+      \ %H:%M %Z\") + \"</strong>.</p>\"\n        )\nexcept Exception:\n    pass\nreturn warning + tail"
+    initial_value_expression: true
+    label: One-time invitation link
+    name: enrollment-invite-one-time-warning
+    order: 0
+    placeholder: ''
+    placeholder_expression: false
+    required: false
+    sub_text: ''
+    type: alert_warning
+  conditions: []
+  identifiers:
+    pk: 85c53e44-ba41-4212-ab83-92328056e762
   model: authentik_stages_prompt.prompt
   permissions: []
   state: present
@@ -3070,6 +3079,16 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 3-59/15 * * * *
+    paused: false
+    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
+  conditions: []
+  identifiers:
+    pk: b3855804-2d23-4d99-b095-cca3a492a032
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 9-59/5 * * * *
     paused: false
     rel_obj_id: null
@@ -3086,16 +3105,6 @@ entries:
   conditions: []
   identifiers:
     pk: c457abd3-1325-46dc-ae47-6ed899816277
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 3-59/15 * * * *
-    paused: false
-    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
-  conditions: []
-  identifiers:
-    pk: b3855804-2d23-4d99-b095-cca3a492a032
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3622,5 +3631,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 18:33:13.072796+00:00
+  name: authentik Export - 2026-09-25 18:36:33.528597+00:00
 version: 1

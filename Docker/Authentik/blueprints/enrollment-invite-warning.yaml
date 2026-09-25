@@ -63,11 +63,51 @@ entries:
       # `placeholder`, which produced an alert box containing nothing but a
       # heading. Keep body copy in initial_value.
       label: One-time invitation link
-      initial_value: >-
-        <p>This link works <strong>only once</strong>. It is used up the moment
-        you press Continue - even if you do not finish creating your account.</p>
-        <p>Not ready yet? Just close this page. The link stays valid until it
-        expires, and you can come back to it later.</p>
+      # Resolved at render time so the reader sees the real deadline. The
+      # invitation stage has not run yet at order 1, so plan context has no
+      # invitation object - the token is read straight out of the saved flow GET
+      # args (SESSION_KEY_GET = "authentik/flows/get").
+      #
+      # Everything is wrapped in try/except on purpose. get_initial_value() falls
+      # back to `self.initial_value` when the expression raises, which would print
+      # this Python source into the alert box for the visitor to read. The
+      # expression must therefore never raise: an absent, malformed (ValidationError
+      # from a non-UUID pk) or already-consumed token all fall through to the
+      # generic wording.
+      #
+      # Not a disclosure risk: the page is only meaningful to someone already
+      # holding the link, the token is a 122-bit UUID4, and an expiry date tells
+      # an attacker nothing they could act on.
+      initial_value_expression: true
+      initial_value: |
+        warning = (
+            "<p>This link works <strong>only once</strong>. It is used up the moment "
+            "you press Continue - even if you do not finish creating your account.</p>"
+        )
+        tail = (
+            "<p>Not ready yet? Just close this page - nothing is used up until you "
+            "press Continue, and you can come back to this link later.</p>"
+        )
+        try:
+            from zoneinfo import ZoneInfo
+
+            from authentik.stages.invitation.models import Invitation
+
+            token = (http_request.session.get("authentik/flows/get", {}) or {}).get("itoken")
+            invite = Invitation.objects.filter(pk=token).first() if token else None
+            if invite and invite.expires:
+                try:
+                    when = invite.expires.astimezone(ZoneInfo("Europe/Zurich"))
+                except Exception:
+                    when = invite.expires
+                tail = (
+                    "<p>Not ready yet? Just close this page - nothing is used up "
+                    "until you press Continue. This invitation stays valid until "
+                    "<strong>" + when.strftime("%A %d %B %Y, %H:%M %Z") + "</strong>.</p>"
+                )
+        except Exception:
+            pass
+        return warning + tail
 
   - model: authentik_stages_prompt.prompt
     id: prompt-invite-checklist
