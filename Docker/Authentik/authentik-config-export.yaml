@@ -3086,32 +3086,32 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 16 8 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 9-59/5 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 21 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 26 */2 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3176,6 +3176,16 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 29 */4 * * *
+    paused: false
+    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
+  conditions: []
+  identifiers:
+    pk: edd1641d-35f5-45dc-a4a8-83b027848529
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 19 * * * *
     paused: false
     rel_obj_id: null
@@ -3216,32 +3226,22 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 16 8 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 27 */24 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 882b653b-d9c8-477f-baac-3dcffecb119a
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 21 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 26 */2 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3256,12 +3256,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 29 */4 * * *
+    crontab: 59 * * * *
     paused: false
-    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
+    rel_obj_id: null
   conditions: []
   identifiers:
-    pk: edd1641d-35f5-45dc-a4a8-83b027848529
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3688,5 +3688,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 20:28:48.849653+00:00
+  name: authentik Export - 2026-09-25 20:38:14.838168+00:00
 version: 1
