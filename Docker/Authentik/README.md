@@ -195,6 +195,51 @@ describes the resolved API shape and rejects its own `!Find`/`!KeyOf` tags; with
 no schema at all, editors auto-match an unrelated one. `yaml.customTags` in
 `~/.vscode/settings.json` silences the tag warnings.
 
+### Invitation stage order — consume on submit, not on open (changed 2026-09-25)
+
+The invitation stage sits at **order 15, after the prompt**, not at order 5. This
+is deliberate.
+
+`InvitationStageView.dispatch()` deletes a `single_use` invitation the moment the
+stage is *reached* — there is no "consume on completion" option, the same stage
+both validates and consumes. With the stage at order 5 that happened on the first
+GET of the link, before the recipient typed anything, so a mail-client link
+prefetcher, a URL/malware scanner, or an accidental second load burned the invite
+and the person got "Invalid invite/invite not found". Measured: count 1 -> 0 on a
+single `curl`.
+
+Moving the stage after the prompt means the token is validated and consumed when
+the form is **submitted**. Verified by the `invitation_used` event's method:
+GET before the change consumed it, POST after the change consumes it, and GETs
+after the change (including the real `/if/flow/enrollment/?itoken=` URL) do not.
+
+Three consequences, accepted knowingly:
+
+1. **The signup form is now reachable without an invite.** There is no
+   flow-level policy binding, so anyone hitting `/if/flow/enrollment/` sees the
+   form and is only refused on submit. **No account can still be created without
+   a valid invite** — user-write is at order 20, after the invitation stage.
+2. **The password policy runs before invite validation.** `enrollment-password-policy`
+   (HaveIBeenPwned + zxcvbn) is evaluated as part of the prompt stage, so an
+   uninvited stranger can trigger outbound HIBP lookups. Rate-limited upstream by
+   Traefik's `default-rate-limit` and Cloudflare.
+3. **`fixed_data` prefill no longer works.** The invitation stage merges
+   `invite.fixed_data` into the prompt context, which now happens *after* the
+   prompt has rendered. Unused today (all invites have empty `fixed_data`); if you
+   ever want to pre-fill a recipient's email on the invite, this ordering must be
+   reverted.
+
+Revert with:
+
+```bash
+docker exec -i authentik-server ak shell -c "
+from authentik.flows.models import Flow, FlowStageBinding
+from authentik.stages.invitation.models import InvitationStage
+b = FlowStageBinding.objects.get(target=Flow.objects.get(slug='enrollment'),
+                                 stage__in=InvitationStage.objects.all())
+b.order = 5; b.save()"
+```
+
 ## Routing
 
 `sso.holy-grail.ch` is routed by Traefik's file provider
