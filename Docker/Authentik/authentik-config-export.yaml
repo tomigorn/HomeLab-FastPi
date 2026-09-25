@@ -16,8 +16,7 @@ entries:
   state: present
 - attrs:
     attributes:
-      notes: 'An group with an auto-generated role that allows read-only permissions
-        on all objects.
+      notes: 'An group with an auto-generated role that allows read-only permissions on all objects.
 
         '
     is_superuser: false
@@ -94,7 +93,7 @@ entries:
   state: present
 - attrs:
     attributes: {}
-    email: <email-removed-from-history>
+    email: <redacted-by-sanitize-export>
     groups:
     - d2ba3ab1-2b87-4706-b532-853201d0448a
     is_active: true
@@ -112,7 +111,7 @@ entries:
   state: present
 - attrs:
     attributes: {}
-    email: <email-removed-from-history>
+    email: <redacted-by-sanitize-export>
     groups:
     - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
     - ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
@@ -1140,19 +1139,18 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "from authentik.core.models import (\n    USER_ATTRIBUTE_CHANGE_EMAIL,\n\
-      \    USER_ATTRIBUTE_CHANGE_NAME,\n    USER_ATTRIBUTE_CHANGE_USERNAME\n)\nprompt_data\
-      \ = request.context.get(\"prompt_data\")\n\nif not request.user.group_attributes(request.http_request).get(\n\
-      \    USER_ATTRIBUTE_CHANGE_EMAIL, request.http_request.tenant.default_user_change_email\n\
-      ):\n    if prompt_data.get(\"email\") != request.user.email:\n        ak_message(\"\
-      Not allowed to change email address.\")\n        return False\n\nif not request.user.group_attributes(request.http_request).get(\n\
-      \    USER_ATTRIBUTE_CHANGE_NAME, request.http_request.tenant.default_user_change_name\n\
-      ):\n    if prompt_data.get(\"name\") != request.user.name:\n        ak_message(\"\
-      Not allowed to change name.\")\n        return False\n\nif not request.user.group_attributes(request.http_request).get(\n\
-      \    USER_ATTRIBUTE_CHANGE_USERNAME, request.http_request.tenant.default_user_change_username\n\
-      ):\n    if prompt_data.get(\"username\") != request.user.username:\n       \
-      \ ak_message(\"Not allowed to change username.\")\n        return False\n\n\
-      return True"
+    expression: "from authentik.core.models import (\n    USER_ATTRIBUTE_CHANGE_EMAIL,\n    USER_ATTRIBUTE_CHANGE_NAME,\n\
+      \    USER_ATTRIBUTE_CHANGE_USERNAME\n)\nprompt_data = request.context.get(\"prompt_data\")\n\nif\
+      \ not request.user.group_attributes(request.http_request).get(\n    USER_ATTRIBUTE_CHANGE_EMAIL,\
+      \ request.http_request.tenant.default_user_change_email\n):\n    if prompt_data.get(\"email\") !=\
+      \ request.user.email:\n        ak_message(\"Not allowed to change email address.\")\n        return\
+      \ False\n\nif not request.user.group_attributes(request.http_request).get(\n    USER_ATTRIBUTE_CHANGE_NAME,\
+      \ request.http_request.tenant.default_user_change_name\n):\n    if prompt_data.get(\"name\") !=\
+      \ request.user.name:\n        ak_message(\"Not allowed to change name.\")\n        return False\n\
+      \nif not request.user.group_attributes(request.http_request).get(\n    USER_ATTRIBUTE_CHANGE_USERNAME,\
+      \ request.http_request.tenant.default_user_change_username\n):\n    if prompt_data.get(\"username\"\
+      ) != request.user.username:\n        ak_message(\"Not allowed to change username.\")\n        return\
+      \ False\n\nreturn True"
     name: default-user-settings-authorization
   conditions: []
   identifiers:
@@ -1176,10 +1174,10 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "flow_plan = request.context.get(\"flow_plan\")\nif not flow_plan:\n\
-      \    return True\n# If the user does not have a backend attached to it, they\
-      \ haven't\n# been authenticated yet and we need the password stage\nreturn not\
-      \ hasattr(flow_plan.context.get(\"pending_user\"), \"backend\")"
+    expression: "flow_plan = request.context.get(\"flow_plan\")\nif not flow_plan:\n    return True\n\
+      # If the user does not have a backend attached to it, they haven't\n# been authenticated yet and\
+      \ we need the password stage\nreturn not hasattr(flow_plan.context.get(\"pending_user\"), \"backend\"\
+      )"
     name: default-authentication-flow-password-stage
   conditions: []
   identifiers:
@@ -1189,10 +1187,9 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "flow_plan = request.context.get(\"flow_plan\")\nif not flow_plan:\n\
-      \    return True\n# if the authentication method is webauthn (passwordless),\
-      \ then we skip the authenticator\n# validation stage by returning false (true\
-      \ will execute the stage)\nreturn not (flow_plan.context.get(\"auth_method\"\
+    expression: "flow_plan = request.context.get(\"flow_plan\")\nif not flow_plan:\n    return True\n\
+      # if the authentication method is webauthn (passwordless), then we skip the authenticator\n# validation\
+      \ stage by returning false (true will execute the stage)\nreturn not (flow_plan.context.get(\"auth_method\"\
       ) == \"auth_webauthn_pwl\")"
     name: default-authentication-flow-authenticator-validate-stage
   conditions: []
@@ -1221,13 +1218,12 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "# This policy ensures that the setup flow can only be\n# executed\
-      \ when the admin user doesn't have a password set\nakadmin = ak_user_by(username=\"\
-      akadmin\")\n# Ensure flow was started correctly\nstarted_by = context.get(\"\
-      goauthentik.io/core/setup/started-by\")\nif started_by != \"setup\":\n    setup_url\
-      \ = request.http_request.build_absolute_uri(\"/\")\n    ak_message(f\"Access\
-      \ the authentik setup by navigating to {setup_url}\")\n    return False\nreturn\
-      \ akadmin is None or not akadmin.has_usable_password()"
+    expression: "# This policy ensures that the setup flow can only be\n# executed when the admin user\
+      \ doesn't have a password set\nakadmin = ak_user_by(username=\"akadmin\")\n# Ensure flow was started\
+      \ correctly\nstarted_by = context.get(\"goauthentik.io/core/setup/started-by\")\nif started_by !=\
+      \ \"setup\":\n    setup_url = request.http_request.build_absolute_uri(\"/\")\n    ak_message(f\"\
+      Access the authentik setup by navigating to {setup_url}\")\n    return False\nreturn akadmin is\
+      \ None or not akadmin.has_usable_password()"
     name: default-oobe-password-usable
   conditions: []
   identifiers:
@@ -1275,9 +1271,9 @@ entries:
   state: present
 - attrs:
     execution_logging: false
-    expression: "if ak_is_group_member(request.user, name=\"streaming-users\"):\n\
-      \    return True\nak_message(\"You don't have access to this application. Please\
-      \ contact the administrator to request access.\")\nreturn False\n"
+    expression: "if ak_is_group_member(request.user, name=\"streaming-users\"):\n    return True\nak_message(\"\
+      You don't have access to this application. Please contact the administrator to request access.\"\
+      )\nreturn False\n"
     name: audiobookshelf-access
   conditions: []
   identifiers:
@@ -1293,8 +1289,7 @@ entries:
     check_have_i_been_pwned: true
     check_static_rules: true
     check_zxcvbn: true
-    error_message: "Password must be \u2265 15 chars with upper, lower, a digit and\
-      \ a symbol"
+    error_message: "Password must be \u2265 15 chars with upper, lower, a digit and a symbol"
     execution_logging: false
     hibp_allowed_count: 0
     length_min: 15
@@ -1316,8 +1311,7 @@ entries:
     check_have_i_been_pwned: true
     check_static_rules: true
     check_zxcvbn: true
-    error_message: "Password must be \u2265 15 chars with upper, lower, a digit and\
-      \ a symbol"
+    error_message: "Password must be \u2265 15 chars with upper, lower, a digit and a symbol"
     execution_logging: false
     hibp_allowed_count: 0
     length_min: 15
@@ -1589,10 +1583,10 @@ entries:
   state: present
 - attrs:
     description: authentik Proxy - User information
-    expression: "# This mapping is used by the authentik proxy. It passes extra user\
-      \ attributes,\n# which are used for example for the HTTP-Basic Authentication\
-      \ mapping.\nreturn {\n    \"ak_proxy\": {\n        \"user_attributes\": request.user.group_attributes(request),\n\
-      \        \"is_superuser\": request.user.is_superuser,\n    }\n}"
+    expression: "# This mapping is used by the authentik proxy. It passes extra user attributes,\n# which\
+      \ are used for example for the HTTP-Basic Authentication mapping.\nreturn {\n    \"ak_proxy\": {\n\
+      \        \"user_attributes\": request.user.group_attributes(request),\n        \"is_superuser\"\
+      : request.user.is_superuser,\n    }\n}"
     managed: goauthentik.io/providers/proxy/scope-proxy
     name: 'authentik default OAuth Mapping: Proxy outpost'
     scope_name: ak_proxy
@@ -1604,8 +1598,7 @@ entries:
   state: present
 - attrs:
     description: ''
-    expression: '# This scope is required by the OpenID-spec, and must as such exist
-      in authentik.
+    expression: '# This scope is required by the OpenID-spec, and must as such exist in authentik.
 
       # The scope by itself does not grant any information
 
@@ -1621,8 +1614,7 @@ entries:
   state: present
 - attrs:
     description: Email address
-    expression: "return {\n    \"email\": request.user.email,\n    \"email_verified\"\
-      : False\n}"
+    expression: "return {\n    \"email\": request.user.email,\n    \"email_verified\": False\n}"
     managed: goauthentik.io/providers/oauth2/scope-email
     name: 'authentik default OAuth Mapping: OpenID ''email'''
     scope_name: email
@@ -1634,13 +1626,12 @@ entries:
   state: present
 - attrs:
     description: General Profile Information
-    expression: "return {\n    # Because authentik only saves the user's full name,\
-      \ and has no concept of first and last names,\n    # the full name is used as\
-      \ given name.\n    # You can override this behaviour in custom mappings, i.e.\
-      \ `request.user.name.split(\" \")`\n    \"name\": request.user.name,\n    \"\
-      given_name\": request.user.name,\n    \"preferred_username\": request.user.username,\n\
-      \    \"nickname\": request.user.username,\n    \"groups\": [group.name for group\
-      \ in request.user.groups.all()],\n}"
+    expression: "return {\n    # Because authentik only saves the user's full name, and has no concept\
+      \ of first and last names,\n    # the full name is used as given name.\n    # You can override this\
+      \ behaviour in custom mappings, i.e. `request.user.name.split(\" \")`\n    \"name\": request.user.name,\n\
+      \    \"given_name\": request.user.name,\n    \"preferred_username\": request.user.username,\n  \
+      \  \"nickname\": request.user.username,\n    \"groups\": [group.name for group in request.user.groups.all()],\n\
+      }"
     managed: goauthentik.io/providers/oauth2/scope-profile
     name: 'authentik default OAuth Mapping: OpenID ''profile'''
     scope_name: profile
@@ -1653,8 +1644,7 @@ entries:
 - attrs:
     description: Application entitlements
     expression: "entitlements = [entitlement.name for entitlement in request.user.app_entitlements(provider.application)]\n\
-      return {\n    \"entitlements\": entitlements,\n    \"roles\": entitlements,\n\
-      }"
+      return {\n    \"entitlements\": entitlements,\n    \"roles\": entitlements,\n}"
     managed: goauthentik.io/providers/oauth2/scope-entitlements
     name: 'authentik default OAuth Mapping: Application Entitlements'
     scope_name: entitlements
@@ -1666,8 +1656,8 @@ entries:
   state: present
 - attrs:
     description: Access to request new tokens without interaction
-    expression: '# This scope grants the application a refresh token that can be used
-      to refresh user data
+    expression: '# This scope grants the application a refresh token that can be used to refresh user
+      data
 
       # and let the application access authentik without the users interaction
 
@@ -1683,8 +1673,7 @@ entries:
   state: present
 - attrs:
     description: authentik API Access on behalf of your user
-    expression: '# This scope grants the application the ability to access the authentik
-      API
+    expression: '# This scope grants the application the ability to access the authentik API
 
       # on behalf of the authorizing user
 
@@ -1700,8 +1689,7 @@ entries:
   state: present
 - attrs:
     description: ''
-    expression: "return {\n    \"email\": request.user.email,\n    \"email_verified\"\
-      : True,\n}\n"
+    expression: "return {\n    \"email\": request.user.email,\n    \"email_verified\": True,\n}\n"
     managed: null
     name: audiobookshelf email (verified)
     scope_name: email
@@ -1713,11 +1701,10 @@ entries:
   state: present
 - attrs:
     description: Nextcloud display name and group membership
-    expression: "groups = []\nif request.user.groups.filter(name=\"cloud-users\").exists():\n\
-      \    groups.append(\"cloud-users\")\nif request.user.groups.filter(name=\"cloud-admins\"\
-      ).exists():\n    groups.append(\"cloud-admins\")\n    # Nextcloud's built-in\
-      \ administrator group. Hard-coded upstream.\n    groups.append(\"admin\")\n\
-      return {\n    \"name\": request.user.name,\n    \"groups\": groups,\n}"
+    expression: "groups = []\nif request.user.groups.filter(name=\"cloud-users\").exists():\n    groups.append(\"\
+      cloud-users\")\nif request.user.groups.filter(name=\"cloud-admins\").exists():\n    groups.append(\"\
+      cloud-admins\")\n    # Nextcloud's built-in administrator group. Hard-coded upstream.\n    groups.append(\"\
+      admin\")\nreturn {\n    \"name\": request.user.name,\n    \"groups\": groups,\n}"
     managed: null
     name: Nextcloud Profile
     scope_name: nextcloud
@@ -1729,11 +1716,53 @@ entries:
   state: present
 - attrs:
     access_code_validity: minutes=1
+    access_token_validity: hours=1
+    authentication_flow: null
+    authorization_flow: d6ea4fc6-4643-4b47-aab2-1e4cacf92f5b
+    client_id: QuNycoUb9HuQQWqmMJMtcG5ufD1u5vWShOzwiMb5
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - refresh_token
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: Nextcloud
+    property_mappings:
+    - 0774c996-38c7-426c-886a-571955ba04e3
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cloud.holy-grail.ch/apps/user_oidc/code
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cloud.holy-grail.ch
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
+    sub_mode: user_uuid
+  conditions: []
+  identifiers:
+    pk: 3
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
     access_token_validity: minutes=5
     authentication_flow: null
     authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
     client_id: 9ShsJo848wMTkgaXveUi0aUABpVBc2p0b20o7ZZD
-    client_secret: <rotated-secret-removed-from-history>
+    client_secret: <redacted-by-sanitize-export>
     client_type: confidential
     encryption_key: null
     grant_types:
@@ -1773,48 +1802,6 @@ entries:
   conditions: []
   identifiers:
     pk: 1
-  model: authentik_providers_oauth2.oauth2provider
-  permissions: []
-  state: present
-- attrs:
-    access_code_validity: minutes=1
-    access_token_validity: hours=1
-    authentication_flow: null
-    authorization_flow: d6ea4fc6-4643-4b47-aab2-1e4cacf92f5b
-    client_id: QuNycoUb9HuQQWqmMJMtcG5ufD1u5vWShOzwiMb5
-    client_secret: <rotated-secret-removed-from-history>
-    client_type: confidential
-    encryption_key: null
-    grant_types:
-    - authorization_code
-    - refresh_token
-    include_claims_in_id_token: true
-    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
-    issuer_mode: per_provider
-    jwt_federation_providers: []
-    jwt_federation_sources: []
-    logout_method: backchannel
-    logout_uri: ''
-    name: Nextcloud
-    property_mappings:
-    - 0774c996-38c7-426c-886a-571955ba04e3
-    - 24e6703d-9a2b-4820-9720-e5499d781e0c
-    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
-    - 9ed37f68-4751-4b62-8a9a-95b10e288325
-    redirect_uris:
-    - matching_mode: strict
-      redirect_uri_type: authorization
-      url: https://cloud.holy-grail.ch/apps/user_oidc/code
-    - matching_mode: strict
-      redirect_uri_type: authorization
-      url: https://cloud.holy-grail.ch
-    refresh_token_threshold: seconds=0
-    refresh_token_validity: days=30
-    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
-    sub_mode: user_uuid
-  conditions: []
-  identifiers:
-    pk: 3
   model: authentik_providers_oauth2.oauth2provider
   permissions: []
   state: present
@@ -1946,23 +1933,20 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "# Some implementations require givenName and familyName to be set\n\
-      givenName, familyName = request.user.name, \" \"\nformatted = request.user.name\
-      \ + \" \"\n# This default sets givenName to the name before the first space\n\
-      # and the remainder as family name\n# if the user's name has no space the givenName\
-      \ is the entire name\n# (this might cause issues with some SCIM implementations)\n\
-      if \" \" in request.user.name:\n    givenName, _, familyName = request.user.name.partition(\"\
-      \ \")\n    formatted = request.user.name\n\n# photos supports URLs to images,\
-      \ however authentik might return data URIs\navatar = request.user.avatar\nphotos\
-      \ = None\nif \"://\" in avatar:\n    photos = [{\"value\": avatar, \"type\"\
-      : \"photo\"}]\n\nlocale = request.user.locale()\nif locale == \"\":\n    locale\
-      \ = None\n\nemails = []\nif request.user.email != \"\":\n    emails = [{\n \
-      \       \"value\": request.user.email,\n        \"type\": \"other\",\n     \
-      \   \"primary\": True,\n    }]\nreturn {\n    \"userName\": request.user.username,\n\
-      \    \"name\": {\n        \"formatted\": formatted,\n        \"givenName\":\
-      \ givenName,\n        \"familyName\": familyName,\n    },\n    \"displayName\"\
-      : request.user.name,\n    \"photos\": photos,\n    \"locale\": locale,\n   \
-      \ \"active\": request.user.is_active,\n    \"emails\": emails,\n}"
+    expression: "# Some implementations require givenName and familyName to be set\ngivenName, familyName\
+      \ = request.user.name, \" \"\nformatted = request.user.name + \" \"\n# This default sets givenName\
+      \ to the name before the first space\n# and the remainder as family name\n# if the user's name has\
+      \ no space the givenName is the entire name\n# (this might cause issues with some SCIM implementations)\n\
+      if \" \" in request.user.name:\n    givenName, _, familyName = request.user.name.partition(\" \"\
+      )\n    formatted = request.user.name\n\n# photos supports URLs to images, however authentik might\
+      \ return data URIs\navatar = request.user.avatar\nphotos = None\nif \"://\" in avatar:\n    photos\
+      \ = [{\"value\": avatar, \"type\": \"photo\"}]\n\nlocale = request.user.locale()\nif locale == \"\
+      \":\n    locale = None\n\nemails = []\nif request.user.email != \"\":\n    emails = [{\n       \
+      \ \"value\": request.user.email,\n        \"type\": \"other\",\n        \"primary\": True,\n   \
+      \ }]\nreturn {\n    \"userName\": request.user.username,\n    \"name\": {\n        \"formatted\"\
+      : formatted,\n        \"givenName\": givenName,\n        \"familyName\": familyName,\n    },\n \
+      \   \"displayName\": request.user.name,\n    \"photos\": photos,\n    \"locale\": locale,\n    \"\
+      active\": request.user.is_active,\n    \"emails\": emails,\n}"
     managed: goauthentik.io/providers/scim/user
     name: 'authentik default SCIM Mapping: User'
   conditions: []
@@ -1998,13 +1982,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "from authentik.core.models import USER_PATH_SERVICE_ACCOUNT, UserTypes\n\
-      \nlocalpart, _ = principal.rsplit(\"@\", 1)\nis_service_account = \"/\" in localpart\n\
-      attrs = {}\nif is_service_account:\n    attrs = {\n        \"type\": UserTypes.SERVICE_ACCOUNT,\n\
-      \        \"path\": USER_PATH_SERVICE_ACCOUNT,\n    }\nreturn attrs"
+    expression: "from authentik.core.models import USER_PATH_SERVICE_ACCOUNT, UserTypes\n\nlocalpart,\
+      \ _ = principal.rsplit(\"@\", 1)\nis_service_account = \"/\" in localpart\nattrs = {}\nif is_service_account:\n\
+      \    attrs = {\n        \"type\": UserTypes.SERVICE_ACCOUNT,\n        \"path\": USER_PATH_SERVICE_ACCOUNT,\n\
+      \    }\nreturn attrs"
     managed: goauthentik.io/sources/kerberos/user/default/multipart-principals-as-service-accounts
-    name: 'authentik default Kerberos User Mapping: Multipart principals as service
-      accounts'
+    name: 'authentik default Kerberos User Mapping: Multipart principals as service accounts'
   conditions: []
   identifiers:
     pk: 83ab93a4-a309-4e11-b809-6a4e30b9ba45
@@ -2012,8 +1995,8 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "localpart, realm = principal.rsplit(\"@\", 1)\nif realm.upper() !=\
-      \ source.realm.upper():\n    raise SkipObject\nreturn {}"
+    expression: "localpart, realm = principal.rsplit(\"@\", 1)\nif realm.upper() != source.realm.upper():\n\
+      \    raise SkipObject\nreturn {}"
     managed: goauthentik.io/sources/kerberos/user/default/ignore-other-realms
     name: 'authentik default Kerberos User Mapping: Ignore other realms'
   conditions: []
@@ -2023,9 +2006,8 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "localpart, realm = principal.rsplit(\"@\", 1)\ndenied_prefixes =\
-      \ [\"kadmin/\", \"krbtgt/\", \"K/M\", \"WELLKNOWN/\", \"kiprop/\", \"changepw/\"\
-      ]\nfor prefix in denied_prefixes:\n    if localpart.lower().startswith(prefix.lower()):\n\
+    expression: "localpart, realm = principal.rsplit(\"@\", 1)\ndenied_prefixes = [\"kadmin/\", \"krbtgt/\"\
+      , \"K/M\", \"WELLKNOWN/\", \"kiprop/\", \"changepw/\"]\nfor prefix in denied_prefixes:\n    if localpart.lower().startswith(prefix.lower()):\n\
       \        raise SkipObject\nreturn {}"
     managed: goauthentik.io/sources/kerberos/user/default/ignore-system-principals
     name: 'authentik default Kerberos User Mapping: Ignore system principals'
@@ -2036,8 +2018,8 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "localpart, realm = principal.rsplit(\"@\", 1)\nreturn {\n    \"groups\"\
-      : [realm.upper()]\n}"
+    expression: "localpart, realm = principal.rsplit(\"@\", 1)\nreturn {\n    \"groups\": [realm.upper()]\n\
+      }"
     managed: goauthentik.io/sources/kerberos/user/realm-as-group
     name: 'authentik default Kerberos User Mapping: Add realm as group'
   conditions: []
@@ -2047,11 +2029,10 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "path_elements = []\nfor pair in dn.split(\",\"):\n    attr, _, value\
-      \ = pair.partition(\"=\")\n    # Ignore elements from the Root DSE and the canonical\
-      \ name of the object\n    if attr.lower() in [\"cn\", \"dc\"]:\n        continue\n\
-      \    path_elements.append(value)\npath_elements.reverse()\n\npath = source.get_user_path()\n\
-      if len(path_elements) > 0:\n    path = f\"{path}/{'/'.join(path_elements)}\"\
+    expression: "path_elements = []\nfor pair in dn.split(\",\"):\n    attr, _, value = pair.partition(\"\
+      =\")\n    # Ignore elements from the Root DSE and the canonical name of the object\n    if attr.lower()\
+      \ in [\"cn\", \"dc\"]:\n        continue\n    path_elements.append(value)\npath_elements.reverse()\n\
+      \npath = source.get_user_path()\nif len(path_elements) > 0:\n    path = f\"{path}/{'/'.join(path_elements)}\"\
       \nreturn {\n    \"path\": path\n}"
     managed: goauthentik.io/sources/ldap/default-dn-path
     name: 'authentik default LDAP Mapping: DN to User Path'
@@ -2092,8 +2073,8 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "return {\n    \"attributes\": {\n        \"upn\": list_flatten(ldap.get(\"\
-      userPrincipalName\")),\n    },\n}"
+    expression: "return {\n    \"attributes\": {\n        \"upn\": list_flatten(ldap.get(\"userPrincipalName\"\
+      )),\n    },\n}"
     managed: goauthentik.io/sources/ldap/ms-userprincipalname
     name: 'authentik default Active Directory Mapping: userPrincipalName'
   conditions: []
@@ -2103,8 +2084,8 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "return {\n    \"attributes\": {\n        \"givenName\": list_flatten(ldap.get(\"\
-      givenName\")),\n    },\n}"
+    expression: "return {\n    \"attributes\": {\n        \"givenName\": list_flatten(ldap.get(\"givenName\"\
+      )),\n    },\n}"
     managed: goauthentik.io/sources/ldap/ms-givenName
     name: 'authentik default Active Directory Mapping: givenName'
   conditions: []
@@ -2114,8 +2095,8 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "return {\n    \"attributes\": {\n        \"sn\": list_flatten(ldap.get(\"\
-      sn\")),\n    },\n}"
+    expression: "return {\n    \"attributes\": {\n        \"sn\": list_flatten(ldap.get(\"sn\")),\n  \
+      \  },\n}"
     managed: goauthentik.io/sources/ldap/ms-sn
     name: 'authentik default Active Directory Mapping: sn'
   conditions: []
@@ -2361,18 +2342,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expires: '2026-10-02T15:50:12.326984Z'
-    fixed_data: {}
-    flow: c95a94e5-e2d3-4c61-8af8-46f7d04073d0
-    name: first-enrollment-walkthrough-2026-09-25
-    single_use: true
-  conditions: []
-  identifiers:
-    pk: <revoked-invite-token-removed>
-  model: authentik_stages_invitation.invitation
-  permissions: []
-  state: present
-- attrs:
     allow_show_password: false
     backends:
     - authentik.core.auth.InbuiltBackend
@@ -2426,8 +2395,8 @@ entries:
   state: present
 - attrs:
     field_key: oobe-header-text
-    initial_value: Welcome to authentik! Please set a password and email address for
-      the default admin user, akadmin.
+    initial_value: Welcome to authentik! Please set a password and email address for the default admin
+      user, akadmin.
     initial_value_expression: false
     label: oobe-header-text
     name: initial-setup-field-header
@@ -2594,10 +2563,9 @@ entries:
     label: One-time invitation link
     name: enrollment-invite-one-time-warning
     order: 0
-    placeholder: This invitation link can be used only once. It is used up the moment
-      you press Continue - even if you do not finish creating your account. If you
-      are not ready yet, just close this page; the link stays valid until it expires,
-      and you can come back to it later.
+    placeholder: This invitation link can be used only once. It is used up the moment you press Continue
+      - even if you do not finish creating your account. If you are not ready yet, just close this page;
+      the link stays valid until it expires, and you can come back to it later.
     placeholder_expression: false
     required: false
     sub_text: ''
@@ -2618,15 +2586,13 @@ entries:
     placeholder: Creating your account takes about two minutes, in one sitting.
     placeholder_expression: false
     required: false
-    sub_text: <ul> <li><strong>A username</strong> - your login name, lowercase, no
-      spaces.</li> <li><strong>Your email address</strong> - we send you a confirmation
-      link and you must click it to activate the account, so pick an inbox you can
-      open right now.</li> <li><strong>A password of at least 15 characters</strong>
-      - it is checked against known breached passwords and rejected if it is weak
-      or reused. A passphrase of a few unrelated words works well.</li> <li><strong>An
-      authenticator app on your phone</strong> - Aegis, Google Authenticator, 1Password
-      or similar. Two-factor is mandatory and you set it up during sign-up, not afterwards.</li>
-      </ul>
+    sub_text: <ul> <li><strong>A username</strong> - your login name, lowercase, no spaces.</li> <li><strong>Your
+      email address</strong> - we send you a confirmation link and you must click it to activate the account,
+      so pick an inbox you can open right now.</li> <li><strong>A password of at least 15 characters</strong>
+      - it is checked against known breached passwords and rejected if it is weak or reused. A passphrase
+      of a few unrelated words works well.</li> <li><strong>An authenticator app on your phone</strong>
+      - Aegis, Google Authenticator, 1Password or similar. Two-factor is mandatory and you set it up during
+      sign-up, not afterwards.</li> </ul>
     type: static
   conditions: []
   identifiers:
@@ -2744,8 +2710,8 @@ entries:
   state: present
 - attrs:
     field_key: attributes.settings.locale
-    initial_value: "try:\n    return user.attributes.get(\"settings\", {}).get(\"\
-      locale\", \"\")\nexcept:\n    return ''"
+    initial_value: "try:\n    return user.attributes.get(\"settings\", {}).get(\"locale\", \"\")\nexcept:\n\
+      \    return ''"
     initial_value_expression: true
     label: Locale
     name: default-user-settings-field-locale
@@ -3021,16 +2987,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 3-59/15 * * * *
-    paused: false
-    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
-  conditions: []
-  identifiers:
-    pk: b3855804-2d23-4d99-b095-cca3a492a032
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 19 * * * *
     paused: false
     rel_obj_id: null
@@ -3051,6 +3007,16 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 2-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: c457abd3-1325-46dc-ae47-6ed899816277
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 9-59/5 * * * *
     paused: false
     rel_obj_id: null
@@ -3061,32 +3027,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 32 */8 * * *
+    crontab: 59 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 35 */8 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 3e3e16cb-007a-4445-9414-4185df579b15
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 46 */8 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 51668dac-cd68-4783-9bf0-470c01fff2cd
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3101,22 +3047,22 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 2-59/5 * * * *
+    crontab: 29 */4 * * *
     paused: false
-    rel_obj_id: null
+    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
   conditions: []
   identifiers:
-    pk: c457abd3-1325-46dc-ae47-6ed899816277
+    pk: edd1641d-35f5-45dc-a4a8-83b027848529
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
 - attrs:
-    crontab: 46 * * * *
+    crontab: 32 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: f4ef79cd-7a9f-454d-a90b-136e5701c4fc
+    pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3131,22 +3077,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 29 */4 * * *
-    paused: false
-    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
-  conditions: []
-  identifiers:
-    pk: edd1641d-35f5-45dc-a4a8-83b027848529
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
+    crontab: 35 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
+    pk: 3e3e16cb-007a-4445-9414-4185df579b15
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3181,12 +3117,42 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 46 */8 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 51668dac-cd68-4783-9bf0-470c01fff2cd
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 46 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: f4ef79cd-7a9f-454d-a90b-136e5701c4fc
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 24 */3 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 3-59/15 * * * *
+    paused: false
+    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
+  conditions: []
+  identifiers:
+    pk: b3855804-2d23-4d99-b095-cca3a492a032
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3553,16 +3519,14 @@ entries:
   state: present
 - attrs:
     expression: "# Field reference:\n# https://developers.google.com/admin-sdk/directory/reference/rest/v1/users#User\n\
-      # Google require givenName and familyName to be set\ngivenName, familyName =\
-      \ request.user.name, \" \"\nformatted = request.user.name + \" \"\n# This default\
-      \ sets givenName to the name before the first space\n# and the remainder as\
-      \ family name\n# if the user's name has no space the givenName is the entire\
-      \ name\nif \" \" in request.user.name:\n    givenName, _, familyName = request.user.name.partition(\"\
-      \ \")\n    formatted = request.user.name\nuser = {\n    \"name\": {\n      \
-      \  \"fullName\": formatted,\n        \"familyName\": familyName.strip(),\n \
-      \       \"givenName\": givenName.strip(),\n        \"displayName\": formatted,\n\
-      \    },\n    \"suspended\": not request.user.is_active,\n}\nif not connection:\n\
-      \    user[\"password\"] = request.user.password\nreturn user"
+      # Google require givenName and familyName to be set\ngivenName, familyName = request.user.name,\
+      \ \" \"\nformatted = request.user.name + \" \"\n# This default sets givenName to the name before\
+      \ the first space\n# and the remainder as family name\n# if the user's name has no space the givenName\
+      \ is the entire name\nif \" \" in request.user.name:\n    givenName, _, familyName = request.user.name.partition(\"\
+      \ \")\n    formatted = request.user.name\nuser = {\n    \"name\": {\n        \"fullName\": formatted,\n\
+      \        \"familyName\": familyName.strip(),\n        \"givenName\": givenName.strip(),\n      \
+      \  \"displayName\": formatted,\n    },\n    \"suspended\": not request.user.is_active,\n}\nif not\
+      \ connection:\n    user[\"password\"] = request.user.password\nreturn user"
     managed: goauthentik.io/providers/google_workspace/user
     name: 'authentik default Google Workspace Mapping: User'
   conditions: []
@@ -3583,17 +3547,15 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "# Field reference: (note that keys have to converted to snake_case)\n\
-      # https://learn.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0\n\
-      from msgraph.generated.models.password_profile import PasswordProfile\n\nuser\
-      \ = {\n    \"display_name\": request.user.name,\n    \"account_enabled\": request.user.is_active,\n\
-      \    \"mail_nickname\": request.user.username,\n    \"user_principal_name\"\
-      : request.user.email,\n}\nif connection:\n    # If there is a connection already\
-      \ made (discover or update), we can use\n    # that connection's immutable_id...\n\
-      \    user[\"on_premises_immutable_id\"] = connection.attributes.get(\"on_premises_immutable_id\"\
-      )\nelse:\n    user[\"password_profile\"] = PasswordProfile(\n        password=request.user.password\n\
-      \    )\n    # ...otherwise we set an immutable ID based on the user's UID\n\
-      \    user[\"on_premises_immutable_id\"] = request.user.uid\nreturn user"
+    expression: "# Field reference: (note that keys have to converted to snake_case)\n# https://learn.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0\n\
+      from msgraph.generated.models.password_profile import PasswordProfile\n\nuser = {\n    \"display_name\"\
+      : request.user.name,\n    \"account_enabled\": request.user.is_active,\n    \"mail_nickname\": request.user.username,\n\
+      \    \"user_principal_name\": request.user.email,\n}\nif connection:\n    # If there is a connection\
+      \ already made (discover or update), we can use\n    # that connection's immutable_id...\n    user[\"\
+      on_premises_immutable_id\"] = connection.attributes.get(\"on_premises_immutable_id\")\nelse:\n \
+      \   user[\"password_profile\"] = PasswordProfile(\n        password=request.user.password\n    )\n\
+      \    # ...otherwise we set an immutable ID based on the user's UID\n    user[\"on_premises_immutable_id\"\
+      ] = request.user.uid\nreturn user"
     managed: goauthentik.io/providers/microsoft_entra/user
     name: 'authentik default Microsoft Entra Mapping: User'
   conditions: []
@@ -3603,11 +3565,9 @@ entries:
   permissions: []
   state: present
 - attrs:
-    expression: "# Field reference: (note that keys have to converted to snake_case)\n\
-      # https://learn.microsoft.com/en-us/graph/api/group-post-groups?view=graph-rest-1.0&tabs=http#request-body\n\
-      return {\n    \"display_name\": group.name,\n    \"mail_enabled\": False,\n\
-      \    \"security_enabled\": True,\n    \"mail_nickname\": slugify(group.name),\n\
-      }"
+    expression: "# Field reference: (note that keys have to converted to snake_case)\n# https://learn.microsoft.com/en-us/graph/api/group-post-groups?view=graph-rest-1.0&tabs=http#request-body\n\
+      return {\n    \"display_name\": group.name,\n    \"mail_enabled\": False,\n    \"security_enabled\"\
+      : True,\n    \"mail_nickname\": slugify(group.name),\n}"
     managed: goauthentik.io/providers/microsoft_entra/group
     name: 'authentik default Microsoft Entra Mapping: Group'
   conditions: []
@@ -3619,5 +3579,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 16:26:53.151791+00:00
+  name: authentik Export - 2026-09-25 17:01:22.307612+00:00
 version: 1
