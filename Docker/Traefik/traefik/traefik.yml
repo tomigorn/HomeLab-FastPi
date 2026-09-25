@@ -9,6 +9,18 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+    # Every external request arrives via the Cloudflare tunnel, so the packet
+    # source is always the docker bridge gateway (172.24.0.1) and the real client
+    # sits in X-Forwarded-For. Without this, Traefik logged 172.24.0.1 as the
+    # client for ALL outside traffic - which meant default-rate-limit was a single
+    # shared bucket for the entire internet rather than per client, and any
+    # log-based blocking would have banned the tunnel itself.
+    #
+    # Only the gateway is trusted, not a broad range: anything that can reach
+    # Traefik from that address is already inside the host.
+    forwardedHeaders:
+      trustedIPs:
+        - "172.24.0.1/32"
   internal:
     address: ":8080"
     http:
