@@ -12,10 +12,20 @@ services:
     image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
     container_name: Cup
     command: -c /config/cup.json serve
+    # docker.sock mount REMOVED (2026-09-26). Even mounted :ro it grants the full
+    # Docker API, which is root on the host - the read-only flag stops writes to the
+    # socket FILE, not to the daemon behind it. Cup now reads through
+    # socket-proxy-ro, which serves container/image reads and refuses every POST.
+    # Cup only accepts a UNIX socket path (--socket is documented as such) and
+    # ignores DOCKER_HOST, so it mounts the bridged socket from socket-proxy-unix
+    # instead of the real one. Same restrictions apply: read-only endpoints, no POST.
     volumes:
-      # Read-only Docker socket: Cup only *reads* the container list and
-      # queries registries — it never writes to the daemon.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # The bridged socket is mounted at Cup's DEFAULT path rather than passed via
+      # --socket. Cup's -s flag does not work with this socket (it fails with
+      # "client error (Connect)" even though curl and the docker CLI both use the
+      # same socket happily), so the volume lands on /var/run and Cup finds
+      # /var/run/docker.sock where it expects it.
+      - socket_bridge:/var/run
       # Committed, config-as-code (see cup.json)
       - ./cup.json:/config/cup.json:ro
     ports:
@@ -32,6 +42,11 @@ services:
       retries: 3
       start_period: 20s
     networks:
+      # ONLY traefik_proxy. Cup reaches the Docker API through the bridged unix
+      # socket (a volume, not a network), and it must query registries over the
+      # internet - attaching it to socket_proxy, which is internal:true, left it
+      # with no route out and it failed with "client error (Connect)" while
+      # fetching the image list.
       - traefik_proxy
 
 # =========================================================
@@ -41,6 +56,15 @@ networks:
   traefik_proxy:
     external: true
 
+
 # =========================================================
 # Volumes =================================================
 # =========================================================
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  # Bridged unix socket, provided by the Docker-Socket-Proxy project.
+  socket_bridge:
+    external: true

@@ -106,8 +106,13 @@ services:
       - AUTOHEAL_CONTAINER_LABEL=autoheal-mouse
       - AUTOHEAL_INTERVAL=3600
       - AUTOHEAL_START_PERIOD=0
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Talks to socket-proxy-autoheal over TCP instead of mounting the real
+      # socket, which is root on the host. That proxy allows container reads plus
+      # POST (autoheal calls POST /containers/{id}/restart) but denies exec,
+      # images, volumes, networks and everything else.
+      - DOCKER_SOCK=tcp://socket-proxy-autoheal:2375
+    networks:
+      - socket_proxy
     logging:
       driver: "json-file"
       options:
@@ -269,6 +274,8 @@ services:
 # Networks ================================================
 # =========================================================
 networks:
+  socket_proxy:
+    external: true
   mouse_network:
     driver: bridge
     ipam:

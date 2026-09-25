@@ -1,0 +1,185 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+#
+# Mounting /var/run/docker.sock into a container grants that container ROOT ON THE
+# HOST: the Docker API can start a privileged container, bind-mount / and read or
+# write anything, including every other container's secrets. Eight containers here
+# had it. That is eight separate paths to total compromise for features as small as
+# "restart an unhealthy container".
+#
+# These proxies sit in front of the socket and expose only the specific API
+# endpoints each consumer needs, over TCP on an internal network. They never
+# publish a port to the host.
+#
+# Two profiles, because the consumers differ:
+#   socket-proxy-ro       strictly read-only  (POST=0) - monitoring, update checks
+#   socket-proxy-autoheal read + POST         - restarting unhealthy containers
+#
+# POST=0 is the important one: without it the API cannot create, start, exec into
+# or modify anything, so a compromised consumer can only look.
+services:
+# #########################################################
+# SOCKET PROXY - READ ONLY ################################
+# #########################################################
+  socket-proxy-ro:
+    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-0.3.0}
+    container_name: socket-proxy-ro
+    restart: unless-stopped
+    environment:
+      # Endpoints granted. Everything not listed defaults to 0 (denied).
+      CONTAINERS: 1      # list/inspect containers - telegraf stats, Cup's version checks
+      IMAGES: 1          # Cup compares local image digests against registries
+      INFO: 1
+      VERSION: 1
+      # Explicitly denied, listed so the intent is obvious rather than implied:
+      POST: 0            # no create/start/stop/exec/restart - read-only means read-only
+      EXEC: 0
+      AUTH: 0
+      SECRETS: 0
+      CONFIGS: 0
+      SWARM: 0
+      NODES: 0
+      SERVICES: 0
+      TASKS: 0
+      PLUGINS: 0
+      SYSTEM: 0
+      VOLUMES: 0
+      NETWORKS: 0
+      BUILD: 0
+      COMMIT: 0
+      DISTRIBUTION: 0
+      SESSION: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket_proxy
+    # NOT read_only. The entrypoint renders haproxy.cfg from
+    # /usr/local/etc/haproxy/haproxy.cfg.template at startup, so that directory
+    # must be writable - and tmpfs-ing it MASKS the template that ships in the
+    # image ("sed: haproxy.cfg.template: No such file or directory"). The socket
+    # itself is still mounted read-only, and the capability restrictions below do
+    # the meaningful work here.
+    cap_drop:
+      - ALL
+    cap_add:
+      # haproxy needs these to bind and drop to its own unprivileged user
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+
+# #########################################################
+# SOCKET PROXY - AUTOHEAL (read + restart) ################
+# #########################################################
+  socket-proxy-autoheal:
+    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-0.3.0}
+    container_name: socket-proxy-autoheal
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      # POST is required: autoheal calls POST /containers/{id}/restart. The proxy
+      # cannot restrict POST to the restart endpoint alone, so this profile is
+      # deliberately separate from the read-only one - only the three autoheal
+      # containers get it, and they are the only ones that need to change state.
+      POST: 1
+      INFO: 1
+      VERSION: 1
+      EXEC: 0            # blocks /exec/* (starting/inspecting exec instances)
+      # CAVEAT, measured: POST /containers/{id}/exec returns 400 (Docker rejecting
+      # an empty body), NOT 403 - so exec CREATION is governed by CONTAINERS+POST,
+      # not by this flag. A compromised autoheal could therefore create an exec in
+      # another container. Accepted because autoheal has no inbound ports and sits
+      # on an internal network with no route to the internet, so reaching it at all
+      # means the host is already compromised. Do not reuse this profile for
+      # anything that is network-reachable.
+      AUTH: 0
+      SECRETS: 0
+      CONFIGS: 0
+      SWARM: 0
+      NODES: 0
+      SERVICES: 0
+      TASKS: 0
+      PLUGINS: 0
+      SYSTEM: 0
+      VOLUMES: 0
+      NETWORKS: 0
+      IMAGES: 0
+      BUILD: 0
+      COMMIT: 0
+      DISTRIBUTION: 0
+      SESSION: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket_proxy
+    # NOT read_only. The entrypoint renders haproxy.cfg from
+    # /usr/local/etc/haproxy/haproxy.cfg.template at startup, so that directory
+    # must be writable - and tmpfs-ing it MASKS the template that ships in the
+    # image ("sed: haproxy.cfg.template: No such file or directory"). The socket
+    # itself is still mounted read-only, and the capability restrictions below do
+    # the meaningful work here.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+
+
+# #########################################################
+# UNIX BRIDGE (for clients that cannot speak TCP) #########
+# #########################################################
+# Some clients only accept a unix socket path - Cup's --socket option is
+# documented as "the path to the unix socket", and it ignores DOCKER_HOST. Giving
+# those clients /var/run/docker.sock back would hand them the real daemon (mounting
+# it :ro protects the socket FILE, not the API behind it).
+#
+# This bridges a unix socket onto socket-proxy-ro, so such a client gets a socket
+# that only exposes the read-only endpoint set. The socket lives on a named volume
+# that consumers mount instead of /var/run.
+  socket-proxy-unix:
+    image: alpine/socat:latest
+    container_name: socket-proxy-unix
+    restart: unless-stopped
+    command: >-
+      UNIX-LISTEN:/sock/docker.sock,fork,unlink-early,mode=666
+      TCP:socket-proxy-ro:2375
+    volumes:
+      - socket_bridge:/sock
+    networks:
+      - socket_proxy
+    depends_on:
+      - socket-proxy-ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 32m
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  socket_proxy:
+    name: socket_proxy
+    driver: bridge
+    # Internal: containers on this network cannot reach the internet. The proxy has
+    # no reason to make outbound connections, and neither has anything that talks
+    # to it purely for Docker API access.
+    internal: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  # Carries the bridged unix socket to consumers that cannot speak TCP.
+  socket_bridge:
+    name: socket_bridge

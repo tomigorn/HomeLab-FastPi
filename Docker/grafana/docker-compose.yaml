@@ -82,13 +82,18 @@ services:
     container_name: telegraf
     mem_limit: 256m
     user: telegraf
-    group_add:
-      - "991"          # docker group — required for telegraf (non-root) to read docker.sock
+    # The docker group membership and the docker.sock mount are GONE (2026-09-26).
+    # Membership of the docker group is equivalent to root on the host: the Docker
+    # API can start a privileged container that bind-mounts /. Telegraf only wants
+    # container stats, so it now talks to socket-proxy-ro over TCP, which serves
+    # read-only endpoints and refuses every POST.
     environment:
       - INFLUX_TOKEN=${INFLUX_TOKEN}
+    networks:
+      - default
+      - socket_proxy
     volumes:
       - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
@@ -97,6 +102,13 @@ services:
 # =========================================================
 # Networks ================================================
 # =========================================================
+networks:
+  # Compose's implicit per-project network, named explicitly now that a second
+  # network is attached to telegraf.
+  default:
+  # Defined by Docker-Socket-Proxy. Internal-only: no route to the internet.
+  socket_proxy:
+    external: true
 
 
 # =========================================================
