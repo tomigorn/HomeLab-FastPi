@@ -357,71 +357,35 @@ not a brand setting. Four flows carried it: `default-authentication-flow`,
 
 ### Where the logo files live, and why
 
+The icon set lives in **`/home/pi/Projects/HolyGrail-Branding/`**, not in this
+project - it is shared with other services and has its own README. Nothing here
+holds a copy; `data/media/public/` contains **symlinks** into that store, so
+updating the artwork there updates authentik with no copying.
+
 `branding_logo` is **not** a free-form URL. `FileManager.file_url()` passes a value
 through untouched only if it starts with `http:`, `https://` or `fa://`; anything
 else is resolved as a managed file at `{base_dir}/media/{schema}`, i.e.
 `/data/media/public`. A `data:` URI does **not** work - it gets prefixed into
-`/files/media/public/data:image/svg+xml;...` and 404s. Files are then served over
-a **signed** URL (`?token=...`), so fetching `/files/media/public/<name>` without
-the token returns 404 - that is correct, not a fault.
+`/files/media/public/data:image/svg+xml;...` and 404s. Files are served over a
+**signed** URL (`?token=...`), so fetching `/files/media/public/<name>` without the
+token returns 404 - correct, not a fault.
 
-`./data` is bind-mounted, so the files persist; but `data/` is gitignored, so the
-tracked copies live in `branding/` and must be deployed by hand:
+Two mounts in `docker-compose.yaml` make this work, on **both** server and worker:
 
-```bash
-N=/path/to/new/icon-set
-LH=$(md5sum $N/logo-1024.png | cut -c1-8)
-FH=$(md5sum $N/favicon.svg   | cut -c1-8)
-sudo mkdir -p data/media/public
-sudo chmod 755 data/media/public && sudo rm -f data/media/public/*
-sudo cp $N/logo-1024.png "data/media/public/holy-grail-logo-$LH.png"
-sudo cp $N/favicon.svg   "data/media/public/holy-grail-icon-$FH.svg"
-sudo chown root:root data/media/public data/media/public/*
-sudo chmod 444 data/media/public/* && sudo chmod 755 data/media/public
-# then point branding_logo / branding_favicon at the new filenames
+```yaml
+- /home/pi/Projects/HolyGrail-Branding/icons/android-chrome-192x192.png:/web/icons/icon_left_brand.png:ro
+- /home/pi/Projects/HolyGrail-Branding/icons:/home/pi/Projects/HolyGrail-Branding/icons:ro
 ```
 
-### Filenames carry a content hash, on purpose — Cloudflare caches these
+The second mounts the store at the **same absolute path** it has on the host. That
+is required, not cosmetic: a symlink inside a bind mount resolves in the
+*container's* namespace, so a link to `/home/pi/Projects/...` would dangle inside
+the container unless that exact path also exists there.
 
-These assets are served through Cloudflare with `cache-control: public,
-max-age=14400`, i.e. **four hours**. Replacing a file *in place* therefore appears
-to do nothing: the container serves the new bytes, Cloudflare keeps returning the
-old ones (`cf-cache-status: HIT`), and the only symptom is a stale logo. This
-happened during the icon-set update and looked exactly like a failed deploy.
-
-Embedding the file's md5 prefix in its name means new content is a new URL, so the
-edge cache is bypassed automatically with no purge token or waiting. Recompute the
-hash whenever the artwork changes - do not reuse a filename.
-
-`branding/grail-icons/` holds the full generated set - `.ico`, 16/32/48 PNGs,
-apple-touch-icon, android 192/512 and `site.webmanifest`. authentik uses only the
-two above; the rest are kept because they are exactly what a landing page or PWA
-at holy-grail.ch would need. `branding/holy-grail-*.svg` are the earlier
-typographic wordmark and chalice, kept as a fallback.
-
-To use a real logo instead of the wordmark, drop it in `branding/`, copy it across
-as above, and point `branding_logo` at the filename. No restart needed.
-
-### The files are deliberately read-only to authentik
-
-The container runs as uid 1000, which is `pi` on the host - so by default it could
-write into its own media directory, meaning **anyone with admin access to the web
-UI could upload a file straight over the logo**. Both the directory and the files
-are therefore owned by root, with the files mode `444` and the directory `755`:
-
-```bash
-sudo chown root:root data/media/public data/media/public/*
-sudo chmod 755 data/media/public
-sudo chmod 444 data/media/public/*
-```
-
-Verified: authentik can still READ them (serving works), but cannot overwrite an
-existing file or create a new one in that directory.
-
-The trade-off is that **uploading images through the authentik UI no longer
-works** - brand images have to be installed from the host, as above. That is the
-intent; if you ever need the UI upload, `chown` the directory back to 1000:1000
-temporarily.
+To change the artwork, edit the store and run its deploy script - see
+`/home/pi/Projects/HolyGrail-Branding/README.md`. It handles the two things that
+are not automatic: Cloudflare caches the logo for four hours (hence md5-prefixed
+filenames), and `logo_data()` is `lru_cache`d (hence a restart).
 
 ## Routing
 

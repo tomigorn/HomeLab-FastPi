@@ -57,7 +57,12 @@ services:
       # the bundled authentik PNG when that path is absent - and tasks.py attaches
       # it to every message as cid:logo. No Brand setting reaches it; this mount is
       # the only way. It is lru_cached, so a restart is required after changing it.
-      - ./branding/email-logo.png:/web/icons/icon_left_brand.png:ro
+      - /home/pi/Projects/HolyGrail-Branding/icons/android-chrome-192x192.png:/web/icons/icon_left_brand.png:ro
+      # The central icon store, mounted at the SAME absolute path it has on the
+      # host. That is deliberate: data/media/public holds SYMLINKS into this store,
+      # and a symlink is resolved in the CONTAINER's namespace - so the target path
+      # has to be valid both outside and inside, or it dangles in one of them.
+      - /home/pi/Projects/HolyGrail-Branding/icons:/home/pi/Projects/HolyGrail-Branding/icons:ro
     depends_on:
       postgresql:
         condition: service_healthy
@@ -89,7 +94,12 @@ services:
       - ./certs:/certs
       - ./custom-templates:/templates
       # The WORKER is what actually sends mail - see the note on the server service.
-      - ./branding/email-logo.png:/web/icons/icon_left_brand.png:ro
+      - /home/pi/Projects/HolyGrail-Branding/icons/android-chrome-192x192.png:/web/icons/icon_left_brand.png:ro
+      # The central icon store, mounted at the SAME absolute path it has on the
+      # host. That is deliberate: data/media/public holds SYMLINKS into this store,
+      # and a symlink is resolved in the CONTAINER's namespace - so the target path
+      # has to be valid both outside and inside, or it dangles in one of them.
+      - /home/pi/Projects/HolyGrail-Branding/icons:/home/pi/Projects/HolyGrail-Branding/icons:ro
     depends_on:
       postgresql:
         condition: service_healthy
