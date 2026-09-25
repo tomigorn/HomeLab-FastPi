@@ -1,0 +1,10 @@
+# Traefik access log. Traefik writes Common Log Format with extra fields; the
+# crowdsecurity/traefik collection parses it.
+#
+# The client field only became meaningful on 2026-09-26, when Traefik was
+# configured to trust the tunnel's forwarded headers - before that every line said
+# 172.24.0.1 and any ban would have hit the tunnel itself.
+filenames:
+  - /var/log/traefik/access.log
+labels:
+  type: traefik

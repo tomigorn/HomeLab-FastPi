@@ -1,0 +1,56 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+#
+# CrowdSec reads Traefik's access log, recognises attack patterns (credential
+# stuffing, scanners, path traversal probes) and produces "decisions" - IP bans.
+#
+# DEPLOYED IN DETECTION-ONLY MODE (2026-09-26). Nothing is blocked yet: enforcing
+# decisions needs a bouncer, and the right one here is the Traefik plugin, which
+# is a STATIC Traefik config change. A bad plugin declaration stops Traefik from
+# starting, which takes every service down - not something to do unattended. The
+# detection half is zero-risk, starts learning immediately, and the bouncer can be
+# switched on later as one reviewed change.
+#
+# Why the Traefik plugin and not the firewall bouncer: all traffic arrives through
+# the Cloudflare tunnel, so at packet level every client looks like the docker
+# gateway. Only Traefik sees the real IP (via forwardedHeaders, configured
+# 2026-09-26). A firewall bouncer would be blind here, or would ban the tunnel.
+services:
+# #########################################################
+# CROWDSEC ################################################
+# #########################################################
+  crowdsec:
+    image: ${CROWDSEC_IMAGE:-crowdsecurity/crowdsec}:${CROWDSEC_TAG:-v1.6.4}
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      # Parsers/scenarios for Traefik access logs and generic HTTP attacks.
+      COLLECTIONS: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/base-http-scenarios"
+      GID: "1000"
+    volumes:
+      # Traefik's access log, read-only. This is the only input.
+      - /home/pi/Projects/Docker/Traefik/traefik/logs:/var/log/traefik:ro
+      - ./config/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_data:/var/lib/crowdsec/data
+    networks:
+      - crowdsec
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 384m
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  crowdsec:
+    name: crowdsec
+    driver: bridge
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  crowdsec_config:
+  crowdsec_data:
