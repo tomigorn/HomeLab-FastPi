@@ -86,32 +86,24 @@ entries:
     attrs:
       scope_name: nextcloud
       description: Nextcloud display name and group membership
-      # ###################################################################
-      # KNOWN BUG - MUST BE FIXED BEFORE UPGRADING AUTHENTIK
-      # ###################################################################
-      # `ak_groups` below is DEPRECATED. authentik logs a configuration_warning
-      # on every evaluation:
-      #   "authentik.core.models.User.ak_groups is deprecated and will be removed
-      #    in a future version. Please use User.groups instead."
+      # Uses `request.user.groups`, NOT the deprecated `ak_groups` (swapped
+      # 2026-09-25; raised 2026-08-16). authentik logged a configuration_warning
+      # on every evaluation of the old attribute and will eventually remove it,
+      # at which point the expression would have raised, the groups claim would
+      # have come back EMPTY, and the failure would have been silent: login keeps
+      # working while every user loses Nextcloud admin rights and group
+      # membership. Nothing would show at the login screen.
       #
-      # It still works on 2026.5.2. When authentik removes it, this expression
-      # raises, the groups claim comes back EMPTY, and the failure is quiet and
-      # nasty: login still succeeds, but every user silently loses Nextcloud
-      # admin rights and group membership. Nothing errors at the login screen.
-      #
-      # Fix: swap both `request.user.ak_groups.filter(...)` calls below for
-      # `request.user.groups.filter(...)`, re-apply this blueprint, then verify
-      # with the snippet in README.md -> Blueprints -> Known issues. A member of
-      # cloud-admins must still resolve to ['cloud-users','cloud-admins','admin'].
-      #
-      # Raised 2026-08-16. Deliberately left unfixed for now (no time to verify);
-      # do NOT upgrade authentik without doing this first.
-      # ###################################################################
+      # `user.groups` is authentik's own M2M to authentik.core.models.Group - it
+      # is NOT Django's contrib.auth group relation, despite the name. Verified
+      # before and after the swap: a cloud-admins member resolves to
+      # ['cloud-users', 'cloud-admins', 'admin'] either way. See README.md ->
+      # Blueprints for the verification snippet.
       expression: |
         groups = []
-        if request.user.ak_groups.filter(name="cloud-users").exists():
+        if request.user.groups.filter(name="cloud-users").exists():
             groups.append("cloud-users")
-        if request.user.ak_groups.filter(name="cloud-admins").exists():
+        if request.user.groups.filter(name="cloud-admins").exists():
             groups.append("cloud-admins")
             # Nextcloud's built-in administrator group. Hard-coded upstream.
             groups.append("admin")

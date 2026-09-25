@@ -7,7 +7,7 @@ No inbound mail. Flows are configured in the Authentik web UI after first start;
 applications added since then are declared as blueprints in `blueprints/` (see
 [Blueprints](#blueprints)).
 
-## Project status — last reviewed 2026-08-17
+## Project status — last reviewed 2026-09-25
 
 Read this first when picking the project back up. Detail lives in `SETUP.md`;
 this is just where things stand.
@@ -44,11 +44,9 @@ Also outstanding, unrelated to invites: give Nextcloud's local `admin` account a
 long random password and enable Nextcloud's own TOTP on it — it is the one login
 that bypasses this IdP (see the Nextcloud project docs).
 
-### Known issues, both unfixed
+### Known issues
 
-1. **`ak_groups` is deprecated** — blocks upgrading authentik. See the section
-   below; it fails *silently* by emptying the groups claim.
-2. **The default `profile` scope also emits a `groups` claim** containing every
+1. **The default `profile` scope also emits a `groups` claim** containing every
    authentik group, so group names such as `authentik Admins` and
    `streaming-users` leak into Nextcloud as Nextcloud groups. Harmless today —
    only the literal `admin` group grants rights, and access is still gated by the
@@ -162,22 +160,25 @@ Authentik on first apply and read back from the provider, never written here.
   looked up by `name` rather than `scope_name` (two mappings share the scope
   name `email`).
 
-### ⚠️ Known issue — `ak_groups` is deprecated (raised 2026-08-16, NOT fixed)
+### Resolved 2026-09-25 — `ak_groups` deprecation (was an upgrade blocker)
 
-**Do not upgrade authentik before fixing this.**
+`nextcloud-oidc.yaml`'s scope mapping used `request.user.ak_groups`, deprecated
+by authentik in favour of `request.user.groups`. Both calls were swapped and the
+blueprint re-applied, so **upgrading authentik is no longer blocked by this.**
 
-`nextcloud-oidc.yaml`'s scope mapping uses `request.user.ak_groups`, which
-authentik has deprecated in favour of `request.user.groups`. It logs a
-`configuration_warning` on every evaluation and still works on **2026.5.2**.
+It was worth fixing early because of *how* it would have broken. Once authentik
+removes the attribute the expression raises, the `groups` claim comes back
+**empty**, login keeps working, and every user silently loses Nextcloud admin
+rights and group membership — a quiet permissions regression, far worse to
+diagnose than a loud failure.
 
-The reason it matters is *how* it will break. When authentik removes the
-attribute, the expression raises and the `groups` claim comes back **empty** —
-so login keeps working, nobody sees an error, and every user silently loses
-Nextcloud admin rights and group membership. A quiet permissions regression is
-far worse to diagnose than a loud failure.
+Worth knowing: `user.groups` is authentik's own M2M to
+`authentik.core.models.Group`, **not** Django's `contrib.auth` group relation,
+despite the name — confirmed before the swap, since getting that wrong would
+have produced exactly the silent empty claim described above. Output was
+captured before and after and is identical.
 
-Fix: replace both `ak_groups` calls with `groups`, re-apply the blueprint, then
-verify a `cloud-admins` member still resolves to all three groups:
+Verify at any time that a `cloud-admins` member resolves to all three groups:
 
 ```bash
 docker exec -i authentik-server ak shell -c "

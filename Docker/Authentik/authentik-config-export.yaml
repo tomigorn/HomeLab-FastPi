@@ -52,7 +52,8 @@ entries:
     name: cloud-users
     parents: []
     roles: []
-    users: []
+    users:
+    - 4
   conditions: []
   identifiers:
     pk: ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
@@ -65,7 +66,8 @@ entries:
     name: cloud-admins
     parents: []
     roles: []
-    users: []
+    users:
+    - 4
   conditions: []
   identifiers:
     pk: 613bc864-37df-4f07-819b-50ae607c13d5
@@ -113,8 +115,10 @@ entries:
     email: <email-removed-from-history>
     groups:
     - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
+    - ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
+    - 613bc864-37df-4f07-819b-50ae607c13d5
     is_active: true
-    last_login: '2026-07-03T02:12:04.885212Z'
+    last_login: '2026-08-16T21:47:27.269653Z'
     name: authentik Default Admin
     path: users
     roles: []
@@ -1695,11 +1699,11 @@ entries:
   state: present
 - attrs:
     description: Nextcloud display name and group membership
-    expression: "groups = []\nif request.user.ak_groups.filter(name=\"cloud-users\"\
-      ).exists():\n    groups.append(\"cloud-users\")\nif request.user.ak_groups.filter(name=\"\
-      cloud-admins\").exists():\n    groups.append(\"cloud-admins\")\n    # Nextcloud's\
-      \ built-in administrator group. Hard-coded upstream.\n    groups.append(\"admin\"\
-      )\nreturn {\n    \"name\": request.user.name,\n    \"groups\": groups,\n}"
+    expression: "groups = []\nif request.user.groups.filter(name=\"cloud-users\").exists():\n\
+      \    groups.append(\"cloud-users\")\nif request.user.groups.filter(name=\"cloud-admins\"\
+      ).exists():\n    groups.append(\"cloud-admins\")\n    # Nextcloud's built-in\
+      \ administrator group. Hard-coded upstream.\n    groups.append(\"admin\")\n\
+      return {\n    \"name\": request.user.name,\n    \"groups\": groups,\n}"
     managed: null
     name: Nextcloud Profile
     scope_name: nextcloud
@@ -1767,7 +1771,9 @@ entries:
     client_secret: <rotated-secret-removed-from-history>
     client_type: confidential
     encryption_key: null
-    grant_types: []
+    grant_types:
+    - authorization_code
+    - refresh_token
     include_claims_in_id_token: true
     invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
     issuer_mode: per_provider
@@ -2920,12 +2926,22 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 32 */8 * * *
+    crontab: 16 8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
+    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 59 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -2940,22 +2956,32 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 26 */2 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 32 */8 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 7b75d437-848f-46e3-89d7-4d110d210bc3
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 35 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 3e3e16cb-007a-4445-9414-4185df579b15
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 24 */3 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -2970,32 +2996,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 44 22 * * 5
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 2e7c5e0e-da8a-4c6d-981e-4f6d7fcba7cc
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 9-59/5 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3016,6 +3022,36 @@ entries:
   conditions: []
   identifiers:
     pk: c457abd3-1325-46dc-ae47-6ed899816277
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 44 22 * * 5
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 2e7c5e0e-da8a-4c6d-981e-4f6d7fcba7cc
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 29 */4 * * *
+    paused: false
+    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
+  conditions: []
+  identifiers:
+    pk: edd1641d-35f5-45dc-a4a8-83b027848529
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 19 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3050,16 +3086,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 19 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 21 * * * *
     paused: false
     rel_obj_id: null
@@ -3070,32 +3096,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 16 8 * * *
+    crontab: 24 */3 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 26 */2 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 29 */4 * * *
-    paused: false
-    rel_obj_id: d139cd2e-a93e-4c38-9c9e-9b9c1bb0ec23
-  conditions: []
-  identifiers:
-    pk: edd1641d-35f5-45dc-a4a8-83b027848529
+    pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3528,5 +3534,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-08-16 20:46:38.831822+00:00
+  name: authentik Export - 2026-09-25 15:46:50.079153+00:00
 version: 1
