@@ -4,26 +4,28 @@
 {#
   Human-readable notification for "a user account was created".
 
-  Used by the `new-account-email-transport` notification transport, which is
-  bound to the `notify-admins-user-created` rule.
+  Used by `new-account-email-transport`, bound to the `notify-admins-user-created`
+  rule. The stock email/event_notification.html titles the mail with the raw event
+  action and dumps the event context as a Python dict - accurate and unreadable.
 
-  Why this exists: the stock email/event_notification.html titles the message
-  with the raw event action ("model_created") and dumps the event context as a
-  Python dict. It is accurate and unreadable - you cannot tell from the subject
-  line that someone signed up.
+  The rule matches `user_write` with context["created"] = True, NOT model_created.
+  That matters for this template: model_created carries the created object only in
+  context["model"], a dict, and send_email() copies just the STRING values of the
+  event context into key_value - so name/username never arrived. user_write puts
+  them in as plain strings, which is why the rows below work:
 
-  Context available here (built in NotificationTransport.send_email):
-    title      - the raw event action, e.g. "model_created"
-    body       - the full event dump
-    key_value  - user_email / user_username  = the RECIPIENT (you, the admin)
-                 event_user_email / event_user_username = whoever the event was
-                 attributed to. For a self-service enrolment that is the new
-                 account. For an admin-created account it is the ADMIN, not the
-                 new user, because the created object's name lives in
-                 event.context["model"], a dict, which send_email() skips (it
-                 only copies string values into key_value). That is why the raw
-                 dump is still shown at the bottom - it is the only place the
-                 created username appears in that case.
+    key_value.username / key_value.name / key_value.email  = the NEW account
+    key_value.user_*                                       = the recipient (admin)
+    key_value.event_user_*                                 = actor; same person
+                                                             here, since enrolment
+                                                             runs as the new user
+
+  The group and application names are HARDCODED to match create_users_group in
+  blueprints/enrollment-defaults-and-notify.yaml. If that default changes, change
+  it here too - nothing links them automatically.
+
+  Do NOT render key_value wholesale: user_write's context also contains the
+  masked password fields and the full HTML of every prompt on the enrolment form.
 #}
 
 {% block content %}
@@ -34,54 +36,66 @@
 </tr>
 <tr>
   <td align="center">
-    <table border="0">
+    <table border="0" width="100%" style="max-width: 380px;">
+
       <tr>
-        <td align="center" style="max-width: 360px; padding: 12px 0; color: #212124;">
+        <td align="center" style="padding: 4px 0 16px 0; color: #212124;">
           Someone now has an account on <strong>holy-grail.ch</strong>.
         </td>
       </tr>
 
-      {% if key_value.event_user_username %}
       <tr>
         <td>
           <table class="properties-table" width="100%">
             <tbody>
               <tr>
-                <td class="td-right">Account</td>
-                <td class="td-left"><strong>{{ key_value.event_user_username }}</strong></td>
+                <td class="td-right">Username</td>
+                <td class="td-left"><strong>{{ key_value.username|default:"—" }}</strong></td>
               </tr>
-              {% if key_value.event_user_email %}
+              <tr>
+                <td class="td-right">Name</td>
+                <td class="td-left">{{ key_value.name|default:"—" }}</td>
+              </tr>
               <tr>
                 <td class="td-right">Email</td>
-                <td class="td-left">{{ key_value.event_user_email }}</td>
+                <td class="td-left">{{ key_value.email|default:"—" }}</td>
               </tr>
-              {% endif %}
             </tbody>
           </table>
         </td>
       </tr>
-      {% endif %}
 
       <tr>
-        <td align="center" style="max-width: 360px; padding: 12px 0; color: #212124; font-size: 13px;">
-          They were added to <code>streaming-users</code> automatically, which
-          gives them Audiobookshelf. If they should also reach Nextcloud, add
-          <code>cloud-users</code> by hand.
+        <td style="text-align: left; padding: 18px 0 0 0; color: #212124;">
+          They were added to the groups:
+          <ul style="margin: 6px 0 0 0; padding-left: 22px;">
+            <li><code>streaming-users</code></li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="text-align: left; padding: 14px 0 0 0; color: #212124;">
+          which gives them access to:
+          <ul style="margin: 6px 0 0 0; padding-left: 22px;">
+            <li>Audiobookshelf</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="text-align: left; padding: 16px 0 10px 0; color: #212124;">
+          To add more access and more groups:
         </td>
       </tr>
 
       <tr>
         <td align="center" class="btn btn-primary">
           <a href="https://sso.holy-grail.ch/if/admin/#/identity/users"
-             rel="noopener noreferrer" target="_blank">Open users in authentik</a>
+             rel="noopener noreferrer" target="_blank">Open Users In Authentik</a>
         </td>
       </tr>
 
-      <tr>
-        <td align="center" style="padding: 18px 8px 0 8px; color: #6a6e73; font-size: 11px; word-break: break-all;">
-          {{ body }}
-        </td>
-      </tr>
     </table>
   </td>
 </tr>

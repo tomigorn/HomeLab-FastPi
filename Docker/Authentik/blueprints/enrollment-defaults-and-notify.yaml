@@ -50,22 +50,38 @@ entries:
     identifiers:
       name: enrollment-user-created
     attrs:
-      action: model_created
-      # `app` MUST stay null. It looks like it should be the model's app label,
-      # and the API even offers "authentik.core" as a choice - but passes_app()
-      # compares it against Event.app, which is the SOURCE MODULE PATH of
-      # whatever emitted the event (e.g.
-      # "authentik.core.management.commands.shell", or the stage module during
-      # enrolment). Setting it silently matches nothing, and because the rule
-      # then just never fires there is no error to notice. `model` alone is
-      # precise: passes_model() builds "<app_label>.<model_name>" from the event
-      # context, which is exactly authentik_core.user.
+      # `user_write` rather than `model_created`, because model_created carries the
+      # created object only in context["model"], a DICT - and send_email() copies
+      # string values into the template context, so the name/username never reach
+      # the email. user_write puts name, username and email in the context as
+      # plain strings, which is what the template needs.
+      #
+      # Trade-off, deliberate: user_write fires from flow stages, so this notifies
+      # on self-service enrolment but NOT on an account created by an admin in the
+      # UI (that emits model_created only). Acceptable - an admin creating an
+      # account already knows they did it.
+      action: user_write
+      # `app` MUST stay null. It looks like a model app-label and the API even
+      # offers "authentik.core" as a choice, but passes_app() compares it against
+      # Event.app, the SOURCE MODULE PATH of whatever emitted the event. Setting it
+      # matches nothing and the rule silently never fires, with no error to notice.
       app: null
-      model: authentik_core.user
+      model: null
 
-  # ---------------------------------------------------------------------------
-  # 3. Mail the admins when it matches
-  # ---------------------------------------------------------------------------
+  # user_write also fires on password changes and profile edits. Only a creation
+  # sets context["created"] = True, and that is a bool so an EventMatcherPolicy
+  # cannot test it - hence this expression alongside, with the rule in "all" mode.
+  - model: authentik_policies_expression.expressionpolicy
+    id: policy-created-flag
+    identifiers:
+      name: enrollment-user-write-is-creation
+    attrs:
+      expression: |
+        event = request.context.get("event")
+        if not event:
+            return False
+        return event.context.get("created") is True
+
   # Dedicated transport so the stock one is left alone for other notifications.
   #
   # The stock email/event_notification.html titles the mail with the raw event
@@ -95,6 +111,21 @@ entries:
       name: notify-admins-user-created
     attrs:
       severity: notice
+      # BOTH policies must pass: the action matcher AND the created-flag check,
+      # i.e. policy_engine_mode = "all". The default is "any", which would fire on
+      # every user_write including password changes.
+      #
+      # policy_engine_mode CANNOT be set from here: it is absent from
+      # NotificationRuleSerializer.Meta.fields, so the API and the blueprint
+      # importer both accept and silently DISCARD it. Set it directly:
+      #
+      #   docker exec -i authentik-server ak shell -c "
+      #   from authentik.events.models import NotificationRule
+      #   r=NotificationRule.objects.get(name='notify-admins-user-created')
+      #   r.policy_engine_mode='all'; r.save()"
+      #
+      # Re-applying this blueprint will not revert it, precisely because the field
+      # is not serialised - but a rule recreated from scratch will default to "any".
       destination_group:
         !Find [authentik_core.group, [name, authentik Admins]]
       transports:
@@ -106,4 +137,12 @@ entries:
       policy: !KeyOf policy-user-created
     attrs:
       order: 0
+      enabled: true
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf rule-user-created
+      policy: !KeyOf policy-created-flag
+    attrs:
+      order: 1
       enabled: true
