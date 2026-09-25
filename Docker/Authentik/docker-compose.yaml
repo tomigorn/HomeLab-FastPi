@@ -79,7 +79,10 @@ services:
     restart: unless-stopped
     command: worker
     shm_size: 512mb
-    user: root
+    # `user: root` was REMOVED (2026-09-26). Upstream's vanilla compose sets it
+    # solely so the worker can reach /var/run/docker.sock; with that mount gone
+    # there is nothing left that needs root. /data and /certs are owned by the
+    # authentik user (1000) and /templates is only ever read.
     env_file:
       - .env
     environment:
@@ -89,7 +92,15 @@ services:
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # /var/run/docker.sock was REMOVED (2026-09-26). The worker ran as root with
+      # the Docker socket mounted, which is host root: a compromise of it owned the
+      # whole machine, every other container and every secret on it.
+      #
+      # It is only needed to orchestrate Docker/Kubernetes OUTPOSTS. This install
+      # has exactly one outpost, the Embedded one, which runs inside the server
+      # process: service_connection is None and it serves 0 providers. Verified
+      # before removing. If a containerised outpost is ever added, use a
+      # docker-socket-proxy rather than mounting the raw socket.
       - ./data:/data
       - ./certs:/certs
       - ./custom-templates:/templates
