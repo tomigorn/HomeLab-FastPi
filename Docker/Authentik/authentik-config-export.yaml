@@ -130,23 +130,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    attributes: {}
-    email: <redacted-by-sanitize-export>
-    groups: []
-    is_active: true
-    last_login: null
-    name: Layout Probe
-    path: users
-    roles: []
-    type: internal
-    username: layout-probe
-  conditions: []
-  identifiers:
-    pk: 17
-  model: authentik_core.user
-  permissions: []
-  state: present
-- attrs:
     backchannel_providers: []
     group: ''
     meta_description: ''
@@ -3691,5 +3674,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 20:05:05.645108+00:00
+  name: authentik Export - 2026-09-25 20:06:12.675351+00:00
 version: 1
