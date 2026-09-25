@@ -345,8 +345,8 @@ authentik. Three separate mechanisms, because authentik has no single switch:
 | Field | Value |
 |---|---|
 | `branding_title` | `Holy Grail` |
-| `branding_logo` | `holy-grail-logo.svg` |
-| `branding_favicon` | `holy-grail-icon.svg` |
+| `branding_logo` | `holy-grail-logo.png` (the grail icon, 1024px) |
+| `branding_favicon` | `holy-grail-icon.svg` (scales crisply in the tab) |
 | `footer_links` (on the **Tenant**, not the Brand) | holy-grail.ch + a small authentik credit |
 
 **2. Flow titles.** The big "Welcome to authentik!" line is the *flow's* `title`,
@@ -370,9 +370,17 @@ tracked copies live in `branding/` and must be deployed by hand:
 
 ```bash
 sudo mkdir -p data/media/public
-sudo cp branding/*.svg data/media/public/
-sudo chmod 644 data/media/public/*.svg
+sudo cp branding/grail-icons/favicon.svg   data/media/public/holy-grail-icon.svg
+sudo cp branding/grail-icons/logo-1024.png data/media/public/holy-grail-logo.png
+sudo chown root:root data/media/public data/media/public/*
+sudo chmod 755 data/media/public && sudo chmod 444 data/media/public/*
 ```
+
+`branding/grail-icons/` holds the full generated set - `.ico`, 16/32/48 PNGs,
+apple-touch-icon, android 192/512 and `site.webmanifest`. authentik uses only the
+two above; the rest are kept because they are exactly what a landing page or PWA
+at holy-grail.ch would need. `branding/holy-grail-*.svg` are the earlier
+typographic wordmark and chalice, kept as a fallback.
 
 To use a real logo instead of the wordmark, drop it in `branding/`, copy it across
 as above, and point `branding_logo` at the filename. No restart needed.
