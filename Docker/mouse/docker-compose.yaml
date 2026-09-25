@@ -237,8 +237,11 @@ services:
     mem_limit: 64m
     ports:
       - "${WEB_PORT:-8088}:${WEB_PORT:-8088}"
+    # Real docker.sock REMOVED (2026-09-26) - it is root on the host. This script
+    # only inspects and restarts/stops a few named containers, so it uses the
+    # docker CLI against socket-proxy-autoheal (containers + POST, no images, no
+    # volumes, no networks). The CLI honours DOCKER_HOST.
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - port-updater-data:/data
     logging:
       driver: "json-file"
@@ -248,12 +251,14 @@ services:
     networks:
       mouse_network:
         ipv4_address: 172.32.0.3
+      socket_proxy:
     depends_on:
       gluetun:
         condition: service_healthy
       qbittorrent:
         condition: service_started
     environment:
+      - DOCKER_HOST=tcp://socket-proxy-autoheal:2375
       - QBIT_USER=admin
       - QBIT_PASS=${QBIT_PASS}
       - CHECK_INTERVAL=600
