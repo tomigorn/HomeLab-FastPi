@@ -18,9 +18,40 @@ services:
       - ./audiobookshelf/metadata:/metadata
     environment:
       - TZ=Europe/Zurich
+      # Unprivileged port. The image defaults to 80, which a non-root user cannot
+      # bind without CAP_NET_BIND_SERVICE - and granting that back would undo half
+      # the point of cap_drop: ALL. Traefik's service URL is updated to match.
+      - PORT=8080
+    # Hardening. Audiobookshelf ran as root with every capability and a writable
+    # filesystem; an RCE in it was root in the container.
+    #   user 1000:1000 - matches the bind mounts. /config and /metadata were
+    #     chowned for this; the library is group-writable (664, group sambashare)
+    #     and pi is in that group, plus there is an ACL granting it rwx, so
+    #     storeCoverWithItem / storeMetadataWithItem keep working.
+    #   cap_drop ALL   - it needs no Linux capabilities once it binds a high port.
+    #   no-new-privileges - a compromised process cannot gain rights via setuid.
+    user: "1000:1000"
+    # The library directory is group-writable by sambashare (gid 1100) and has an
+    # ACL granting that group rwx. Host group membership does NOT carry into the
+    # container - uid 1000 there has only groups=[1000] - so the ACL did not apply
+    # and /audiobooks was read-only. group_add puts gid 1100 into the process's
+    # supplementary groups, which is what the ACL matches on.
+    group_add:
+      - "1100"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Nothing outside the bind mounts needs to be writable, so an attacker cannot
+    # drop a payload onto the container filesystem. /tmp is a tmpfs because node
+    # and ffmpeg need scratch space; noexec means anything written there cannot be
+    # executed.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/healthcheck"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3

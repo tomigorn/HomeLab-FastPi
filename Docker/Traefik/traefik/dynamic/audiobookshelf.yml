@@ -29,5 +29,5 @@ http:
     audiobookshelf:
       loadBalancer:
         servers:
-          - url: "http://audiobookshelf:80"
+          - url: "http://audiobookshelf:8080"
         passHostHeader: true
