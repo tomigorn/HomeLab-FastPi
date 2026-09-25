@@ -182,6 +182,20 @@ entries:
   permissions: []
   state: present
 - attrs:
+    description: ''
+    expires: '2026-09-25T20:41:18.346842Z'
+    expiring: true
+    identifier: ak-email-stage-default-recovery-email-e4c81cac-04ef-419a-b071-f365bac13608
+    intent: verification
+    managed: null
+    user: 15
+  conditions: []
+  identifiers:
+    pk: 32c4be57-de26-4f33-bcbc-4dd7c44ea171
+  model: authentik_core.token
+  permissions: []
+  state: present
+- attrs:
     name: authentik Internal JWT Certificate
   conditions: []
   identifiers:
@@ -3072,46 +3086,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 16 8 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 2-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: c457abd3-1325-46dc-ae47-6ed899816277
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 9-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 21 * * * *
     paused: false
     rel_obj_id: null
@@ -3248,6 +3222,46 @@ entries:
   conditions: []
   identifiers:
     pk: 882b653b-d9c8-477f-baac-3dcffecb119a
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 9-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 16 8 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 59 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 2-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: c457abd3-1325-46dc-ae47-6ed899816277
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3674,5 +3688,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 20:06:12.675351+00:00
+  name: authentik Export - 2026-09-25 20:15:49.816105+00:00
 version: 1

@@ -299,6 +299,42 @@ FlowStageBinding.objects.filter(target=Flow.objects.get(slug='enrollment'),
                                 order=1).delete()"
 ```
 
+### Closed, unresolved — Audiobookshelf OIDC "login twice" (2026-09-25)
+
+Recorded because it cost a long investigation, not because it is open. Do not
+re-chase it unless it happens to a **new invitee on a cold login**.
+
+Symptom: first "Login with Holy Grail" returned to Audiobookshelf logged out; a
+second click worked immediately without re-authenticating at authentik.
+
+It did **not reproduce**. A deliberate re-test — account deleted from both
+authentik and Audiobookshelf, enrolled fresh, then logged in — auto-registered a
+brand-new account and logged in on the **first** click in 4.1 seconds.
+
+Two hypotheses, both unconfirmed:
+
+1. `auth_cb` expiry. Audiobookshelf sets that cookie with `maxAge: TWO_MINUTES`
+   (`Auth.js`, `paramsToCookies`) before redirecting to the IdP, and returns a
+   bare `400 "No callback or already expired"` if it is gone at callback time.
+   A first login means typing a password *and* a TOTP code, which can exceed two
+   minutes. The second attempt is fast because authentik already has a session.
+   The constant is hardcoded — not configurable.
+2. **Most likely:** stale browser cookies. The failure happened minutes after the
+   old June `testuser` was deleted out from under an open Audiobookshelf tab. The
+   browser still held a `refresh_token` cookie for a user that no longer existed,
+   `/auth/refresh` 401'd (`Failed to refresh token`), and the client fell back to
+   the login page. Clicking again replaced the cookies. If so it was collateral
+   from the deletion, not a defect, and invitees arriving clean never hit it.
+
+Ruled out along the way: stale `auth_method` (overwritten unconditionally on every
+login start), first-login auto-registration (proven fine by the re-test), and a
+missing `X-Forwarded-Proto` (the logged `redirect_uri` is correctly `https://`).
+
+Note for any future dig: two of the three failure paths (`No callback or already
+expired`, `No session`) write **no log line at all**, which is why the original
+failure left no trace. Only the passport-error path logs, and it redirects to
+`/login?error=...`.
+
 ## Routing
 
 `sso.holy-grail.ch` is routed by Traefik's file provider
