@@ -35,12 +35,15 @@ services:
       - "8000:8000"
     mem_limit: 128m
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/v3/json"]
-      interval: 5m
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+    # Healthcheck REMOVED (2026-09-26). It ran
+    #   ["CMD", "wget", "-qO-", "http://localhost:8000/api/v3/json"]
+    # but this image is distroless: it contains the cup binary and nothing else -
+    # no shell, no wget. `docker run --entrypoint wget <image>` fails on a clean
+    # container, so the check could only ever report unhealthy. Docker has no way
+    # to probe inside an image with no executables, so there is nothing to replace
+    # it with; Traefik's file provider does not gate routing on health anyway.
+    # Cup itself is fine - it serves HTTP 200 and checked 117 images after the
+    # socket-proxy migration.
     networks:
       # ONLY traefik_proxy. Cup reaches the Docker API through the bridged unix
       # socket (a volume, not a network), and it must query registries over the
