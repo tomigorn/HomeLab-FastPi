@@ -31,7 +31,7 @@ verified, but the end-to-end path — invite link → warning page → form → 
 email → click → TOTP → logged in — is **unproven in practice**.
 
 Brevo has now been shown to *send*: the admin-notification rule below delivered a
-real message to `tomigorn@gmail.com` on 2026-09-25. That proves the relay accepts
+real message to the admin address on 2026-09-25. That proves the relay accepts
 and sends our mail; it still does not prove the enrollment verification mail
 lands in an arbitrary inbox rather than a spam folder.
 
