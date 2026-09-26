@@ -36,6 +36,9 @@ services:
       - crowdsec_data:/var/lib/crowdsec/data
     networks:
       - crowdsec
+      # Traefik's bouncer plugin queries the Local API over HTTP, and Traefik
+      # lives on traefik_proxy.
+      - traefik_proxy
     security_opt:
       - no-new-privileges:true
     mem_limit: 384m
@@ -47,6 +50,8 @@ networks:
   crowdsec:
     name: crowdsec
     driver: bridge
+  traefik_proxy:
+    external: true
 
 # =========================================================
 # Volumes =================================================

@@ -21,6 +21,9 @@ services:
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/dynamic:ro
+      # CrowdSec LAPI key. Kept in a file, not inlined in dynamic config, because
+      # dynamic config is committed - inlining it is how secrets leak. Gitignored.
+      - ./traefik/secrets:/secrets:ro
       - ./traefik/letsencrypt:/letsencrypt    # this is hidden from git via .gitignore
       - ./traefik/logs:/var/log/traefik       # this is hidden from git via .gitignore
     networks:

@@ -23,3 +23,5 @@
 # Secret-token bypass (contains the extension's access token in the path)
 # ───────────────────────────────
 /traefik/dynamic/languagetool-token.yml
+# CrowdSec LAPI key - never commit
+traefik/secrets/

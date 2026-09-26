@@ -9,6 +9,12 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+    http:
+      middlewares:
+        # Attached HERE, not per-router, so every public route is covered -
+        # including any added later. Per-router attachment silently misses new
+        # services, which is the failure mode that matters.
+        - crowdsec@file
     # Every external request arrives via the Cloudflare tunnel, so the packet
     # source is always the docker bridge gateway (172.24.0.1) and the real client
     # sits in X-Forwarded-For. Without this, Traefik logged 172.24.0.1 as the
@@ -68,3 +74,13 @@ providers:
     watch: true
 
 # Note: Docker provider intentionally omitted to use file-based dynamic configuration
+
+# CrowdSec bouncer plugin. Traefik DOWNLOADS this at startup from GitHub - if the
+# download fails, Traefik does not start and every service goes down with it. Pin
+# the version, and after changing it confirm the container actually comes up
+# before walking away.
+experimental:
+  plugins:
+    crowdsec-bouncer:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      version: v1.7.1

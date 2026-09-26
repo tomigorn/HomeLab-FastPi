@@ -1,0 +1,35 @@
+# CrowdSec bouncer middleware.
+#
+# Attached to the websecure entrypoint (see traefik.yml), so it covers EVERY
+# public route automatically - including services added later. Per-router
+# attachment was rejected: it silently misses anything new.
+#
+# The LAPI key is read from a FILE, not inlined. Dynamic config files are
+# committed, and a key pasted here would be published - which is exactly how the
+# OAuth2 client secrets leaked. traefik/secrets/ is gitignored.
+http:
+  middlewares:
+    crowdsec:
+      plugin:
+        crowdsec-bouncer:
+          enabled: true
+          # live = query the Local API per request. The alternative, stream mode,
+          # caches the whole decision list locally; live is simpler and this
+          # volume of traffic does not need the cache.
+          crowdsecMode: live
+          crowdsecLapiScheme: http
+          crowdsecLapiHost: crowdsec:8080
+          crowdsecLapiKeyFile: /secrets/crowdsec_lapi_key
+          # All external traffic arrives via the Cloudflare tunnel, so the real
+          # client is in X-Forwarded-For and the packet source is always the docker
+          # gateway. Without this the plugin would judge - and could ban - the
+          # tunnel itself, taking every service offline.
+          forwardedHeadersTrustedIPs:
+            - 172.24.0.1/32
+          # Never ban the LAN or docker networks. A false positive here would lock
+          # administration out of the machine.
+          clientTrustedIPs:
+            - 192.168.0.0/16
+            - 172.16.0.0/12
+            - 10.0.0.0/8
+            - 127.0.0.1/32
