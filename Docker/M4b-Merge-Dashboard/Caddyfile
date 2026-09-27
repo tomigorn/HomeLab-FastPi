@@ -1,0 +1,27 @@
+# Plain HTTP on the LAN only; the port binding in docker-compose.yaml is what
+# restricts reachability. No TLS: there is no hostname and no public route.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	root * /srv/www
+	file_server
+
+	respond /healthz "ok" 200
+
+	# progress.json changes every few seconds - never let it be cached
+	@live path /runs/progress.json /runs/run.jsonl
+	header @live Cache-Control "no-store, must-revalidate"
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	log {
+		output discard
+	}
+}

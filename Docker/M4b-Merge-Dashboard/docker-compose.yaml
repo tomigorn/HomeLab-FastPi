@@ -1,0 +1,56 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# M4b-Merge-Dashboard #####################################
+# #########################################################
+  dashboard:
+    image: caddy:${CADDY_TAG}
+    container_name: m4b-merge-dashboard
+    restart: unless-stopped
+    # Bound to the LAN address only, NOT 0.0.0.0 and NOT routed through
+    # Traefik/Cloudflare. This is a read-only progress page for one person on the
+    # home network; it has no auth because it is not reachable from outside it.
+    ports:
+      - "${BIND_ADDRESS}:${HTTP_PORT}:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./www:/srv/www:ro
+      # the orchestrator's live progress + history, read-only
+      - ${RUNS_DIR}:/srv/www/runs:ro
+    # Static file serving needs no root, no capabilities and very little memory.
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    # The caddy binary carries cap_net_bind_service as a FILE capability. Dropping
+    # ALL empties the bounding set, and the kernel then fails execve with EPERM -
+    # so the capability has to stay in the bounding set even though we bind :8080
+    # and never actually use it.
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    # mode 0777 so uid 1000 can write: caddy autosaves its config to /config and
+    # keeps TLS bookkeeping in /data even with TLS switched off
+    tmpfs:
+      - /tmp:mode=1777
+      - /config:mode=0777
+      - /data:mode=0777
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
