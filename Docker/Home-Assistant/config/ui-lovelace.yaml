@@ -475,7 +475,7 @@ views:
                         entity: sensor.total_incl_vampire_cost_this_year
                         name: Total incl. vampire
 
-          # ---- Lifetime (energy only — no reset-period lifetime cost, by design) ----
+          # ---- Lifetime (all measured data; cost from the tariff-correct odometers) ----
           - type: conditional
             conditions:
               - entity: input_select.measured_timeframe
@@ -484,7 +484,7 @@ views:
               type: horizontal-stack
               cards:
                 - type: entities
-                  title: Energy — Lifetime (kWh)
+                  title: Energy — Lifetime since 3 Jul 2026 (kWh)
                   entities:
                     - entity: sensor.fastpi_plug_energy
                       name: FastPi
@@ -506,11 +506,29 @@ views:
                       row:
                         entity: sensor.total_incl_vampire_energy
                         name: Total incl. vampire
-                - type: markdown
-                  content: >
-                    **No lifetime cost — by design.** Costs reset each period, so
-                    they never run as a single lifetime total. Use **This year**,
-                    or the native **Energy** dashboard for an arbitrary date range.
+                - type: entities
+                  title: Cost — Lifetime since 3 Jul 2026 (CHF)
+                  entities:
+                    - entity: sensor.fastpi_plug_cost_lifetime
+                      name: FastPi
+                    - entity: sensor.beefy_plug_cost_lifetime
+                      name: Beefy
+                    - entity: sensor.plugs_total_cost_lifetime
+                      name: Total
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.vampire_cost_lifetime
+                        name: Vampire
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.measured_show_vampire
+                          state: "on"
+                      row:
+                        entity: sensor.total_incl_vampire_cost_lifetime
+                        name: Total incl. vampire
 
           # -------- Row 3: per-day graphs — energy | cost
           - type: horizontal-stack

@@ -122,7 +122,7 @@ In the sidebar it shows as **Electricity** 🔌, with three views:
     the graphs stay plugs-only.
 
     Both helpers live in `config/packages/measured_controls.yaml`. Lifetime shows
-    energy only (no reset-period lifetime cost — see below).
+    all measured data since 3 Jul 2026 — energy and cost (see below).
 - **Uptime** 🖥️ (`mdi:server`, path `/uptime`) — is each server up right now, and
   for how long has it been so. A server counts as **up when its plug pulls
   > 3 W**; at or below that it is shut off, sleeping or hibernating (only the
@@ -274,18 +274,23 @@ sensors; change it in both if the "up" cut-off ever needs tuning.
   `sensor.<p>_plug_cost_today/this_week/this_month/this_year` =
   `high_kWh × price_high + low_kWh × price_low`. Each is tied to a meter that
   **resets at the start of its period** (so "this week" starts at 0 every Monday
-  — it is *not* a running total). There is deliberately **no lifetime cost sum**.
+  — it is *not* a running total). Lifetime cost comes from the odometer instead
+  (next bullet).
   (Caveat: the single week that spans New Year prices its December kWh at the new
   year's price — a tiny, once-a-year approximation; year and month stay exact.)
 - **Per-plug cost odometer** — `sensor.<p>_plug_cost_accumulated` integrates the
   live CHF/h rate (Riemann, `max_sub_interval` so it accrues even at constant
-  standby power). Never shown directly; its per-day / per-month *change* drives
-  the historical **Cost per day / month** graphs, and it is correct across price
-  changes because the rate already uses the current period's price.
+  standby power). Shown (rounded to 2 dp) as `sensor.<p>_plug_cost_lifetime` /
+  `sensor.vampire_cost_lifetime` on the Lifetime view — tariff-correct because
+  each moment is priced at its own tariff and year's price; its per-day /
+  per-month *change* drives the historical **Cost per day / month** graphs, and it
+  is correct across price changes because the rate already uses the current
+  period's price.
 - **Combined totals** — `sensor.plugs_total_power`, `…_energy` (lifetime kWh;
   feeds the Energy dashboard), `…_energy_today/this_week/this_month/this_year`,
   `…_cost_today/this_week/this_month/this_year`, and `…_current_cost_rate` — each
-  the sum of both plugs. (No combined lifetime cost, by design.)
+  the sum of both plugs. Plus `sensor.plugs_total_cost_lifetime` and
+  `sensor.total_incl_vampire_cost_lifetime` (sums of the lifetime odometers).
 - **Grand totals incl. vampire** — add the standby draw (below) on top of the two
   metered plugs: `sensor.total_incl_vampire_power` /
   `…_current_cost_rate` (live, shown as the *Total — incl. vampire* glance on
