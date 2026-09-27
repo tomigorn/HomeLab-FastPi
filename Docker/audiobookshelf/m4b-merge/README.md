@@ -134,15 +134,37 @@ rather than from threading one.
   because parallel lookups of `beefy.homelab` fail intermittently under load —
   that, not multiplexing, was the actual fix.
 - **beefy's idle watcher runs with `DRY_RUN=0`** and powers the host off after
-  15 minutes idle. Do not rely on a run holding it awake: its probes ignore
-  port 22 *and* the NVMe the work dir lives on, so only CPU >15% counts, and it
-  really has powered off mid-job. The orchestrator therefore *recovers* rather
-  than prevents — `wake_remote()` detects an unreachable host, POSTs to
-  Beefy-Waker and retries the book. To prevent it outright you need root on
-  beefy (`buntu`'s only NOPASSWD entry is `systemctl poweroff`), so before a
-  long unattended run, by hand:
+  15 idle minutes, and its idea of "idle" does not match ours. It measures
+  *whole-host* CPU against a 15% threshold, so a single encode — one core of
+  twelve, about 8% — reads as idle. The work dir is on the NVMe, which its disk
+  probe excludes; port 22 is excluded from its connection probe; and
+  `ssh host cmd` is deliberately not counted. A long single-book encode
+  therefore looks like nothing is happening at all.
 
-      ssh beefy 'sudo touch /run/beefy-keep-awake'   # and rm it afterwards
+  This is not theoretical. At 00:30 on 2026-09-28 it logged
+  `idle 15 min -> systemctl poweroff` while Shogun was mid-encode.
+
+  Two independent defences:
+
+  1. **`KeepAwake` in `orchestrate.py`** holds an interactive *pty* session for
+     the life of a run. That is the one signal the watcher treats as "someone is
+     working here" (`ssh=1 -> BUSY (ssh)`); sessions renew every 240 s and stop
+     when the run does, so beefy still powers itself off normally afterwards.
+     `--no-keep-awake` disables it.
+  2. **`wake_remote()`** recovers if the host goes away anyway — a reboot, a
+     crash, or a poweroff that slipped through: it POSTs to Beefy-Waker and
+     retries the book.
+
+  `keep-awake.sh` does the same job for a run that is already in flight, or for
+  anything else that needs beefy held on:
+
+      ./keep-awake.sh m4b-merge.service      # hold while that unit is active
+      ./keep-awake.sh --pid 12345            # hold while that process lives
+
+  The tidiest fix is still the watcher's own `INHIBIT_FILE`, but it needs root
+  and `buntu`'s only NOPASSWD entry on beefy is `systemctl poweroff`:
+
+      ssh -t beefy 'sudo touch /run/beefy-keep-awake'   # and rm it afterwards
 - **ABS's file watcher is disabled** (`scannerDisableWatcher: 1`), so merged
   books do not appear until a library scan is triggered from the ABS UI
   (Settings -> Libraries -> scan). API keys are JWTs and are not recoverable

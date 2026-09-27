@@ -136,6 +136,76 @@ def wake_remote(timeout=420):
     return False
 
 
+class KeepAwake:
+    """Hold beefy awake for the life of a run.
+
+    beefy's idle watcher powers the host off after 15 idle minutes, and its idea
+    of idle does not match ours: it measures WHOLE-HOST cpu against a 15%
+    threshold, so one encode (1 core of 12, about 8%) reads as idle; the work dir
+    is on the NVMe, which its disk probe excludes; port 22 is excluded from its
+    connection probe; and `ssh host cmd` is deliberately not counted. A long
+    single-book encode therefore looks like nothing is happening. It is not
+    hypothetical - it logged "idle 15 min -> systemctl poweroff" at 00:30 while
+    Shogun was mid-encode, and the encode had to start over.
+
+    The designed answer is its INHIBIT_FILE, but that needs root on beefy and the
+    only NOPASSWD entry there is `systemctl poweroff`. So we use the other signal
+    the watcher itself trusts: an interactive pty session, which it counts as
+    "someone is working here". Sessions are renewed well inside the idle window,
+    and stop the moment the run does - so beefy still powers itself off normally
+    once the work is finished.
+    """
+
+    RENEW = 240           # seconds per session, comfortably under the 15 min window
+
+    def __init__(self, enabled=True):
+        self.enabled = enabled
+        self._stop = threading.Event()
+        self._thread = None
+        self._proc = None
+
+    def __enter__(self):
+        if self.enabled:
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
+            print(f"holding {REMOTE} awake for the duration of this run")
+        return self
+
+    def _loop(self):
+        while not self._stop.is_set():
+            try:
+                # -tt forces a pty even though stdin is not a terminal; that is
+                # precisely what makes the watcher count the session.
+                self._proc = subprocess.Popen(
+                    ["ssh", "-tt", *SSH_OPTS, REMOTE, f"sleep {self.RENEW}"],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError:
+                self._stop.wait(15)
+                continue
+            while not self._stop.is_set() and self._proc.poll() is None:
+                self._stop.wait(5)
+            if self._stop.is_set():
+                return
+            self._stop.wait(5)        # session ended; renew shortly
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        p = self._proc
+        if p is not None and p.poll() is None:
+            try:
+                p.terminate()
+                p.wait(timeout=10)
+            except Exception:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+        if self._thread is not None:
+            self._thread.join(timeout=15)
+        return False
+
+
 def md5_local(path):
     h = hashlib.md5()
     with open(path, "rb") as fh:
@@ -500,6 +570,11 @@ def main():
                                       "m4b-merge/runs/merge.lock",
                     help="exclusive lock file; a second run exits 3 rather than "
                          "colliding with the first")
+    ap.add_argument("--no-keep-awake", action="store_true",
+                    help="do not hold an interactive session open on the remote. "
+                         "Without it, a long single-book encode reads as idle to "
+                         "beefy's watcher (1 core of 12 is under its 15%% cpu "
+                         "threshold) and the host powers off mid-job")
     ap.add_argument("--lock-wait", type=int, default=0, metavar="SECONDS",
                     help="wait this long for the lock before giving up "
                          "(default 0: exit 3 immediately)")
@@ -565,6 +640,15 @@ def main():
         return 1
     print(f"remote work dir {rb}, merger {local_md5[:12]} deployed")
 
+    keep = KeepAwake(enabled=not a.no_keep_awake)
+    keep.__enter__()
+    try:
+        return _run(a, books, tot, rb)
+    finally:
+        keep.__exit__(None, None, None)
+
+
+def _run(a, books, tot, rb):
     os.makedirs(os.path.dirname(a.log), exist_ok=True)
     os.makedirs(os.path.dirname(a.progress), exist_ok=True)
     ok = fail = 0
