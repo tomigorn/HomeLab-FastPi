@@ -281,22 +281,21 @@ sensors; change it in both if the "up" cut-off ever needs tuning.
 - **Per-plug cost odometer** — `sensor.<p>_plug_cost_accumulated` integrates the
   live CHF/h rate (Riemann, `max_sub_interval` so it accrues even at constant
   standby power). Shown (rounded to 2 dp) as `sensor.<p>_plug_cost_lifetime` /
-  `sensor.vampire_cost_lifetime` on the Lifetime view — tariff-correct because
-  each moment is priced at its own tariff and year's price; its per-day /
-  per-month *change* drives the historical **Cost per day / month** graphs, and it
-  is correct across price changes because the rate already uses the current
-  period's price.
+  `sensor.vampire_cost_lifetime` on the Lifetime view; its per-day / per-month
+  *change* drives the historical **Cost per day / month** graphs. It is correct
+  across tariffs and price changes because each moment is priced at the tariff
+  and year's price in force at that moment.
 - **Combined totals** — `sensor.plugs_total_power`, `…_energy` (lifetime kWh;
   feeds the Energy dashboard), `…_energy_today/this_week/this_month/this_year`,
   `…_cost_today/this_week/this_month/this_year`, and `…_current_cost_rate` — each
-  the sum of both plugs. Plus `sensor.plugs_total_cost_lifetime` and
-  `sensor.total_incl_vampire_cost_lifetime` (sums of the lifetime odometers).
+  the sum of both plugs, plus `sensor.plugs_total_cost_lifetime` (sum of the two
+  lifetime odometers).
 - **Grand totals incl. vampire** — add the standby draw (below) on top of the two
   metered plugs: `sensor.total_incl_vampire_power` /
   `…_current_cost_rate` (live, shown as the *Total — incl. vampire* glance on
   Overview), plus per-period `sensor.total_incl_vampire_energy` (lifetime) /
   `…_energy_today/this_week/this_month/this_year` and
-  `…_cost_today/this_week/this_month/this_year`. These feed the *Total incl.
+  `…_cost_today/this_week/this_month/this_year/lifetime`. These feed the *Total incl.
   vampire* rows the Measured view shows when the vampire toggle is on.
 
 Shown on the dashboard's **Measured** view (live, per-period kWh + cost by tariff,
