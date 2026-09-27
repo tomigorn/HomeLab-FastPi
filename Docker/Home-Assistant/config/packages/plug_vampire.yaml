@@ -60,6 +60,15 @@ template:
           {{ states('sensor.vampire_plug_power') | float(0) / 1000
              * states('sensor.electricity_current_price') | float(0) }}
 
+      # Lifetime cost = the cost odometer below, rounded for display.
+      - name: "Vampire Cost Lifetime"
+        unique_id: vampire_cost_lifetime
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.vampire_plug_cost_accumulated')) }}"
+        state: "{{ states('sensor.vampire_plug_cost_accumulated') | float(0) | round(2) }}"
+
       # --- Projected yearly cost (estimate) — same extrapolation as the plugs,
       # so the toggle can add a Vampire row to the projected-cost card.
       - name: "Vampire Plug Cost Year Proj Week"

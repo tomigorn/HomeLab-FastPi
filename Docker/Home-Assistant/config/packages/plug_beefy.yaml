@@ -133,6 +133,16 @@ template:
           {{ (states('sensor.beefy_plug_yearly_high')|float(0) * states('sensor.electricity_price_high')|float(0)
             + states('sensor.beefy_plug_yearly_low')|float(0)  * states('sensor.electricity_price_low')|float(0)) | round(2) }}
 
+      # Lifetime cost = the cost odometer (each moment priced at its own tariff
+      # and year's price, so correct across price changes), rounded for display.
+      - name: "Beefy Plug Cost Lifetime"
+        unique_id: beefy_plug_cost_lifetime
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.beefy_plug_cost_accumulated')) }}"
+        state: "{{ states('sensor.beefy_plug_cost_accumulated') | float(0) | round(2) }}"
+
       # --- Projected yearly cost (estimate) -----------------------------------
       # Extrapolate the spend-so-far this week / this month to a full year.
       # Noisy early in a period; clearly an estimate (see dashboard note + icon).

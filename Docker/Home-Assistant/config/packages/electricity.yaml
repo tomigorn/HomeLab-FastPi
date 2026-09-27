@@ -205,6 +205,13 @@ template:
         state_class: total
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.plugs_total_cost_this_year')|float(0) + states('sensor.vampire_cost_yearly')|float(0)) | round(2) }}"
+      - name: "Total Incl Vampire Cost Lifetime"
+        unique_id: total_incl_vampire_cost_lifetime
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.plugs_total_cost_lifetime')) and is_number(states('sensor.vampire_cost_lifetime')) }}"
+        state: "{{ (states('sensor.plugs_total_cost_lifetime')|float(0) + states('sensor.vampire_cost_lifetime')|float(0)) | round(2) }}"
 
       # ---- Combined lifetime energy (feeds the Energy dashboard) ----
       - name: "Plugs Total Energy"
@@ -270,6 +277,13 @@ template:
         state_class: total
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
         state: "{{ (states('sensor.fastpi_plug_cost_this_year')|float(0) + states('sensor.beefy_plug_cost_this_year')|float(0)) | round(2) }}"
+      - name: "Plugs Total Cost Lifetime"
+        unique_id: plugs_total_cost_lifetime
+        unit_of_measurement: "CHF"
+        device_class: monetary
+        state_class: total
+        availability: "{{ is_number(states('sensor.fastpi_plug_cost_lifetime')) and is_number(states('sensor.beefy_plug_cost_lifetime')) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_lifetime')|float(0) + states('sensor.beefy_plug_cost_lifetime')|float(0)) | round(2) }}"
 
       # ---- Projected yearly cost (estimate) — sum of both plugs
       - name: "Plugs Total Cost Year Proj Week"
