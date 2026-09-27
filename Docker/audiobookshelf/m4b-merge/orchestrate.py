@@ -211,7 +211,7 @@ def find_books(limit=None, only=None, include_multipart=False):
     return out[:limit] if limit else out
 
 
-def process(bookdir, dry_run=False, samples=5, keep_remote=False, mode="auto"):
+def process(bookdir, dry_run=False, samples=0, keep_remote=False, mode="auto"):
     t0 = time.time()
     rel = os.path.relpath(bookdir, LIB)
     slug = slug_for(rel)
@@ -459,7 +459,10 @@ def main():
                          "these are stream-copied (lossless) when their streams "
                          "match, so this is normally safe to enable")
     ap.add_argument("--mode", choices=("auto", "encode", "copy"), default="auto")
-    ap.add_argument("--samples", type=int, default=5)
+    ap.add_argument("--samples", type=int, default=0,
+                    help="chapters the content check correlates per book; 0 "
+                         "(default) means EVERY chapter. Passing 5 here silently "
+                         "defeated the full-coverage default in merge-book.py")
     ap.add_argument("--log", default="/home/pi/Projects/Docker/audiobookshelf/"
                                      "m4b-merge/runs/run.jsonl")
     ap.add_argument("--progress", default="/home/pi/Projects/Docker/audiobookshelf/"
