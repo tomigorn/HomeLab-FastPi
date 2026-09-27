@@ -627,11 +627,18 @@ def verify(plan, sample_chapters=5):
     # -- 6. size -------------------------------------------------------------
     # The attached cover is not audio; on a short book a big JPEG is several
     # percent of the file and would push the ratio out of band on its own.
+    # The lower bound is deliberately loose. `-b:a` is a REQUEST, and the AAC
+    # encoder will not spend it on content that does not need it: a mono 22 kHz
+    # book whose MP3 sources were tagged 128 kbit lands around 90 kbit, i.e. 70%
+    # of the "expected" size, with every other check passing. That is the encoder
+    # being sensible, not a damaged file. Truncation is caught by `decode` and
+    # `duration`, which are real measurements of the output, so this check only
+    # needs to catch gross anomalies.
     audio_bytes = max(0, size - int(plan.get("cover_bytes") or 0))
     expect_size = plan["target"]["bitrate"] / 8 * decoded
     ratio = audio_bytes / expect_size if expect_size else 0
     checks["size"] = {
-        "ok": 0.85 <= ratio <= 1.30,
+        "ok": 0.55 <= ratio <= 1.35,
         "detail": f"{size/1e6:.1f} MB, audio {ratio*100:.0f}% of the "
                   f"{plan['target']['bitrate']//1000}kbit estimate; "
                   f"declared {declared:.1f}s vs decoded {decoded:.1f}s",
