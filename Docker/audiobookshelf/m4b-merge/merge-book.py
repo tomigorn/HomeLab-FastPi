@@ -342,18 +342,25 @@ def build(src, out, workdir, bitrate=None, title=None, artist=None,
     # appends it, and every duration check still passes because they all measure
     # the same wrong set - the result is a book containing the novel twice. Two
     # files at 50% each is a normal 2-part book, so only flag a clear outlier.
+    # The signature is ONE file dwarfing the rest, not merely an uneven split: a
+    # 5-part book whose parts run 38% and 27% is normal. Require the outlier to
+    # be both a large share of the book AND several times the typical file.
     if len(infos) >= 5:
-        big = [i for i in infos if i["duration"] > total * 0.25]
-        if big:
+        durs = sorted(i["duration"] for i in infos)
+        biggest = max(infos, key=lambda i: i["duration"])
+        rest = [d for d in durs[:-1]]
+        med = rest[len(rest) // 2] if rest else 0.0
+        if (biggest["duration"] > total * 0.40 and med > 0
+                and biggest["duration"] > med * 4):
             raise RuntimeError(
-                "FOREIGN FILE(S) in the folder - not merged. %d of %d files each "
-                "hold >25%% of the book's %.1fh, which means the folder mixes two "
-                "editions:\n  %s"
-                % (len(big), len(infos), total / 3600.0,
-                   "\n  ".join(f"{os.path.basename(i['path'])}: "
-                               f"{i['duration']/3600.0:.2f}h "
-                               f"({i['duration']/total*100:.0f}% of total)"
-                               for i in big)))
+                "FOREIGN FILE in the folder - not merged. '%s' is %.2fh, which is "
+                "%.0f%% of the book's %.1fh and %.0fx the median file (%.2fh). "
+                "That is a second complete edition sitting beside the chapter "
+                "files, and merging would produce a book containing the work "
+                "twice."
+                % (os.path.basename(biggest["path"]), biggest["duration"] / 3600.0,
+                   biggest["duration"] / total * 100, total / 3600.0,
+                   biggest["duration"] / med, med / 3600.0))
 
     # --- copy or re-encode? -------------------------------------------------
     # Books that are already AAC (multi-part .m4b/.m4a sets) are concatenated by
