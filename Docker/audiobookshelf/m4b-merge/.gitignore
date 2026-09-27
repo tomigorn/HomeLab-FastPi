@@ -1,0 +1,4 @@
+# per-run logs and reports: large, machine-specific, regenerated every run
+runs/
+__pycache__/
+*.pyc
