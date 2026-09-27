@@ -1,0 +1,26 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Keys & certificates — the beefy ssh key lives here and must NEVER be committed
+secrets/
+*.key
+*.pem
+*.crt
+*.cert
+*.csr
+*.p12
+*.pfx
+
+# Credentials, secrets & tokens
+*.secret
+*.token
+credentials.json
+auth.json
+
+# Logs (may leak sensitive data)
+*.log
+
+__pycache__/
+*.pyc

@@ -31,3 +31,4 @@
 | LanguageTool | ❌ | ❌ | | |  |
 | landingpage | ❌ | ❌ | | |  |
 | M4b-Merge-Dashboard | ❌ | ❌ | | |  |
+| M4b-Auto-Merge | ❌ | ❌ | | |  |

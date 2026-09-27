@@ -17,6 +17,7 @@ Any failure leaves the book completely untouched and the run moves on.
 """
 import argparse
 import concurrent.futures as cf
+import fcntl
 import hashlib
 import json
 import os
@@ -436,6 +437,34 @@ def process_retry(bookdir, attempts=3, **kw):
     return last
 
 
+def acquire_lock(path, wait=0):
+    """Exclusive lock. Returns the open fd, or None if another run holds it.
+
+    `wait` seconds of polling before giving up; 0 means fail immediately.
+
+    Two orchestrators running at once is not a hypothetical: when it happened,
+    both derived the SAME slug for the same book, so one run's merge-book.py
+    deleted the other's output mid-write and seven books died with
+    "Unable to re-open ... output file". The fd is held for the whole run and
+    released when the process exits.
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    deadline = time.time() + max(0, wait)
+    while True:
+        fd = open(path, "w")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            fd.close()
+            if time.time() >= deadline:
+                return None
+            time.sleep(5)
+            continue
+        fd.write(f"{os.getpid()}\n")
+        fd.flush()
+        return fd
+
+
 def write_progress(path, payload):
     """Atomic: the dashboard polls this and must never read a half-written file."""
     tmp = path + ".tmp"
@@ -467,7 +496,21 @@ def main():
                                      "m4b-merge/runs/run.jsonl")
     ap.add_argument("--progress", default="/home/pi/Projects/Docker/audiobookshelf/"
                                           "m4b-merge/runs/progress.json")
+    ap.add_argument("--lock", default="/home/pi/Projects/Docker/audiobookshelf/"
+                                      "m4b-merge/runs/merge.lock",
+                    help="exclusive lock file; a second run exits 3 rather than "
+                         "colliding with the first")
+    ap.add_argument("--lock-wait", type=int, default=0, metavar="SECONDS",
+                    help="wait this long for the lock before giving up "
+                         "(default 0: exit 3 immediately)")
     a = ap.parse_args()
+
+    lock_fd = None
+    if not a.dry_run:
+        lock_fd = acquire_lock(a.lock, wait=a.lock_wait)
+        if lock_fd is None:
+            print(f"another merge run holds {a.lock} - exiting", file=sys.stderr)
+            return 3
 
     books = find_books(limit=a.limit, only=a.only,
                        include_multipart=a.include_multipart)
@@ -490,6 +533,13 @@ def main():
     if a.dry_run:
         for b in books:
             print(f"  [{len(audio_files(b)):>3}] {os.path.relpath(b, LIB)}")
+        return 0
+
+    # Return BEFORE touching beefy. The auto-merge watcher fires on any library
+    # change, including the .m4b a promote just wrote, so an idle trigger must
+    # not power a machine on to discover there is nothing to do.
+    if not books:
+        print("nothing to merge")
         return 0
 
     if ssh("true", timeout=60).returncode != 0:

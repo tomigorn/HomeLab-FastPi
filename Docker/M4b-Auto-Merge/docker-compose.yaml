@@ -1,0 +1,60 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# M4b-Auto-Merge ##########################################
+# #########################################################
+  watcher:
+    build: .                       # python:3.12-alpine + ssh/rsync/ffmpeg + watchdog
+    image: m4b-auto-merge:local
+    container_name: m4b-auto-merge
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: ${TZ}
+      LIB_DIR: ${LIB_DIR}
+      MERGE_DIR: ${MERGE_DIR}
+      QUIET_SECONDS: ${QUIET_SECONDS}
+      RETRY_SECONDS: ${RETRY_SECONDS}
+      JOBS: ${JOBS}
+      SWEEP_DOW: ${SWEEP_DOW}
+      SWEEP_HOUR: ${SWEEP_HOUR}
+      SWEEP_MINUTE: ${SWEEP_MINUTE}
+      # ssh(1) reads this; it points at the mounted key and known_hosts
+      HOME: /home/merger
+    volumes:
+      - ./app/watcher.py:/app/watcher.py:ro
+      # The library is the one thing this writes to: the merged .m4b goes in and
+      # the originals move out to quarantine. Both are on the same filesystem, so
+      # a promote is a rename, never a copy.
+      - ${LIB_DIR}:${LIB_DIR}
+      - ${QUARANTINE_DIR}:${QUARANTINE_DIR}
+      # The merge tooling, at the SAME path as on the host so orchestrate.py's
+      # absolute defaults resolve. Scripts read-only; runs/ writable for the log,
+      # progress.json and the lock file.
+      - ${MERGE_DIR}:${MERGE_DIR}:ro
+      - ${MERGE_DIR}/runs:${MERGE_DIR}/runs
+      # ssh key + known_hosts + config. Read-only, and gitignored on the host.
+      - ./secrets/beefy:/ssh/beefy:ro
+      - ./secrets/known_hosts:/ssh/known_hosts:ro
+      - ./secrets/ssh_config:/home/merger/.ssh/config:ro
+    # uid 1000 owns the library files on the host, so a rename there works
+    # without root. Nothing here needs a capability.
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    # No ports: this serves nothing. Progress is visible on the existing
+    # M4b-Merge-Dashboard, which reads the same runs/ directory.
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+
+
+# =========================================================
+# Volumes =================================================
+# =========================================================

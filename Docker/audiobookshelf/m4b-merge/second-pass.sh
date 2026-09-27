@@ -19,5 +19,8 @@ echo "pass 2: main batch finished at $(date -Is), starting retry pass"
 
 # Books that failed the first time keep their originals, so they are still
 # multi-file and will simply be found again.
+# --lock-wait: the guard below (or a watcher-triggered run) may hold the lock
+# briefly; queue behind it rather than exiting 3.
 exec ./orchestrate.py --jobs 10 --include-multipart \
+     --lock-wait 7200 \
      --progress "$HERE/runs/progress-pass2.json"
