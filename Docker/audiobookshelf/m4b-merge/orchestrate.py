@@ -558,7 +558,19 @@ def main():
             with lock:
                 in_flight.pop(rel, None)
 
+    # A book takes minutes, so writing progress only when one FINISHES leaves the
+    # dashboard blank for the whole first round and then frozen between
+    # completions. A ticker keeps in-flight and elapsed honest.
+    done_evt = threading.Event()
+    finished_n = [0]
+
+    def ticker():
+        while not done_evt.wait(10):
+            write_progress(a.progress, snapshot(finished_n[0]))
+
     write_progress(a.progress, snapshot(0))
+    tick_t = threading.Thread(target=ticker, daemon=True)
+    tick_t.start()
     with open(a.log, "a") as lf, \
             cf.ThreadPoolExecutor(max_workers=a.jobs) as ex:
         futs = {ex.submit(track, b): b for b in books}
@@ -601,7 +613,9 @@ def main():
                 failures.append(row)
                 print(f"  [{i}/{len(books)}] FAIL {r['book']}  "
                       f"({r['stage']}) {r.get('error','')[:160]}")
+            finished_n[0] = i
             write_progress(a.progress, snapshot(i))
+    done_evt.set()
     final = snapshot(len(books))
     final["complete"] = True
     write_progress(a.progress, final)
