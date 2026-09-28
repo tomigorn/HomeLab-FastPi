@@ -291,8 +291,9 @@ function render(d) {
         `<td class="num dim">${esc(r.chapters ?? "—")}` +
         (r.chapter_source === "embedded" ? ` <span class="tag">embedded</span>` : "") + `</td>` +
         `<td>${r.mode ? `<span class="tag">${esc(r.mode)}</span>` : ""}</td>` +
-        `<td class="num dim">${r.src_bytes ? (r.src_bytes / 1e6).toFixed(0) + "→" +
-            ((r.out_bytes || 0) / 1e6).toFixed(0) + " MB" : ""}</td>` +
+        `<td class="num dim">${(r.src_bytes && r.out_bytes)
+            ? (r.src_bytes / 1e6).toFixed(0) + "→" + (r.out_bytes / 1e6).toFixed(0) + " MB"
+            : (r.src_bytes ? (r.src_bytes / 1e6).toFixed(0) + " MB in" : "—")}</td>` +
         `<td class="num dim">${esc(fmtDur(r.seconds))}</td></tr>`).join("") +
       `</tbody></table>`
     : `<div class="empty">nothing finished yet</div>`;
