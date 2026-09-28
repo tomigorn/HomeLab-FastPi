@@ -293,7 +293,7 @@ def self_md5():
 
 
 def build(src, out, workdir, bitrate=None, title=None, artist=None,
-          max_loss=1.0, mode="auto"):
+          max_loss=1.0, mode="auto", allow_single=False):
     src = os.path.abspath(src)
     files = sorted(
         (os.path.join(src, f) for f in os.listdir(src)
@@ -301,8 +301,9 @@ def build(src, out, workdir, bitrate=None, title=None, artist=None,
          os.path.isfile(os.path.join(src, f))),
         key=lambda p: natkey(os.path.basename(p)),
     )
-    if len(files) < 2:
-        raise RuntimeError(f"expected >=2 audio files, found {len(files)} in {src}")
+    if len(files) < (1 if allow_single else 2):
+        raise RuntimeError(f"expected >={1 if allow_single else 2} audio file(s), "
+                           f"found {len(files)} in {src}")
 
     infos = [probe(f) for f in files]
 
@@ -345,7 +346,7 @@ def build(src, out, workdir, bitrate=None, title=None, artist=None,
     # The signature is ONE file dwarfing the rest, not merely an uneven split: a
     # 5-part book whose parts run 38% and 27% is normal. Require the outlier to
     # be both a large share of the book AND several times the typical file.
-    if len(infos) >= 5:
+    if len(infos) >= 5 and not allow_single:
         durs = sorted(i["duration"] for i in infos)
         biggest = max(infos, key=lambda i: i["duration"])
         rest = [d for d in durs[:-1]]
@@ -353,14 +354,25 @@ def build(src, out, workdir, bitrate=None, title=None, artist=None,
         if (biggest["duration"] > total * 0.40 and med > 0
                 and biggest["duration"] > med * 4):
             raise RuntimeError(
-                "FOREIGN FILE in the folder - not merged. '%s' is %.2fh, which is "
-                "%.0f%% of the book's %.1fh and %.0fx the median file (%.2fh). "
-                "That is a second complete edition sitting beside the chapter "
-                "files, and merging would produce a book containing the work "
-                "twice."
-                % (os.path.basename(biggest["path"]), biggest["duration"] / 3600.0,
+                "TWO EDITIONS IN ONE FOLDER - not merged.\n"
+                "  '%s'\n"
+                "  runs %.2fh: %.0f%% of the folder's %.1fh and %.0fx the median "
+                "file (%.2fh).\n"
+                "  That is a second, complete edition sitting beside the %d "
+                "chapter files.\n"
+                "  Merging them together would produce one book containing the "
+                "work twice.\n"
+                "  FIX: move that file into its own sibling folder, e.g.\n"
+                "       '%s (Unabridged)/', then re-run. Each folder is one book "
+                "to Audiobookshelf,\n"
+                "       so you end up with two correct books instead of one wrong "
+                "one."
+                % (os.path.basename(biggest["path"]),
+                   biggest["duration"] / 3600.0,
                    biggest["duration"] / total * 100, total / 3600.0,
-                   biggest["duration"] / med, med / 3600.0))
+                   biggest["duration"] / med, med / 3600.0,
+                   len(infos) - 1,
+                   os.path.basename(os.path.normpath(src))))
 
     # --- copy or re-encode? -------------------------------------------------
     # Books that are already AAC (multi-part .m4b/.m4a sets) are concatenated by
@@ -727,6 +739,12 @@ def main():
     ap.add_argument("--max-loss", type=float, default=1.0,
                     help="seconds of UNDECODABLE audio a source file may have "
                          "before the book is refused (default 1.0)")
+    ap.add_argument("--allow-single", action="store_true",
+                    help="convert a folder holding ONE audio file into a .m4b. "
+                         "Normally pointless - a single file is already done - "
+                         "but it is how a standalone edition split out of a "
+                         "two-edition folder gets the same container and the "
+                         "same eight checks as everything else")
     ap.add_argument("--mode", choices=("auto", "encode", "copy"), default="auto",
                     help="auto (default) stream-copies books that are already "
                          "aac with a constant stream layout - lossless - and "
@@ -739,7 +757,7 @@ def main():
     try:
         plan = build(a.source, a.output, workdir, bitrate=a.bitrate,
                      title=a.title, artist=a.artist, max_loss=a.max_loss,
-                     mode=a.mode)
+                     mode=a.mode, allow_single=a.allow_single)
         ok, checks, extra = verify(plan, sample_chapters=a.samples)
         report.update({
             "ok": ok, "checks": checks, "n_files": plan["n_files"],

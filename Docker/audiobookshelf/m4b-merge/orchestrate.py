@@ -231,7 +231,8 @@ def meta_from_path(bookdir):
     return title, artist
 
 
-def find_books(limit=None, only=None, include_multipart=False):
+def find_books(limit=None, only=None, include_multipart=False,
+               allow_single=False):
     """Folders holding >=2 audio files that are not already a single file.
 
     A folder with exactly one audio file is done. A folder with several .m4b/.m4a
@@ -267,7 +268,12 @@ def find_books(limit=None, only=None, include_multipart=False):
             interrupted.append(root)
             continue
         if len(af) < 2:
-            continue
+            # A folder with one audio file is already done - unless it is a
+            # standalone edition split out of a two-edition folder and the
+            # caller explicitly asked to convert it to .m4b.
+            if not (allow_single and len(af) == 1
+                    and os.path.splitext(af[0])[1].lower() != ".m4b"):
+                continue
         if has_m4b:
             multipart.append(root)
             if not include_multipart:
@@ -282,7 +288,8 @@ def find_books(limit=None, only=None, include_multipart=False):
     return out[:limit] if limit else out
 
 
-def process(bookdir, dry_run=False, samples=0, keep_remote=False, mode="auto"):
+def process(bookdir, dry_run=False, samples=0, keep_remote=False, mode="auto",
+            allow_single=False):
     t0 = time.time()
     rel = os.path.relpath(bookdir, LIB)
     slug = slug_for(rel)
@@ -321,6 +328,7 @@ def process(bookdir, dry_run=False, samples=0, keep_remote=False, mode="auto"):
         cmd = (f"{shlex.quote(rb + '/merge-book.py')} {shlex.quote(rstage)} "
                f"{shlex.quote(rout)} --report {shlex.quote(rrep)} "
                f"--samples {samples} --mode {shlex.quote(mode)} "
+               + ("--allow-single " if allow_single else "") +
                f"--title {shlex.quote(title)}"
                + (f" --artist {shlex.quote(artist)}" if artist else ""))
         r = ssh(cmd, timeout=14400)
@@ -558,6 +566,10 @@ def main():
                          "these are stream-copied (lossless) when their streams "
                          "match, so this is normally safe to enable")
     ap.add_argument("--mode", choices=("auto", "encode", "copy"), default="auto")
+    ap.add_argument("--allow-single", action="store_true",
+                    help="also convert folders holding ONE non-.m4b audio file. "
+                         "Requires --only, because without a filter it would "
+                         "re-encode every single-file book in the library")
     ap.add_argument("--samples", type=int, default=0,
                     help="chapters the content check correlates per book; 0 "
                          "(default) means EVERY chapter. Passing 5 here silently "
@@ -587,8 +599,13 @@ def main():
             print(f"another merge run holds {a.lock} - exiting", file=sys.stderr)
             return 3
 
+    if a.allow_single and not a.only:
+        print("--allow-single needs --only: without a filter it would convert "
+              "every single-file book in the library", file=sys.stderr)
+        return 1
     books = find_books(limit=a.limit, only=a.only,
-                       include_multipart=a.include_multipart)
+                       include_multipart=a.include_multipart,
+                       allow_single=a.allow_single)
     stuck = getattr(find_books, "interrupted", [])
     if stuck:
         print(f"WARNING: {len(stuck)} folder(s) hold a leftover .m4b.part from an "
@@ -618,8 +635,14 @@ def main():
         return 0
 
     if ssh("true", timeout=60).returncode != 0:
-        print("cannot reach beefy over ssh", file=sys.stderr)
-        return 1
+        # beefy powers itself off when idle, so "unreachable" is the NORMAL
+        # state between runs, not an error. Wake it rather than giving up -
+        # otherwise a book arriving while beefy sleeps would simply be skipped.
+        print(f"{REMOTE} is not reachable - waking it")
+        if not wake_remote():
+            print(f"cannot reach {REMOTE} over ssh, and it did not wake",
+                  file=sys.stderr)
+            return 1
     rb = rbase()
 
     # Deploy the merger every run. Editing it locally and forgetting to copy it
@@ -690,7 +713,8 @@ def _run(a, books, tot, rb):
         with lock:
             in_flight[rel] = time.time()
         try:
-            return process_retry(bookdir, samples=a.samples, mode=a.mode)
+            return process_retry(bookdir, samples=a.samples, mode=a.mode,
+                                 allow_single=a.allow_single)
         finally:
             with lock:
                 in_flight.pop(rel, None)
