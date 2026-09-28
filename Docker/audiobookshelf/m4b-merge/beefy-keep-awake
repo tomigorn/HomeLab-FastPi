@@ -1,0 +1,35 @@
+#!/bin/sh
+# Create or remove beefy's idle-watcher inhibit file. Nothing else.
+#
+# Installed on beefy as /usr/local/sbin/beefy-keep-awake and granted to the
+# merge user through a single sudoers rule. A dedicated helper is used instead
+# of `NOPASSWD: /usr/bin/touch /run/beefy-keep-awake` because on this host
+# /usr/bin/touch is uutils (/usr/lib/cargo/bin/coreutils/touch) and /bin/rm is
+# gnurm, so path-based sudoers rules are fragile - and because this can only
+# ever act on the one path below, however it is called.
+#
+#   beefy-keep-awake on    # hold the host awake
+#   beefy-keep-awake off   # release it; it idles off as normal
+#   beefy-keep-awake status
+set -eu
+
+FILE=/run/beefy-keep-awake
+
+case "${1:-}" in
+    on)
+        : > "$FILE"
+        chmod 644 "$FILE"
+        echo "held: $FILE"
+        ;;
+    off)
+        rm -f "$FILE"
+        echo "released: $FILE"
+        ;;
+    status)
+        if [ -e "$FILE" ]; then echo "held"; else echo "released"; fi
+        ;;
+    *)
+        echo "usage: $(basename "$0") on|off|status" >&2
+        exit 2
+        ;;
+esac

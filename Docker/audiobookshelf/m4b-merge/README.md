@@ -146,33 +146,28 @@ rather than from threading one.
 
   Two independent defences:
 
-  1. **`KeepAwake` in `orchestrate.py`** holds an interactive *pty* session for
-     the life of a run. That is the one signal the watcher treats as "someone is
-     working here" (`ssh=1 -> BUSY (ssh)`); sessions renew every 240 s and stop
-     when the run does, so beefy still powers itself off normally afterwards.
-     `--no-keep-awake` disables it.
+  1. **`KeepAwake` in `orchestrate.py`** holds the host for the life of a run,
+     preferring the watcher's own inhibit file and falling back to an
+     interactive pty session (which it counts as `ssh=1 -> BUSY (ssh)`). Either
+     way the hold is released when the run ends, so beefy still powers itself
+     off normally. `--no-keep-awake` disables it.
   2. **`wake_remote()`** recovers if the host goes away anyway — a reboot, a
-     crash, or a poweroff that slipped through: it POSTs to Beefy-Waker and
-     retries the book.
+     crash, or a poweroff that slipped through. An unreachable beefy at startup
+     is also treated as normal and woken, because beefy sleeping between runs
+     IS the normal state.
 
-  `keep-awake.sh` does the same job for a run that is already in flight, or for
-  anything else that needs beefy held on:
+  To enable the preferred path, install the helper on beefy once:
 
-      ./keep-awake.sh m4b-merge.service      # hold while that unit is active
-      ./keep-awake.sh --pid 12345            # hold while that process lives
+      scp beefy-keep-awake beefy:/tmp/
+      ssh -t beefy 'sudo install -m 755 /tmp/beefy-keep-awake /usr/local/sbin/ \
+        && echo "buntu ALL=(root) NOPASSWD: /usr/local/sbin/beefy-keep-awake" \
+           | sudo tee /etc/sudoers.d/beefy-keep-awake \
+        && sudo chmod 440 /etc/sudoers.d/beefy-keep-awake'
 
-  The tidiest fix is still the watcher's own `INHIBIT_FILE`, but it needs root
-  and `buntu`'s only NOPASSWD entry on beefy is `systemctl poweroff`:
-
-      ssh -t beefy 'sudo touch /run/beefy-keep-awake'   # and rm it afterwards
-- **ABS's file watcher is disabled** (`scannerDisableWatcher: 1`), so merged
-  books do not appear until a library scan is triggered from the ABS UI
-  (Settings -> Libraries -> scan). API keys are JWTs and are not recoverable
-  from the database, so this step needs a human or a freshly created key.
-- **Seeding is unaffected.** The torrents seed from
-  `/mnt/seagate-red/qbittorrent/downloads/complete` on a different physical
-  disk, with no hardlinks into the library, and qBittorrent has no mount for
-  the library disk at all. Merging the library copy cannot touch them.
+  A dedicated helper rather than `NOPASSWD: /usr/bin/touch ...` because on beefy
+  `/usr/bin/touch` is uutils (`/usr/lib/cargo/bin/coreutils/touch`) and `/bin/rm`
+  is `gnurm`, so path-based sudoers rules there are fragile — and because the
+  helper can only ever act on that one file, however it is called.
 
 ## Quarantine
 

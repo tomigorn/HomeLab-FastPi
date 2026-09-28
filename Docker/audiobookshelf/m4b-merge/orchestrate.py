@@ -148,27 +148,58 @@ class KeepAwake:
     hypothetical - it logged "idle 15 min -> systemctl poweroff" at 00:30 while
     Shogun was mid-encode, and the encode had to start over.
 
-    The designed answer is its INHIBIT_FILE, but that needs root on beefy and the
-    only NOPASSWD entry there is `systemctl poweroff`. So we use the other signal
-    the watcher itself trusts: an interactive pty session, which it counts as
-    "someone is working here". Sessions are renewed well inside the idle window,
-    and stop the moment the run does - so beefy still powers itself off normally
-    once the work is finished.
+    Two ways to hold it, in order of preference:
+
+    1. The watcher's own inhibit file, via a one-purpose helper granted by a
+       single sudoers rule. Exact, and what the watcher documents. See _helper().
+    2. If that is not installed: an interactive pty session, which the watcher
+       also counts as "someone is working here" (`ssh=1 -> BUSY (ssh)`), renewed
+       well inside the idle window.
+
+    Either way the hold stops when the run does, so beefy still powers itself
+    off normally once the work is finished.
     """
 
     RENEW = 240           # seconds per session, comfortably under the 15 min window
+    HELPER = "/usr/local/sbin/beefy-keep-awake"
 
     def __init__(self, enabled=True):
         self.enabled = enabled
         self._stop = threading.Event()
         self._thread = None
         self._proc = None
+        self._inhibit = False
+
+    def _helper(self, action):
+        """Drive the watcher's own inhibit file through the one-purpose helper.
+
+        This is the mechanism the watcher documents: exact, no polling, no
+        session to renew, no dependence on how it happens to count sessions. It
+        needs root on the remote, so it works only once the helper is installed
+        and granted:
+
+          sudo install -m 755 beefy-keep-awake /usr/local/sbin/beefy-keep-awake
+          echo 'buntu ALL=(root) NOPASSWD: /usr/local/sbin/beefy-keep-awake' \\
+            | sudo tee /etc/sudoers.d/beefy-keep-awake
+          sudo chmod 440 /etc/sudoers.d/beefy-keep-awake
+
+        Without it sudo -n fails and we fall back to holding a pty session,
+        which the watcher also counts as activity.
+        """
+        return ssh(f"sudo -n {shlex.quote(self.HELPER)} {action}",
+                   timeout=30).returncode == 0
 
     def __enter__(self):
-        if self.enabled:
+        if not self.enabled:
+            return self
+        if self._helper("on"):
+            self._inhibit = True
+            print(f"holding {REMOTE} awake via its inhibit file")
+        else:
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
-            print(f"holding {REMOTE} awake for the duration of this run")
+            print(f"holding {REMOTE} awake with an interactive session "
+                  f"({self.HELPER} not available)")
         return self
 
     def _loop(self):
@@ -203,6 +234,14 @@ class KeepAwake:
                     pass
         if self._thread is not None:
             self._thread.join(timeout=15)
+        if self._inhibit:
+            # Must be released, or beefy never sleeps again. /run is a tmpfs so a
+            # reboot would clear it, but do not rely on that.
+            if not self._helper("off"):
+                print(f"WARNING: could not release the inhibit file on {REMOTE} "
+                      f"- it will not power itself off until you run "
+                      f"`sudo {self.HELPER} off` there", file=sys.stderr)
+            self._inhibit = False
         return False
 
 
