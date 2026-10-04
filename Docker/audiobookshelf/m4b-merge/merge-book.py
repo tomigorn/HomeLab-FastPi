@@ -545,12 +545,65 @@ def build(src, out, workdir, bitrate=None, title=None, artist=None,
         "target": {"bitrate": target_br, "channels": channels, "sample_rate": rate,
                    "source_bitrate": src_br, "avg_source_bitrate": avg_br},
         "cover": cover, "chapters": chapters, "title": book_title,
-        "artist": artist, "minor_glitches": glitched,
+        "artist": artist, "minor_glitches": glitched, "max_loss": max_loss,
         "chapter_source": ("embedded" if n_embedded == len(files)
                            else "per-file" if n_embedded == 0 else "mixed"),
         "n_chapters_planned": len(chapters),
         "mux_warnings": warn[:5],
     }
+
+
+def _err_key(msg):
+    """An ffmpeg error with its run-specific heap addresses removed."""
+    return re.sub(r"0x[0-9a-fA-F]+", "0x", msg).strip()
+
+
+def decode_verdict(decoded, expected, errs, max_loss=1.0, tol=0.5,
+                   source_glitches=()):
+    """Judge the output's full decode. Returns (ok, detail).
+
+    Judged by MEASURED loss, for the same reason build() judges sources that
+    way: a decoder complaint is a property of the bytes, not evidence that this
+    merge lost anything.
+
+    build() already splits the sources into `damaged` (lost more than max_loss
+    -> refuse to merge at all) and `minor_glitches` (the decoder grumbled but
+    nothing measurable was lost -> merge anyway, on purpose). A stream copy
+    carries those grumbles into the output verbatim, so failing the output on
+    "any decoder error" rejects exactly the books the pre-flight deliberately
+    accepted, and no number of retries can ever get such a book through.
+
+    Lost audio has nowhere to hide: it has to get past the duration check, the
+    chapter timeline, and the per-chapter loudness-envelope correlation that
+    covers every chapter. Those are the checks that catch a bad merge. This one
+    only answers "did the output give back the audio the sources held?".
+
+    `allow` never dips below max_loss (so this gate is never stricter than the
+    pre-flight that let the book through) and never below tol (so it is never
+    stricter than the duration check reading the very same measurement).
+    """
+    allow = max(max_loss, tol)
+    lost = expected - decoded          # negative = decoded a hair more
+    ok = lost <= allow
+
+    measured = f"decoded {decoded:.2f}s of {expected:.2f}s"
+    if not ok:
+        return False, (f"{measured} - LOST {lost:.2f}s (max {allow:.2f}s)"
+                       + (f"; {len(errs)} error(s): {errs[:3]}" if errs else ""))
+    if not errs:
+        return True, f"{measured} cleanly"
+
+    # Tolerated, but say so loudly enough that it is never mistaken for clean.
+    # Compared with the addresses stripped: ffmpeg stamps every message with the
+    # decoder's heap address ("[aac @ 0xef18240]"), which differs on every run,
+    # so matching the raw strings would always say "not present in the sources".
+    known = {_err_key(e) for g in (source_glitches or ())
+             for e in (g.get("errors") or ())}
+    carried = ("carried over from a glitched source"
+               if known & {_err_key(e) for e in errs}
+               else "not present in the sources")
+    return True, (f"{measured}, no measurable loss (max {allow:.2f}s); "
+                  f"{len(errs)} decoder error(s) tolerated, {carried}: {errs[:3]}")
 
 
 def verify(plan, sample_chapters=5):
@@ -561,15 +614,14 @@ def verify(plan, sample_chapters=5):
     checks = {}
 
     # -- 1. decode the whole audio stream, and MEASURE how much there is ------
+    # Judged by measured loss, exactly as build() judges the sources - see
+    # decode_verdict() for why an error count must not be the gate.
     decoded, errs = decode_audio(out)
-    covered = decoded >= expected - tol
-    checks["decode"] = {
-        "ok": not errs and covered,
-        "detail": (f"decoded {decoded:.2f}s of {expected:.2f}s cleanly"
-                   if (not errs and covered) else
-                   f"decoded {decoded:.2f}s of {expected:.2f}s; "
-                   f"{len(errs)} error(s): {errs[:3]}"),
-    }
+    ok_dec, detail_dec = decode_verdict(
+        decoded, expected, errs,
+        max_loss=plan.get("max_loss", 1.0), tol=tol,
+        source_glitches=plan.get("minor_glitches") or ())
+    checks["decode"] = {"ok": ok_dec, "detail": detail_dec}
 
     # -- 2. duration, from the measurement above, not from metadata ----------
     # format=duration is what the muxer declared; with +faststart the moov atom
