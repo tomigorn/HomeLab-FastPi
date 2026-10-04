@@ -270,6 +270,87 @@ def meta_from_path(bookdir):
     return title, artist
 
 
+# ---------------------------------------------------------------------------
+# Failure ledger
+#
+# main() already refuses to wake beefy when there is nothing to merge, but
+# find_books() had no memory of failure, so a book that COULD not merge stayed a
+# candidate forever and every library event became another ~20-minute grind on a
+# machine that should have been asleep. beefy stayed awake 6 days 15 hours that
+# way, ~480 attempts per book.
+#
+# Keyed by a fingerprint of the book's audio files so it expires itself: repair
+# or replace a source and the book is retried with no bookkeeping. Cover art and
+# metadata are excluded on purpose - Audiobookshelf rewrites those, which is no
+# reason to re-attempt a merge that failed on the audio.
+# ---------------------------------------------------------------------------
+FAIL_MAX_ATTEMPTS = 3      # process_retry() already tries 3x inside one run
+
+
+def book_fingerprint(bookdir):
+    """Identity of a book's SOURCE audio: name, size and mtime of each file."""
+    parts = []
+    for f in audio_files(bookdir):
+        try:
+            st = os.stat(os.path.join(bookdir, f))
+        except OSError:
+            continue
+        parts.append(f"{f}:{st.st_size}:{st.st_mtime_ns}")
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
+
+
+def ledger_load(path):
+    """The ledger, or {} - a missing or corrupt one must never kill a run."""
+    try:
+        with open(path) as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    books = d.get("books") if isinstance(d, dict) else None
+    return books if isinstance(books, dict) else {}
+
+
+def ledger_save(path, books):
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump({"version": 1, "books": books}, fh, indent=1,
+                  ensure_ascii=False, sort_keys=True)
+    os.replace(tmp, path)          # atomic: the dashboard reads this too
+
+
+def ledger_blocked(books, rel, fingerprint):
+    """Has this book failed enough times, on exactly these sources, to park?"""
+    e = books.get(rel)
+    return bool(e and e.get("fingerprint") == fingerprint
+                and e.get("attempts", 0) >= FAIL_MAX_ATTEMPTS)
+
+
+def ledger_record(path, rel, fingerprint, stage, error):
+    """Count a failure. A changed fingerprint starts the count over."""
+    books = ledger_load(path)
+    e = books.get(rel)
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    if not e or e.get("fingerprint") != fingerprint:
+        e = {"fingerprint": fingerprint, "attempts": 0, "first_failed": now}
+    e["attempts"] = e.get("attempts", 0) + 1
+    e["last_failed"] = now
+    e["stage"] = stage
+    e["error"] = (error or "")[:2000]
+    books[rel] = e
+    ledger_save(path, books)
+    return e
+
+
+def ledger_clear(path, rel):
+    """Forget a book - it merged, or a human cleared it."""
+    books = ledger_load(path)
+    if books.pop(rel, None) is not None:
+        ledger_save(path, books)
+
+
 def find_books(limit=None, only=None, include_multipart=False,
                allow_single=False):
     """Folders holding >=2 audio files that are not already a single file.
@@ -629,6 +710,14 @@ def main():
     ap.add_argument("--lock-wait", type=int, default=0, metavar="SECONDS",
                     help="wait this long for the lock before giving up "
                          "(default 0: exit 3 immediately)")
+    ap.add_argument("--failures", default="/home/pi/Projects/Docker/audiobookshelf/"
+                                          "m4b-merge/runs/failures.json",
+                    help="failure ledger; a book that fails "
+                         f"{FAIL_MAX_ATTEMPTS} times on unchanged sources is "
+                         "parked and stops being a candidate, so an idle trigger "
+                         "no longer wakes beefy to retry it forever")
+    ap.add_argument("--retry-failed", action="store_true",
+                    help="ignore the ledger and re-attempt parked books too")
     a = ap.parse_args()
 
     lock_fd = None
@@ -658,6 +747,31 @@ def main():
                  for b in skipped)
         print(f"NOTE: {len(skipped)} multi-part .m4b/.m4a book(s), {sz/1e9:.1f} GB, "
               f"NOT included; --include-multipart to merge them losslessly")
+    # Books that have already failed FAIL_MAX_ATTEMPTS times on these exact
+    # sources are parked, so `books` can actually reach empty and the "do not
+    # wake beefy for nothing" guard below can finally do its job. Never silent:
+    # a parked book is invisible work, so say so every run.
+    parked = []
+    if not a.retry_failed:
+        led = ledger_load(a.failures)
+        if led:
+            keep = []
+            for b in books:
+                rel = os.path.relpath(b, LIB)
+                if ledger_blocked(led, rel, book_fingerprint(b)):
+                    parked.append((rel, led[rel]))
+                else:
+                    keep.append(b)
+            books = keep
+    if parked:
+        print(f"PARKED: {len(parked)} book(s) failed {FAIL_MAX_ATTEMPTS}x on "
+              f"unchanged sources and were NOT retried. Fix or replace the "
+              f"sources (the ledger expires itself), or --retry-failed:")
+        for rel, e in parked:
+            first = (e.get("error") or "").splitlines()[0][:140]
+            print(f"  - {rel}\n      {e.get('attempts')} attempts since "
+                  f"{e.get('first_failed')}, {e.get('stage')}: {first}")
+
     tot = sum(sum(os.path.getsize(os.path.join(b, f)) for f in audio_files(b))
               for b in books)
     print(f"{len(books)} book(s) to merge, {tot/1e9:.1f} GB, {a.jobs} parallel job(s)")
@@ -795,6 +909,22 @@ def _run(a, books, tot, rb):
                    "chapter_source": v.get("chapter_source"),
                    "src_bytes": r.get("src_bytes"), "out_bytes": r.get("out_bytes"),
                    "finished_at": r.get("finished_at")}
+            # Ledger upkeep. Single-threaded here (workers only run in track()),
+            # so no locking is needed. A merged book forgets its past; a failed
+            # one counts towards being parked, which is what stops a permanent
+            # failure from waking beefy every time the library is touched.
+            _bd = os.path.join(LIB, r["book"])
+            try:
+                if r["ok"]:
+                    ledger_clear(a.failures, r["book"])
+                else:
+                    ledger_record(a.failures, r["book"],
+                                  book_fingerprint(_bd) if os.path.isdir(_bd)
+                                  else "", r.get("stage", "?"),
+                                  r.get("error", ""))
+            except OSError as e:
+                print(f"  ! could not update the failure ledger: {e}")
+
             if r["ok"]:
                 ok += 1
                 bytes_done += r["src_bytes"]
@@ -811,8 +941,10 @@ def _run(a, books, tot, rb):
                 row["error"] = r.get("error", "")[:400]
                 recent.append(row)
                 failures.append(row)
+                att = ledger_load(a.failures).get(r["book"], {}).get("attempts")
                 print(f"  [{i}/{len(books)}] FAIL {r['book']}  "
-                      f"({r['stage']}) {r.get('error','')[:160]}")
+                      f"({r['stage']}) {r.get('error','')[:160]}"
+                      + (f"  [attempt {att}/{FAIL_MAX_ATTEMPTS}]" if att else ""))
             finished_n[0] = i
             write_progress(a.progress, snapshot(i))
     done_evt.set()
