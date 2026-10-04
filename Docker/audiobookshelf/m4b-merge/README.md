@@ -17,7 +17,11 @@ the VBR-MP3 seek bug at the same time.
 ./restore-book.py --list                         # what can be undone
 ./restore-book.py "Diamond Dogs"                 # undo one book
 ./stale-verification.py                          # books verified by old code
+./orchestrate.py --retry-failed                  # re-attempt parked books too
+cat runs/failures.json                           # what is parked, and why
 ./tests/test_find_books.py                       # crash-state classification
+./tests/test_decode_verdict.py                   # the output decode gate
+./tests/test_failure_ledger.py                   # parking and expiry rules
 ```
 
 Progress is visible at **http://192.168.1.2:8099/** (LAN only) while a run is
@@ -61,7 +65,7 @@ the output to raw PCM and comparing md5 — identical.
 
 | Check | What it proves |
 |---|---|
-| `decode` | a complete decode of the output emits no ffmpeg errors and *measures* the audio present — catches truncation and corruption |
+| `decode` | a complete decode of the output *measures* the audio present and gives back what the sources held, within the same `max_loss` the pre-flight uses — catches truncation and corruption. Decoder errors are reported but are **not** fatal on their own: see "the decode gate" below |
 | `duration` | measured output length equals the sum of the measured source lengths, within `max(0.5s, 0.01s x files)` |
 | `chapters` | the planned chapter table is present in full, monotonic, and its last chapter ends where the audio actually ends |
 | `streams` | exactly one AAC audio stream, channel count and sample rate as intended |
@@ -81,6 +85,65 @@ everything. `--samples 0` (the default) checks them all.
 
 Per-book JSON reports land in `runs/run.jsonl`; live progress in
 `runs/progress.json`.
+
+### The decode gate judges measured loss, not error count
+
+`build()` sorts every source file into one of two buckets by **measured** loss:
+`damaged` (lost more than `max_loss`, default 1.0s → refuse to merge at all) and
+`minor_glitches` (the decoder complained but nothing measurable was lost → merge
+anyway, on purpose).
+
+A decoder complaint is a property of the bytes, and a stream copy carries it into
+the output verbatim. So an output gate of *"no decoder errors at all"* rejects
+exactly the books the pre-flight deliberately accepted — such a book can never
+merge, however many times it is retried. That is not theoretical: *Op Center 06
+State Of Seige* failed **481 times** between 2026-09-28 and 2026-10-05 with the
+identical error string tolerated on its way in and fatal on its way out, while
+its measured loss was zero and all seven other checks passed.
+
+So the output is judged the way the sources are: by measured loss, against
+`max(max_loss, tol)` — never stricter than the pre-flight that let the book
+through, never stricter than the `duration` check reading the same measurement.
+Errors are recorded in the report (and labelled as carried over from a glitched
+source or not) but never fail the merge alone. Lost audio still has nowhere to
+hide: it has to get past `duration`, `chapters`, and the per-chapter envelope
+correlation that covers every chapter.
+
+`./tests/test_decode_verdict.py` pins this, including both real books.
+
+### The failure ledger — `runs/failures.json`
+
+A book that fails `FAIL_MAX_ATTEMPTS` (3) times on **unchanged sources** is
+*parked*: it stops being a candidate, and every run prints what it skipped and
+why. `process_retry()` already tries 3× inside a single run, so parking means
+roughly nine real attempts.
+
+This exists because `main()` has always refused to wake beefy for nothing —
+
+```python
+if not books:
+    print("nothing to merge")
+    return 0
+```
+
+— and that guard could never fire while a permanently-failing book stayed a
+candidate. `books` was never empty, so **every** library event (ours, or
+Audiobookshelf rewriting metadata) became another ~20-minute grind on a machine
+that should have been asleep. beefy stayed awake **6 days 15 hours** that way,
+~480 attempts each on four books, runs restarting in the same second they exited.
+
+The ledger is keyed by a fingerprint of the book's audio files — name, size,
+mtime — so it **expires itself**: repair or replace a source and the book is
+retried automatically, no bookkeeping. Cover art and metadata are deliberately
+excluded, since Audiobookshelf rewrites those and that is no reason to re-attempt
+a merge that failed on the audio. A successful merge clears the entry.
+
+```bash
+cat runs/failures.json                              # what is parked, and why
+./orchestrate.py --retry-failed --include-multipart  # ignore the ledger once
+```
+
+`./tests/test_failure_ledger.py` pins the parking and expiry rules.
 
 ## Crash safety
 
