@@ -26,6 +26,11 @@ services:
       - ./traefik/secrets:/secrets:ro
       - ./traefik/letsencrypt:/letsencrypt    # this is hidden from git via .gitignore
       - ./traefik/logs:/var/log/traefik       # this is hidden from git via .gitignore
+      # Vendored plugin source for experimental.localPlugins. Mounted read-only so
+      # Traefik can never rewrite it. This replaces registry plugin downloads,
+      # which are a startup-time network dependency on a fail-closed path - see the
+      # comment in traefik/traefik.yml for the outage this prevents.
+      - ./traefik/plugins-local:/plugins-local:ro
     networks:
       - traefik_proxy
     dns:

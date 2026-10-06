@@ -80,7 +80,23 @@ providers:
 # the version, and after changing it confirm the container actually comes up
 # before walking away.
 experimental:
-  plugins:
+  # LOCAL plugin, deliberately not a registry plugin.
+  #
+  # `plugins:` makes Traefik fetch from plugins.traefik.io at EVERY startup, and
+  # if that single HTTPS request fails it disables ALL plugins. `crowdsec@file`
+  # then does not exist, which invalidates the websecure entrypoint middleware,
+  # which disables EVERY public router - so Traefik serves 404 for everything and
+  # fails closed. That is exactly what happened on 2026-10-04: one timed-out
+  # request took the whole public edge down for ~24 hours.
+  #
+  # Persisting /plugins-storage does NOT help; that was tested directly - with the
+  # full archive and extracted sources present, Traefik still contacted the
+  # registry and still disabled plugins when it was unreachable.
+  #
+  # localPlugins reads the vendored source from /plugins-local and never contacts
+  # the network, so a registry outage cannot affect this host. The source is
+  # committed at traefik/plugins-local/ and is the unmodified v1.7.1 release.
+  # To upgrade: replace that directory with the new release's contents.
+  localPlugins:
     crowdsec-bouncer:
       moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
-      version: v1.7.1
