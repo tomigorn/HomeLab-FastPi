@@ -1,0 +1,66 @@
+# Alert rules for the public edge.
+#
+# Written after the 2026-10-04 outage: every public hostname returned 404 for
+# ~24 hours and nobody noticed. Traefik's container was running, its process was
+# healthy, and its metrics endpoint answered - so no process- or container-level
+# check could have caught it. Only an outside-in probe can.
+groups:
+  - name: public-endpoints
+    rules:
+      # The main one. probe_success goes 0 when the endpoint answers 404 or 5xx,
+      # times out, or fails TLS - see blackbox.yml for why 404 counts as failure.
+      - alert: PublicEndpointDown
+        expr: probe_success == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Public endpoint down: {{ $labels.instance }}"
+          description: >-
+            {{ $labels.instance }} has not answered like a working backend for
+            3 minutes (HTTP {{ with printf "probe_http_status_code{instance=%q}" $labels.instance | query }}{{ . | first | value }}{{ end }}).
+            A 404 here usually means Traefik lost the router rather than the app
+            being down - check `docker logs traefik | grep -i plugin` first, since
+            a failed plugin download disables the websecure entrypoint middleware
+            and takes every public route with it.
+
+      # Catches the whole edge going at once, which is the plugin-failure
+      # signature and is worth a louder, faster alert than a single service.
+      - alert: AllPublicEndpointsDown
+        expr: min(probe_success) == 0 and count(probe_success == 0) == count(probe_success)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ALL public endpoints are down ({{ $value }})"
+          description: >-
+            Every probed hostname is failing simultaneously. That points at
+            Traefik or the Cloudflare tunnel rather than any single app. The
+            2026-10-04 cause was Traefik failing to download the CrowdSec plugin
+            at startup, which invalidated the entrypoint middleware and disabled
+            every router. A `docker compose restart traefik` fixed it.
+
+      # The probe itself going away would otherwise look like "all clear".
+      - alert: BlackboxExporterDown
+        expr: up{job="blackbox-public"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blackbox exporter is not being scraped"
+          description: >-
+            The public-endpoint probes are not running, so an edge outage would
+            now go undetected again. Absence of alerts is not evidence of health.
+
+      # Certificates are renewed by Traefik; this is the backstop for when that
+      # quietly stops working.
+      - alert: PublicCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 14 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS cert for {{ $labels.instance }} expires in under 14 days"
+          description: >-
+            Traefik renews via the cloudflare resolver; if this fires, renewal is
+            failing and there are about two weeks to fix it.

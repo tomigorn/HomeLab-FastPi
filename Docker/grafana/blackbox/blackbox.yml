@@ -1,0 +1,29 @@
+# blackbox-exporter modules.
+#
+# Purpose: detect "Traefik is up but no longer routing", which is how the
+# 2026-10-04 outage looked. A plugin download timed out at startup, every router
+# on the websecure entrypoint became invalid, and all public hostnames returned
+# 404 for ~24 hours without anyone noticing. Traefik itself was healthy, its
+# container was running, and its own metrics endpoint answered fine - so nothing
+# that watched the *process* could have caught it.
+#
+# The signal that matters is therefore not "did it respond" but "did it respond
+# like a real backend". A healthy route answers 200, or 302 to a login, or 401
+# for basic auth. A route that has lost its router answers 404 from Traefik.
+# So 404 must FAIL and those others must PASS.
+
+modules:
+  # For hostnames reached through the Cloudflare tunnel.
+  http_public:
+    prober: http
+    timeout: 15s
+    http:
+      method: GET
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      # Deliberately broad, EXCLUDING 404/5xx. Each of these means Traefik found
+      # a router and a backend answered:
+      #   200 served · 301/302 redirect to login · 401/403 auth challenge
+      valid_status_codes: [200, 301, 302, 401, 403]
+      follow_redirects: false
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false

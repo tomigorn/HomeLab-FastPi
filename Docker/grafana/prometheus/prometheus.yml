@@ -1,6 +1,9 @@
 global:
   scrape_interval: 5s
 
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
 scrape_configs:
   - job_name: "raspberry-pi"
     static_configs:
@@ -14,3 +17,34 @@ scrape_configs:
     static_configs:
       - targets:
           - "192.168.1.2:8080"
+
+  # ---------------------------------------------------------------------------
+  # Public endpoint probes (blackbox).
+  #
+  # Added after the 2026-10-04 outage: a failed Traefik plugin download
+  # invalidated the websecure entrypoint middleware, every public router went
+  # away, and all hostnames returned 404 for ~24 hours. Traefik's process,
+  # container and metrics endpoint were all healthy throughout, so this is the
+  # only kind of check that would have caught it - an outside-in probe that
+  # treats 404 as failure.
+  #
+  # 60s, not the global 5s: these leave the house and go through Cloudflare.
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-public"
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_public]
+    static_configs:
+      - targets:
+          - https://audiobookshelf.holy-grail.ch/
+          - https://sso.holy-grail.ch/
+          - https://claude-mockups.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

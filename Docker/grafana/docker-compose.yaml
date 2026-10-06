@@ -11,6 +11,7 @@ services:
     mem_limit: 1g
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -36,6 +37,28 @@ services:
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+# #########################################################
+# Blackbox Exporter #######################################
+# #########################################################
+# Outside-in probes of the public hostnames. Added after the 2026-10-04 outage:
+# every public route 404'd for ~24 hours while Traefik's container, process and
+# metrics endpoint all stayed healthy, so nothing that watched the service itself
+# could see it. See prometheus/rules/public-endpoints.yml.
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: blackbox-exporter
+    mem_limit: 128m
+    restart: unless-stopped
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    # No ports: only Prometheus talks to it, over the project network.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 # #########################################################
 # Grafana #################################################
