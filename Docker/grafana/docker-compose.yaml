@@ -61,6 +61,67 @@ services:
       - no-new-privileges:true
 
 # #########################################################
+# Alertmanager ############################################
+# #########################################################
+# Routes the Prometheus alerts in prometheus/rules/ to email and (once configured)
+# Telegram. Added because the 2026-10-04 edge outage lasted ~24 hours purely for
+# want of a notification: the rules and probes are worthless if nothing tells you.
+#
+# Config is alertmanager/alertmanager.yml, which is GITIGNORED (it holds the
+# recipient address and chat id); alertmanager.yml.example is the committed
+# template. Secrets are files under alertmanager/secrets/, never inlined.
+  alertmanager:
+    image: quay.io/prometheus/alertmanager:v0.28.1
+    container_name: alertmanager
+    mem_limit: 256m
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/secrets:/secrets:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      # Needed for silence/unsilence links in notifications to resolve.
+      - "--web.external-url=http://192.168.1.2:9093"
+    # Runs as uid 1000 to MATCH the owner of alertmanager/secrets/, so the SMTP
+    # password can stay mode 600 instead of being made world-readable. The image
+    # defaults to nobody (65534), which produced
+    #   "could not read /secrets/smtp_password: permission denied"
+    # and silently retried forever - caught only by sending a test alert.
+    user: "1000:1000"
+    ports:
+      # LAN only — the UI is where you create silences during an incident.
+      - "9093:9093"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+# #########################################################
+# JSON Exporter ###########################################
+# #########################################################
+# Turns Cup's /api/v3/json into Prometheus metrics. Cup has no /metrics endpoint and
+# no notification support of its own, so instead of bolting a bespoke "poll Cup and
+# post to Telegram" script onto the side, Cup is fed into the SAME pipeline as
+# everything else. One notification path, one place the bot token lives, and
+# silences work for container updates exactly as they do for an outage.
+  json-exporter:
+    image: quay.io/prometheuscommunity/json-exporter:v0.7.0
+    container_name: json-exporter
+    mem_limit: 128m
+    restart: unless-stopped
+    volumes:
+      - ./json-exporter/cup.yml:/config.yml:ro
+    command:
+      - "--config.file=/config.yml"
+    # No ports: only Prometheus talks to it, over the project network.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+# #########################################################
 # Grafana #################################################
 # #########################################################
   grafana:
@@ -138,6 +199,9 @@ networks:
 # Volumes =================================================
 # =========================================================
 volumes:
+  # Silences and notification state. If this is ephemeral, every restart re-sends
+  # every active alert and forgets every silence.
+  alertmanager_data:
   grafana_data:
   prometheus_data:
   influxdb_data:

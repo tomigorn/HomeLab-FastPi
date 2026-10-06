@@ -1,0 +1,35 @@
+# Container image updates, from Cup via json-exporter.
+#
+# severity: info on purpose - these route to Telegram only (see
+# alertmanager/alertmanager.yml), never to email. A weekly nag by mail is how people
+# learn to filter alerts into the bin, and then miss a real one.
+groups:
+  - name: container-updates
+    rules:
+      - alert: ContainerImageUpdatesAvailable
+        # `for: 30m` with a 15m scrape means two consecutive scrapes must agree, so
+        # a single odd reading mid-refresh cannot page anyone.
+        expr: cup_updates_available > 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $value }} container image update(s) available"
+          description: >-
+            Cup reports {{ $value }} image(s) with updates
+            ({{ with query "cup_updates_major" }}{{ . | first | value }}{{ end }} major,
+            {{ with query "cup_updates_minor" }}{{ . | first | value }}{{ end }} minor).
+            Details at https://cup.holy-grail.ch/ . Note Cup watches every image on the
+            host including ones not in use, so check in_use before acting.
+
+      - alert: CupNotReporting
+        expr: up{job="cup"} == 0
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Cup update check is not being scraped"
+          description: >-
+            json-exporter cannot reach Cup, so update notifications have stopped.
+            Silence rather than ignore - absence of update alerts would otherwise
+            look like "everything is current".

@@ -1,0 +1,29 @@
+# json-exporter: turn Cup's JSON API into Prometheus metrics.
+#
+# Cup has no /metrics endpoint - only /api/v3/json - and no notification support of
+# its own (`cup --help` offers just `check` and `serve`). Rather than bolt a bespoke
+# "poll Cup and post to Telegram" script onto the side, Cup is fed into the SAME
+# alerting pipeline as everything else: json-exporter -> Prometheus -> Alertmanager
+# -> Telegram. One notification path, one place the bot token lives, and silences
+# and alert history work for container updates exactly as they do for an outage.
+#
+# Cup's JSON already carries an aggregate `metrics` block, so this is a plain scalar
+# mapping with no per-image cardinality:
+#   {"major_updates":1,"minor_updates":3,"patch_updates":0,"other_updates":9,
+#    "updates_available":13,"monitored_images":119,"up_to_date":4,"unknown":102}
+modules:
+  default:
+    metrics:
+      - name: cup_updates
+        type: object
+        path: '{.metrics}'
+        help: "Container image update counts reported by Cup"
+        values:
+          available: '{.updates_available}'
+          major: '{.major_updates}'
+          minor: '{.minor_updates}'
+          patch: '{.patch_updates}'
+          other: '{.other_updates}'
+          monitored: '{.monitored_images}'
+          up_to_date: '{.up_to_date}'
+          unknown: '{.unknown}'

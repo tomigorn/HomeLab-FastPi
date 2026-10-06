@@ -1,3 +1,9 @@
 # Live telegraf config contains an inline InfluxDB API token — keep it out of git.
 # Track telegraf/telegraf.conf.example instead (copy it to telegraf.conf and add the token).
 telegraf/telegraf.conf
+
+# Alertmanager: the LIVE config holds the alert recipient address and the Telegram
+# chat id. This repo is public, so only the .example template is committed.
+alertmanager/alertmanager.yml
+!alertmanager/alertmanager.yml.example
+alertmanager/secrets/

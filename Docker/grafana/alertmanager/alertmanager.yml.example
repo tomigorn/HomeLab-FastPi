@@ -1,0 +1,78 @@
+# Alertmanager — routes Prometheus alerts to email and Telegram.
+#
+# THIS FILE: `alertmanager.yml` is GITIGNORED and holds the real recipients and chat
+# id; `alertmanager.yml.example` is the committed template. Same split as .env /
+# .env.example, and for the same reason: this repo is public, so an email address or
+# chat id committed here is published and harvestable.
+#
+# Alertmanager does NOT expand ${ENV_VARS} in its config, so the values really do
+# have to be written in rather than referenced. Secrets stay in files via the
+# *_file options, which Alertmanager does support.
+#
+# Why Alertmanager rather than Grafana-managed alerting: the rules already live in
+# prometheus/rules/*.yml, version-controlled and visible in the Prometheus UI.
+# Grafana contact points only fire for GRAFANA-managed rules, so using them would
+# have meant rewriting every rule in Grafana's provisioning format and leaving the
+# Prometheus ones dead. One source of truth for "what is wrong" beats a nicer UI
+# for "who to tell".
+global:
+  resolve_timeout: 5m
+  # Reuses the Brevo relay Authentik already sends through: one mail account to keep
+  # alive, one sender reputation, and the address is already verified with Brevo.
+  # The password is duplicated into secrets/smtp_password because there is no shared
+  # secret store here yet — if one ever appears, this is a place to fix.
+  smtp_from: "Holy-Grail Alerts <no-reply@holy-grail.ch>"
+  smtp_smarthost: "smtp-relay.brevo.com:587"
+  smtp_auth_username: "YOUR_BREVO_SMTP_LOGIN"
+  smtp_auth_password_file: /secrets/smtp_password
+  smtp_require_tls: true
+
+route:
+  receiver: admins
+  # Group by alert name so "all endpoints down" arrives as ONE message rather than
+  # one per host — the difference between a useful page and a pile-on.
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    # Informational things (container updates) go to Telegram only. They do not
+    # deserve an email, and a weekly nag by mail is how people learn to filter
+    # alerts into the bin.
+    - matchers:
+        - severity="info"
+      receiver: telegram
+      repeat_interval: 168h     # weekly at most; Cup itself refreshes Sundays 04:00
+
+receivers:
+  # Critical alerts go to BOTH, so an outage still reaches you if one channel is
+  # broken — and "the notifier was down" is exactly the failure this whole setup
+  # exists to stop happening silently.
+  - name: admins
+    email_configs:
+      - to: 'admin1@example.com, admin2@example.com'
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890
+        parse_mode: HTML
+        send_resolved: true
+        message: |-
+          <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890
+        parse_mode: HTML
+        send_resolved: true
+        message: |-
+          <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
