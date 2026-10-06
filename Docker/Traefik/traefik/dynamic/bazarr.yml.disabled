@@ -1,0 +1,72 @@
+# Bazarr on beefy, behind Authentik SSO.
+#
+# https://bazarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Bazarr: Settings -> General -> Security -> Authentication = None, and let this
+# gate be the only login. Bazarr talks to Radarr over beefy's Docker network.
+#
+# MIDDLEWARE ORDER IS DELIBERATE: authentik runs BEFORE bazarr-wake. beefy powers
+# itself off when idle, and the wake gate sends a WoL packet to boot it. If the
+# wake gate ran first, any unauthenticated stranger who hit this URL could boot a
+# ~28W machine on demand - a free power-drain and a crude DoS. Authenticating
+# first means only a logged-in user can wake it.
+#
+# CrowdSec is NOT listed here: it is attached to the websecure entrypoint in
+# traefik.yml so every public route gets it automatically.
+#
+# No rate limit: these are low-traffic admin UIs, and `default-rate-limit`
+# (100 avg / 50 burst) is tuned for pages, not for an app that fires many small
+# XHRs while you click around.
+http:
+  routers:
+    # The outpost callback path. NO middlewares (it must reach Authentik, not the
+    # app) and a higher priority so it wins over the catch-all router below.
+    # Omitting this router is the single most common way to break the login flow.
+    bazarr-outpost:
+      rule: "Host(`bazarr.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    bazarr:
+      rule: "Host(`bazarr.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: bazarr
+      middlewares:
+        - authentik@file
+        - bazarr-wake
+        - bazarr-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # Per-service wake gate: ?port=6767 makes the Beefy-Waker wait for THIS app to
+    # answer, not merely for sshd. Without the override a cold boot returns 502 for
+    # the seconds between sshd coming up and the container being ready.
+    bazarr-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=6767"
+        trustForwardHeader: false
+
+    bazarr-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    bazarr:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:6767"
+        passHostHeader: true

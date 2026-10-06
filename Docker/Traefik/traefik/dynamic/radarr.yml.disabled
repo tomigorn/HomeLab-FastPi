@@ -1,0 +1,78 @@
+# Radarr on beefy, behind Authentik SSO.
+#
+# https://radarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Radarr's own login is DISABLED in favour of this gate: set
+#   Settings -> General -> Security -> Authentication = External
+# (Servarr v4+ "External" exists precisely for reverse-proxy auth.) Do NOT leave
+# it on "Forms" as well - two login prompts in series is not defence in depth, it
+# is just annoying, and it tempts you into disabling the wrong one later.
+#
+# Radarr's API is unaffected: Prowlarr and the download clients reach it over
+# beefy's own Docker network, never through Traefik, so no API key breaks here.
+#
+# MIDDLEWARE ORDER IS DELIBERATE: authentik runs BEFORE radarr-wake. beefy powers
+# itself off when idle, and the wake gate sends a WoL packet to boot it. If the
+# wake gate ran first, any unauthenticated stranger who hit this URL could boot a
+# ~28W machine on demand - a free power-drain and a crude DoS. Authenticating
+# first means only a logged-in user can wake it.
+#
+# CrowdSec is NOT listed here: it is attached to the websecure entrypoint in
+# traefik.yml so every public route gets it automatically.
+#
+# No rate limit: these are low-traffic admin UIs, and `default-rate-limit`
+# (100 avg / 50 burst) is tuned for pages, not for an app that fires many small
+# XHRs while you click around.
+http:
+  routers:
+    # The outpost callback path. NO middlewares (it must reach Authentik, not the
+    # app) and a higher priority so it wins over the catch-all router below.
+    # Omitting this router is the single most common way to break the login flow.
+    radarr-outpost:
+      rule: "Host(`radarr.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    radarr:
+      rule: "Host(`radarr.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: radarr
+      middlewares:
+        - authentik@file
+        - radarr-wake
+        - radarr-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # Per-service wake gate: ?port=7878 makes the Beefy-Waker wait for THIS app to
+    # answer, not merely for sshd. Without the override a cold boot returns 502 for
+    # the seconds between sshd coming up and the container being ready.
+    radarr-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=7878"
+        trustForwardHeader: false
+
+    radarr-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    radarr:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:7878"
+        passHostHeader: true

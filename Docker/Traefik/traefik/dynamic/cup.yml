@@ -3,8 +3,15 @@
 #
 # NOTE: Cup has no built-in authentication and its dashboard enumerates every
 # container + exact image version. This route is public (behind Cloudflare) with
-# no login, matching the Dashy pattern. To gate it behind Authentik, add an
-# authentik forwardAuth middleware to the router's `middlewares` list.
+# no login, matching the Dashy pattern.
+#
+# The authentik forwardAuth middleware now EXISTS (dynamic/authentik-forwardauth.yml),
+# so gating this is two lines: add `authentik@file` to the middlewares list below and
+# a companion `cup-outpost` router for PathPrefix(`/outpost.goauthentik.io/`) - copy the
+# pattern from radarr.yml.disabled. Deliberately NOT done yet: it would 404 until a
+# matching Proxy Provider + Application exists in Authentik and is assigned to the
+# embedded outpost. Worth doing - this route is currently public with no auth at all.
+# See docs/2026-10-06-authentik-sso.md.
 http:
   routers:
     cup:

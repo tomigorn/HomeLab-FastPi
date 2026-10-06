@@ -1,0 +1,78 @@
+# qBittorrent on beefy, behind Authentik SSO.
+#
+# https://qbittorrent.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# qBittorrent keeps its own login ENABLED but bypassed for the proxy:
+#   Options -> WebUI -> "Bypass authentication for clients in whitelisted IP
+#   subnets" = 172.24.0.0/16  (the traefik_proxy bridge)
+# Leave "Bypass authentication for clients on localhost" ON as well - that one is
+# what lets gluetun's port-forward hook (scripts/qbit-port.sh) talk to the API.
+#
+# Do NOT simply blank qBittorrent's password: the WebUI is also published on
+# beefy's LAN port 8080, which does not pass through Traefik or this gate.
+#
+# MIDDLEWARE ORDER IS DELIBERATE: authentik runs BEFORE qbittorrent-wake. beefy powers
+# itself off when idle, and the wake gate sends a WoL packet to boot it. If the
+# wake gate ran first, any unauthenticated stranger who hit this URL could boot a
+# ~28W machine on demand - a free power-drain and a crude DoS. Authenticating
+# first means only a logged-in user can wake it.
+#
+# CrowdSec is NOT listed here: it is attached to the websecure entrypoint in
+# traefik.yml so every public route gets it automatically.
+#
+# No rate limit: these are low-traffic admin UIs, and `default-rate-limit`
+# (100 avg / 50 burst) is tuned for pages, not for an app that fires many small
+# XHRs while you click around.
+http:
+  routers:
+    # The outpost callback path. NO middlewares (it must reach Authentik, not the
+    # app) and a higher priority so it wins over the catch-all router below.
+    # Omitting this router is the single most common way to break the login flow.
+    qbittorrent-outpost:
+      rule: "Host(`qbittorrent.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    qbittorrent:
+      rule: "Host(`qbittorrent.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: qbittorrent
+      middlewares:
+        - authentik@file
+        - qbittorrent-wake
+        - qbittorrent-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # Per-service wake gate: ?port=8080 makes the Beefy-Waker wait for THIS app to
+    # answer, not merely for sshd. Without the override a cold boot returns 502 for
+    # the seconds between sshd coming up and the container being ready.
+    qbittorrent-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8080"
+        trustForwardHeader: false
+
+    qbittorrent-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    qbittorrent:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8080"
+        passHostHeader: true

@@ -1,0 +1,94 @@
+# Jellyfin on beefy.
+#
+# https://jellyfin.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# PARKED (.disabled) until the Cloudflare DNS record exists. Traefik tries to get a
+# cert the moment a router appears, and with no DNS that fails repeatedly against
+# Let's Encrypt, which has per-hostname failed-validation rate limits. Rename to
+# `jellyfin.yml` AFTER the DNS record is in place.
+#
+# ============================================================================
+# WHY THERE IS NO `authentik@file` HERE - read before "fixing" it
+# ============================================================================
+# Jellyfin is the one service that must NOT sit behind forward auth. Its native
+# clients - Android TV, Fire TV, iOS, Android, Kodi - are not browsers. They cannot
+# render an Authentik login page, cannot follow an interactive OAuth redirect, and
+# have no cookie jar to carry the resulting session. Put forwardAuth here and every
+# non-browser client breaks instantly and permanently; the web UI keeps working,
+# which makes the breakage look like a client bug rather than a proxy decision.
+#
+# Authentik's own documentation says the same thing: integrate Jellyfin by OIDC,
+# not by proxy/forward auth.
+#
+# So SSO for Jellyfin is done INSIDE Jellyfin, via the jellyfin-plugin-sso OIDC
+# plugin pointed at an Authentik OAuth2/OpenID provider. Users then log in with
+# their Authentik account, and credentials live in Authentik - which is the actual
+# goal. See Docker/Traefik/docs/2026-10-06-authentik-sso.md.
+#
+# HONEST LIMITATION: Jellyfin always keeps at least one local admin account - it
+# cannot be deleted, and the native apps still POST to Jellyfin's own
+# /Users/AuthenticateByName endpoint. So "no local login at all" is not reachable
+# for Jellyfin the way it is for the arr apps. What IS reachable: every human
+# account is an Authentik account, and the local admin is reduced to a
+# break-glass credential with a long random password.
+#
+# ============================================================================
+# ACCEPTED RISK: anonymous requests can wake beefy
+# ============================================================================
+# Every other beefy route authenticates BEFORE the wake gate, so only a logged-in
+# user can boot the machine. Jellyfin cannot, because the gate is forwardAuth too.
+# That means an unauthenticated stranger hitting this URL sends a WoL packet and
+# boots a ~28W machine - a mild power-drain / DoS vector. Mitigations in place:
+# CrowdSec on the entrypoint, and beefy idles back off after 15 minutes. If this
+# ever matters, the fix is to make this route LAN+WireGuard-only like
+# beefy-wol.yml, since you already have working VPN access from outside.
+#
+# No rate limit on purpose: a video client fires many rapid range requests, and
+# `default-rate-limit` (100 avg / 50 burst) would throttle playback. audiobookshelf
+# and nextcloud omit it for the same reason. CrowdSec still applies - it is attached
+# to the websecure entrypoint, so every public route inherits it.
+http:
+  routers:
+    jellyfin:
+      rule: "Host(`jellyfin.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: jellyfin
+      middlewares:
+        - jellyfin-wake
+        - jellyfin-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # ?port=8096 waits for Jellyfin itself rather than merely for sshd. Without it
+    # a cold boot answers 502 for the seconds between sshd and the container being
+    # ready, which users experience as "the wake page lied".
+    jellyfin-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8096"
+        trustForwardHeader: false
+
+    jellyfin-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          # Deliberately NO Content-Security-Policy. audiobookshelf sets one, but
+          # Jellyfin's web client and its cast/plugin surfaces need blob:, media-src
+          # and inline workers; a borrowed CSP breaks playback in ways that only
+          # show up on some clients. Add one later, tested per client, or not at all.
+          Server: ""
+
+  services:
+    jellyfin:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8096"
+        passHostHeader: true
