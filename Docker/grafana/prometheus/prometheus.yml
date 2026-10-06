@@ -21,6 +21,12 @@ scrape_configs:
   # Traefik metrics (per-router/service request counts). Traefik is in a
   # different compose project/network, so scrape it via the host-published
   # internal entrypoint (:8080, LAN-only).
+  # Alertmanager's own health, so "the notifier is down" is itself detectable.
+  - job_name: "alertmanager"
+    static_configs:
+      - targets:
+          - alertmanager:9093
+
   - job_name: "traefik"
     static_configs:
       - targets:

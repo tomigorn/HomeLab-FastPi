@@ -1,0 +1,42 @@
+# Who watches the watchman.
+#
+# Prompted by Brevo deactivating an unused SMTP key on 2026-10-06. That particular
+# key was not the one in use, but it made the failure mode obvious: if the SMTP
+# credential ever stops working, email alerts fail SILENTLY and the absence of mail
+# looks exactly like "nothing is wrong" - which is the same trap that let the
+# 2026-10-04 edge outage run for 24 hours.
+#
+# Both rules are severity=info ON PURPOSE, which routes them to Telegram only. That
+# is the point: an alert about email being broken must not be delivered by email.
+groups:
+  - name: alerting-self
+    rules:
+      - alert: AlertNotificationsFailing
+        # Any sustained increase means notifications are being dropped. Alertmanager
+        # retries, so a brief blip is normal and `for:` rides over it.
+        expr: increase(alertmanager_notifications_failed_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Alertmanager cannot deliver via {{ $labels.integration }}"
+          description: >-
+            {{ $labels.integration }} notifications are failing
+            (reason: {{ $labels.reason }}). If this is email, check the Brevo SMTP
+            key has not been deactivated or rotated - it lives in
+            grafana/alertmanager/secrets/smtp_password and is the same key Authentik
+            uses. Diagnose with:
+            docker logs --since 1h alertmanager | grep -i notify
+
+      - alert: AlertmanagerDown
+        # Prometheus would still evaluate rules with nothing to send them to, so this
+        # failure is completely invisible without an explicit check.
+        expr: up{job="alertmanager"} == 0
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Alertmanager is not being scraped"
+          description: >-
+            Prometheus cannot reach Alertmanager, so NO alert of any kind can be
+            delivered right now. Absence of alerts is not evidence of health.
