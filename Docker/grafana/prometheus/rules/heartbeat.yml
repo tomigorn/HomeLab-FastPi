@@ -1,0 +1,38 @@
+# Dead-man's switch for the alerting chain.
+#
+# This alert is ALWAYS firing, on purpose. It is the only rule here whose arrival
+# you should expect, and whose ABSENCE is the signal.
+#
+# Two problems it solves, both evidenced rather than theoretical:
+#
+# 1. Brevo deactivates SMTP keys after ~3 months of disuse - we have the mail they
+#    sent on 2026-10-06 doing exactly that to an unused key. Alerting is silent when
+#    everything is healthy, so a quiet quarter could put the key IN USE into the same
+#    state, and the first thing to notice would be a real outage going unreported.
+#    A monthly send keeps the credential demonstrably alive.
+#
+# 2. It proves the whole chain end to end on a fixed cadence: rule evaluation ->
+#    Alertmanager -> Brevo -> inbox. Every other check in this repo verifies a
+#    component; this one verifies the path.
+#
+# severity: heartbeat (not info) so it routes to EMAIL specifically. Email is the
+# channel with the credential that can silently expire; Telegram's bot token does not
+# rot the same way.
+groups:
+  - name: heartbeat
+    rules:
+      - alert: AlertingHeartbeat
+        # vector(1) is always true, so this fires from the moment Prometheus starts
+        # and never resolves. The cadence is set entirely by repeat_interval in
+        # alertmanager.yml, not here.
+        expr: vector(1)
+        labels:
+          severity: heartbeat
+        annotations:
+          summary: "Alerting pipeline heartbeat - everything is fine"
+          description: >-
+            This is the monthly proof that Prometheus, Alertmanager and the Brevo SMTP
+            credential are all still working. Nothing is wrong. If you ever stop
+            receiving this, the alerting chain is broken and real alerts would not
+            reach you either - check `docker logs alertmanager | grep -i notify` and
+            whether Brevo has deactivated the SMTP key.

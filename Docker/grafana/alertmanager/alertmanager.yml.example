@@ -1,6 +1,5 @@
 # Alertmanager — TEMPLATE. Copy to alertmanager.yml (gitignored) and fill in the
-# three marked values. The live file is not committed because this repo is public
-# and it holds the recipient address and the Telegram chat id.
+# marked values. The live file is not committed because this repo is public.
 #
 # Alertmanager does NOT expand ${ENV_VARS}, so values are written in literally.
 # Secrets use the *_file options, which it does support, and live in secrets/.
@@ -44,17 +43,33 @@ route:
       receiver: telegram
       repeat_interval: 168h     # weekly at most; Cup refreshes Sundays 04:00
 
+    # The dead-man's switch. EMAIL ONLY and deliberately slow: its job is to keep the
+    # Brevo SMTP credential demonstrably in use (Brevo deactivates keys after ~3
+    # months idle — observed 2026-10-06) and to prove the whole chain monthly.
+    # Telegram is pointedly excluded: a bot token does not rot the way an SMTP key
+    # does, so sending it there would add noise without testing anything.
+    - matchers:
+        - severity="heartbeat"
+      receiver: heartbeat
+      # 28 days. Comfortably inside Brevo's ~3-month idle window, with room for two
+      # consecutive failures before the credential could lapse.
+      repeat_interval: 672h
+      # No grouping delay: there is only ever one of these.
+      group_wait: 0s
+
 receivers:
   # Critical alerts go to BOTH, so an outage still reaches you when one channel is
   # broken — which is exactly the failure this whole setup exists to stop happening
   # silently.
   #
-  # Recipients are meant to be the Authentik admin group. NOTE Alertmanager cannot
-  # query Authentik for group membership, so this list is maintained by hand — or
-  # point it at one alias that fans out.
+  # One alias, not a list. alerts@holy-grail.ch is a Cloudflare Email Routing rule
+  # that fans out to whoever should get alerts, so changing recipients is a dashboard
+  # edit rather than a config change and a container restart. Alertmanager cannot
+  # query Authentik for group membership, so an alias is the closest thing to "the
+  # admin group" that SMTP can express.
   - name: admins
     email_configs:
-      - to: 'admin1@example.com, admin2@example.com'
+      - to: 'alerts@example.com'
         send_resolved: true
         headers:
           Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
@@ -69,6 +84,14 @@ receivers:
           {{ .Annotations.description }}
           {{ end }}
 
+  # Email only — see the route comment above for why Telegram is excluded.
+  - name: heartbeat
+    email_configs:
+      - to: 'alerts@example.com'
+        send_resolved: false
+        headers:
+          Subject: '[HEARTBEAT] alerting pipeline is alive'
+
   - name: telegram
     telegram_configs:
       - bot_token_file: /secrets/telegram_bot_token
@@ -80,20 +103,3 @@ receivers:
           {{ range .Alerts }}{{ .Annotations.summary }}
           {{ .Annotations.description }}
           {{ end }}
-
-# ---------------------------------------------------------------------------
-# Secrets (gitignored, in alertmanager/secrets/, mode 600):
-#   smtp_password        — the Brevo SMTP key, same one Authentik uses
-#   telegram_bot_token   — from @BotFather
-#
-# The container runs as uid 1000 (see docker-compose.yaml) specifically so it can
-# read those mode-600 files. The image defaults to nobody (65534), which fails with
-# "could not read /secrets/smtp_password: permission denied" and then retries
-# silently forever — only visible by sending a test alert.
-#
-# Verify before trusting it:
-#   docker run --rm -v "$PWD/alertmanager.yml":/c.yml:ro -v "$PWD/secrets":/secrets:ro \
-#     --entrypoint amtool quay.io/prometheus/alertmanager:v0.28.1 check-config /c.yml
-#   curl -XPOST localhost:9093/api/v2/alerts -H 'Content-Type: application/json' \
-#     -d '[{"labels":{"alertname":"SelfTest","severity":"critical"}}]'
-# ---------------------------------------------------------------------------
