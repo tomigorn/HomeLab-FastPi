@@ -1,9 +1,9 @@
 # =========================================================
 # Electricity tariffs, prices & household totals — config-as-code
 # =========================================================
-# Global tariff/price (shared by every plug) + the combined "both plugs"
-# totals. Per-plug devices & meters live in packages/plug_fastpi.yaml and
-# packages/plug_beefy.yaml.
+# Global tariff/price (shared by every plug) + the combined "all plugs"
+# totals. Per-plug devices & meters live in packages/plug_fastpi.yaml,
+# packages/plug_beefy.yaml and packages/plug_tower.yaml.
 #
 # Tariff (City of Zürich / EWZ):
 #   HIGH (Hochtarif)  = Mon-Sat 06:00-22:00
@@ -16,7 +16,7 @@
 
 # --- Tariff switching ------------------------------------------------------
 # One rule applies the correct tariff at the boundaries and on start, to the
-# tariff-split meters of BOTH plugs.
+# tariff-split meters of ALL plugs.
 # (06:00 -> high on Mon-Sat, stays low on Sun; 22:00 -> low always.)
 automation:
   - id: electricity_apply_tariff
@@ -42,6 +42,11 @@ automation:
             - select.beefy_plug_monthly
             - select.beefy_plug_yearly
             - select.beefy_plug_total
+            - select.tower_plug_weekly
+            - select.tower_plug_daily
+            - select.tower_plug_monthly
+            - select.tower_plug_yearly
+            - select.tower_plug_total
         data:
           option: "{{ 'high' if (now().weekday() != 6 and 6 <= now().hour < 22) else 'low' }}"
 
@@ -114,21 +119,21 @@ template:
               if (now().weekday() != 6 and 6 <= now().hour < 22)
               else states('sensor.electricity_price_low')) | float(0) }}
 
-      # ---- Combined live power & cost rate (both plugs) ----
+      # ---- Combined live power & cost rate (all three plugs) ----
       - name: "Plugs Total Power"
         unique_id: plugs_total_power
         unit_of_measurement: "W"
         device_class: power
         state_class: measurement
-        state: "{{ (states('sensor.fastpi_plug_power')|float(0) + states('sensor.beefy_plug_power')|float(0)) | round(1) }}"
+        state: "{{ (states('sensor.fastpi_plug_power')|float(0) + states('sensor.beefy_plug_power')|float(0) + states('sensor.tower_plug_power')|float(0)) | round(1) }}"
 
       - name: "Plugs Total Current Cost Rate"
         unique_id: plugs_total_current_cost_rate
         unit_of_measurement: "CHF/h"
-        state: "{{ (states('sensor.fastpi_plug_current_cost_rate')|float(0) + states('sensor.beefy_plug_current_cost_rate')|float(0)) | round(3) }}"
+        state: "{{ (states('sensor.fastpi_plug_current_cost_rate')|float(0) + states('sensor.beefy_plug_current_cost_rate')|float(0) + states('sensor.tower_plug_current_cost_rate')|float(0)) | round(3) }}"
 
       # ---- Combined live power & cost incl. the "vampire" standby draw ----
-      # Both real plugs PLUS the measured parasitic loads from
+      # All three real plugs PLUS the measured parasitic loads from
       # packages/plug_vampire.yaml (sensor.vampire_plug_*).
       - name: "Total Incl Vampire Power"
         unique_id: total_incl_vampire_power
@@ -142,7 +147,7 @@ template:
         unit_of_measurement: "CHF/h"
         state: "{{ (states('sensor.plugs_total_current_cost_rate')|float(0) + states('sensor.vampire_plug_current_cost_rate')|float(0)) | round(3) }}"
 
-      # ---- Per-period energy incl. vampire (both plugs + vampire meters) ----
+      # ---- Per-period energy incl. vampire (all plugs + vampire meters) ----
       # Feeds the Measured view's "Total incl. vampire" row when the toggle is on.
       - name: "Total Incl Vampire Energy Today"
         unique_id: total_incl_vampire_energy_today
@@ -176,7 +181,7 @@ template:
         availability: "{{ is_number(states('sensor.plugs_total_energy')) and is_number(states('sensor.vampire_plug_energy')) }}"
         state: "{{ (states('sensor.plugs_total_energy')|float(0) + states('sensor.vampire_plug_energy')|float(0)) | round(3) }}"
 
-      # ---- Per-period cost incl. vampire (both plugs + vampire cost meters) ----
+      # ---- Per-period cost incl. vampire (all plugs + vampire cost meters) ----
       - name: "Total Incl Vampire Cost Today"
         unique_id: total_incl_vampire_cost_today
         unit_of_measurement: "CHF"
@@ -219,89 +224,89 @@ template:
         unit_of_measurement: "kWh"
         device_class: energy
         state_class: total_increasing
-        availability: "{{ is_number(states('sensor.fastpi_plug_energy')) and is_number(states('sensor.beefy_plug_energy')) }}"
-        state: "{{ (states('sensor.fastpi_plug_energy')|float(0) + states('sensor.beefy_plug_energy')|float(0)) | round(3) }}"
+        availability: "{{ is_number(states('sensor.fastpi_plug_energy')) and is_number(states('sensor.beefy_plug_energy')) and is_number(states('sensor.tower_plug_energy')) }}"
+        state: "{{ (states('sensor.fastpi_plug_energy')|float(0) + states('sensor.beefy_plug_energy')|float(0) + states('sensor.tower_plug_energy')|float(0)) | round(3) }}"
 
-      # ---- Combined per-period energy (high+low, both plugs) ----
+      # ---- Combined per-period energy (high+low, all three plugs) ----
       - name: "Plugs Total Energy Today"
         unique_id: plugs_total_energy_today
         unit_of_measurement: "kWh"
         device_class: energy
         state_class: total
-        state: "{{ (states('sensor.fastpi_plug_energy_today')|float(0) + states('sensor.beefy_plug_energy_today')|float(0)) | round(3) }}"
+        state: "{{ (states('sensor.fastpi_plug_energy_today')|float(0) + states('sensor.beefy_plug_energy_today')|float(0) + states('sensor.tower_plug_energy_today')|float(0)) | round(3) }}"
       - name: "Plugs Total Energy This Week"
         unique_id: plugs_total_energy_this_week
         unit_of_measurement: "kWh"
         device_class: energy
         state_class: total
-        state: "{{ (states('sensor.fastpi_plug_energy_this_week')|float(0) + states('sensor.beefy_plug_energy_this_week')|float(0)) | round(3) }}"
+        state: "{{ (states('sensor.fastpi_plug_energy_this_week')|float(0) + states('sensor.beefy_plug_energy_this_week')|float(0) + states('sensor.tower_plug_energy_this_week')|float(0)) | round(3) }}"
       - name: "Plugs Total Energy This Month"
         unique_id: plugs_total_energy_this_month
         unit_of_measurement: "kWh"
         device_class: energy
         state_class: total
-        state: "{{ (states('sensor.fastpi_plug_energy_this_month')|float(0) + states('sensor.beefy_plug_energy_this_month')|float(0)) | round(3) }}"
+        state: "{{ (states('sensor.fastpi_plug_energy_this_month')|float(0) + states('sensor.beefy_plug_energy_this_month')|float(0) + states('sensor.tower_plug_energy_this_month')|float(0)) | round(3) }}"
       - name: "Plugs Total Energy This Year"
         unique_id: plugs_total_energy_this_year
         unit_of_measurement: "kWh"
         device_class: energy
         state_class: total
-        state: "{{ (states('sensor.fastpi_plug_energy_this_year')|float(0) + states('sensor.beefy_plug_energy_this_year')|float(0)) | round(3) }}"
+        state: "{{ (states('sensor.fastpi_plug_energy_this_year')|float(0) + states('sensor.beefy_plug_energy_this_year')|float(0) + states('sensor.tower_plug_energy_this_year')|float(0)) | round(3) }}"
 
-      # ---- Combined cost (both plugs) ----
+      # ---- Combined cost (all three plugs) ----
       - name: "Plugs Total Cost Today"
         unique_id: plugs_total_cost_today
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_today')|float(0) + states('sensor.beefy_plug_cost_today')|float(0)) | round(2) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_today')|float(0) + states('sensor.beefy_plug_cost_today')|float(0) + states('sensor.tower_plug_cost_today')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost This Week"
         unique_id: plugs_total_cost_this_week
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_this_week')|float(0) + states('sensor.beefy_plug_cost_this_week')|float(0)) | round(2) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_this_week')|float(0) + states('sensor.beefy_plug_cost_this_week')|float(0) + states('sensor.tower_plug_cost_this_week')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost This Month"
         unique_id: plugs_total_cost_this_month
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_this_month')|float(0) + states('sensor.beefy_plug_cost_this_month')|float(0)) | round(2) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_this_month')|float(0) + states('sensor.beefy_plug_cost_this_month')|float(0) + states('sensor.tower_plug_cost_this_month')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost This Year"
         unique_id: plugs_total_cost_this_year
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_this_year')|float(0) + states('sensor.beefy_plug_cost_this_year')|float(0)) | round(2) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_this_year')|float(0) + states('sensor.beefy_plug_cost_this_year')|float(0) + states('sensor.tower_plug_cost_this_year')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost Lifetime"
         unique_id: plugs_total_cost_lifetime
         unit_of_measurement: "CHF"
         device_class: monetary
         state_class: total
-        availability: "{{ is_number(states('sensor.fastpi_plug_cost_lifetime')) and is_number(states('sensor.beefy_plug_cost_lifetime')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_lifetime')|float(0) + states('sensor.beefy_plug_cost_lifetime')|float(0)) | round(2) }}"
+        availability: "{{ is_number(states('sensor.fastpi_plug_cost_lifetime')) and is_number(states('sensor.beefy_plug_cost_lifetime')) and is_number(states('sensor.tower_plug_cost_lifetime')) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_lifetime')|float(0) + states('sensor.beefy_plug_cost_lifetime')|float(0) + states('sensor.tower_plug_cost_lifetime')|float(0)) | round(2) }}"
 
-      # ---- Projected yearly cost (estimate) — sum of both plugs
+      # ---- Projected yearly cost (estimate) — sum of all three plugs
       - name: "Plugs Total Cost Year Proj Week"
         unique_id: plugs_total_cost_year_proj_week
         unit_of_measurement: "CHF"
         device_class: monetary
         icon: mdi:chart-line-variant
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_year_proj_week')|float(0) + states('sensor.beefy_plug_cost_year_proj_week')|float(0)) | round(2) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_year_proj_week')|float(0) + states('sensor.beefy_plug_cost_year_proj_week')|float(0) + states('sensor.tower_plug_cost_year_proj_week')|float(0)) | round(2) }}"
       - name: "Plugs Total Cost Year Proj Month"
         unique_id: plugs_total_cost_year_proj_month
         unit_of_measurement: "CHF"
         device_class: monetary
         icon: mdi:chart-line-variant
         availability: "{{ is_number(states('sensor.electricity_price_high')) and is_number(states('sensor.electricity_price_low')) }}"
-        state: "{{ (states('sensor.fastpi_plug_cost_year_proj_month')|float(0) + states('sensor.beefy_plug_cost_year_proj_month')|float(0)) | round(2) }}"
+        state: "{{ (states('sensor.fastpi_plug_cost_year_proj_month')|float(0) + states('sensor.beefy_plug_cost_year_proj_month')|float(0) + states('sensor.tower_plug_cost_year_proj_month')|float(0)) | round(2) }}"
 
-      # ---- Projected yearly cost incl. vampire (both plugs + vampire) ----
+      # ---- Projected yearly cost incl. vampire (all plugs + vampire) ----
       - name: "Total Incl Vampire Cost Year Proj Week"
         unique_id: total_incl_vampire_cost_year_proj_week
         unit_of_measurement: "CHF"

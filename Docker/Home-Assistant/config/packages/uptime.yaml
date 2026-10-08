@@ -6,13 +6,13 @@
 # draws the sub-watt standby / WOL-NIC trickle, well under 3 W).
 #
 # Feeds the "Uptime" dashboard tab:
-#   binary_sensor.fastpi_up / beefy_up   -> current Up/Down state
+#   binary_sensor.fastpi_up / beefy_up / tower_up -> current Up/Down state
 #   sensor.<host>_uptime_today           -> hours up since local midnight
 #   sensor.<host>_uptime_today_ratio     -> % of today spent up
 #   sensor.<host>_uptime_24h             -> hours up in the last 24 h
 #   sensor.<host>_uptime_7d_ratio        -> % up over the last 7 days
 #
-# Threshold lives once here (POWER_UP_W below) — change it in both binary
+# Threshold lives once here (POWER_UP_W below) — change it in all three binary
 # sensors if the "up" cut-off ever needs tuning.
 
 # --- Up/Down state (power > 3 W) -------------------------------------------
@@ -33,6 +33,16 @@ template:
         state: "{{ states('sensor.beefy_plug_power') | float(0) > 3 }}"
         icon: >-
           {{ 'mdi:server' if states('sensor.beefy_plug_power') | float(0) > 3
+             else 'mdi:server-off' }}
+
+      # Tower (Unraid NAS): powered off it still pulls ~2.6 W at the plug
+      # (PSU standby + WOL NIC) — under, but close to, the 3 W cut-off.
+      - name: "Tower Up"
+        unique_id: tower_up
+        device_class: running
+        state: "{{ states('sensor.tower_plug_power') | float(0) > 3 }}"
+        icon: >-
+          {{ 'mdi:server' if states('sensor.tower_plug_power') | float(0) > 3
              else 'mdi:server-off' }}
 
 # --- Uptime totals (history_stats over binary_sensor history) --------------
@@ -103,6 +113,42 @@ sensor:
     name: "Beefy Uptime 7d Ratio"
     unique_id: beefy_uptime_7d_ratio
     entity_id: binary_sensor.beefy_up
+    state: "on"
+    type: ratio
+    end: "{{ now() }}"
+    duration:
+      days: 7
+
+  # ---- Tower ----
+  - platform: history_stats
+    name: "Tower Uptime Today"
+    unique_id: tower_uptime_today
+    entity_id: binary_sensor.tower_up
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Tower Uptime Today Ratio"
+    unique_id: tower_uptime_today_ratio
+    entity_id: binary_sensor.tower_up
+    state: "on"
+    type: ratio
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Tower Uptime 24h"
+    unique_id: tower_uptime_24h
+    entity_id: binary_sensor.tower_up
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+  - platform: history_stats
+    name: "Tower Uptime 7d Ratio"
+    unique_id: tower_uptime_7d_ratio
+    entity_id: binary_sensor.tower_up
     state: "on"
     type: ratio
     end: "{{ now() }}"

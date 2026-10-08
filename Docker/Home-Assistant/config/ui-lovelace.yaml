@@ -2,7 +2,8 @@
 # under lovelace.dashboards. Edit + save, then just refresh the browser
 # (no restart needed for YAML dashboard content changes).
 #
-# Two plugs: FastPi (fastpi_plug_*) and Beefy (beefy_plug_*), plus the
+# Three plugs: FastPi (fastpi_plug_*), Beefy (beefy_plug_*) and Tower
+# (tower_plug_*, the Unraid NAS), plus the
 # combined "Plugs Total ..." household totals from packages/electricity.yaml.
 title: Electricity
 views:
@@ -53,7 +54,7 @@ views:
                   - entity: sensor.total_incl_vampire_current_cost_rate
                     name: Cost/h
 
-          # -------- Second row: FastPi | Beefy | Vampire
+          # -------- Second row: FastPi | Beefy | Tower | Vampire
           - type: horizontal-stack
             cards:
               - type: entities
@@ -91,6 +92,23 @@ views:
                     label: "Plug self-draw ≈ 1.4 W on / 0.9 W off — its own use, on top of Power above (counted in Vampire draw)"
 
               - type: entities
+                title: Tower Plug
+                state_color: true
+                entities:
+                  - entity: switch.tower_plug
+                    name: Switch
+                  - entity: sensor.tower_plug_power
+                    name: Power
+                  - entity: sensor.tower_plug_current_cost_rate
+                    name: Cost rate
+                  - entity: sensor.tower_plug_temperature
+                    name: Temperature
+                  - entity: binary_sensor.tower_plug_relay
+                    name: Relay state
+                  - type: section
+                    label: "Plug self-draw ≈ 1.4 W on / 0.9 W off — its own use, on top of Power above (counted in Vampire draw)"
+
+              - type: entities
                 title: Vampire draw
                 entities:
                   - entity: sensor.vampire_plug_power
@@ -98,7 +116,7 @@ views:
                   - entity: sensor.vampire_plug_current_cost_rate
                     name: Cost rate
                   - type: section
-                    label: "Components — measured (static; the two plugs follow their on/off state)"
+                    label: "Components — measured (static; the three plugs follow their on/off state)"
                   - type: attribute
                     entity: sensor.vampire_plug_power
                     attribute: fastpi_plug_self_draw_w
@@ -108,6 +126,11 @@ views:
                     entity: sensor.vampire_plug_power
                     attribute: beefy_plug_self_draw_w
                     name: Beefy plug (self-draw)
+                    suffix: " W"
+                  - type: attribute
+                    entity: sensor.vampire_plug_power
+                    attribute: tower_plug_self_draw_w
+                    name: Tower plug (self-draw)
                     suffix: " W"
                   - type: attribute
                     entity: sensor.vampire_plug_power
@@ -138,6 +161,8 @@ views:
                 name: FastPi
               - entity: sensor.beefy_plug_power
                 name: Beefy
+              - entity: sensor.tower_plug_power
+                name: Tower
               - entity: sensor.plugs_total_power
                 name: Total
 
@@ -212,6 +237,8 @@ views:
                     name: FastPi
                   - entity: sensor.beefy_plug_cost_year_proj_week
                     name: Beefy
+                  - entity: sensor.tower_plug_cost_year_proj_week
+                    name: Tower
                   - entity: sensor.plugs_total_cost_year_proj_week
                     name: Total
                   - type: conditional
@@ -234,6 +261,8 @@ views:
                     name: FastPi
                   - entity: sensor.beefy_plug_cost_year_proj_month
                     name: Beefy
+                  - entity: sensor.tower_plug_cost_year_proj_month
+                    name: Tower
                   - entity: sensor.plugs_total_cost_year_proj_month
                     name: Total
                   - type: conditional
@@ -270,6 +299,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_energy_today
                       name: Beefy
+                    - entity: sensor.tower_plug_energy_today
+                      name: Tower
                     - entity: sensor.plugs_total_energy_today
                       name: Total
                     - type: conditional
@@ -293,6 +324,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_cost_today
                       name: Beefy
+                    - entity: sensor.tower_plug_cost_today
+                      name: Tower
                     - entity: sensor.plugs_total_cost_today
                       name: Total
                     - type: conditional
@@ -325,6 +358,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_energy_this_week
                       name: Beefy
+                    - entity: sensor.tower_plug_energy_this_week
+                      name: Tower
                     - entity: sensor.plugs_total_energy_this_week
                       name: Total
                     - type: conditional
@@ -348,6 +383,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_cost_this_week
                       name: Beefy
+                    - entity: sensor.tower_plug_cost_this_week
+                      name: Tower
                     - entity: sensor.plugs_total_cost_this_week
                       name: Total
                     - type: conditional
@@ -380,6 +417,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_energy_this_month
                       name: Beefy
+                    - entity: sensor.tower_plug_energy_this_month
+                      name: Tower
                     - entity: sensor.plugs_total_energy_this_month
                       name: Total
                     - type: conditional
@@ -403,6 +442,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_cost_this_month
                       name: Beefy
+                    - entity: sensor.tower_plug_cost_this_month
+                      name: Tower
                     - entity: sensor.plugs_total_cost_this_month
                       name: Total
                     - type: conditional
@@ -435,6 +476,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_energy_this_year
                       name: Beefy
+                    - entity: sensor.tower_plug_energy_this_year
+                      name: Tower
                     - entity: sensor.plugs_total_energy_this_year
                       name: Total
                     - type: conditional
@@ -458,6 +501,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_cost_this_year
                       name: Beefy
+                    - entity: sensor.tower_plug_cost_this_year
+                      name: Tower
                     - entity: sensor.plugs_total_cost_this_year
                       name: Total
                     - type: conditional
@@ -490,6 +535,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_energy
                       name: Beefy
+                    - entity: sensor.tower_plug_energy
+                      name: Tower
                     - entity: sensor.plugs_total_energy
                       name: Total
                     - type: conditional
@@ -513,6 +560,8 @@ views:
                       name: FastPi
                     - entity: sensor.beefy_plug_cost_lifetime
                       name: Beefy
+                    - entity: sensor.tower_plug_cost_lifetime
+                      name: Tower
                     - entity: sensor.plugs_total_cost_lifetime
                       name: Total
                     - type: conditional
@@ -544,6 +593,8 @@ views:
                     name: FastPi
                   - entity: sensor.beefy_plug_energy
                     name: Beefy
+                  - entity: sensor.tower_plug_energy
+                    name: Tower
 
               - type: statistics-graph
                 title: Cost per day (CHF)
@@ -556,6 +607,8 @@ views:
                     name: FastPi
                   - entity: sensor.beefy_plug_cost_accumulated
                     name: Beefy
+                  - entity: sensor.tower_plug_cost_accumulated
+                    name: Tower
 
           # -------- Row 4: per-month graphs — energy | cost
           - type: horizontal-stack
@@ -571,6 +624,8 @@ views:
                     name: FastPi
                   - entity: sensor.beefy_plug_energy
                     name: Beefy
+                  - entity: sensor.tower_plug_energy
+                    name: Tower
 
               - type: statistics-graph
                 title: Cost per month (CHF)
@@ -583,6 +638,8 @@ views:
                     name: FastPi
                   - entity: sensor.beefy_plug_cost_accumulated
                     name: Beefy
+                  - entity: sensor.tower_plug_cost_accumulated
+                    name: Tower
 
           # -------- Row 5: full-width power graph
           - type: statistics-graph
@@ -656,6 +713,26 @@ views:
                   - entity: sensor.beefy_uptime_7d_ratio
                     name: Last 7 days (%)
 
+              - type: entities
+                title: Tower
+                state_color: true
+                entities:
+                  - entity: binary_sensor.tower_up
+                    name: Status
+                    secondary_info: last-changed
+                  - entity: sensor.tower_plug_power
+                    name: Power draw
+                  - type: section
+                    label: Uptime
+                  - entity: sensor.tower_uptime_today
+                    name: Today
+                  - entity: sensor.tower_uptime_24h
+                    name: Last 24 h
+                  - entity: sensor.tower_uptime_today_ratio
+                    name: Today (%)
+                  - entity: sensor.tower_uptime_7d_ratio
+                    name: Last 7 days (%)
+
           # -------- Uptime % gauges (last 7 days)
           - type: horizontal-stack
             cards:
@@ -682,6 +759,18 @@ views:
                   yellow: 50
                   green: 90
 
+              - type: gauge
+                entity: sensor.tower_uptime_7d_ratio
+                name: Tower up (7 days)
+                unit: "%"
+                min: 0
+                max: 100
+                needle: true
+                severity:
+                  red: 0
+                  yellow: 50
+                  green: 90
+
           # -------- Up/Down timeline (last 7 days)
           - type: history-graph
             title: Up / down (last 7 days)
@@ -691,6 +780,8 @@ views:
                 name: FastPi
               - entity: binary_sensor.beefy_up
                 name: Beefy
+              - entity: binary_sensor.tower_up
+                name: Tower
 
           - type: markdown
             content: >

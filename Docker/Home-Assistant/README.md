@@ -104,8 +104,8 @@ lovelace:
 In the sidebar it shows as **Electricity** 🔌, with three views:
 - **Overview** 🔌 — a `panel`-mode two-row grid (`vertical-stack` of
   `horizontal-stack`s, so each row spans full width instead of being scattered
-  by masonry): **row 1** = total-power gauge · *Total — measured* (both plugs) ·
-  *Total — incl. vampire*; **row 2** = FastPi · Beefy · **Vampire draw** cards;
+  by masonry): **row 1** = total-power gauge · *Total — measured* (all plugs) ·
+  *Total — incl. vampire*; **row 2** = FastPi · Beefy · Tower · **Vampire draw** cards;
   then the 24 h power history (per plug + total). See
   [Vampire draw](#vampire-draw-standby--parasitic-loads).
 - **Measured** 📟 (`mdi:gauge`, path `/measured`) — live snapshot, tariff &
@@ -159,7 +159,7 @@ Other dashboards (e.g. **Map**) stay storage-mode (UI-managed, in `.storage`).
 
 ## Smart plugs (myStrom)
 
-Two **myStrom WiFi Switches**, each defined **entirely in YAML** via its **local
+Three **myStrom WiFi Switches**, each defined **entirely in YAML** via its **local
 HTTP API** — no cloud, no myStrom account, **no subscription** (HA talks to the
 device directly on the LAN):
 
@@ -167,15 +167,16 @@ device directly on the LAN):
 |---|---|---|---|---|
 | **FastPi** | the FastPi server | `config/packages/plug_fastpi.yaml` | `192.168.1.151` | `3c:e9:0e:7d:85:8c` |
 | **Beefy**  | the Beefy server  | `config/packages/plug_beefy.yaml`  | `192.168.1.152` | `3c:e9:0e:7c:7e:80` |
+| **Tower**  | the Unraid NAS (`tower`) | `config/packages/plug_tower.yaml` | `192.168.1.248` | `3c:e9:0e:7d:13:a0` |
 
-Local API used (both plugs — same model):
+Local API used (all plugs — same model):
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /report` | `{"power":W, "Ws":.., "relay":bool, "temperature":C}` |
 | `GET /relay?state=1` / `?state=0` | switch the relay on / off |
 
-Per-plug entities (all config-as-code; `<p>` = `fastpi` or `beefy`):
+Per-plug entities (all config-as-code; `<p>` = `fastpi`, `beefy` or `tower`):
 
 | Entity | Purpose |
 |---|---|
@@ -187,7 +188,9 @@ Per-plug entities (all config-as-code; `<p>` = `fastpi` or `beefy`):
 
 > **⚠️ Foot-gun:** `switch.fastpi_plug` cuts power to the very host HA runs on —
 > toggling it off **hard-kills Home Assistant** (and FastPi). `switch.beefy_plug`
-> is a hard power switch for Beefy (pairs with its WOL / S5-poweroff automation).
+> is a hard power switch for Beefy (pairs with its WOL / S5-poweroff automation);
+> `switch.tower_plug` likewise for the Unraid NAS — cutting it mid-write risks the
+> array (use Unraid's own shutdown; its WOL is `Docker/Tower-Waker`).
 
 ### ⚠️ IP addresses — static DHCP reservations REQUIRED
 
@@ -202,6 +205,7 @@ Router: **AX7501-B1 → Home Networking → Static DHCP**
 |---|---|---|---|
 | FastPi | `3c:e9:0e:7d:85:8c` | `192.168.1.151` | WiFi 2.4 GHz |
 | Beefy  | `3c:e9:0e:7c:7e:80` | `192.168.1.152` | WiFi 2.4 GHz |
+| Tower  | `3c:e9:0e:7d:13:a0` | `192.168.1.248` | WiFi 2.4 GHz |
 
 If a plug ever gets a new IP, update **both** the reservation **and** the IP in
 its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart`.
@@ -220,7 +224,7 @@ only draws the sub-watt standby / WOL-NIC trickle, well under the threshold). No
 agent on the servers, no ping — it is a side-effect of the metering already in
 place. Powers the **Uptime** dashboard view (see [Dashboards](#dashboards)).
 
-Entities (`<p>` = `fastpi` or `beefy`):
+Entities (`<p>` = `fastpi`, `beefy` or `tower`):
 
 | Entity | Purpose |
 |---|---|
@@ -233,8 +237,10 @@ Entities (`<p>` = `fastpi` or `beefy`):
 The totals are computed by the built-in **`history_stats`** integration from the
 binary sensor's recorded history — no extra cards or HACS needed — so the 24 h /
 7-day figures start near zero and fill in as history accumulates after the
-package is first added. The threshold is hardcoded (`> 3`) in both binary
-sensors; change it in both if the "up" cut-off ever needs tuning.
+package is first added. The threshold is hardcoded (`> 3`) in all three binary
+sensors; change it in all of them if the "up" cut-off ever needs tuning.
+Note: Tower powered off still reads **~2.6 W** at its plug (PSU standby + WOL
+NIC) — under the cut-off, but with the least margin of the three.
 
 > **Why 3 W:** it sits comfortably above a hibernating/off machine's standby draw
 > yet well below any running server's idle draw, so it cleanly separates the two.
@@ -242,7 +248,7 @@ sensors; change it in both if the "up" cut-off ever needs tuning.
 ## Electricity metering, tariffs & cost
 
 `config/packages/electricity.yaml` holds the **shared tariff/price** and the
-**combined "both plugs" totals**; each plug's own meters live in its
+**combined "all plugs" totals**; each plug's own meters live in its
 `plug_<p>.yaml` (built on `sensor.<p>_plug_energy` / `_power`).
 
 - **Forever history** — any sensor with a `state_class` keeps **long-term
@@ -254,7 +260,7 @@ sensors; change it in both if the "up" cut-off ever needs tuning.
   (+ a `select.<p>_plug_<cycle>`).
 - **Tariff (City of Zürich / EWZ)** — **HIGH** = Mon–Sat 06:00–22:00; **LOW** =
   nights 22:00–06:00 **and all day Sunday**. One automation applies the correct
-  tariff to **both plugs'** `select`s at 06:00 / 22:00 / on start
+  tariff to **every plug's** `select`s at 06:00 / 22:00 / on start
   (`now().weekday() != 6 and 6 <= hour < 22` → high).
   `sensor.electricity_current_tariff` shows the active one.
 - **Prices — per-year table in git** — prices come from a single source of truth,
@@ -288,9 +294,10 @@ sensors; change it in both if the "up" cut-off ever needs tuning.
 - **Combined totals** — `sensor.plugs_total_power`, `…_energy` (lifetime kWh;
   feeds the Energy dashboard), `…_energy_today/this_week/this_month/this_year`,
   `…_cost_today/this_week/this_month/this_year`, and `…_current_cost_rate` — each
-  the sum of both plugs, plus `sensor.plugs_total_cost_lifetime` (sum of the two
-  lifetime odometers).
-- **Grand totals incl. vampire** — add the standby draw (below) on top of the two
+  the sum of all three plugs, plus `sensor.plugs_total_cost_lifetime` (sum of the
+  three lifetime odometers). Tower was added 2026-10-08, so its share of every
+  total starts from 0 on that day (no backfill).
+- **Grand totals incl. vampire** — add the standby draw (below) on top of the three
   metered plugs: `sensor.total_incl_vampire_power` /
   `…_current_cost_rate` (live, shown as the *Total — incl. vampire* glance on
   Overview), plus per-period `sensor.total_incl_vampire_energy` (lifetime) /
@@ -304,7 +311,7 @@ projected-year estimate, and forever day/month/power/cost graphs).
 ### Vampire draw (standby / parasitic loads)
 
 `config/packages/plug_vampire.yaml` is a **virtual "plug"** (no hardware) that
-sums the small always-on / off-state loads the two real myStrom plugs do **not**
+sums the small always-on / off-state loads the three real myStrom plugs do **not**
 meter — a myStrom plug measures only the load *behind* it, so its own electronics
 draw is invisible to it and is counted here instead.
 
@@ -312,15 +319,15 @@ draw is invisible to it and is counted here instead.
 
 | Component | Draw |
 | --- | --- |
-| myStrom plug self-draw (each, ×2) | **1.4 W on / 0.9 W off** — dynamic, follows `binary_sensor.<p>_plug_relay` |
+| myStrom plug self-draw (each, ×3) | **1.4 W on / 0.9 W off** — dynamic, follows `binary_sensor.<p>_plug_relay` |
 | Noctua fan + AC→DC header | 0.4 W |
 | Tuya legacy plug (spare / future NAS) | 1.2 W |
 | Netgear 1 GbE switch | 2.0 W |
 | Power strip | 0.4 W |
 
-Fixed part = 4.0 W; the two plugs add 1.8 W (both off) … 2.8 W (both on) → total
-**≈ 5.8–6.8 W**. `sensor.vampire_plug_current_cost_rate` prices it at the live
-tariff. These are **measured** values, roughly static except the two plugs which
+Fixed part = 4.0 W; the three plugs add 2.7 W (all off) … 4.2 W (all on) → total
+**≈ 6.7–8.2 W**. `sensor.vampire_plug_current_cost_rate` prices it at the live
+tariff. These are **measured** values, roughly static except the three plugs which
 track their relay state. Shown as the **Vampire draw** card on Overview; a
 self-draw remark also sits on each plug card. The plugs' own metered
 `sensor.<p>_plug_power` values are untouched.
@@ -359,7 +366,7 @@ and past years stay correct at their old prices.
 HA's built-in **Energy** dashboard is set up (Settings → Dashboards → Energy).
 It is **UI-configured and lives in `.storage/energy`** — there is no YAML for it.
 
-- **Grid consumption** = `sensor.plugs_total_energy` (combined both plugs). (Only
+- **Grid consumption** = `sensor.plugs_total_energy` (combined, all three plugs). (Only
   grid sources get cost tracking; an *Individual device* would be energy-only.)
 - **Cost** = *"Use an entity with current price"* → `sensor.electricity_current_price`
   (tariff-aware). HA auto-creates `sensor.plugs_total_energy_cost`.
@@ -376,7 +383,8 @@ rooms are:
 > WC · Dusche · Eingang · Schlafzimmer Tomas · Schlafzimmer Rafi · Küche ·
 > Esszimmer · Reduit · Wohnzimmer · Balkon
 
-Both plugs live in **Wohnzimmer**. Because they're defined in YAML (no
+FastPi and Beefy live in **Wohnzimmer** (Tower's plug entities are not yet
+assigned an area). Because they're defined in YAML (no
 auto-created *device*), the room is assigned at the **entity** level (in the UI:
 Settings → Entities → pick entity → area). Each plug's physical entities carry
 `area_id: wohnzimmer` — `switch.<p>_plug`, `binary_sensor.<p>_plug_relay`, and
@@ -442,3 +450,5 @@ no MQTT broker / extra containers). Full hardware detail in
   No Authentik forward-auth (breaks the HA mobile app/API) — rely on HA login + 2FA.
 - **Prometheus export** — HA's built-in `prometheus:` endpoint (`/api/prometheus`)
   to feed the existing Prometheus/Grafana stack.
+- **Tower plug DHCP reservation** — add `3c:e9:0e:7d:13:a0` → `192.168.1.248` on
+  the AX7501-B1 (Static DHCP) so the hardcoded IP in `plug_tower.yaml` stays valid.

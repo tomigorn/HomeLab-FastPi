@@ -2,21 +2,21 @@
 # "Vampire" draw — virtual plug for standby / parasitic loads
 # =========================================================
 # NOT a physical device: a template "plug" that sums the small always-on
-# (or off-state) loads that the two real myStrom plugs do NOT measure.
+# (or off-state) loads that the three real myStrom plugs do NOT measure.
 # A myStrom plug meters only the DOWNSTREAM load behind it; its OWN
 # electronics draw is invisible to it, so that self-draw is accounted for
-# here instead (see the FastPi/Beefy cards' self-draw remark on the dashboard).
+# here instead (see the FastPi/Beefy/Tower cards' self-draw remark on the dashboard).
 #
-# Component values (measured; roughly static except the two myStrom plugs,
+# Component values (measured; roughly static except the three myStrom plugs,
 # which follow their relay on/off state):
-#   myStrom plug self-draw ...... 1.4 W when ON, 0.9 W when OFF  (each, x2, dynamic)
+#   myStrom plug self-draw ...... 1.4 W when ON, 0.9 W when OFF  (each, x3, dynamic)
 #   Noctua fan + AC->DC header ... 0.4 W
 #   Tuya legacy smart plug ....... 1.2 W  (spare, maybe for the not-yet-set-up NAS)
 #   Netgear 1 GbE switch ......... 2.0 W
 #   Power strip .................. 0.4 W
 #
-# Fixed part = 0.4 + 1.2 + 2.0 + 0.4 = 4.0 W; the two plugs add 1.8 W (both off)
-# to 2.8 W (both on), so total vampire draw ranges ~5.8 W .. ~6.8 W.
+# Fixed part = 0.4 + 1.2 + 2.0 + 0.4 = 4.0 W; the three plugs add 2.7 W (all off)
+# to 4.2 W (all on), so total vampire draw ranges ~6.7 W .. ~8.2 W.
 #
 # Entity namespace: sensor.vampire_plug_*
 # Tariff/price lives in packages/electricity.yaml; the combined
@@ -34,10 +34,12 @@ template:
         state: >-
           {{ ((1.4 if is_state('binary_sensor.fastpi_plug_relay', 'on') else 0.9)
             + (1.4 if is_state('binary_sensor.beefy_plug_relay', 'on') else 0.9)
+            + (1.4 if is_state('binary_sensor.tower_plug_relay', 'on') else 0.9)
             + 0.4 + 1.2 + 2.0 + 0.4) | round(1) }}
         attributes:
           fastpi_plug_self_draw_w: "{{ 1.4 if is_state('binary_sensor.fastpi_plug_relay', 'on') else 0.9 }}"
           beefy_plug_self_draw_w: "{{ 1.4 if is_state('binary_sensor.beefy_plug_relay', 'on') else 0.9 }}"
+          tower_plug_self_draw_w: "{{ 1.4 if is_state('binary_sensor.tower_plug_relay', 'on') else 0.9 }}"
           noctua_fan_w: 0.4
           tuya_legacy_plug_w: 1.2
           netgear_switch_w: 2.0
