@@ -790,3 +790,53 @@ views:
               Uptime totals are computed from the recorded on/off history, so
               the 24 h / 7-day figures fill in as history accumulates after this
               tab was added.
+
+  # ------------------------------------------------------------- Calculator
+  # What-if calculator: cost of running a given wattage 24/7 for a year at the
+  # current EWZ prices. Input: input_number.calculator_watts
+  # (packages/cost_calculator.yaml); all maths happens in the markdown template.
+  - title: Calculator
+    path: calculator
+    icon: mdi:calculator
+    panel: true
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: 24/7 cost calculator
+            entities:
+              - entity: input_number.calculator_watts
+                name: Power draw (W)
+
+          - type: markdown
+            content: |
+              {% set w = states('input_number.calculator_watts') | float(0) %}
+              {% set hi = states('sensor.electricity_price_high') %}
+              {% set lo = states('sensor.electricity_price_low') %}
+              {% if not (is_number(hi) and is_number(lo)) %}
+              ⚠️ **No EWZ prices for {{ now().year }}** — add them to the tariff
+              table in `packages/electricity.yaml`.
+              {% else %}
+              {% set hi = hi | float %}{% set lo = lo | float %}
+              {# 24/7 week: high = Mon–Sat 06–22 = 96 h, low = the other 72 h #}
+              {% set f_hi = 96 / 168 %}{% set f_lo = 72 / 168 %}
+              {% set kwh = w * 8760 / 1000 %}
+              {% set c_hi = kwh * f_hi * hi %}{% set c_lo = kwh * f_lo * lo %}
+              {% set year = c_hi + c_lo %}
+              ## {{ '%.2f' | format(year) }} CHF / year
+
+              for **{{ w }} W** running 24/7
+
+              | | |
+              |---|---:|
+              | Per month | {{ '%.2f' | format(year / 12) }} CHF |
+              | Per day | {{ '%.3f' | format(year / 365) }} CHF |
+              | Energy per year | {{ '%.1f' | format(kwh) }} kWh |
+              | High tariff share (57 % of hours) | {{ '%.2f' | format(c_hi) }} CHF |
+              | Low tariff share (43 % of hours) | {{ '%.2f' | format(c_lo) }} CHF |
+              | Blended price | {{ '%.4f' | format(f_hi * hi + f_lo * lo) }} CHF/kWh |
+
+              <sub>EWZ {{ now().year }}: high {{ hi }} CHF/kWh (Mon–Sat 06–22),
+              low {{ lo }} CHF/kWh (nights + Sunday). Year = 8760 h; public
+              holidays not counted as low tariff.</sub>
+              {% endif %}

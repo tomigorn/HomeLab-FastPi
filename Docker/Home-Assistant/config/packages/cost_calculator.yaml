@@ -1,0 +1,18 @@
+# =========================================================
+# 24/7 cost calculator — input for the "Calculator" dashboard tab
+# =========================================================
+# Type a wattage, the dashboard's markdown card shows what running it 24/7 for
+# a year costs at the current EWZ high/low prices (sensor.electricity_price_*).
+# Only the input lives here: the maths is a Jinja template inside the card, so
+# no what-if sensors end up in InfluxDB/Grafana or the long-term statistics.
+# No `initial:` so HA restores the last value typed.
+
+input_number:
+  calculator_watts:
+    name: Power draw
+    icon: mdi:flash
+    unit_of_measurement: "W"
+    mode: box
+    min: 0
+    max: 10000
+    step: 0.1

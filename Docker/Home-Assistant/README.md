@@ -101,7 +101,7 @@ lovelace:
       show_in_sidebar: true
 ```
 
-In the sidebar it shows as **Electricity** 🔌, with three views:
+In the sidebar it shows as **Electricity** 🔌, with four views:
 - **Overview** 🔌 — a `panel`-mode two-row grid (`vertical-stack` of
   `horizontal-stack`s, so each row spans full width instead of being scattered
   by masonry): **row 1** = total-power gauge · *Total — measured* (all plugs) ·
@@ -133,6 +133,14 @@ In the sidebar it shows as **Electricity** 🔌, with three views:
   timeline graph. All entities live in `config/packages/uptime.yaml` (see
   [Server uptime](#server-uptime)). The 24 h / 7-day figures fill in from the
   recorded on/off history, so they start near zero right after the tab is added.
+- **Calculator** 🧮 (`mdi:calculator`, path `/calculator`) — what-if: type a
+  wattage into `input_number.calculator_watts` (`config/packages/cost_calculator.yaml`)
+  and a markdown card shows the cost of running it **24/7 for a year** at the
+  current EWZ prices (`sensor.electricity_price_high` / `_low`): CHF/year, /month,
+  /day, kWh/year, high/low split and blended CHF/kWh. A 24/7 week is 96 h high
+  (Mon–Sat 06–22) + 72 h low → 57.1 % / 42.9 %; year = 8760 h; holidays ignored.
+  All maths lives in the card's Jinja template — no sensors, so nothing reaches
+  InfluxDB/Grafana or long-term stats. Shows a warning if the year's prices are missing.
 
 Editing the YAML content only needs a **browser refresh**; changing the
 registration (title/icon/mode) needs `docker compose restart`.
