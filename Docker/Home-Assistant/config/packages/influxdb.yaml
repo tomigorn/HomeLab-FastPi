@@ -1,17 +1,14 @@
 # Push Home Assistant energy/power (and other sensor) data to the shared
 # InfluxDB v2 so it can be correlated with fastpi RAM/swap in Grafana.
-# Only the sensor domain is exported to keep the bucket small. Token in
-# secrets.yaml (influxdb_token).
+# Only the sensor domain is exported to keep the bucket small.
+#
+# CONNECTION is UI-configured since HA 2026.x (the YAML connection keys were
+# removed in 2026.9): Settings -> Devices & services -> InfluxDB. It lives in
+# .storage/core.config_entries (not git): url http://127.0.0.1:8086 (HA runs
+# network_mode: host and InfluxDB publishes 8086 on the host, so loopback is
+# stable), API v2, org myorg, bucket homeassistant, write-only token scoped to
+# that bucket. Only the export filters below stay in YAML.
 influxdb:
-  api_version: 2
-  # HA runs network_mode: host, and InfluxDB publishes 8086 on the host, so
-  # reach it on loopback — stable (no LAN-IP dependency) and stays local.
-  host: 127.0.0.1
-  port: 8086
-  ssl: false
-  token: !secret influxdb_token
-  organization: myorg
-  bucket: homeassistant
   max_retries: 3
   measurement_attr: unit_of_measurement
   include:
