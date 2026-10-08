@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Wake beefy for its nightly maintenance window.
+#
+# WHY THIS EXISTS: beefy powers itself off after 15 idle minutes, so at 04:00 it is
+# almost always OFF and beefy-mover.timer would simply never fire. The storage doc's
+# 04:00-06:00 window is the one slot the cold HDD is allowed to spin up; without a
+# deliberate wake, either the window is honoured and the mover never runs, or the
+# mover runs whenever beefy happens to boot and the window means nothing.
+#
+# Chosen 2026-10-09 over the alternative (Persistent=true alone, running after the
+# next boot whenever that is). Cost: beefy is awake ~25 min a night whether or not
+# there is work - roughly 10 Wh, about 3.7 kWh a year. beefy-mover still exits
+# immediately when the pool is healthy, so the HDD itself usually stays parked.
+#
+# Runs at 03:55, seven minutes before beefy-mover.timer at ~04:02: a cold boot takes
+# ~50 s, so that is boot time plus comfortable margin.
+set -uo pipefail
+
+WAKER_URL=${WAKER_URL:-http://192.168.1.2:9001}
+BEEFY_IP=${BEEFY_IP:-192.168.1.102}
+# Single source of truth for the MAC: the Beefy-Waker project's own .env. Copying it
+# here would be one more place to drift when the NIC changes.
+WAKER_ENV=${WAKER_ENV:-/home/pi/Projects/Docker/Beefy-Waker/.env}
+WAIT_SECONDS=${WAIT_SECONDS:-240}
+
+log() { printf '%s %s\n' "$(date -Is)" "$*"; }
+
+if ping -c1 -W2 "$BEEFY_IP" >/dev/null 2>&1; then
+    log "beefy is already up - nothing to do"
+    exit 0
+fi
+
+log "beefy is down; requesting wake"
+
+# Prefer the Beefy-Waker gate: it is the established mechanism and the only place
+# that knows how the WoL packet should be formed.
+woke=0
+if curl -fsS --max-time 15 -X POST "$WAKER_URL/wake" >/dev/null 2>&1; then
+    log "wake requested via the Beefy-Waker gate"
+    woke=1
+else
+    # Fall back to a direct packet. A maintenance window that silently does not
+    # happen because a container was down is worse than a little duplication here.
+    log "WARNING the waker gate did not answer; falling back to wakeonlan"
+    mac=$(grep -E '^BEEFY_MAC=' "$WAKER_ENV" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' \r')
+    if [ -n "$mac" ] && command -v wakeonlan >/dev/null 2>&1; then
+        wakeonlan "$mac" >/dev/null 2>&1 && { log "wake packet sent directly to $mac"; woke=1; }
+    fi
+fi
+
+if [ "$woke" -eq 0 ]; then
+    log "ERROR could not request a wake by any route"
+    exit 1
+fi
+
+# Confirm it actually came up, so a failed wake shows as a failed unit rather than
+# being discovered weeks later as "the mover never runs".
+deadline=$(( $(date +%s) + WAIT_SECONDS ))
+while [ "$(date +%s)" -lt "$deadline" ]; do
+    if ping -c1 -W2 "$BEEFY_IP" >/dev/null 2>&1; then
+        log "beefy is up; the mover timer will fire shortly"
+        exit 0
+    fi
+    sleep 5
+done
+
+log "ERROR beefy did not come up within ${WAIT_SECONDS}s"
+exit 1

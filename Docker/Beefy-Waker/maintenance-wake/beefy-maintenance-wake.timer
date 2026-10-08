@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly beefy maintenance wake (03:55, ahead of the mover)
+Documentation=file:///home/pi/Projects/Docker/Beefy-Waker/README.md
+
+[Timer]
+# 03:55 — seven minutes before beefy-mover.timer fires at ~04:02 on beefy. A cold
+# boot takes ~50s, so that is boot time plus comfortable margin.
+OnCalendar=*-*-* 03:55:00
+# No RandomizedDelaySec on purpose: the mover's own timer is already randomised, and
+# jitter on BOTH ends could close the gap between wake and mover run.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

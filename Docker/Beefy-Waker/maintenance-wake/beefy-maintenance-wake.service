@@ -1,0 +1,16 @@
+[Unit]
+Description=Wake beefy for its nightly maintenance window
+Documentation=file:///home/pi/Projects/Docker/Beefy-Waker/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/beefy-maintenance-wake
+# Bounded: a cold boot is ~50s, so five minutes is generous. Without this a hung
+# wake could sit here until the next firing.
+TimeoutStartSec=330
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
