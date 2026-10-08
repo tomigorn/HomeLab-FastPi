@@ -329,12 +329,12 @@ draw is invisible to it and is counted here instead.
 | --- | --- |
 | myStrom plug self-draw (each, ×3) | **1.4 W on / 0.9 W off** — dynamic, follows `binary_sensor.<p>_plug_relay` |
 | Noctua fan + AC→DC header | 0.4 W |
-| Tuya legacy plug (spare / future NAS) | 1.2 W |
 | Netgear 1 GbE switch | 2.0 W |
 | Power strip | 0.4 W |
 
-Fixed part = 4.0 W; the three plugs add 2.7 W (all off) … 4.2 W (all on) → total
-**≈ 6.7–8.2 W**. `sensor.vampire_plug_current_cost_rate` prices it at the live
+Fixed part = 2.8 W; the three plugs add 2.7 W (all off) … 4.2 W (all on) → total
+**≈ 5.5–7.0 W**. (A spare Tuya plug, 1.2 W, was included until it was unplugged
+on 2026-10-08 — vampire history before then contains it.) `sensor.vampire_plug_current_cost_rate` prices it at the live
 tariff. These are **measured** values, roughly static except the three plugs which
 track their relay state. Shown as the **Vampire draw** card on Overview; a
 self-draw remark also sits on each plug card. The plugs' own metered
@@ -391,12 +391,11 @@ rooms are:
 > WC · Dusche · Eingang · Schlafzimmer Tomas · Schlafzimmer Rafi · Küche ·
 > Esszimmer · Reduit · Wohnzimmer · Balkon
 
-FastPi and Beefy live in **Wohnzimmer** (Tower's plug entities are not yet
-assigned an area). Because they're defined in YAML (no
+All three plugs live in **Wohnzimmer**, side by side. Because they're defined in YAML (no
 auto-created *device*), the room is assigned at the **entity** level (in the UI:
 Settings → Entities → pick entity → area). Each plug's physical entities carry
 `area_id: wohnzimmer` — `switch.<p>_plug`, `binary_sensor.<p>_plug_relay`, and
-`sensor.<p>_plug_power` / `_temperature` / `_energy` (10 entities total). The
+`sensor.<p>_plug_power` / `_temperature` / `_energy` (15 entities total). The
 derived tariff/price/cost sensors are left unassigned (calculations, not
 physically located). Area assignments live in `.storage` (not git).
 

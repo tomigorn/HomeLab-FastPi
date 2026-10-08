@@ -139,11 +139,6 @@ views:
                     suffix: " W"
                   - type: attribute
                     entity: sensor.vampire_plug_power
-                    attribute: tuya_legacy_plug_w
-                    name: Tuya legacy plug (spare / future NAS)
-                    suffix: " W"
-                  - type: attribute
-                    entity: sensor.vampire_plug_power
                     attribute: netgear_switch_w
                     name: Netgear 1 GbE switch
                     suffix: " W"
