@@ -19,8 +19,10 @@ groups:
             Cup reports {{ $value }} image(s) with updates
             ({{ with query "cup_updates_major" }}{{ . | first | value }}{{ end }} major,
             {{ with query "cup_updates_minor" }}{{ . | first | value }}{{ end }} minor).
-            Details at https://cup.holy-grail.ch/ . Note Cup watches every image on the
-            host including ones not in use, so check in_use before acting.
+            Details at https://cup.holy-grail.ch/ . This counts BOTH hosts since
+            2026-10-09 (fastpi locally + beefy via its Cup agent), so the dashboard's
+            `server` column says which machine to act on. Note Cup watches every image
+            present on a host including ones not in use, so check in_use before acting.
 
       - alert: CupNotReporting
         expr: up{job="cup"} == 0

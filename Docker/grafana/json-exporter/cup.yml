@@ -7,6 +7,11 @@
 # -> Telegram. One notification path, one place the bot token lives, and silences
 # and alert history work for container updates exactly as they do for an outage.
 #
+# Since 2026-10-09 these counts span BOTH hosts: fastpi reads beefy through its Cup
+# agent (`servers.beefy` in Cup's config) and merges the results, so no second scrape
+# job or exporter is needed here. Verified the aggregate block keeps the same shape
+# with a remote server attached - monitored_images simply went 123 -> 135.
+#
 # Cup's JSON already carries an aggregate `metrics` block, so this is a plain scalar
 # mapping with no per-image cardinality:
 #   {"major_updates":1,"minor_updates":3,"patch_updates":0,"other_updates":9,
