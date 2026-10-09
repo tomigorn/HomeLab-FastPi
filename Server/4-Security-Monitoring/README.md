@@ -73,6 +73,20 @@ behind it.
   debugging is genuinely committable while the original is safe, which is why
   both the hook and the scan peel backup suffixes before testing a filename.
 
+## Known gaps
+
+- **beefy's working-tree hygiene is not checked.** The filename check runs only
+  against fastpi's clone. beefy's repo content *is* scanned, via the GitHub
+  mirror, and its commit path is covered by the pre-commit hook - so the gap is
+  specifically "a secret file sitting in beefy's working tree, uncommitted". The
+  hook catches it the moment anyone tries to commit it.
+- **Trivy counts, not diffs.** The alert is on an absolute CVE count, which is a
+  backlog figure. A newly published CRITICAL in an image that already had some
+  will not stand out. `image-cves-<host>.txt` is the thing to read.
+- **No runtime intrusion detection.** This answers "what is vulnerable" and
+  "what is exposed", not "is something running that should not be". There is no
+  auditd, AIDE or rkhunter here.
+
 ## unattended-upgrades covers less than it looks like
 
 Installed on both hosts, but its allowed origins are Debian/Debian-Security
