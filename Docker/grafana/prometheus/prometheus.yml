@@ -55,6 +55,17 @@ scrape_configs:
           - https://audiobookshelf.holy-grail.ch/
           - https://sso.holy-grail.ch/
           - https://claude-mockups.holy-grail.ch/
+          - https://cup.holy-grail.ch/
+          # The media stack, added 2026-10-09. The five arr apps answer 302
+          # (Authentik redirect) and Jellyfin 302 (its own /web redirect) - both
+          # count as healthy here. A 404 would mean Traefik lost the router, which
+          # is exactly the failure this job exists to catch.
+          - https://jellyfin.holy-grail.ch/
+          - https://radarr.holy-grail.ch/
+          - https://prowlarr.holy-grail.ch/
+          - https://bazarr.holy-grail.ch/
+          - https://qbittorrent.holy-grail.ch/
+          - https://sabnzbd.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
