@@ -1,0 +1,28 @@
+[Unit]
+Description=Trivy CVE scan of container images in use (fastpi and beefy)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+# Separate from security-scan.service because the cost is utterly different:
+# this pulls a ~1.4G vulnerability DB and walks 60+ images, where the secrets
+# pass takes five seconds. Running them on one timer would mean either scanning
+# images daily for no benefit or checking secrets weekly, which is too rare for
+# the thing most likely to go wrong.
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py images
+TimeoutStartSec=7200
+Nice=19
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/security-scan /var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true

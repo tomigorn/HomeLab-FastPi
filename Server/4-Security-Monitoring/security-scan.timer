@@ -1,0 +1,18 @@
+[Unit]
+Description=Daily security posture scan
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+
+[Timer]
+# 04:12 - inside beefy's nightly maintenance window. beefy is woken at 03:55 by
+# beefy-maintenance-wake and its mover runs at 04:00, so it is reliably awake
+# here. Outside that window beefy is powered off and its pending-update count
+# cannot be read at all; the scan then leaves beefy's previous figures in place
+# and the staleness alert covers it.
+OnCalendar=*-*-* 04:12:00
+RandomizedDelaySec=180
+# Catch up after downtime: a Pi that was off at 04:12 should still scan, because
+# "no scan ran" and "nothing was found" look identical in a dashboard.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

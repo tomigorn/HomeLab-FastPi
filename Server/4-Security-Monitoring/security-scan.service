@@ -1,0 +1,29 @@
+[Unit]
+Description=Security posture scan (secrets, secret-file hygiene, pending OS updates)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches
+# Bounded. The secrets+patches pass measures ~5s; ten minutes covers a slow
+# GitHub fetch and beefy's SSH timeout without ever overlapping the next firing.
+# TimeoutStartSec, not RuntimeMaxSec: RuntimeMaxSec is silently ignored for
+# Type=oneshot, so a hung run would sit here until the next boot.
+TimeoutStartSec=600
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+# The two paths it must write, carved back out of ProtectSystem=strict.
+ReadWritePaths=/var/lib/security-scan /var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

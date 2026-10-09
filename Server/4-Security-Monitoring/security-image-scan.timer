@@ -1,0 +1,14 @@
+[Unit]
+Description=Weekly Trivy CVE scan of container images
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+
+[Timer]
+# Sundays 04:20, after Cup's own weekly refresh at 04:00 and inside beefy's
+# maintenance window. Weekly rather than daily: CVE feeds move on roughly that
+# cadence, and a daily 1.4G DB refresh plus 60 image scans on a Pi buys nothing.
+OnCalendar=Sun *-*-* 04:20:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

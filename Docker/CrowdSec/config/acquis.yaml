@@ -8,3 +8,16 @@ filenames:
   - /var/log/traefik/access.log
 labels:
   type: traefik
+
+# NOT acquired here, deliberately: SSH. The crowdsecurity/sshd collection is
+# enabled (cscli collections list) but has no source feeding it, so its scenarios
+# are loaded and idle - which reads as "SSH is covered" when it is not.
+#
+# Left that way on purpose: SSH is LAN-only (no port forward, no ssh ingress in
+# the tunnel) and had 0 failed attempts on fastpi in the 7 days to 2026-10-09.
+# fastpi has no rsyslog, so feeding it means installing a syslog daemon to
+# produce an auth.log with no attacks in it. The CrowdSec image has no
+# journalctl, so the journald datasource is not an alternative.
+#
+# If SSH is ever exposed, the three-step fix is in
+# Server/4-Security-Monitoring/README.md under "SSH / CrowdSec".

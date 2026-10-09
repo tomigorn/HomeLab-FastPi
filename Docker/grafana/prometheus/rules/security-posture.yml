@@ -1,0 +1,174 @@
+# Security posture alerts, fed by Server/4-Security-Monitoring/security_scan.py
+# through node-exporter's textfile collector.
+#
+# Routing (see alertmanager/alertmanager.yml): critical and warning reach email
+# AND Telegram; info is Telegram-only and at most weekly. The split is chosen so
+# that the alerts which mean "act today" are the ones that can wake you, and the
+# standing counts that can only ever be worked through gradually cannot train you
+# to ignore the channel.
+groups:
+  - name: security-secrets
+    rules:
+      # The one that matters most. Both repositories are PUBLIC, so a secret
+      # reaching them is disclosed the moment it is pushed - and pushing is not
+      # reversible, because rewriting history does not un-publish what has
+      # already been fetched, cached or indexed. The only remedy is rotation,
+      # and rotation only happens if someone finds out.
+      - alert: SecretLeakedInPublicRepo
+        expr: security_repo_leaks_total > 0
+        for: 0m          # no delay: a single scrape saying this is enough
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} secret(s) found in the PUBLIC {{ $labels.repo }} repo history"
+          description: >-
+            gitleaks found secrets in the published history of
+            github.com/tomigorn/HomeLab-{{ $labels.repo }}, which is public.
+            Assume disclosed and ROTATE - do not just rewrite history, which
+            does not recall anything already fetched or cached. Per-rule counts
+            are in security_repo_leaks; redacted details are in
+            /var/lib/security-scan/gitleaks-{{ $labels.repo }}.json on fastpi.
+
+      # A real secret file tracked in git. Distinct from the above because
+      # gitleaks matches on content and this matches on filename: an .env whose
+      # values happen to be low-entropy would slip past the content scan.
+      - alert: SecretFileCommittedToRepo
+        expr: security_secret_files{verdict="exposed"} > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} secret file(s) tracked in git on {{ $labels.host }}"
+          description: >-
+            A file matching a secret-bearing name is tracked by git. Note that
+            adding it to .gitignore does NOT help - gitignore has no effect on
+            already-tracked files, which is the usual reason this persists after
+            someone thinks they fixed it. Use `git rm --cached`, then rotate.
+            Paths are listed in /var/lib/security-scan/hygiene-problems.txt.
+
+      # Not yet public, but one `git add -A` away. Worth catching while it is
+      # still cheap - the fix is a .gitignore line rather than a rotation.
+      - alert: SecretFileNotIgnored
+        expr: security_secret_files{verdict="at_risk"} > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} unignored secret file(s) on {{ $labels.host }}"
+          description: >-
+            These are neither tracked nor ignored, so `git add -A` would commit
+            them to a public repo. Most often a .env copied aside while
+            debugging - .gitignore entries for `.env` do not match `.env.bak`.
+            Paths: /var/lib/security-scan/hygiene-problems.txt on fastpi.
+
+  - name: security-patches
+    rules:
+      - alert: PendingSecurityUpdates
+        expr: security_pending_updates{type="security"} > 0
+        # 72h, deliberately long: beefy runs unattended-upgrades, so a security
+        # update appearing and then clearing on its own is the system working.
+        # Three days of it NOT clearing means unattended-upgrades is not doing
+        # its job, which is the thing worth being told about.
+        for: 72h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} security update(s) pending for 3+ days"
+          description: >-
+            Pending security updates have not cleared on their own, so either
+            unattended-upgrades is not enabled here or it is failing. Check
+            `systemctl status unattended-upgrades` and
+            /var/log/unattended-upgrades/. Total pending (including
+            non-security) is in security_pending_updates{type="all"}.
+
+  - name: security-images
+    rules:
+      # severity: info on purpose - Telegram only, weekly at most. A standing
+      # count of CRITICALs across 60 images is a backlog to work through, not an
+      # incident, and mailing it would be the fastest possible way to teach
+      # yourself to filter these alerts away.
+      - alert: CriticalImageVulnerabilities
+        expr: security_image_vulnerabilities{severity="CRITICAL"} > 0
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} CRITICAL CVE(s) in running images"
+          description: >-
+            Trivy found CRITICAL vulnerabilities in images currently in use on
+            {{ $labels.host }}. Usually fixed by pulling a newer tag - compare
+            against Cup at https://cup.holy-grail.ch/ , which lists what has an
+            update available. Which images, worst first:
+            /var/lib/security-scan/image-cves-{{ $labels.host }}.txt on fastpi.
+            HIGH counts are in the same metric family.
+
+      - alert: ImagesUnscannable
+        expr: security_images_unscannable > 0
+        for: 1d
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} image(s) could not be scanned"
+          description: >-
+            Trivy could not scan these images, normally because they were built
+            locally and the scan reads images through the read-only Docker socket
+            proxy. They are reported rather than skipped so the CVE totals are
+            not quietly understating coverage.
+
+  - name: security-scan-health
+    rules:
+      # Without these the whole mechanism is a dashboard that reads "0 secrets
+      # found" whether it is working or not. This is the same failure that let
+      # the 2026-10-04 edge outage run for 24 hours and that Alertmanager's
+      # unreadable-secret retry loop reproduced: the absence of bad news is not
+      # good news unless something is checking that the news still arrives.
+      - alert: SecurityScanFailing
+        expr: security_scan_errors > 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Security scan subject {{ $labels.subject }} is failing"
+          description: >-
+            This subject has errored rather than merely being unreachable
+            (security_scan_host_unreachable covers beefy being powered off).
+            Its previously collected values are still being served and are now
+            going stale. Run `systemctl start security-scan.service` on fastpi
+            and read `journalctl -u security-scan -n 50`.
+
+      # Catches both a silently dead timer and a host that stopped being
+      # reachable for longer than its normal off-hours.
+      - alert: SecurityScanStale
+        expr: >-
+          (time() - security_scan_last_success_timestamp_seconds{subject!~"images-.*"} > 172800)
+          or
+          (time() - security_scan_last_success_timestamp_seconds{subject=~"images-.*"} > 1209600)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Security scan {{ $labels.subject }} has not succeeded in {{ $value | humanizeDuration }}"
+          description: >-
+            Thresholds differ by subject because the cadences do: the daily
+            secrets/patches scan is stale after 48h (two missed runs, which
+            tolerates one night of beefy staying asleep), and the weekly image
+            scan after 14 days. Figures for this subject are still being served
+            from the last success, so the dashboard looks populated.
+
+      # Guards the transport itself. A malformed .prom file makes node-exporter
+      # discard the WHOLE file, so a formatting slip silently removes every
+      # metric above rather than just one - and every alert above would then
+      # stop evaluating with no firing alert to show it.
+      - alert: TextfileCollectorError
+        expr: node_textfile_scrape_error > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-exporter cannot read a textfile metric file"
+          description: >-
+            One of the .prom files in /var/lib/node-exporter/textfile is
+            unreadable or malformed, so node-exporter has dropped all metrics in
+            it. Every security_* alert that depends on that file has stopped
+            evaluating. Check `ls -l` there and
+            `docker logs node-exporter | tail`.

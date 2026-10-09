@@ -1,0 +1,27 @@
+# Terraform state and local working files.
+#
+# tfstate is the important one: Terraform records provider credentials,
+# generated passwords and private keys in it as PLAINTEXT, regardless of whether
+# the resource marked them sensitive. This repository is PUBLIC, so a committed
+# state file is a disclosed state file.
+#
+# Flagged as at_risk by the nightly hygiene check on 2026-10-09 - untracked but
+# also unignored, i.e. one `git add -A` away from being pushed.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Variable files routinely hold tokens and passwords. The .example stays
+# committable as a template.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Provider binaries and lock dirs - large, machine-specific, re-creatable.
+.terraform/
+.terraform.lock.hcl
+
+# Plan output can embed resolved secret values.
+*.tfplan
+crash.log
+crash.*.log
