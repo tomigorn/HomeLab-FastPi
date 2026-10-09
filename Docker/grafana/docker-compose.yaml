@@ -32,11 +32,24 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+      - /var/lib/node-exporter/textfile:/var/lib/node-exporter/textfile:ro
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      # Textfile collector: lets host-side scheduled jobs publish metrics by
+      # dropping a .prom file here, with no extra exporter or listening port per
+      # concern. Used by Server/4-Security-Monitoring (secrets, pending OS
+      # updates, Trivy CVEs), including beefy's figures - which fastpi collects
+      # over SSH and writes here, because beefy powers itself off when idle and a
+      # pull-based scrape of it would spend most of the day alerting that a
+      # sleeping host is down.
+      #
+      # A malformed .prom file makes node-exporter drop the WHOLE file and set
+      # node_textfile_scrape_error=1, which the TextfileCollectorError alert
+      # watches - otherwise a formatting slip silently removes every metric in it.
+      - "--collector.textfile.directory=/var/lib/node-exporter/textfile"
 
 # #########################################################
 # Blackbox Exporter #######################################
