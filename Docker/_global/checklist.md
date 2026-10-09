@@ -1,5 +1,12 @@
 # Project Checklist
 
+Split by host: the projects below live in two different repos on two different
+machines, and some names collide across them (fastpi runs `Cup`, the web UI;
+beefy runs `Cup-Agent`, which feeds it). A single flat list could not tell them
+apart.
+
+## fastpi — `HomeLab-FastPi`, `/home/pi/Projects/Docker/`
+
 | Project | Reviewed | Deployed | Image / Tag Version | my update performed date | Tag |
 |---|---|---|---|---|---|
 | DDNS | ❌ | ❌ | | |  |
@@ -32,3 +39,12 @@
 | landingpage | ❌ | ❌ | | |  |
 | M4b-Merge-Dashboard | ❌ | ❌ | | |  |
 | M4b-Auto-Merge | ❌ | ❌ | | |  |
+
+## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
+
+| Project | Reviewed | Deployed | Image / Tag Version | my update performed date | Tag |
+|---|---|---|---|---|---|
+| Cup-Agent | ❌ | ❌ | | |  |
+| Jellyfin | ❌ | ❌ | | |  |
+| Movie-Downloads | ❌ | ❌ | | |  |
+| Portainer-Agent | ❌ | ❌ | | |  |
