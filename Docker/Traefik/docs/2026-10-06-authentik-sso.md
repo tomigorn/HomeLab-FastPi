@@ -130,16 +130,33 @@ provider is assigned you should get a 302 (redirect to login) instead.
 
 ## 3. App-side settings — what actually removes the local login
 
-None of this can be done before the containers run; it is all post-deploy UI work.
+**Status: all applied and verified 2026-10-09.** Values below are what is
+actually set on beefy, read back from each app rather than from memory.
 
-| App | Setting | Value |
-|---|---|---|
-| **Radarr** | Settings → General → Security → Authentication | **External** |
-| **Prowlarr** | Settings → General → Security → Authentication | **External** |
-| **Bazarr** | Settings → General → Security → Authentication | **None** |
-| **qBittorrent** | Options → WebUI → Bypass auth for whitelisted subnets | `172.24.0.0/16` |
-| **SABnzbd** | Config → General → Security → username/password | leave **empty** |
-| **SABnzbd** | Config → General → Host whitelist | add `sabnzbd.holy-grail.ch` |
+| App | Setting | Value | Verified |
+|---|---|---|---|
+| **Radarr** | Settings → General → Security → Authentication | **External** | `authenticationMethod=external` |
+| **Prowlarr** | Settings → General → Security → Authentication | **External** | `authenticationMethod=external` |
+| **Bazarr** | Settings → General → Security → Authentication | **None** | `auth.type: null` |
+| **qBittorrent** | Options → WebUI → Bypass auth for whitelisted subnets | `172.28.10.0/24` | `AuthSubnetWhitelistEnabled=true` |
+| **SABnzbd** | Config → General → Security → username/password | leave **empty** | both `""`, `inet_exposure=0` |
+| **SABnzbd** | Config → General → Host whitelist | add `sabnzbd.holy-grail.ch` | `sabnzbd, sabnzbd.holy-grail.ch, 192.168.1.102` |
+
+Two corrections to what this document originally said:
+
+- **The qBittorrent subnet was wrong here.** It said `172.24.0.0/16`; the stack's
+  bridge network is `172.28.10.0/24`. The running config was always correct — it
+  was this table that was wrong, which is the more dangerous direction: a reader
+  "fixing" the app to match the doc would have broken the bypass and locked
+  Traefik out.
+- **Radarr and Prowlarr sat on `none`, not `external`, until 2026-10-09.** Both
+  disable the app's own login, so nothing was exposed — the public path was
+  always behind Authentik and the LAN path behind the `DOCKER-USER` rule. But
+  `none` is the legacy value and makes newer Servarr releases nag that
+  authentication is disabled, which teaches you to ignore their health panel.
+  Changed via `PUT /api/v3/config/host`; both apps restart themselves on an auth
+  change, and the public routes were re-checked afterwards (still 302 to
+  `sso.holy-grail.ch`, Traefik still reaching them on the LAN).
 
 Servarr's **External** authentication method exists precisely for reverse-proxy
 auth — it is the supported path, not a hack. Do **not** also leave Forms auth on:
