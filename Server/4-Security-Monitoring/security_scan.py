@@ -181,6 +181,25 @@ def parse_trivy(report: dict) -> dict[str, int]:
     return counts
 
 
+def count_fixable(report: dict) -> dict[str, int]:
+    """Count only the vulnerabilities that an image update could actually fix.
+
+    Trivy sets FixedVersion when an upstream fix exists. Without one, no image
+    update resolves the finding - the only options are dropping the component or
+    accepting the risk. Reporting the two together turns a backlog figure into a
+    to-do list that can never reach zero, which is the fastest way to teach
+    yourself to ignore it.
+    """
+    counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    for res in report.get("Results") or []:
+        for v in res.get("Vulnerabilities") or []:
+            if not v.get("FixedVersion"):
+                continue
+            sev = (v.get("Severity") or "UNKNOWN").upper()
+            counts[sev] = counts.get(sev, 0) + 1
+    return counts
+
+
 def render_metrics(samples: list[tuple[str, dict[str, str], float]], helps: dict[str, str]) -> str:
     """Render Prometheus text format.
 
@@ -410,7 +429,7 @@ def download_trivy_db(host: str) -> None:
             raise RuntimeError(f"trivy {label}-db download on {host}: {r.stderr.strip()[-300:]}")
 
 
-def collect_images(host: str) -> tuple[dict[str, int], int, int]:
+def collect_images(host: str) -> tuple[dict[str, int], dict[str, int], int, int]:
     """Trivy CVE counts across the images actually in use on a host.
 
     Only running images are scanned. Cup already reports that 11 of beefy's 12
@@ -423,6 +442,7 @@ def collect_images(host: str) -> tuple[dict[str, int], int, int]:
     reach it.
     """
     totals = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    fixables = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     scanned = unscannable = 0
     # Per-image detail goes to a file rather than into labels. 60+ images times
     # five severities is cardinality Prometheus does not need to carry for a
@@ -442,24 +462,31 @@ def collect_images(host: str) -> tuple[dict[str, int], int, int]:
             print(f"  unscannable on {host}: {image} ({r.stderr.strip()[-160:]})", file=sys.stderr)
             continue
         try:
-            counts = parse_trivy(json.loads(r.stdout))
+            report = json.loads(r.stdout)
+            counts = parse_trivy(report)
         except json.JSONDecodeError:
             unscannable += 1
             print(f"  unparseable on {host}: {image}", file=sys.stderr)
             continue
         scanned += 1
-        detail.append((counts.get("CRITICAL", 0), counts.get("HIGH", 0), image))
+        fixable = count_fixable(report)
+        detail.append((counts.get("CRITICAL", 0), counts.get("HIGH", 0),
+                       fixable.get("CRITICAL", 0), image))
         for k, v in counts.items():
             totals[k] = totals.get(k, 0) + v
+        for k, v in fixable.items():
+            fixables[k] = fixables.get(k, 0) + v
 
     detail.sort(reverse=True)
-    report = [f"# Trivy CVE counts for images in use on {host}, worst first.",
-              "# critical  high  image", ""]
-    report += [f"{c:>8}  {h:>4}  {img}" for c, h, img in detail]
+    lines = [f"# Trivy CVE counts for images in use on {host}, worst first.",
+             "# 'fixable' = criticals with an upstream FixedVersion; the rest cannot",
+             "# be resolved by any image update.",
+             "# critical  fixable  high  image", ""]
+    lines += [f"{c:>8}  {f:>7}  {h:>4}  {img}" for c, h, f, img in detail]
     if unscannable:
-        report += ["", f"# {unscannable} image(s) could not be scanned - see journalctl -u security-image-scan"]
-    (STATE / f"image-cves-{host}.txt").write_text("\n".join(report) + "\n")
-    return totals, scanned, unscannable
+        lines += ["", f"# {unscannable} image(s) could not be scanned - see journalctl -u security-image-scan"]
+    (STATE / f"image-cves-{host}.txt").write_text("\n".join(lines) + "\n")
+    return totals, fixables, scanned, unscannable
 
 
 HELPS = {
@@ -471,6 +498,7 @@ HELPS = {
     "security_secret_files": "Secret-bearing files in the working tree, by verdict.",
     "security_pending_updates": "Pending OS package updates.",
     "security_image_vulnerabilities": "Trivy CVE count across images in use, by severity.",
+    "security_image_vulnerabilities_fixable": "Subset of the above that an image update could actually fix (Trivy reports a FixedVersion).",
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
 }
@@ -548,9 +576,11 @@ def main() -> int:
     if want("images"):
         for host in ("fastpi", "beefy"):
             def _img(host=host):
-                totals, scanned, bad = collect_images(host)
+                totals, fixables, scanned, bad = collect_images(host)
                 out = [("security_image_vulnerabilities", {"host": host, "severity": k}, v)
                        for k, v in sorted(totals.items())]
+                out += [("security_image_vulnerabilities_fixable", {"host": host, "severity": k}, v)
+                        for k, v in sorted(fixables.items())]
                 out.append(("security_images_scanned", {"host": host}, scanned))
                 out.append(("security_images_unscannable", {"host": host}, bad))
                 return out

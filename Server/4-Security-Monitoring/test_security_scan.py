@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from security_scan import (  # noqa: E402
     classify_secret_file,
+    count_fixable,
     is_template,
     looks_like_secret_file,
     parse_apt_upgradable,
@@ -213,6 +214,40 @@ def test_trivy_clean_image_has_no_results_key():
     # Vulnerabilities: null for a scanned-but-clean target. Both mean zero.
     assert parse_trivy({})["CRITICAL"] == 0
     assert parse_trivy({"Results": [{"Vulnerabilities": None}]})["HIGH"] == 0
+
+
+def test_fixable_counts_only_vulns_with_a_fixed_version():
+    # The distinction that makes the number honest: a CVE with no FixedVersion
+    # cannot be resolved by ANY image update, so counting it in a backlog
+    # implies work that does not exist. fastpi's 315 CRITICAL is only a to-do
+    # list to the extent that it is fixable.
+    rep = {"Results": [{"Vulnerabilities": [
+        {"Severity": "CRITICAL", "FixedVersion": "1.2.3"},
+        {"Severity": "CRITICAL"},                     # upstream has no fix yet
+        {"Severity": "CRITICAL", "FixedVersion": ""},  # present but empty
+        {"Severity": "HIGH", "FixedVersion": "2.0"},
+    ]}]}
+    # CRITICAL is 1, not 2: of the three criticals only one carries a usable
+    # FixedVersion. The empty string must be treated as "no fix", because that
+    # is what Trivy emits for a vulnerability whose fix is not yet released.
+    assert count_fixable(rep) == {"CRITICAL": 1, "HIGH": 1, "MEDIUM": 0,
+                                  "LOW": 0, "UNKNOWN": 0}
+
+
+def test_fixable_on_a_clean_report_is_all_zero():
+    assert count_fixable({})["CRITICAL"] == 0
+    assert count_fixable({"Results": [{"Vulnerabilities": None}]})["HIGH"] == 0
+
+
+def test_fixable_never_exceeds_total():
+    rep = {"Results": [{"Vulnerabilities": [
+        {"Severity": "CRITICAL", "FixedVersion": "1"},
+        {"Severity": "CRITICAL"},
+    ]}]}
+    tot = parse_trivy(rep)
+    fix = count_fixable(rep)
+    for sev in tot:
+        assert fix[sev] <= tot[sev], sev
 
 
 def test_trivy_unknown_severity_is_not_dropped():

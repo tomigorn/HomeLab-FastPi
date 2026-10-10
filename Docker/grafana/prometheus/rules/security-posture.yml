@@ -87,13 +87,18 @@ groups:
       # count of CRITICALs across 60 images is a backlog to work through, not an
       # incident, and mailing it would be the fastest possible way to teach
       # yourself to filter these alerts away.
+      # Fires on the FIXABLE count, not the total. A CVE with no upstream fix
+      # cannot be resolved by any image update, so including it would make this
+      # alert impossible to ever clear - and an alert that can never clear is one
+      # you learn to dismiss. The total is still recorded in
+      # security_image_vulnerabilities for context.
       - alert: CriticalImageVulnerabilities
-        expr: security_image_vulnerabilities{severity="CRITICAL"} > 0
+        expr: security_image_vulnerabilities_fixable{severity="CRITICAL"} > 0
         for: 1h
         labels:
           severity: info
         annotations:
-          summary: "{{ $labels.host }}: {{ $value }} CRITICAL CVE(s) in running images"
+          summary: "{{ $labels.host }}: {{ $value }} FIXABLE critical CVE(s) in running images"
           description: >-
             Trivy found CRITICAL vulnerabilities in images currently in use on
             {{ $labels.host }}. Usually fixed by pulling a newer tag - compare
