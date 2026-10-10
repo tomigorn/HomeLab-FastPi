@@ -55,12 +55,35 @@ scrape_configs:
           - https://audiobookshelf.holy-grail.ch/
           - https://sso.holy-grail.ch/
           - https://claude-mockups.holy-grail.ch/
-          - https://cup.holy-grail.ch/
-          # The media stack, added 2026-10-09. The five arr apps answer 302
-          # (Authentik redirect) and Jellyfin 302 (its own /web redirect) - both
-          # count as healthy here. A 404 would mean Traefik lost the router, which
-          # is exactly the failure this job exists to catch.
+          # Jellyfin answers 302 to its own /web redirect and is deliberately
+          # NOT forward-authed (native clients cannot follow an OAuth redirect),
+          # so it belongs here rather than in blackbox-gated below.
           - https://jellyfin.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ---------------------------------------------------------------------------
+  # Routes that MUST be behind Authentik.
+  #
+  # Separate job because the pass condition is stricter: only a 302 to
+  # sso.holy-grail.ch counts. In the http_public job above a 200 is healthy, which
+  # is why cup.holy-grail.ch sat wide open for months while its probe stayed
+  # green. Here a 200 means the forwardAuth middleware is gone, and fails.
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-gated"
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_gated]
+    static_configs:
+      - targets:
+          - https://cup.holy-grail.ch/
           - https://radarr.holy-grail.ch/
           - https://prowlarr.holy-grail.ch/
           - https://bazarr.holy-grail.ch/

@@ -1,25 +1,43 @@
-# Cup — Docker image update checker UI (fetch-only, no login).
+# Cup — Docker image update checker UI, behind Authentik SSO.
 # Project: /home/pi/Projects/Docker/Cup
 #
-# NOTE: Cup has no built-in authentication and its dashboard enumerates every
-# container + exact image version. This route is public (behind Cloudflare) with
-# no login, matching the Dashy pattern.
+# Cup has NO authentication of any kind - verified against cup.schema.json, which
+# offers no token, password or allowlist option. So this route's forwardAuth is
+# the only thing standing in front of it, and what it protects is worth more than
+# it looks: since 2026-10-09 the dashboard merges beefy's agent, so it enumerates
+# 135 images across BOTH hosts with exact versions AND which are behind on
+# updates. That is a ranked list of what to try exploits against.
 #
-# The authentik forwardAuth middleware now EXISTS (dynamic/authentik-forwardauth.yml),
-# so gating this is two lines: add `authentik@file` to the middlewares list below and
-# a companion `cup-outpost` router for PathPrefix(`/outpost.goauthentik.io/`) - copy the
-# pattern from radarr.yml.disabled. Deliberately NOT done yet: it would 404 until a
-# matching Proxy Provider + Application exists in Authentik and is assigned to the
-# embedded outpost. Worth doing - this route is currently public with no auth at all.
+# Gated 2026-10-09. It was public for months before that, and the reason it went
+# unnoticed is worth recording: the blackbox probe in grafana/prometheus.yml lists
+# cup and accepts 200 as healthy, so an open Cup and a gated Cup both looked
+# green. Same shape of failure as the 2026-10-04 outage - the probe measured
+# "answers" where the question was "answers correctly".
+#
+# Bound to the streaming-admins group in Authentik, not streaming-users: this is
+# host inventory, which is admin information.
+#
 # See docs/2026-10-06-authentik-sso.md.
 http:
   routers:
+    # The outpost callback path. NO middlewares (it must reach Authentik, not
+    # Cup) and a higher priority so it wins over the catch-all router below.
+    # Omitting this router is the single most common way to break the login flow.
+    cup-outpost:
+      rule: "Host(`cup.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
     cup:
       rule: "Host(`cup.holy-grail.ch`)"
       entryPoints: ["websecure"]
       priority: 1
       service: cup
       middlewares:
+        - authentik@file
         - default-rate-limit@file
         - cup-secure-headers
       tls:

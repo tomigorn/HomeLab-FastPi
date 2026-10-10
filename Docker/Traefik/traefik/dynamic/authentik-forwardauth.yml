@@ -35,6 +35,14 @@ http:
         # gateway (172.24.0.1/32) for forwarded headers, so an outside client
         # cannot spoof them.
         trustForwardHeader: true
+        # Traefik warns if this is unset ("allowing unlimited response body
+        # size which can lead to DoS attacks and memory exhaustion"). The real
+        # responses here are tiny - a 200 with headers and no body, or a 302
+        # with a ~700 byte redirect page - so 1 MiB is about a thousandfold
+        # headroom. Headroom matters because this middleware fails CLOSED: if a
+        # response ever exceeded the limit Traefik would reject it and the route
+        # would go DOWN, not merely skip the check.
+        maxResponseBodySize: 1048576
         # Copied from the auth response onto the proxied request. The username and
         # groups headers are what let an app trust the proxy instead of running its
         # own login - e.g. Servarr's "External" authentication method.

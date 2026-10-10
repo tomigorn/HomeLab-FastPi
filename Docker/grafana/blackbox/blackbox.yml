@@ -27,3 +27,36 @@ modules:
       follow_redirects: false
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
+
+  # For hostnames that MUST be behind Authentik forward auth.
+  #
+  # Added 2026-10-09 after cup.holy-grail.ch was found serving its full
+  # inventory - 135 images across both hosts, with versions and which were
+  # outdated - publicly, with no login, for months. The http_public module
+  # above had been probing it the whole time and reporting it healthy, because
+  # it accepts 200 and an unprotected app answers 200.
+  #
+  # That is the same failure as the outage this file was written for, inverted:
+  # there the probe was needed because the process looked healthy while the
+  # routing was broken; here the probe looked healthy while the GATE was
+  # missing. "It answered" is not "it answered correctly".
+  #
+  # So this module accepts ONLY the redirect to Authentik. A gated route that
+  # starts answering 200 means the forwardAuth middleware was dropped from it,
+  # and that now fails the probe instead of passing it.
+  http_gated:
+    prober: http
+    timeout: 15s
+    http:
+      method: GET
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      # 302 only. Not 200 (gate gone), not 404 (router gone), not 5xx.
+      valid_status_codes: [302]
+      follow_redirects: false
+      # The redirect must point at Authentik specifically. Without this a
+      # misrouted 302 to anywhere at all would still pass.
+      fail_if_header_not_matches:
+        - header: Location
+          regexp: '^https://sso\.holy-grail\.ch/.*'
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false

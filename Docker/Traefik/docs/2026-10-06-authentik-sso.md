@@ -107,13 +107,33 @@ collapses that into a single all-or-nothing application.
 
 **Verification that the outpost is wired** (run on fastpi):
 
+**This recipe does not work — do not use it.** Measured 2026-10-09: it returns
+404 with no Host header and 500 with one, for a provider that is correctly
+assigned and working. The embedded outpost selects the provider by the request's
+host and needs the full set of `X-Forwarded-*` headers Traefik normally supplies,
+so a bare wget cannot tell "not assigned" from "assigned and fine".
+
+Test from outside instead, and compare against a route known to work:
+
 ```bash
-docker exec traefik wget -qS -O /dev/null \
-  "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik" 2>&1 | head -3
+# Expect 302 -> sso.holy-grail.ch, with the app's OWN client_id
+curl -sk -o /dev/null -w '%{http_code} %{redirect_url}\n' https://<app>.holy-grail.ch/
+
+# Expect 200 and a login page, identical in shape to a working app's
+curl -skL -c /tmp/j -b /tmp/j -o /tmp/p.html \
+  -w '%{http_code} %{url_effective}\n' https://<app>.holy-grail.ch/
+grep -o '<title>[^<]*' /tmp/p.html
 ```
 
-Before any provider exists this returns **404** — confirmed on 2026-10-06. Once a
-provider is assigned you should get a 302 (redirect to login) instead.
+A 302 that then dead-ends in **400 "invalid, or mismatching redirection URI"**
+means the provider exists but its `redirect_uris` are empty. That happens when
+the provider was created straight through the Django ORM: the UI and REST API
+call `ProxyProvider.set_oauth_defaults()` on save, which derives the redirect
+URIs from `external_host`, and a raw `objects.create()` does not. Fix:
+
+```python
+p = ProxyProvider.objects.get(name="<app>-proxy"); p.set_oauth_defaults(); p.save()
+```
 
 ### 2.2 Jellyfin — an OAuth2/OpenID provider, not a proxy provider
 
