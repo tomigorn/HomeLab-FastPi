@@ -247,3 +247,27 @@ Encrypt's failed-validation rate limit.
 
 `mv <app>.yml <app>.yml.disabled` — Traefik watches the directory and drops the
 router within a second. No restart, and no effect on any other route.
+
+## 7. Jellyfin sign-in-to-wake (added 2026-10-11)
+
+Jellyfin itself stays un-gated (native apps). Only the wake page
+`https://jellyfin.holy-grail.ch/beefy-wake/` sits behind forward auth, so browsers
+must sign in before they can boot a sleeping beefy. Created via `ak shell`
+(config lives in Authentik's DB, not git):
+
+- Proxy provider **`jellyfin-wake-proxy`** (pk 11): mode `forward_single`, external
+  host `https://jellyfin.holy-grail.ch`, flows copied from `radarr-proxy`,
+  `intercept_header_auth=False` (Jellyfin's own `Authorization: MediaBrowser`
+  header must never be touched — though only the wake-page router uses it).
+- Application **`jellyfin-wake`** ("Jellyfin wake") → that provider.
+- Policy binding: group **`streaming-users`** (same as the Jellyfin OIDC app).
+- Added to the **authentik Embedded Outpost**.
+
+Traefik side (`dynamic/jellyfin.yml`): `jellyfin-outpost` (callback path),
+`jellyfin-wake-page` (`/beefy-wake*` → authentik → rewrite to the waker's `/jf/*`),
+and the gate address gained `&policy=jellyfin`. Design:
+`Docker/Beefy-Waker/docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
+
+Same day, `jellyfin-startup-block` was added: Jellyfin's unfinished first-run
+wizard (`/Startup/*`) had been reachable publicly — anyone could have created the
+admin account. It now returns 403 from the internet; run the wizard on the LAN.

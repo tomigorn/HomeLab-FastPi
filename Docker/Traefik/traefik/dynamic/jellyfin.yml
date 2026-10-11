@@ -33,15 +33,22 @@
 # break-glass credential with a long random password.
 #
 # ============================================================================
-# ACCEPTED RISK: anonymous requests can wake beefy
+# ANONYMOUS WAKES: browsers sign in first, apps still wake (2026-10-11)
 # ============================================================================
 # Every other beefy route authenticates BEFORE the wake gate, so only a logged-in
-# user can boot the machine. Jellyfin cannot, because the gate is forwardAuth too.
-# That means an unauthenticated stranger hitting this URL sends a WoL packet and
-# boots a ~28W machine - a mild power-drain / DoS vector. Mitigations in place:
-# CrowdSec on the entrypoint, and beefy idles back off after 15 minutes. If this
-# ever matters, the fix is to make this route LAN+WireGuard-only like
-# beefy-wol.yml, since you already have working VPN access from outside.
+# user can boot the machine. Jellyfin cannot put Authentik in front (native apps),
+# so the gate itself decides, via `policy=jellyfin` (Beefy-Waker v1.2.0):
+#   - a BROWSER page load while beefy sleeps gets an "asleep - sign in to start"
+#     page and does NOT wake it. Internet scanners were booting beefy ~3x/day.
+#     The button goes to /beefy-wake/ (router below): Authentik login (group
+#     streaming-users), then a booting page that wakes beefy and redirects to
+#     /web/ once Jellyfin answers.
+#   - every OTHER request (the apps) still wakes beefy as before, and the gate
+#     logs a redacted "observe" line per request so a safe app rule can be chosen
+#     later. jellyfin-web's first connect check carries no Jellyfin header, so a
+#     header-only rule would lock out LG/Samsung/browser clients - hence the data.
+# Spec: Docker/Beefy-Waker/docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md
+# CrowdSec on the entrypoint still applies; beefy idles back off after 15 minutes.
 #
 # No rate limit on purpose: a video client fires many rapid range requests, and
 # `default-rate-limit` (100 avg / 50 burst) would throttle playback. audiobookshelf
@@ -49,6 +56,46 @@
 # to the websecure entrypoint, so every public route inherits it.
 http:
   routers:
+    # Jellyfin's first-run wizard (/Startup/*) was reachable from the internet
+    # with the wizard unfinished (found 2026-10-11): anyone could have created the
+    # admin account. Blocked publicly for good - finish or redo the wizard on the
+    # LAN at http://192.168.1.102:8096. Jellyfin routes are case-insensitive, hence
+    # the (?i). The allow-list holds only loopback, so every public request is 403.
+    jellyfin-startup-block:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^/startup`)"
+      entryPoints: ["websecure"]
+      priority: 30
+      service: jellyfin
+      middlewares:
+        - jellyfin-deny-all
+      tls:
+        certResolver: cloudflare
+
+    # Authentik outpost callback for the wake page below. No middlewares; must
+    # beat the catch-all jellyfin router (priority 1).
+    jellyfin-outpost:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    # The signed-in wake page (Beefy-Waker /jf/*). Only /beefy-wake* is routed
+    # here, rewritten to /jf/*, so the waker's LAN admin page, /history and /gate
+    # are NOT reachable from the internet. Authentik app: jellyfin-wake.
+    jellyfin-wake-page:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathPrefix(`/beefy-wake`)"
+      entryPoints: ["websecure"]
+      priority: 20
+      service: beefy-waker-jf
+      middlewares:
+        - authentik@file
+        - jellyfin-wake-page-rewrite
+        - jellyfin-secure-headers
+      tls:
+        certResolver: cloudflare
+
     jellyfin:
       rule: "Host(`jellyfin.holy-grail.ch`)"
       entryPoints: ["websecure"]
@@ -66,8 +113,18 @@ http:
     # ready, which users experience as "the wake page lied".
     jellyfin-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/gate?port=8096"
+        address: "http://192.168.1.2:9001/gate?port=8096&policy=jellyfin"
         trustForwardHeader: false
+
+    jellyfin-deny-all:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+
+    jellyfin-wake-page-rewrite:
+      replacePathRegex:
+        regex: "^/beefy-wake/?(.*)"
+        replacement: "/jf/$1"
 
     jellyfin-secure-headers:
       headers:
@@ -87,6 +144,10 @@ http:
           Server: ""
 
   services:
+    beefy-waker-jf:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:9001"
     jellyfin:
       loadBalancer:
         servers:
