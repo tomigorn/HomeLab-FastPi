@@ -140,6 +140,7 @@ SIGNIN_PAGE = b"""<!doctype html>
   <p>It takes about a minute to start after you sign in.</p>
 </div></body></html>"""
 
+# Only works behind the /beefy-wake/ rewrite (absolute BASE), not when opened on the LAN directly.
 # Public booting page, reached at https://jellyfin.holy-grail.ch/beefy-wake/ AFTER
 # an Authentik login (Traefik rewrites /beefy-wake/* to /jf/*). Fires the wake on
 # load, counts down, and hands over to Jellyfin as soon as port 8096 answers.
@@ -166,10 +167,14 @@ JF_PAGE = """<!doctype html>
   <h1 id="title">Starting Jellyfin&hellip;</h1>
   <div class="count" id="count">~__COUNTDOWN__s</div>
   <p id="sub">The media server is booting. You will be taken to Jellyfin automatically.</p>
+  <a id="retry" href="__BASE__" hidden>Try again</a>
   <div class="ver">v__VERSION__</div>
 <script>
 const BASE = '__BASE__';
 let left = __COUNTDOWN__;
+let gaveUp = false;
+let ticker = null;
+const GIVEUP_MS = __GIVEUP__ * 1000;
 const countEl = document.getElementById('count');
 const subEl = document.getElementById('sub');
 function tick(){
@@ -184,7 +189,17 @@ async function isUp(){
   try{ return (await (await fetch(BASE + 'status', {cache:'no-store'})).json()).up; }
   catch(e){ return false; }
 }
+function giveUp(){
+  gaveUp = true;
+  clearInterval(ticker);
+  document.querySelector('.spin').style.display = 'none';
+  document.getElementById('title').textContent = "Couldn't start the server";
+  countEl.textContent = '';
+  subEl.textContent = 'Please try again in a minute.';
+  document.getElementById('retry').hidden = false;
+}
 async function poll(){
+  if(gaveUp) return;
   if(await isUp()){
     document.getElementById('title').textContent = 'Jellyfin is ready';
     location.replace('/web/');
@@ -195,7 +210,8 @@ async function poll(){
 (async () => {
   if(await isUp()){ location.replace('/web/'); return; }
   fetch(BASE + 'wake', {method:'POST'}).catch(()=>{});
-  setInterval(tick, 1000);
+  ticker = setInterval(tick, 1000);
+  setTimeout(giveUp, GIVEUP_MS);
   setTimeout(poll, 2000);
 })();
 </script>
@@ -529,7 +545,7 @@ class Handler(BaseHTTPRequestHandler):
             up = is_up(PROBE_HOST, JELLYFIN_PORT)
             self._send(200, "application/json", json.dumps({"up": up}).encode())
         elif path == "/jf/wake":
-            self._wake()
+            self._jf_wake()
         else:
             self.send_error(404)
 
@@ -538,6 +554,7 @@ class Handler(BaseHTTPRequestHandler):
         body = (JF_PAGE
                 .replace("__COUNTDOWN__", str(COUNTDOWN))
                 .replace("__VERSION__", VERSION)
+                .replace("__GIVEUP__", str(WAKE_RETRY_WINDOW + 60))
                 .replace("__BASE__", PUBLIC_WAKE_PREFIX + "/")
                 .encode())
         self._send(200, "text/html; charset=utf-8", body)
@@ -562,6 +579,22 @@ class Handler(BaseHTTPRequestHandler):
         try:
             wake()
             self.log_message("manual wake -> sent WoL to %s via %s", MAC, BROADCAST)
+            sent = True
+        except Exception as e:
+            self.log_message("WoL send failed: %s", e)
+            sent = False
+        self._send(200, "application/json", json.dumps({"sent": sent}).encode())
+
+    def _jf_wake(self):
+        # Public (Authentik-fronted) wake: same as _wake but attributed to the user.
+        if self.command != "POST":
+            self._send(405, "application/json",
+                       json.dumps({"error": "POST only"}).encode())
+            return
+        user = (self.headers.get("X-Authentik-Username") or "?")[:64]
+        try:
+            wake()
+            self.log_message("jf wake by %s -> sent WoL to %s via %s", user, MAC, BROADCAST)
             sent = True
         except Exception as e:
             self.log_message("WoL send failed: %s", e)

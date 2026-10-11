@@ -7,6 +7,7 @@ state machine (asleep/up/waking) is browser-only and verified by hand.
 """
 import http.client
 import os
+import sys
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -287,13 +288,24 @@ class JellyfinWakePageTest(unittest.TestCase):
         self.addCleanup(mock.patch.stopall)
         self.addCleanup(setattr, waker, "_campaign_running", False)
 
-    def req(self, method, path):
+    def req(self, method, path, headers=None):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-        c.request(method, path)
+        c.request(method, path, headers=headers or {})
         r = c.getresponse()
         body = r.read().decode()
         c.close()
         return r.status, body
+
+    def test_page_gives_up_eventually(self):
+        _, body = self.req("GET", "/jf/")
+        self.assertIn(str(waker.WAKE_RETRY_WINDOW + 60), body)
+        self.assertIn("Try again", body)
+        self.assertNotIn("__GIVEUP__", body)
+
+    def test_wake_logs_authentik_user(self):
+        status, _ = self.req("POST", "/jf/wake", {"X-Authentik-Username": "alice"})
+        self.assertEqual(status, 200)
+        self.assertIn("jf wake by alice", sys.stdout.getvalue())
 
     def test_page_served_at_jf_with_and_without_slash(self):
         for p in ("/jf", "/jf/"):
@@ -322,7 +334,8 @@ class JellyfinWakePageTest(unittest.TestCase):
         self.send_wol.assert_called_once()
 
     def test_admin_endpoints_not_reachable_under_jf(self):
-        for p in ("/jf/history", "/jf/gate", "/jf/wol", "/jf/anything"):
+        for p in ("/jf/history", "/jf/gate", "/jf/wol", "/jf/anything",
+                  "/jf/../history", "/jf//history", "/jf/%2e%2e/history"):
             status, _ = self.req("GET", p)
             self.assertEqual(status, 404, p)
 
