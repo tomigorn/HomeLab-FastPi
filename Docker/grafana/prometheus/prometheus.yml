@@ -100,6 +100,36 @@ scrape_configs:
         replacement: blackbox-exporter:9115
 
   # ---------------------------------------------------------------------------
+  # beefy power state: up = sshd answers.
+  #
+  # Added 2026-10-11 after a 60s HTTPS probe of the Jellyfin route woke beefy
+  # every time it idled off - ~180 boots over 2.5 days and nothing noticed. This
+  # is the history that would have shown it; beefy-power.yml alerts on it.
+  #
+  # Probes 192.168.1.102:22 DIRECTLY, never a Traefik hostname: anything routed
+  # through a *-wake middleware sends a WoL when beefy is down. Port 22 is also
+  # excluded from beefy's idle watcher, so this probe cannot keep it awake.
+  # Down is normal - beefy is asleep most of the day - so nothing alerts on
+  # probe_success == 0 for this job.
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-beefy"
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - 192.168.1.102:22
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: instance
+        replacement: beefy
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ---------------------------------------------------------------------------
   # Cup container-update counts, via json-exporter.
   #
   # Scraped through the host-published port rather than the container name because

@@ -60,3 +60,16 @@ modules:
           regexp: '^https://sso\.holy-grail\.ch/.*'
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
+
+  # Plain TCP connect, for "is this host up at all".
+  #
+  # Used to watch beefy's power state (the blackbox-beefy job). A direct connect
+  # to sshd never touches the Beefy-Waker gate, so unlike an HTTPS probe of a
+  # beefy route it cannot send a WoL. TCP rather than ICMP because ping needs
+  # CAP_NET_RAW and this container drops every capability.
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false

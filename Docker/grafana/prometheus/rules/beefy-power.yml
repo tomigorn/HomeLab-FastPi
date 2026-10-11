@@ -1,0 +1,32 @@
+# Alert rules for beefy's sleep/wake cycle.
+#
+# Written 2026-10-11. For 2.5 days a 60s blackbox probe of the Jellyfin route
+# woke beefy every time its idle watcher powered it off: ~180 boots, ~30 W around
+# the clock, and nothing noticed. Each cycle looked healthy in isolation - the
+# watcher slept on schedule, the waker woke on request - so only the RATE gives
+# it away. This rule watches the rate, whatever the cause: a probe, a client
+# polling a beefy route, a wake gate listed before authentik@file.
+#
+# Data: the blackbox-beefy job (direct TCP to sshd, cannot itself wake beefy).
+groups:
+  - name: beefy-power
+    rules:
+      # A normal day is the 03:55 maintenance wake, the 04:14 security scan and a
+      # handful of real sessions - each boot is two changes (up, down), so well
+      # under 20. The 2026-10-09 loop produced ~180 changes a day and would have
+      # crossed 20 within about four hours.
+      - alert: BeefyWakeLoop
+        expr: changes(probe_success{job="blackbox-beefy"}[24h]) > 20
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy keeps waking up ({{ $value }} state changes in 24h)"
+          description: >-
+            beefy has switched between up and down {{ $value }} times in the last
+            24 hours, so something keeps waking it right after it idles off.
+            Find the source in the Beefy-Waker log (`docker logs` on it is
+            truncated; use `sudo grep -a 'beefy down\|manual wake'` on its json
+            log file): "beefy down (...:PORT)" lines come through a Traefik
+            *-wake gate, "manual wake" from 192.168.1.2 is `ssh beefy` on fastpi.
+            The 2026-10-09 cause was a blackbox probe of an un-authenticated
+            beefy route (Jellyfin).

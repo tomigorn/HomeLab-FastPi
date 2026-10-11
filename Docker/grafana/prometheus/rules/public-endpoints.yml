@@ -9,8 +9,12 @@ groups:
     rules:
       # The main one. probe_success goes 0 when the endpoint answers 404 or 5xx,
       # times out, or fails TLS - see blackbox.yml for why 404 counts as failure.
+      #
+      # Every expression here is scoped to the two edge jobs. blackbox-beefy also
+      # produces probe_success, and for it 0 just means beefy is asleep - unscoped,
+      # these rules would page every time beefy idles off.
       - alert: PublicEndpointDown
-        expr: probe_success == 0
+        expr: probe_success{job=~"blackbox-public|blackbox-gated"} == 0
         for: 3m
         labels:
           severity: critical
@@ -27,7 +31,9 @@ groups:
       # Catches the whole edge going at once, which is the plugin-failure
       # signature and is worth a louder, faster alert than a single service.
       - alert: AllPublicEndpointsDown
-        expr: min(probe_success) == 0 and count(probe_success == 0) == count(probe_success)
+        expr: >-
+          min(probe_success{job=~"blackbox-public|blackbox-gated"}) == 0
+          and count(probe_success{job=~"blackbox-public|blackbox-gated"} == 0) == count(probe_success{job=~"blackbox-public|blackbox-gated"})
         for: 2m
         labels:
           severity: critical
@@ -41,13 +47,15 @@ groups:
             every router. A `docker compose restart traefik` fixed it.
 
       # The probe itself going away would otherwise look like "all clear".
+      # All blackbox jobs, not just blackbox-public: `up` here is the scrape of
+      # the exporter, so it is 1 even while beefy sleeps (probe_success says that).
       - alert: BlackboxExporterDown
-        expr: up{job="blackbox-public"} == 0
+        expr: up{job=~"blackbox-.*"} == 0
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Blackbox exporter is not being scraped"
+          summary: "Blackbox exporter is not being scraped ({{ $labels.job }})"
           description: >-
             The public-endpoint probes are not running, so an edge outage would
             now go undetected again. Absence of alerts is not evidence of health.
@@ -55,7 +63,7 @@ groups:
       # Certificates are renewed by Traefik; this is the backstop for when that
       # quietly stops working.
       - alert: PublicCertExpiringSoon
-        expr: probe_ssl_earliest_cert_expiry - time() < 14 * 24 * 3600
+        expr: probe_ssl_earliest_cert_expiry{job=~"blackbox-public|blackbox-gated"} - time() < 14 * 24 * 3600
         for: 1h
         labels:
           severity: warning
