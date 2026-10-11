@@ -55,10 +55,12 @@ scrape_configs:
           - https://audiobookshelf.holy-grail.ch/
           - https://sso.holy-grail.ch/
           - https://claude-mockups.holy-grail.ch/
-          # Jellyfin answers 302 to its own /web redirect and is deliberately
-          # NOT forward-authed (native clients cannot follow an OAuth redirect),
-          # so it belongs here rather than in blackbox-gated below.
-          - https://jellyfin.holy-grail.ch/
+          # Jellyfin is deliberately NOT probed. Its route has no forward auth,
+          # so a request goes straight to the beefy wake gate, and a 60s probe
+          # sent a WoL every time beefy idled off: ~90 boots a day, beefy never
+          # actually asleep (2026-10-09 → 2026-10-11). The routes above still
+          # catch an edge-wide outage. Do not re-add it without a non-waking
+          # health path.
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
