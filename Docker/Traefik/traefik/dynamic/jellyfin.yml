@@ -2,11 +2,6 @@
 #
 # https://jellyfin.holy-grail.ch/   (public via the Cloudflare tunnel)
 #
-# PARKED (.disabled) until the Cloudflare DNS record exists. Traefik tries to get a
-# cert the moment a router appears, and with no DNS that fails repeatedly against
-# Let's Encrypt, which has per-hostname failed-validation rate limits. Rename to
-# `jellyfin.yml` AFTER the DNS record is in place.
-#
 # ============================================================================
 # WHY THERE IS NO `authentik@file` HERE - read before "fixing" it
 # ============================================================================
@@ -102,6 +97,14 @@ http:
       priority: 1
       service: jellyfin
       middlewares:
+        # TEMPORARY (2026-10-11): Jellyfin's first-run wizard is unfinished, and
+        # until it is, Jellyfin serves its setup-time endpoints anonymously
+        # (/Environment/DirectoryContents lists the server's filesystem,
+        # /Library/VirtualFolders adds libraries). The whole public hostname is
+        # closed until the wizard is completed on the LAN at
+        # http://192.168.1.102:8096. Then delete this line and check that
+        # https://jellyfin.holy-grail.ch/Environment/Drives returns 401.
+        - jellyfin-deny-all
         - jellyfin-wake
         - jellyfin-secure-headers
       tls:
