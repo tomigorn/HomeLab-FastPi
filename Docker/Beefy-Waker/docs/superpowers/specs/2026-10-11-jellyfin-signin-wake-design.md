@@ -85,7 +85,7 @@ Public URL `https://jellyfin.holy-grail.ch/beefy-wake/`, served by the waker und
 - `POST /jf/wake` — same as `/wake` (POST-only).
 - anything else under `/jf` → 404.
 
-Uses relative URLs (`wake`, `status`) so it works behind the prefix rewrite.
+Uses absolute `/beefy-wake/wake` and `/beefy-wake/status` URLs so it works with or without the trailing slash behind the prefix rewrite.
 
 ## Traefik (`dynamic/jellyfin.yml`)
 
