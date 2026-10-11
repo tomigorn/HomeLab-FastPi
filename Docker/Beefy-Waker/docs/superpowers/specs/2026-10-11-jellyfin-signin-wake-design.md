@@ -50,7 +50,9 @@ Browsers always send that on navigation; jellyfin-web/SDK API calls send
 `application/json`, image loaders send `image/*` or `*/*`. Bots that send browser-like
 headers fall on the no-wake side, which is the safe direction.
 
-"Wake in progress" = the existing wake campaign is running (`_campaign_running`).
+"Wake in progress" = the wake campaign is running (`_campaign_running`) **or** beefy's
+sshd (`PROBE_PORT`) already answers — the host has booted and Jellyfin is seconds
+away, so a refreshing browser must not flip to the sign-in page mid-boot.
 
 The original request's headers reach the gate because Traefik forwardAuth copies all
 request headers when `authRequestHeaders` is unset, and adds `X-Forwarded-Uri`.
@@ -68,7 +70,9 @@ Fields: `up`, `decision` (`pass|starting|signin|wake`), `method`, `path` (no que
 `MediaBrowser`), `x_emby_authorization`, `x_emby_token`, `x_mediabrowser_token`
 (bools), `client` (the `Client="…"` value from the MediaBrowser header, max 40 chars,
 no token), `ua` (User-Agent, max 160), `accept` (max 80), `sec_fetch_mode`,
-`ip` (`X-Forwarded-For` first hop).
+`ip` (`CF-Connecting-IP`, else `X-Real-Ip`, else the first `X-Forwarded-For` hop —
+the client controls XFF's first hop). `query_keys` is capped: ≤ 50 fields parsed
+(else `["<too many>"]`), ≤ 20 keys kept, each ≤ 40 chars.
 
 **Never logged:** header values containing tokens, `Token="…"`, query values
 (`api_key`/`ApiKey` carry tokens).
