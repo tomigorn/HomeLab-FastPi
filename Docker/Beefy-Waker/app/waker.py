@@ -19,6 +19,10 @@ Endpoints:
   GET  /status    JSON {"up": true|false}   (TCP-probes beefy)
   POST /wake      fire the WoL magic packet; JSON {"sent": true|false}
   GET  /gate      forwardAuth gate (200 up / 503 + page down); ?port= override
+                  ?policy=jellyfin: browsers get a sign-in page instead of a wake; logs "observe {...}"
+  GET  /jf/       public booting page (behind Authentik at /beefy-wake/)
+  GET  /jf/status JSON {"up": ...} for Jellyfin's port (JELLYFIN_PORT, 8096)
+  POST /jf/wake   same as /wake
 
 Config via env (see .env):
   WAKER_LISTEN_PORT  port to listen on (host network)        default 9001
@@ -26,6 +30,7 @@ Config via env (see .env):
   BEEFY_BROADCAST    broadcast address for the magic packet  default 255.255.255.255
   BEEFY_PROBE_HOST   host to TCP-probe for "is it up"        required
   BEEFY_PROBE_PORT   default probe port                      default 22
+  JELLYFIN_PORT      Jellyfin port for /jf/status            default 8096
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
   WAKE_RETRY_INTERVAL seconds between magic-packet resends       default 20
   WAKE_RETRY_WINDOW  stop resending after this many seconds   default 300
@@ -134,6 +139,68 @@ SIGNIN_PAGE = b"""<!doctype html>
   <a class="btn" href="/beefy-wake/">Sign in to start it</a>
   <p>It takes about a minute to start after you sign in.</p>
 </div></body></html>"""
+
+# Public booting page, reached at https://jellyfin.holy-grail.ch/beefy-wake/ AFTER
+# an Authentik login (Traefik rewrites /beefy-wake/* to /jf/*). Fires the wake on
+# load, counts down, and hands over to Jellyfin as soon as port 8096 answers.
+# Deliberately no history panel and no links to the LAN admin page.
+JF_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starting Jellyfin</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;max-width:30rem;padding:2rem}
+  .spin{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border:4px solid #30363d;
+        border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  h1{font-size:1.4rem;margin:.4rem 0}
+  p{color:#8b949e;margin:.3rem 0}
+  .count{font-size:2.6rem;font-variant-numeric:tabular-nums;margin:.4rem 0;color:#58a6ff}
+  .ver{margin-top:1.4rem;color:#484f58;font-size:.75rem}
+</style></head>
+<body><div class="card">
+  <div class="spin"></div>
+  <h1 id="title">Starting Jellyfin&hellip;</h1>
+  <div class="count" id="count">~__COUNTDOWN__s</div>
+  <p id="sub">The media server is booting. You will be taken to Jellyfin automatically.</p>
+  <div class="ver">v__VERSION__</div>
+<script>
+const BASE = '__BASE__';
+let left = __COUNTDOWN__;
+const countEl = document.getElementById('count');
+const subEl = document.getElementById('sub');
+function tick(){
+  left -= 1;
+  if(left > 0){ countEl.textContent = '~' + left + 's'; }
+  else {
+    countEl.textContent = 'almost\\u2026';
+    subEl.textContent = 'Taking a little longer than usual, still trying\\u2026';
+  }
+}
+async function isUp(){
+  try{ return (await (await fetch(BASE + 'status', {cache:'no-store'})).json()).up; }
+  catch(e){ return false; }
+}
+async function poll(){
+  if(await isUp()){
+    document.getElementById('title').textContent = 'Jellyfin is ready';
+    location.replace('/web/');
+    return;
+  }
+  setTimeout(poll, 2000);
+}
+(async () => {
+  if(await isUp()){ location.replace('/web/'); return; }
+  fetch(BASE + 'wake', {method:'POST'}).catch(()=>{});
+  setInterval(tick, 1000);
+  setTimeout(poll, 2000);
+})();
+</script>
+</div></body></html>"""
+
 
 # Interactive manual wake page (served at /). __COUNTDOWN__ is replaced at serve time.
 WAKE_PAGE = """<!doctype html>
@@ -456,10 +523,25 @@ class Handler(BaseHTTPRequestHandler):
             self._history()
         elif path == "/gate":
             self._gate()
+        elif path == "/jf":
+            self._jf_page()
+        elif path == "/jf/status":
+            up = is_up(PROBE_HOST, JELLYFIN_PORT)
+            self._send(200, "application/json", json.dumps({"up": up}).encode())
+        elif path == "/jf/wake":
+            self._wake()
         else:
             self.send_error(404)
 
     # --- the interactive manual wake page -----------------------------------
+    def _jf_page(self):
+        body = (JF_PAGE
+                .replace("__COUNTDOWN__", str(COUNTDOWN))
+                .replace("__VERSION__", VERSION)
+                .replace("__BASE__", PUBLIC_WAKE_PREFIX + "/")
+                .encode())
+        self._send(200, "text/html; charset=utf-8", body)
+
     def _page(self, autowake):
         body = (WAKE_PAGE
                 .replace("__COUNTDOWN__", str(COUNTDOWN))

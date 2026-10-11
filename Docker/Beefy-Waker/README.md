@@ -39,6 +39,39 @@ request → Traefik router (a beefy host)
 - **No Traefik restart.** Pure dynamic config (`dynamic/beefy-wake.yml`),
   hot-reloaded.
 
+## Jellyfin: sign in to wake (v1.2.0)
+
+Jellyfin's public route cannot sit behind Authentik (native apps can't log in
+there), so internet scanners were booting beefy ~3x/day through it. The gate now
+takes `?policy=jellyfin` and decides like this:
+
+| beefy state / request | Result |
+|---|---|
+| up | pass (200) |
+| down, and a wake campaign is running or sshd already answers | "starting" page, no new wake |
+| down, browser navigation (`Accept` contains `text/html`) | "asleep, sign in to start" page, **no wake** |
+| down, anything else | wake as before |
+
+The sign-in button leads to the public page
+`https://jellyfin.holy-grail.ch/beefy-wake/` -> Traefik router `jellyfin-wake-page`
+-> Authentik app `jellyfin-wake` (group `streaming-users`) -> rewritten to `/jf/`.
+Only `/jf/*` (page, `/jf/status`, `POST /jf/wake`) is reachable that way; no
+`/history`, no admin page. The page wakes beefy, counts down, polls Jellyfin's
+port (`JELLYFIN_PORT`, 8096) and redirects to `/web/`.
+
+**`observe` log:** one redacted JSON line per Jellyfin request while beefy is down,
+plus `/System/Info/Public` while up; never tokens or query values. Read it with:
+
+```bash
+sudo grep -a '"observe ' "$(docker inspect -f '{{.LogPath}}' beefy-waker)" | tail
+```
+
+Plain `docker logs` stops early because the log file contains NUL bytes from the
+2026-09-01 power cut. Purpose: after 1-2 weeks, decide a safe app (native client)
+rule (jellyfin-web clients send their first connect check without the Jellyfin header).
+
+Design: `docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
+
 ## 2. Manual LAN wake page (`/` and `/wol`)
 
 Open **`https://beefy-wol.fastpi.homelab/`** in a browser:

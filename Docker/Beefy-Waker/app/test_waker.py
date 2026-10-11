@@ -267,5 +267,65 @@ class JellyfinGateTest(unittest.TestCase):
         self.assertTrue(rec["x_mediabrowser_token"])
 
 
+class JellyfinWakePageTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def setUp(self):
+        waker._campaign_running = False
+        mock.patch("sys.stdout", io.StringIO()).start()
+        self.send_wol = mock.patch.object(waker, "send_wol").start()
+        mock.patch.object(waker, "_wake_campaign").start()
+        self.addCleanup(mock.patch.stopall)
+        self.addCleanup(setattr, waker, "_campaign_running", False)
+
+    def req(self, method, path):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request(method, path)
+        r = c.getresponse()
+        body = r.read().decode()
+        c.close()
+        return r.status, body
+
+    def test_page_served_at_jf_with_and_without_slash(self):
+        for p in ("/jf", "/jf/"):
+            status, body = self.req("GET", p)
+            self.assertEqual(status, 200, p)
+            self.assertIn("/beefy-wake/", body)
+            self.assertIn("'wake'", body)
+            self.assertIn("'status'", body)
+            self.assertIn("/web/", body)
+            self.assertNotIn("/history", body)      # no admin panel on the public page
+
+    def test_status_probes_jellyfin_port(self):
+        with mock.patch.object(waker, "is_up", return_value=True) as up:
+            status, body = self.req("GET", "/jf/status")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"up": True})
+        up.assert_called_once_with(waker.PROBE_HOST, waker.JELLYFIN_PORT)
+
+    def test_wake_is_post_only(self):
+        status, _ = self.req("GET", "/jf/wake")
+        self.assertEqual(status, 405)
+        self.send_wol.assert_not_called()
+        status, body = self.req("POST", "/jf/wake")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"sent": True})
+        self.send_wol.assert_called_once()
+
+    def test_admin_endpoints_not_reachable_under_jf(self):
+        for p in ("/jf/history", "/jf/gate", "/jf/wol", "/jf/anything"):
+            status, _ = self.req("GET", p)
+            self.assertEqual(status, 404, p)
+
+
 if __name__ == "__main__":
     unittest.main()
