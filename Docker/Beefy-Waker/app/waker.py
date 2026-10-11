@@ -369,13 +369,37 @@ def is_browser_navigation(headers):
     return "text/html" in (headers.get("Accept") or "").lower()
 
 
+def _forwarded_path_query(headers):
+    """(path, query) of the original request; urlparse mangles a leading '//'."""
+    raw = headers.get("X-Forwarded-Uri") or "/"
+    raw = raw.split("#", 1)[0]
+    path, _, query = raw.partition("?")
+    return path, query
+
+
+def _query_keys(query):
+    try:
+        keys = parse_qs(query, keep_blank_values=True, max_num_fields=50)
+    except ValueError:
+        return ["<too many>"]
+    return [k[:40] for k in sorted(keys)[:20]]
+
+
+def _client_ip(headers):
+    for name in ("CF-Connecting-IP", "X-Real-Ip"):
+        v = (headers.get(name) or "").strip()
+        if v:
+            return v[:45]
+    return (headers.get("X-Forwarded-For") or "").split(",")[0].strip()[:45]
+
+
 def observe_record(headers, up, decision):
     """Redacted fingerprint of a Jellyfin request, used to design the app rule.
 
     Never includes a token or a query VALUE: the MediaBrowser header carries
     Token="...", and api_key/ApiKey query values are tokens.
     """
-    fwd = urlparse(headers.get("X-Forwarded-Uri") or "/")
+    fwd_path, fwd_query = _forwarded_path_query(headers)
     auth = headers.get("Authorization") or ""
     mb = auth.strip().lower().startswith("mediabrowser")
     emby_auth = headers.get("X-Emby-Authorization") or ""
@@ -384,8 +408,8 @@ def observe_record(headers, up, decision):
         "up": up,
         "decision": decision,
         "method": headers.get("X-Forwarded-Method") or "",
-        "path": fwd.path[:200],
-        "query_keys": sorted(parse_qs(fwd.query, keep_blank_values=True)),
+        "path": fwd_path[:200],
+        "query_keys": _query_keys(fwd_query),
         "auth_mediabrowser": mb,
         "x_emby_authorization": bool(emby_auth),
         "x_emby_token": bool(headers.get("X-Emby-Token")),
@@ -394,7 +418,7 @@ def observe_record(headers, up, decision):
         "ua": (headers.get("User-Agent") or "")[:160],
         "accept": (headers.get("Accept") or "")[:80],
         "sec_fetch_mode": (headers.get("Sec-Fetch-Mode") or "")[:20],
-        "ip": (headers.get("X-Forwarded-For") or "").split(",")[0].strip()[:45],
+        "ip": _client_ip(headers),
     }
 
 
@@ -514,7 +538,7 @@ class Handler(BaseHTTPRequestHandler):
             port = PROBE_PORT
         up = is_up(PROBE_HOST, port)
         if q.get("policy", [""])[0] == "jellyfin":
-            self._gate_jellyfin(up)
+            self._gate_jellyfin(up, port)
             return
         if up:
             self._send(200, "text/plain", b"")
@@ -530,21 +554,23 @@ class Handler(BaseHTTPRequestHandler):
             self.log_message("WoL send failed: %s", e)
         self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
 
-    def _gate_jellyfin(self, up):
+    def _gate_jellyfin(self, up, port):
         # Jellyfin has no Authentik in front (native apps can't follow a login
         # redirect), so this is the only place anonymous wakes can be refused.
         # Browsers are refused and sent to the signed-in wake page; everything
         # else still wakes (until the observe log shows a safe rule for apps).
         if up:
             decision = "pass"
-        elif wake_in_progress():
+        elif wake_in_progress() or is_up(PROBE_HOST, PROBE_PORT):
+            # campaign running, or host booted (sshd answers) but the service
+            # isn't listening yet: never flip a refreshing browser to sign-in
             decision = "starting"
         elif is_browser_navigation(self.headers):
             decision = "signin"
         else:
             decision = "wake"
-        fwd_path = urlparse(self.headers.get("X-Forwarded-Uri") or "/").path
-        if not up or fwd_path.lower() == "/system/info/public":
+        fwd_path, _ = _forwarded_path_query(self.headers)
+        if not up or "/" + fwd_path.lstrip("/").lower() == "/system/info/public":
             self.log_message("observe %s", json.dumps(
                 observe_record(self.headers, up, decision), sort_keys=True))
         if decision == "pass":
@@ -554,7 +580,7 @@ class Handler(BaseHTTPRequestHandler):
         elif decision == "signin":
             self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
         else:
-            self._wake_and_wait_page(JELLYFIN_PORT)
+            self._wake_and_wait_page(port)
 
     def _send(self, status, ctype, body, retry_after=None):
         self.send_response(status)

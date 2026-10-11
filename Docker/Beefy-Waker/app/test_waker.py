@@ -175,7 +175,7 @@ class JellyfinGateTest(unittest.TestCase):
 
     def test_observe_logged_when_up_only_for_system_info_public(self):
         self.gate(True, self.APP)
-        self.gate(True, dict(self.BROWSER))           # /web/ while up: not logged
+        self.gate(True, self.BROWSER)                 # /web/ while up: not logged
         recs = self.observed()
         self.assertEqual(len(recs), 1)
         self.assertEqual(recs[0]["decision"], "pass")
@@ -199,6 +199,72 @@ class JellyfinGateTest(unittest.TestCase):
     def test_observe_not_logged_without_policy(self):
         self.gate(False, self.APP, policy=None)
         self.assertEqual(self.observed(), [])
+
+    def test_down_host_booted_but_service_not_yet_up_is_starting(self):
+        def probe(host, port):
+            return port == waker.PROBE_PORT
+        with mock.patch.object(waker, "is_up", side_effect=probe):
+            c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+            c.request("GET", "/gate?port=8096&policy=jellyfin", headers=self.BROWSER)
+            r = c.getresponse()
+            body = r.read().decode()
+            c.close()
+        self.assertEqual(r.status, 503)
+        self.assertIn("Waking up beefy", body)
+        self.send_wol.assert_not_called()
+
+    def test_app_during_campaign_is_starting_no_wake(self):
+        waker._campaign_running = True
+        status, body = self.gate(False, self.APP)
+        self.assertEqual(status, 503)
+        self.assertIn("Waking up beefy", body)
+        self.send_wol.assert_not_called()
+
+    def test_up_without_policy_passes(self):
+        status, _ = self.gate(True, self.BROWSER, policy=None)
+        self.assertEqual(status, 200)
+
+    def test_observe_query_keys_bounded(self):
+        h = dict(self.APP)
+        h["X-Forwarded-Uri"] = "/Items?" + "&".join("k%d=1" % i for i in range(60))
+        self.gate(False, h)
+        (rec,) = self.observed()
+        self.assertEqual(rec["query_keys"], ["<too many>"])
+
+    def test_observe_query_key_truncated(self):
+        h = dict(self.APP)
+        h["X-Forwarded-Uri"] = "/Items?" + "a" * 100 + "=1"
+        self.gate(False, h)
+        (rec,) = self.observed()
+        self.assertEqual(rec["query_keys"], ["a" * 40])
+
+    def test_observe_double_slash_path_is_matched_and_logged(self):
+        self.gate(True, {"X-Forwarded-Uri": "//System/Info/Public"})
+        (rec,) = self.observed()
+        self.assertEqual(rec["path"], "//System/Info/Public")
+
+    def test_wake_log_uses_probed_port(self):
+        self.gate(False, self.APP)
+        self.assertIn(":8096)", self.out.getvalue())
+
+    def test_observe_ip_prefers_cf_connecting_ip(self):
+        h = dict(self.APP)
+        h["CF-Connecting-IP"] = "203.0.113.7"
+        h["X-Forwarded-For"] = "6.6.6.6, 203.0.113.7"
+        self.gate(False, h)
+        (rec,) = self.observed()
+        self.assertEqual(rec["ip"], "203.0.113.7")
+
+    def test_observe_emby_authorization_client_and_no_leak(self):
+        self.gate(False, {"X-Forwarded-Uri": "/x",
+                          "X-Emby-Authorization": 'MediaBrowser Client="Web", Token="EMBYSECRET"',
+                          "X-MediaBrowser-Token": "MBSECRET"})
+        self.assertNotIn("EMBYSECRET", self.out.getvalue())
+        self.assertNotIn("MBSECRET", self.out.getvalue())
+        (rec,) = self.observed()
+        self.assertEqual(rec["client"], "Web")
+        self.assertTrue(rec["x_emby_authorization"])
+        self.assertTrue(rec["x_mediabrowser_token"])
 
 
 if __name__ == "__main__":
