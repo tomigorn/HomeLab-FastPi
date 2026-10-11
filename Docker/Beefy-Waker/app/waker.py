@@ -34,6 +34,7 @@ Stdlib only; no dependencies.
 """
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -65,6 +66,10 @@ WAKE_UDP_PORT = 9     # UDP port magic packets are sent to
 WAKE_RETRY_INTERVAL = int(os.environ.get("WAKE_RETRY_INTERVAL", "20"))  # seconds between resends
 WAKE_RETRY_WINDOW = int(os.environ.get("WAKE_RETRY_WINDOW", "300"))     # give up after this long
 PROBE_TIMEOUT = 1.0   # seconds per TCP probe
+# Public URL prefix of the signed-in wake page (Traefik rewrites it to /jf/).
+PUBLIC_WAKE_PREFIX = "/beefy-wake"
+JELLYFIN_PORT = int(os.environ.get("JELLYFIN_PORT", "8096"))
+_CLIENT_RE = re.compile(r'Client="([^"]*)"')
 
 
 def _read_version():
@@ -100,6 +105,34 @@ WAKING_PAGE = b"""<!doctype html>
   <h1>Waking up beefy...</h1>
   <p>A magic packet is on its way. This page refreshes automatically.</p>
   <p>The server should be ready in under a minute.</p>
+</div></body></html>"""
+
+# Shown by the gate (policy=jellyfin) to a BROWSER while beefy is asleep. It does
+# NOT wake beefy: anonymous page loads were how internet scanners kept booting it.
+# The button goes to the Authentik-protected wake page instead.
+SIGNIN_PAGE = b"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jellyfin is asleep</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;max-width:28rem;padding:2rem}
+  .moon{font-size:3rem;line-height:1;margin:0 auto 1rem}
+  h1{font-size:1.3rem;margin:.5rem 0}
+  p{color:#8b949e;margin:.25rem 0}
+  .btn{display:inline-block;text-decoration:none;font-weight:600;font-size:1.2rem;
+       padding:.9rem 2.2rem;margin:1.2rem 0 .4rem;border-radius:.7rem;
+       background:#238636;color:#fff}
+  .btn:hover{background:#2ea043}
+</style></head>
+<body><div class="card">
+  <div class="moon">&#128164;</div>
+  <h1>Jellyfin is asleep</h1>
+  <p>The media server sleeps to save power.</p>
+  <a class="btn" href="/beefy-wake/">Sign in to start it</a>
+  <p>It takes about a minute to start after you sign in.</p>
 </div></body></html>"""
 
 # Interactive manual wake page (served at /). __COUNTDOWN__ is replaced at serve time.
@@ -325,6 +358,46 @@ def wake():
     threading.Thread(target=_wake_campaign, daemon=True).start()
 
 
+def wake_in_progress():
+    with _campaign_lock:
+        return _campaign_running
+
+
+def is_browser_navigation(headers):
+    """A browser page load. Browsers send Accept: text/html on navigation;
+    Jellyfin API calls send application/json and image loaders image/* or */*."""
+    return "text/html" in (headers.get("Accept") or "").lower()
+
+
+def observe_record(headers, up, decision):
+    """Redacted fingerprint of a Jellyfin request, used to design the app rule.
+
+    Never includes a token or a query VALUE: the MediaBrowser header carries
+    Token="...", and api_key/ApiKey query values are tokens.
+    """
+    fwd = urlparse(headers.get("X-Forwarded-Uri") or "/")
+    auth = headers.get("Authorization") or ""
+    mb = auth.strip().lower().startswith("mediabrowser")
+    emby_auth = headers.get("X-Emby-Authorization") or ""
+    m = _CLIENT_RE.search(auth if mb else emby_auth)
+    return {
+        "up": up,
+        "decision": decision,
+        "method": headers.get("X-Forwarded-Method") or "",
+        "path": fwd.path[:200],
+        "query_keys": sorted(parse_qs(fwd.query, keep_blank_values=True)),
+        "auth_mediabrowser": mb,
+        "x_emby_authorization": bool(emby_auth),
+        "x_emby_token": bool(headers.get("X-Emby-Token")),
+        "x_mediabrowser_token": bool(headers.get("X-MediaBrowser-Token")),
+        "client": m.group(1)[:40] if m else "",
+        "ua": (headers.get("User-Agent") or "")[:160],
+        "accept": (headers.get("Accept") or "")[:80],
+        "sec_fetch_mode": (headers.get("Sec-Fetch-Mode") or "")[:20],
+        "ip": (headers.get("X-Forwarded-For") or "").split(",")[0].strip()[:45],
+    }
+
+
 def is_up(host, port):
     try:
         with socket.create_connection((host, port), timeout=PROBE_TIMEOUT):
@@ -439,9 +512,16 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError(port)
         except (ValueError, TypeError):
             port = PROBE_PORT
-        if is_up(PROBE_HOST, port):
+        up = is_up(PROBE_HOST, port)
+        if q.get("policy", [""])[0] == "jellyfin":
+            self._gate_jellyfin(up)
+            return
+        if up:
             self._send(200, "text/plain", b"")
             return
+        self._wake_and_wait_page(port)
+
+    def _wake_and_wait_page(self, port):
         try:
             wake()
             self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
@@ -449,6 +529,32 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.log_message("WoL send failed: %s", e)
         self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+
+    def _gate_jellyfin(self, up):
+        # Jellyfin has no Authentik in front (native apps can't follow a login
+        # redirect), so this is the only place anonymous wakes can be refused.
+        # Browsers are refused and sent to the signed-in wake page; everything
+        # else still wakes (until the observe log shows a safe rule for apps).
+        if up:
+            decision = "pass"
+        elif wake_in_progress():
+            decision = "starting"
+        elif is_browser_navigation(self.headers):
+            decision = "signin"
+        else:
+            decision = "wake"
+        fwd_path = urlparse(self.headers.get("X-Forwarded-Uri") or "/").path
+        if not up or fwd_path.lower() == "/system/info/public":
+            self.log_message("observe %s", json.dumps(
+                observe_record(self.headers, up, decision), sort_keys=True))
+        if decision == "pass":
+            self._send(200, "text/plain", b"")
+        elif decision == "starting":
+            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+        elif decision == "signin":
+            self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
+        else:
+            self._wake_and_wait_page(JELLYFIN_PORT)
 
     def _send(self, status, ctype, body, retry_after=None):
         self.send_response(status)
