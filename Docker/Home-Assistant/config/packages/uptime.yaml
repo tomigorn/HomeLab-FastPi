@@ -12,8 +12,8 @@
 #   sensor.<host>_uptime_24h             -> hours up in the last 24 h
 #   sensor.<host>_uptime_7d_ratio        -> % up over the last 7 days
 #
-# Threshold lives once here (POWER_UP_W below) — change it in all three binary
-# sensors if the "up" cut-off ever needs tuning.
+# The cut-off is written into each binary sensor below: 3 W for FastPi and
+# Beefy, 4 W for Tower (see its comment).
 
 # --- Up/Down state (power > 3 W) -------------------------------------------
 template:
@@ -36,13 +36,15 @@ template:
              else 'mdi:server-off' }}
 
       # Tower (Unraid NAS): powered off it still pulls ~2.6 W at the plug
-      # (PSU standby + WOL NIC) — under, but close to, the 3 W cut-off.
+      # (PSU standby + WOL NIC), with readings up to 3.6 W. At the old 3 W
+      # cut-off it flickered "Up" ~18 times in 3 days while never running, so
+      # Tower's cut-off is 4 W (2026-10-11). A running Tower draws far more.
       - name: "Tower Up"
         unique_id: tower_up
         device_class: running
-        state: "{{ states('sensor.tower_plug_power') | float(0) > 3 }}"
+        state: "{{ states('sensor.tower_plug_power') | float(0) > 4 }}"
         icon: >-
-          {{ 'mdi:server' if states('sensor.tower_plug_power') | float(0) > 3
+          {{ 'mdi:server' if states('sensor.tower_plug_power') | float(0) > 4
              else 'mdi:server-off' }}
 
 # --- Uptime totals (history_stats over binary_sensor history) --------------
