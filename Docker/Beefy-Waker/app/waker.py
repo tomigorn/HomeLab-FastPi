@@ -21,7 +21,7 @@ Endpoints:
   GET  /gate      forwardAuth gate (200 up / 503 + page down); ?port= override
                   ?policy=jellyfin: browsers get a sign-in page instead of a wake; logs "observe {...}"
   GET  /jf/       public booting page (behind Authentik at /beefy-wake/)
-  GET  /jf/status JSON {"up": ...} for Jellyfin's port (JELLYFIN_PORT, 8096)
+  GET  /jf/status JSON {"up": ...} = Jellyfin's /health says Healthy (JELLYFIN_PORT)
   POST /jf/wake   same as /wake
 
 Config via env (see .env):
@@ -45,6 +45,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -513,6 +514,34 @@ def is_up(host, port):
         return False
 
 
+# Jellyfin readiness. The port opens ~5 s before Jellyfin can serve (measured
+# 2026-10-13: 200 with a non-API page, then Jellyfin's own 503), so the gate asks
+# Jellyfin's /health instead. The gate runs for EVERY Jellyfin request - each
+# chunk of a video stream - so a healthy answer is reused for a few seconds
+# rather than hitting /health each time. Unhealthy answers are never cached, so
+# the moment Jellyfin is ready after a boot is seen straight away.
+READY_CACHE_SECONDS = 5.0
+_ready_lock = threading.Lock()
+_ready_until = 0.0
+
+
+def is_jellyfin_ready(host, port):
+    global _ready_until
+    with _ready_lock:
+        if time.monotonic() < _ready_until:
+            return True
+    try:
+        with urllib.request.urlopen("http://%s:%d/health" % (host, port),
+                                    timeout=PROBE_TIMEOUT) as r:
+            ready = r.status == 200 and r.read(64).strip() == b"Healthy"
+    except (OSError, ValueError):    # refused, timeout, HTTP error (503), bad URL
+        ready = False
+    if ready:
+        with _ready_lock:
+            _ready_until = time.monotonic() + READY_CACHE_SECONDS
+    return ready
+
+
 class Handler(BaseHTTPRequestHandler):
     timeout = 10        # per-request socket timeout: drop slow/never-finishing
                         # clients so they can't pin a worker thread (the server is
@@ -542,7 +571,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/jf":
             self._jf_page()
         elif path == "/jf/status":
-            up = is_up(PROBE_HOST, JELLYFIN_PORT)
+            up = is_jellyfin_ready(PROBE_HOST, JELLYFIN_PORT)
             self._send(200, "application/json", json.dumps({"up": up}).encode())
         elif path == "/jf/wake":
             self._jf_wake()
@@ -651,10 +680,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError(port)
         except (ValueError, TypeError):
             port = PROBE_PORT
-        up = is_up(PROBE_HOST, port)
         if q.get("policy", [""])[0] == "jellyfin":
-            self._gate_jellyfin(up, port)
+            self._gate_jellyfin(is_jellyfin_ready(PROBE_HOST, port), port)
             return
+        up = is_up(PROBE_HOST, port)
         if up:
             self._send(200, "text/plain", b"")
             return
@@ -677,8 +706,8 @@ class Handler(BaseHTTPRequestHandler):
         if up:
             decision = "pass"
         elif wake_in_progress() or is_up(PROBE_HOST, PROBE_PORT):
-            # campaign running, or host booted (sshd answers) but the service
-            # isn't listening yet: never flip a refreshing browser to sign-in
+            # campaign running, or host booted (sshd answers) but Jellyfin isn't
+            # healthy yet: never flip a refreshing browser to sign-in
             decision = "starting"
         elif is_browser_navigation(self.headers):
             decision = "signin"

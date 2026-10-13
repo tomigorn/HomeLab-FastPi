@@ -47,17 +47,24 @@ takes `?policy=jellyfin` and decides like this:
 
 | beefy state / request | Result |
 |---|---|
-| up | pass (200) |
-| down, and a wake campaign is running or sshd already answers | "starting" page, no new wake |
-| down, browser navigation (`Accept` contains `text/html`) | "asleep, sign in to start" page, **no wake** |
-| down, anything else | wake as before |
+| Jellyfin healthy (`/health` = `Healthy`, cached 5 s) | pass (200) |
+| not healthy, and a wake campaign is running or sshd already answers | "starting" page, no new wake |
+| not healthy, browser navigation (`Accept` contains `text/html`) | "asleep, sign in to start" page, **no wake** |
+| not healthy, anything else | wake as before |
 
 The sign-in button leads to the public page
 `https://jellyfin.holy-grail.ch/beefy-wake/` -> Traefik router `jellyfin-wake-page`
 -> Authentik app `jellyfin-wake` (group `streaming-users`) -> rewritten to `/jf/`.
 Only `/jf/*` (page, `/jf/status`, `POST /jf/wake`) is reachable that way; no
 `/history`, no admin page. The page wakes beefy, counts down, polls Jellyfin's
-port (`JELLYFIN_PORT`, 8096) and redirects to `/web/`.
+`/health` (`JELLYFIN_PORT`, 8096) and redirects to `/web/`.
+
+**Readiness (v1.2.1):** "up" for Jellyfin means its `/health` answers `Healthy`,
+not merely that port 8096 is open: measured 2026-10-13, the port opens ~5 s before
+Jellyfin can serve (200 with a non-API page, then its own 503). A healthy answer is
+reused for 5 s because the gate runs for every request of a video stream; unhealthy
+answers are never cached. Side effect: if Jellyfin ever turns unhealthy while beefy
+is up, its clients get the "starting" page (no wake is sent, sshd answers).
 
 **`observe` log:** one redacted JSON line per Jellyfin request while beefy is down,
 plus `/System/Info/Public` while up; never tokens or query values. Read it with:
@@ -225,7 +232,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.2.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.2.1` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box

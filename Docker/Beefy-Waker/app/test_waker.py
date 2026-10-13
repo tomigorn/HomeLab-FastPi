@@ -6,6 +6,8 @@ http.client, so we test the actual routing/serving — not mocks. The client-sid
 state machine (asleep/up/waking) is browser-only and verified by hand.
 """
 import http.client
+import socket
+import http.server
 import os
 import sys
 import threading
@@ -108,7 +110,8 @@ class JellyfinGateTest(unittest.TestCase):
         self.addCleanup(setattr, waker, "_campaign_running", False)
 
     def gate(self, up, headers, policy="jellyfin"):
-        with mock.patch.object(waker, "is_up", return_value=up):
+        with mock.patch.object(waker, "is_up", return_value=up), \
+             mock.patch.object(waker, "is_jellyfin_ready", return_value=up):
             c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
             q = "/gate?port=8096" + ("&policy=" + policy if policy else "")
             c.request("GET", q, headers=headers)
@@ -204,7 +207,8 @@ class JellyfinGateTest(unittest.TestCase):
     def test_down_host_booted_but_service_not_yet_up_is_starting(self):
         def probe(host, port):
             return port == waker.PROBE_PORT
-        with mock.patch.object(waker, "is_up", side_effect=probe):
+        with mock.patch.object(waker, "is_up", side_effect=probe), \
+             mock.patch.object(waker, "is_jellyfin_ready", return_value=False):
             c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
             c.request("GET", "/gate?port=8096&policy=jellyfin", headers=self.BROWSER)
             r = c.getresponse()
@@ -317,12 +321,12 @@ class JellyfinWakePageTest(unittest.TestCase):
             self.assertIn("/web/", body)
             self.assertNotIn("/history", body)      # no admin panel on the public page
 
-    def test_status_probes_jellyfin_port(self):
-        with mock.patch.object(waker, "is_up", return_value=True) as up:
+    def test_status_uses_jellyfin_health(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True) as ready:
             status, body = self.req("GET", "/jf/status")
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {"up": True})
-        up.assert_called_once_with(waker.PROBE_HOST, waker.JELLYFIN_PORT)
+        ready.assert_called_once_with(waker.PROBE_HOST, waker.JELLYFIN_PORT)
 
     def test_wake_is_post_only(self):
         status, _ = self.req("GET", "/jf/wake")
@@ -339,6 +343,75 @@ class JellyfinWakePageTest(unittest.TestCase):
             status, _ = self.req("GET", p)
             self.assertEqual(status, 404, p)
 
+
+
+class JellyfinReadinessTest(unittest.TestCase):
+    """is_jellyfin_ready asks Jellyfin's /health, not just whether the port is open.
+
+    Measured 2026-10-13: Jellyfin's port opens ~5 s before it can serve; in that
+    window it answers 200 with a non-API page, then its own 503.
+    """
+
+    class Stub(http.server.BaseHTTPRequestHandler):
+        status, body, hits = 200, b"Healthy", 0
+
+        def do_GET(self):
+            type(self).hits += 1
+            self.send_response(type(self).status)
+            self.send_header("Content-Length", str(len(type(self).body)))
+            self.end_headers()
+            self.wfile.write(type(self).body)
+
+        def log_message(self, *a):
+            pass
+
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), cls.Stub)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def setUp(self):
+        waker._ready_until = 0.0
+        self.Stub.status, self.Stub.body, self.Stub.hits = 200, b"Healthy", 0
+        self.addCleanup(setattr, waker, "_ready_until", 0.0)
+
+    def test_healthy_is_ready(self):
+        self.assertTrue(waker.is_jellyfin_ready("127.0.0.1", self.port))
+
+    def test_503_while_starting_is_not_ready(self):
+        self.Stub.status, self.Stub.body = 503, b"Jellyfin is starting"
+        self.assertFalse(waker.is_jellyfin_ready("127.0.0.1", self.port))
+
+    def test_200_but_not_healthy_is_not_ready(self):
+        self.Stub.body = b"<html>startup page</html>"
+        self.assertFalse(waker.is_jellyfin_ready("127.0.0.1", self.port))
+
+    def test_nothing_listening_is_not_ready(self):
+        s = socket.socket(); s.bind(("127.0.0.1", 0)); free = s.getsockname()[1]; s.close()
+        self.assertFalse(waker.is_jellyfin_ready("127.0.0.1", free))
+
+    def test_positive_result_is_cached_briefly(self):
+        self.assertTrue(waker.is_jellyfin_ready("127.0.0.1", self.port))
+        self.assertTrue(waker.is_jellyfin_ready("127.0.0.1", self.port))
+        self.assertEqual(self.Stub.hits, 1)
+
+    def test_negative_result_is_not_cached(self):
+        self.Stub.status = 503
+        waker.is_jellyfin_ready("127.0.0.1", self.port)
+        waker.is_jellyfin_ready("127.0.0.1", self.port)
+        self.assertEqual(self.Stub.hits, 2)
+
+    def test_cache_expires(self):
+        waker.is_jellyfin_ready("127.0.0.1", self.port)
+        waker._ready_until = 0.0            # as if READY_CACHE_SECONDS passed
+        self.Stub.status = 503
+        self.assertFalse(waker.is_jellyfin_ready("127.0.0.1", self.port))
 
 if __name__ == "__main__":
     unittest.main()
