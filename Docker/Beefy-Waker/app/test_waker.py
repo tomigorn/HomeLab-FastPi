@@ -11,6 +11,7 @@ import http.server
 import os
 import sys
 import threading
+import time
 import unittest
 from http.server import ThreadingHTTPServer
 
@@ -106,6 +107,8 @@ class JellyfinGateTest(unittest.TestCase):
         p_camp = mock.patch.object(waker, "_wake_campaign")   # no background thread
         self.send_wol = p_wol.start()
         p_out.start(); p_camp.start()
+        mock.patch.object(waker, "HOLD_SECONDS", 0.2).start()   # don't hold 25 s per test
+        mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
         self.addCleanup(mock.patch.stopall)
         self.addCleanup(setattr, waker, "_campaign_running", False)
 
@@ -412,6 +415,103 @@ class JellyfinReadinessTest(unittest.TestCase):
         waker._ready_until = 0.0            # as if READY_CACHE_SECONDS passed
         self.Stub.status = 503
         self.assertFalse(waker.is_jellyfin_ready("127.0.0.1", self.port))
+
+class JellyfinHoldTest(unittest.TestCase):
+    """policy=jellyfin holds non-browser requests until Jellyfin is healthy (bounded)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def setUp(self):
+        waker._campaign_running = False
+        self.out = io.StringIO()
+        mock.patch("sys.stdout", self.out).start()
+        self.send_wol = mock.patch.object(waker, "send_wol").start()
+        mock.patch.object(waker, "_wake_campaign").start()
+        mock.patch.object(waker, "is_up", return_value=False).start()
+        mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
+        self.addCleanup(mock.patch.stopall)
+        self.addCleanup(setattr, waker, "_campaign_running", False)
+
+    APP = {"Accept": "application/json", "X-Forwarded-Uri": "/System/Info",
+           "Authorization": 'MediaBrowser Client="Android TV", Token="S"'}
+    BROWSER = {"Accept": "text/html,*/*", "X-Forwarded-Uri": "/web/"}
+
+    def gate(self, headers):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("GET", "/gate?port=8096&policy=jellyfin", headers=headers)
+        r = c.getresponse(); body = r.read().decode(); c.close()
+        return r.status, body
+
+    def observed(self):
+        return [json.loads(l.split("observe ", 1)[1])
+                for l in self.out.getvalue().splitlines() if " observe " in l]
+
+    def test_app_request_is_held_then_passes_when_ready(self):
+        ready = iter([False, False, False, True] + [True] * 50)
+        with mock.patch.object(waker, "is_jellyfin_ready", side_effect=lambda h, p: next(ready)), \
+             mock.patch.object(waker, "HOLD_SECONDS", 2):
+            status, _ = self.gate(self.APP)
+        self.assertEqual(status, 200)
+        self.send_wol.assert_called_once()          # it still woke beefy first
+        (rec,) = self.observed()
+        self.assertEqual(rec["decision"], "wake")
+        self.assertGreater(rec["held"], 0)
+
+    def test_app_request_held_to_limit_then_503(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 0.3):
+            t0 = time.monotonic()
+            status, body = self.gate(self.APP)
+            dt = time.monotonic() - t0
+        self.assertEqual(status, 503)
+        self.assertIn("Waking up beefy", body)
+        self.assertGreaterEqual(dt, 0.3)
+        self.assertLess(dt, 2)
+
+    def test_starting_is_held_too_without_new_wake(self):
+        waker._campaign_running = True
+        ready = iter([False, False, True] + [True] * 50)
+        with mock.patch.object(waker, "is_jellyfin_ready", side_effect=lambda h, p: next(ready)), \
+             mock.patch.object(waker, "HOLD_SECONDS", 2):
+            status, _ = self.gate(self.APP)
+        self.assertEqual(status, 200)
+        self.send_wol.assert_not_called()
+        self.assertEqual(self.observed()[0]["decision"], "starting")
+
+    def test_browser_is_not_held(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 5):
+            t0 = time.monotonic()
+            status, body = self.gate(self.BROWSER)
+            dt = time.monotonic() - t0
+        self.assertEqual(status, 503)
+        self.assertIn("Sign in", body)
+        self.assertLess(dt, 1)
+        self.assertEqual(self.observed()[0]["held"], 0)
+
+    def test_no_free_slot_means_immediate_503(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 5), \
+             mock.patch.object(waker, "_hold_slots", threading.BoundedSemaphore(0)):
+            t0 = time.monotonic()
+            status, _ = self.gate(self.APP)
+            dt = time.monotonic() - t0
+        self.assertEqual(status, 503)
+        self.assertLess(dt, 1)
+        self.assertEqual(self.observed()[0]["held"], 0)
+
+    def test_hold_seconds_is_clamped_below_traefik_timeout(self):
+        self.assertLessEqual(waker.HOLD_SECONDS, 28)
+
 
 if __name__ == "__main__":
     unittest.main()

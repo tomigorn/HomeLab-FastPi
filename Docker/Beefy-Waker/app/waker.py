@@ -31,6 +31,8 @@ Config via env (see .env):
   BEEFY_PROBE_HOST   host to TCP-probe for "is it up"        required
   BEEFY_PROBE_PORT   default probe port                      default 22
   JELLYFIN_PORT      Jellyfin port for /jf/status            default 8096
+  HOLD_SECONDS       hold app requests up to this (<=28)     default 25
+  HOLD_SLOTS         concurrent held requests                default 16
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
   WAKE_RETRY_INTERVAL seconds between magic-packet resends       default 20
   WAKE_RETRY_WINDOW  stop resending after this many seconds   default 300
@@ -542,6 +544,47 @@ def is_jellyfin_ready(host, port):
     return ready
 
 
+# Hold a Jellyfin app's request while beefy boots instead of answering 503 at
+# once. The limit must stay under Traefik's forwardAuth client timeout (a fixed
+# 30 s in pkg/middlewares/auth/forward.go) and the Android TV app's 30 s request
+# timeout. A cold boot takes ~50 s, so a single hold cannot bridge it: the point
+# is that the app shows its own spinner, and its first retry then succeeds.
+HOLD_SECONDS = min(float(os.environ.get("HOLD_SECONDS", "25")), 28.0)
+HOLD_SLOTS = int(os.environ.get("HOLD_SLOTS", "16"))   # concurrent held requests
+HOLD_POLL_SECONDS = 1.0
+_hold_slots = threading.BoundedSemaphore(HOLD_SLOTS)
+
+
+def hold_until_ready(host, port, limit):
+    """Wait up to `limit` s for Jellyfin to be healthy. Returns (ready, seconds_held).
+
+    Non-blocking on the slot: with every slot busy (scanners while beefy sleeps)
+    the caller falls back to answering immediately.
+    """
+    if not _hold_slots.acquire(blocking=False):
+        return False, 0.0
+    t0 = time.monotonic()
+    try:
+        while True:
+            if is_jellyfin_ready(host, port):
+                return True, time.monotonic() - t0
+            if time.monotonic() - t0 >= limit:
+                return False, time.monotonic() - t0
+            time.sleep(HOLD_POLL_SECONDS)
+    finally:
+        _hold_slots.release()
+
+
+def jellyfin_decision(up, headers):
+    if up:
+        return "pass"
+    if wake_in_progress() or is_up(PROBE_HOST, PROBE_PORT):
+        return "starting"
+    if is_browser_navigation(headers):
+        return "signin"
+    return "wake"
+
+
 class Handler(BaseHTTPRequestHandler):
     timeout = 10        # per-request socket timeout: drop slow/never-finishing
                         # clients so they can't pin a worker thread (the server is
@@ -702,29 +745,34 @@ class Handler(BaseHTTPRequestHandler):
         # Jellyfin has no Authentik in front (native apps can't follow a login
         # redirect), so this is the only place anonymous wakes can be refused.
         # Browsers are refused and sent to the signed-in wake page; everything
-        # else still wakes (until the observe log shows a safe rule for apps).
-        if up:
-            decision = "pass"
-        elif wake_in_progress() or is_up(PROBE_HOST, PROBE_PORT):
-            # campaign running, or host booted (sshd answers) but Jellyfin isn't
-            # healthy yet: never flip a refreshing browser to sign-in
-            decision = "starting"
-        elif is_browser_navigation(self.headers):
-            decision = "signin"
-        else:
-            decision = "wake"
+        # else still wakes (until the observe log shows a safe rule for apps),
+        # and is then HELD until Jellyfin is healthy (bounded) so the app sees a
+        # slow server rather than an instant failure.
+        decision = jellyfin_decision(up, self.headers)
+        outcome = decision
+        held = 0.0
+        if decision == "wake":
+            try:
+                wake()
+                self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
+                                 PROBE_HOST, port, MAC, BROADCAST)
+            except Exception as e:
+                self.log_message("WoL send failed: %s", e)
+        if decision in ("wake", "starting"):
+            ready, held = hold_until_ready(PROBE_HOST, port, HOLD_SECONDS)
+            if ready:
+                outcome = "pass"      # logged decision stays wake/starting
         fwd_path, _ = _forwarded_path_query(self.headers)
         if not up or "/" + fwd_path.lstrip("/").lower() == "/system/info/public":
-            self.log_message("observe %s", json.dumps(
-                observe_record(self.headers, up, decision), sort_keys=True))
-        if decision == "pass":
+            rec = observe_record(self.headers, up, decision)
+            rec["held"] = round(held, 1)
+            self.log_message("observe %s", json.dumps(rec, sort_keys=True))
+        if outcome == "pass":
             self._send(200, "text/plain", b"")
-        elif decision == "starting":
-            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
-        elif decision == "signin":
+        elif outcome == "signin":
             self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
         else:
-            self._wake_and_wait_page(port)
+            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
 
     def _send(self, status, ctype, body, retry_after=None):
         self.send_response(status)
