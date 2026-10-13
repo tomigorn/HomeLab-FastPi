@@ -1,7 +1,7 @@
-# Jellyfin cold start: cached server info + held requests
+# Jellyfin cold start: cached server info + held requests (staged waiting)
 
-Date: 2026-10-14 · Status: approved in chat (user: "browser first, you run all the tests") ·
-Component: Beefy-Waker v1.3.0, Traefik `jellyfin.yml`
+Date: 2026-10-14 · Status: approved in chat (user: "browser first, you run all the tests";
+staging in ~19 s steps is the user's design) · Component: Beefy-Waker v1.3.0, Traefik `jellyfin.yml`
 
 ## Problem
 
@@ -15,52 +15,61 @@ Hard limits found before designing:
   `Timeout: 30 * time.Second`). A gate response slower than that becomes a 500.
 - Jellyfin Android TV (Kotlin SDK): 6 s connect, **30 s per request**. jellyfin-web: the
   connect check `GET /System/Info/Public` has a **20 s** timeout; all other requests have none.
-- No single held request can bridge 50 s. The achievable outcome is: the app shows its own
-  spinner instead of an instant error, and **the first retry succeeds** (today a retry inside
-  the boot window fails again instantly).
+- No single held request can bridge 50 s.
 
-## Decision
+## Decision: staged waiting
 
-1. **Cached server identity.** `GET /System/Info/Public` on the Jellyfin hostname is routed to
-   the waker (new `/jf/public-info`). Jellyfin healthy → the waker fetches the real answer,
-   relays it, and caches it (memory + `/tmp/public-info.json`). Jellyfin not healthy → the
-   waker applies the same decision as the gate (below) and, instead of a waking page, returns
-   the **cached JSON immediately** (200). The app then believes the server is there and
-   proceeds; with no cache yet (fresh waker, beefy never seen) it falls back to the gate
-   behaviour.
-2. **Held requests.** For `policy=jellyfin`, a non-browser request that would today get an
-   instant 503 ("starting" or "wake") is instead **held until Jellyfin is healthy, at most
-   `HOLD_SECONDS` (default 25)**, polling `/health` every 1 s. Healthy within the limit → 200
-   (pass). Still not healthy → today's 503 page. Browser navigations are unchanged (sign-in
-   page, no wake). The wake decision/log line is unchanged and happens before the hold.
-3. **Bounded holds.** At most `HOLD_SLOTS` (default 16) requests are held at once; beyond that
-   the gate answers as today, immediately. Protects the thread-per-request server from
-   scanners while beefy sleeps.
+Each request the app makes is held just under its timeout, so the app's own request chain
+spans the boot and the app shows its own spinner the whole time:
 
-Expected UX on a cold start: TV app spinner ~25 s → "connection failed" → Retry → success
-(~50–55 s after the first tap). Phone/web clients similar. Not seamless; deterministic.
+- **Stage 1 — connect check.** `GET /System/Info/Public` is routed to the waker
+  (`/jf/public-info`). Jellyfin healthy → the waker fetches the real answer, relays it and
+  caches it (memory + `/tmp/public-info.json`). Not healthy → same decision rules as the gate,
+  then **hold** (rule below); if Jellyfin became healthy → relay the real answer; else if a
+  cache exists → **200 cached JSON**; else → the waking page as today. Only 200 answers are
+  cached. The app then believes the server is there and proceeds.
+- **Stage 2 — the app's start-up calls.** For `policy=jellyfin`, a non-browser request that
+  would today get an instant 503 ("starting" or "wake") is **held until Jellyfin is healthy,
+  at most `HOLD_SECONDS` (default 18, clamp 0–25)**, polling `/health` every 1 s. Healthy
+  within the limit → 200 (pass). Still not healthy → today's 503 page. (Follow-up, not in this
+  spec: replay a per-user cached "main window" here instead of the 503, designed from the
+  observe log once real app traffic has been seen.)
+- **Stage 3 — the real server.** Everything passes once `/health` says Healthy.
+
+Rules shared by both stages:
+- The limit is a **deadline measured from the start of the request** (the 1 s TCP pre-probes
+  count), and the hold never sleeps or probes past it; worst case ≈ limit + one 1 s probe,
+  i.e. < 20 s at the default, well under Traefik's 30 s.
+- **Browsers are never held**: a browser navigation gets the sign-in page while down (no wake)
+  or the waking page while starting — both immediately.
+- The wake decision and its log line are unchanged and happen before the hold.
+- **Bounded holds:** at most `HOLD_SLOTS` (default 16, ≥ 1) requests are held at once; beyond
+  that the gate answers as today, immediately. Protects the thread-per-request server from
+  scanners while beefy sleeps.
+
+Expected UX with stages 1+2 (this spec): app spinner ~36 s → one "connection failed" →
+Retry → success (~50–55 s after the first tap). Deterministic; not yet seamless — stage 2's
+cached replay is what would remove the error.
 
 ## Waker changes (`app/waker.py`, v1.3.0)
 
-- `HOLD_SECONDS` (env, default 25, clamp ≤ 28), `HOLD_SLOTS` (env, default 16).
-- `is_jellyfin_ready()` unchanged (5 s positive cache).
-- Decision logic extracted: `jellyfin_decision(up, headers) -> "pass"|"starting"|"signin"|"wake"`
-  (same rules as today), used by `_gate_jellyfin` and `/jf/public-info`.
-- `hold_until_ready(port, limit) -> bool`: acquires a slot (non-blocking); without a slot
-  returns False at once; otherwise polls `is_jellyfin_ready` every 1 s until True or limit.
-- `_gate_jellyfin`: decision "wake" → wake + log (as today) then `hold`; "starting" → `hold`;
-  held and ready → 200; else today's 503 page. "signin"/"pass" unchanged. The `observe`
-  line gains `"held": <seconds, 1 decimal>` (0 when not held).
-- `GET /jf/public-info`: healthy → `urllib` GET `http://PROBE_HOST:JELLYFIN_PORT/System/Info/Public`
-  (timeout 3 s), relay status/body as `application/json`, save cache. Not healthy → decision
-  via `jellyfin_decision`: "signin" (a browser) → 503 sign-in page; "wake" → wake + log; then
-  if cache exists → 200 cached JSON (no hold); else → `hold`, then 200 relay or 503 page.
-  Logs an `observe` line (decision + `cached: true|false`). Never caches non-200 answers.
-- Cache file `/tmp/public-info.json` loaded at startup if present.
+- `HOLD_SECONDS` (env, default 18, clamp 0–25), `HOLD_SLOTS` (env, default 16, ≥ 1),
+  `HOLD_POLL_SECONDS = 1.0`, `PUBLIC_INFO_CACHE` (env, default `/tmp/public-info.json`).
+- `is_jellyfin_ready()` unchanged (5 s positive cache) except any exception → not ready.
+- `jellyfin_decision(up, headers) -> "pass"|"starting"|"signin"|"wake"` (today's rules),
+  used by `_gate_jellyfin` and `/jf/public-info`.
+- `hold_until_ready(host, port, limit, started) -> (ready, seconds_held)`: non-blocking slot
+  acquire (no slot → returns at once); polls `is_jellyfin_ready` until True or the deadline
+  `started + limit`; releases the slot on every path.
+- `_gate_jellyfin`: "wake" → wake + log, then hold; "starting" → hold unless browser;
+  held and ready → 200; else 503 page. "signin"/"pass" unchanged. The `observe` line logs the
+  original decision and adds `"held": <seconds, 1 decimal>` (0 when not held).
+- `GET /jf/public-info`: as in Stage 1; logs an `observe` line with `held` and
+  `cached: true|false`. Cache file loaded at startup (`_load_public_info()` in `main()`).
 
 ## Traefik (`dynamic/jellyfin.yml`)
 
-- New router `jellyfin-public-info`: ``Host(`jellyfin.holy-grail.ch`) && Path(`/System/Info/Public`)``,
+- Router `jellyfin-public-info`: ``Host(`jellyfin.holy-grail.ch`) && Path(`/System/Info/Public`)``,
   priority 25, service `beefy-waker-jf`, middlewares `jellyfin-deny-all` (TEMPORARY, same as the
   catch-all while the wizard is unfinished), `jellyfin-public-info-rewrite`
   (replacePathRegex `^/System/Info/Public$` → `/jf/public-info`), `jellyfin-secure-headers`.
@@ -69,20 +78,22 @@ Expected UX on a cold start: TV app spinner ~25 s → "connection failed" → Re
 
 ## Testing
 
-- Unit (stdlib unittest, `is_jellyfin_ready`/`send_wol`/`time` patched): decision table
-  unchanged; hold returns 200 when readiness flips during the hold; returns 503 at the limit;
-  slot exhaustion → immediate 503; `/jf/public-info` relay + cache + cached-while-down + no
-  cache → hold; browser → sign-in page; observe `held`/`cached` fields; cache file round-trip.
+- Unit (stdlib unittest; `is_jellyfin_ready`/`is_up`/`send_wol`/`_wake_campaign`/`sys.stdout`
+  patched, `HOLD_*` patched small): decision table unchanged; hold → 200 when readiness flips;
+  503 at the limit; browser never held (down and starting); slot exhaustion → immediate 503;
+  slot released after a normal hold and after an exception; clamp of `HOLD_SECONDS` real;
+  `/jf/public-info` relay + cache, hold-then-cache while down, no cache → hold then relay/503,
+  browser → sign-in page, cache file round-trip; observe `held`/`cached` fields.
 - Live, run by Claude, via the LAN test host while beefy sleeps (curl emulating the Android TV
-  sequence: `/System/Info/Public` with MediaBrowser header → expect cached 200 fast; then
-  `/System/Info` → expect a hold of ~25 s then 503 on a cold start, and 200 within the hold
-  when beefy is already booting). Browser flow (sign-in → booting page → `/web/`) with
-  Playwright and a throwaway Authentik user `claude-test` (TOTP device created via `ak shell`,
-  user deleted afterwards).
-- Keep: the `BeefyWakeLoop` alert must stay quiet during tests (≤ 20 state changes / 24 h —
-  today's BIOS tests already produced many; expect a warning, acceptable).
+  sequence with a MediaBrowser header): `/System/Info/Public` → held ~18 s then 200 cached JSON
+  and one WoL in the waker log; then `/System/Info` → held ~18 s → 503 on a cold start, and 200
+  within the hold when beefy is already booting. Browser flow (sign-in → booting page → `/web/`)
+  with Playwright and a throwaway Authentik user `claude-test` (TOTP device created via
+  `ak shell`, user deleted afterwards).
+- The `BeefyWakeLoop` alert may fire during testing (many boots today); acceptable.
 
 ## Out of scope
 
 - Any keep-awake / scheduled wake (rejected by the user).
 - Changing app timeouts (not configurable in the apps).
+- The stage-2 cached replay (follow-up spec after observing real app traffic).

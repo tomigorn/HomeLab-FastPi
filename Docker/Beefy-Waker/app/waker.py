@@ -32,7 +32,7 @@ Config via env (see .env):
   BEEFY_PROBE_HOST   host to TCP-probe for "is it up"        required
   BEEFY_PROBE_PORT   default probe port                      default 22
   JELLYFIN_PORT      Jellyfin port for /jf/status            default 8096
-  HOLD_SECONDS       hold app requests up to this (<=28)     default 25
+  HOLD_SECONDS       hold app requests up to this (<=25)     default 18
   PUBLIC_INFO_CACHE  cache file for /jf/public-info          default /tmp/public-info.json
   HOLD_SLOTS         concurrent held requests                default 16
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
@@ -538,7 +538,7 @@ def is_jellyfin_ready(host, port):
         with urllib.request.urlopen("http://%s:%d/health" % (host, port),
                                     timeout=PROBE_TIMEOUT) as r:
             ready = r.status == 200 and r.read(64).strip() == b"Healthy"
-    except (OSError, ValueError):    # refused, timeout, HTTP error (503), bad URL
+    except Exception:    # refused, timeout, HTTP error (503), bad URL, anything odd
         ready = False
     if ready:
         with _ready_lock:
@@ -547,18 +547,22 @@ def is_jellyfin_ready(host, port):
 
 
 # Hold a Jellyfin app's request while beefy boots instead of answering 503 at
-# once. The limit must stay under Traefik's forwardAuth client timeout (a fixed
-# 30 s in pkg/middlewares/auth/forward.go) and the Android TV app's 30 s request
-# timeout. A cold boot takes ~50 s, so a single hold cannot bridge it: the point
-# is that the app shows its own spinner, and its first retry then succeeds.
-HOLD_SECONDS = min(float(os.environ.get("HOLD_SECONDS", "25")), 28.0)
-HOLD_SLOTS = int(os.environ.get("HOLD_SLOTS", "16"))   # concurrent held requests
+# once. Client timeouts: jellyfin-web's connect check 20 s, the Android TV app
+# 30 s, Traefik's forwardAuth client a fixed 30 s. 18 s of hold plus one final
+# 1 s probe stays under 20 s. A cold boot takes ~50 s, so the design is
+# "stages": each request the app makes is held just under its timeout, and the
+# chain of requests (the app retries) spans the boot. Browsers are never held.
+HOLD_SECONDS = max(0.0, min(float(os.environ.get("HOLD_SECONDS", "18")), 25.0))
+HOLD_SLOTS = max(1, int(os.environ.get("HOLD_SLOTS", "16")))   # concurrent held requests
 HOLD_POLL_SECONDS = 1.0
 _hold_slots = threading.BoundedSemaphore(HOLD_SLOTS)
 
 
-def hold_until_ready(host, port, limit):
-    """Wait up to `limit` s for Jellyfin to be healthy. Returns (ready, seconds_held).
+def hold_until_ready(host, port, limit, started=None):
+    """Wait for Jellyfin to be healthy until `started + limit` (default: now).
+    Returns (ready, seconds_held). `started` is the request's arrival time, so
+    probes made before the hold count against the limit and the whole request
+    never exceeds it (the last probe may take PROBE_TIMEOUT).
 
     Non-blocking on the slot: with every slot busy (scanners while beefy sleeps)
     the caller falls back to answering immediately.
@@ -566,13 +570,15 @@ def hold_until_ready(host, port, limit):
     if not _hold_slots.acquire(blocking=False):
         return False, 0.0
     t0 = time.monotonic()
+    deadline = (started if started is not None else t0) + limit
     try:
         while True:
             if is_jellyfin_ready(host, port):
                 return True, time.monotonic() - t0
-            if time.monotonic() - t0 >= limit:
+            remaining = deadline - time.monotonic()
+            if remaining <= PROBE_TIMEOUT:
                 return False, time.monotonic() - t0
-            time.sleep(HOLD_POLL_SECONDS)
+            time.sleep(min(HOLD_POLL_SECONDS, remaining - PROBE_TIMEOUT))
     finally:
         _hold_slots.release()
 
@@ -685,7 +691,8 @@ class Handler(BaseHTTPRequestHandler):
     def _jf_public_info(self):
         # GET /System/Info/Public on the Jellyfin hostname is routed here (Traefik
         # replacePathRegex). Healthy: relay + cache. Down: same decision as the
-        # gate; apps get the cached identity at once, browsers the sign-in page.
+        # gate; apps are held (bounded) then get the cached identity, browsers sign-in.
+        started = time.monotonic()
         up = is_jellyfin_ready(PROBE_HOST, JELLYFIN_PORT)
         decision = jellyfin_decision(up, self.headers)
         held, cached, body = 0.0, False, None
@@ -699,14 +706,14 @@ class Handler(BaseHTTPRequestHandler):
                                      PROBE_HOST, JELLYFIN_PORT, MAC, BROADCAST)
                 except Exception as e:
                     self.log_message("WoL send failed: %s", e)
-            with _public_info_lock:
-                body = _public_info
-            if body is not None:
-                cached = True
-            else:
-                ready, held = hold_until_ready(PROBE_HOST, JELLYFIN_PORT, HOLD_SECONDS)
-                if ready:
-                    body = fetch_public_info(PROBE_HOST, JELLYFIN_PORT)
+            # hold first (bounded), then relay if healthy, else serve the cache
+            ready, held = hold_until_ready(PROBE_HOST, JELLYFIN_PORT, HOLD_SECONDS, started)
+            if ready:
+                body = fetch_public_info(PROBE_HOST, JELLYFIN_PORT)
+            if body is None:
+                with _public_info_lock:
+                    body = _public_info
+                cached = body is not None
         rec = observe_record(self.headers, up, decision)
         rec["held"] = round(held, 1)
         rec["cached"] = cached
@@ -803,6 +810,7 @@ class Handler(BaseHTTPRequestHandler):
         # `?host=` override (it would turn this LAN-reachable endpoint into an
         # arbitrary-host TCP-probe oracle), and a malformed `?port=` must not crash
         # this forwardAuth handler.
+        self._started = time.monotonic()
         q = parse_qs(urlparse(self.path).query)
         try:
             port = int(q.get("port", [str(PROBE_PORT)])[0])
@@ -838,6 +846,7 @@ class Handler(BaseHTTPRequestHandler):
         decision = jellyfin_decision(up, self.headers)
         outcome = decision
         held = 0.0
+        started = getattr(self, "_started", time.monotonic())
         if decision == "wake":
             try:
                 wake()
@@ -845,8 +854,9 @@ class Handler(BaseHTTPRequestHandler):
                                  PROBE_HOST, port, MAC, BROADCAST)
             except Exception as e:
                 self.log_message("WoL send failed: %s", e)
-        if decision in ("wake", "starting"):
-            ready, held = hold_until_ready(PROBE_HOST, port, HOLD_SECONDS)
+        if decision == "wake" or (decision == "starting"
+                                  and not is_browser_navigation(self.headers)):
+            ready, held = hold_until_ready(PROBE_HOST, port, HOLD_SECONDS, started)
             if ready:
                 outcome = "pass"      # logged decision stays wake/starting
         fwd_path, _ = _forwarded_path_query(self.headers)

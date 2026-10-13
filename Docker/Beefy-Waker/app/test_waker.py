@@ -110,6 +110,7 @@ class JellyfinGateTest(unittest.TestCase):
         p_out.start(); p_camp.start()
         mock.patch.object(waker, "HOLD_SECONDS", 0.2).start()   # don't hold 25 s per test
         mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
+        mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()   # deadline rule uses it
         self.addCleanup(mock.patch.stopall)
         self.addCleanup(setattr, waker, "_campaign_running", False)
 
@@ -439,6 +440,7 @@ class JellyfinHoldTest(unittest.TestCase):
         mock.patch.object(waker, "_wake_campaign").start()
         mock.patch.object(waker, "is_up", return_value=False).start()
         mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
+        mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()   # deadline rule uses it
         self.addCleanup(mock.patch.stopall)
         self.addCleanup(setattr, waker, "_campaign_running", False)
 
@@ -475,7 +477,7 @@ class JellyfinHoldTest(unittest.TestCase):
             dt = time.monotonic() - t0
         self.assertEqual(status, 503)
         self.assertIn("Waking up beefy", body)
-        self.assertGreaterEqual(dt, 0.3)
+        self.assertGreaterEqual(dt, 0.25)   # limit minus the final probe window
         self.assertLess(dt, 2)
 
     def test_starting_is_held_too_without_new_wake(self):
@@ -511,7 +513,59 @@ class JellyfinHoldTest(unittest.TestCase):
         self.assertEqual(self.observed()[0]["held"], 0)
 
     def test_hold_seconds_is_clamped_below_traefik_timeout(self):
-        self.assertLessEqual(waker.HOLD_SECONDS, 28)
+        import importlib
+        mock.patch.stopall()
+        try:
+            with mock.patch.dict(os.environ, {"HOLD_SECONDS": "60", "HOLD_SLOTS": "0"}):
+                importlib.reload(waker)
+                clamped, slots_ok = waker.HOLD_SECONDS, waker._hold_slots.acquire(blocking=False)
+        finally:
+            importlib.reload(waker)
+            waker._campaign_running = False
+        self.assertEqual(clamped, 25.0)
+        self.assertTrue(slots_ok)            # HOLD_SLOTS=0 is raised to 1
+        self.assertEqual(waker.HOLD_SECONDS, 18.0)
+
+    def test_browser_is_not_held_while_starting(self):
+        waker._campaign_running = True
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 5):
+            t0 = time.monotonic()
+            status, body = self.gate(self.BROWSER)
+            dt = time.monotonic() - t0
+        self.assertEqual(status, 503)
+        self.assertIn("Waking up beefy", body)
+        self.assertLess(dt, 1)
+        self.assertEqual(self.observed()[0]["held"], 0)
+
+    def _slots_free(self):
+        got = 0
+        while waker._hold_slots.acquire(blocking=False):
+            got += 1
+        for _ in range(got):
+            waker._hold_slots.release()
+        return got
+
+    def test_slot_released_when_probe_raises(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", side_effect=[False, RuntimeError("boom")]), \
+             mock.patch.object(waker, "HOLD_SECONDS", 0.2):
+            with self.assertRaises(http.client.RemoteDisconnected):   # handler dies in the hold
+                self.gate(self.APP)
+        self.assertEqual(self._slots_free(), waker.HOLD_SLOTS)
+
+    def test_slot_released_on_normal_path(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 0.2):
+            self.gate(self.APP)
+        self.assertEqual(self._slots_free(), waker.HOLD_SLOTS)
+
+    def test_deadline_counts_time_already_spent(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False):
+            t0 = time.monotonic()
+            ready, held = waker.hold_until_ready("h", 1, 0.5, started=t0 - 0.45)
+            dt = time.monotonic() - t0
+        self.assertFalse(ready)
+        self.assertLess(dt, 0.2)
 
 
 class PublicInfoTest(unittest.TestCase):
@@ -554,6 +608,7 @@ class PublicInfoTest(unittest.TestCase):
         mock.patch.object(waker, "_wake_campaign").start()
         mock.patch.object(waker, "is_up", return_value=False).start()
         mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
+        mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()   # deadline rule uses it
         self.addCleanup(mock.patch.stopall)
         self.addCleanup(lambda: os.path.exists(self.cache.name) and os.unlink(self.cache.name))
         self.addCleanup(setattr, waker, "_public_info", None)
@@ -583,19 +638,20 @@ class PublicInfoTest(unittest.TestCase):
         self.assertEqual(self.observed()[0]["decision"], "pass")
         self.assertFalse(self.observed()[0]["cached"])
 
-    def test_down_with_cache_answers_at_once_and_wakes(self):
+    def test_down_with_cache_is_held_then_served_from_cache(self):
         waker._public_info = self.Stub.body
         with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
-             mock.patch.object(waker, "HOLD_SECONDS", 5):
+             mock.patch.object(waker, "HOLD_SECONDS", 0.3):
             t0 = time.monotonic()
             status, body, _ = self.req(self.APP)
             dt = time.monotonic() - t0
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)["Id"], "abc123")
-        self.assertLess(dt, 1)
+        self.assertGreaterEqual(dt, 0.25)   # limit minus the final probe window
         self.send_wol.assert_called_once()
         rec = self.observed()[0]
         self.assertEqual(rec["decision"], "wake"); self.assertTrue(rec["cached"])
+        self.assertGreater(rec["held"], 0)
 
     def test_down_without_cache_holds_then_relays(self):
         ready = iter([False, False, True] + [True] * 50)

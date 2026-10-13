@@ -67,11 +67,13 @@ answers are never cached. Side effect: if Jellyfin ever turns unhealthy while be
 is up, its clients get the "starting" page (no wake is sent, sshd answers).
 
 **Cold start (v1.3.0):** `GET /jf/public-info` (Traefik routes Jellyfin's
-`/System/Info/Public` here) relays and caches the server identity; while beefy
-sleeps, apps get the cached answer at once (and the wake is sent), so they show
-their own spinner instead of "server unavailable". Without a cache the request is
-held up to 25 s (`HOLD_SECONDS`; Traefik's forwardAuth limit is 30 s), then 503.
-A cold boot takes ~50 s, so the expected UX is: app spinner, first retry succeeds.
+`/System/Info/Public` here) relays and caches the server identity. While beefy
+sleeps, app requests (never browsers) are held up to 18 s (`HOLD_SECONDS`, max 25;
+jellyfin-web times out at 20 s, the Android TV app and Traefik's forwardAuth at
+30 s), counted from request arrival; then `/jf/public-info` serves the cached
+answer (or 503 without a cache). A cold boot takes ~50 s, so the idea is staged
+holds: each request is held just under its timeout and the app's chain of
+retries spans the boot.
 `observe` lines gain `held` (seconds held) and `cached`.
 
 **`observe` log:** one redacted JSON line per Jellyfin request while beefy is down,
