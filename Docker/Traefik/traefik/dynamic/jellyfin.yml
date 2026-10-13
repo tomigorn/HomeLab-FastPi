@@ -76,6 +76,22 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Jellyfin's connect check. Every app starts with GET /System/Info/Public;
+    # the waker relays it while Jellyfin is up and answers it from a cache while
+    # beefy boots, so the app believes the server is there and shows its own
+    # loading state instead of "server unavailable" (Beefy-Waker v1.3.0).
+    jellyfin-public-info:
+      rule: "Host(`jellyfin.holy-grail.ch`) && Path(`/System/Info/Public`)"
+      entryPoints: ["websecure"]
+      priority: 25
+      service: beefy-waker-jf
+      middlewares:
+        - jellyfin-deny-all           # TEMPORARY, same as the catch-all router
+        - jellyfin-public-info-rewrite
+        - jellyfin-secure-headers
+      tls:
+        certResolver: cloudflare
+
     # The signed-in wake page (Beefy-Waker /jf/*). Only /beefy-wake* is routed
     # here, rewritten to /jf/*, so the waker's LAN admin page, /history and /gate
     # are NOT reachable from the internet. Authentik app: jellyfin-wake.
@@ -123,6 +139,11 @@ http:
       ipAllowList:
         sourceRange:
           - "127.0.0.1/32"
+
+    jellyfin-public-info-rewrite:
+      replacePathRegex:
+        regex: "^/System/Info/Public$"
+        replacement: "/jf/public-info"
 
     jellyfin-wake-page-rewrite:
       replacePathRegex:
