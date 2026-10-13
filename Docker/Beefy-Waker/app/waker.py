@@ -22,6 +22,7 @@ Endpoints:
                   ?policy=jellyfin: browsers get a sign-in page instead of a wake; logs "observe {...}"
   GET  /jf/       public booting page (behind Authentik at /beefy-wake/)
   GET  /jf/status JSON {"up": ...} = Jellyfin's /health says Healthy (JELLYFIN_PORT)
+  GET  /jf/public-info  relay/cache of Jellyfin's /System/Info/Public (apps' connect check)
   POST /jf/wake   same as /wake
 
 Config via env (see .env):
@@ -32,6 +33,7 @@ Config via env (see .env):
   BEEFY_PROBE_PORT   default probe port                      default 22
   JELLYFIN_PORT      Jellyfin port for /jf/status            default 8096
   HOLD_SECONDS       hold app requests up to this (<=28)     default 25
+  PUBLIC_INFO_CACHE  cache file for /jf/public-info          default /tmp/public-info.json
   HOLD_SLOTS         concurrent held requests                default 16
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
   WAKE_RETRY_INTERVAL seconds between magic-packet resends       default 20
@@ -575,6 +577,53 @@ def hold_until_ready(host, port, limit):
         _hold_slots.release()
 
 
+# Cached answer to Jellyfin's `GET /System/Info/Public`, the first thing every
+# app asks. Served while beefy sleeps so the app believes the server is there and
+# shows its own loading state instead of "server unavailable". Memory + a file so
+# a waker restart while beefy sleeps keeps it. Only 200 answers are cached.
+PUBLIC_INFO_CACHE = os.environ.get("PUBLIC_INFO_CACHE", "/tmp/public-info.json")
+_public_info = None
+_public_info_lock = threading.Lock()
+
+
+def _load_public_info():
+    global _public_info
+    try:
+        with open(PUBLIC_INFO_CACHE, "rb") as f:
+            data = f.read()
+        json.loads(data)                      # must be valid JSON
+        with _public_info_lock:
+            _public_info = data
+    except (OSError, ValueError):
+        pass
+
+
+def _store_public_info(data):
+    global _public_info
+    with _public_info_lock:
+        _public_info = data
+    try:
+        with open(PUBLIC_INFO_CACHE, "wb") as f:
+            f.write(data)
+    except OSError:
+        pass
+
+
+def fetch_public_info(host, port):
+    """Relay Jellyfin's /System/Info/Public; returns bytes or None."""
+    try:
+        with urllib.request.urlopen("http://%s:%d/System/Info/Public" % (host, port),
+                                    timeout=3) as r:
+            data = r.read(65536)
+            if r.status == 200:
+                json.loads(data)
+                _store_public_info(data)
+                return data
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def jellyfin_decision(up, headers):
     if up:
         return "pass"
@@ -618,6 +667,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, "application/json", json.dumps({"up": up}).encode())
         elif path == "/jf/wake":
             self._jf_wake()
+        elif path == "/jf/public-info":
+            self._jf_public_info()
         else:
             self.send_error(404)
 
@@ -630,6 +681,42 @@ class Handler(BaseHTTPRequestHandler):
                 .replace("__BASE__", PUBLIC_WAKE_PREFIX + "/")
                 .encode())
         self._send(200, "text/html; charset=utf-8", body)
+
+    def _jf_public_info(self):
+        # GET /System/Info/Public on the Jellyfin hostname is routed here (Traefik
+        # replacePathRegex). Healthy: relay + cache. Down: same decision as the
+        # gate; apps get the cached identity at once, browsers the sign-in page.
+        up = is_jellyfin_ready(PROBE_HOST, JELLYFIN_PORT)
+        decision = jellyfin_decision(up, self.headers)
+        held, cached, body = 0.0, False, None
+        if decision == "pass":
+            body = fetch_public_info(PROBE_HOST, JELLYFIN_PORT)
+        elif decision != "signin":
+            if decision == "wake":
+                try:
+                    wake()
+                    self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
+                                     PROBE_HOST, JELLYFIN_PORT, MAC, BROADCAST)
+                except Exception as e:
+                    self.log_message("WoL send failed: %s", e)
+            with _public_info_lock:
+                body = _public_info
+            if body is not None:
+                cached = True
+            else:
+                ready, held = hold_until_ready(PROBE_HOST, JELLYFIN_PORT, HOLD_SECONDS)
+                if ready:
+                    body = fetch_public_info(PROBE_HOST, JELLYFIN_PORT)
+        rec = observe_record(self.headers, up, decision)
+        rec["held"] = round(held, 1)
+        rec["cached"] = cached
+        self.log_message("observe %s", json.dumps(rec, sort_keys=True))
+        if decision == "signin":
+            self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
+        elif body is not None:
+            self._send(200, "application/json", body)
+        else:
+            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
 
     def _page(self, autowake):
         body = (WAKE_PAGE
@@ -795,6 +882,7 @@ def main():
     if missing:
         sys.exit("missing required env: %s" % ", ".join(missing))
     magic_packet(MAC)  # validate MAC format at startup
+    _load_public_info()
     srv = ThreadingHTTPServer((BIND, LISTEN_PORT), Handler)
     print("beefy-waker listening on %s:%d - page=/ gate=/gate, wake %s via %s, probe %s:%d"
           % (BIND, LISTEN_PORT, MAC, BROADCAST, PROBE_HOST, PROBE_PORT), flush=True)

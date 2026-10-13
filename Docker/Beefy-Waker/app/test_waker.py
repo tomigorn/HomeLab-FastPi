@@ -10,6 +10,7 @@ import socket
 import http.server
 import os
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -511,6 +512,119 @@ class JellyfinHoldTest(unittest.TestCase):
 
     def test_hold_seconds_is_clamped_below_traefik_timeout(self):
         self.assertLessEqual(waker.HOLD_SECONDS, 28)
+
+
+class PublicInfoTest(unittest.TestCase):
+    """/jf/public-info relays Jellyfin's /System/Info/Public and serves it from cache while down."""
+
+    class Stub(http.server.BaseHTTPRequestHandler):
+        body = b'{"Id":"abc123","Version":"12.1.0","ProductName":"Jellyfin Server"}'
+        def do_GET(self):
+            if self.path == "/System/Info/Public":
+                self.send_response(200); self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(self.body))); self.end_headers()
+                self.wfile.write(self.body)
+            else:
+                self.send_error(404)
+        def log_message(self, *a): pass
+
+    @classmethod
+    def setUpClass(cls):
+        cls.jf = ThreadingHTTPServer(("127.0.0.1", 0), cls.Stub)
+        threading.Thread(target=cls.jf.serve_forever, daemon=True).start()
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        for s in (cls.srv, cls.jf):
+            s.shutdown(); s.server_close()
+
+    def setUp(self):
+        waker._campaign_running = False
+        waker._public_info = None
+        self.cache = tempfile.NamedTemporaryFile(delete=False); self.cache.close()
+        os.unlink(self.cache.name)
+        mock.patch.object(waker, "PUBLIC_INFO_CACHE", self.cache.name).start()
+        mock.patch.object(waker, "PROBE_HOST", "127.0.0.1").start()
+        mock.patch.object(waker, "JELLYFIN_PORT", self.jf.server_address[1]).start()
+        self.out = io.StringIO(); mock.patch("sys.stdout", self.out).start()
+        self.send_wol = mock.patch.object(waker, "send_wol").start()
+        mock.patch.object(waker, "_wake_campaign").start()
+        mock.patch.object(waker, "is_up", return_value=False).start()
+        mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
+        self.addCleanup(mock.patch.stopall)
+        self.addCleanup(lambda: os.path.exists(self.cache.name) and os.unlink(self.cache.name))
+        self.addCleanup(setattr, waker, "_public_info", None)
+
+    APP = {"Accept": "application/json", "X-Forwarded-Uri": "/System/Info/Public",
+           "Authorization": 'MediaBrowser Client="Android TV", Token="S"'}
+
+    def req(self, headers):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("GET", "/jf/public-info", headers=headers)
+        r = c.getresponse(); body = r.read(); ctype = r.getheader("Content-Type"); c.close()
+        return r.status, body, ctype
+
+    def observed(self):
+        return [json.loads(l.split("observe ", 1)[1])
+                for l in self.out.getvalue().splitlines() if " observe " in l]
+
+    def test_healthy_relays_and_caches(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True):
+            status, body, ctype = self.req(self.APP)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["Id"], "abc123")
+        self.assertIn("application/json", ctype)
+        self.assertTrue(os.path.exists(self.cache.name))
+        self.assertEqual(json.loads(open(self.cache.name).read())["Id"], "abc123")
+        self.send_wol.assert_not_called()
+        self.assertEqual(self.observed()[0]["decision"], "pass")
+        self.assertFalse(self.observed()[0]["cached"])
+
+    def test_down_with_cache_answers_at_once_and_wakes(self):
+        waker._public_info = self.Stub.body
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 5):
+            t0 = time.monotonic()
+            status, body, _ = self.req(self.APP)
+            dt = time.monotonic() - t0
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["Id"], "abc123")
+        self.assertLess(dt, 1)
+        self.send_wol.assert_called_once()
+        rec = self.observed()[0]
+        self.assertEqual(rec["decision"], "wake"); self.assertTrue(rec["cached"])
+
+    def test_down_without_cache_holds_then_relays(self):
+        ready = iter([False, False, True] + [True] * 50)
+        with mock.patch.object(waker, "is_jellyfin_ready", side_effect=lambda h, p: next(ready)), \
+             mock.patch.object(waker, "HOLD_SECONDS", 2):
+            status, body, _ = self.req(self.APP)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["Id"], "abc123")
+
+    def test_down_without_cache_limit_reached_is_503(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 0.2):
+            status, body, _ = self.req(self.APP)
+        self.assertEqual(status, 503)
+        self.assertIn(b"Waking up beefy", body)
+
+    def test_browser_gets_signin_no_wake(self):
+        waker._public_info = self.Stub.body
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False):
+            status, body, _ = self.req({"Accept": "text/html", "X-Forwarded-Uri": "/System/Info/Public"})
+        self.assertEqual(status, 503)
+        self.assertIn(b"Sign in", body)
+        self.send_wol.assert_not_called()
+
+    def test_cache_file_loaded_at_startup(self):
+        with open(self.cache.name, "wb") as f:
+            f.write(b'{"Id":"fromfile"}')
+        waker._load_public_info()
+        self.assertEqual(json.loads(waker._public_info)["Id"], "fromfile")
 
 
 if __name__ == "__main__":

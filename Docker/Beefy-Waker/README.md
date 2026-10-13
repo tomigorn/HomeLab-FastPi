@@ -66,6 +66,14 @@ reused for 5 s because the gate runs for every request of a video stream; unheal
 answers are never cached. Side effect: if Jellyfin ever turns unhealthy while beefy
 is up, its clients get the "starting" page (no wake is sent, sshd answers).
 
+**Cold start (v1.3.0):** `GET /jf/public-info` (Traefik routes Jellyfin's
+`/System/Info/Public` here) relays and caches the server identity; while beefy
+sleeps, apps get the cached answer at once (and the wake is sent), so they show
+their own spinner instead of "server unavailable". Without a cache the request is
+held up to 25 s (`HOLD_SECONDS`; Traefik's forwardAuth limit is 30 s), then 503.
+A cold boot takes ~50 s, so the expected UX is: app spinner, first retry succeeds.
+`observe` lines gain `held` (seconds held) and `cached`.
+
 **`observe` log:** one redacted JSON line per Jellyfin request while beefy is down,
 plus `/System/Info/Public` while up; never tokens or query values. Read it with:
 
@@ -232,7 +240,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.2.1` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.3.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box
