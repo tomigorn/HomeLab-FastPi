@@ -457,6 +457,18 @@ def is_browser_navigation(headers):
     return "text/html" in (headers.get("Accept") or "").lower()
 
 
+def is_browser_subresource(headers):
+    """A browser fetching a page's own assets (favicon, css, js, images, fonts).
+
+    Browsers label these with Sec-Fetch-Dest; native Jellyfin apps send no
+    Sec-Fetch-* headers at all. "document" is a navigation (handled above) and
+    "empty" is a fetch/XMLHttpRequest API call, which keeps the app rule.
+    Found 2026-10-14: the sign-in page's favicon request woke beefy.
+    """
+    dest = (headers.get("Sec-Fetch-Dest") or "").strip().lower()
+    return bool(dest) and dest not in ("document", "empty")
+
+
 def _forwarded_path_query(headers):
     """(path, query) of the original request; urlparse mangles a leading '//'."""
     raw = headers.get("X-Forwarded-Uri") or "/"
@@ -506,6 +518,7 @@ def observe_record(headers, up, decision):
         "ua": (headers.get("User-Agent") or "")[:160],
         "accept": (headers.get("Accept") or "")[:80],
         "sec_fetch_mode": (headers.get("Sec-Fetch-Mode") or "")[:20],
+        "sec_fetch_dest": (headers.get("Sec-Fetch-Dest") or "")[:20],
         "ip": _client_ip(headers),
     }
 
@@ -635,7 +648,7 @@ def jellyfin_decision(up, headers):
         return "pass"
     if wake_in_progress() or is_up(PROBE_HOST, PROBE_PORT):
         return "starting"
-    if is_browser_navigation(headers):
+    if is_browser_navigation(headers) or is_browser_subresource(headers):
         return "signin"
     return "wake"
 

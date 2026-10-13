@@ -683,5 +683,76 @@ class PublicInfoTest(unittest.TestCase):
         self.assertEqual(json.loads(waker._public_info)["Id"], "fromfile")
 
 
+
+class BrowserSubresourceTest(unittest.TestCase):
+    """A browser's own sub-resource requests (favicon, css, js, images) must never wake
+    beefy: observed 2026-10-14, the sign-in page's favicon request (Accept image/*,
+    Sec-Fetch-Dest image) counted as an app and woke beefy 2 s after the page."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown(); cls.srv.server_close()
+
+    def setUp(self):
+        waker._campaign_running = False
+        self.out = io.StringIO(); mock.patch("sys.stdout", self.out).start()
+        self.send_wol = mock.patch.object(waker, "send_wol").start()
+        mock.patch.object(waker, "_wake_campaign").start()
+        mock.patch.object(waker, "is_up", return_value=False).start()
+        mock.patch.object(waker, "is_jellyfin_ready", return_value=False).start()
+        mock.patch.object(waker, "HOLD_SECONDS", 5).start()
+        self.addCleanup(mock.patch.stopall)
+        self.addCleanup(setattr, waker, "_campaign_running", False)
+
+    def gate(self, headers):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("GET", "/gate?port=8096&policy=jellyfin", headers=headers)
+        r = c.getresponse(); body = r.read().decode(); c.close()
+        return r.status, body
+
+    def observed(self):
+        return [json.loads(l.split("observe ", 1)[1])
+                for l in self.out.getvalue().splitlines() if " observe " in l]
+
+    FAVICON = {"Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+               "Sec-Fetch-Dest": "image", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Site": "same-origin",
+               "X-Forwarded-Uri": "/favicon.ico", "User-Agent": "Mozilla/5.0 Test"}
+    SCRIPT = {"Accept": "*/*", "Sec-Fetch-Dest": "script", "Sec-Fetch-Mode": "no-cors",
+              "X-Forwarded-Uri": "/web/main.js"}
+    WEB_API = {"Accept": "application/json", "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors",
+               "X-Forwarded-Uri": "/System/Info/Public"}
+    NATIVE = {"Accept": "*/*", "X-Forwarded-Uri": "/System/Info/Public",
+              "Authorization": 'MediaBrowser Client="Android TV", Token="S"'}
+
+    def test_favicon_does_not_wake_or_hold(self):
+        t0 = time.monotonic(); status, _ = self.gate(self.FAVICON); dt = time.monotonic() - t0
+        self.assertEqual(status, 503); self.assertLess(dt, 1)
+        self.send_wol.assert_not_called()
+        rec = self.observed()[0]
+        self.assertEqual(rec["decision"], "signin"); self.assertEqual(rec["held"], 0)
+        self.assertEqual(rec["sec_fetch_dest"], "image")
+
+    def test_script_asset_does_not_wake(self):
+        status, _ = self.gate(self.SCRIPT)
+        self.assertEqual(status, 503); self.send_wol.assert_not_called()
+
+    def test_browser_fetch_api_call_still_wakes_for_now(self):
+        # jellyfin-web's own API fetches (Sec-Fetch-Dest: empty) keep today's behaviour
+        # until the observe log says what the TV web apps send.
+        with mock.patch.object(waker, "HOLD_SECONDS", 0.2), mock.patch.object(waker, "PROBE_TIMEOUT", 0.01):
+            status, _ = self.gate(self.WEB_API)
+        self.assertEqual(status, 503); self.send_wol.assert_called_once()
+
+    def test_native_app_still_wakes(self):
+        with mock.patch.object(waker, "HOLD_SECONDS", 0.2), mock.patch.object(waker, "PROBE_TIMEOUT", 0.01):
+            status, _ = self.gate(self.NATIVE)
+        self.assertEqual(status, 503); self.send_wol.assert_called_once()
+
 if __name__ == "__main__":
     unittest.main()
