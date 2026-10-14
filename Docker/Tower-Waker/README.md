@@ -35,22 +35,26 @@ one `wakeonlan 60:be:b4:17:0d:e0`, then poll from fastpi. Two runs, ~1 s apart.
 Hardware: Celeron N5105 board (`GFJSL-V1.1-R208` BIOS), 16 GB, flash on USB,
 1 HDD + 2 SATA SSDs. BIOS at its defaults, no fast-boot tuning done.
 
-| Stage (from the magic packet) | Run 1 | Run 2 |
-|---|---|---|
-| First ping reply | 61.0 s | 62.8 s |
-| ssh port 22 open | 62.9 s | 63.9 s |
-| Unraid webGUI `:80` open | 77.9 s | 79.0 s |
-| Array mounted / Nextcloud `:8080` | not measurable (array could not start — expired trial key) |
+| Stage (from the magic packet) | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| First ping reply | 61.0 s | 62.8 s | 75.3 s |
+| ssh port 22 open | 62.9 s | 63.9 s | 76.8 s |
+| Unraid webGUI `:80` open | 77.9 s | 79.0 s | 91.3 s |
+| Array mounted / Nextcloud `:8080` | — | — | **107.5 s** (run 3, licence restored) |
+
+Run 3 (same method, after the licence was fixed): ping 75.3 s, ssh 76.8 s,
+webGUI 91.3 s, Nextcloud 107.5 s — ~13 s slower to ssh than runs 1–2 because
+that boot had a ~31 s POST instead of ~17 s (first power-on after a `reboot`
+rather than a `powerdown`); kernel→sshd was identical (~46 s).
 
 Breakdown from the kernel's own uptime when ssh opened: **~16.6 s of
 firmware/POST** before the kernel, then **~46 s** from kernel to sshd (Unraid
 unpacks its whole root filesystem from the USB flash into RAM on every boot,
 which is where most of that goes). `powerdown` → machine silent: ~41 s.
 
-Earlier measurement (Aug 2026, `.env` comment): **~102 s** from WoL to a
-fully mounted array, i.e. roughly 20–25 s after the webGUI appears. That is
-the number `WAKE_COUNTDOWN=120` is sized for; re-measure once the array
-starts again and update this table.
+So WoL → fully usable (array mounted, Nextcloud answering) is **~105–110 s**,
+consistent with the Aug 2026 measurement of ~102 s; `WAKE_COUNTDOWN=120` is
+sized right.
 
 Where the time goes and what could change it:
 - Firmware 16.6 s is already short (beefy's board takes 27–32 s). Not worth
@@ -75,4 +79,6 @@ Unraid).
   reach tower without waking it: `ssh -i ~/.ssh/tower -o IdentitiesOnly=yes root@192.168.1.101`.
   To check whether it is up without waking it: `curl http://192.168.1.2:9002/status`.
 - Licence: Unraid refuses to start the array without a valid key on the flash
-  (`/boot/config/*.key`); emhttpd logs `cmdStart: no registration key`.
+  (`/boot/config/*.key`); emhttpd logs `cmdStart: no registration key`. Since
+  2026-10-14 tower runs a perpetual **Starter** key (`Starter.key`; OS updates
+  until 2027-10-14). Keep exactly one `.key` file in `/boot/config/`.
