@@ -268,14 +268,10 @@ Traefik side (`dynamic/jellyfin.yml`): `jellyfin-outpost` (callback path),
 and the gate address gained `&policy=jellyfin`. Design:
 `Docker/Beefy-Waker/docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
 
-Same day: Jellyfin's first-run wizard was found UNFINISHED and publicly reachable.
-Until the wizard is completed, Jellyfin serves its setup-time endpoints anonymously —
-not only `/Startup/*` (create the admin account) but also `/Environment/*` (browse
-the server's filesystem) and `/Library/VirtualFolders` (add libraries). So:
-- `jellyfin-startup-block` returns 403 for `/Startup*` permanently (defence in depth);
-- the catch-all `jellyfin` router carries a TEMPORARY `jellyfin-deny-all`, closing the
-  whole public hostname until the wizard is completed on the LAN
-  (`http://192.168.1.102:8096`). Then remove that line from BOTH the `jellyfin`
-  and `jellyfin-public-info` routers, and check that
-  `https://jellyfin.holy-grail.ch/System/Info/Public` returns 200 JSON and
-  `https://jellyfin.holy-grail.ch/Environment/Drives` returns 401.
+Jellyfin's first-run wizard was found UNFINISHED and publicly reachable on 2026-10-11
+(setup-time endpoints answer anonymously until the wizard completes), so the whole public
+hostname was closed with a temporary `jellyfin-deny-all`. **Done 2026-10-14:** the user
+completed the wizard (server "Holy Grail", local break-glass admin), the temporary deny was
+removed from the `jellyfin` and `jellyfin-public-info` routers, and `jellyfin-startup-block`
+keeps `/Startup*` at 403 permanently. Verified: `/System/Info/Public` 200, `/Environment/Drives`
+401, `/Startup/Configuration` 403.

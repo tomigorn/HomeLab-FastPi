@@ -88,11 +88,6 @@ http:
       priority: 25
       service: beefy-waker-jf
       middlewares:
-        # TEMPORARY, same as the catch-all router: remove this jellyfin-deny-all
-        # line from BOTH routers (jellyfin and jellyfin-public-info) once the
-        # wizard is done. Then https://jellyfin.holy-grail.ch/System/Info/Public
-        # must return 200 JSON and /Environment/Drives 401.
-        - jellyfin-deny-all
         - jellyfin-public-info-rewrite
         - jellyfin-secure-headers
       tls:
@@ -119,16 +114,6 @@ http:
       priority: 1
       service: jellyfin
       middlewares:
-        # TEMPORARY (2026-10-11): Jellyfin's first-run wizard is unfinished, and
-        # until it is, Jellyfin serves its setup-time endpoints anonymously
-        # (/Environment/DirectoryContents lists the server's filesystem,
-        # /Library/VirtualFolders adds libraries). The whole public hostname is
-        # closed until the wizard is completed on the LAN at
-        # http://192.168.1.102:8096. Then delete this line from BOTH this router
-        # and jellyfin-public-info, and check that
-        # https://jellyfin.holy-grail.ch/System/Info/Public returns 200 JSON and
-        # https://jellyfin.holy-grail.ch/Environment/Drives returns 401.
-        - jellyfin-deny-all
         - jellyfin-wake
         - jellyfin-secure-headers
       tls:
