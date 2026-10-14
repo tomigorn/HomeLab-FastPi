@@ -81,6 +81,7 @@ entries:
     - d2ba3ab1-2b87-4706-b532-853201d0448a
     roles: []
     users:
+    - 15
     - 4
   conditions: []
   identifiers:
@@ -110,30 +111,10 @@ entries:
     attributes: {}
     email: <redacted-by-sanitize-export>
     groups:
-    - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
-    - ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
-    - 613bc864-37df-4f07-819b-50ae607c13d5
+    - d2ba3ab1-2b87-4706-b532-853201d0448a
     - 1288b46a-e357-489d-92c2-15d57f7d6ddd
     is_active: true
-    last_login: '2026-09-25T22:54:49.294941Z'
-    name: authentik Default Admin
-    path: users
-    roles: []
-    type: internal
-    username: akadmin
-  conditions: []
-  identifiers:
-    pk: 4
-  model: authentik_core.user
-  permissions: []
-  state: present
-- attrs:
-    attributes: {}
-    email: <redacted-by-sanitize-export>
-    groups:
-    - d2ba3ab1-2b87-4706-b532-853201d0448a
-    is_active: true
-    last_login: '2026-09-25T19:37:34.107474Z'
+    last_login: '2026-09-26T06:08:37.056064Z'
     name: testuser
     path: users/internal
     roles: []
@@ -142,6 +123,27 @@ entries:
   conditions: []
   identifiers:
     pk: 15
+  model: authentik_core.user
+  permissions: []
+  state: present
+- attrs:
+    attributes: {}
+    email: <redacted-by-sanitize-export>
+    groups:
+    - bc7e3623-753e-4515-8eee-9b58bb9ecfc9
+    - ab8cdc3f-19cd-4efb-bff1-e952d0e63daf
+    - 613bc864-37df-4f07-819b-50ae607c13d5
+    - 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    is_active: true
+    last_login: '2026-10-14T07:40:51.456385Z'
+    name: authentik Default Admin
+    path: users
+    roles: []
+    type: internal
+    username: akadmin
+  conditions: []
+  identifiers:
+    pk: 4
   model: authentik_core.user
   permissions: []
   state: present
@@ -180,6 +182,158 @@ entries:
   conditions: []
   identifiers:
     pk: 5c14b402-a2c0-4c58-b534-ac35e1b5f029
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://radarr.holy-grail.ch
+    meta_publisher: ''
+    name: Radarr
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 4
+    slug: radarr
+  conditions: []
+  identifiers:
+    pk: 69edb652-70c0-40a0-9f96-89f763914cb2
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://prowlarr.holy-grail.ch
+    meta_publisher: ''
+    name: Prowlarr
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 5
+    slug: prowlarr
+  conditions: []
+  identifiers:
+    pk: ea90d4e1-8943-4ece-a472-c1dc7c6bac85
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://bazarr.holy-grail.ch
+    meta_publisher: ''
+    name: Bazarr
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 6
+    slug: bazarr
+  conditions: []
+  identifiers:
+    pk: 12b2b578-6d03-4b62-b00d-8f7b47d58c06
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://qbittorrent.holy-grail.ch
+    meta_publisher: ''
+    name: Qbittorrent
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 7
+    slug: qbittorrent
+  conditions: []
+  identifiers:
+    pk: 5a93f0a4-83bb-4ac9-b568-66da4ae0c4c0
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://sabnzbd.holy-grail.ch
+    meta_publisher: ''
+    name: Sabnzbd
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 8
+    slug: sabnzbd
+  conditions: []
+  identifiers:
+    pk: d4f45cb8-8229-4c66-89db-1eacc90bdcf9
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://jellyfin.holy-grail.ch
+    meta_publisher: ''
+    name: Jellyfin
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 9
+    slug: jellyfin
+  conditions: []
+  identifiers:
+    pk: 7fe878e5-66c3-44ee-a55a-52d11247b12e
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: ''
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: https://cup.holy-grail.ch
+    meta_publisher: ''
+    name: Cup
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 10
+    slug: cup
+  conditions: []
+  identifiers:
+    pk: cb68f296-a03b-49c4-bd42-1b171acec52a
+  model: authentik_core.application
+  permissions: []
+  state: present
+- attrs:
+    backchannel_providers: []
+    group: ''
+    meta_description: Sign in to start the sleeping Jellyfin server (Beefy-Waker /beefy-wake/)
+    meta_hide: false
+    meta_icon: ''
+    meta_launch_url: ''
+    meta_publisher: ''
+    name: Jellyfin wake
+    open_in_new_tab: false
+    policy_engine_mode: any
+    provider: 11
+    slug: jellyfin-wake
+  conditions: []
+  identifiers:
+    pk: cf5912de-3139-4c1b-9ea6-47e352a8f8fd
   model: authentik_core.application
   permissions: []
   state: present
@@ -1051,18 +1205,6 @@ entries:
   permissions: []
   state: present
 - attrs:
-    local: true
-    name: Local Docker connection
-    tls_authentication: null
-    tls_verification: null
-    url: /var/run/docker.sock
-  conditions: []
-  identifiers:
-    pk: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
-  model: authentik_outposts.dockerserviceconnection
-  permissions: []
-  state: present
-- attrs:
     config:
       authentik_host: https://sso.holy-grail.ch
       authentik_host_browser: ''
@@ -1089,7 +1231,14 @@ entries:
       refresh_interval: minutes=5
     managed: goauthentik.io/outposts/embedded
     name: authentik Embedded Outpost
-    providers: []
+    providers:
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 10
+    - 11
     service_connection: null
     type: proxy
   conditions: []
@@ -1516,6 +1665,70 @@ entries:
 - attrs:
     enabled: true
     failure_result: false
+    group: 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    negate: false
+    order: 0
+    policy: null
+    target: 69edb652-70c0-40a0-9f96-89f763914cb2
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: be16f5d1-1b65-4e27-884c-98ff20ba957d
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    negate: false
+    order: 0
+    policy: null
+    target: ea90d4e1-8943-4ece-a472-c1dc7c6bac85
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 458c38e9-2d57-4ae1-ac66-43e9d7d94b29
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    negate: false
+    order: 0
+    policy: null
+    target: 12b2b578-6d03-4b62-b00d-8f7b47d58c06
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 0c2cbbbc-87cf-4691-9d1d-0124f0df0df5
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    negate: false
+    order: 0
+    policy: null
+    target: 5a93f0a4-83bb-4ac9-b568-66da4ae0c4c0
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 052627ec-1058-4784-b244-e6c69da47b39
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
     group: null
     negate: false
     order: 0
@@ -1526,6 +1739,86 @@ entries:
   conditions: []
   identifiers:
     pk: 98b5cc38-8fe7-4d69-8e6a-94da45f20a88
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    negate: false
+    order: 0
+    policy: null
+    target: d4f45cb8-8229-4c66-89db-1eacc90bdcf9
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 34217ace-aebc-4b6a-895d-aa8ef96204f4
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: d2ba3ab1-2b87-4706-b532-853201d0448a
+    negate: false
+    order: 1
+    policy: null
+    target: 4d7bf2ca-58bb-4ad3-ac66-368290eb8863
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 5f9fe941-1138-45d0-826f-d94cc6f2b006
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: d2ba3ab1-2b87-4706-b532-853201d0448a
+    negate: false
+    order: 0
+    policy: null
+    target: 7fe878e5-66c3-44ee-a55a-52d11247b12e
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: baacc444-0237-493f-9d9b-3e3430de0bf0
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: 1288b46a-e357-489d-92c2-15d57f7d6ddd
+    negate: false
+    order: 0
+    policy: null
+    target: cb68f296-a03b-49c4-bd42-1b171acec52a
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 0fb09232-03ad-47e6-bd71-a4e8f406de3f
+  model: authentik_policies.policybinding
+  permissions: []
+  state: present
+- attrs:
+    enabled: true
+    failure_result: false
+    group: d2ba3ab1-2b87-4706-b532-853201d0448a
+    negate: false
+    order: 0
+    policy: null
+    target: cf5912de-3139-4c1b-9ea6-47e352a8f8fd
+    timeout: 30
+    user: null
+  conditions: []
+  identifiers:
+    pk: 932dfbdc-2b5e-435e-b186-23b225e8064b
   model: authentik_policies.policybinding
   permissions: []
   state: present
@@ -1823,16 +2116,17 @@ entries:
   state: present
 - attrs:
     access_code_validity: minutes=1
-    access_token_validity: hours=1
+    access_token_validity: hours=24
     authentication_flow: null
-    authorization_flow: d6ea4fc6-4643-4b47-aab2-1e4cacf92f5b
-    client_id: QuNycoUb9HuQQWqmMJMtcG5ufD1u5vWShOzwiMb5
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: pO8pdsfWwBAZBHMYfzqK0Q0odxHXuKNXPKF0I5b8
     client_secret: <redacted-by-sanitize-export>
     client_type: confidential
     encryption_key: null
     grant_types:
     - authorization_code
-    - refresh_token
+    - client_credentials
+    - password
     include_claims_in_id_token: true
     invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
     issuer_mode: per_provider
@@ -1840,26 +2134,71 @@ entries:
     jwt_federation_sources: []
     logout_method: backchannel
     logout_uri: ''
-    name: Nextcloud
+    name: radarr-proxy
     property_mappings:
-    - 0774c996-38c7-426c-886a-571955ba04e3
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
     - 24e6703d-9a2b-4820-9720-e5499d781e0c
     - 0674edd1-9f34-4b0e-918d-4ba0756790a8
     - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
     redirect_uris:
     - matching_mode: strict
       redirect_uri_type: authorization
-      url: https://cloud.holy-grail.ch/apps/user_oidc/code
+      url: https://radarr.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
     - matching_mode: strict
       redirect_uri_type: authorization
-      url: https://cloud.holy-grail.ch
+      url: https://radarr.holy-grail.ch?X-authentik-auth-callback=true
     refresh_token_threshold: seconds=0
     refresh_token_validity: days=30
-    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
-    sub_mode: user_uuid
+    signing_key: null
+    sub_mode: hashed_user_id
   conditions: []
   identifiers:
-    pk: 3
+    pk: 4
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: rY3CoBZWR1JNY9lBMW0jjicIvVAyVCIA7hl99JEp
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - client_credentials
+    - password
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: qbittorrent-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://qbittorrent.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://qbittorrent.holy-grail.ch?X-authentik-auth-callback=true
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: null
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 7
   model: authentik_providers_oauth2.oauth2provider
   permissions: []
   state: present
@@ -1905,6 +2244,535 @@ entries:
   identifiers:
     pk: 1
   model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: a2JAtW5zJx0FjGzwyZl0Insqf9rSY3M6yKBvXVV7
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - client_credentials
+    - password
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: jellyfin-wake-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://jellyfin.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://jellyfin.holy-grail.ch?X-authentik-auth-callback=true
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: null
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 11
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: Bm7gx9wAMPe459SeURJkZ9VkOYuhKGpdLZsNA6cp
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - client_credentials
+    - password
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: cup-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cup.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cup.holy-grail.ch?X-authentik-auth-callback=true
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: null
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 10
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: minutes=5
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: 4K42VO7Sw6cK5kzexuWZUjWk6zfe0HUGW1U5HyW6
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - implicit
+    - hybrid
+    - refresh_token
+    - client_credentials
+    - password
+    - urn:ietf:params:oauth:grant-type:device_code
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: jellyfin-oidc
+    property_mappings:
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://jellyfin.holy-grail.ch/sso/OID/redirect/authentik
+    refresh_token_threshold: hours=1
+    refresh_token_validity: days=30
+    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 9
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: QBSa3L4mSqt9DZPZENyeHIBHl9IZIWKlGYpt4WY5
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - client_credentials
+    - password
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: sabnzbd-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://sabnzbd.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://sabnzbd.holy-grail.ch?X-authentik-auth-callback=true
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: null
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 8
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: 8JiYZuQoqvvDRwjsRCkFr7fMuAuXElwMVEC0WooG
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - client_credentials
+    - password
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: prowlarr-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://prowlarr.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://prowlarr.holy-grail.ch?X-authentik-auth-callback=true
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: null
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 5
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    client_id: 0yaVVN5gzrEE9frgH0Q61yBIW64WJsIur4ecFKGZ
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - client_credentials
+    - password
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: bazarr-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://bazarr.holy-grail.ch/outpost.goauthentik.io/callback?X-authentik-auth-callback=true
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://bazarr.holy-grail.ch?X-authentik-auth-callback=true
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: null
+    sub_mode: hashed_user_id
+  conditions: []
+  identifiers:
+    pk: 6
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_code_validity: minutes=1
+    access_token_validity: hours=1
+    authentication_flow: null
+    authorization_flow: d6ea4fc6-4643-4b47-aab2-1e4cacf92f5b
+    client_id: QuNycoUb9HuQQWqmMJMtcG5ufD1u5vWShOzwiMb5
+    client_secret: <redacted-by-sanitize-export>
+    client_type: confidential
+    encryption_key: null
+    grant_types:
+    - authorization_code
+    - refresh_token
+    include_claims_in_id_token: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    issuer_mode: per_provider
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    logout_method: backchannel
+    logout_uri: ''
+    name: Nextcloud
+    property_mappings:
+    - 0774c996-38c7-426c-886a-571955ba04e3
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    redirect_uris:
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cloud.holy-grail.ch/apps/user_oidc/code
+    - matching_mode: strict
+      redirect_uri_type: authorization
+      url: https://cloud.holy-grail.ch
+    refresh_token_threshold: seconds=0
+    refresh_token_validity: days=30
+    signing_key: 6b132060-0f5e-45bc-a4f2-7d6a4ded2d65
+    sub_mode: user_uuid
+  conditions: []
+  identifiers:
+    pk: 3
+  model: authentik_providers_oauth2.oauth2provider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://radarr.holy-grail.ch
+    intercept_header_auth: true
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: radarr-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 4
+  model: authentik_providers_proxy.proxyprovider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://qbittorrent.holy-grail.ch
+    intercept_header_auth: true
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: qbittorrent-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 7
+  model: authentik_providers_proxy.proxyprovider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://jellyfin.holy-grail.ch
+    intercept_header_auth: false
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: jellyfin-wake-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 11
+  model: authentik_providers_proxy.proxyprovider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://cup.holy-grail.ch
+    intercept_header_auth: true
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: cup-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 10
+  model: authentik_providers_proxy.proxyprovider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://sabnzbd.holy-grail.ch
+    intercept_header_auth: true
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: sabnzbd-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 8
+  model: authentik_providers_proxy.proxyprovider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://prowlarr.holy-grail.ch
+    intercept_header_auth: true
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: prowlarr-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 5
+  model: authentik_providers_proxy.proxyprovider
+  permissions: []
+  state: present
+- attrs:
+    access_token_validity: hours=24
+    authentication_flow: null
+    authorization_flow: 90b5f723-756e-4b74-9f7c-24601539d0eb
+    basic_auth_enabled: false
+    basic_auth_password_attribute: ''
+    basic_auth_user_attribute: ''
+    certificate: null
+    cookie_domain: ''
+    external_host: https://bazarr.holy-grail.ch
+    intercept_header_auth: true
+    internal_host: ''
+    internal_host_ssl_validation: true
+    invalidation_flow: 2b8c78fd-789a-42d5-8d66-ac9463e1deda
+    jwt_federation_providers: []
+    jwt_federation_sources: []
+    mode: forward_single
+    name: bazarr-proxy
+    property_mappings:
+    - 2b4e8d37-3f8f-4421-983c-86abae1892ce
+    - 24e6703d-9a2b-4820-9720-e5499d781e0c
+    - 0674edd1-9f34-4b0e-918d-4ba0756790a8
+    - 9ed37f68-4751-4b62-8a9a-95b10e288325
+    - bf743804-a9a2-45a1-aed3-b4ed3bed3784
+    refresh_token_validity: days=30
+    skip_path_regex: ''
+  conditions: []
+  identifiers:
+    pk: 6
+  model: authentik_providers_proxy.proxyprovider
   permissions: []
   state: present
 - attrs:
@@ -3088,32 +3956,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 44 22 * * 5
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 2e7c5e0e-da8a-4c6d-981e-4f6d7fcba7cc
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 46 * * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: f4ef79cd-7a9f-454d-a90b-136e5701c4fc
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 3-59/15 * * * *
-    paused: false
-    rel_obj_id: 6cc13ff6-b1a6-4f86-bb25-a6e64f3a9dd1
-  conditions: []
-  identifiers:
-    pk: b3855804-2d23-4d99-b095-cca3a492a032
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3128,12 +3976,32 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 9-59/5 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 35 */8 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 3e3e16cb-007a-4445-9414-4185df579b15
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 59 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3158,22 +4026,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 24 */3 * * *
+    crontab: 44 22 * * 5
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
-    pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 59 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 455c8054-33b5-4a53-ad0d-eef455e35a79
+    pk: 2e7c5e0e-da8a-4c6d-981e-4f6d7fcba7cc
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3188,52 +4046,12 @@ entries:
   permissions: []
   state: present
 - attrs:
-    crontab: 9-59/5 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 293e6fb6-0cdf-4a8f-8e11-420ca3ba09ae
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 19 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 21 * * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
     crontab: 54 0 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 66d9399a-2c60-48b8-97e9-1bc9abdad5c4
-  model: authentik_tasks_schedules.schedule
-  permissions: []
-  state: present
-- attrs:
-    crontab: 16 8 * * *
-    paused: false
-    rel_obj_id: null
-  conditions: []
-  identifiers:
-    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3258,12 +4076,52 @@ entries:
   permissions: []
   state: present
 - attrs:
+    crontab: 19 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 9745f318-2306-416b-81c3-a88537ac7e4b
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 21 * * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: fac9f683-5b81-4d9d-9184-f986596ed3c6
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 24 */3 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: 250b27e0-0f5e-480b-8433-b172d6a7b5f7
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
     crontab: 26 */2 * * *
     paused: false
     rel_obj_id: null
   conditions: []
   identifiers:
     pk: 99f024c8-5be0-45a5-8f6c-85c783ddbafe
+  model: authentik_tasks_schedules.schedule
+  permissions: []
+  state: present
+- attrs:
+    crontab: 16 8 * * *
+    paused: false
+    rel_obj_id: null
+  conditions: []
+  identifiers:
+    pk: e93ec2c7-c8de-4e66-84ab-318447c70a70
   model: authentik_tasks_schedules.schedule
   permissions: []
   state: present
@@ -3690,5 +4548,5 @@ entries:
 metadata:
   labels:
     blueprints.goauthentik.io/generated: 'true'
-  name: authentik Export - 2026-09-25 22:59:54.848980+00:00
+  name: authentik Export - 2026-10-14 08:06:10.770048+00:00
 version: 1
