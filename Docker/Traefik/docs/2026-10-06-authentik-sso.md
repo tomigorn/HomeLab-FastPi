@@ -275,5 +275,7 @@ the server's filesystem) and `/Library/VirtualFolders` (add libraries). So:
 - `jellyfin-startup-block` returns 403 for `/Startup*` permanently (defence in depth);
 - the catch-all `jellyfin` router carries a TEMPORARY `jellyfin-deny-all`, closing the
   whole public hostname until the wizard is completed on the LAN
-  (`http://192.168.1.102:8096`). Then remove that line and check that
+  (`http://192.168.1.102:8096`). Then remove that line from BOTH the `jellyfin`
+  and `jellyfin-public-info` routers, and check that
+  `https://jellyfin.holy-grail.ch/System/Info/Public` returns 200 JSON and
   `https://jellyfin.holy-grail.ch/Environment/Drives` returns 401.
