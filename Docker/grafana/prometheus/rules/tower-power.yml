@@ -1,0 +1,38 @@
+# tower (Unraid NAS) power/health alerts. Mirrors beefy-power.yml; probes are
+# blackbox-tower (sshd, 192.168.1.101:22) and blackbox-tower-nextcloud (:8080),
+# both direct TCP so they can never wake tower. Down on its own is normal.
+groups:
+  - name: tower-power
+    rules:
+      # tower answers on 22 but Nextcloud has not come up: the array is not
+      # started (licence, disk, pool) or Docker is down. 30m covers a normal
+      # boot (Nextcloud follows sshd by ~30 s) and a slow parity/ZFS import.
+      # This is the alert that was missing when the trial licence expired on
+      # 2026-09-14 and tower sat half-dead for a month.
+      - alert: TowerUpButNextcloudDown
+        expr: >-
+          probe_success{job="blackbox-tower"} == 1
+          and on() probe_success{job="blackbox-tower-nextcloud"} == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "tower is up but Nextcloud (array/Docker) is not"
+          description: >-
+            tower has answered on port 22 for 30 minutes while nothing listens
+            on 8080. Check Unraid's registration (Tools > Registration), the
+            array state, and Docker: ssh -i ~/.ssh/tower root@192.168.1.101,
+            then grep cmdStart /var/log/syslog.
+
+      # Same threshold as BeefyWakeLoop: a healthy day is a handful of
+      # up/down transitions; a probe or client that keeps waking it is dozens.
+      - alert: TowerWakeLoop
+        expr: changes(probe_success{job="blackbox-tower"}[24h]) > 20
+        labels:
+          severity: warning
+        annotations:
+          summary: "tower keeps waking up ({{ $value }} state changes in 24h)"
+          description: >-
+            tower has switched between up and down {{ $value }} times in the
+            last 24 hours. Find the waker: sudo grep -a 'tower down\|manual wake'
+            on the tower-waker container log.

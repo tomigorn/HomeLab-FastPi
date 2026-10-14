@@ -130,6 +130,52 @@ scrape_configs:
         replacement: blackbox-exporter:9115
 
   # ---------------------------------------------------------------------------
+  # tower power state and health, same rules as the beefy job above: probe the
+  # LAN IP DIRECTLY (a Traefik hostname would go through tower-wake and send a
+  # WoL), and never alert on "down" alone - tower sleeps most of the day.
+  #
+  # Two probes because tower can be up yet useless: on 2026-09-14 its Unraid
+  # trial expired, the array never started, Nextcloud never came up and the
+  # idle-shutdown (installed only after array start) never ran - and nothing
+  # noticed for a month. sshd answers ~30 s before the array, Nextcloud only
+  # after it, so "22 up but 8080 down for 30 min" means array/licence/Docker
+  # trouble. tower-power.yml alerts on exactly that, plus a wake loop.
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-tower"
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - 192.168.1.101:22
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: instance
+        replacement: tower
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: "blackbox-tower-nextcloud"
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - 192.168.1.101:8080
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: instance
+        replacement: tower-nextcloud
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ---------------------------------------------------------------------------
   # Cup container-update counts, via json-exporter.
   #
   # Scraped through the host-published port rather than the container name because
