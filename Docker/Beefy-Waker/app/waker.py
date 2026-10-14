@@ -565,8 +565,24 @@ def is_jellyfin_ready(host, port):
 # 1 s probe stays under 20 s. A cold boot takes ~50 s, so the design is
 # "stages": each request the app makes is held just under its timeout, and the
 # chain of requests (the app retries) spans the boot. Browsers are never held.
-HOLD_SECONDS = max(0.0, min(float(os.environ.get("HOLD_SECONDS", "18")), 25.0))
-HOLD_SLOTS = max(1, int(os.environ.get("HOLD_SLOTS", "16")))   # concurrent held requests
+def _clamp_hold_seconds(value):
+    """0..25 (Traefik's forwardAuth limit is a fixed 30 s); 18 on bad input."""
+    try:
+        return max(0.0, min(float(value), 25.0))
+    except (TypeError, ValueError):
+        return 18.0
+
+
+def _clamp_hold_slots(value):
+    """At least 1; 16 on bad input."""
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return 16
+
+
+HOLD_SECONDS = _clamp_hold_seconds(os.environ.get("HOLD_SECONDS", "18"))
+HOLD_SLOTS = _clamp_hold_slots(os.environ.get("HOLD_SLOTS", "16"))   # concurrent held requests
 HOLD_POLL_SECONDS = 1.0
 _hold_slots = threading.BoundedSemaphore(HOLD_SLOTS)
 
@@ -599,7 +615,8 @@ def hold_until_ready(host, port, limit, started=None):
 # Cached answer to Jellyfin's `GET /System/Info/Public`, the first thing every
 # app asks. Served while beefy sleeps so the app believes the server is there and
 # shows its own loading state instead of "server unavailable". Memory + a file so
-# a waker restart while beefy sleeps keeps it. Only 200 answers are cached.
+# a `docker restart` while beefy sleeps keeps it (not a recreate: /tmp is the
+# container's own layer). Only 200 answers are cached.
 PUBLIC_INFO_CACHE = os.environ.get("PUBLIC_INFO_CACHE", "/tmp/public-info.json")
 _public_info = None
 _public_info_lock = threading.Lock()
@@ -620,25 +637,34 @@ def _load_public_info():
 def _store_public_info(data):
     global _public_info
     with _public_info_lock:
+        if data == _public_info:
+            return
         _public_info = data
     try:
-        with open(PUBLIC_INFO_CACHE, "wb") as f:
+        tmp = PUBLIC_INFO_CACHE + ".tmp"
+        with open(tmp, "wb") as f:
             f.write(data)
+        os.replace(tmp, PUBLIC_INFO_CACHE)
     except OSError:
         pass
 
 
-def fetch_public_info(host, port):
-    """Relay Jellyfin's /System/Info/Public; returns bytes or None."""
+def fetch_public_info(host, port, timeout=3.0):
+    """Relay Jellyfin's /System/Info/Public; returns bytes or None.
+
+    Only a 200 whose body (<= 64 KiB) is a JSON object with an "Id" is cached.
+    Catches Exception: http.client.HTTPException is not an OSError.
+    """
     try:
         with urllib.request.urlopen("http://%s:%d/System/Info/Public" % (host, port),
-                                    timeout=3) as r:
-            data = r.read(65536)
-            if r.status == 200:
-                json.loads(data)
-                _store_public_info(data)
-                return data
-    except (OSError, ValueError):
+                                    timeout=timeout) as r:
+            data = r.read(65537)
+            if r.status == 200 and len(data) <= 65536:
+                obj = json.loads(data)
+                if isinstance(obj, dict) and "Id" in obj:
+                    _store_public_info(data)
+                    return data
+    except Exception:
         pass
     return None
 
@@ -709,8 +735,21 @@ class Handler(BaseHTTPRequestHandler):
         up = is_jellyfin_ready(PROBE_HOST, JELLYFIN_PORT)
         decision = jellyfin_decision(up, self.headers)
         held, cached, body = 0.0, False, None
+        browser = is_browser_navigation(self.headers) or is_browser_subresource(self.headers)
+
+        def relay():
+            budget = max(0.5, min(3.0, started + HOLD_SECONDS - time.monotonic()))
+            return fetch_public_info(PROBE_HOST, JELLYFIN_PORT, timeout=budget)
+
+        def cache():
+            with _public_info_lock:
+                return _public_info
+
         if decision == "pass":
-            body = fetch_public_info(PROBE_HOST, JELLYFIN_PORT)
+            body = relay()
+            if body is None:
+                body = cache()
+                cached = body is not None
         elif decision != "signin":
             if decision == "wake":
                 try:
@@ -720,21 +759,25 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     self.log_message("WoL send failed: %s", e)
             # hold first (bounded), then relay if healthy, else serve the cache
-            ready, held = hold_until_ready(PROBE_HOST, JELLYFIN_PORT, HOLD_SECONDS, started)
+            ready = False
+            if decision == "wake" or not browser:     # browsers are never held
+                ready, held = hold_until_ready(PROBE_HOST, JELLYFIN_PORT, HOLD_SECONDS, started)
             if ready:
-                body = fetch_public_info(PROBE_HOST, JELLYFIN_PORT)
+                body = relay()
             if body is None:
-                with _public_info_lock:
-                    body = _public_info
+                body = cache()
                 cached = body is not None
         rec = observe_record(self.headers, up, decision)
+        rec["path"] = "/System/Info/Public"     # proxied, not forwardAuth'd: no X-Forwarded-*
+        rec["method"] = self.command
+        rec["query_keys"] = _query_keys(urlparse(self.path).query)
         rec["held"] = round(held, 1)
         rec["cached"] = cached
         self.log_message("observe %s", json.dumps(rec, sort_keys=True))
         if decision == "signin":
             self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
         elif body is not None:
-            self._send(200, "application/json", body)
+            self._send(200, "application/json", body, cors=True)
         else:
             self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
 
@@ -867,8 +910,8 @@ class Handler(BaseHTTPRequestHandler):
                                  PROBE_HOST, port, MAC, BROADCAST)
             except Exception as e:
                 self.log_message("WoL send failed: %s", e)
-        if decision == "wake" or (decision == "starting"
-                                  and not is_browser_navigation(self.headers)):
+        if decision == "wake" or (decision == "starting" and not (
+                is_browser_navigation(self.headers) or is_browser_subresource(self.headers))):
             ready, held = hold_until_ready(PROBE_HOST, port, HOLD_SECONDS, started)
             if ready:
                 outcome = "pass"      # logged decision stays wake/starting
@@ -884,12 +927,14 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
 
-    def _send(self, status, ctype, body, retry_after=None):
+    def _send(self, status, ctype, body, retry_after=None, cors=False):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         if retry_after is not None:
             self.send_header("Retry-After", str(retry_after))
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", "*")   # as Jellyfin sends
         self.end_headers()
         if body:
             self.wfile.write(body)

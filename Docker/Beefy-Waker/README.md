@@ -73,8 +73,13 @@ jellyfin-web times out at 20 s, the Android TV app and Traefik's forwardAuth at
 30 s), counted from request arrival; then `/jf/public-info` serves the cached
 answer (or 503 without a cache). A cold boot takes ~50 s, so the idea is staged
 holds: each request is held just under its timeout and the app's chain of
-retries spans the boot.
-`observe` lines gain `held` (seconds held) and `cached`.
+retries spans the boot. The identity cache lives in memory and in
+`/tmp/public-info.json` (`PUBLIC_INFO_CACHE`): it survives a `docker restart`, not a
+container recreate (then the first request after a cold start has no cache until
+Jellyfin has been up once). Hold slots are limited (`HOLD_SLOTS`, 16): internet
+scanners can occupy them while beefy sleeps, and apps then get the pre-1.3.0
+instant 503 until a slot frees.
+`observe` lines gain `held` (seconds held), `cached` and `sec_fetch_dest`.
 
 **`observe` log:** one redacted JSON line per Jellyfin request while beefy is down,
 plus `/System/Info/Public` while up; never tokens or query values. Read it with:

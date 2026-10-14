@@ -512,19 +512,30 @@ class JellyfinHoldTest(unittest.TestCase):
         self.assertLess(dt, 1)
         self.assertEqual(self.observed()[0]["held"], 0)
 
-    def test_hold_seconds_is_clamped_below_traefik_timeout(self):
-        import importlib
-        mock.patch.stopall()
-        try:
-            with mock.patch.dict(os.environ, {"HOLD_SECONDS": "60", "HOLD_SLOTS": "0"}):
-                importlib.reload(waker)
-                clamped, slots_ok = waker.HOLD_SECONDS, waker._hold_slots.acquire(blocking=False)
-        finally:
-            importlib.reload(waker)
-            waker._campaign_running = False
-        self.assertEqual(clamped, 25.0)
-        self.assertTrue(slots_ok)            # HOLD_SLOTS=0 is raised to 1
-        self.assertEqual(waker.HOLD_SECONDS, 18.0)
+    def test_clamp_hold_seconds(self):
+        self.assertEqual(waker._clamp_hold_seconds("60"), 25.0)
+        self.assertEqual(waker._clamp_hold_seconds("-3"), 0.0)
+        self.assertEqual(waker._clamp_hold_seconds("12.5"), 12.5)
+        self.assertEqual(waker._clamp_hold_seconds("abc"), 18.0)
+        self.assertEqual(waker._clamp_hold_seconds(""), 18.0)
+
+    def test_clamp_hold_slots(self):
+        self.assertEqual(waker._clamp_hold_slots("0"), 1)
+        self.assertEqual(waker._clamp_hold_slots("-4"), 1)
+        self.assertEqual(waker._clamp_hold_slots("7"), 7)
+        self.assertEqual(waker._clamp_hold_slots("x"), 16)
+
+    def test_subresource_while_starting_is_not_held(self):
+        waker._campaign_running = True
+        hdr = {"Accept": "*/*", "Sec-Fetch-Dest": "script", "X-Forwarded-Uri": "/web/main.js"}
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 5):
+            t0 = time.monotonic()
+            status, _ = self.gate(hdr)
+            dt = time.monotonic() - t0
+        self.assertEqual(status, 503)
+        self.assertLess(dt, 1)
+        self.assertEqual(self.observed()[0]["held"], 0)
 
     def test_browser_is_not_held_while_starting(self):
         waker._campaign_running = True
@@ -681,6 +692,88 @@ class PublicInfoTest(unittest.TestCase):
             f.write(b'{"Id":"fromfile"}')
         waker._load_public_info()
         self.assertEqual(json.loads(waker._public_info)["Id"], "fromfile")
+
+
+    # --- review fixes ---
+    @staticmethod
+    def _fake_resp(status, data):
+        r = mock.MagicMock()
+        r.status = status
+        r.read.return_value = data
+        r.__enter__.return_value = r
+        return r
+
+    def _fetch_with(self, resp=None, exc=None):
+        with mock.patch("urllib.request.urlopen", side_effect=exc, return_value=resp):
+            return waker.fetch_public_info("127.0.0.1", 1)
+
+    def test_fetch_rejects_bad_answers(self):
+        fr = self._fake_resp
+        self.assertIsNone(self._fetch_with(fr(500, b'{"Id":"x"}')))
+        self.assertIsNone(self._fetch_with(fr(200, b"<html>hi</html>")))
+        self.assertIsNone(self._fetch_with(fr(200, b"[]")))
+        self.assertIsNone(self._fetch_with(fr(200, b"null")))
+        self.assertIsNone(self._fetch_with(fr(200, b'{"Version":"1"}')))
+        self.assertIsNone(self._fetch_with(fr(200, b'{"Id":"' + b"a" * 70000 + b'"}')))
+        self.assertIsNone(waker._public_info)
+
+    def test_fetch_survives_http_exception(self):
+        self.assertIsNone(self._fetch_with(exc=http.client.BadStatusLine("x")))
+
+    def test_fetch_takes_timeout(self):
+        with mock.patch("urllib.request.urlopen",
+                        return_value=self._fake_resp(200, b'{"Id":"a"}')) as m:
+            waker.fetch_public_info("h", 1, timeout=1.5)
+        self.assertEqual(m.call_args.kwargs["timeout"], 1.5)
+
+    def test_pass_but_relay_fails_serves_cache(self):
+        waker._public_info = self.Stub.body
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True), \
+             mock.patch.object(waker, "fetch_public_info", return_value=None):
+            status, body, _ = self.req(self.APP)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["Id"], "abc123")
+
+    def test_pass_but_relay_fails_no_cache_is_503(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True), \
+             mock.patch.object(waker, "fetch_public_info", return_value=None):
+            status, _, _ = self.req(self.APP)
+        self.assertEqual(status, 503)
+
+    def test_200_sends_cors_star(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True):
+            c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            c.request("GET", "/jf/public-info", headers=self.APP)
+            r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
+
+    def test_browser_navigation_while_starting_is_not_held(self):
+        waker._campaign_running = True
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 5):
+            t0 = time.monotonic()
+            self.req({"Accept": "text/html"})
+            dt = time.monotonic() - t0
+        self.assertLess(dt, 1)
+        self.assertEqual(self.observed()[0]["held"], 0)
+
+    def test_identical_relay_does_not_rewrite_cache(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True):
+            self.req(self.APP)
+            with mock.patch("os.replace") as rep:
+                self.req(self.APP)
+        rep.assert_not_called()
+        self.assertFalse(os.path.exists(self.cache.name + ".tmp"))
+
+    def test_observe_has_real_path_method_and_query_keys(self):
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=True):
+            c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            c.request("GET", "/jf/public-info?b=1&a=2", headers=self.APP)
+            c.getresponse().read(); c.close()
+        rec = self.observed()[0]
+        self.assertEqual(rec["path"], "/System/Info/Public")
+        self.assertEqual(rec["method"], "GET")
+        self.assertEqual(rec["query_keys"], ["a", "b"])
 
 
 
