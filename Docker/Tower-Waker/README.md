@@ -70,6 +70,20 @@ why are commented in `.env.example`: `TARGET_PROBE_PORT=8080` and
 `WAKE_COUNTDOWN=120`. `/history` does not work for tower (no journalctl on
 Unraid).
 
+## Flash backup (`scripts/tower-flash-backup.sh`)
+
+tower's whole identity lives on its USB flash (`/boot/config`: licence key,
+array/pool config, shares, users, secrets, plugins). A systemd **user timer on
+fastpi** (`tower-flash-backup.timer`, hourly, units in
+`~/.config/systemd/user/`) runs the script, which copies `/boot/config` to
+`~/backups/tower-flash/<date>/` once a day — **only when tower is already
+awake** (it checks the waker's `/status`, never sends a WoL), with 30
+hard-linked daily snapshots and `latest` pointing at the newest. The tree is
+mode 700 and outside git (it contains `shadow`, SSH keys, WireGuard keys).
+Logs: `journalctl --user -u tower-flash-backup.service`.
+Restore: new stick via the USB creator, copy a snapshot onto its `/config`,
+boot, Tools → Registration → Replace Key if the GUID changed.
+
 ## Operations
 
 - Out-of-band wake if this container is down: `wakeonlan 60:be:b4:17:0d:e0` on fastpi.
