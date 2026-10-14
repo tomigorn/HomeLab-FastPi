@@ -27,7 +27,7 @@ spans the boot and the app shows its own spinner the whole time:
   caches it (memory + `/tmp/public-info.json`). Not healthy → same decision rules as the gate,
   then **hold** (rule below); if Jellyfin became healthy → relay the real answer; else if a
   cache exists → **200 cached JSON**; else → the waking page as today. Only 200 answers are
-  cached. The app then believes the server is there and proceeds.
+  cached. The app then believes the server is there and proceeds. The cache is served only to requests with `Authorization: MediaBrowser` (native apps); jellyfin-web sends none on its connect check and wipes the saved token (forced logout) if its next authenticated `GET /System/Info` fails, so it gets the waking page instead.
 - **Stage 2 — the app's start-up calls.** For `policy=jellyfin`, a non-browser request that
   would today get an instant 503 ("starting" or "wake") is **held until Jellyfin is healthy,
   at most `HOLD_SECONDS` (default 18, clamp 0–25)**, polling `/health` every 1 s. Healthy

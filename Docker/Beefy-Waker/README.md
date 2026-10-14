@@ -71,7 +71,7 @@ is up, its clients get the "starting" page (no wake is sent, sshd answers).
 sleeps, app requests (never browsers) are held up to 18 s (`HOLD_SECONDS`, max 25;
 jellyfin-web times out at 20 s, the Android TV app and Traefik's forwardAuth at
 30 s), counted from request arrival; then `/jf/public-info` serves the cached
-answer (or 503 without a cache). A cold boot takes ~50 s, so the idea is staged
+answer (or 503 without a cache) to native apps only (`Authorization: MediaBrowser`); jellyfin-web's connect check has no such header and it logs the user out if its next authenticated call fails after a fake success, so it gets the waking page instead. A cold boot takes ~50 s, so the idea is staged
 holds: each request is held just under its timeout and the app's chain of
 retries spans the boot. The identity cache lives in memory and in
 `/tmp/public-info.json` (`PUBLIC_INFO_CACHE`): it survives a `docker restart`, not a

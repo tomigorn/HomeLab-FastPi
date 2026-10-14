@@ -493,6 +493,12 @@ def _client_ip(headers):
     return (headers.get("X-Forwarded-For") or "").split(",")[0].strip()[:45]
 
 
+def is_mediabrowser_client(headers):
+    """Native Jellyfin apps always send Authorization: MediaBrowser ...;
+    jellyfin-web's connect check sends no Authorization header."""
+    return (headers.get("Authorization") or "").strip().lower().startswith("mediabrowser")
+
+
 def observe_record(headers, up, decision):
     """Redacted fingerprint of a Jellyfin request, used to design the app rule.
 
@@ -501,7 +507,7 @@ def observe_record(headers, up, decision):
     """
     fwd_path, fwd_query = _forwarded_path_query(headers)
     auth = headers.get("Authorization") or ""
-    mb = auth.strip().lower().startswith("mediabrowser")
+    mb = is_mediabrowser_client(headers)
     emby_auth = headers.get("X-Emby-Authorization") or ""
     m = _CLIENT_RE.search(auth if mb else emby_auth)
     return {
@@ -742,6 +748,11 @@ class Handler(BaseHTTPRequestHandler):
             return fetch_public_info(PROBE_HOST, JELLYFIN_PORT, timeout=budget)
 
         def cache():
+            # Only native apps get the cached identity: jellyfin-web logs the user
+            # out when its follow-up authenticated call fails after a "successful"
+            # connect check, so for it "unavailable" is the safer answer.
+            if not is_mediabrowser_client(self.headers):
+                return None
             with _public_info_lock:
                 return _public_info
 

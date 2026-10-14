@@ -776,6 +776,31 @@ class PublicInfoTest(unittest.TestCase):
         self.assertEqual(rec["query_keys"], ["a", "b"])
 
 
+    def test_cached_not_served_without_mediabrowser_header(self):
+        # jellyfin-web (no Authorization on its connect check) logs the user out when
+        # the follow-up authenticated call fails, so it must not be fed the cache.
+        waker._public_info = self.Stub.body
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 0.3):
+            status, body, _ = self.req({"Accept": "application/json"})
+        self.assertEqual(status, 503)
+        self.assertIn(b"Waking up beefy", body)
+        self.assertFalse(self.observed()[0]["cached"])
+
+    def test_cached_served_to_mediabrowser_without_token(self):
+        waker._public_info = self.Stub.body
+        with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
+             mock.patch.object(waker, "HOLD_SECONDS", 0.3):
+            status, _, _ = self.req({"Accept": "application/json",
+                                     "Authorization": 'MediaBrowser Client="X"'})
+        self.assertEqual(status, 200)
+        self.assertTrue(self.observed()[0]["cached"])
+
+    def test_is_mediabrowser_client(self):
+        self.assertTrue(waker.is_mediabrowser_client({"Authorization": ' mediabrowser Client="X"'}))
+        self.assertFalse(waker.is_mediabrowser_client({"Authorization": "Bearer x"}))
+        self.assertFalse(waker.is_mediabrowser_client({}))
+
 
 class BrowserSubresourceTest(unittest.TestCase):
     """A browser's own sub-resource requests (favicon, css, js, images) must never wake
