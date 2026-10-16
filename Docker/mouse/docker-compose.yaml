@@ -207,7 +207,13 @@ services:
 # #########################################################
   mousehole:
     container_name: mousehole
-    image: tmmrtn/mousehole:latest
+    # Pinned to the last 0.2.x build by digest (2026-10-17): Mousehole 0.5 moved
+    # its configuration and ignores this volume's state.json ("No cookie set
+    # yet"), so a plain :latest update silently stops the MAM IP updates.
+    # To move to 0.5+: set image back to tmmrtn/mousehole:latest, up -d, open
+    # http://fastpi:5010 (password = MOUSEHOLE_AUTH_PASSWORD in .env) and
+    # re-enter the MAM session cookie.
+    image: tmmrtn/mousehole@sha256:9adfcfddb3395d33f0fbef50a6dc52a930769c57f2c0af2b3b9d6f7bfda6195c
     mem_limit: 256m
     depends_on:
       gluetun:
