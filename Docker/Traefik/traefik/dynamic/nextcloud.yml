@@ -51,6 +51,33 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Internet scanners were waking tower ~20x a day (2026-10-16: 802 requests
+    # in 24 h on this host, nearly all probing /.env, /.git/HEAD, wp-login...
+    # from clients that send NO User-Agent). Every new scanner IP passed the
+    # tower-wake gate and booted the NAS. The two routers below answer those
+    # requests 403 BEFORE the gate, so they can never wake tower:
+    #   - no User-Agent at all: no real browser or Nextcloud client omits it;
+    #   - well-known scanner paths. Nextcloud's own surface (/, /login,
+    #     /index.php, /remote.php, /ocs, /apps, /core, /s/<share>, /.well-known/
+    #     caldav|carddav|webfinger|nodeinfo, /status.php, ...) is not matched.
+    nextcloud-no-user-agent:
+      rule: "Host(`cloud.holy-grail.ch`) && !HeaderRegexp(`User-Agent`, `.`)"
+      priority: 95
+      entryPoints: ["websecure"]
+      service: nextcloud
+      middlewares:
+        - nextcloud-deny
+      tls:
+        certResolver: cloudflare
+    nextcloud-scanner-paths:
+      rule: "Host(`cloud.holy-grail.ch`) && PathRegexp(`(?i)^/(\\.env|\\.git|\\.aws|\\.ssh|\\.svn|\\.DS_Store|wp-|wordpress|xmlrpc\\.php|phpmyadmin|phpinfo|vendor/|cgi-bin|actuator|server-status|config\\.(json|yml|yaml|php)|backup|.*\\.(zip|sql|bak|tar|tgz|gz|rar|7z)$)`)"
+      priority: 94
+      entryPoints: ["websecure"]
+      service: nextcloud
+      middlewares:
+        - nextcloud-deny
+      tls:
+        certResolver: cloudflare
     nextcloud:
       rule: "Host(`cloud.holy-grail.ch`)"
       entryPoints: ["websecure"]
