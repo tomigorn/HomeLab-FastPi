@@ -224,6 +224,9 @@ services:
     network_mode: service:gluetun
     environment:
       - TZ=Europe/Zurich
+      # Mousehole >= 0.5 refuses to start without auth for its web UI (5010 is
+      # published on the LAN via gluetun). Password lives in .env.
+      - MOUSEHOLE_AUTH_PASSWORD=${MOUSEHOLE_AUTH_PASSWORD}
     restart: always
     labels:
       - autoheal-mouse=true
