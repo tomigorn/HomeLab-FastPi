@@ -228,6 +228,9 @@ services:
       # published on the LAN via gluetun). Password lives in .env.
       - MOUSEHOLE_AUTH_PASSWORD=${MOUSEHOLE_AUTH_PASSWORD}
       # The UI refuses hosts not listed here ("host not allowed" + Retry).
+      # 0.5 keeps its state (incl. the MAM cookie) in /var/lib/mousehole by
+      # default - inside the container, lost on every recreate. Point it at the volume.
+      - MOUSEHOLE_STATE_DIR_PATH=/srv/mousehole
       - MOUSEHOLE_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.2,fastpi,fastpi.local
     restart: always
     labels:
