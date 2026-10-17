@@ -127,3 +127,23 @@ Add `backups/` to each project's `.gitignore` so dumps/snapshots aren't committe
 ```gitignore
 backups/
 ```
+
+---
+
+## Scripted variant (`_global/scripts/update-project.sh`)
+
+The steps above, automated for the routine cases (first used for the 2026-10-17
+CVE round, 20 projects, 1 automatic rollback):
+
+```bash
+_global/scripts/update-project.sh <compose-dir> pull|build|recreate [backup paths...]
+```
+
+It snapshots the running image IDs, tars the given bind dirs / `vol:<name>`
+volumes into `~/backups/pre-update/<date>/<project>/`, pulls (or `build --pull`s,
+or just recreates on an already-pulled image), waits 45 s, and requires every
+container to be running (and healthy if it has a healthcheck) with 0 restarts —
+otherwise it re-tags the old image IDs and recreates (automatic rollback).
+`SERVICES="a b"` limits the pull/build to those services (keep gluetun out of it).
+It does NOT read release notes for you: majors and the stateful apps listed above
+still get the manual treatment.
