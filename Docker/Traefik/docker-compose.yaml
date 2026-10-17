@@ -6,7 +6,7 @@ services:
 # Traefik #################################################
 # #########################################################
   traefik:
-    image: traefik:latest
+    image: traefik:v3.7.15   # pinned; was :latest. Rollback image kept locally as traefik:rollback-v3.7.0
     container_name: traefik
     mem_limit: 256m
     restart: unless-stopped

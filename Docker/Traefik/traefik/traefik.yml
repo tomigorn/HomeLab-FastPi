@@ -2,6 +2,9 @@ entryPoints:
   web:
     address: ":80"
     http:
+      # Strip headers that alias a Traefik-managed one (X_Auth_User for
+      # X-Auth-User): PHP/CGI backends would read them as the real header.
+      aliasHeadersStrategy: delete
       redirections:
         entryPoint:
           to: websecure
@@ -10,6 +13,9 @@ entryPoints:
   websecure:
     address: ":443"
     http:
+      # Strip headers that alias a Traefik-managed one (X_Auth_User for
+      # X-Auth-User): PHP/CGI backends would read them as the real header.
+      aliasHeadersStrategy: delete
       middlewares:
         # Attached HERE, not per-router, so every public route is covered -
         # including any added later. Per-router attachment silently misses new
@@ -30,6 +36,9 @@ entryPoints:
   internal:
     address: ":8080"
     http:
+      # Strip headers that alias a Traefik-managed one (X_Auth_User for
+      # X-Auth-User): PHP/CGI backends would read them as the real header.
+      aliasHeadersStrategy: delete
       middlewares:
         - default-rate-limit@file
 
