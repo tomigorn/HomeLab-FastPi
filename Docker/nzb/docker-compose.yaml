@@ -32,7 +32,7 @@ services:
 # Gluetun VPN #############################################
 # #########################################################
   gluetun:
-    image: qmcgaw/gluetun
+    image: qmcgaw/gluetun:v3.41.3   # pinned release; :latest is the master/dev build
     container_name: gluetun_nzb
     mem_limit: 256m
     cap_add:

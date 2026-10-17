@@ -123,7 +123,7 @@ services:
 # Gluetun VPN #############################################
 # #########################################################
   gluetun:
-    image: qmcgaw/gluetun
+    image: qmcgaw/gluetun:v3.41.3   # pinned release; :latest is the master/dev build
     container_name: gluetun_mouse
     mem_limit: 256m
     cap_add:
@@ -135,6 +135,12 @@ services:
       - VPN_TYPE=wireguard
       - WIREGUARD_PRIVATE_KEY=${ProtonVPN_Private_Key}
       - SERVER_COUNTRIES=Switzerland
+      # MAM's session is ASN-locked. ProtonVPN's Swiss port-forwarding servers sit
+      # on two ASNs (Proton AG AS209103 and Datacamp AS212238); landing on the
+      # other one gives "Invalid session - ASN mismatch" (2026-10-17). node-ch-07
+      # is the only CH port-forwarding server on Proton's own ASN. If it is ever
+      # retired: drop this line and re-create the MAM session for the new ASN.
+      - SERVER_HOSTNAMES=node-ch-07.protonvpn.net
       - TZ=Europe/Zurich
       - VPN_PORT_FORWARDING=on
       - WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL=25s
