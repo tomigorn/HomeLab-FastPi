@@ -7,6 +7,17 @@ http:
       middlewares:
         - wg-easy-ipallowlist
 
+    # wg-easy v15 only issues its login cookie over HTTPS (Secure flag), so the UI
+    # is served on websecure too: https://wg-easy.fastpi.homelab - LAN/VPN only,
+    # Traefik's default self-signed cert (.homelab has no public cert; the browser
+    # warns once). The plain-HTTP :8080 router above stays for the old bookmark.
+    wg-easy-https:
+      rule: "Host(`wg-easy.fastpi.homelab`)"
+      entryPoints: ["websecure"]
+      service: wg-easy
+      middlewares:
+        - wg-easy-ipallowlist
+      tls: {}
   middlewares:
     wg-easy-ipallowlist:
       ipAllowList:

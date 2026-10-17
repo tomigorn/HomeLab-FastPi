@@ -6,18 +6,19 @@ services:
 # WireGuard wg-easy #######################################
 # #########################################################
   wg-easy:
-    image: ghcr.io/wg-easy/wg-easy
+    # v15 (2026-10-17, was v14): settings now live in the database
+    # (wg-easy-v15/wg-easy.db) and are edited in the Admin Panel, not via env.
+    # Migrated from v14's wg0.json, so all client keys/addresses are unchanged.
+    # Rollback: image wg-easy:rollback-v14 (kept locally) + the untouched ./wg-easy
+    # dir + the v14 compose in ~/backups/pre-update/2026-10-17-majors/.
+    image: ghcr.io/wg-easy/wg-easy:15.4.0
     container_name: WireGuard-VPN
-    mem_limit: 128m
+    mem_limit: 256m
     environment:
-      - LANG=en
-      - WG_HOST=${HOST_DOMAIN}
-      - WG_PORT=51820
-      - PASSWORD_HASH=${PASSWORD_HASH}
-      - WG_DEFAULT_DNS=192.168.1.2
-      - UI_CHART_TYPE=0
+      # v14 ran IPv4-only and the traefik_proxy network has no IPv6.
+      - DISABLE_IPV6=true
     volumes:
-      - ./wg-easy:/etc/wireguard
+      - ./wg-easy-v15:/etc/wireguard
       - /lib/modules:/lib/modules:ro
     ports:
       - "51820:51820/udp" # WireGuard VPN port

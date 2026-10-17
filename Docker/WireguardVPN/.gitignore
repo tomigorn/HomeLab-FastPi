@@ -2,3 +2,4 @@
 
 # Contains server & peer private keys — never commit
 wg-easy/
+wg-easy-v15/
