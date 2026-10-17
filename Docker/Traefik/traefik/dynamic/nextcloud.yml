@@ -78,6 +78,30 @@ http:
         - nextcloud-deny
       tls:
         certResolver: cloudflare
+    # Sign-in-to-wake (2026-10-17, same design as Jellyfin): while tower sleeps,
+    # the gate wakes it only for real Nextcloud use (Authorization header,
+    # Nextcloud desktop/phone client, or Nextcloud session cookies). An anonymous
+    # browser gets "sign in to start" -> /tower-wake/ (Authentik, groups
+    # cloud-users / cloud-admins) -> booting page that wakes tower. Everything
+    # else is refused without waking it.
+    nextcloud-outpost:
+      rule: "Host(`cloud.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 90
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+    nextcloud-wake-page:
+      rule: "Host(`cloud.holy-grail.ch`) && PathPrefix(`/tower-wake`)"
+      entryPoints: ["websecure"]
+      priority: 90
+      service: tower-waker-nc
+      middlewares:
+        - authentik@file
+        - nextcloud-wake-page-rewrite
+        - nextcloud-secure-headers
+      tls:
+        certResolver: cloudflare
     nextcloud:
       rule: "Host(`cloud.holy-grail.ch`)"
       entryPoints: ["websecure"]
@@ -85,7 +109,7 @@ http:
       service: nextcloud
       middlewares:
         - nextcloud-ratelimit
-        - tower-wake
+        - nextcloud-wake
         - nextcloud-secure-headers
       tls:
         certResolver: cloudflare
@@ -108,6 +132,14 @@ http:
     # tower still fires the magic packet. Wake-frequency limiting belongs in the
     # waker itself, which knows whether tower is down - not in a middleware that
     # sees every asset request.
+    nextcloud-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9002/gate?port=8080&policy=nextcloud"
+        trustForwardHeader: false
+    nextcloud-wake-page-rewrite:
+      replacePathRegex:
+        regex: "^/tower-wake/?(.*)"
+        replacement: "/nc/$1"
     nextcloud-ratelimit:
       rateLimit:
         average: 100
@@ -154,6 +186,10 @@ http:
           Server: ""
 
   services:
+    tower-waker-nc:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:9002"
     nextcloud:
       loadBalancer:
         servers:

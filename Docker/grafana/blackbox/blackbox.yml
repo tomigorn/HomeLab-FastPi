@@ -70,6 +70,20 @@ modules:
   # Expects exactly 403. Used to prove a deny router still sits in front of a
   # wake-gated route (cloud.holy-grail.ch/.env must be refused by Traefik, never
   # reach tower-wake). Anything else - 200, 302, 503 "waking up" - is a failure.
+  # Nextcloud on tower must redirect /login to the SSO login (302). A 500 means
+  # Nextcloud is up but broken. No redirects followed (that would leave the LAN).
+  http_nextcloud_login:
+    prober: http
+    timeout: 8s
+    http:
+      method: GET
+      valid_status_codes: [302]
+      follow_redirects: false
+      preferred_ip_protocol: ip4
+      fail_if_header_not_matches:
+        - header: Location
+          regexp: "user_oidc/login"
+
   http_forbidden:
     prober: http
     timeout: 10s

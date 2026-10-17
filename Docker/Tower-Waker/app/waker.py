@@ -114,6 +114,81 @@ WAKING_PAGE = b"""<!doctype html>
 </div></body></html>"""
 
 # Interactive manual wake page (served at /). __COUNTDOWN__ is replaced at serve time.
+# Shown by the gate (policy=nextcloud) to a browser without Nextcloud cookies
+# while tower is asleep. It does NOT wake tower; the button goes through Authentik.
+NC_SIGNIN_PAGE = b"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nextcloud is asleep</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;max-width:28rem;padding:2rem}
+  .moon{font-size:3rem;line-height:1;margin:0 auto 1rem}
+  h1{font-size:1.3rem;margin:.5rem 0}
+  p{color:#8b949e;margin:.25rem 0}
+  .btn{display:inline-block;text-decoration:none;font-weight:600;font-size:1.2rem;
+       padding:.9rem 2.2rem;margin:1.2rem 0 .4rem;border-radius:.7rem;
+       background:#238636;color:#fff}
+  .btn:hover{background:#2ea043}
+</style></head>
+<body><div class="card">
+  <div class="moon">&#128164;</div>
+  <h1>Nextcloud is asleep</h1>
+  <p>The storage server sleeps to save power.</p>
+  <a class="btn" href="/tower-wake/">Sign in to start it</a>
+  <p>It takes about two minutes to start after you sign in.</p>
+</div></body></html>"""
+
+# Public booting page at https://cloud.holy-grail.ch/tower-wake/ (behind
+# Authentik). Wakes tower once, polls readiness, then hands over to Nextcloud.
+NC_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starting Nextcloud</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;max-width:28rem;padding:2rem}
+  h1{font-size:1.3rem;margin:.5rem 0} p{color:#8b949e;margin:.25rem 0}
+  .n{font-size:2.4rem;font-weight:700;margin:1rem 0}
+  footer{color:#484f58;font-size:.75rem;margin-top:1.5rem}
+</style></head>
+<body><div class="card">
+  <h1 id="title">Starting Nextcloud&hellip;</h1>
+  <p id="sub">The storage server is booting. You will be taken to Nextcloud automatically.</p>
+  <div class="n" id="n">__COUNTDOWN__</div>
+  <footer>tower-waker __VERSION__</footer>
+</div>
+<script>
+const base = "/tower-wake/";
+let left = __COUNTDOWN__, waited = 0;
+fetch(base + "wake", {method: "POST"}).catch(() => {});
+const tick = setInterval(() => {
+  left = Math.max(0, left - 1); waited++;
+  document.getElementById("n").textContent = left > 0 ? left : "\u2026";
+  if (waited > __GIVEUP__) {
+    clearInterval(tick);
+    document.getElementById("title").textContent = "Nextcloud did not start";
+    document.getElementById("sub").textContent = "Try again in a few minutes, or tell the admin.";
+  }
+}, 1000);
+async function poll() {
+  try {
+    const r = await fetch(base + "status", {cache: "no-store"});
+    if ((await r.json()).up) {
+      document.getElementById("title").textContent = "Nextcloud is ready";
+      location.replace("/");
+      return;
+    }
+  } catch (e) {}
+  setTimeout(poll, 3000);
+}
+poll();
+</script></body></html>"""
+
 WAKE_PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -336,6 +411,50 @@ def wake():
     threading.Thread(target=_wake_campaign, daemon=True).start()
 
 
+def wake_in_progress():
+    with _campaign_lock:
+        return _campaign_running
+
+
+# --- policy=nextcloud --------------------------------------------------------
+# cloud.holy-grail.ch is public, and internet scanners kept booting tower (~20
+# wakes/day, 2026-10-16). The gate therefore only wakes tower on POSITIVE
+# evidence of a real Nextcloud user. Everything else is refused without a wake;
+# a browser gets a page with a sign-in (Authentik) button that wakes tower.
+#   - Authorization header: WebDAV, desktop/mobile sync with app passwords
+#   - Nextcloud client User-Agent: desktop ("mirall"), Android/iOS ("Nextcloud")
+#   - Nextcloud cookies from an earlier visit: nc_session_id / nc_token /
+#     nc_username / oc_sessionPassphrase (a returning, previously logged-in browser)
+_NC_COOKIES = ("nc_session_id=", "nc_token=", "nc_username=", "oc_sessionpassphrase=")
+
+
+def is_nextcloud_client(headers):
+    if (headers.get("Authorization") or "").strip():
+        return True
+    ua = (headers.get("User-Agent") or "").lower()
+    if "mirall" in ua or "nextcloud" in ua:
+        return True
+    cookie = (headers.get("Cookie") or "").lower()
+    return any(c in cookie for c in _NC_COOKIES)
+
+
+def is_browser_navigation(headers):
+    return "text/html" in (headers.get("Accept") or "").lower()
+
+
+def nextcloud_decision(up, starting, headers):
+    """pass | starting | wake | signin | refuse   (no WoL except for 'wake')."""
+    if up:
+        return "pass"
+    if starting:
+        return "starting"
+    if is_nextcloud_client(headers):
+        return "wake"
+    if is_browser_navigation(headers):
+        return "signin"
+    return "refuse"
+
+
 def is_up(host, port):
     try:
         with socket.create_connection((host, port), timeout=PROBE_TIMEOUT):
@@ -370,6 +489,13 @@ class Handler(BaseHTTPRequestHandler):
             self._history()
         elif path == "/gate":
             self._gate()
+        elif path == "/nc":
+            self._nc_page()
+        elif path == "/nc/status":
+            self._send(200, "application/json",
+                       json.dumps({"up": is_up(PROBE_HOST, PROBE_PORT)}).encode())
+        elif path == "/nc/wake":
+            self._nc_wake()
         else:
             self.send_error(404)
 
@@ -450,6 +576,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError(port)
         except (ValueError, TypeError):
             port = PROBE_PORT
+        if q.get("policy", [""])[0] == "nextcloud":
+            self._gate_nextcloud(port)
+            return
         if is_up(PROBE_HOST, port):
             self._send(200, "text/plain", b"")
             return
@@ -460,6 +589,53 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.log_message("WoL send failed: %s", e)
         self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+
+    def _gate_nextcloud(self, port):
+        up = is_up(PROBE_HOST, port)
+        starting = not up and (wake_in_progress() or is_up(PROBE_HOST, 22))
+        decision = nextcloud_decision(up, starting, self.headers)
+        if decision == "pass":
+            self._send(200, "text/plain", b"")
+            return
+        ip = (self.headers.get("CF-Connecting-IP") or self.headers.get("X-Forwarded-For") or "?")[:45]
+        path = (self.headers.get("X-Forwarded-Uri") or "/").split("?", 1)[0][:120]
+        ua = (self.headers.get("User-Agent") or "-")[:60]
+        if decision == "wake":
+            try:
+                wake()
+                self.log_message("tower down (%s:%d) - sent WoL to %s via %s [nextcloud client %s %s]",
+                                 PROBE_HOST, port, MAC, BROADCAST, ip, ua)
+            except Exception as e:
+                self.log_message("WoL send failed: %s", e)
+        else:
+            self.log_message("nextcloud %s (no wake) %s %s %s", decision, ip, path, ua)
+        if decision == "signin":
+            self._send(503, "text/html; charset=utf-8", NC_SIGNIN_PAGE)
+        elif decision == "refuse":
+            self._send(503, "text/plain; charset=utf-8", b"Nextcloud is asleep.\n")
+        else:
+            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+
+    def _nc_page(self):
+        body = (NC_PAGE.replace("__COUNTDOWN__", str(COUNTDOWN))
+                       .replace("__GIVEUP__", str(WAKE_RETRY_WINDOW + 60))
+                       .replace("__VERSION__", VERSION).encode())
+        self._send(200, "text/html; charset=utf-8", body)
+
+    def _nc_wake(self):
+        # Reached only through Authentik (Traefik /tower-wake/ router).
+        if self.command != "POST":
+            self._send(405, "application/json", json.dumps({"error": "POST only"}).encode())
+            return
+        user = (self.headers.get("X-Authentik-Username") or "?")[:64]
+        try:
+            wake()
+            self.log_message("nc wake by %s -> sent WoL to %s via %s", user, MAC, BROADCAST)
+            sent = True
+        except Exception as e:
+            self.log_message("WoL send failed: %s", e)
+            sent = False
+        self._send(200, "application/json", json.dumps({"sent": sent}).encode())
 
     def _send(self, status, ctype, body, retry_after=None):
         self.send_response(status)

@@ -180,15 +180,20 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox-exporter:9115
 
+  # A real page load, not just "port open": on 2026-10-17 the port answered and
+  # /status.php said 200 while every page returned 500 (a crash left the
+  # user_oidc app's files empty) and nothing noticed for 8 hours. /login must
+  # answer 302 (redirect to the Authentik login). Direct LAN IP, so it cannot
+  # wake tower; tower's idle-shutdown ignores the Blackbox User-Agent.
   - job_name: "blackbox-tower-nextcloud"
     scrape_interval: 60s
     scrape_timeout: 10s
     metrics_path: /probe
     params:
-      module: [tcp_connect]
+      module: [http_nextcloud_login]
     static_configs:
       - targets:
-          - 192.168.1.101:8080
+          - http://192.168.1.101:8080/login
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

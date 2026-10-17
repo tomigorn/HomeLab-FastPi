@@ -17,7 +17,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "tower is up but Nextcloud (array/Docker) is not"
+          summary: "tower is up but Nextcloud is down or broken (array/Docker/app error)"
           description: >-
             tower has answered on port 22 for 30 minutes while nothing listens
             on 8080. Check Unraid's registration (Tools > Registration), the
