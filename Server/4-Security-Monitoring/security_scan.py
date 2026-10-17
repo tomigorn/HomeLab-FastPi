@@ -324,10 +324,17 @@ def publish(subject: str, samples: list, helps: dict) -> None:
     write_atomic(TEXTFILE / _prom_name(subject), render_metrics(samples, helps))
 
 
+# tower's plain "tower" ssh alias fires a Wake-on-LAN (Match block in
+# ~/.ssh/config), which would turn every nightly scan into a forced wake-up.
+# "tower-direct" is the same box without that hook: asleep simply means
+# unreachable, which guarded() already reports as staleness.
+SSH_ALIAS = {"tower": "tower-direct"}
+
+
 def ssh(host: str, cmd: str, timeout: int = 300) -> subprocess.CompletedProcess:
     return run([
         "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-        "-o", "StrictHostKeyChecking=accept-new", host, cmd,
+        "-o", "StrictHostKeyChecking=accept-new", SSH_ALIAS.get(host, host), cmd,
     ], timeout=timeout)
 
 
@@ -356,6 +363,8 @@ def collect_patches(host: str) -> dict[str, int]:
 
 
 def running_images(host: str) -> list[str]:
+    if host in REMOTE_SCAN_HOSTS:
+        return running_image_digests(host)
     cmd = "docker ps --format '{{.Image}}'"
     r = run(["docker", "ps", "--format", "{{.Image}}"], timeout=120) if host == "fastpi" else ssh(host, cmd)
     if r.returncode != 0:
@@ -366,6 +375,25 @@ def running_images(host: str) -> list[str]:
             seen.add(line)
             out.append(line)
     return out
+
+
+# Hosts whose images are scanned FROM fastpi, straight from the registry, instead
+# of on the host. tower (Unraid, Docker on a ZFS dataset) hit a kernel ZFS oops on
+# 2026-10-17 a minute after a Trivy container started writing its cache and image
+# layers to the pool; nothing heavy runs there any more. Scanning the registry
+# copy is only accurate if it is the SAME image, so running_image_digests()
+# resolves each running container to its repo digest (repo@sha256:...), and the
+# scan pins the platform because fastpi is arm64 and tower is amd64.
+REMOTE_SCAN_HOSTS = {"tower": "linux/amd64"}
+
+
+def running_image_digests(host: str) -> list[str]:
+    cmd = ("for i in $(docker ps --format '{{.Image}}' | sort -u); do "
+           "docker image inspect -f '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}'\"$i\"'{{end}}' \"$i\"; done")
+    r = ssh(host, cmd, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"docker ps on {host}: {r.stderr.strip()[:200]}")
+    return sorted({line.strip() for line in r.stdout.splitlines() if line.strip()})
 
 
 # Per-host Trivy wiring. Each host already runs a strictly read-only Docker
@@ -390,6 +418,10 @@ TRIVY_HOSTS = {
 
 def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str] | str:
     """Build a Trivy invocation, local (list) or remote (shell string)."""
+    if host in REMOTE_SCAN_HOSTS:   # runs on fastpi, needs the internet, no socket
+        return ["docker", "run", "--rm",
+                "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
+                "aquasec/trivy:latest", *args]
     cfg = TRIVY_HOSTS[host]
     net = ["--network", cfg["network"], "-e", f"DOCKER_HOST={cfg['docker_host']}"] if attach_proxy else []
     if host == "fastpi":
@@ -402,7 +434,8 @@ def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str] |
 
 def _trivy_run(host: str, args: list[str], *, attach_proxy: bool, timeout: int):
     cmd = _trivy_cmd(host, args, attach_proxy=attach_proxy)
-    return run(cmd, timeout=timeout) if host == "fastpi" else ssh(host, cmd, timeout=timeout)
+    local = host == "fastpi" or host in REMOTE_SCAN_HOSTS
+    return run(cmd, timeout=timeout) if local else ssh(host, cmd, timeout=timeout)
 
 
 def download_trivy_db(host: str) -> None:
@@ -450,13 +483,15 @@ def collect_images(host: str) -> tuple[dict[str, int], dict[str, int], int, int]
     # WHICH image is just a number to feel bad about.
     detail: list[tuple[int, int, str]] = []
     download_trivy_db(host)
+    platform = REMOTE_SCAN_HOSTS.get(host)
+    src = ["--image-src", "remote", "--platform", platform] if platform else ["--image-src", "docker"]
     for image in running_images(host):
         r = _trivy_run(host, [
-            "image", "--image-src", "docker", "--scanners", "vuln",
+            "image", *src, "--scanners", "vuln",
             "--skip-db-update", "--skip-java-db-update",
             "--quiet", "--format", "json",
             "--timeout", "10m", image,
-        ], attach_proxy=True, timeout=1200)
+        ], attach_proxy=not platform, timeout=1200)
         if r.returncode != 0 or not r.stdout.strip():
             unscannable += 1
             print(f"  unscannable on {host}: {image} ({r.stderr.strip()[-160:]})", file=sys.stderr)
@@ -574,7 +609,7 @@ def main() -> int:
             guarded(f"patches-{host}", _pat, host=host)
 
     if want("images"):
-        for host in ("fastpi", "beefy"):
+        for host in ("fastpi", "beefy", "tower"):
             def _img(host=host):
                 totals, fixables, scanned, bad = collect_images(host)
                 out = [("security_image_vulnerabilities", {"host": host, "severity": k}, v)

@@ -67,6 +67,18 @@ modules:
   # to sshd never touches the Beefy-Waker gate, so unlike an HTTPS probe of a
   # beefy route it cannot send a WoL. TCP rather than ICMP because ping needs
   # CAP_NET_RAW and this container drops every capability.
+  # Expects exactly 403. Used to prove a deny router still sits in front of a
+  # wake-gated route (cloud.holy-grail.ch/.env must be refused by Traefik, never
+  # reach tower-wake). Anything else - 200, 302, 503 "waking up" - is a failure.
+  http_forbidden:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [403]
+      follow_redirects: false
+      preferred_ip_protocol: ip4
+
   tcp_connect:
     prober: tcp
     timeout: 5s

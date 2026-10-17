@@ -36,3 +36,18 @@ groups:
             tower has switched between up and down {{ $value }} times in the
             last 24 hours. Find the waker: sudo grep -a 'tower down\|manual wake'
             on the tower-waker container log.
+
+      # The scanner filter in front of tower-wake is gone or broken: requests
+      # for /.env on cloud.holy-grail.ch are no longer refused by Traefik, so
+      # every internet scanner wakes tower again (and so does this probe).
+      - alert: TowerScannerFilterMissing
+        expr: probe_success{job="blackbox-tower-guard"} == 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "cloud.holy-grail.ch no longer refuses scanner paths before the tower wake gate"
+          description: >-
+            https://cloud.holy-grail.ch/.env did not return 403. Check the
+            nextcloud-no-user-agent / nextcloud-scanner-paths routers in
+            Traefik/traefik/dynamic/nextcloud.yml - without them scanners wake
+            tower ~20x a day.

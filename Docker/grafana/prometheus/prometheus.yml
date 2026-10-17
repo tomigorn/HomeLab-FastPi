@@ -158,6 +158,28 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox-exporter:9115
 
+  # Guard for the 2026-10-16 scanner wake-loop fix: a scanner path on the public
+  # Nextcloud host must be answered 403 by Traefik's nextcloud-scanner-paths
+  # router BEFORE the tower-wake gate. 15m interval on purpose: if that router
+  # ever disappears, this probe itself would pass the gate and wake tower, so it
+  # must not fire often. tower-power.yml alerts on a single failed probe.
+  - job_name: "blackbox-tower-guard"
+    scrape_interval: 15m
+    scrape_timeout: 15s
+    metrics_path: /probe
+    params:
+      module: [http_forbidden]
+    static_configs:
+      - targets:
+          - https://cloud.holy-grail.ch/.env
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: instance
+        replacement: tower-scanner-guard
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
   - job_name: "blackbox-tower-nextcloud"
     scrape_interval: 60s
     scrape_timeout: 10s
