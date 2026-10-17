@@ -92,6 +92,13 @@ boot, Tools → Registration → Replace Key if the GUID changed.
   whenever Nextcloud is not answering — which re-wakes tower mid-shutdown. To
   reach tower without waking it: `ssh -i ~/.ssh/tower -o IdentitiesOnly=yes root@192.168.1.101`.
   To check whether it is up without waking it: `curl http://192.168.1.2:9002/status`.
+- **Scanner traffic must never reach the gate.** 2026-10-16 the TowerWakeLoop alert
+  fired: 802 requests/24 h on `cloud.holy-grail.ch`, nearly all internet scanners
+  (no User-Agent, `/.env`, `/.git/HEAD`, `wp-login`…), and every new scanner IP woke
+  tower. `Traefik/.../nextcloud.yml` now has two higher-priority routers that answer
+  403 before the `tower-wake` middleware: one for requests without a User-Agent, one
+  for well-known scanner paths. Any other public host behind a wake gate needs the
+  same (or Authentik in front, as Jellyfin has).
 - Licence: Unraid refuses to start the array without a valid key on the flash
   (`/boot/config/*.key`); emhttpd logs `cmdStart: no registration key`. Since
   2026-10-14 tower runs a perpetual **Starter** key (`Starter.key`; OS updates
