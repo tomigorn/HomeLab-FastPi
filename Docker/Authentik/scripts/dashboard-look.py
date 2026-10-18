@@ -30,13 +30,13 @@ APPS = {
     "sabnzbd":           ("Downloads", "Usenet downloader", "SABnzbd", None),
     "qbittorrent":       ("Downloads", "Torrent client", "qBittorrent", None),
     "bazarr":            ("Downloads", "Subtitles", "Bazarr", None),
-    "grafana":           ("Admin", "Dashboards & metrics", "Grafana Labs", None),
-    "portainer":         ("Admin", "Docker management", "Portainer", None),
-    "adguard":           ("Admin", "DNS & ad blocking", "AdGuard", None),
-    "traefik-dashboard": ("Admin", "Reverse proxy routes", "Traefik Labs", None),
-    "wg-easy":           ("Admin", "WireGuard VPN clients", "wg-easy", None),
-    "home-assistant":    ("Admin", "Smart home", "Home Assistant", None),
-    "cup":               ("Admin", "Container image updates", "Cup", None),
+    "grafana":           ("Homelab", "Dashboards & metrics", "Grafana Labs", None),
+    "portainer":         ("Homelab", "Docker management", "Portainer", None),
+    "adguard":           ("Homelab", "DNS & ad blocking", "AdGuard", None),
+    "traefik-dashboard": ("Homelab", "Reverse proxy routes", "Traefik Labs", None),
+    "wg-easy":           ("Homelab", "WireGuard VPN clients", "wg-easy", None),
+    "home-assistant":    ("Homelab", "Smart home", "Home Assistant", None),
+    "cup":               ("Homelab", "Container image updates", "Cup", None),
     "avatar-picker":     ("Account", "Choose your profile picture", "Holy Grail", "fa://fa-user-circle"),
 }
 
@@ -75,8 +75,10 @@ CUSTOM_CSS = """\
 /* Gold section titles */
 :host([theme="dark"]) [part="app-group-header"] h2 { color: #ffe7a3; }
 
-/* Media section first (sections otherwise sort A-Z; grid view only) */
+/* Section order (sections otherwise sort A-Z; grid view only):
+   Media first, Homelab (infrastructure admin tools) last. */
 [part="app-list"] [data-group-id="media"] { order: -1; }
+[part="app-list"] [data-group-id="homelab"] { order: 99; }
 """
 
 
