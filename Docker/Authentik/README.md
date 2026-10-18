@@ -337,8 +337,8 @@ failure left no trace. Only the passport-error path logs, and it redirects to
 
 ## Admin SSO (homelab-admins)
 
-Six admin tools sit behind Authentik: Traefik dashboard, Grafana, Portainer,
-AdGuard Home, wg-easy and Home Assistant. Access to each is an Authentik
+Seven admin tools sit behind Authentik: Traefik dashboard, Grafana, Portainer,
+AdGuard Home, wg-easy, Home Assistant and Claude mockups. Access to each is an Authentik
 Application group binding to `homelab-admins` (an application with a binding is
 denied to everyone the bindings don't pass). All six hostnames are reachable from
 LAN and VPN only, via the `local-networks@file` Traefik middleware. The whole
@@ -362,6 +362,7 @@ the VPN: the Cloudflare SSH tunnel (see `WireguardVPN/README.md`). Machine acces
 | AdGuard Home | https://adguard.holy-grail.ch | forward auth; Authentik injects HTTP Basic for AdGuard user `authentik-proxy` (middleware `authentik-basic@file`; credentials in `homelab-admins` group attributes `adguard_username` / `adguard_password`) | no human user (only `authentik-proxy`). Shell: add a user (bcrypt hash) under `users:` in `adguard/conf/AdGuardHome.yaml` with the container stopped, start it, `ssh -L 3000:127.0.0.1:3000 fastpi`; steps in `adguard/docker-compose.yaml` |
 | wg-easy | https://wg-easy.holy-grail.ch | native OIDC (custom `email_verified` scope mapping; admin linked by email) | password login disabled (`DISABLE_PASSWORD_AUTH=true`). Shell: set it to `false` in `WireguardVPN/docker-compose.yaml`, `docker compose up -d`, log in at `/login?auto_launch=false`, set it back; lost password: `docker exec -it WireGuard-VPN cli db:admin:reset` |
 | Home Assistant | https://ha.holy-grail.ch | `hass-oidc-auth` 1.2.1 (public client) | none over the web: re-add the `homeassistant` auth provider from the shell + restart (see Home-Assistant README) |
+| Claude mockups | https://claude-mockups.holy-grail.ch | forward auth (`authentik@file`); the answer-inbox POST is same-origin and rides the session cookie | none over the web (basic auth removed 2026-10-19). Shell: read `Claude-Mockups/www/` and `answers/` directly; steps in `Claude-Mockups/README.md` |
 
 ### Re-running the provisioning
 

@@ -37,6 +37,7 @@ APPS = {
     "wg-easy":           ("Homelab", "WireGuard VPN clients", "wg-easy", None),
     "home-assistant":    ("Homelab", "Smart home", "Home Assistant", None),
     "cup":               ("Homelab", "Container image updates", "Cup", None),
+    "claude-mockups":    ("Homelab", "UI mockups & demos", "Holy Grail", "fa://fa-palette"),
     "avatar-picker":     ("Account", "Choose your profile picture", "Holy Grail", "fa://fa-user-circle"),
 }
 

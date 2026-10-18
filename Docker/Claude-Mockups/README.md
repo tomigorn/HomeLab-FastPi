@@ -1,11 +1,11 @@
 # Claude-Mockups
 
-A private, password-protected space for hosting throwaway UI mockups and demos so
+A private space (Holy Grail SSO only) for hosting throwaway UI mockups and demos so
 they can be reviewed remotely (not just on `localhost`).
 
-- **URL:** https://claude-mockups.holy-grail.ch (behind HTTP basic auth)
+- **URL:** https://claude-mockups.holy-grail.ch (Holy Grail / Authentik SSO login, group `homelab-admins`)
 - **Server:** a single `caddy:alpine` container serving static files with a
-  styled directory listing and enforcing basic auth (see `Caddyfile`).
+  styled directory listing (see `Caddyfile`). Caddy does no auth.
 - **Content:** one subfolder per demo under `www/`.
 
 ## How it's wired
@@ -15,9 +15,11 @@ Internet
   → Cloudflare edge + Tunnel (cloudflared)        public hostname route
   → https://192.168.1.2:443  (this Pi's Traefik)  No TLS Verify: On
   → Traefik router  Host(`claude-mockups.holy-grail.ch`)
-       middlewares: default-rate-limit → secure-headers   (TLS terminates here)
+       middlewares: authentik@file (forward auth) → default-rate-limit → secure-headers
+       (TLS terminates here; companion router claude-mockups-outpost serves
+        /outpost.goauthentik.io/ straight to the Authentik outpost)
   → http://claude-mockups:80  (the Caddy container, on the traefik_proxy network)
-       Caddy enforces basic auth, then serves:
+       Caddy serves:
   → /srv  ==  ./www
 ```
 
@@ -25,10 +27,9 @@ Files that make this work:
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yaml` | the Caddy container; injects the auth env vars |
-| `Caddyfile` | serves `/srv` with directory browse + basic auth |
-| `.env` | `BASIC_AUTH_USER` + bcrypt `BASIC_AUTH_HASH` (gitignored) |
-| `set-password.sh` | interactively set the password (no plaintext in history) |
+| `docker-compose.yaml` | the Caddy container and the answer-inbox |
+| `Caddyfile` | serves `/srv` with directory browse (no auth: Traefik does it) |
+| `.env` | only `COMPOSE_PROJECT_NAME` (no secrets any more) |
 | `www/` | demo content, one subfolder per mockup (gitignored) |
 | `assets/` | durable client lib for interactive answers (`answer.js`/`.css`), served at `/_assets/*` |
 | `inbox/server.js` | tiny dependency-free `answer-inbox` service (records selections) |
@@ -67,7 +68,7 @@ sent straight back to Claude** — no returning to the terminal to retype it.
 How it's wired:
 
 ```
-browser  --POST /_inbox/submit-->  Caddy (basic auth)  --strip /_inbox-->  answer-inbox:8080
+browser  --POST /_inbox/submit-->  Caddy (after Traefik forward auth)  --strip /_inbox-->  answer-inbox:8080
                                                                               writes answers/<token>.json
 Claude (on the Pi)  <--reads--  answers/<token>.json   (and waits for it to appear)
 ```
@@ -76,8 +77,9 @@ Claude (on the Pi)  <--reads--  answers/<token>.json   (and waits for it to appe
   network — never exposed via Traefik. It only accepts a validated `token`
   (`[A-Za-z0-9_-]{6,64}`, which also blocks path traversal) and atomically
   writes `answers/<token>.json`.
-- The POST rides the page's existing basic-auth session (same origin), so it's
-  gated exactly like the rest of the site.
+- The POST rides the page's Authentik session cookie (same origin), so it's
+  gated exactly like the rest of the site. If the SSO session expires while a
+  page is open, the POST gets a cross-origin 302 and fails: reload the page.
 
 **Make a question page** — give the `<body>` a unique token, mark options with
 `data-choice`, add a Confirm button, and include the client lib:
@@ -126,28 +128,21 @@ The Traefik route is picked up automatically (Traefik watches `/dynamic`).
    application routes → Add:** hostname `claude-mockups.holy-grail.ch`,
    service `HTTPS` → `192.168.1.2:443`, **No TLS Verify: On**.
    Cloudflare auto-creates the DNS record.
-2. **Basic-auth login** is set in `.env` (`BASIC_AUTH_USER` + bcrypt
-   `BASIC_AUTH_HASH`). The hash never stores plaintext.
+2. **Authentik side (Holy Grail SSO):** provider `claude-mockups-proxy` and application
+   `claude-mockups` (bound to group `homelab-admins`) come from section 7 of
+   `../Authentik/scripts/provision-admin-sso.py`; the dashboard look from
+   `../Authentik/scripts/dashboard-look.py`. See "Admin SSO" in `../Authentik/README.md`.
 
-   **Change the password (interactive, never touches shell history):**
-   ```bash
-   ./set-password.sh
-   ```
-   It prompts silently, hashes via `caddy hash-password` (password read from
-   stdin, never an argument), writes the `$$`-escaped hash into `.env`, and
-   recreates the container.
-
-   Manual equivalent, if you prefer:
-   ```bash
-   read -rsp "New password: " PW && echo
-   printf '%s\n' "$PW" | docker run --rm -i caddy:alpine caddy hash-password | sed 's/\$/$$/g'
-   unset PW   # paste the printed hash as BASIC_AUTH_HASH in .env, then: docker compose up -d --force-recreate
-   ```
+   **Recovery when Authentik is down (server shell only):** read `www/` and `answers/`
+   directly; or temporarily add `basic_auth { user <caddy-hash-password hash> }` to the
+   `Caddyfile` site block and add a temporary Traefik router without `authentik@file`
+   (the dynamic dir is watched), then undo both.
 
 ## Security notes
 
-- Whole subdomain is gated by **basic auth** (shared login), enforced by Caddy;
-  credentials live in `.env` as a **bcrypt hash** (no plaintext, gitignored).
+- Whole subdomain is gated by **Authentik forward auth** (Holy Grail SSO, group
+  `homelab-admins`) at Traefik. Caddy and answer-inbox have no host ports and are
+  only reachable through Traefik / the internal network.
 - Secure headers (HSTS, nosniff, frameDeny, referrer-policy) are applied by
   Traefik, but **no strict CSP** — mockups legitimately use CDNs and inline
   scripts/styles.

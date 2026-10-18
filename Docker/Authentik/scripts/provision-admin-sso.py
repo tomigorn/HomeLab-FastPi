@@ -149,5 +149,12 @@ ha = oidc("home-assistant", ["https://ha.holy-grail.ch/auth/oidc/callback"],
 app_for("home-assistant", "Home Assistant", ha, "https://ha.holy-grail.ch")
 env("Home-Assistant/.env", HA_OIDC_CLIENT_ID=ha.client_id)
 
+# 7. Claude-Mockups (forward auth; route in Docker/Traefik/traefik/dynamic/claude-mockups.yml).
+# Replaces the old Caddy basic_auth. The answer-inbox POST (/_inbox/submit) is same-origin, so
+# the proxy session cookie travels with it and needs no separate route.
+app_for("claude-mockups", "Claude mockups",
+        proxy("claude-mockups-proxy", "https://claude-mockups.holy-grail.ch"),
+        "https://claude-mockups.holy-grail.ch")
+
 outpost.save()
 print("OK provisioned")

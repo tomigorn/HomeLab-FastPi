@@ -1,19 +1,31 @@
 http:
   routers:
+    # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
+    claude-mockups-outpost:
+      rule: "Host(`claude-mockups.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
     claude-mockups:
       rule: "Host(`claude-mockups.holy-grail.ch`)"
       entryPoints: ["websecure"]
       priority: 1
       service: claude-mockups
       middlewares:
+        - authentik@file
         - default-rate-limit@file
         - claude-mockups-secure-headers
       tls:
         certResolver: cloudflare
 
   middlewares:
-    # NOTE: basic auth is enforced by the Caddy container itself (credentials
-    # in the project's .env), not here. Traefik does TLS + rate-limit + headers.
+    # NOTE: authentication is Authentik forward auth (authentik@file; app
+    # "Claude mockups", group homelab-admins; Docker/Authentik/scripts/
+    # provision-admin-sso.py). Caddy does no auth. This also covers the
+    # same-origin answer-inbox POST (/_inbox/submit).
     claude-mockups-secure-headers:
       headers:
         stsSeconds: 31536000
@@ -27,7 +39,7 @@ http:
           # NOTE: deliberately NO Content-Security-Policy here. Mockups are
           # throwaway demos that legitimately load CDN scripts, fonts, and use
           # inline <script>/<style>. A strict CSP would break them. The space
-          # is gated behind basic auth and serves only our own static files.
+          # is gated behind Holy Grail SSO and serves only our own static files.
           Server: ""
 
   services:

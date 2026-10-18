@@ -78,7 +78,8 @@ check "home assistant oidc -> sso"  'sso\.holy-grail\.ch/application/o/authorize
 check "home assistant sso-only"     '^auth_oidc$' "$(curl -s -m 5 http://192.168.1.2:8123/auth/providers | python3 -c 'import json,sys; print(",".join(p["type"] for p in json.load(sys.stdin)["providers"]))')"
 check "m4b dashboard"              '^200$' "$(http http://192.168.1.2:8099/)"
 check "stonks"                     '^(200|30[23])$' "$(http https://stonks.holy-grail.ch/)"
-check "claude-mockups (auth)"      '^401$' "$(http https://claude-mockups.holy-grail.ch/)"
+check "claude-mockups -> sso"      '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 https://claude-mockups.holy-grail.ch/ | cut -c1-60)"
+check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 -X POST --data '{}' https://claude-mockups.holy-grail.ch/_inbox/submit | cut -c1-40)"
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
 check "tower waker v1.2.0"         '1\.2\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
 
@@ -94,7 +95,7 @@ check "mousehole -> MAM"           '"ok"' "$(curl -s -m 5 http://127.0.0.1:5010/
 # localhost-only host ports (SSO-only, 2026-10-19): nothing answers on the LAN IP.
 check "sabnzbd (localhost :8090)"  '^200$' "$(http http://127.0.0.1:8090/)"
 check "cup api (172.24.0.1:8000)"  '"images"' "$(curl -s -m 10 http://172.24.0.1:8000/api/v3/json | head -c 20)"
-for p in 5010 8000 8085 8087 8090; do check "port $p not on LAN"          '^000$' "$(http http://192.168.1.2:$p/)"; done
+for p in 3002 5000 5432 5010 8000 8083 8084 8085 8087 8088 8089 8090 8978; do check "port $p not on LAN"          '^000$' "$(http http://192.168.1.2:$p/)"; done
 
 echo "== wg-easy (v15)"
 check "wg-easy version"            '15\.4\.0' "$(docker inspect -f '{{.Config.Image}}' WireGuard-VPN)"
