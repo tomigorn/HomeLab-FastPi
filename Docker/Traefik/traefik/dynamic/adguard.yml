@@ -1,0 +1,40 @@
+# AdGuard Home UI: https://adguard.holy-grail.ch - LAN+VPN only, Authentik group homelab-admins.
+#
+# AdGuard has no SSO/header login, so Authentik forward auth (middleware authentik-basic,
+# see authentik-forwardauth.yml) injects HTTP Basic credentials of the dedicated AdGuard
+# user `authentik-proxy` (bcrypt hash in Docker/adguard/conf/AdGuardHome.yaml; the
+# password is stored as attributes adguard_username/adguard_password on Authentik group
+# homelab-admins). Authentik objects (provider adguard-proxy, app adguard, group binding)
+# come from Docker/Authentik/scripts/provision-admin-sso.py.
+#
+# BREAK-GLASS when Authentik is down: the user's own AdGuard login (user admin) directly
+# on http://192.168.1.2:3000 (AdGuard runs with network_mode: host).
+http:
+  routers:
+    adguard:
+      rule: "Host(`adguard.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: adguard
+      middlewares:
+        - local-networks@file
+        - authentik-basic@file
+      tls:
+        certResolver: cloudflare
+    # Outpost callback path: must reach Authentik, so no forward auth here, and a
+    # higher priority than the router above (see authentik-forwardauth.yml).
+    adguard-outpost:
+      rule: "Host(`adguard.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 15
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+  services:
+    adguard:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:3000"
