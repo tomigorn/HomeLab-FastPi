@@ -3,7 +3,11 @@
 WireGuard VPN server managed via wg-easy. The management UI is routed through Traefik and is only accessible from the LAN or while connected via VPN.
 
 - **VPN port:** `51820/udp` — public, reachable via DuckDNS (`hermes-vpn.duckdns.org`)
-- **Management UI:** `http://wg-easy.fastpi.homelab:8080` — LAN/VPN only, behind Traefik IPAllowList
+- **Management UI:** `https://wg-easy.holy-grail.ch` — LAN/VPN only, behind Traefik IPAllowList (`local-networks@file`)
+- **Login:** Authentik OIDC (application `wg-easy`, group `homelab-admins`); the login page jumps straight to Authentik.
+  The Authentik login is linked to the wg-easy `admin` user by its email address (auto-register is off).
+  Password login (break-glass): `https://wg-easy.holy-grail.ch/login?auto_launch=false` with `WG_EASY_ADMIN_USERNAME`/`WG_EASY_ADMIN_PASSWORD` from `.env`.
+  The UI must be opened on exactly this hostname: wg-easy builds the OIDC redirect URI from the Host header.
 
 ---
 

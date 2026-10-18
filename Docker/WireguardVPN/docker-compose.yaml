@@ -17,6 +17,23 @@ services:
     environment:
       # v14 ran IPv4-only and the traefik_proxy network has no IPv6.
       - DISABLE_IPV6=true
+      # Admin login via Authentik OIDC (provider/application "wg-easy", created by
+      # Authentik/scripts/provision-admin-sso.py, restricted to group homelab-admins).
+      # wg-easy builds the redirect URI from the request Host header, so the UI must
+      # only be used at https://wg-easy.holy-grail.ch (registered in Authentik).
+      # INSECURE must stay unset: the login cookie and redirect URI need https.
+      - OAUTH_PROVIDERS=oidc
+      - OAUTH_OIDC_NAME=authentik
+      - OAUTH_OIDC_SERVER=https://sso.holy-grail.ch/application/o/wg-easy/
+      - OAUTH_OIDC_CLIENT_ID=${WG_EASY_OIDC_CLIENT_ID}
+      - OAUTH_OIDC_CLIENT_SECRET=${WG_EASY_OIDC_CLIENT_SECRET}
+      # false: an Authentik login is only accepted for an existing wg-easy user with
+      # the same email (linked on first login). true would create new users as ADMIN
+      # (wg-easy has no permission system yet).
+      - OAUTH_AUTO_REGISTER=false
+      # The login page jumps straight to Authentik. Password login (break-glass):
+      # https://wg-easy.holy-grail.ch/login?auto_launch=false
+      - OAUTH_AUTO_LAUNCH=oidc
     volumes:
       - ./wg-easy-v15:/etc/wireguard
       - /lib/modules:/lib/modules:ro
@@ -27,13 +44,18 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    # Discovery/token/userinfo calls to Authentik go straight to Traefik on this host
+    # (valid public cert) instead of out through the Cloudflare tunnel; the container's
+    # resolver may otherwise not see AdGuard's local *.holy-grail.ch answer.
+    extra_hosts:
+      - "sso.holy-grail.ch:192.168.1.2"
     sysctls:
       net.ipv4.conf.all.src_valid_mark: '1'
       net.ipv4.ip_forward: '1'
     # depends_on:
     #   - adguard
     # NOTE: traefik_proxy is required for the wg-easy UI to be reachable via Traefik
-    # (http://wg-easy.fastpi.homelab:8080). A side effect is that the container's
+    # (https://wg-easy.holy-grail.ch). A side effect is that the container's
     # default gateway becomes the traefik_proxy bridge, meaning all VPN client traffic
     # exits through that network. If traefik_proxy is removed, VPN routing breaks.
     #
