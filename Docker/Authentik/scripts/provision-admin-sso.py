@@ -51,7 +51,8 @@ def oidc(name, redirects, logout_redirects=()):
     """Confidential OIDC provider. client_id/secret are generated once and kept on rerun."""
     p, created = OAuth2Provider.objects.get_or_create(name=name, defaults={
         "client_id": secrets.token_urlsafe(30), "client_secret": secrets.token_urlsafe(60),
-        "authorization_flow": oidc_src.authorization_flow})
+        "authorization_flow": oidc_src.authorization_flow,
+        "invalidation_flow": oidc_src.invalidation_flow})
     p.authorization_flow = oidc_src.authorization_flow
     p.invalidation_flow = oidc_src.invalidation_flow
     p.signing_key = oidc_src.signing_key
@@ -84,6 +85,13 @@ grafana = oidc("grafana", ["https://grafana.holy-grail.ch/login/generic_oauth"],
 app_for("grafana", "Grafana", grafana, "https://grafana.holy-grail.ch")
 env("grafana/.env", GRAFANA_OAUTH_CLIENT_ID=grafana.client_id,
     GRAFANA_OAUTH_CLIENT_SECRET=grafana.client_secret)
+
+# 3. Portainer (Portainer's own OAuth "Custom" provider, configured via its API; route in
+# Docker/Traefik/traefik/dynamic/portainer.yml). Portainer uses its root URL as redirect.
+portainer = oidc("portainer", ["https://portainer.holy-grail.ch/"])
+app_for("portainer", "Portainer", portainer, "https://portainer.holy-grail.ch")
+env("Portainer/.env", PORTAINER_OAUTH_CLIENT_ID=portainer.client_id,
+    PORTAINER_OAUTH_CLIENT_SECRET=portainer.client_secret)
 
 outpost.save()
 print("OK provisioned")
