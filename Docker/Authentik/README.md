@@ -335,6 +335,64 @@ expired`, `No session`) write **no log line at all**, which is why the original
 failure left no trace. Only the passport-error path logs, and it redirects to
 `/login?error=...`.
 
+## Admin SSO (homelab-admins)
+
+Six admin tools sit behind Authentik: Traefik dashboard, Grafana, Portainer,
+AdGuard Home, wg-easy and Home Assistant. Access to each is an Authentik
+Application group binding to `homelab-admins` (an application with a binding is
+denied to everyone the bindings don't pass). All six hostnames are reachable from
+LAN and VPN only, via the `local-networks@file` Traefik middleware. The whole
+setup is config as code in `scripts/provision-admin-sso.py`; the design is in
+`docs/superpowers/specs/2026-10-18-homelab-admin-sso-design.md`.
+
+| Tool | URL | Method | Break-glass |
+|---|---|---|---|
+| Traefik dashboard | https://traefik.holy-grail.ch | forward auth (`authentik@file`) | basicAuth router `http://fastpi.homelab/dashboard/` (LAN IP `192.168.1.2:8080` with Host header) |
+| Grafana | https://grafana.holy-grail.ch | native generic OAuth (role `GrafanaAdmin` from groups) | local admin at `/login?disableAutoLogin=true` or `http://192.168.1.2:3001` |
+| Portainer | https://portainer.holy-grail.ch | native OAuth (CE "Custom"; user `tomigorn` pre-created as admin, auto-provisioning off) | initial admin at `https://192.168.1.2:9443/#!/internal-auth` |
+| AdGuard Home | https://adguard.holy-grail.ch | forward auth; Authentik injects HTTP Basic for AdGuard user `authentik-proxy` (middleware `authentik-basic@file`; credentials in `homelab-admins` group attributes `adguard_username` / `adguard_password`) | AdGuard's own admin login on `http://192.168.1.2:3000` |
+| wg-easy | https://wg-easy.holy-grail.ch | native OIDC (custom `email_verified` scope mapping; admin linked by email) | stage 1: `/login?auto_launch=false` password login; after stage 2: set `DISABLE_PASSWORD_AUTH=false` in the compose file and `docker compose up -d` from the host shell |
+| Home Assistant | https://ha.holy-grail.ch | `hass-oidc-auth` 1.2.1 (public client) | owner account at `/?skip_oidc_redirect=true` (also on `http://192.168.1.2:8123`) |
+
+### Re-running the provisioning
+
+```bash
+cd Docker/Authentik
+docker compose exec -T server ak shell < scripts/provision-admin-sso.py | python3 scripts/apply-sso-env.py
+```
+
+The script is idempotent. Secrets never touch the terminal or git: the script
+emits `ENV <dir>/.env KEY=value` lines and `apply-sso-env.py` writes them into the
+gitignored `.env` files, printing key names only. The AdGuard proxy password is
+only set when you pass it in (`docker compose exec -T -e ADGUARD_PROXY_PASSWORD server ak shell ...`),
+i.e. when rotating it; otherwise the stored attributes are left untouched.
+
+To add a new app, add a block to `provision-admin-sso.py` using the helpers:
+
+- `oidc(name, redirects, ...)` creates the OIDC provider (client id/secret generated once, kept on rerun)
+- `app_for(slug, name, provider, url)` creates the Application and binds it to `homelab-admins`
+- `env(path, KEY=value)` hands a value to `apply-sso-env.py` for the tool's `.env`
+- for forward auth use `proxy(name, host)` instead of `oidc()`
+
+### Gotchas
+
+- Do not add `Authorization` to the shared `authentik@file` middleware's
+  response headers: Traefik strips headers listed there from requests.
+- OIDC redirect URIs are strict, so each tool only works on its one hostname.
+- Containers resolve `sso.holy-grail.ch` via `extra_hosts` to `192.168.1.2`.
+- New proxy providers need `set_oauth_defaults()` (handled by `proxy()`).
+- The embedded outpost takes about 30 s to pick up a new app (404 meanwhile).
+- Home Assistant 2026.10 ignores YAML `http:`: proxy trust lives in
+  `.storage/http` (`trusted_proxies` `172.24.0.0/16`, as Traefik's IP is unpinned).
+- A Home Assistant browser on the IP URL needs `?skip_oidc_redirect=true`.
+- AdGuard locks out after 5 bad auths for 15 minutes.
+
+### Pending (stage 2)
+
+- [ ] Confirm one SSO login per tool
+- [ ] wg-easy: set `DISABLE_PASSWORD_AUTH=true` and recreate, remove `WG_EASY_ADMIN_PASSWORD` from `.env` / `.env.example`, verify `/api/auth/password` is rejected
+- [ ] AdGuard: confirm the UI opens without its own login prompt after SSO
+
 ## Branding
 
 The login page, flow titles, favicon and emails all say **Holy Grail**, not
