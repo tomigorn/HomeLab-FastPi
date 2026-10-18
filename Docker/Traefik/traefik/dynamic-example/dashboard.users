@@ -1,1 +1,0 @@
-admin:$hash created with: htpasswd -nB admin

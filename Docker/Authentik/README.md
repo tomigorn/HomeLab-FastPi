@@ -347,7 +347,7 @@ setup is config as code in `scripts/provision-admin-sso.py`; the design is in
 
 | Tool | URL | Method | Break-glass |
 |---|---|---|---|
-| Traefik dashboard | https://traefik.holy-grail.ch | forward auth (`authentik@file`) | basicAuth router `http://fastpi.homelab/dashboard/` (LAN IP `192.168.1.2:8080` with Host header) |
+| Traefik dashboard | https://traefik.holy-grail.ch | forward auth (`authentik@file`) | none over the network (basicAuth router removed 2026-10-19). Shell: `docker logs traefik`, the access log, or drop a temporary router file into `Traefik/traefik/dynamic/` (watched, no restart) |
 | Grafana | https://grafana.holy-grail.ch | native generic OAuth (role `GrafanaAdmin` from groups) | local admin at `/login?disableAutoLogin=true` or `http://192.168.1.2:3001` |
 | Portainer | https://portainer.holy-grail.ch | native OAuth (CE "Custom"; user `tomigorn` pre-created as admin, auto-provisioning off) | initial admin at `https://192.168.1.2:9443/#!/internal-auth` |
 | AdGuard Home | https://adguard.holy-grail.ch | forward auth; Authentik injects HTTP Basic for AdGuard user `authentik-proxy` (middleware `authentik-basic@file`; credentials in `homelab-admins` group attributes `adguard_username` / `adguard_password`) | AdGuard's own admin login on `http://192.168.1.2:3000` |
