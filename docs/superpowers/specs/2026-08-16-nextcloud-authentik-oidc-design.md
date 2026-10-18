@@ -160,6 +160,19 @@ Install the **OpenID Connect user backend** (`user_oidc`) app, then configure:
 | Groups mapping | `groups` |
 | Group provisioning | on |
 
+**Login button label — "Holy Grail" (2026-10-18, set at the pending reinstall).**
+`user_oidc` has no display-name flag: the button reads "Login with <identifier>".
+Keep the identifier `authentik` (stable; the backchannel-logout URL contains it) and set a
+custom label in `config/config.php` instead (documented in the user_oidc README,
+"Custom login button label"; `{name}` would insert the identifier, so it is left out):
+
+```bash
+docker exec -u www-data nextcloud php occ config:system:set user_oidc login_label --value="Login with Holy Grail"
+```
+
+With `allow_multiple_user_backends=0` (below) `/login` redirects straight to Authentik,
+so the button is only seen where the login page is still rendered.
+
 Sync clients (desktop, iOS, Android) work with OIDC via Nextcloud's Login Flow v2, which
 opens a browser — no special handling needed.
 
