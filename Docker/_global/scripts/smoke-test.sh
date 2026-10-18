@@ -73,6 +73,9 @@ check "home assistant via traefik"  '^200$' "$(http -k --resolve ha.holy-grail.c
 # hass-oidc-auth: welcome sets the state cookie and 302s to /auth/oidc/redirect, whose page
 # carries the (URL-quoted) Authentik authorize URL - proves trusted_proxies + https detection.
 check "home assistant oidc -> sso"  'sso\.holy-grail\.ch/application/o/authorize/.*redirect_uri%3Dhttps%253A%252F%252Fha\.holy-grail\.ch%252Fauth%252Foidc%252Fcallback' "$(curl -sk -m 10 -L --max-redirs 2 -b '' --resolve ha.holy-grail.ch:443:192.168.1.2 https://ha.holy-grail.ch/auth/oidc/welcome | grep -o 'sso\.holy-grail\.ch/application/o/authorize/.*oidc%252Fcallback' | sed 's/client_id%3D[^%]*/client_id=…/')"
+# SSO-only since 2026-10-18 (homeassistant: auth_providers: []): the only login provider
+# must be auth_oidc - a "homeassistant" entry here means the password login is back.
+check "home assistant sso-only"     '^auth_oidc$' "$(curl -s -m 5 http://192.168.1.2:8123/auth/providers | python3 -c 'import json,sys; print(",".join(p["type"] for p in json.load(sys.stdin)["providers"]))')"
 check "m4b dashboard"              '^200$' "$(http http://192.168.1.2:8099/)"
 check "stonks"                     '^(200|30[23])$' "$(http https://stonks.holy-grail.ch/)"
 check "claude-mockups (auth)"      '^401$' "$(http https://claude-mockups.holy-grail.ch/)"
