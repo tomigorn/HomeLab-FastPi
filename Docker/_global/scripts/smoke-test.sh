@@ -41,8 +41,12 @@ check "grafana login -> sso"       'sso\.holy-grail\.ch/application/o/authorize/
 # SSO only: the form client is unregistered, so POST /login is refused (400 notConfigured).
 check "grafana login form disabled" 'auth\.client\.notConfigured' "$(curl -sk -m 10 --resolve grafana.holy-grail.ch:443:192.168.1.2 -H 'Content-Type: application/json' --data '{"user":"x","password":"x"}' https://grafana.holy-grail.ch/login)"
 check "grafana not on LAN :3001"   '^000$' "$(http http://192.168.1.2:3001/api/health)"
-# Portainer does its own OAuth (Custom provider -> Authentik); break-glass = internal admin login on :9443.
+# Portainer does its own OAuth (Custom provider -> Authentik); the internal password
+# login (POST /api/auth) is refused by Traefik, and :9443 is bound to 127.0.0.1.
 check "portainer via traefik"      '^200$' "$(http -k --resolve portainer.holy-grail.ch:443:192.168.1.2 https://portainer.holy-grail.ch/)"
+check "portainer password POST 403" '^403$' "$(http -k --resolve portainer.holy-grail.ch:443:192.168.1.2 -H 'Content-Type: application/json' --data '{"username":"x","password":"x"}' https://portainer.holy-grail.ch/api/auth)"
+check "portainer oauth validate"   'Unable to authenticate through OAuth' "$(curl -sk -m 10 --resolve portainer.holy-grail.ch:443:192.168.1.2 -H 'Content-Type: application/json' --data '{"code":"x"}' https://portainer.holy-grail.ch/api/auth/oauth/validate)"
+check "portainer not on LAN :9443" '^000$' "$(http -k https://192.168.1.2:9443/api/status)"
 check "portainer auth = oauth"     '"AuthenticationMethod":3' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public | tr -d ' ')"
 check "portainer oauth -> sso"     'sso\.holy-grail\.ch/application/o/authorize/\?.*redirect_uri=https://portainer\.holy-grail\.ch/' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public)"
 # AdGuard: forward auth + injected Basic creds (user authentik-proxy); break-glass = own login on :3000.

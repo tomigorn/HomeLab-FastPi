@@ -8,9 +8,15 @@
 # local-networks@file keeps the hostname off the internet even though it has a
 # public certificate.
 #
-# Break-glass (Authentik down): the initial admin's internal login keeps working —
-# https://portainer.holy-grail.ch/#!/internal-auth or directly on the LAN port
-# https://192.168.1.2:9443/#!/internal-auth (self-signed cert).
+# SSO only (2026-10-19): Portainer CE cannot hide its internal login (that switch
+# is Business Edition only), so router portainer-password-login-block refuses the
+# password login itself, POST /api/auth, for every client. The OAuth exchange
+# (/api/auth/oauth/validate) and /api/auth/logout are separate routes and pass.
+# Host port 9443 is bound to 127.0.0.1. Recovery when Authentik is down (server
+# shell only): `ssh -L 9443:127.0.0.1:9443 fastpi`, then
+# https://localhost:9443/#!/internal-auth as the initial admin (that path does not
+# go through Traefik). Lost password: stop the container, then
+#   docker run --rm -v docker_portainer_data:/data portainer/helper-reset-password
 #
 # Backend is Portainer's plain-HTTP port 9000, only reachable inside traefik_proxy.
 http:
@@ -23,6 +29,26 @@ http:
         - local-networks@file
       tls:
         certResolver: cloudflare
+
+    # Password login refused (see header). Any number of slashes, optional trailing
+    # slash; only POST, so the SPA's other /api/auth* calls are untouched.
+    portainer-password-login-block:
+      rule: "Host(`portainer.holy-grail.ch`) && Method(`POST`) && PathRegexp(`^/api/+auth/?$`)"
+      entryPoints: ["websecure"]
+      priority: 100
+      service: portainer
+      middlewares:
+        - portainer-deny
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # Hard deny (same pattern as nextcloud-deny): an ipAllowList that only allows
+    # TEST-NET-1 (RFC 5737, never routed), so every real client gets 403.
+    portainer-deny:
+      ipAllowList:
+        sourceRange:
+          - "192.0.2.0/24"
 
   services:
     portainer:

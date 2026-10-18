@@ -12,7 +12,11 @@ services:
     environment:
       TZ: Europe/Zurich
     ports:
-      - "9443:9443"   # HTTPS (LAN break-glass, internal admin login)
+      # HTTPS, localhost only (SSO-only, 2026-10-19). Recovery when Authentik is
+      # down: ssh -L 9443:127.0.0.1:9443 fastpi, then
+      # https://localhost:9443/#!/internal-auth (see Traefik dynamic/portainer.yml).
+      # Agents are unaffected: Portainer dials beefy's agent on :9001 outbound.
+      - "127.0.0.1:9443:9443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
