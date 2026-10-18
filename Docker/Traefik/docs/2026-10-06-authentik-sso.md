@@ -161,7 +161,7 @@ actually set on beefy, read back from each app rather than from memory.
 | **Radarr** | Settings → General → Security → Authentication | **External** | `authenticationMethod=external` |
 | **Prowlarr** | Settings → General → Security → Authentication | **External** | `authenticationMethod=external` |
 | **Bazarr** | Settings → General → Security → Authentication | **None** | `auth.type: null` |
-| **qBittorrent** | Options → WebUI → Bypass auth for whitelisted subnets | `172.28.10.0/24` | `AuthSubnetWhitelistEnabled=true` |
+| **qBittorrent** | Options → WebUI → Bypass auth for whitelisted subnets | `172.28.10.0/24`, `192.168.1.2/32` | `AuthSubnetWhitelistEnabled=true` (fastpi added 2026-10-18, see below) |
 | **SABnzbd** | Config → General → Security → username/password | leave **empty** | both `""`, `inet_exposure=0` |
 | **SABnzbd** | Config → General → Host whitelist | add `sabnzbd.holy-grail.ch` | `sabnzbd, sabnzbd.holy-grail.ch, 192.168.1.102` |
 
@@ -172,6 +172,16 @@ Two corrections to what this document originally said:
   was this table that was wrong, which is the more dangerous direction: a reader
   "fixing" the app to match the doc would have broken the bypass and locked
   Traefik out.
+- **The qBittorrent whitelist never covered Traefik (fixed 2026-10-18).** Traefik
+  reaches qBit at beefy's LAN port 8080, so qBit sees fastpi's LAN IP
+  `192.168.1.2`, not the stack bridge - `172.28.10.0/24` only covers Radarr & co.
+  The browser path therefore always fell through to qBit's own login, and a qBit
+  session lasts only as long as the process. After beefy's reboot the session was
+  gone and the page showed a bare `Unauthorized`: qBit's CSRF check refuses any
+  request whose Referer names another host, and after an Authentik round-trip the
+  browser arrives with `Referer: https://sso.holy-grail.ch/`. Fixes: `192.168.1.2/32`
+  added to the whitelist (WebAPI `setPreferences`), and the `qbittorrent` router
+  strips `Referer` (`qbittorrent-strip-referer`). Origin is still checked.
 - **Radarr and Prowlarr sat on `none`, not `external`, until 2026-10-09.** Both
   disable the app's own login, so nothing was exposed — the public path was
   always behind Authentik and the LAN path behind the `DOCKER-USER` rule. But

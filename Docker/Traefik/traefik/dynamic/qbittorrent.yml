@@ -4,7 +4,10 @@
 #
 # qBittorrent keeps its own login ENABLED but bypassed for the proxy:
 #   Options -> WebUI -> "Bypass authentication for clients in whitelisted IP
-#   subnets" = 172.24.0.0/16  (the traefik_proxy bridge)
+#   subnets" = 172.28.10.0/24 (the movie-downloads network: Radarr & co.)
+#              + 192.168.1.2/32 (fastpi - THIS route: Traefik reaches beefy's LAN
+#                port 8080, so qBit sees fastpi's LAN IP, never the traefik_proxy
+#                bridge 172.24.0.0/16 that an earlier version of this note named)
 # Leave "Bypass authentication for clients on localhost" ON as well - that one is
 # what lets gluetun's port-forward hook (scripts/qbit-port.sh) talk to the API.
 #
@@ -44,6 +47,7 @@ http:
       middlewares:
         - authentik@file
         - qbittorrent-wake
+        - qbittorrent-strip-referer
         - qbittorrent-secure-headers
       tls:
         certResolver: cloudflare
@@ -56,6 +60,20 @@ http:
       forwardAuth:
         address: "http://192.168.1.2:9001/gate?port=8080"
         trustForwardHeader: false
+
+    # qBittorrent's CSRF check rejects ANY request (even a plain GET /) whose Referer
+    # or Origin names another host, with a bare "401 Unauthorized". After an Authentik
+    # round-trip the browser lands here with `Referer: https://sso.holy-grail.ch/`, so
+    # the first page load after (re)authenticating was always refused - log line:
+    #   "WebUI: Referer header & Target origin mismatch! ... Referer header:
+    #    'https://sso.holy-grail.ch/'"
+    # Dropping only Referer keeps the protection that matters: browsers still send
+    # Origin on every POST/fetch, qBit still checks it, and all its state-changing API
+    # calls are POST-only. Don't disable WebUI\CSRFProtection instead.
+    qbittorrent-strip-referer:
+      headers:
+        customRequestHeaders:
+          Referer: ""
 
     qbittorrent-secure-headers:
       headers:
