@@ -1,5 +1,8 @@
 http:
   routers:
+    # BREAK-GLASS - keep it. Local basicAuth login (dashboard.users) on the internal
+    # entrypoint: http://fastpi.homelab/dashboard/. It does not depend on Authentik,
+    # so it still works when Authentik (or the SSO route below) is down.
     dashboard:
       rule: "Host(`fastpi.homelab`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
       entryPoints: ["internal"]
@@ -8,8 +11,40 @@ http:
         - local-networks@file
         - dashboard-auth
 
+    # SSO: https://traefik.holy-grail.ch - LAN+VPN only, Authentik group homelab-admins.
+    # Break-glass when Authentik is down: the basicAuth router above (http://fastpi.homelab/dashboard/).
+    # Authentik objects (provider traefik-dashboard-proxy, app traefik-dashboard, group
+    # binding) come from Docker/Authentik/scripts/provision-admin-sso.py.
+    traefik-dashboard-sso:
+      rule: "Host(`traefik.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: api@internal
+      middlewares:
+        - local-networks@file
+        - authentik@file
+        - traefik-dashboard-root
+      tls:
+        certResolver: cloudflare
+    # Outpost callback path: must reach Authentik, so no authentik@file here, and a
+    # higher priority than the router above (see authentik-forwardauth.yml).
+    traefik-dashboard-sso-outpost:
+      rule: "Host(`traefik.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 15
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
   middlewares:
     dashboard-auth:
       basicAuth:
         usersFile: /dynamic/dashboard.users
 
+    # The API service only serves /api and /dashboard/; send the bare host there.
+    traefik-dashboard-root:
+      redirectRegex:
+        regex: "^https://traefik\\.holy-grail\\.ch/?$"
+        replacement: "https://traefik.holy-grail.ch/dashboard/"
