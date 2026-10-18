@@ -1,0 +1,29 @@
+# Grafana — metrics dashboards, LAN + VPN only, behind Authentik SSO.
+# Project: /home/pi/Projects/Docker/grafana
+#
+# No authentik@file forward auth here: Grafana does the SSO itself (generic_oauth
+# against the "grafana" OIDC provider in Authentik, provisioned by
+# Authentik/scripts/provision-admin-sso.py). Only members of homelab-admins are
+# let in, and they land as GrafanaAdmin. local-networks@file keeps the hostname
+# off the internet even though it has a public certificate.
+#
+# Break-glass (Authentik down): the local admin login form stays enabled at
+#   https://grafana.holy-grail.ch/login?disableAutoLogin=true
+# or directly on the LAN port http://192.168.1.2:3001/login?disableAutoLogin=true.
+http:
+  routers:
+    grafana:
+      rule: "Host(`grafana.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      service: grafana
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+  services:
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"
+        passHostHeader: true
