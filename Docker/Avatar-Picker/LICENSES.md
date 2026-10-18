@@ -391,6 +391,11 @@ Images were rendered via DiceBear with a solid background colour added.
 
 ## Classic cartoons (public domain in the United States)
 
+**Kept in the local-only pack (`app/img-local/`, not in git) since 2026-10-19:** these
+designs are public domain in the US but still protected in Switzerland/EU (life + 70),
+so the images are not published in this public repository. The sources below are
+fetched at build time.
+
 Row: Classic cartoons (public domain). These early character designs were
 published 1919-1930; their 95-year US copyright term has expired, so they are
 public domain in the **United States** (Betty Boop's and Pluto's 1930 debuts on

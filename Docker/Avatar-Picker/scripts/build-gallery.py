@@ -309,7 +309,8 @@ COMMONS = {
         ("hodler-thunersee", "Thunersee", "neutral",
          "File:Hodler - Thunersee mit symmetrischer Spiegelung - 1905.jpg", (380, 250, 1200)),
     ],
-    # Classic cartoons: public domain in the US only (published 1919-1930, 95-year
+    # Classic cartoons: public domain in the US only (built into the local pack, see
+    # LOCAL_COMMONS) (published 1919-1930, 95-year
     # term expired; NOT yet PD in Switzerland/EU, life + 70). Early designs only.
     # Optional 6th field True = tint the white paper with the avatar colour.
     "classics": [
@@ -342,6 +343,10 @@ COMMONS = {
          "File:Piglet EHShepard.jpg", (640, 120, 420), True),
     ],
 }
+
+# Commons rows that are public domain in the US but not in Switzerland/EU: built
+# from Commons like the others, but written to the local-only pack (not in git).
+LOCAL_COMMONS = {"classics"}
 
 # Local pack: third-party copyrighted character art. Rendered into app/img-local/
 # (gitignored, never committed; baked into the private Docker image only) and
@@ -648,7 +653,9 @@ def main():
                     raise SystemExit(f"{aid}: crop box exceeds {src.size}")
                 img = src.crop((x, y, x + s, y + s)).resize((SIZE, SIZE), Image.LANCZOS)
                 return tint(img, color_of[aid]) if tinted else img
-            add(group, aid, name, vibe, color_of[aid], render)
+            # classics: US public domain only, still protected in CH/EU -> local pack
+            add(group, aid, name, vibe, color_of[aid], render,
+                pack="local" if group in LOCAL_COMMONS else None)
     for group, items in LOCAL.items():
         for aid, name, vibe, url, box in items:
             def render(url=url, color=color_of[aid], box=box):

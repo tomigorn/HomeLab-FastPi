@@ -869,7 +869,8 @@
     "file": "minnie-1928.png",
     "color": "#C6F1D1",
     "group": "classics",
-    "vibe": "feminine"
+    "vibe": "feminine",
+    "pack": "local"
   },
   {
     "id": "mickey-1930",
@@ -877,7 +878,8 @@
     "file": "mickey-1930.png",
     "color": "#DEC6F1",
     "group": "classics",
-    "vibe": "masculine"
+    "vibe": "masculine",
+    "pack": "local"
   },
   {
     "id": "felix-1925",
@@ -885,7 +887,8 @@
     "file": "felix-1925.png",
     "color": "#F1EAC6",
     "group": "classics",
-    "vibe": "neutral"
+    "vibe": "neutral",
+    "pack": "local"
   },
   {
     "id": "betty-boop-1930",
@@ -893,7 +896,8 @@
     "file": "betty-boop-1930.png",
     "color": "#C6EBF1",
     "group": "classics",
-    "vibe": "feminine"
+    "vibe": "feminine",
+    "pack": "local"
   },
   {
     "id": "pooh-1926",
@@ -901,7 +905,8 @@
     "file": "pooh-1926.png",
     "color": "#F1C6DE",
     "group": "classics",
-    "vibe": "masculine"
+    "vibe": "masculine",
+    "pack": "local"
   },
   {
     "id": "pluto-1930",
@@ -909,7 +914,8 @@
     "file": "pluto-1930.png",
     "color": "#D2F1C6",
     "group": "classics",
-    "vibe": "neutral"
+    "vibe": "neutral",
+    "pack": "local"
   },
   {
     "id": "clarabelle-1930",
@@ -917,7 +923,8 @@
     "file": "clarabelle-1930.png",
     "color": "#C6C6F1",
     "group": "classics",
-    "vibe": "feminine"
+    "vibe": "feminine",
+    "pack": "local"
   },
   {
     "id": "oswald-1927",
@@ -925,7 +932,8 @@
     "file": "oswald-1927.png",
     "color": "#F1D3C6",
     "group": "classics",
-    "vibe": "masculine"
+    "vibe": "masculine",
+    "pack": "local"
   },
   {
     "id": "piglet-1926",
@@ -933,7 +941,8 @@
     "file": "piglet-1926.png",
     "color": "#C6F1DF",
     "group": "classics",
-    "vibe": "neutral"
+    "vibe": "neutral",
+    "pack": "local"
   },
   {
     "id": "elsa",

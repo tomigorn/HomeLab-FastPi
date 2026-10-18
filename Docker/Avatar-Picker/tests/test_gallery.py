@@ -6,7 +6,7 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 # Rows whose avatars are third-party art kept out of git ("pack": "local",
 # files in app/img-local/). A fresh clone has none of them; the tests below
 # must pass with or without the local pack present.
-LOCAL_GROUPS = {"movies", "tvcartoons", "anime", "games", "memes"}
+LOCAL_GROUPS = {"classics", "movies", "tvcartoons", "anime", "games", "memes"}
 # Meme row: mostly animals/objects, so the 3/3/3 f-m-n rule does not apply.
 FREE_VIBE_GROUPS = {"memes"}
 PACK_DIR = {None: "img", "local": "img-local"}
@@ -79,8 +79,9 @@ class GalleryTest(unittest.TestCase):
             self.assertIn(a["vibe"], ("feminine", "masculine", "neutral"), a["id"])
 
     def test_pack(self):
-        """Local-pack rows are exactly the copyrighted pop-culture rows; everything
-        else (incl. the public-domain classics) is committed."""
+        """Local-pack rows are exactly the copyrighted pop-culture rows plus the
+        classics (US public domain only, still protected in CH/EU); everything else
+        is committed."""
         for a in GALLERY:
             self.assertIn(a.get("pack"), PACK_DIR, a["id"])
             self.assertEqual(a.get("pack") == "local", a["group"] in LOCAL_GROUPS, a["id"])
