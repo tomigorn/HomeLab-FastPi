@@ -137,14 +137,17 @@ p = ProxyProvider.objects.get(name="<app>-proxy"); p.set_oauth_defaults(); p.sav
 
 ### 2.2 Jellyfin — an OAuth2/OpenID provider, not a proxy provider
 
-1. **Providers → Create → OAuth2/OpenID Provider**
-   - Name: `jellyfin-oidc`
-   - Client type: **Confidential**
-   - Redirect URI: `https://jellyfin.holy-grail.ch/sso/OID/redirect/authentik`
-   - Signing key: your default certificate
-   - Note the **Client ID** and **Client Secret**
-2. **Applications → Create** → `Jellyfin`, slug `jellyfin`, provider `jellyfin-oidc`
-3. Bind a group (e.g. `media-users`)
+**Status 2026-10-18: LIVE** (design: `superpowers/specs/2026-10-14-jellyfin-authentik-oidc-design.md`).
+The 9p4 `SSO-Auth` plugin originally planned here is archived (last build for Jellyfin 10.11);
+Jellyfin 12 uses **edmogeor/jellyfin-plugin-oidc** instead.
+
+- Provider `jellyfin-oidc` (confidential, signing key = default cert, implicit-consent flow),
+  redirect URI **`https://jellyfin.holy-grail.ch/oidc/callback`**.
+- Scope mappings: `openid`, `profile` (provides `preferred_username` + `groups`) and a custom
+  **`authentik email (verified) - jellyfin`** (`email_verified: True`, replacing the default
+  `email` mapping which says `False` and would be rejected by the plugin).
+- Application `jellyfin` → that provider, bound to group **`streaming-users`** (Authentik refuses
+  everyone else with "Permission denied" before Jellyfin is involved).
 
 ---
 
@@ -193,19 +196,37 @@ are live — otherwise every app has an unauthenticated LAN back door.
 beefy's own Docker network, never through Traefik, so no inter-app integration
 passes this gate.
 
-### Jellyfin SSO plugin
+### Jellyfin login via Authentik (OIDC plugin) — LIVE 2026-10-18
 
-1. Dashboard → Plugins → Repositories → add
-   `https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/manifest-release/manifest.json`
-2. Catalogue → **SSO Authentication** → install → restart Jellyfin
-3. Dashboard → Plugins → SSO-Auth → add an OID provider:
-   - Name `authentik`
-   - Endpoint `https://sso.holy-grail.ch/application/o/jellyfin/`
-   - Client ID / Secret from §2.2
-   - Enable **Enabled**, **Enable Authorization by Plugin**, and set role claim
-     `groups` if you want group-based admin mapping
-4. Test at `https://jellyfin.holy-grail.ch/SSOViews/linking` before relying on it
-5. Only then reduce the local admin to a long random break-glass password
+Plugin **OIDC Authentication** (edmogeor/jellyfin-plugin-oidc, GPL-3.0, Jellyfin 12 ABI), installed
+manually into `/srv/appdata/jellyfin/data/plugins/` on beefy (the linuxserver image keeps plugins
+under `data/`, not `/config/plugins`), repository URL added to Jellyfin's catalogue for updates.
+Config as code: `/srv/appdata/jellyfin/data/plugins/configurations/Jellyfin.Plugin.Oidc.xml`
+(contains the client secret, mode 600):
+
+| Setting | Value |
+|---|---|
+| Provider / issuer | Authentik, `https://sso.holy-grail.ch/application/o/jellyfin/` |
+| Public URL | `https://jellyfin.holy-grail.ch` |
+| Allowed / administrator group | `streaming-users` / `streaming-admins` (claim `groups`) |
+| Username claim, provisioning | `preferred_username` → Jellyfin users named like Authentik users |
+| Require verified email | on (see the custom scope mapping above) |
+| Password login mode | **Disable for linked users only** — provisioned users get a random, disabled password; the local `admin` keeps its break-glass password |
+| Self-service linking | on |
+
+Verified 2026-10-18 with throwaway Authentik users (Playwright): member of `streaming-users` →
+Jellyfin user created, home screen; member of `streaming-admins` → Jellyfin administrator; user in
+no group → refused by Authentik. In Jellyfin's DB provisioned users carry
+`AuthenticationProviderId = Jellyfin.Plugin.Oidc.Identity.OidcPasswordDisabledProvider`, `admin`
+keeps the default provider.
+
+**TV / phone apps** cannot do the Authentik redirect: they log in with Jellyfin's built-in **Quick
+Connect** (enabled; the code shown on the TV is approved from the signed-in web UI under the
+user's profile).
+
+**Emergency recovery** (Authentik down or plugin broken): the local `admin` password still works
+(linked-users-only mode). If a link ever disabled it, follow the plugin README: set
+`<Enabled>false</Enabled>` in the XML and reset `AuthenticationProviderId` in `jellyfin.db`.
 
 ---
 

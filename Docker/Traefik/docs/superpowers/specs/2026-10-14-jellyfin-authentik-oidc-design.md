@@ -1,6 +1,6 @@
 # Jellyfin ← Authentik login (OIDC plugin) — design
 
-Date: 2026-10-14 · Status: approved in chat ("go with your recommendation") · Component: Jellyfin on beefy
+Date: 2026-10-14 · Status: LIVE 2026-10-18 (verified with throwaway users; see 2026-10-06-authentik-sso.md §2.2 + §3) · Component: Jellyfin on beefy
 (`lscr.io/linuxserver/jellyfin:12.1…`, config `/srv/appdata/jellyfin`), Authentik on fastpi.
 
 ## Goal
