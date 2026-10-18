@@ -48,8 +48,13 @@ services:
       - WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL=25s
     # expose host ports here because sabnzbd shares gluetun's network namespace
     ports:
-      # SABnzbd web UI (host_port:container_port)
-      - "8090:8080"
+      # SABnzbd web UI (host_port:container_port) - localhost only (2026-10-19,
+      # SSO-only: no password form over the network). ssh -L 8090:127.0.0.1:8090 fastpi
+      # Through this bind SABnzbd sees the nzb network gateway (172.33.0.1), which is
+      # outside its default private ranges, so sabnzbd.ini (not in git) has
+      #   local_ranges = 172.33.0.0/16, 192.168.1.0/24
+      # (set 2026-10-19, backup sabnzbd.ini.bak-2026-10-19); without it: 403.
+      - "127.0.0.1:8090:8080"
     restart: always
     labels:
       - autoheal-nzb=true
