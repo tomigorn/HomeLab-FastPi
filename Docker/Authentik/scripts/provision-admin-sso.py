@@ -12,6 +12,7 @@ from authentik.policies.models import PolicyBinding
 from authentik.providers.oauth2.models import (
     ClientType, OAuth2Provider, RedirectURI, RedirectURIMatchingMode, RedirectURIType, ScopeMapping)
 from authentik.providers.proxy.models import ProxyMode, ProxyProvider
+import os
 import secrets
 
 admins = Group.objects.get(name="homelab-admins")
@@ -36,6 +37,11 @@ def proxy(name, host, **extra):
         "mode": ProxyMode.FORWARD_SINGLE, "external_host": host,
         "authorization_flow": src.authorization_flow,
         "invalidation_flow": src.invalidation_flow, **extra})
+    # What the API serializer does on create/update; the ORM alone leaves grant types,
+    # redirect URIs and scope mappings (incl. scope-proxy, which carries user attributes
+    # for basic-auth injection) empty until the next server restart reconciles them.
+    p.set_oauth_defaults()
+    p.save()
     outpost.providers.add(p)
     return p
 
@@ -92,6 +98,24 @@ portainer = oidc("portainer", ["https://portainer.holy-grail.ch/"])
 app_for("portainer", "Portainer", portainer, "https://portainer.holy-grail.ch")
 env("Portainer/.env", PORTAINER_OAUTH_CLIENT_ID=portainer.client_id,
     PORTAINER_OAUTH_CLIENT_SECRET=portainer.client_secret)
+
+# 4. AdGuard Home (forward auth with HTTP Basic injection; route in
+# Docker/Traefik/traefik/dynamic/adguard.yml). AdGuard has no header/SSO login, so the outpost
+# sends Basic credentials of the dedicated AdGuard user `authentik-proxy` (its bcrypt hash is
+# in Docker/adguard/conf/AdGuardHome.yaml). The outpost reads them from the merged user
+# attributes (User.group_attributes(): group attrs, then user attrs on top), so they are stored
+# on group homelab-admins. The password only comes in via env ADGUARD_PROXY_PASSWORD
+# (`docker compose exec -T -e ADGUARD_PROXY_PASSWORD server ak shell ...`); without it the
+# stored attributes are left untouched, so plain reruns don't wipe it.
+app_for("adguard", "AdGuard Home",
+        proxy("adguard-proxy", "https://adguard.holy-grail.ch", basic_auth_enabled=True,
+              basic_auth_user_attribute="adguard_username",
+              basic_auth_password_attribute="adguard_password"),
+        "https://adguard.holy-grail.ch")
+if os.environ.get("ADGUARD_PROXY_PASSWORD"):
+    admins.attributes["adguard_username"] = "authentik-proxy"
+    admins.attributes["adguard_password"] = os.environ["ADGUARD_PROXY_PASSWORD"]
+    admins.save()
 
 outpost.save()
 print("OK provisioned")
