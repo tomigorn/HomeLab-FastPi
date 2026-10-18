@@ -27,7 +27,32 @@
 # all-or-nothing application.
 http:
   middlewares:
+    # `authentik` / `authentik-basic` are CHAINS: first drop client-supplied
+    # X-Forwarded-Host/-Uri/-Method, then forward-auth. websecure trusts forwarded
+    # headers from the Cloudflare tunnel (172.24.0.1) for the real client IP, and
+    # Cloudflare passes a client's own X-Forwarded-Host through unchanged - so with
+    # trustForwardHeader the client chose which Authentik app was checked (spoof
+    # "jellyfin" on qbittorrent.holy-grail.ch and the jellyfin-wake binding applied,
+    # verified 2026-10-18). With the headers removed, Traefik rebuilds them from the
+    # real request; X-Forwarded-For (real client IP) is still passed on.
     authentik:
+      chain:
+        middlewares:
+          - authentik-strip-forwarded
+          - authentik-forwardauth
+    authentik-basic:
+      chain:
+        middlewares:
+          - authentik-strip-forwarded
+          - authentik-basic-forwardauth
+    authentik-strip-forwarded:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Host: ""
+          X-Forwarded-Uri: ""
+          X-Forwarded-Method: ""
+
+    authentik-forwardauth:
       forwardAuth:
         address: "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
         # Authentik needs the original host and scheme to build its redirect back.
@@ -68,7 +93,7 @@ http:
     # authResponseHeaders name from the incoming request, so adding Authorization to
     # `authentik` would strip clients' own Authorization headers (API tokens) on every
     # SSO route. Only attach this to routers whose app should get the injected creds.
-    authentik-basic:
+    authentik-basic-forwardauth:
       forwardAuth:
         address: "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
         trustForwardHeader: true
