@@ -8,7 +8,9 @@ SECRET / TOKEN / PASSWORD, which print "[redacted line]".
 
 Refused (error on stderr, nonzero exit after all lines are processed): any path that
 is not exactly <dir>/.env directly under base, that resolves outside base, whose
-directory does not exist, or that git tracks.
+directory does not exist, or that git tracks - or whose tracking git cannot
+confirm (not a work tree, git missing): fail closed. Write errors skip that
+line only, so later secrets in the pipe are still written.
 
 base defaults to /home/pi/Projects/Docker; override with --base for tests.
 """
@@ -41,33 +43,53 @@ def resolve_target(base: Path, rel: str) -> Path:
         raise Refused(f"refused path {rel!r}: resolves outside base")
     if real.is_symlink():
         raise Refused(f"refused path {rel!r}: .env is a symlink")
-    tracked = subprocess.run(
-        ["git", "-C", str(real.parent), "ls-files", "--error-unmatch", ".env"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Fail closed: only exit 1 ("did not match any file") counts as untracked. 0 is
+    # tracked; anything else (not a git repo, git error) or git missing is refused.
+    try:
+        tracked = subprocess.run(
+            ["git", "-C", str(real.parent), "ls-files", "--error-unmatch", ".env"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        raise Refused(f"refused path {rel!r}: git not available to check tracking")
     if tracked.returncode == 0:
         raise Refused(f"refused path {rel!r}: file is tracked by git")
+    if tracked.returncode != 1:
+        raise Refused(f"refused path {rel!r}: git tracking check failed "
+                      f"(exit {tracked.returncode})")
     return real
 
 
 def upsert(path: Path, key: str, value: str) -> None:
+    owner = None
     if path.exists():
         text = path.read_text()
-        mode = path.stat().st_mode & 0o7777
+        st = path.stat()
+        mode, owner = st.st_mode & 0o7777, (st.st_uid, st.st_gid)
     else:
         text, mode = "", 0o600
-    lines = text.splitlines()
     new = f"{key}={value}"
-    for i, line in enumerate(lines):
+    lines, replaced = [], False
+    for line in text.splitlines():
         if line.startswith(key + "="):
-            lines[i] = new
-            break
-    else:
+            if not replaced:  # first occurrence keeps its position
+                lines.append(new)
+                replaced = True
+            continue  # later duplicates are dropped
+        lines.append(line)
+    if not replaced:
         lines.append(new)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".env.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as fh:
             fh.write("\n".join(lines) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
         os.chmod(tmp, mode)
+        if owner is not None:
+            try:
+                os.chown(tmp, *owner)
+            except PermissionError:
+                pass  # not root and not the owner: keep our own ownership
         os.replace(tmp, path)
     except BaseException:
         if os.path.exists(tmp):
@@ -92,6 +114,12 @@ def main(stdin, stdout, stderr, base: Path = DEFAULT_BASE) -> int:
                 upsert(resolve_target(base, rel), key, value)
             except Refused as exc:
                 print(f"error: {exc} (key {key})", file=stderr)
+                failed = True
+                continue
+            except (OSError, UnicodeDecodeError) as exc:
+                # Keep going: later lines may carry secrets that exist only in this pipe.
+                print(f"error: could not write {key} to {rel!r}: {type(exc).__name__}",
+                      file=stderr)
                 failed = True
                 continue
             print(f"set {rel} {key}", file=stdout)

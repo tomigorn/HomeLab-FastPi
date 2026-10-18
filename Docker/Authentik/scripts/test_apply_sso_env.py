@@ -7,6 +7,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
@@ -20,6 +21,8 @@ class ApplySsoEnvTest(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.base = Path(self._tmp.name)
         (self.base / "App").mkdir()
+        # The tool refuses anything outside a git work tree (fail closed), like the repo.
+        subprocess.run(["git", "init", "-q", str(self.base)], check=True)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -79,13 +82,67 @@ class ApplySsoEnvTest(unittest.TestCase):
         (self.base / "Link").symlink_to(outside.name)
         rc, _, err = self.run_tool("ENV Link/.env K=v\n")
         self.assertNotEqual(rc, 0)
+        self.assertIn("refused", err)
+        self.assertIn("outside base", err)
         self.assertFalse((Path(outside.name) / ".env").exists())
+
+    def test_refuses_env_file_that_is_symlink(self):
+        target = self.base / "App" / "real.env"
+        target.write_text("K=old\n")
+        (self.base / "App" / ".env").symlink_to(target)
+        rc, _, err = self.run_tool("ENV App/.env K=new\n")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("symlink", err)
+        self.assertEqual(target.read_text(), "K=old\n")
+
+    def test_replaces_all_duplicate_keys(self):
+        env = self.base / "App" / ".env"
+        env.write_text("K=1\nA=x\nK=2\nKEEP=y\nK=3\n")
+        rc, _, err = self.run_tool("ENV App/.env K=new\n")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(env.read_text(), "K=new\nA=x\nKEEP=y\n")
+
+    def test_refuses_outside_git_work_tree(self):
+        nogit = tempfile.TemporaryDirectory()
+        self.addCleanup(nogit.cleanup)
+        (Path(nogit.name) / "App").mkdir()
+        out, err = io.StringIO(), io.StringIO()
+        rc = apply_sso_env.main(io.StringIO("ENV App/.env K=v\n"), out, err,
+                                base=Path(nogit.name))
+        self.assertNotEqual(rc, 0)
+        self.assertIn("git tracking check failed", err.getvalue())
+        self.assertFalse((Path(nogit.name) / "App" / ".env").exists())
+
+    def test_refuses_when_git_missing(self):
+        with mock.patch.object(apply_sso_env.subprocess, "run",
+                               side_effect=FileNotFoundError("git")):
+            rc, _, err = self.run_tool("ENV App/.env K=v\n")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("git not available", err)
+        self.assertFalse((self.base / "App" / ".env").exists())
+
+    def test_write_error_continues_without_echo(self):
+        (self.base / "B").mkdir()
+        real_upsert = apply_sso_env.upsert
+
+        def flaky(path, key, value):
+            if path.parent.name == "App":
+                raise PermissionError(13, "denied", str(path))
+            return real_upsert(path, key, value)
+
+        with mock.patch.object(apply_sso_env, "upsert", side_effect=flaky):
+            rc, out, err = self.run_tool(
+                "ENV App/.env K=secretvalue\nENV B/.env K=v2\nOK provisioned\n")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("PermissionError", err)
+        self.assertNotIn("secretvalue", out + err)
+        self.assertEqual((self.base / "B" / ".env").read_text(), "K=v2\n")
+        self.assertIn("OK provisioned\n", out)
 
     def test_refuses_git_tracked_file(self):
         env = self.base / "App" / ".env"
         env.write_text("K=old\n")
         git = ["git", "-C", str(self.base), "-c", "user.name=t", "-c", "user.email=t@t"]
-        subprocess.run(git + ["init", "-q"], check=True)
         subprocess.run(git + ["add", "-f", "App/.env"], check=True)
         rc, _, err = self.run_tool("ENV App/.env K=new\n")
         self.assertNotEqual(rc, 0)
