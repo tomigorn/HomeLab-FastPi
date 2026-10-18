@@ -38,7 +38,9 @@ check "traefik dashboard -> sso"   'sso\.holy-grail\.ch' "$(curl -sk -m 10 -o /d
 check "traefik no basicAuth (404)" '^404$' "$(http -H 'Host: fastpi.homelab' http://192.168.1.2:8080/dashboard/)"
 # Grafana does its own OIDC: /login -> /login/generic_oauth -> Authentik authorize.
 check "grafana login -> sso"       'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -L --max-redirs 1 -o /dev/null -w '%{redirect_url}' --resolve grafana.holy-grail.ch:443:192.168.1.2 https://grafana.holy-grail.ch/login)"
-check "grafana break-glass form"   '^200$' "$(http -k --resolve grafana.holy-grail.ch:443:192.168.1.2 'https://grafana.holy-grail.ch/login?disableAutoLogin=true')"
+# SSO only: the form client is unregistered, so POST /login is refused (400 notConfigured).
+check "grafana login form disabled" 'auth\.client\.notConfigured' "$(curl -sk -m 10 --resolve grafana.holy-grail.ch:443:192.168.1.2 -H 'Content-Type: application/json' --data '{"user":"x","password":"x"}' https://grafana.holy-grail.ch/login)"
+check "grafana not on LAN :3001"   '^000$' "$(http http://192.168.1.2:3001/api/health)"
 # Portainer does its own OAuth (Custom provider -> Authentik); break-glass = internal admin login on :9443.
 check "portainer via traefik"      '^200$' "$(http -k --resolve portainer.holy-grail.ch:443:192.168.1.2 https://portainer.holy-grail.ch/)"
 check "portainer auth = oauth"     '"AuthenticationMethod":3' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public | tr -d ' ')"

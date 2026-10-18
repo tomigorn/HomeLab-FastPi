@@ -7,9 +7,9 @@
 # let in, and they land as GrafanaAdmin. local-networks@file keeps the hostname
 # off the internet even though it has a public certificate.
 #
-# Break-glass (Authentik down): the local admin login form stays enabled at
-#   https://grafana.holy-grail.ch/login?disableAutoLogin=true
-# or directly on the LAN port http://192.168.1.2:3001/login?disableAutoLogin=true.
+# SSO only: Grafana's login form and Basic auth are disabled, and host port 3001
+# is bound to 127.0.0.1. Recovery when Authentik is down is from the server shell
+# (see the grafana service comments in Docker/grafana/docker-compose.yaml).
 http:
   routers:
     grafana:

@@ -143,7 +143,9 @@ services:
     mem_limit: 512m
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      # localhost only (SSO-only, 2026-10-19): Traefik reaches grafana:3000 over
+      # traefik_proxy; from elsewhere use an ssh tunnel (ssh -L 3001:127.0.0.1:3001 fastpi).
+      - "127.0.0.1:3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
@@ -157,7 +159,7 @@ services:
       # of homelab-admins get in, as GrafanaAdmin. Route: Traefik dynamic/grafana.yml.
       - GF_SERVER_ROOT_URL=https://grafana.holy-grail.ch
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
-      - GF_AUTH_GENERIC_OAUTH_NAME=authentik
+      - GF_AUTH_GENERIC_OAUTH_NAME=Holy Grail
       - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${GRAFANA_OAUTH_CLIENT_ID}
       - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET}
       - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email offline_access
@@ -173,8 +175,16 @@ services:
       - GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN=true
       - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true
       - GF_AUTH_SIGNOUT_REDIRECT_URL=https://sso.holy-grail.ch/application/o/grafana/end-session/
-      # Break-glass: local admin at https://grafana.holy-grail.ch/login?disableAutoLogin=true
-      # (or LAN http://192.168.1.2:3001/login?disableAutoLogin=true). Keep the login form.
+      # SSO only (2026-10-19): no login form (POST /login is refused) and no HTTP
+      # Basic auth on the API. Service-account tokens (Bearer glsa_...) still work.
+      # Recovery when Authentik is down (server shell only): set
+      # GF_AUTH_DISABLE_LOGIN_FORM=false, `docker compose up -d grafana`, then
+      # `ssh -L 3001:127.0.0.1:3001 fastpi` and log in as admin at
+      # http://localhost:3001/login?disableAutoLogin=true; set it back afterwards.
+      # Lost password: docker exec grafana grafana cli admin reset-admin-password <pw>
+      # (GRAFANA_ADMIN_PASSWORD in .env only applies when the DB is first created).
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_BASIC_ENABLED=false
     # Pin sso.holy-grail.ch to fastpi's Traefik so the server-side token/userinfo
     # calls don't depend on DNS or a round trip through the Cloudflare tunnel.
     extra_hosts:
