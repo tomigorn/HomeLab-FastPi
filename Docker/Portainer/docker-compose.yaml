@@ -12,10 +12,14 @@ services:
     environment:
       TZ: Europe/Zurich
     ports:
-      - "9443:9443"   # HTTPS
+      - "9443:9443"   # HTTPS (LAN break-glass, internal admin login)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
+    extra_hosts:
+      # Portainer's OAuth token/userinfo calls must reach Authentik over the LAN
+      # (Traefik on this host), not via the public Cloudflare tunnel.
+      - "sso.holy-grail.ch:192.168.1.2"
     restart: unless-stopped
     networks:
       - traefik_proxy
