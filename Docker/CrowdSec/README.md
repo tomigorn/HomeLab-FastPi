@@ -39,6 +39,7 @@ count ("Blocked" tiles count requests).
 |---|---|---|
 | Right now | blocked requests 24h/7d, active bans (mine vs community), attacks and attacker IPs 24h | exporter + `cs_active_decisions` |
 | Status tiles | CrowdSec up, bouncer last sync, last CAPI pull, % log lines parsed, version, auto-update result, hub age, exporter age | exporter + engine |
+| Threat data | bans by origin, hub last changed / last checked, GeoIP data age, extra blocklists (see "Threat data refresh") | exporter + auto-update + engine |
 | Blocked traffic | bouncer drops per hour vs all Traefik 403s; responses by status class | exporter + Traefik |
 | Where attacks come from | **map** + table for the selected time range, top-10 countries over time, **lifetime per country**, top 20 IPs (24h) | exporter |
 | What attackers are doing | top scenarios 24h / selected range / lifetime, attacks per hour by scenario, bans by origin | exporter + engine |
@@ -134,6 +135,35 @@ notification arrived in Telegram.
 (`Traefik/traefik/plugins-local/`, see the Traefik README for why) and updating it
 is a Traefik static change, so it stays manual. v1.7.1 is installed; v1.8.1 was
 released on 2026-10-18.
+
+## Threat data refresh
+
+"Updating CrowdSec" is five different things with five cadences. Checked end to end on
+2026-10-19 (each row says how):
+
+| Layer | What | Cadence | Source | How it was verified | Changed |
+|---|---|---|---|---|---|
+| Community blocklist (CAPI) | ~19k IPs seen attacking other CrowdSec users; this server's detections are shared back | **every 2 h** (hardcoded `pullIntervalDefault = 2h` ±5 min in `pkg/apiserver/apic.go` v1.8.1; no config key or env var, only `online_client.pull.community: true/false`) | api.crowdsec.net | `cscli capi status` OK; `cscli alerts list --origin CAPI` shows `update : +15000/-0 IPs` every 2 h; a CAPI IP returns 403 through Traefik | nothing to tune; smoke checks + `CrowdSecCommunityBlocklistStale` (8 h) |
+| Hub content (parsers, scenarios, collections, appsec rules) | the detection rules | **daily 05:07**: `cscli hub update && cscli hub upgrade`, SIGHUP reload if anything changed, then the same verification as an image update | hub.crowdsec.net | SIGHUP reload tested: parsers reloaded in ~3 s, LAPI OK, bouncer re-pulled 60 s later, CAPI IP still 403. Container start also refreshes the hub | dashboard tiles "Hub checked" / "Hub last changed" |
+| Hub data files (GeoLite2 City/ASN for `geoip-enrich`, bad-user-agent and CVE lists) | enrichment and pattern data | **daily** with the hub upgrade: `cscli hub upgrade` always runs "check & update data files" (only `--force` re-downloads unconditionally) | hub-data.crowdsec.net | plan shown by `cscli hub upgrade --dry-run`; mtimes in `/var/lib/crowdsec/data` move when upstream publishes | exporter `crowdsec_data_file_timestamp_seconds{file}`, tile "GeoIP data age", alert `CrowdSecGeoIPStale` (60 d, info) |
+| Bouncer sync | Traefik plugin pulls the decision stream | **every 60 s** (`updateIntervalSeconds`), fail-open | LAPI | `cscli bouncers list` last pull; CAPI IP 403, clean TEST-NET IP 200 | smoke check "community IP blocked (403)" |
+| Allowlist `home` | the home WAN IP is never banned | static | LAPI DB | import of an allowlisted IP is refused (`cscli decisions import`), CAPI decisions are filtered in `ApplyApicWhitelists` | none |
+| Program version | the engine image | daily 05:07, patch/minor, verified, rollback | GitHub releases + Docker Hub | see "Auto-update" | none |
+
+**Additional (non-Console) blocklists: deliberately not imported.** Spamhaus DROP,
+DShield and Firehol level1 are free for private use and low on false positives, and
+`cscli decisions import --scope range` loads them fine (tried 2026-10-19 with
+203.0.113.0/24). But the Traefik bouncer plugin in stream mode keys its cache by the
+decision value and looks the client IP up by exact match (`handleStreamCache` /
+`cacheClient.Get(remoteIP)`, v1.7.1 and upstream `main`/v1.8.1 alike), so a range
+decision is never enforced: 203.0.113.250 kept getting 200 for 100 s with the /24
+banned. Only live mode (LAPI matches ranges server-side) would enforce them, and live
+mode fails closed, which is why it was abandoned. The CrowdSec Console blocklists
+would be delivered as single IPs, but need enrollment (not wanted). If an extra list
+is ever wanted: DShield's 20 /24s could be expanded to ~5k single IPs, but note the
+v1.7.1 plugin applies `New` before `Deleted` in one sync, so a delete-and-reimport
+cycle must not happen inside one 60 s window (fixed order upstream). Dashboard tile
+"Extra blocklists" shows "none configured" until something is imported.
 
 ## Install / files
 

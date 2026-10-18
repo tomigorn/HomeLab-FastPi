@@ -39,6 +39,7 @@ import tempfile
 import time
 
 CONTAINER = os.environ.get("CROWDSEC_CONTAINER", "crowdsec")
+DATA_FILES = ("GeoLite2-City.mmdb", "GeoLite2-ASN.mmdb")   # hub data files whose age the dashboard shows
 TEXTFILE_DIR = os.environ.get("TEXTFILE_DIR", "/var/lib/node-exporter/textfile")
 STATE_PATH = os.environ.get("STATE_PATH", "/var/lib/crowdsec-exporter/state.json")
 ISO_PATH = "/usr/share/iso-codes/json/iso_3166-1.json"
@@ -198,6 +199,10 @@ def render(state: dict, now: float, countries: dict[str, str], extra: dict) -> s
         metric("crowdsec_hub_items_not_ok", "gauge",
                "Installed hub items whose status is not plain 'enabled' (update available, tainted, ...).",
                [("", extra["hub_items_not_ok"])])
+    if extra.get("data_files"):
+        metric("crowdsec_data_file_timestamp_seconds", "gauge",
+               "mtime of hub data files (GeoIP databases); refreshed by the daily cscli hub upgrade when upstream changes.",
+               [(labels(file=f), f"{t:.0f}") for f, t in sorted(extra["data_files"].items())])
     return "\n".join(out) + "\n"
 
 
@@ -266,6 +271,13 @@ def collect(state: dict, now: float) -> dict:
     p = subprocess.run(["docker", "exec", CONTAINER, "stat", "-c", "%Y", "/etc/crowdsec/hub/.index.json"],
                        capture_output=True, text=True, timeout=30)
     extra["hub_index_mtime"] = float(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else None
+    # GeoIP databases used by crowdsecurity/geoip-enrich (country map, AS names).
+    extra["data_files"] = {}
+    for f in DATA_FILES:
+        p = subprocess.run(["docker", "exec", CONTAINER, "stat", "-c", "%Y", f"/var/lib/crowdsec/data/{f}"],
+                           capture_output=True, text=True, timeout=30)
+        if p.returncode == 0 and p.stdout.strip():
+            extra["data_files"][f] = float(p.stdout.strip())
     hub = cscli("hub", "list") or {}
     extra["scenarios"] = [i["name"] for i in (hub.get("scenarios") or []) if i.get("name")]
     extra["hub_items_not_ok"] = sum(1 for items in hub.values() for i in (items or [])

@@ -83,9 +83,11 @@ class Render(unittest.TestCase):
         ex.ingest_dropped(s, {"traefik-bouncer": 7})
         txt = ex.render(s, NOW, {"RU": "Russian Federation"},
                         {"bouncer_last_pull": {"traefik-bouncer": NOW}, "capi_last_pull": NOW,
-                         "hub_index_mtime": NOW, "hub_items_not_ok": 0})
+                         "hub_index_mtime": NOW, "hub_items_not_ok": 0,
+                         "data_files": {"GeoLite2-City.mmdb": NOW}})
         for line in txt.strip().splitlines():
             self.assertRegex(line, self.LINE)
+        self.assertIn(f'crowdsec_data_file_timestamp_seconds{{file="GeoLite2-City.mmdb"}} {NOW:.0f}', txt)
         self.assertIn('crowdsec_attacks_recent{window="24h"} 3', txt)
         self.assertIn('country_name="Russian Federation"', txt)
         self.assertIn('crowdsec_bouncer_dropped_requests_total{bouncer="traefik-bouncer"} 7', txt)
