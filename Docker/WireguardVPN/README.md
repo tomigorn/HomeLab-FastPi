@@ -66,3 +66,21 @@ cd ~/Projects/Docker/WireguardVPN && docker compose restart
 # Check container status
 docker ps
 ```
+
+## VPN clients reaching LAN-only routes (2026-10-19)
+
+VPN clients resolve `*.holy-grail.ch` to 192.168.1.2 via AdGuard. Traffic from inside the
+wg-easy container to the host's published ports goes through docker-proxy and arrives at
+Traefik as the bridge gateway **172.24.0.1** — the same source as Cloudflare-tunnel internet
+traffic, so `local-networks@file` refused it (Forbidden). Fix: the interface **PostUp hook**
+(stored in wg-easy's DB, `hooks_table`, Admin → Hooks in the UI) gets one extra rule:
+
+```
+iptables -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 172.24.0.3;
+```
+
+(and the matching `-D` in PostDown). Packets then go container-to-container to Traefik
+(IP pinned in Docker/Traefik/docker-compose.yaml) and are masqueraded to **172.24.0.5**,
+which `local-networks@file` allows. `-i wg0` limits it to real WireGuard clients. If the
+wg-easy DB is ever recreated, re-add this hook. Other ports (DNS 53, SSH, AdGuard 3000…) are
+unchanged. Backup of the DB before the change: `~/backups/wg-easy.db.bak-2026-10-19`.
