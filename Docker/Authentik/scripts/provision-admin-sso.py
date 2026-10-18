@@ -53,9 +53,11 @@ oidc_mappings = [ScopeMapping.objects.get(managed=f"goauthentik.io/providers/oau
 oidc_src = OAuth2Provider.objects.get(name="Nextcloud")  # flows + signing key to copy
 
 
-def oidc(name, redirects, logout_redirects=(), mappings=None):
-    """Confidential OIDC provider. client_id/secret are generated once and kept on rerun.
-    mappings replaces the default scope mappings (oidc_mappings) as a whole, on every run."""
+def oidc(name, redirects, logout_redirects=(), mappings=None, client_type=ClientType.CONFIDENTIAL):
+    """OIDC provider, confidential unless client_type says otherwise. client_id/secret are
+    generated once and kept on rerun (a PUBLIC client keeps an unused secret; Authentik
+    never checks it). mappings replaces the default scope mappings (oidc_mappings) as a
+    whole, on every run."""
     p, created = OAuth2Provider.objects.get_or_create(name=name, defaults={
         "client_id": secrets.token_urlsafe(30), "client_secret": secrets.token_urlsafe(60),
         "authorization_flow": oidc_src.authorization_flow,
@@ -63,7 +65,7 @@ def oidc(name, redirects, logout_redirects=(), mappings=None):
     p.authorization_flow = oidc_src.authorization_flow
     p.invalidation_flow = oidc_src.invalidation_flow
     p.signing_key = oidc_src.signing_key
-    p.client_type = ClientType.CONFIDENTIAL
+    p.client_type = client_type
     p.grant_types = ["authorization_code", "refresh_token"]  # empty = every request rejected
     p.include_claims_in_id_token = True
     p.redirect_uris = (
@@ -135,6 +137,17 @@ wg_easy = oidc("wg-easy", ["https://wg-easy.holy-grail.ch/api/auth/oidc/callback
 app_for("wg-easy", "wg-easy (VPN admin)", wg_easy, "https://wg-easy.holy-grail.ch")
 env("WireguardVPN/.env", WG_EASY_OIDC_CLIENT_ID=wg_easy.client_id,
     WG_EASY_OIDC_CLIENT_SECRET=wg_easy.client_secret)
+
+# 6. Home Assistant (HA's own login via the hass-oidc-auth custom component; route in
+# Docker/Traefik/traefik/dynamic/home-assistant.yml, config in
+# Docker/Home-Assistant/config/configuration.yaml). PUBLIC client with PKCE, as the
+# component recommends - no secret to leak. The client id is not secret; it goes into
+# Home-Assistant/.env and reaches HA via compose env + !env_var. Roles come from the
+# groups claim (part of the default profile mapping) and are set at first login only.
+ha = oidc("home-assistant", ["https://ha.holy-grail.ch/auth/oidc/callback"],
+          client_type=ClientType.PUBLIC)
+app_for("home-assistant", "Home Assistant", ha, "https://ha.holy-grail.ch")
+env("Home-Assistant/.env", HA_OIDC_CLIENT_ID=ha.client_id)
 
 outpost.save()
 print("OK provisioned")
