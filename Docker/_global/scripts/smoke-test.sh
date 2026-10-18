@@ -28,6 +28,17 @@ check "crowdsec version"           '^v1\.' "$(docker exec crowdsec cscli version
 check "crowdsec LAPI"              'successfully' "$(docker exec crowdsec cscli lapi status 2>&1 | tail -1)"
 check "crowdsec home IP allowlisted" 'is allowlisted' "$(docker exec crowdsec cscli allowlists check "$(dig +short lang-tool.ddns.net @1.1.1.1 | tail -1)" 2>&1 | tail -1)"   # fails if the ISP changed the home IP
 check "bouncer pulled < 10 min"    '^yes$' "$(docker exec crowdsec cscli bouncers list -o json 2>/dev/null | python3 -c 'import json,sys,datetime as d; n=d.datetime.now(d.timezone.utc); print("yes" if any(b.get("last_pull") and (n-d.datetime.fromisoformat(b["last_pull"].replace("Z","+00:00"))).total_seconds()<600 for b in json.load(sys.stdin)) else "no")')"
+# Threat data freshness (CrowdSec README "Threat data refresh"): community list every 2 h,
+# hub content + GeoIP checked daily at 05:07 by crowdsec-autoupdate.timer.
+age() { s=$(sed -n "s/^$1 //p" /var/lib/node-exporter/textfile/$2 2>/dev/null | head -1); s=${s%.*}; echo $(( $(date +%s) - ${s:-0} )); }
+check "community list pulled < 3 h" '^yes$' "$(a=$(age crowdsec_capi_last_pull_timestamp_seconds crowdsec.prom); (( a < 10800 )) && echo yes || echo "no (${a}s)")"
+check "community list > 10k IPs"   '^yes$' "$(n=$(curl -s -m 5 -G --data-urlencode 'query=sum(cs_active_decisions{origin="CAPI"})' http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(int(float(r[0]["value"][1])) if r else 0)'); (( ${n:-0} > 10000 )) && echo yes || echo "no (${n:-?})")"
+check "hub/GeoIP checked < 36 h"   '^yes$' "$(a=$(age crowdsec_autoupdate_last_run_timestamp_seconds crowdsec_autoupdate.prom); (( a < 129600 )) && echo yes || echo "no (${a}s)")"
+# A community-list IP must be refused by Traefik (proves the bouncer syncs CAPI decisions). Via the
+# container IP + X-Forwarded-For, so the probe never bans the home IP.
+tip=$(docker inspect traefik -f '{{(index .NetworkSettings.Networks "traefik_proxy").IPAddress}}' 2>/dev/null)
+cip=$(docker exec crowdsec cscli decisions list -o json --origin CAPI -l 1 2>/dev/null | python3 -c 'import json,sys; a=json.load(sys.stdin) or []; print(a[0]["decisions"][0]["value"] if a else "")' 2>/dev/null)
+check "community IP blocked (403)"  '^403$' "$([[ -n $tip && -n $cip ]] && curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "home.holy-grail.ch:443:$tip" -H "X-Forwarded-For: $cip" https://home.holy-grail.ch/ || echo "no CAPI IP/traefik ip")"
 
 echo "== Authentik (SSO)"
 running authentik-server authentik-worker authentik-postgresql
