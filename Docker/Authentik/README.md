@@ -351,7 +351,7 @@ setup is config as code in `scripts/provision-admin-sso.py`; the design is in
 | Grafana | https://grafana.holy-grail.ch | native generic OAuth (role `GrafanaAdmin` from groups) | local admin at `/login?disableAutoLogin=true` or `http://192.168.1.2:3001` |
 | Portainer | https://portainer.holy-grail.ch | native OAuth (CE "Custom"; user `tomigorn` pre-created as admin, auto-provisioning off) | initial admin at `https://192.168.1.2:9443/#!/internal-auth` |
 | AdGuard Home | https://adguard.holy-grail.ch | forward auth; Authentik injects HTTP Basic for AdGuard user `authentik-proxy` (middleware `authentik-basic@file`; credentials in `homelab-admins` group attributes `adguard_username` / `adguard_password`) | AdGuard's own admin login on `http://192.168.1.2:3000` |
-| wg-easy | https://wg-easy.holy-grail.ch | native OIDC (custom `email_verified` scope mapping; admin linked by email) | stage 1: `/login?auto_launch=false` password login; after stage 2: set `DISABLE_PASSWORD_AUTH=false` in the compose file and `docker compose up -d` from the host shell |
+| wg-easy | https://wg-easy.holy-grail.ch | native OIDC (custom `email_verified` scope mapping; admin linked by email) | password login disabled (`DISABLE_PASSWORD_AUTH=true`). Shell: set it to `false` in `WireguardVPN/docker-compose.yaml`, `docker compose up -d`, log in at `/login?auto_launch=false`, set it back; lost password: `docker exec -it WireGuard-VPN cli db:admin:reset` |
 | Home Assistant | https://ha.holy-grail.ch | `hass-oidc-auth` 1.2.1 (public client) | owner account at `/?skip_oidc_redirect=true` (also on `http://192.168.1.2:8123`) |
 
 ### Re-running the provisioning
@@ -390,7 +390,7 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 ### Pending (stage 2)
 
 - [ ] Confirm one SSO login per tool
-- [ ] wg-easy: set `DISABLE_PASSWORD_AUTH=true` and recreate, remove `WG_EASY_ADMIN_PASSWORD` from `.env` / `.env.example`, verify `/api/auth/password` is rejected
+- [x] wg-easy: set `DISABLE_PASSWORD_AUTH=true` and recreate, remove `WG_EASY_ADMIN_PASSWORD` from `.env` / `.env.example`, verify `/api/auth/password` is rejected (2026-10-19, 403)
 - [ ] AdGuard: confirm the UI opens without its own login prompt after SSO
 
 ## Branding

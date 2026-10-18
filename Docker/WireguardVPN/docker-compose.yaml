@@ -31,9 +31,15 @@ services:
       # the same email (linked on first login). true would create new users as ADMIN
       # (wg-easy has no permission system yet).
       - OAUTH_AUTO_REGISTER=false
-      # The login page jumps straight to Authentik. Password login (break-glass):
-      # https://wg-easy.holy-grail.ch/login?auto_launch=false
+      # The login page jumps straight to Authentik.
       - OAUTH_AUTO_LAUNCH=oidc
+      # SSO only (2026-10-19): the password login (/api/auth/password and
+      # Authorization: Basic on the API) is refused with 403.
+      # Recovery when Authentik is down (server shell only): set this to false,
+      # `docker compose up -d` (drops VPN tunnels for ~3 s), log in at
+      # https://wg-easy.holy-grail.ch/login?auto_launch=false, then set it back.
+      # Password forgotten: `docker exec -it WireGuard-VPN cli db:admin:reset`.
+      - DISABLE_PASSWORD_AUTH=true
     volumes:
       - ./wg-easy-v15:/etc/wireguard
       - /lib/modules:/lib/modules:ro

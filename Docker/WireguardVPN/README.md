@@ -6,7 +6,11 @@ WireGuard VPN server managed via wg-easy. The management UI is routed through Tr
 - **Management UI:** `https://wg-easy.holy-grail.ch` — LAN/VPN only, behind Traefik IPAllowList (`local-networks@file`)
 - **Login:** Authentik OIDC (application `wg-easy`, group `homelab-admins`); the login page jumps straight to Authentik.
   The Authentik login is linked to the wg-easy `admin` user by its email address (auto-register is off).
-  Password login (break-glass): `https://wg-easy.holy-grail.ch/login?auto_launch=false` with `WG_EASY_ADMIN_USERNAME`/`WG_EASY_ADMIN_PASSWORD` from `.env`.
+  **SSO only:** `DISABLE_PASSWORD_AUTH=true`, so the password login (`/api/auth/password`, `Authorization: Basic`) returns 403.
+  Recovery when Authentik is down (server shell only): set `DISABLE_PASSWORD_AUTH=false` in `docker-compose.yaml`,
+  `docker compose up -d` (drops VPN tunnels for ~3 s), log in at `https://wg-easy.holy-grail.ch/login?auto_launch=false`,
+  then set it back to `true` and `docker compose up -d` again. The admin password is only in wg-easy's database;
+  reset it with `docker exec -it WireGuard-VPN cli db:admin:reset`.
   The UI must be opened on exactly this hostname: wg-easy builds the OIDC redirect URI from the Host header.
 
 ---

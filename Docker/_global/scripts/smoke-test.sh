@@ -87,6 +87,8 @@ check "wg-easy version"            '15\.4\.0' "$(docker inspect -f '{{.Config.Im
 check "wireguard listening"        '51820' "$(docker exec WireGuard-VPN wg show wg0 listen-port)"
 check "wireguard peers"            '^3$' "$(docker exec WireGuard-VPN wg show wg0 peers | wc -l)"
 check "wg-easy UI (LAN https)"     '^200$' "$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve wg-easy.holy-grail.ch:443:192.168.1.2 'https://wg-easy.holy-grail.ch/login?auto_launch=false')"
+check "wg-easy password login off" '"passwordDisabled":true' "$(curl -sk -m 10 --resolve wg-easy.holy-grail.ch:443:192.168.1.2 https://wg-easy.holy-grail.ch/api/auth/methods)"
+check "wg-easy password POST (403)" '^403$' "$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve wg-easy.holy-grail.ch:443:192.168.1.2 -H 'Content-Type: application/json' --data '{"username":"x","password":"x","remember":false}' https://wg-easy.holy-grail.ch/api/auth/password)"
 check "wg-easy oidc -> sso"        'sso\.holy-grail\.ch/application/o/authorize/\?redirect_uri=https%3A%2F%2Fwg-easy\.holy-grail\.ch%2Fapi%2Fauth%2Foidc%2Fcallback' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve wg-easy.holy-grail.ch:443:192.168.1.2 https://wg-easy.holy-grail.ch/api/auth/oidc)"
 
 echo "== Digitec price tracker"
