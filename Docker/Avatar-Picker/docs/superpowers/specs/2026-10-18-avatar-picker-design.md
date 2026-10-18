@@ -117,3 +117,17 @@ repo (`scripts/build-gallery.py`) from the upstream PNGs; output committed under
   clone or CI run works without the pack. `build-gallery.py --only <rows>`
   re-fetches it.
 - Memes row is exempt from the strict f/m/n order (it happens to be balanced).
+
+## Addendum v1.4.0 (2026-10-19): row order, bigger pop-culture rows, colours
+
+- Rows reordered as the user asked: movies, TV & cartoons, anime, video games,
+  classic storybook, illustrated people, flat emoji, art classics, memes,
+  cartoon & sketch, then the rest, with a new "Colours" row last. Group ids and
+  all existing avatar ids are unchanged.
+- Rows are now any multiple of 9 (desktop keeps 9 per line and wraps): the four
+  pop-culture rows have 27 each, flat emoji / art classics / memes 18 each.
+  279 avatars in total (144 committed, 135 in the local pack).
+- Colours row: 18 solid colours, gradients and rainbows generated with Pillow in
+  `build-gallery.py` (no downloads, nothing third-party).
+- Memes stay animal/drawn-character only; the memes and colours rows are exempt
+  from the f/m/n interleave.

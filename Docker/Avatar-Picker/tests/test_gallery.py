@@ -7,8 +7,22 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 # files in app/img-local/). A fresh clone has none of them; the tests below
 # must pass with or without the local pack present.
 LOCAL_GROUPS = {"classics", "movies", "tvcartoons", "anime", "games", "memes"}
-# Meme row: mostly animals/objects, so the 3/3/3 f-m-n rule does not apply.
-FREE_VIBE_GROUPS = {"memes"}
+# Meme row: mostly animals/objects, and the colours row has no people at all,
+# so the f-m-n interleave rule does not apply to them.
+FREE_VIBE_GROUPS = {"memes", "colours"}
+# Order the user asked for (v1.4): the four pop-culture rows first, then
+# storybook, illustrated people, flat emoji, art classics, memes, cartoon & sketch,
+# then the rest, with the colours row last.
+ORDER = ["movies", "tvcartoons", "anime", "games", "storybook", "illustrated", "flatemoji",
+         "paintings", "memes", "cartoon", "ukiyoe", "belleepoque", "fairytale", "comics",
+         "swiss", "people3d", "pixel", "classics", "colours"]
+LABELS = {"movies": "Movies & animated films", "tvcartoons": "TV & cartoons", "anime": "Anime",
+          "games": "Video games", "storybook": "Classic storybook", "illustrated": "Illustrated people",
+          "flatemoji": "Flat emoji", "paintings": "Art classics", "memes": "Memes",
+          "cartoon": "Cartoon & sketch", "colours": "Colours"}
+# Row sizes (every row is a multiple of 9)
+SIZES = {"movies": 27, "tvcartoons": 27, "anime": 27, "games": 27, "flatemoji": 18,
+         "paintings": 18, "memes": 18, "colours": 18}
 PACK_DIR = {None: "img", "local": "img-local"}
 
 
@@ -23,23 +37,39 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 18)
-        self.assertEqual(len(GALLERY), 18 * 9)
+        self.assertEqual(len(GROUPS), 19)
+        self.assertEqual(len(GALLERY), 11 * 9 + 4 * 27 + 4 * 18)  # 279
+        for gid, n in SIZES.items():
+            self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
-    def test_group_order(self):
-        self.assertEqual([g["id"] for g in GROUPS],
-                         ["storybook", "paintings", "people3d", "illustrated", "pixel", "cartoon",
-                          "ukiyoe", "belleepoque", "fairytale", "comics", "flatemoji", "swiss",
-                          "classics", "movies", "tvcartoons", "anime", "games", "memes"])
+    def test_group_order_and_labels(self):
+        self.assertEqual([g["id"] for g in GROUPS], ORDER)
+        for g in GROUPS:
+            if g["id"] in LABELS:
+                self.assertEqual(g["label"], LABELS[g["id"]])
 
     def test_gallery_follows_group_order_and_interleaves(self):
         """The flat list is grouped row by row, each row ordered f, m, n, f, m, n, ..."""
         gids = [g["id"] for g in GROUPS]
-        self.assertEqual([a["group"] for a in GALLERY], [g for g in gids for _ in range(9)])
-        for i, a in enumerate(GALLERY):
+        order = [a["group"] for a in GALLERY]
+        self.assertEqual(order, sorted(order, key=gids.index))
+        pos = {}
+        for a in GALLERY:
+            i = pos[a["group"]] = pos.get(a["group"], -1) + 1
             if a["group"] in FREE_VIBE_GROUPS:
                 continue
             self.assertEqual(a["vibe"], ("feminine", "masculine", "neutral")[i % 3], a["id"])
+
+    def test_colours_row(self):
+        """Generated locally, committed, plain names, solid 'color' swatches."""
+        row = [a for a in GALLERY if a["group"] == "colours"]
+        self.assertEqual(len(row), 18)
+        for a in row:
+            self.assertTrue(a["id"].startswith("colour-"), a["id"])
+            self.assertIsNone(a.get("pack"), a["id"])
+            self.assertEqual(a["vibe"], "neutral", a["id"])
+            self.assertRegex(a["name"], r"^[A-Z][a-z]+$", a["id"])
+        self.assertEqual(GROUPS[-1]["id"], "colours")
 
     def test_file_matches_id(self):
         for a in GALLERY:
@@ -65,14 +95,15 @@ class GalleryTest(unittest.TestCase):
             self.assertTrue(any(a["group"] == gid for a in GALLERY), gid)
 
     def test_rows_are_mixed(self):
-        """Every row holds exactly 9 avatars: 3 feminine, 3 masculine, 3 neutral."""
+        """Every row holds a multiple of 9 avatars (at least 9), a third of each vibe."""
         for grp in GROUPS:
             row = [a for a in GALLERY if a["group"] == grp["id"]]
-            self.assertEqual(len(row), 9, grp["id"])
+            self.assertGreaterEqual(len(row), 9, grp["id"])
+            self.assertEqual(len(row) % 9, 0, grp["id"])
             if grp["id"] in FREE_VIBE_GROUPS:
                 continue
             for vibe in ("feminine", "masculine", "neutral"):
-                self.assertEqual(sum(a["vibe"] == vibe for a in row), 3, (grp["id"], vibe))
+                self.assertEqual(sum(a["vibe"] == vibe for a in row), len(row) // 3, (grp["id"], vibe))
 
     def test_vibe_values(self):
         for a in GALLERY:

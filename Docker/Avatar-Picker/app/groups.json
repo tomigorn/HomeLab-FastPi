@@ -1,23 +1,39 @@
 [
   {
+    "id": "movies",
+    "label": "Movies & animated films"
+  },
+  {
+    "id": "tvcartoons",
+    "label": "TV & cartoons"
+  },
+  {
+    "id": "anime",
+    "label": "Anime"
+  },
+  {
+    "id": "games",
+    "label": "Video games"
+  },
+  {
     "id": "storybook",
     "label": "Classic storybook"
-  },
-  {
-    "id": "paintings",
-    "label": "Art classics"
-  },
-  {
-    "id": "people3d",
-    "label": "3D characters"
   },
   {
     "id": "illustrated",
     "label": "Illustrated people"
   },
   {
-    "id": "pixel",
-    "label": "Pixel art"
+    "id": "flatemoji",
+    "label": "Flat emoji"
+  },
+  {
+    "id": "paintings",
+    "label": "Art classics"
+  },
+  {
+    "id": "memes",
+    "label": "Memes"
   },
   {
     "id": "cartoon",
@@ -40,35 +56,23 @@
     "label": "Early comics"
   },
   {
-    "id": "flatemoji",
-    "label": "Flat emoji"
-  },
-  {
     "id": "swiss",
     "label": "Swiss masters"
+  },
+  {
+    "id": "people3d",
+    "label": "3D characters"
+  },
+  {
+    "id": "pixel",
+    "label": "Pixel art"
   },
   {
     "id": "classics",
     "label": "Classic cartoons (public domain)"
   },
   {
-    "id": "movies",
-    "label": "Movies & animated films"
-  },
-  {
-    "id": "tvcartoons",
-    "label": "TV & cartoons"
-  },
-  {
-    "id": "anime",
-    "label": "Anime"
-  },
-  {
-    "id": "games",
-    "label": "Video games"
-  },
-  {
-    "id": "memes",
-    "label": "Memes"
+    "id": "colours",
+    "label": "Colours"
   }
 ]

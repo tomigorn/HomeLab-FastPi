@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (18 rows x 9, human-made art only, no AI art).
+"""One-off: build the avatar gallery (19 rows, each a multiple of 9 avatars,
+human-made art only, no AI art).
 
-Rows, in order (every row holds 3 feminine, 3 masculine and 3 neutral avatars;
-the `vibe` field is only used to interleave them so each row looks mixed):
+Rows, in order (every row holds equal numbers of feminine, masculine and neutral
+avatars; the `vibe` field is only used to interleave them f, m, n, ... so each
+row looks mixed - the memes and colours rows are exempt):
 
+  movies      Movies & animated films (27)      - LOCAL PACK (see below)
+  tvcartoons  TV & cartoons (27)                - LOCAL PACK
+  anime       Anime (27)                        - LOCAL PACK
+  games       Video games (27)                  - LOCAL PACK
   storybook   original period storybook art (Tenniel, Potter, Busch, Hoffmann)
-  paintings   famous public-domain paintings, cropped to the face/subject
-  people3d    Microsoft Fluent Emoji 3D (MIT), centred on a soft square
   illustrated DiceBear "adventurer" / "lorelei"
-  pixel       DiceBear "pixel-art"
+  flatemoji   Google Noto Emoji (Apache 2.0), centred on a soft square (18)
+  paintings   famous public-domain paintings, cropped to the face/subject (18)
+  memes       Memes - animals and drawn characters only (18) - LOCAL PACK
   cartoon     DiceBear "avataaars" / "open-peeps" / "notionists"
   ukiyoe      Japanese woodblock prints (Utamaro, Sharaku, Hokusai, Hiroshige)
   belleepoque Belle Epoque posters (Mucha, Toulouse-Lautrec, Steinlen, Cheret)
   fairytale   fairy-tale illustration (Rackham, Dulac, Bilibin)
   comics      early newspaper comics (Segar, Herriman, Outcault, Fisher)
-  flatemoji   Google Noto Emoji (Apache 2.0), centred on a soft square
   swiss       Swiss masters (Anker, Hodler, Segantini, Vallotton)
+  people3d    Microsoft Fluent Emoji 3D (MIT), centred on a soft square
+  pixel       DiceBear "pixel-art"
   classics    classic cartoons in the US public domain (Mickey, Felix, Pooh, ...)
-  movies, tvcartoons, anime, games, memes
-              pop culture - LOCAL PACK (see below)
+  colours     solid colours, gradients and rainbows generated here with Pillow
+              (18, no downloads) - for people who do not want a picture
 
 Local pack: the pop-culture rows are third-party copyrighted character art.
 They are written to app/img-local/ (gitignored: the repo is public) and marked
@@ -53,7 +60,7 @@ import urllib.error, urllib.parse, urllib.request
 from PIL import Image, ImageChops
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-UA = "HomelabAvatarGallery/1.3 (private non-commercial gallery build)"
+UA = "HomelabAvatarGallery/1.4 (private non-commercial gallery build)"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 FLUENT = "https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/"
 # Pinned to the last commit whose LICENSE is Apache 2.0 (the repo switched its
@@ -66,24 +73,25 @@ VIBES = ("feminine", "masculine", "neutral")
 CACHE = pathlib.Path(os.environ["GALLERY_CACHE"]) if os.environ.get("GALLERY_CACHE") else None
 
 GROUPS = [
+    ("movies", "Movies & animated films"),
+    ("tvcartoons", "TV & cartoons"),
+    ("anime", "Anime"),
+    ("games", "Video games"),
     ("storybook", "Classic storybook"),
-    ("paintings", "Art classics"),
-    ("people3d", "3D characters"),
     ("illustrated", "Illustrated people"),
-    ("pixel", "Pixel art"),
+    ("flatemoji", "Flat emoji"),
+    ("paintings", "Art classics"),
+    ("memes", "Memes"),
     ("cartoon", "Cartoon & sketch"),
     ("ukiyoe", "Japanese woodblock"),
     ("belleepoque", "Belle Époque posters"),
     ("fairytale", "Fairy-tale illustration"),
     ("comics", "Early comics"),
-    ("flatemoji", "Flat emoji"),
     ("swiss", "Swiss masters"),
+    ("people3d", "3D characters"),
+    ("pixel", "Pixel art"),
     ("classics", "Classic cartoons (public domain)"),
-    ("movies", "Movies & animated films"),
-    ("tvcartoons", "TV & cartoons"),
-    ("anime", "Anime"),
-    ("games", "Video games"),
-    ("memes", "Memes"),
+    ("colours", "Colours"),
 ]
 
 # Commons rows: (id, name, vibe, "File:..." title, (x, y, size) crop box)
@@ -152,6 +160,38 @@ COMMONS = {
         # Claude Monet (d. 1926), Impression, Sunrise 1872 - {{PD-old-auto-1996}}
         ("monet-sunrise", "Sunrise", "neutral",
          "File:Monet - Impression, Sunrise.jpg", (500, 200, 1100)),
+        # --- v1.4: nine more (licence tags checked 2026-10-19) ---
+        # Sandro Botticelli (d. 1510), The Birth of Venus c. 1485 - {{PD-Art|PD-old-100-expired}}
+        ("botticelli-venus", "Venus", "feminine",
+         "File:Sandro Botticelli - La nascita di Venere - Google Art Project - edited.jpg",
+         (720, 100, 480)),
+        # Giuseppe Arcimboldo (d. 1593), Vertumnus (Rudolf II) 1591 - {{PD-Art|PD-old-100-expired}}
+        ("arcimboldo-vertumnus", "Vertumnus", "masculine",
+         "File:Giuseppe Arcimboldo - Rudolf II of Habsburg as Vertumnus - Google Art Project.jpg",
+         (350, 100, 1200)),
+        # Vincent van Gogh (d. 1890), Sunflowers (fourth version) 1888 - {{PD-Art|PD-old-100-expired}}
+        ("van-gogh-sunflowers", "Sunflowers", "neutral",
+         "File:Vincent Willem van Gogh 127.jpg", (0, 150, 1920)),
+        # Johannes Vermeer (d. 1675), The Milkmaid c. 1660 - {{PD-Art|PD-old-100-expired}}
+        ("vermeer-milkmaid", "Milkmaid", "feminine",
+         "File:Johannes Vermeer - Het melkmeisje - Google Art Project.jpg", (900, 180, 600)),
+        # Jan van Eyck (d. 1441), Portrait of a Man (Self-Portrait?) 1433 - {{PD-Art|PD-old-100-expired}}
+        ("van-eyck-turban", "Turban", "masculine",
+         "File:Portrait of a Man in a Turban (Jan van Eyck).jpg", (330, 250, 1250)),
+        # Edvard Munch (d. 1944), The Scream 1893 - {{PD-Art|PD-old-auto-expired}} (PD in CH/EU since 2015)
+        ("munch-scream", "Scream", "neutral",
+         "File:Edvard Munch, 1893, The Scream, oil, tempera and pastel on cardboard, 91 x 73 cm, National Gallery of Norway.jpg",
+         (420, 800, 1050)),
+        # Pierre-Auguste Renoir (d. 1919), Portrait of Irene Cahen d'Anvers 1880 - {{PD-Art|PD-old-auto-expired}}
+        ("renoir-irene", "Irène", "feminine",
+         "File:Pierre-Auguste Renoir, 1880, Portrait of Mademoiselle Irène Cahen d'Anvers, Sammlung E.G. Bührle.jpg",
+         (650, 200, 750)),
+        # Johannes Vermeer (d. 1675), The Astronomer c. 1668 - {{PD-Art|PD-old-100-expired}}
+        ("vermeer-astronomer", "Astronomer", "masculine",
+         "File:Johannes Vermeer - The Astronomer - WGA24685.jpg", (250, 180, 650)),
+        # Gustav Klimt (d. 1918), The Kiss 1907-08 - {{PD-Art|PD-old-auto-expired}}
+        ("klimt-kiss", "The Kiss", "neutral",
+         "File:The Kiss - Gustav Klimt - Google Cultural Institute.jpg", (500, 150, 800)),
     ],
     "ukiyoe": [
         # Kitagawa Utamaro (d. 1806), Naniwaya Okita, c. 1793 - PD-Art
@@ -371,6 +411,34 @@ LOCAL = {
         ("stitch", "Stitch", "neutral",
          WP + "en/thumb/d/d2/Stitch_%28Lilo_%26_Stitch%29.svg/960px-Stitch_%28Lilo_%26_Stitch%29.svg.png",
          (40, 30, 880)),
+        # --- v1.4: +18 ---
+        ("anna", "Anna", "feminine", WP + "en/8/8a/Anna_Frozen.png", (30, 5, 130)),
+        ("rapunzel", "Rapunzel", "feminine", WP + "en/6/6a/Rapunzel_tangled.png", (120, 5, 150)),
+        ("ariel", "Ariel", "feminine", WP + "en/7/77/Ariel_disney.png", (10, 0, 150)),
+        ("mirabel", "Mirabel", "feminine", WP + "en/e/e7/Mirabel_Madrigal.png", (35, 5, 130)),
+        ("joy", "Joy", "feminine", WP + "en/3/30/Joy_-_Inside_Out.webp", (35, 0, 130)),
+        ("merida", "Merida", "feminine", WP + "en/e/e8/Merida_disney.png", (35, 95, 110)),
+        ("po", "Po", "masculine", WP + "en/3/3d/Po_from_DreamWorks_Animation%27s_Kung_Fu_Panda.png",
+         (15, 0, 220)),
+        ("gru", "Gru", "masculine", WP + "en/0/09/Gru_from_DM4.png", (30, 0, 150)),
+        ("simba", "Simba", "masculine", WP + "en/9/94/Simba_%28_Disney_character_-_adult%29.png",
+         (50, 0, 170)),
+        ("spider-man", "Spider-Man", "masculine",  # comic-book art (Web of Spider-Man #129 cover)
+         WP + "en/2/21/Web_of_Spider-Man_Vol_1_129-1.png", (40, 10, 190)),
+        ("buzz-lightyear", "Buzz Lightyear", "masculine",  # Commons photo of the Toy Story Hotel figure
+         WP + "commons/thumb/0/02/Buzz_Lightyear_sculpture_of_Toy_Story_Hotel_Shanghai_%28cropped%29.jpg/1280px-Buzz_Lightyear_sculpture_of_Toy_Story_Hotel_Shanghai_%28cropped%29.jpg",
+         (250, 50, 750)),
+        ("yoda", "Yoda", "masculine", WP + "en/9/9b/Yoda_Empire_Strikes_Back.png", (0, 0, 250)),
+        ("olaf", "Olaf", "neutral", WP + "en/6/6d/Olaf_from_Disney%27s_Frozen.png", (40, 70, 170)),
+        ("lightning-mcqueen", "Lightning McQueen", "neutral", WP + "en/8/82/Lightning_McQueen.png",
+         (55, 0, 137)),
+        ("dory", "Dory", "neutral", WP + "en/a/ae/Dory_%28Finding_Nemo%29.png", (0, 0, 300)),
+        ("scrat", "Scrat", "neutral", WP + "en/e/ec/Scrat_Ice_Age.png", (30, 0, 272)),
+        ("slimer", "Slimer", "neutral",
+         WP + "en/7/7c/Slimer_%28Ghostbusters_1984_film_character%29.png", (7, 3, 289)),
+        ("minion", "Minion", "neutral",  # Commons photo of the Brisbane Minion figure
+         WP + "commons/thumb/4/41/Minion_sculpture_in_Brisbane%2C_2024.jpg/1280px-Minion_sculpture_in_Brisbane%2C_2024.jpg",
+         (300, 80, 750)),
     ],
     "tvcartoons": [
         ("lisa-simpson", "Lisa", "feminine", WP + "en/e/ec/Lisa_Simpson.png", (20, 0, 210)),
@@ -385,6 +453,29 @@ LOCAL = {
         ("rick-sanchez", "Rick", "masculine", WP + "en/a/a6/Rick_Sanchez.png", (25, 0, 105)),
         ("garfield", "Garfield", "neutral",
          WP + "en/thumb/b/bc/Garfield_the_Cat.svg/960px-Garfield_the_Cat.svg.png", (20, 0, 330)),
+        # --- v1.4: +18 ---
+        ("marge-simpson", "Marge", "feminine", WP + "en/0/0b/Marge_Simpson.png", (0, 20, 130)),
+        ("daphne", "Daphne", "feminine", WP + "en/1/1d/Daphne_Blake.png", (45, 0, 110)),
+        ("mabel-pines", "Mabel", "feminine", WP + "en/4/4b/Mabel_Pines.png", (80, 10, 160)),
+        ("powerpuff-girls", "Powerpuff Girls", "feminine",
+         WP + "en/9/95/Powerpuff_girls_characters.jpg", (65, 0, 256)),
+        ("smurfette", "Smurfette", "feminine", WP + "en/f/fe/Smurfette-comics_version.png", (10, 10, 240)),
+        ("dora", "Dora", "feminine", WP + "en/9/99/Dora_the_Explorer_%28character%29.webp", (0, 0, 186)),
+        ("bart-simpson", "Bart", "masculine", WP + "en/a/aa/Bart_Simpson_200px.png", (45, 25, 120)),
+        ("peter-griffin", "Peter Griffin", "masculine", WP + "en/c/c2/Peter_Griffin.png", (50, 10, 150)),
+        ("cartman", "Cartman", "masculine", WP + "en/7/77/EricCartman.png", (15, 0, 300)),
+        ("bugs-bunny", "Bugs Bunny", "masculine",
+         WP + "en/thumb/1/17/Bugs_Bunny.svg/960px-Bugs_Bunny.svg.png", (60, 0, 560)),
+        ("aang", "Aang", "masculine", WP + "en/8/86/Avatar_Aang.png", (70, 30, 160)),
+        ("kermit", "Kermit", "masculine",  # Commons photo of the puppet (Smithsonian)
+         WP + "commons/thumb/7/74/Kermit_puppet.jpg/1280px-Kermit_puppet.jpg", (330, 130, 450)),
+        ("snoopy", "Snoopy", "neutral", WP + "en/5/53/Snoopy_Peanuts.png", (20, 0, 255)),
+        ("patrick-star", "Patrick", "neutral", WP + "commons/2/28/Patrick_Star_character.png", (20, 0, 330)),
+        ("pink-panther", "Pink Panther", "neutral", WP + "en/9/96/Pink_Panther.png", (40, 10, 150)),
+        ("elmo", "Elmo", "neutral", WP + "commons/a/ac/Elmo.jpg", (40, 0, 780)),
+        ("gromit", "Gromit", "neutral",  # Commons photo of the Aardman model (Bristol, 2024)
+         WP + "commons/thumb/2/2f/GromitCrop2024.jpg/1280px-GromitCrop2024.jpg", (200, 180, 600)),
+        ("jerry-mouse", "Jerry", "neutral", WP + "en/2/2f/Jerry_Mouse.png", (0, 0, 202)),
     ],
     "anime": [
         ("sailor-moon", "Sailor Moon", "feminine", WP + "en/2/2b/Sailor_Moon_01.jpg", (40, 40, 125)),
@@ -396,6 +487,27 @@ LOCAL = {
         ("chihiro", "Chihiro", "feminine", "https://www.ghibli.jp/gallery/chihiro001.jpg", (800, 40, 340)),
         ("luffy", "Luffy", "masculine", WP + "en/c/cb/Monkey_D_Luffy.png", (20, 0, 140)),
         ("jiji", "Jiji", "neutral", "https://www.ghibli.jp/gallery/majo050.jpg", (1120, 470, 200)),
+        # --- v1.4: +18 ---
+        ("anya", "Anya", "feminine", WP + "en/e/ec/AnyaForger.png", (25, 15, 160)),
+        ("hello-kitty", "Hello Kitty", "feminine", WP + "en/0/05/Hello_kitty_character_portrait.png",
+         (15, 20, 220)),
+        ("kuromi", "Kuromi", "feminine", WP + "en/0/04/Kuromi_render.png", (35, 0, 250)),
+        ("kiki", "Kiki", "feminine", "https://www.ghibli.jp/gallery/majo013.jpg", (330, 30, 680)),
+        ("ponyo", "Ponyo", "feminine", "https://www.ghibli.jp/gallery/ponyo016.jpg", (640, 60, 900)),
+        ("asuka", "Asuka", "feminine", WP + "en/2/2f/Asukka13.jpg", (120, 35, 110)),
+        ("vegeta", "Vegeta", "masculine", WP + "en/8/88/Vegeta_Dragon_Ball.jpg", (55, 5, 130)),
+        ("tanjiro", "Tanjiro", "masculine", WP + "en/e/ea/Tanjirou_manga.png", (30, 10, 170)),
+        ("deku", "Deku", "masculine",
+         WP + "en/d/db/Izuku_Midoriya_%28My_Hero_Academia_character%29.png", (20, 0, 120)),
+        ("edward-elric", "Edward Elric", "masculine", WP + "en/b/b5/Edward85as.JPG", (60, 20, 110)),
+        ("ichigo", "Ichigo", "masculine", WP + "en/1/1e/IchigoKurosakiBleach.jpg", (90, 0, 160)),
+        ("astro-boy", "Astro Boy", "masculine", WP + "en/f/f2/Astro_Boy_anime_version.png", (60, 0, 160)),
+        ("doraemon", "Doraemon", "neutral", WP + "en/b/bd/Doraemon_character.png", (0, 0, 286)),
+        ("eevee", "Eevee", "neutral", WP + "en/a/a9/Pok%C3%A9mon_Eevee_art.png", (0, 0, 242)),
+        ("snorlax", "Snorlax", "neutral", WP + "en/3/3f/Pok%C3%A9mon_Snorlax_art.png", (36, 0, 282)),
+        ("charizard", "Charizard", "neutral", WP + "en/1/1f/Pok%C3%A9mon_Charizard_art.png", (35, 0, 256)),
+        ("no-face", "No-Face", "neutral", "https://www.ghibli.jp/gallery/chihiro044.jpg", (240, 0, 300)),
+        ("calcifer", "Calcifer", "neutral", "https://www.ghibli.jp/gallery/howl012.jpg", (440, 0, 1038)),
     ],
     "games": [
         ("princess-peach", "Peach", "feminine", WP + "en/1/16/Princess_Peach_Stock_Art.png", (40, 0, 140)),
@@ -409,6 +521,29 @@ LOCAL = {
         ("master-chief", "Master Chief", "masculine", WP + "en/4/42/Master_chief_halo_infinite.png",
          (75, 20, 100)),
         ("yoshi", "Yoshi", "neutral", WP + "en/d/db/Yoshi_%28Nintendo_character%29.png", (10, 0, 220)),
+        # --- v1.4: +18 ---
+        ("samus", "Samus", "feminine", WP + "en/d/d6/Samus_Aran.png", (40, 0, 110)),
+        ("isabelle", "Isabelle", "feminine", WP + "en/2/26/Isabelle_AF.png", (10, 10, 200)),
+        ("princess-daisy", "Daisy", "feminine", WP + "en/e/eb/Princess_Daisy_by_Shigehisa_Nakaue.png",
+         (20, 10, 170)),
+        ("jinx", "Jinx", "feminine", WP + "en/a/ad/Jinx-artwork-lol.png", (90, 0, 130)),
+        ("tifa", "Tifa", "feminine", WP + "en/6/61/Tifa_Lockhart_art.png", (40, 0, 120)),
+        ("toadette", "Toadette", "feminine", WP + "en/6/6a/Toadette_Artwork_by_Shigehisa_Nakaue.png",
+         (0, 0, 270)),
+        ("luigi", "Luigi", "masculine", WP + "en/b/be/Luigi_by_Shigehisa_Nakaue.png", (60, 0, 170)),
+        ("link", "Link", "masculine", WP + "en/2/21/Link_of_the_Wild.png", (60, 25, 130)),
+        ("bowser", "Bowser", "masculine", WP + "en/d/d1/Bowser_by_Shigehisa_Nakaue.png", (90, 0, 170)),
+        ("donkey-kong", "Donkey Kong", "masculine", WP + "en/d/d4/Donkey_Kong_character.png", (50, 0, 200)),
+        ("crash-bandicoot", "Crash", "masculine", WP + "en/a/a3/IAT_Crash_Bandicoot.png", (30, 0, 190)),
+        ("steve", "Steve", "masculine", WP + "en/e/e7/Steve_%28Minecraft%29.png", (95, 5, 110)),
+        ("creeper", "Creeper", "neutral", WP + "commons/a/a9/Minecraft_Creeper_%28Crop%29.png", (25, 0, 170)),
+        ("crewmate", "Crewmate", "neutral", WP + "en/9/9a/Among_Us_cover_art.jpg", (90, 130, 120)),
+        ("toad", "Toad", "neutral", WP + "en/b/b9/Toad_by_Shigehisa_Nakaue.png", (0, 0, 271)),
+        ("goomba", "Goomba", "neutral", WP + "en/f/fb/Goomba_by_Shigehisa_Nakaue.png", (26, 0, 264)),
+        ("angry-bird", "Angry Bird", "neutral", WP + "en/2/2d/Angry_Birds_promo_art.png", (0, 0, 316)),
+        ("blinky", "Blinky", "neutral",
+         WP + "commons/thumb/b/be/Blinky%2C_Pinky%2C_Inky_and_Clyde.svg/1280px-Blinky%2C_Pinky%2C_Inky_and_Clyde.svg.png",
+         (0, 0, 290)),
     ],
     # Memes: animals and drawn/rendered characters only (no real people's faces).
     "memes": [
@@ -426,8 +561,51 @@ LOCAL = {
          WP + "en/1/1f/WomanYellingAtACat_meme.jpg", (285, 30, 150)),
         ("pesto", "Pesto", "neutral", WP + "commons/4/4a/Pesto_%28penguin%29_%28cropped%29.png",
          (400, 100, 1300)),
+        # --- v1.4: +9 ---
+        ("moo-deng", "Moo Deng", "neutral",  # Commons photo, crop excludes the keeper
+         WP + "commons/thumb/d/d2/Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-11%29_-_img_02.jpg/1280px-Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-11%29_-_img_02.jpg",
+         (60, 130, 560)),
+        ("big-chungus", "Big Chungus", "neutral", WP + "en/c/c4/Big_Chungus.png", (40, 0, 232)),
+        ("dat-boi", "Dat Boi", "neutral", WP + "en/f/f9/Dat_Boi_%28resized_50%25%29.jpg", (0, 0, 201)),
+        ("capybara", "Capybara", "neutral",  # "ok I pull up" - Commons photo
+         WP + "commons/thumb/7/71/Capybaracropped.jpg/1280px-Capybaracropped.jpg", (200, 50, 400)),
+        ("duo", "Duo", "neutral", WP + "en/thumb/6/64/Duo_from_Duolingo.svg/960px-Duo_from_Duolingo.svg.png",
+         (49, 0, 863)),
+        ("big-floppa", "Big Floppa", "neutral",  # Commons photo of Gosha the caracal, crop excludes the owner
+         WP + "commons/thumb/b/bf/Big_Floppa_and_Justin_2_%28cropped%29.jpg/1280px-Big_Floppa_and_Justin_2_%28cropped%29.jpg",
+         (150, 0, 1100)),
+        ("serious-cat", "Serious Cat", "neutral",  # the classic lolcat, cropped without the caption
+         WP + "commons/thumb/4/44/CatLolCatExample.jpg/1280px-CatLolCatExample.jpg", (120, 230, 980)),
+        ("keyboard-cat", "Keyboard Cat", "neutral",  # Fatso at the keyboard, cat only
+         WP + "en/8/87/Keyboard_cat.jpg", (0, 0, 125)),
+        ("jorts", "Jorts", "neutral", WP + "en/0/06/Jorts_the_Cat.jpg", (45, 0, 166)),
     ],
 }
+
+# Colours row: generated locally (no downloads). (id, name, kind, colours)
+# kind: "solid" (one colour), "linear" (two/three-stop diagonal gradient),
+# "stripes" (horizontal bands), "diagonal" (diagonal bands).
+RAINBOW = ["#E5484D", "#F5A524", "#F5D90A", "#46A758", "#3E63DD", "#8E4EC6"]
+COLOURS = [
+    ("colour-red", "Red", "solid", ["#E5484D"]),
+    ("colour-orange", "Orange", "solid", ["#F5A524"]),
+    ("colour-yellow", "Yellow", "solid", ["#F5D90A"]),
+    ("colour-green", "Green", "solid", ["#46A758"]),
+    ("colour-teal", "Teal", "solid", ["#12A594"]),
+    ("colour-blue", "Blue", "solid", ["#3E63DD"]),
+    ("colour-violet", "Violet", "solid", ["#8E4EC6"]),
+    ("colour-pink", "Pink", "solid", ["#E93D82"]),
+    ("colour-brown", "Brown", "solid", ["#AD7F58"]),
+    ("colour-grey", "Grey", "solid", ["#8B8D98"]),
+    ("colour-charcoal", "Charcoal", "solid", ["#2B2B30"]),
+    ("colour-cloud", "Cloud", "solid", ["#E9E6DF"]),
+    ("colour-sunset", "Sunset", "linear", ["#F9B44C", "#E5484D", "#5B2A86"]),
+    ("colour-ocean", "Ocean", "linear", ["#5AC8E0", "#1F5FA8", "#0C2D5B"]),
+    ("colour-forest", "Forest", "linear", ["#9CCF6B", "#2E7D32", "#1B4D1E"]),
+    ("colour-dusk", "Dusk", "linear", ["#F2A7C5", "#8E4EC6", "#2E2A6B"]),
+    ("colour-rainbow", "Rainbow", "stripes", RAINBOW),
+    ("colour-prism", "Prism", "diagonal", RAINBOW),
+]
 
 # Fluent Emoji 3D: (id, name, vibe, upstream folder, skin tone or None, background)
 FLUENT_ITEMS = [
@@ -453,6 +631,16 @@ NOTO_ITEMS = [
     ("noto-princess", "Princess", "feminine", "1f478_1f3fd", "#F7D9EC"),
     ("noto-prince", "Prince", "masculine", "1f934_1f3ff", "#E2DCF6"),
     ("noto-robot", "Robot", "neutral", "1f916", "#F4E6C4"),
+    # v1.4: animals (the vibe only spreads them over the row)
+    ("noto-cat", "Cat", "feminine", "1f431", "#FFE0CC"),
+    ("noto-dog", "Dog", "masculine", "1f436", "#E8DCC8"),
+    ("noto-frog", "Frog", "neutral", "1f438", "#D9EBD9"),
+    ("noto-unicorn", "Unicorn", "feminine", "1f984", "#EBD9F5"),
+    ("noto-lion", "Lion", "masculine", "1f981", "#FFE6B8"),
+    ("noto-whale", "Whale", "neutral", "1f433", "#D8ECE4"),
+    ("noto-koala", "Koala", "feminine", "1f428", "#DDE8F0"),
+    ("noto-dragon", "Dragon", "masculine", "1f432", "#D4ECD0"),
+    ("noto-penguin", "Penguin", "neutral", "1f427", "#D6E4F2"),
 ]
 
 # DiceBear: group -> [(id, name, vibe, style, options query)]
@@ -530,7 +718,7 @@ COLOR_ORDER = ["storybook", "paintings", "illustrated", "pixel", "cartoon",
                "ukiyoe", "belleepoque", "fairytale", "comics", "swiss",
                "classics", "movies", "tvcartoons", "anime", "games", "memes"]
 # Rows whose f/m/n order is not enforced (kept in the order listed above).
-FREE_VIBE = {"memes"}
+FREE_VIBE = {"memes", "colours"}
 
 
 def pastel(i):
@@ -595,11 +783,37 @@ def on_square(emoji, color):
     return canvas.convert("RGB")
 
 def interleave(items):
-    """Order a row f, m, n, f, m, n, ... so every row looks mixed."""
+    """Order a row f, m, n, f, m, n, ... so every row looks mixed (rows may be
+    any multiple of 9; the original nine keep their places)."""
     if items and items[0]["group"] in FREE_VIBE:
         return items
     by = {v: [i for i in items if i["vibe"] == v] for v in VIBES}
-    return [by[v][k] for k in range(3) for v in VIBES]
+    if len({len(l) for l in by.values()}) != 1:
+        raise SystemExit(f"{items[0]['group']}: unbalanced vibes {[len(by[v]) for v in VIBES]}")
+    return [by[v][k] for k in range(len(by["feminine"])) for v in VIBES]
+
+
+def colour_tile(kind, cols):
+    """Render one entry of the colours row (512x512, no downloads)."""
+    rgb = [tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) for c in cols]
+    if kind == "solid":
+        return Image.new("RGB", (SIZE, SIZE), rgb[0])
+    if kind == "linear":  # diagonal gradient, top-left -> bottom-right
+        n = len(rgb) - 1
+        img = Image.new("RGB", (SIZE, SIZE))
+        px = img.load()
+        for y in range(SIZE):
+            for x in range(SIZE):
+                t = (x + y) / (2 * (SIZE - 1)) * n
+                i = min(int(t), n - 1); f = t - i
+                px[x, y] = tuple(round(rgb[i][k] * (1 - f) + rgb[i + 1][k] * f) for k in range(3))
+        return img
+    img = Image.new("RGB", (SIZE, SIZE)); px = img.load()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            t = y / SIZE if kind == "stripes" else (x + y) / (2 * SIZE)
+            px[x, y] = rgb[min(int(t * len(rgb)), len(rgb) - 1)]
+    return img
 
 def local_image(url, color, box):
     """Fetch a local-pack image and crop it; transparent/outside areas take `color`."""
@@ -678,7 +892,13 @@ def main():
                     style=style, bg=color[1:], opts=opts)))).convert("RGB")
                 return img if img.size == (SIZE, SIZE) else img.resize((SIZE, SIZE), Image.LANCZOS)
             add(group, aid, name, vibe, color, render)
+    for aid, name, kind, cols in COLOURS:
+        add("colours", aid, name, "neutral", cols[0] if kind == "solid" else cols[1],
+            lambda kind=kind, cols=cols: colour_tile(kind, cols))
     gallery = [a for gid, _ in GROUPS for a in interleave(rows[gid])]
+    for gid, _ in GROUPS:
+        if len(rows[gid]) % 9:
+            raise SystemExit(f"{gid}: {len(rows[gid])} avatars, not a multiple of 9")
     for d, pack in ((out, None), (out_local, "local")):
         keep = {g["file"] for g in gallery if g.get("pack") == pack}
         for f in d.iterdir():
