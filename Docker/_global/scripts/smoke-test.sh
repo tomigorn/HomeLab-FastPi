@@ -36,6 +36,9 @@ check "forward-auth (cup -> sso)"  'sso\.holy-grail\.ch' "$(curl -s -m 10 -o /de
 check "traefik dashboard -> sso"   'sso\.holy-grail\.ch' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve traefik.holy-grail.ch:443:192.168.1.2 https://traefik.holy-grail.ch/dashboard/)"
 # Break-glass basicAuth login; via the LAN IP (127.0.0.1 arrives NATed from a Docker gateway -> 403).
 check "traefik break-glass (401)"  '^401$' "$(http -H 'Host: fastpi.homelab' http://192.168.1.2:8080/dashboard/)"
+# Grafana does its own OIDC: /login -> /login/generic_oauth -> Authentik authorize.
+check "grafana login -> sso"       'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -L --max-redirs 1 -o /dev/null -w '%{redirect_url}' --resolve grafana.holy-grail.ch:443:192.168.1.2 https://grafana.holy-grail.ch/login)"
+check "grafana break-glass form"   '^200$' "$(http -k --resolve grafana.holy-grail.ch:443:192.168.1.2 'https://grafana.holy-grail.ch/login?disableAutoLogin=true')"
 
 echo "== Monitoring"
 running prometheus alertmanager grafana influxdb telegraf node-exporter blackbox-exporter json-exporter
