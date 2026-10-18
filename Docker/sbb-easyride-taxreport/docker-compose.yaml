@@ -10,7 +10,7 @@ services:
     container_name: sbb-easyride-taxreport
     mem_limit: 512m
     ports:
-      - "8083:8081"
+      - "127.0.0.1:8083:8081"
     env_file:
       - .env
     environment:
