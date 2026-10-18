@@ -16,8 +16,24 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 6)
-        self.assertEqual(len(GALLERY), 54)
+        self.assertEqual(len(GROUPS), 12)
+        self.assertEqual(len(GALLERY), 12 * 9)
+
+    def test_group_order(self):
+        self.assertEqual([g["id"] for g in GROUPS],
+                         ["storybook", "paintings", "people3d", "illustrated", "pixel", "cartoon",
+                          "ukiyoe", "belleepoque", "fairytale", "comics", "flatemoji", "swiss"])
+
+    def test_gallery_follows_group_order_and_interleaves(self):
+        """The flat list is grouped row by row, each row ordered f, m, n, f, m, n, ..."""
+        gids = [g["id"] for g in GROUPS]
+        self.assertEqual([a["group"] for a in GALLERY], [g for g in gids for _ in range(9)])
+        for i, a in enumerate(GALLERY):
+            self.assertEqual(a["vibe"], ("feminine", "masculine", "neutral")[i % 3], a["id"])
+
+    def test_file_matches_id(self):
+        for a in GALLERY:
+            self.assertEqual(a["file"], a["id"] + ".png")
 
     def test_unique_ids_and_names(self):
         ids = [g["id"] for g in GALLERY]; names = [g["name"] for g in GALLERY]
@@ -56,6 +72,8 @@ class GalleryTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(p), p)
             self.assertEqual(png_size(p), (512, 512), a["id"])
             self.assertLess(os.path.getsize(p), 500 * 1024, a["id"])
+            with open(p, "rb") as f:
+                self.assertEqual(f.read()[-8:-4], b"IEND", a["id"])  # not truncated
 
     def test_no_orphan_images(self):
         files = {a["file"] for a in GALLERY}

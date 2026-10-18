@@ -1,33 +1,9 @@
 [
   {
-    "id": "olive",
-    "name": "Olive",
-    "file": "olive.png",
-    "color": "#F1C6C6",
-    "group": "storybook",
-    "vibe": "feminine"
-  },
-  {
-    "id": "popeye",
-    "name": "Popeye",
-    "file": "popeye.png",
-    "color": "#C6F1D2",
-    "group": "storybook",
-    "vibe": "masculine"
-  },
-  {
-    "id": "peter-rabbit",
-    "name": "Peter",
-    "file": "peter-rabbit.png",
-    "color": "#DFC6F1",
-    "group": "storybook",
-    "vibe": "neutral"
-  },
-  {
     "id": "alice",
     "name": "Alice",
     "file": "alice.png",
-    "color": "#F1EBC6",
+    "color": "#F1C6C6",
     "group": "storybook",
     "vibe": "feminine"
   },
@@ -35,7 +11,7 @@
     "id": "moritz",
     "name": "Moritz",
     "file": "moritz.png",
-    "color": "#C6EAF1",
+    "color": "#C6F1D2",
     "group": "storybook",
     "vibe": "masculine"
   },
@@ -43,7 +19,7 @@
     "id": "cheshire-cat",
     "name": "Cheshire",
     "file": "cheshire-cat.png",
-    "color": "#F1C6DD",
+    "color": "#DFC6F1",
     "group": "storybook",
     "vibe": "neutral"
   },
@@ -51,7 +27,7 @@
     "id": "jemima",
     "name": "Jemima",
     "file": "jemima.png",
-    "color": "#D1F1C6",
+    "color": "#F1EBC6",
     "group": "storybook",
     "vibe": "feminine"
   },
@@ -59,7 +35,7 @@
     "id": "struwwelpeter",
     "name": "Struwwelpeter",
     "file": "struwwelpeter.png",
-    "color": "#C8C6F1",
+    "color": "#C6EAF1",
     "group": "storybook",
     "vibe": "masculine"
   },
@@ -67,6 +43,30 @@
     "id": "white-rabbit",
     "name": "White Rabbit",
     "file": "white-rabbit.png",
+    "color": "#F1C6DD",
+    "group": "storybook",
+    "vibe": "neutral"
+  },
+  {
+    "id": "queen-of-hearts",
+    "name": "Queen of Hearts",
+    "file": "queen-of-hearts.png",
+    "color": "#D1F1C6",
+    "group": "storybook",
+    "vibe": "feminine"
+  },
+  {
+    "id": "mad-hatter",
+    "name": "Mad Hatter",
+    "file": "mad-hatter.png",
+    "color": "#C8C6F1",
+    "group": "storybook",
+    "vibe": "masculine"
+  },
+  {
+    "id": "peter-rabbit",
+    "name": "Peter",
+    "file": "peter-rabbit.png",
     "color": "#F1D4C6",
     "group": "storybook",
     "vibe": "neutral"
@@ -429,6 +429,438 @@
     "file": "notion-ash.png",
     "color": "#EAC6F1",
     "group": "cartoon",
+    "vibe": "neutral"
+  },
+  {
+    "id": "utamaro-okita",
+    "name": "Okita",
+    "file": "utamaro-okita.png",
+    "color": "#EBF1C6",
+    "group": "ukiyoe",
+    "vibe": "feminine"
+  },
+  {
+    "id": "sharaku-oniji",
+    "name": "Oniji",
+    "file": "sharaku-oniji.png",
+    "color": "#C6DFF1",
+    "group": "ukiyoe",
+    "vibe": "masculine"
+  },
+  {
+    "id": "hokusai-tiger",
+    "name": "Snow Tiger",
+    "file": "hokusai-tiger.png",
+    "color": "#F1C6D2",
+    "group": "ukiyoe",
+    "vibe": "neutral"
+  },
+  {
+    "id": "utamaro-hanaogi",
+    "name": "Hanaogi",
+    "file": "utamaro-hanaogi.png",
+    "color": "#C6F1C6",
+    "group": "ukiyoe",
+    "vibe": "feminine"
+  },
+  {
+    "id": "sharaku-sojuro",
+    "name": "Sojuro",
+    "file": "sharaku-sojuro.png",
+    "color": "#D3C6F1",
+    "group": "ukiyoe",
+    "vibe": "masculine"
+  },
+  {
+    "id": "hokusai-red-fuji",
+    "name": "Red Fuji",
+    "file": "hokusai-red-fuji.png",
+    "color": "#F1DFC6",
+    "group": "ukiyoe",
+    "vibe": "neutral"
+  },
+  {
+    "id": "utamaro-bijin",
+    "name": "Bijin",
+    "file": "utamaro-bijin.png",
+    "color": "#C6F1EC",
+    "group": "ukiyoe",
+    "vibe": "feminine"
+  },
+  {
+    "id": "sharaku-yaozo",
+    "name": "Yaozo",
+    "file": "sharaku-yaozo.png",
+    "color": "#F1C6E9",
+    "group": "ukiyoe",
+    "vibe": "masculine"
+  },
+  {
+    "id": "hiroshige-cat",
+    "name": "Neko",
+    "file": "hiroshige-cat.png",
+    "color": "#DDF1C6",
+    "group": "ukiyoe",
+    "vibe": "neutral"
+  },
+  {
+    "id": "mucha-zodiac",
+    "name": "Zodiac",
+    "file": "mucha-zodiac.png",
+    "color": "#C6D0F1",
+    "group": "belleepoque",
+    "vibe": "feminine"
+  },
+  {
+    "id": "lautrec-bruant",
+    "name": "Aristide",
+    "file": "lautrec-bruant.png",
+    "color": "#F1C8C6",
+    "group": "belleepoque",
+    "vibe": "masculine"
+  },
+  {
+    "id": "steinlen-chat-noir",
+    "name": "Chat Noir",
+    "file": "steinlen-chat-noir.png",
+    "color": "#C6F1D4",
+    "group": "belleepoque",
+    "vibe": "neutral"
+  },
+  {
+    "id": "lautrec-jane-avril",
+    "name": "Jane",
+    "file": "lautrec-jane-avril.png",
+    "color": "#E1C6F1",
+    "group": "belleepoque",
+    "vibe": "feminine"
+  },
+  {
+    "id": "lautrec-dujardin",
+    "name": "Edouard",
+    "file": "lautrec-dujardin.png",
+    "color": "#F1EDC6",
+    "group": "belleepoque",
+    "vibe": "masculine"
+  },
+  {
+    "id": "steinlen-tabby",
+    "name": "Minou",
+    "file": "steinlen-tabby.png",
+    "color": "#C6E7F1",
+    "group": "belleepoque",
+    "vibe": "neutral"
+  },
+  {
+    "id": "cheret-yvette",
+    "name": "Yvette",
+    "file": "cheret-yvette.png",
+    "color": "#F1C6DB",
+    "group": "belleepoque",
+    "vibe": "feminine"
+  },
+  {
+    "id": "lautrec-valentin",
+    "name": "Valentin",
+    "file": "lautrec-valentin.png",
+    "color": "#CEF1C6",
+    "group": "belleepoque",
+    "vibe": "masculine"
+  },
+  {
+    "id": "steinlen-calico",
+    "name": "Calico",
+    "file": "steinlen-calico.png",
+    "color": "#CAC6F1",
+    "group": "belleepoque",
+    "vibe": "neutral"
+  },
+  {
+    "id": "bilibin-vasilisa",
+    "name": "Vasilisa",
+    "file": "bilibin-vasilisa.png",
+    "color": "#F1D6C6",
+    "group": "fairytale",
+    "vibe": "feminine"
+  },
+  {
+    "id": "bilibin-ivan",
+    "name": "Ivan",
+    "file": "bilibin-ivan.png",
+    "color": "#C6F1E3",
+    "group": "fairytale",
+    "vibe": "masculine"
+  },
+  {
+    "id": "bilibin-firebird",
+    "name": "Firebird",
+    "file": "bilibin-firebird.png",
+    "color": "#EFC6F1",
+    "group": "fairytale",
+    "vibe": "neutral"
+  },
+  {
+    "id": "dulac-snow-queen",
+    "name": "Snow Queen",
+    "file": "dulac-snow-queen.png",
+    "color": "#E6F1C6",
+    "group": "fairytale",
+    "vibe": "feminine"
+  },
+  {
+    "id": "rackham-rip",
+    "name": "Rip",
+    "file": "rackham-rip.png",
+    "color": "#C6D9F1",
+    "group": "fairytale",
+    "vibe": "masculine"
+  },
+  {
+    "id": "dulac-imp",
+    "name": "Imp",
+    "file": "dulac-imp.png",
+    "color": "#F1C6CD",
+    "group": "fairytale",
+    "vibe": "neutral"
+  },
+  {
+    "id": "bilibin-baba-yaga",
+    "name": "Baba Yaga",
+    "file": "bilibin-baba-yaga.png",
+    "color": "#C6F1CC",
+    "group": "fairytale",
+    "vibe": "feminine"
+  },
+  {
+    "id": "dulac-sultan",
+    "name": "Sultan",
+    "file": "dulac-sultan.png",
+    "color": "#D8C6F1",
+    "group": "fairytale",
+    "vibe": "masculine"
+  },
+  {
+    "id": "dulac-reindeer",
+    "name": "Reindeer",
+    "file": "dulac-reindeer.png",
+    "color": "#F1E5C6",
+    "group": "fairytale",
+    "vibe": "neutral"
+  },
+  {
+    "id": "olive",
+    "name": "Olive",
+    "file": "olive.png",
+    "color": "#C6F0F1",
+    "group": "comics",
+    "vibe": "feminine"
+  },
+  {
+    "id": "popeye",
+    "name": "Popeye",
+    "file": "popeye.png",
+    "color": "#F1C6E4",
+    "group": "comics",
+    "vibe": "masculine"
+  },
+  {
+    "id": "krazy-kat",
+    "name": "Krazy",
+    "file": "krazy-kat.png",
+    "color": "#D7F1C6",
+    "group": "comics",
+    "vibe": "neutral"
+  },
+  {
+    "id": "mary-jane",
+    "name": "Mary Jane",
+    "file": "mary-jane.png",
+    "color": "#C6CBF1",
+    "group": "comics",
+    "vibe": "feminine"
+  },
+  {
+    "id": "yellow-kid",
+    "name": "Yellow Kid",
+    "file": "yellow-kid.png",
+    "color": "#F1CDC6",
+    "group": "comics",
+    "vibe": "masculine"
+  },
+  {
+    "id": "tige",
+    "name": "Tige",
+    "file": "tige.png",
+    "color": "#C6F1DA",
+    "group": "comics",
+    "vibe": "neutral"
+  },
+  {
+    "id": "maggie",
+    "name": "Maggie",
+    "file": "maggie.png",
+    "color": "#E6C6F1",
+    "group": "comics",
+    "vibe": "feminine"
+  },
+  {
+    "id": "mutt",
+    "name": "Mutt",
+    "file": "mutt.png",
+    "color": "#EEF1C6",
+    "group": "comics",
+    "vibe": "masculine"
+  },
+  {
+    "id": "jeep",
+    "name": "Jeep",
+    "file": "jeep.png",
+    "color": "#C6E2F1",
+    "group": "comics",
+    "vibe": "neutral"
+  },
+  {
+    "id": "noto-detective",
+    "name": "Detective",
+    "file": "noto-detective.png",
+    "color": "#DDE3EA",
+    "group": "flatemoji",
+    "vibe": "feminine"
+  },
+  {
+    "id": "noto-pilot",
+    "name": "Pilot",
+    "file": "noto-pilot.png",
+    "color": "#CFE8F7",
+    "group": "flatemoji",
+    "vibe": "masculine"
+  },
+  {
+    "id": "noto-tiger",
+    "name": "Tiger",
+    "file": "noto-tiger.png",
+    "color": "#FFE2BF",
+    "group": "flatemoji",
+    "vibe": "neutral"
+  },
+  {
+    "id": "noto-farmer",
+    "name": "Farmer",
+    "file": "noto-farmer.png",
+    "color": "#DCEFC9",
+    "group": "flatemoji",
+    "vibe": "feminine"
+  },
+  {
+    "id": "noto-vampire",
+    "name": "Vampire",
+    "file": "noto-vampire.png",
+    "color": "#EED3DA",
+    "group": "flatemoji",
+    "vibe": "masculine"
+  },
+  {
+    "id": "noto-octopus",
+    "name": "Octopus",
+    "file": "noto-octopus.png",
+    "color": "#D3EEF0",
+    "group": "flatemoji",
+    "vibe": "neutral"
+  },
+  {
+    "id": "noto-princess",
+    "name": "Princess",
+    "file": "noto-princess.png",
+    "color": "#F7D9EC",
+    "group": "flatemoji",
+    "vibe": "feminine"
+  },
+  {
+    "id": "noto-prince",
+    "name": "Prince",
+    "file": "noto-prince.png",
+    "color": "#E2DCF6",
+    "group": "flatemoji",
+    "vibe": "masculine"
+  },
+  {
+    "id": "noto-robot",
+    "name": "Robot",
+    "file": "noto-robot.png",
+    "color": "#F4E6C4",
+    "group": "flatemoji",
+    "vibe": "neutral"
+  },
+  {
+    "id": "anker-girl",
+    "name": "Anker Girl",
+    "file": "anker-girl.png",
+    "color": "#F1C6D5",
+    "group": "swiss",
+    "vibe": "feminine"
+  },
+  {
+    "id": "anker-boy",
+    "name": "Anker Boy",
+    "file": "anker-boy.png",
+    "color": "#C9F1C6",
+    "group": "swiss",
+    "vibe": "masculine"
+  },
+  {
+    "id": "hodler-jungfrau",
+    "name": "Jungfrau",
+    "file": "hodler-jungfrau.png",
+    "color": "#CFC6F1",
+    "group": "swiss",
+    "vibe": "neutral"
+  },
+  {
+    "id": "hodler-giulia",
+    "name": "Giulia",
+    "file": "hodler-giulia.png",
+    "color": "#F1DCC6",
+    "group": "swiss",
+    "vibe": "feminine"
+  },
+  {
+    "id": "vallotton-self",
+    "name": "Felix",
+    "file": "vallotton-self.png",
+    "color": "#C6F1E8",
+    "group": "swiss",
+    "vibe": "masculine"
+  },
+  {
+    "id": "segantini-sheep",
+    "name": "Alp Sheep",
+    "file": "segantini-sheep.png",
+    "color": "#F1C6ED",
+    "group": "swiss",
+    "vibe": "neutral"
+  },
+  {
+    "id": "vallotton-mellot",
+    "name": "Marthe",
+    "file": "vallotton-mellot.png",
+    "color": "#E0F1C6",
+    "group": "swiss",
+    "vibe": "feminine"
+  },
+  {
+    "id": "segantini-self",
+    "name": "Giovanni",
+    "file": "segantini-self.png",
+    "color": "#C6D4F1",
+    "group": "swiss",
+    "vibe": "masculine"
+  },
+  {
+    "id": "hodler-thunersee",
+    "name": "Thunersee",
+    "file": "hodler-thunersee.png",
+    "color": "#F1C6C7",
+    "group": "swiss",
     "vibe": "neutral"
   }
 ]

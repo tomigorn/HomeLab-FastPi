@@ -1,7 +1,7 @@
 [
   {
     "id": "storybook",
-    "label": "Classic storybook & comics"
+    "label": "Classic storybook"
   },
   {
     "id": "paintings",
@@ -22,5 +22,29 @@
   {
     "id": "cartoon",
     "label": "Cartoon & sketch"
+  },
+  {
+    "id": "ukiyoe",
+    "label": "Japanese woodblock"
+  },
+  {
+    "id": "belleepoque",
+    "label": "Belle \u00c9poque posters"
+  },
+  {
+    "id": "fairytale",
+    "label": "Fairy-tale illustration"
+  },
+  {
+    "id": "comics",
+    "label": "Early comics"
+  },
+  {
+    "id": "flatemoji",
+    "label": "Flat emoji"
+  },
+  {
+    "id": "swiss",
+    "label": "Swiss masters"
   }
 ]
