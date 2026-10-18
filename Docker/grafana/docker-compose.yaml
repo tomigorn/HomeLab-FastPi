@@ -18,6 +18,11 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:9090:9090"   # SSO-only policy: no LAN access, Grafana reaches it by container name
+    networks:
+      - default
+      # CrowdSec's metrics endpoint (crowdsec:6060) is only reachable on its own
+      # docker network - nothing is published on the host/LAN.
+      - crowdsec
 
 # #########################################################
 # Node Exporter ###########################################
@@ -249,6 +254,9 @@ networks:
   default:
   # Defined by Docker-Socket-Proxy. Internal-only: no route to the internet.
   socket_proxy:
+    external: true
+  # Defined by CrowdSec. Prometheus joins it to scrape crowdsec:6060.
+  crowdsec:
     external: true
   # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
   traefik_proxy:

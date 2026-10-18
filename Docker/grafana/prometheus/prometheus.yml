@@ -27,6 +27,15 @@ scrape_configs:
       - targets:
           - alertmanager:9093
 
+  # CrowdSec engine metrics (decisions, alerts, parsers, buckets, LAPI), served on
+  # the crowdsec docker network only. Feeds the "CrowdSec" Grafana dashboard.
+  # 30s is plenty: these are slow-moving counters and the global 5s is wasteful.
+  - job_name: "crowdsec"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - crowdsec:6060
+
   - job_name: "traefik"
     static_configs:
       - targets:
