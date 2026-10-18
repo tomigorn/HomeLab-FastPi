@@ -151,6 +151,37 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GRAFANA_INFLUX_TOKEN=${GRAFANA_INFLUX_TOKEN}
+      # Admin SSO via Authentik (Grafana's own OAuth, not forward auth). The
+      # OIDC client is provisioned by Authentik/scripts/provision-admin-sso.py,
+      # which also writes the two GRAFANA_OAUTH_* values into .env. Only members
+      # of homelab-admins get in, as GrafanaAdmin. Route: Traefik dynamic/grafana.yml.
+      - GF_SERVER_ROOT_URL=https://grafana.holy-grail.ch
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=authentik
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${GRAFANA_OAUTH_CLIENT_ID}
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email offline_access
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://sso.holy-grail.ch/application/o/authorize/
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://sso.holy-grail.ch/application/o/token/
+      - GF_AUTH_GENERIC_OAUTH_API_URL=https://sso.holy-grail.ch/application/o/userinfo/
+      - GF_AUTH_GENERIC_OAUTH_USE_PKCE=true
+      - GF_AUTH_GENERIC_OAUTH_USE_REFRESH_TOKEN=true
+      - GF_AUTH_GENERIC_OAUTH_GROUPS_ATTRIBUTE_PATH=groups
+      - GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS=homelab-admins
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'homelab-admins') && 'GrafanaAdmin'
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true
+      - GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN=true
+      - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true
+      - GF_AUTH_SIGNOUT_REDIRECT_URL=https://sso.holy-grail.ch/application/o/grafana/end-session/
+      # Break-glass: local admin at https://grafana.holy-grail.ch/login?disableAutoLogin=true
+      # (or LAN http://192.168.1.2:3001/login?disableAutoLogin=true). Keep the login form.
+    # Pin sso.holy-grail.ch to fastpi's Traefik so the server-side token/userinfo
+    # calls don't depend on DNS or a round trip through the Cloudflare tunnel.
+    extra_hosts:
+      - "sso.holy-grail.ch:192.168.1.2"
+    networks:
+      - default
+      - traefik_proxy
 
 # #########################################################
 # InfluxDB ################################################
@@ -205,6 +236,9 @@ networks:
   default:
   # Defined by Docker-Socket-Proxy. Internal-only: no route to the internet.
   socket_proxy:
+    external: true
+  # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
+  traefik_proxy:
     external: true
 
 
