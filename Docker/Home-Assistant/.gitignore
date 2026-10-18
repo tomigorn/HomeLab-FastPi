@@ -55,3 +55,9 @@ config/backups/
 # Stock blueprints shipped by HA (regenerated on start) — keep any custom
 # blueprints (other author folders) committable.
 config/blueprints/*/homeassistant/
+
+# Python bytecode HA generates when loading custom components
+__pycache__/
+*.pyc
+# Local pre-edit backups
+*.bak-*
