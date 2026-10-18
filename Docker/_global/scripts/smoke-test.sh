@@ -43,11 +43,10 @@ check "alertmanager ready"         '^OK$' "$(curl -s -m 5 http://127.0.0.1:9093/
 check "prometheus targets down"    '^0$' "$(curl -s -m 5 'http://127.0.0.1:9090/api/v1/targets?state=active' | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print(sum(1 for x in t if x["health"]!="up"))')"
 
 echo "== Apps on fastpi"
-running adguardhome portainer audiobookshelf bitwarden homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
 check "adguard resolves"           '^[0-9.]+$' "$(dig +short @127.0.0.1 example.com | head -1)"
 check "portainer version"          '2\.45\.2' "$(curl -sk -m 5 https://127.0.0.1:9443/api/status)"
 check "audiobookshelf"             '^200$' "$(http https://audiobookshelf.holy-grail.ch/)"
-check "vaultwarden alive"          '^"20' "$(docker exec bitwarden curl -s -m 5 http://127.0.0.1:80/alive)"
 check "home assistant"             '^200$' "$(http http://127.0.0.1:8123/)"
 check "m4b dashboard"              '^200$' "$(http http://192.168.1.2:8099/)"
 check "stonks"                     '^(200|30[23])$' "$(http https://stonks.holy-grail.ch/)"
