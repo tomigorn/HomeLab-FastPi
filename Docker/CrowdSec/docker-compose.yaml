@@ -5,12 +5,11 @@
 # CrowdSec reads Traefik's access log, recognises attack patterns (credential
 # stuffing, scanners, path traversal probes) and produces "decisions" - IP bans.
 #
-# DEPLOYED IN DETECTION-ONLY MODE (2026-09-26). Nothing is blocked yet: enforcing
-# decisions needs a bouncer, and the right one here is the Traefik plugin, which
-# is a STATIC Traefik config change. A bad plugin declaration stops Traefik from
-# starting, which takes every service down - not something to do unattended. The
-# detection half is zero-risk, starts learning immediately, and the bouncer can be
-# switched on later as one reviewed change.
+# Enforcement is the Traefik bouncer plugin (Traefik/traefik/dynamic/crowdsec.yml),
+# in stream mode with updateMaxFailure -1: if this container is down, the edge keeps
+# the last ban list and stays up (fail open). Kept current by
+# scripts/crowdsec-autoupdate.sh (daily, patch/minor, verified, auto-rollback);
+# see README.md.
 #
 # Why the Traefik plugin and not the firewall bouncer: all traffic arrives through
 # the Cloudflare tunnel, so at packet level every client looks like the docker
@@ -21,7 +20,7 @@ services:
 # CROWDSEC ################################################
 # #########################################################
   crowdsec:
-    image: ${CROWDSEC_IMAGE:-crowdsecurity/crowdsec}:${CROWDSEC_TAG:-v1.6.4}
+    image: ${CROWDSEC_IMAGE:-crowdsecurity/crowdsec}:${CROWDSEC_TAG:?set CROWDSEC_TAG in .env}
     container_name: crowdsec
     restart: unless-stopped
     environment:

@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily CrowdSec auto-update
+Documentation=file:///home/pi/Projects/Docker/CrowdSec/README.md
+
+[Timer]
+# 05:07 - after the 04:00 Claude remote restart window and the 04:12 security
+# scan, before anyone is awake. The bouncer fails open on the stale ban list
+# while CrowdSec restarts (~10-30 s), so a restart costs no availability.
+OnCalendar=*-*-* 05:07:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

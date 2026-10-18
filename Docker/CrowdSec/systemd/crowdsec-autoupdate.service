@@ -1,0 +1,20 @@
+[Unit]
+Description=CrowdSec auto-update (image patch/minor + hub content) with verification and rollback
+Documentation=file:///home/pi/Projects/Docker/CrowdSec/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+SupplementaryGroups=docker
+StateDirectory=crowdsec-autoupdate
+Environment=HOME=/home/pi
+ExecStart=/home/pi/Projects/Docker/CrowdSec/scripts/crowdsec-autoupdate.sh
+# Update + verification takes ~3-5 min, a rollback about as long again.
+TimeoutStartSec=1800
+# Writes .env/.env.example in the project and backups under ~/backups, so no
+# ProtectHome; it drives docker, which is root-equivalent anyway.
+NoNewPrivileges=true
+PrivateTmp=true

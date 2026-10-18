@@ -1,0 +1,27 @@
+[Unit]
+Description=CrowdSec textfile exporter (attacks by country/scenario, bouncer drops, CAPI pull)
+Documentation=file:///home/pi/Projects/Docker/CrowdSec/README.md
+After=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+# docker exec crowdsec cscli ... needs the docker socket; pi is in the docker group.
+SupplementaryGroups=docker
+StateDirectory=crowdsec-exporter
+ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/CrowdSec/scripts/crowdsec_exporter.py
+# A run measures ~3 s. TimeoutStartSec, not RuntimeMaxSec (ignored for oneshot).
+TimeoutStartSec=120
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

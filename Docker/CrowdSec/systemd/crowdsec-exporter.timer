@@ -1,0 +1,11 @@
+[Unit]
+Description=CrowdSec textfile exporter every 5 minutes
+Documentation=file:///home/pi/Projects/Docker/CrowdSec/README.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
