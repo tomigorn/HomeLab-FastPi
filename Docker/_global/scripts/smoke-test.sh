@@ -61,7 +61,11 @@ running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip C
 check "adguard resolves"           '^[0-9.]+$' "$(dig +short @127.0.0.1 example.com | head -1)"
 check "portainer version"          '2\.45\.2' "$(curl -sk -m 5 https://127.0.0.1:9443/api/status)"
 check "audiobookshelf"             '^200$' "$(http https://audiobookshelf.holy-grail.ch/)"
-check "home assistant"             '^200$' "$(http http://127.0.0.1:8123/)"
+check "home assistant (LAN :8123)"  '^200$' "$(http http://192.168.1.2:8123/)"
+check "home assistant via traefik"  '^200$' "$(http -k --resolve ha.holy-grail.ch:443:192.168.1.2 https://ha.holy-grail.ch/)"
+# hass-oidc-auth: welcome sets the state cookie and 302s to /auth/oidc/redirect, whose page
+# carries the (URL-quoted) Authentik authorize URL - proves trusted_proxies + https detection.
+check "home assistant oidc -> sso"  'sso\.holy-grail\.ch/application/o/authorize/.*redirect_uri%3Dhttps%253A%252F%252Fha\.holy-grail\.ch%252Fauth%252Foidc%252Fcallback' "$(curl -sk -m 10 -L --max-redirs 2 -b '' --resolve ha.holy-grail.ch:443:192.168.1.2 https://ha.holy-grail.ch/auth/oidc/welcome | grep -o 'sso\.holy-grail\.ch/application/o/authorize/.*oidc%252Fcallback' | sed 's/client_id%3D[^%]*/client_id=…/')"
 check "m4b dashboard"              '^200$' "$(http http://192.168.1.2:8099/)"
 check "stonks"                     '^(200|30[23])$' "$(http https://stonks.holy-grail.ch/)"
 check "claude-mockups (auth)"      '^401$' "$(http https://claude-mockups.holy-grail.ch/)"
