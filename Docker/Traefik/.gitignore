@@ -25,3 +25,4 @@
 /traefik/dynamic/languagetool-token.yml
 # CrowdSec LAPI key - never commit
 traefik/secrets/
+/traefik/dynamic/avatar-picker-secret.yml

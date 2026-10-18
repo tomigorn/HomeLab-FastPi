@@ -1,0 +1,48 @@
+# Avatar picker (Docker/Avatar-Picker). Nothing here is public:
+#   - avatars.holy-grail.ch: Authentik forward auth (every Authentik user), plus a
+#     shared-secret header (avatar-picker-secret@file, gitignored) so the container
+#     only trusts requests that came through this router.
+#   - sso.holy-grail.ch/avatar-img/*: the avatar image URLs stored in Authentik.
+#     local-networks@file only (LAN + VPN). Jellyfin (beefy) and Nextcloud (tower)
+#     fetch them from the LAN; they must live on the IdP host because Jellyfin's
+#     OIDC plugin only accepts private addresses for the issuer host.
+http:
+  routers:
+    avatar-img-local:
+      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`)"
+      entryPoints: ["websecure"]
+      priority: 100
+      service: avatar-picker
+      middlewares:
+        - local-networks@file
+        - avatar-img-strip
+      tls:
+        certResolver: cloudflare
+    avatar-picker-outpost:
+      rule: "Host(`avatars.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+    avatar-picker:
+      rule: "Host(`avatars.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: avatar-picker
+      middlewares:
+        - authentik@file
+        - avatar-picker-secret@file
+        - default-rate-limit@file
+      tls:
+        certResolver: cloudflare
+  middlewares:
+    avatar-img-strip:
+      stripPrefix:
+        prefixes:
+          - "/avatar-img"
+  services:
+    avatar-picker:
+      loadBalancer:
+        servers:
+          - url: "http://avatar-picker:8080"

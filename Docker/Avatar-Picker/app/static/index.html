@@ -44,7 +44,8 @@ async function load() {
     b.disabled = a.status === "taken";
     b.title = a.status === "taken" ? a.name + " (taken)" : a.name;
     b.innerHTML = '<img alt=""><span class="name"></span>';
-    b.querySelector("img").src = a.url; b.querySelector("img").alt = a.name;
+    b.querySelector("img").src = "img/" + a.id + ".png";  // same-origin (behind the login)
+    b.querySelector("img").alt = a.name;
     b.querySelector(".name").textContent = a.status === "taken" ? a.name + " · taken" : a.name;
     b.onclick = () => pick(a.id, a.name);
     g.appendChild(b);
