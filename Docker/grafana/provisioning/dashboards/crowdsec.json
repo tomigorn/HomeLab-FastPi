@@ -9,7 +9,7 @@
  "description": "CrowdSec on fastpi: what is blocked, who attacks, and whether detection and enforcement work. Docs: Docker/CrowdSec/README.md",
  "timezone": "browser",
  "schemaVersion": 39,
- "version": 2,
+ "version": 3,
  "refresh": "1m",
  "time": {
   "from": "now-24h",
@@ -921,13 +921,338 @@
    }
   },
   {
+   "id": 35,
+   "type": "row",
+   "title": "Threat data (what is refreshed when - README 'Threat data refresh')",
+   "collapsed": false,
+   "panels": [],
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "id": 36,
+   "type": "bargauge",
+   "title": "Blocklist IPs by origin",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "description": "Active ban decisions right now, by where they came from. CAPI = community blocklist (pulled every 2 h, hardcoded in CrowdSec), crowdsec = my own detections (4 h bans), cscli = manual, cscli-import = imported lists (none configured: the Traefik plugin in stream mode cannot enforce CIDR ranges, see README).",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (origin) (cs_active_decisions)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{origin}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "valueMode": "color",
+    "showUnfilled": true,
+    "namePlacement": "auto",
+    "sizing": "auto"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 9,
+    "w": 8,
+    "h": 4
+   }
+  },
+  {
+   "id": 37,
+   "type": "stat",
+   "title": "Hub last changed",
+   "description": "Time since the daily auto-update last changed anything: an image update, or new parser/scenario/collection versions or data files from the hub (then reloaded with SIGHUP). Irregular by nature; this is 'when did detection rules last move'.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - crowdsec_autoupdate_last_change_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 9,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 38,
+   "type": "stat",
+   "title": "Hub checked",
+   "description": "Time since crowdsec-autoupdate.timer last ran (daily 05:07): new release? else `cscli hub update && cscli hub upgrade` (parsers, scenarios, collections, data files) + reload. Over 36 h = a missed night.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - crowdsec_autoupdate_last_run_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "never ran",
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 129600
+       },
+       {
+        "color": "red",
+        "value": 259200
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 9,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 39,
+   "type": "stat",
+   "title": "GeoIP data age",
+   "description": "Age of the oldest GeoLite2 database (City/ASN) that geoip-enrich uses for the country map and AS names. Re-downloaded by the daily hub upgrade when CrowdSec publishes a new build (hub-data.crowdsec.net); alert CrowdSecGeoIPStale at 60 days.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - min(crowdsec_data_file_timestamp_seconds)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 2592000
+       },
+       {
+        "color": "red",
+        "value": 5184000
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 9,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 40,
+   "type": "stat",
+   "title": "Extra blocklists",
+   "description": "Last successful import of additional (non-CAPI) blocklists. None are configured: Spamhaus DROP / DShield / Firehol are CIDR lists and the Traefik bouncer plugin (stream mode, v1.7.1 and upstream main) only matches exact IPs, so imported ranges would never be enforced. See README 'Threat data refresh'.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - crowdsec_blocklist_last_success_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "none configured",
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 9,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
    "id": 16,
    "type": "row",
    "title": "Blocked traffic",
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 8,
+    "y": 13,
     "w": 24,
     "h": 1
    },
@@ -999,7 +1324,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 9,
+    "y": 14,
     "w": 12,
     "h": 8
    }
@@ -1061,7 +1386,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 9,
+    "y": 14,
     "w": 12,
     "h": 8
    }
@@ -1073,7 +1398,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 17,
+    "y": 22,
     "w": 24,
     "h": 1
    },
@@ -1211,7 +1536,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 18,
+    "y": 23,
     "w": 16,
     "h": 12
    }
@@ -1314,7 +1639,7 @@
    },
    "gridPos": {
     "x": 16,
-    "y": 18,
+    "y": 23,
     "w": 8,
     "h": 12
    }
@@ -1376,7 +1701,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 30,
+    "y": 35,
     "w": 12,
     "h": 9
    }
@@ -1433,7 +1758,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 30,
+    "y": 35,
     "w": 12,
     "h": 9
    }
@@ -1533,7 +1858,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 39,
+    "y": 44,
     "w": 24,
     "h": 9
    }
@@ -1545,7 +1870,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 48,
+    "y": 53,
     "w": 24,
     "h": 1
    },
@@ -1603,7 +1928,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 49,
+    "y": 54,
     "w": 8,
     "h": 10
    }
@@ -1660,7 +1985,7 @@
    },
    "gridPos": {
     "x": 8,
-    "y": 49,
+    "y": 54,
     "w": 8,
     "h": 10
    }
@@ -1717,7 +2042,7 @@
    },
    "gridPos": {
     "x": 16,
-    "y": 49,
+    "y": 54,
     "w": 8,
     "h": 10
    }
@@ -1779,7 +2104,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 59,
+    "y": 64,
     "w": 12,
     "h": 9
    }
@@ -1861,7 +2186,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 59,
+    "y": 64,
     "w": 12,
     "h": 9
    }
@@ -1873,7 +2198,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 68,
+    "y": 73,
     "w": 24,
     "h": 1
    },
@@ -1979,7 +2304,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 69,
+    "y": 74,
     "w": 8,
     "h": 8
    }
@@ -2041,7 +2366,7 @@
    },
    "gridPos": {
     "x": 8,
-    "y": 69,
+    "y": 74,
     "w": 8,
     "h": 8
    }
@@ -2129,7 +2454,7 @@
    },
    "gridPos": {
     "x": 16,
-    "y": 69,
+    "y": 74,
     "w": 8,
     "h": 8
    }

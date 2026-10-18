@@ -54,6 +54,21 @@ groups:
             CrowdSec normally pulls the community blocklist from api.crowdsec.net
             every 2 h. Check `docker exec crowdsec cscli capi status`.
 
+      - alert: CrowdSecGeoIPStale
+        # The daily hub upgrade re-downloads the GeoLite2 databases when CrowdSec
+        # publishes new ones (hub-data.crowdsec.net). MaxMind updates weekly; 60
+        # days without a change means the refresh is broken or upstream stopped.
+        expr: time() - min(crowdsec_data_file_timestamp_seconds) > 60 * 86400
+        for: 6h
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec GeoIP databases are {{ $value | humanizeDuration }} old"
+          description: >-
+            The country map and AS names on the dashboard are based on stale data.
+            `docker exec crowdsec cscli hub upgrade --force` re-downloads the data
+            files; if that changes nothing, upstream has not published a new build.
+
       - alert: CrowdSecLogsUnparsed
         # Parser lines in vs lines parsed. Sustained unparsed lines = the Traefik
         # access-log format changed and detection is going blind.
