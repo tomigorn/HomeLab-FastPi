@@ -32,3 +32,4 @@ custom-templates/*
 !custom-templates/email/
 custom-templates/email/*
 !custom-templates/email/*.html
+backups/
