@@ -23,7 +23,7 @@ services:
       # only be used at https://wg-easy.holy-grail.ch (registered in Authentik).
       # INSECURE must stay unset: the login cookie and redirect URI need https.
       - OAUTH_PROVIDERS=oidc
-      - OAUTH_OIDC_NAME=authentik
+      - OAUTH_OIDC_NAME=Holy Grail
       - OAUTH_OIDC_SERVER=https://sso.holy-grail.ch/application/o/wg-easy/
       - OAUTH_OIDC_CLIENT_ID=${WG_EASY_OIDC_CLIENT_ID}
       - OAUTH_OIDC_CLIENT_SECRET=${WG_EASY_OIDC_CLIENT_SECRET}
