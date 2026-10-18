@@ -13,8 +13,10 @@ services:
     env_file: .env
     environment:
       AUTHENTIK_TOKEN_FILE: /run/secrets/authentik_token
+      PICKER_SECRET_FILE: /run/secrets/picker_secret
     volumes:
       - ./secrets/authentik_token:/run/secrets/authentik_token:ro
+      - ./secrets/picker_secret:/run/secrets/picker_secret:ro
     networks:
       - traefik_proxy
     user: "1000:1000"

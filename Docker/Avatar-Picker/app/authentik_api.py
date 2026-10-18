@@ -3,6 +3,9 @@ import json
 import urllib.request
 
 
+MAX_PAGES = 100
+
+
 class AuthentikError(RuntimeError):
     pass
 
@@ -34,8 +37,12 @@ class Client:
             data = self._call("GET", f"/api/v3/core/users/?page={page}&page_size=100")
             users += [u for u in data.get("results", [])
                       if u.get("type") in ("internal", "external")]
-            page = (data.get("pagination") or {}).get("next") or 0
+            nxt = (data.get("pagination") or {}).get("next") or 0
+            page = nxt if nxt > page and nxt <= MAX_PAGES else 0
         return users
+
+    def get_user(self, pk):
+        return self._call("GET", f"/api/v3/core/users/{int(pk)}/")
 
     def set_attributes(self, pk, attributes):
         self._call("PATCH", f"/api/v3/core/users/{int(pk)}/", {"attributes": attributes})

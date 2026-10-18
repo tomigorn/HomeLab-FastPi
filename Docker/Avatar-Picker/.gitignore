@@ -25,3 +25,7 @@ auth.json
 # Project data/config dirs that may hold secrets — uncomment as needed
 # data/
 # config/
+
+# Python
+__pycache__/
+*.pyc
