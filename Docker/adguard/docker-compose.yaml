@@ -17,7 +17,7 @@ services:
     #   - "53:53/udp"       # DNS
     #   - "853:853/tcp"     # DNS-over-TLS
     #   - "853:853/udp"     # DNS-over-QUIC
-    #   - "3080:3080/tcp"   # Web UI
+    #   - "3000:3000/tcp"   # Web UI (http.address in conf/AdGuardHome.yaml)
     volumes:
       - ./conf:/opt/adguardhome/conf
       - adguardhome-data:/opt/adguardhome/work
