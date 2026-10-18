@@ -5,7 +5,7 @@ http:
       entryPoints: ["internal"]
       service: wg-easy
       middlewares:
-        - wg-easy-ipallowlist
+        - local-networks@file
 
     # wg-easy v15 only issues its login cookie over HTTPS (Secure flag), so the UI
     # is served on websecure too: https://wg-easy.fastpi.homelab - LAN/VPN only,
@@ -16,17 +16,8 @@ http:
       entryPoints: ["websecure"]
       service: wg-easy
       middlewares:
-        - wg-easy-ipallowlist
+        - local-networks@file
       tls: {}
-  middlewares:
-    wg-easy-ipallowlist:
-      ipAllowList:
-        sourceRange:
-          - "127.0.0.1/32"
-          - "::1/128"
-          - "192.168.1.0/24"   # LAN
-          - "172.24.0.0/16"    # traefik_proxy bridge — covers LAN and VPN traffic NATted by Docker
-
   services:
     wg-easy:
       loadBalancer:

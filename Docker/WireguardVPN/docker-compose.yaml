@@ -40,7 +40,10 @@ services:
     # If the UI becomes unreachable (e.g. AdGuard DNS is down), use the Cloudflare
     # SSH tunnel as a break-glass — see README.md.
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        # Pinned: VPN clients reach Traefik NATed to this address, and the shared
+        # Traefik middleware local-networks@file allows exactly 172.24.0.5/32.
+        ipv4_address: 172.24.0.5
     restart: unless-stopped
 
 # =========================================================

@@ -1,0 +1,22 @@
+# THE single definition of "local" (LAN + WireGuard VPN are treated the same).
+# Every LAN/VPN-only router uses `local-networks@file`; never write a private
+# sourceRange into another file.
+#
+# How traffic arrives at Traefik:
+#   - LAN clients hitting 192.168.1.2:443 directly -> their real 192.168.1.x address
+#   - WireGuard clients -> 172.24.0.5, the wg-easy container (it NATs 10.8.0.0/24);
+#     pinned in Docker/WireguardVPN/docker-compose.yaml so it cannot drift
+#   - Cloudflare tunnel traffic -> 172.24.0.1 (docker gateway). It must NEVER be in
+#     this list: that is all internet traffic. This is why the whole 172.24.0.0/16
+#     bridge is not allowed (the old per-router lists did allow it).
+# LAN/VPN clients reach these hostnames directly because AdGuard (the DNS for the
+# VPN and AdGuard-using LAN devices) rewrites *.holy-grail.ch to 192.168.1.2.
+http:
+  middlewares:
+    local-networks:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "::1/128"
+          - "192.168.1.0/24"   # LAN
+          - "172.24.0.5/32"    # WireGuard VPN (wg-easy container, NATs 10.8.0.0/24)
