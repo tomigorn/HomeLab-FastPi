@@ -1,23 +1,19 @@
+# wg-easy Admin Panel - https://wg-easy.holy-grail.ch, LAN/VPN only (local-networks@file;
+# not published through the Cloudflare tunnel, AdGuard answers *.holy-grail.ch locally).
+# Login is Authentik OIDC (Docker/WireguardVPN/docker-compose.yaml). wg-easy builds the OIDC
+# redirect URI from the request Host header and Authentik accepts only this hostname's
+# /api/auth/oidc/{callback,link}, so the UI is served on this one hostname only (the old
+# wg-easy.fastpi.homelab :8080 / self-signed routers are gone).
 http:
   routers:
     wg-easy:
-      rule: "Host(`wg-easy.fastpi.homelab`)"
-      entryPoints: ["internal"]
-      service: wg-easy
-      middlewares:
-        - local-networks@file
-
-    # wg-easy v15 only issues its login cookie over HTTPS (Secure flag), so the UI
-    # is served on websecure too: https://wg-easy.fastpi.homelab - LAN/VPN only,
-    # Traefik's default self-signed cert (.homelab has no public cert; the browser
-    # warns once). The plain-HTTP :8080 router above stays for the old bookmark.
-    wg-easy-https:
-      rule: "Host(`wg-easy.fastpi.homelab`)"
+      rule: "Host(`wg-easy.holy-grail.ch`)"
       entryPoints: ["websecure"]
       service: wg-easy
       middlewares:
         - local-networks@file
-      tls: {}
+      tls:
+        certResolver: cloudflare
   services:
     wg-easy:
       loadBalancer:
