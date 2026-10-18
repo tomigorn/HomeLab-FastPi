@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (12 rows x 9, human-made art only, no AI art).
+"""One-off: build the avatar gallery (18 rows x 9, human-made art only, no AI art).
 
 Rows, in order (every row holds 3 feminine, 3 masculine and 3 neutral avatars;
 the `vibe` field is only used to interleave them so each row looks mixed):
@@ -16,9 +16,21 @@ the `vibe` field is only used to interleave them so each row looks mixed):
   comics      early newspaper comics (Segar, Herriman, Outcault, Fisher)
   flatemoji   Google Noto Emoji (Apache 2.0), centred on a soft square
   swiss       Swiss masters (Anker, Hodler, Segantini, Vallotton)
+  classics    classic cartoons in the US public domain (Mickey, Felix, Pooh, ...)
+  movies, tvcartoons, anime, games, memes
+              pop culture - LOCAL PACK (see below)
 
-All Commons rows use original period artwork whose artist died before 1956
-(public domain in Switzerland: life + 70 years). Commons images are fetched
+Local pack: the pop-culture rows are third-party copyrighted character art.
+They are written to app/img-local/ (gitignored: the repo is public) and marked
+"pack": "local" in gallery.json; the picker hides any entry whose image is
+missing, so a fresh clone works without them. Re-fetch them with
+`--only movies,tvcartoons,anime,games,memes`. Their source URLs are listed in
+LOCAL below and in LICENSES.md.
+
+All Commons rows except `classics` use original period artwork whose artist
+died before 1956 (public domain in Switzerland: life + 70 years). The `classics`
+row is public domain in the US only (works published 1919-1930; their artists
+died after 1956), see LICENSES.md. Commons images are fetched
 through the Commons API (imageinfo, thumbnail at most 1920 px wide -> smaller
 originals come back unscaled). The script refuses any file whose extmetadata
 licence is not "Public domain". Each crop box is (x, y, size) in pixels of that
@@ -30,18 +42,18 @@ LICENSES.md.
 Requests send only a generic User-Agent (no personal data). Set GALLERY_CACHE
 to a directory to cache downloads between runs (be gentle with Wikimedia).
 
-Writes app/img/<id>.png, app/gallery.json (flat list) and app/groups.json
+Writes app/img/<id>.png (+ app/img-local/<id>.png), app/gallery.json (flat list) and app/groups.json
 (ordered rows), and deletes images no longer in the gallery. Re-run only to
 change the gallery; the output is committed. `--only g1,g2` re-renders just
-those rows' images (the JSON is always rewritten; other rows' images must
-already exist). Needs Pillow (dev only).
+those rows' images (the JSON is always rewritten; other committed rows' images
+must already exist, missing local-pack images are only reported). Needs Pillow (dev only).
 """
 import colorsys, hashlib, io, json, os, pathlib, sys, time
 import urllib.error, urllib.parse, urllib.request
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-UA = "HomelabAvatarGallery/1.2 (private non-commercial gallery build)"
+UA = "HomelabAvatarGallery/1.3 (private non-commercial gallery build)"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 FLUENT = "https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/"
 # Pinned to the last commit whose LICENSE is Apache 2.0 (the repo switched its
@@ -66,6 +78,12 @@ GROUPS = [
     ("comics", "Early comics"),
     ("flatemoji", "Flat emoji"),
     ("swiss", "Swiss masters"),
+    ("classics", "Classic cartoons (public domain)"),
+    ("movies", "Movies & animated films"),
+    ("tvcartoons", "TV & cartoons"),
+    ("anime", "Anime"),
+    ("games", "Video games"),
+    ("memes", "Memes"),
 ]
 
 # Commons rows: (id, name, vibe, "File:..." title, (x, y, size) crop box)
@@ -291,6 +309,119 @@ COMMONS = {
         ("hodler-thunersee", "Thunersee", "neutral",
          "File:Hodler - Thunersee mit symmetrischer Spiegelung - 1905.jpg", (380, 250, 1200)),
     ],
+    # Classic cartoons: public domain in the US only (published 1919-1930, 95-year
+    # term expired; NOT yet PD in Switzerland/EU, life + 70). Early designs only.
+    # Optional 6th field True = tint the white paper with the avatar colour.
+    "classics": [
+        # Walt Disney & Ub Iwerks, Steamboat Willie (frame), 1928 - {{PD-old-50-expired}}, US PD since 2024
+        ("minnie-1928", "Minnie (1928)", "feminine",
+         "File:Minnie Mouse (Steamboat Willie).png", (90, 20, 300)),
+        # Walt Disney Productions, The Chain Gang poster, 1930 - {{PD-US-expired}}, US PD since 2026
+        ("mickey-1930", "Mickey (1930)", "masculine",
+         "File:The Chain Gang.jpg", (120, 10, 230)),
+        # Pat Sullivan / Educational Pictures, Exhibitors Herald ad, June 1925 - {{PD-US-expired}}
+        ("felix-1925", "Felix the Cat", "neutral",
+         "File:Felix the Cat - June 1925 EH.jpg", (0, 410, 210)),
+        # Dave Fleischer, Dizzy Dishes (first Betty Boop), 1930 - {{PD-US-expired}}, US PD since 2026
+        ("betty-boop-1930", "Betty (1930)", "feminine",
+         "File:Betty Boop First Version.png", (160, 0, 340)),
+        # E. H. Shepard, Winnie-the-Pooh (1926), p. 115 - {{PD-US-expired}}, US PD since 2022
+        ("pooh-1926", "Pooh (1926)", "masculine",
+         "File:Winnie-the-Pooh 115.png", (660, 70, 320), True),
+        # Walt Disney, The Chain Gang (unnamed bloodhound, later Pluto), 1930 - {{PD-US-expired}}
+        ("pluto-1930", "Pluto (1930)", "neutral",
+         "File:Disney's Pluto first and second appearances in 1930.jpg", (40, 20, 250)),
+        # Floyd Gottfredson, Mickey Mouse comic strip, 14 May 1930 - {{PD-US-expired}}
+        ("clarabelle-1930", "Clarabelle (1930)", "feminine",
+         "File:Clarabelle Cow, 1930.jpg", (10, 0, 200)),
+        # Walt Disney & Ub Iwerks, Trolley Troubles (frame), 1927 - {{PD-US-expired}}, US PD since 2023
+        ("oswald-1927", "Oswald (1927)", "masculine",
+         "File:Oswald1927.png", (40, 10, 300)),
+        # E. H. Shepard, Winnie-the-Pooh (1926) - {{PD-US-expired}}, US PD since 2022
+        ("piglet-1926", "Piglet (1926)", "neutral",
+         "File:Piglet EHShepard.jpg", (640, 120, 420), True),
+    ],
+}
+
+# Local pack: third-party copyrighted character art. Rendered into app/img-local/
+# (gitignored, never committed; baked into the private Docker image only) and
+# marked "pack": "local" in gallery.json. Sources are the low-resolution infobox
+# images of the character's English Wikipedia article (non-free, fetched straight
+# from upload.wikimedia.org), Wikimedia Commons photos for the meme animals, and
+# Studio Ghibli's official free-to-use stills (ghibli.jp/info/013344).
+# (id, name, vibe, image URL, (x, y, size) crop box - may exceed the image; any
+# transparent or outside area becomes the avatar colour)
+WP = "https://upload.wikimedia.org/wikipedia/"
+LOCAL = {
+    "movies": [
+        ("elsa", "Elsa", "feminine", WP + "en/5/5e/Elsa_from_Disney%27s_Frozen.png", (10, 0, 100)),
+        ("shrek", "Shrek", "masculine", WP + "en/4/4d/Shrek_%28character%29.png", (35, 0, 150)),
+        ("wall-e", "WALL-E", "neutral", WP + "en/6/68/WALL-E_%28character%29.png", (25, 0, 230)),
+        ("moana", "Moana", "feminine", WP + "en/5/56/Moana_%28character%29.png", (40, 0, 120)),
+        ("darth-vader", "Darth Vader", "masculine",
+         WP + "en/0/0b/Darth_Vader_in_The_Empire_Strikes_Back.jpg", (95, 0, 120)),
+        ("grogu", "Grogu", "neutral", WP + "en/a/a0/Grogu_%28Star_Wars%29.jpg", (70, 0, 200)),
+        ("fiona", "Fiona", "feminine", WP + "en/b/b9/Princess_Fiona.png", (52, 0, 85)),
+        ("mike-wazowski", "Mike Wazowski", "masculine", WP + "en/6/6a/Mike_Wazowski.png", (10, 0, 240)),
+        ("stitch", "Stitch", "neutral",
+         WP + "en/thumb/d/d2/Stitch_%28Lilo_%26_Stitch%29.svg/960px-Stitch_%28Lilo_%26_Stitch%29.svg.png",
+         (40, 30, 880)),
+    ],
+    "tvcartoons": [
+        ("lisa-simpson", "Lisa", "feminine", WP + "en/e/ec/Lisa_Simpson.png", (20, 0, 210)),
+        ("homer-simpson", "Homer", "masculine", WP + "en/0/02/Homer_Simpson_2006.png", (50, 0, 135)),
+        ("spongebob", "SpongeBob", "neutral",
+         WP + "commons/thumb/a/a2/SpongeBob_character.svg/960px-SpongeBob_character.svg.png",
+         (80, 50, 800)),
+        ("velma", "Velma", "feminine", WP + "en/9/9d/Velma_Dinkley.png", (40, 0, 110)),
+        ("fred-flintstone", "Fred", "masculine", WP + "en/a/ad/Fred_Flintstone.png", (55, 0, 125)),
+        ("scooby-doo", "Scooby-Doo", "neutral", WP + "en/5/53/Scooby-Doo.png", (35, 20, 120)),
+        ("leela", "Leela", "feminine", WP + "en/d/d4/Turanga_Leela.png", (60, 20, 105)),
+        ("rick-sanchez", "Rick", "masculine", WP + "en/a/a6/Rick_Sanchez.png", (25, 0, 105)),
+        ("garfield", "Garfield", "neutral",
+         WP + "en/thumb/b/bc/Garfield_the_Cat.svg/960px-Garfield_the_Cat.svg.png", (20, 0, 330)),
+    ],
+    "anime": [
+        ("sailor-moon", "Sailor Moon", "feminine", WP + "en/2/2b/Sailor_Moon_01.jpg", (40, 40, 125)),
+        ("goku", "Goku", "masculine", WP + "en/4/4c/GokumangaToriyama.png", (25, 0, 120)),
+        ("pikachu", "Pikachu", "neutral", WP + "en/a/a6/Pok%C3%A9mon_Pikachu_art.png", (10, 20, 280)),
+        ("nezuko", "Nezuko", "feminine", WP + "en/c/c0/NezukoKamado.png", (70, 30, 130)),
+        ("naruto", "Naruto", "masculine", WP + "en/9/9a/NarutoUzumaki.png", (190, 15, 100)),
+        ("totoro", "Totoro", "neutral", "https://www.ghibli.jp/gallery/totoro034.jpg", (400, 200, 838)),
+        ("chihiro", "Chihiro", "feminine", "https://www.ghibli.jp/gallery/chihiro001.jpg", (800, 40, 340)),
+        ("luffy", "Luffy", "masculine", WP + "en/c/cb/Monkey_D_Luffy.png", (20, 0, 140)),
+        ("jiji", "Jiji", "neutral", "https://www.ghibli.jp/gallery/majo050.jpg", (1120, 470, 200)),
+    ],
+    "games": [
+        ("princess-peach", "Peach", "feminine", WP + "en/1/16/Princess_Peach_Stock_Art.png", (40, 0, 140)),
+        ("mario", "Mario", "masculine", WP + "en/5/5c/Mario_by_Shigehisa_Nakaue.png", (50, 0, 190)),
+        ("pac-man", "Pac-Man", "neutral",
+         WP + "commons/f/fb/Pac-Man_ingame_and_2D_alternative_design.png", (360, 10, 375)),
+        ("zelda", "Zelda", "feminine", WP + "en/6/6e/Link_to_the_Past_Zelda.png", (50, 0, 110)),
+        ("sonic", "Sonic", "masculine", WP + "en/f/f4/Sonic_modern_and_classic_designs.png", (15, 0, 140)),
+        ("kirby", "Kirby", "neutral", WP + "en/4/4e/Kirby_Nintendo.png", (20, 0, 300)),
+        ("lara-croft", "Lara", "feminine", WP + "en/a/a8/LaraCroftInfobox.png", (98, 10, 80)),
+        ("master-chief", "Master Chief", "masculine", WP + "en/4/42/Master_chief_halo_infinite.png",
+         (75, 20, 100)),
+        ("yoshi", "Yoshi", "neutral", WP + "en/d/db/Yoshi_%28Nintendo_character%29.png", (10, 0, 220)),
+    ],
+    # Memes: animals and drawn/rendered characters only (no real people's faces).
+    "memes": [
+        ("doge", "Doge", "feminine",  # Kabosu; crop excludes her owner
+         WP + "commons/c/cb/Kabosu_and_Atsuko_Sato_2023-11-02_%281%29.jpg", (650, 600, 600)),
+        ("cheems", "Cheems", "masculine", WP + "en/1/14/Balltze_%28Cheems%29.jpg", (115, 70, 170)),
+        ("nyan-cat", "Nyan Cat", "neutral", WP + "en/e/ed/Nyan_cat_250px_frame.PNG", (100, 60, 150)),
+        ("grumpy-cat", "Grumpy Cat", "feminine",
+         WP + "commons/d/dc/Grumpy_Cat_%2814556024763%29_%28cropped%29.jpg", (40, 130, 560)),
+        ("meme-man", "Stonks", "masculine",
+         WP + "en/9/96/Meme_Man_on_transparent_background.webp", (40, 0, 300)),
+        ("bongo-cat", "Bongo Cat", "neutral", WP + "en/7/7a/Bongo_cat.png", (50, 30, 170)),
+        ("lil-bub", "Lil Bub", "feminine", WP + "commons/b/b8/Lil-Bub-2013_%28cropped%29.jpg", (60, 0, 330)),
+        ("smudge", "Smudge", "masculine",  # the table cat only, no people
+         WP + "en/1/1f/WomanYellingAtACat_meme.jpg", (285, 30, 150)),
+        ("pesto", "Pesto", "neutral", WP + "commons/4/4a/Pesto_%28penguin%29_%28cropped%29.png",
+         (400, 100, 1300)),
+    ],
 }
 
 # Fluent Emoji 3D: (id, name, vibe, upstream folder, skin tone or None, background)
@@ -391,7 +522,10 @@ DICE = {
 # Colour-index order: the original rows keep their colours (and DiceBear
 # backgrounds) from v1.1; rows added later continue the sequence.
 COLOR_ORDER = ["storybook", "paintings", "illustrated", "pixel", "cartoon",
-               "ukiyoe", "belleepoque", "fairytale", "comics", "swiss"]
+               "ukiyoe", "belleepoque", "fairytale", "comics", "swiss",
+               "classics", "movies", "tvcartoons", "anime", "games", "memes"]
+# Rows whose f/m/n order is not enforced (kept in the order listed above).
+FREE_VIBE = {"memes"}
 
 
 def pastel(i):
@@ -457,8 +591,22 @@ def on_square(emoji, color):
 
 def interleave(items):
     """Order a row f, m, n, f, m, n, ... so every row looks mixed."""
+    if items and items[0]["group"] in FREE_VIBE:
+        return items
     by = {v: [i for i in items if i["vibe"] == v] for v in VIBES}
     return [by[v][k] for k in range(3) for v in VIBES]
+
+def local_image(url, color, box):
+    """Fetch a local-pack image and crop it; transparent/outside areas take `color`."""
+    x, y, s = box
+    src = Image.open(io.BytesIO(get(url))).convert("RGBA")
+    canvas = Image.new("RGBA", (s, s), color)
+    canvas.alpha_composite(src.crop((x, y, x + s, y + s)))
+    return canvas.convert("RGB").resize((SIZE, SIZE), Image.LANCZOS)
+
+def tint(img, color):
+    """Multiply line art on white paper with a soft colour."""
+    return ImageChops.multiply(img, Image.new("RGB", img.size, color))
 
 def main():
     only = None
@@ -468,33 +616,47 @@ def main():
         if unknown:
             raise SystemExit(f"unknown groups: {sorted(unknown)}")
     out = ROOT / "app" / "img"; out.mkdir(parents=True, exist_ok=True)
+    out_local = ROOT / "app" / "img-local"; out_local.mkdir(parents=True, exist_ok=True)
     rows = {}
     colors = iter(pastel(i) for i in range(1000))
     color_of = {}
     for gid in COLOR_ORDER:
-        for item in COMMONS.get(gid, []) + DICE.get(gid, []):
+        for item in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, []):
             color_of[item[0]] = next(colors)
 
-    def add(group, aid, name, vibe, color, render):
-        path = out / f"{aid}.png"
+    def add(group, aid, name, vibe, color, render, pack=None):
+        path = (out_local if pack else out) / f"{aid}.png"
         if only is None or group in only:
             save(render(), path); print("ok", group, aid)
         elif not path.exists():
-            raise SystemExit(f"{aid}.png missing; rebuild group {group!r}")
-        rows.setdefault(group, []).append(
-            {"id": aid, "name": name, "file": f"{aid}.png", "color": color,
-             "group": group, "vibe": vibe})
+            if not pack:
+                raise SystemExit(f"{aid}.png missing; rebuild group {group!r}")
+            print("missing (local pack, hidden by the picker):", aid)
+        entry = {"id": aid, "name": name, "file": f"{aid}.png", "color": color,
+                 "group": group, "vibe": vibe}
+        if pack:
+            entry["pack"] = pack
+        rows.setdefault(group, []).append(entry)
 
     for group, items in COMMONS.items():
-        for aid, name, vibe, title, (x, y, s) in items:
-            def render(title=title, x=x, y=y, s=s, aid=aid):
+        for aid, name, vibe, title, (x, y, s), *opt in items:
+            def render(title=title, x=x, y=y, s=s, aid=aid, tinted=bool(opt and opt[0])):
                 src = commons(title)
                 if not CACHE:
                     time.sleep(2)  # be gentle with upload.wikimedia.org
                 if x + s > src.width or y + s > src.height:
                     raise SystemExit(f"{aid}: crop box exceeds {src.size}")
-                return src.crop((x, y, x + s, y + s)).resize((SIZE, SIZE), Image.LANCZOS)
+                img = src.crop((x, y, x + s, y + s)).resize((SIZE, SIZE), Image.LANCZOS)
+                return tint(img, color_of[aid]) if tinted else img
             add(group, aid, name, vibe, color_of[aid], render)
+    for group, items in LOCAL.items():
+        for aid, name, vibe, url, box in items:
+            def render(url=url, color=color_of[aid], box=box):
+                img = local_image(url, color, box)
+                if not CACHE:
+                    time.sleep(2)
+                return img
+            add(group, aid, name, vibe, color_of[aid], render, pack="local")
     for aid, name, vibe, folder, tone, color in FLUENT_ITEMS:
         add("people3d", aid, name, vibe, color,
             lambda folder=folder, tone=tone, color=color: on_square(fluent(folder, tone), color))
@@ -510,10 +672,11 @@ def main():
                 return img if img.size == (SIZE, SIZE) else img.resize((SIZE, SIZE), Image.LANCZOS)
             add(group, aid, name, vibe, color, render)
     gallery = [a for gid, _ in GROUPS for a in interleave(rows[gid])]
-    keep = {g["file"] for g in gallery}
-    for f in out.iterdir():
-        if f.suffix == ".png" and f.name not in keep:
-            f.unlink(); print("removed", f.name)
+    for d, pack in ((out, None), (out_local, "local")):
+        keep = {g["file"] for g in gallery if g.get("pack") == pack}
+        for f in d.iterdir():
+            if f.suffix == ".png" and f.name not in keep:
+                f.unlink(); print("removed", f.name)
     (ROOT / "app" / "gallery.json").write_text(json.dumps(gallery, indent=2) + "\n")
     (ROOT / "app" / "groups.json").write_text(
         json.dumps([{"id": i, "label": l} for i, l in GROUPS], indent=2) + "\n")

@@ -1,4 +1,4 @@
-import http.client, io, json, os, sys, threading, unittest, urllib.request
+import http.client, io, json, os, pathlib, shutil, sys, tempfile, threading, unittest, urllib.request
 from http.server import ThreadingHTTPServer
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 import server
@@ -153,6 +153,34 @@ class ServerTest(unittest.TestCase):
         self.assertEqual((code, body), (200, b"")); self.assertEqual(h["Content-Type"], "image/png")
         self.assertGreater(int(h["Content-Length"]), 0)
         self.assertEqual(self.raw("HEAD", "/img/nope.png")[0], 404)
+
+    def test_missing_local_pack_hidden(self):
+        """A local-pack avatar whose file is absent (fresh clone) is hidden from the
+        picker, can't be picked or fetched, and a row left empty is dropped."""
+        tmp = pathlib.Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, tmp)
+        (tmp / "img").mkdir(); (tmp / "img-local").mkdir()
+        png = (pathlib.Path(server.APP) / "img" / "owl.png").read_bytes()
+        (tmp / "img" / "owl.png").write_bytes(png)
+        (tmp / "img-local" / "here.png").write_bytes(png)
+        (tmp / "gallery.json").write_text(json.dumps([
+            {"id": "owl", "name": "Owl", "file": "owl.png", "color": "#FFFFFF", "group": "a", "vibe": "neutral"},
+            {"id": "here", "name": "Here", "file": "here.png", "color": "#FFFFFF", "group": "b",
+             "vibe": "neutral", "pack": "local"},
+            {"id": "gone", "name": "Gone", "file": "gone.png", "color": "#FFFFFF", "group": "b",
+             "vibe": "neutral", "pack": "local"},
+            {"id": "gone2", "name": "Gone2", "file": "gone2.png", "color": "#FFFFFF", "group": "c",
+             "vibe": "neutral", "pack": "local"}]))
+        (tmp / "groups.json").write_text(json.dumps(
+            [{"id": "a", "label": "A"}, {"id": "b", "label": "B"}, {"id": "c", "label": "C"}]))
+        server.load(tmp); self.addCleanup(server.load)
+        self.start(FakeClient(self.users()))
+        data = json.loads(self.req("/api/state", user="me")[1])
+        self.assertEqual([a["id"] for a in data["avatars"]], ["owl", "here"])
+        self.assertEqual([g["id"] for g in data["groups"]], ["a", "b"])
+        self.assertEqual(self.req("/img/here.png")[0], 200)  # served from img-local/
+        self.assertEqual(self.req("/img/gone.png")[0], 404)
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "gone"})[0], 400)
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "here"})[0], 200)
 
 if __name__ == "__main__":
     unittest.main()

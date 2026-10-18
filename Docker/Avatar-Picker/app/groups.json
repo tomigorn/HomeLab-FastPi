@@ -46,5 +46,29 @@
   {
     "id": "swiss",
     "label": "Swiss masters"
+  },
+  {
+    "id": "classics",
+    "label": "Classic cartoons (public domain)"
+  },
+  {
+    "id": "movies",
+    "label": "Movies & animated films"
+  },
+  {
+    "id": "tvcartoons",
+    "label": "TV & cartoons"
+  },
+  {
+    "id": "anime",
+    "label": "Anime"
+  },
+  {
+    "id": "games",
+    "label": "Video games"
+  },
+  {
+    "id": "memes",
+    "label": "Memes"
   }
 ]

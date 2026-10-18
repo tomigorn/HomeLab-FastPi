@@ -388,3 +388,95 @@ page on 2026-10-18.
 
 Attribution (CC BY 4.0): "Adventurer" by Lisa Wischofsky, licensed CC BY 4.0.
 Images were rendered via DiceBear with a solid background colour added.
+
+## Classic cartoons (public domain in the United States)
+
+Row: Classic cartoons (public domain). These early character designs were
+published 1919-1930; their 95-year US copyright term has expired, so they are
+public domain in the **United States** (Betty Boop's and Pluto's 1930 debuts on
+2026-01-01, verified against Duke Law's Public Domain Day 2026 list,
+https://web.law.duke.edu/cspd/publicdomainday/2026/). Their artists died after
+1956, so - unlike the rows above - they are **not yet public domain in
+Switzerland/EU** (life + 70 years). Only the original early designs are used;
+the characters' names and later designs remain trademarks of their owners. Every
+file was fetched through the Commons API with extmetadata licence "Public
+domain"; tags checked on the file pages on 2026-10-18. Line drawings on white
+paper were tinted with the avatar colour.
+
+| Avatar | Work | Creator | Year | Commons licence tag | US PD since | Commons page |
+|---|---|---|---|---|---|---|
+| Minnie (1928) (`minnie-1928`) | Steamboat Willie (film frame) | Walt Disney & Ub Iwerks | 1928 | PD-old-50-expired (+ trademark notice) | 2024-01-01 | https://commons.wikimedia.org/wiki/File:Minnie_Mouse_(Steamboat_Willie).png |
+| Mickey (1930) (`mickey-1930`) | The Chain Gang (theatrical poster) | Walt Disney Productions | 1930 | PD-US-expired | 2026-01-01 | https://commons.wikimedia.org/wiki/File:The_Chain_Gang.jpg |
+| Felix the Cat (`felix-1925`) | Felix the Cat advertisement, Exhibitors Herald, 27 June 1925 | Pat Sullivan studio / Educational Pictures | 1925 | PD-US-expired | 2021-01-01 | https://commons.wikimedia.org/wiki/File:Felix_the_Cat_-_June_1925_EH.jpg |
+| Betty (1930) (`betty-boop-1930`) | Dizzy Dishes (film frame, first Betty Boop) | Dave Fleischer / Fleischer Studios | 1930 | PD-US-expired | 2026-01-01 | https://commons.wikimedia.org/wiki/File:Betty_Boop_First_Version.png |
+| Pooh (1926) (`pooh-1926`) | Winnie-the-Pooh, illustration p. 115 | E. H. Shepard (1879-1976) | 1926 | PD-US-expired | 2022-01-01 | https://commons.wikimedia.org/wiki/File:Winnie-the-Pooh_115.png |
+| Pluto (1930) (`pluto-1930`) | The Chain Gang (film frame, unnamed bloodhound later named Pluto) | Walt Disney | 1930 | PD-US-expired | 2026-01-01 | https://commons.wikimedia.org/wiki/File:Disney's_Pluto_first_and_second_appearances_in_1930.jpg |
+| Clarabelle (1930) (`clarabelle-1930`) | Mickey Mouse comic strip, 14 May 1930 | Walt Disney / Floyd Gottfredson | 1930 | PD-US-expired | 2026-01-01 | https://commons.wikimedia.org/wiki/File:Clarabelle_Cow,_1930.jpg |
+| Oswald (1927) (`oswald-1927`) | Trolley Troubles (film frame) | Walt Disney & Ub Iwerks | 1927 | PD-US-expired | 2023-01-01 | https://commons.wikimedia.org/wiki/File:Oswald1927.png |
+| Piglet (1926) (`piglet-1926`) | Winnie-the-Pooh, illustration | E. H. Shepard (1879-1976) | 1926 | PD-US-expired, PD-old-auto | 2022-01-01 | https://commons.wikimedia.org/wiki/File:Piglet_EHShepard.jpg |
+
+## Local pack: pop-culture characters (not in this repository)
+
+Rows: Movies & animated films, TV & cartoons, Anime, Video games, Memes.
+
+These images are **third-party copyrighted character art** (and, for the meme
+animals, third-party photographs), owned by their respective studios, artists
+and photographers. They are used privately in a LAN-only, login-protected
+homelab avatar gallery for a handful of users, are **not redistributed**, and
+are **not part of this repository**: `scripts/build-gallery.py` writes them to
+`app/img-local/`, which is gitignored and only baked into the private Docker
+image. `gallery.json` lists their names and ids (`"pack": "local"`); a fresh
+clone simply hides them. Each image was cropped to the character's head/face
+and resized to 512x512 (transparent areas filled with a soft colour). Sources:
+the character's English Wikipedia infobox image (low-resolution non-free file),
+Wikimedia Commons (meme animals, Pac-Man, SpongeBob), and Studio Ghibli's
+official stills, which the studio offers for free use "within the bounds of
+common sense" (https://www.ghibli.jp/info/013344/).
+
+| Avatar | Row | Source image |
+|---|---|---|
+| Elsa (`elsa`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/5/5e/Elsa_from_Disney%27s_Frozen.png |
+| Shrek (`shrek`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/4/4d/Shrek_%28character%29.png |
+| WALL-E (`wall-e`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/6/68/WALL-E_%28character%29.png |
+| Moana (`moana`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/5/56/Moana_%28character%29.png |
+| Darth Vader (`darth-vader`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/0/0b/Darth_Vader_in_The_Empire_Strikes_Back.jpg |
+| Grogu (`grogu`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/a/a0/Grogu_%28Star_Wars%29.jpg |
+| Fiona (`fiona`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/b/b9/Princess_Fiona.png |
+| Mike Wazowski (`mike-wazowski`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/6/6a/Mike_Wazowski.png |
+| Stitch (`stitch`) | Movies & animated films | https://upload.wikimedia.org/wikipedia/en/thumb/d/d2/Stitch_%28Lilo_%26_Stitch%29.svg/960px-Stitch_%28Lilo_%26_Stitch%29.svg.png |
+| Lisa (`lisa-simpson`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/e/ec/Lisa_Simpson.png |
+| Homer (`homer-simpson`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/0/02/Homer_Simpson_2006.png |
+| SpongeBob (`spongebob`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/SpongeBob_character.svg/960px-SpongeBob_character.svg.png |
+| Velma (`velma`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/9/9d/Velma_Dinkley.png |
+| Fred (`fred-flintstone`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/a/ad/Fred_Flintstone.png |
+| Scooby-Doo (`scooby-doo`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/5/53/Scooby-Doo.png |
+| Leela (`leela`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/d/d4/Turanga_Leela.png |
+| Rick (`rick-sanchez`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/a/a6/Rick_Sanchez.png |
+| Garfield (`garfield`) | TV & cartoons | https://upload.wikimedia.org/wikipedia/en/thumb/b/bc/Garfield_the_Cat.svg/960px-Garfield_the_Cat.svg.png |
+| Sailor Moon (`sailor-moon`) | Anime | https://upload.wikimedia.org/wikipedia/en/2/2b/Sailor_Moon_01.jpg |
+| Goku (`goku`) | Anime | https://upload.wikimedia.org/wikipedia/en/4/4c/GokumangaToriyama.png |
+| Pikachu (`pikachu`) | Anime | https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png |
+| Nezuko (`nezuko`) | Anime | https://upload.wikimedia.org/wikipedia/en/c/c0/NezukoKamado.png |
+| Naruto (`naruto`) | Anime | https://upload.wikimedia.org/wikipedia/en/9/9a/NarutoUzumaki.png |
+| Totoro (`totoro`) | Anime | https://www.ghibli.jp/gallery/totoro034.jpg |
+| Chihiro (`chihiro`) | Anime | https://www.ghibli.jp/gallery/chihiro001.jpg |
+| Luffy (`luffy`) | Anime | https://upload.wikimedia.org/wikipedia/en/c/cb/Monkey_D_Luffy.png |
+| Jiji (`jiji`) | Anime | https://www.ghibli.jp/gallery/majo050.jpg |
+| Peach (`princess-peach`) | Video games | https://upload.wikimedia.org/wikipedia/en/1/16/Princess_Peach_Stock_Art.png |
+| Mario (`mario`) | Video games | https://upload.wikimedia.org/wikipedia/en/5/5c/Mario_by_Shigehisa_Nakaue.png |
+| Pac-Man (`pac-man`) | Video games | https://upload.wikimedia.org/wikipedia/commons/f/fb/Pac-Man_ingame_and_2D_alternative_design.png |
+| Zelda (`zelda`) | Video games | https://upload.wikimedia.org/wikipedia/en/6/6e/Link_to_the_Past_Zelda.png |
+| Sonic (`sonic`) | Video games | https://upload.wikimedia.org/wikipedia/en/f/f4/Sonic_modern_and_classic_designs.png |
+| Kirby (`kirby`) | Video games | https://upload.wikimedia.org/wikipedia/en/4/4e/Kirby_Nintendo.png |
+| Lara (`lara-croft`) | Video games | https://upload.wikimedia.org/wikipedia/en/a/a8/LaraCroftInfobox.png |
+| Master Chief (`master-chief`) | Video games | https://upload.wikimedia.org/wikipedia/en/4/42/Master_chief_halo_infinite.png |
+| Yoshi (`yoshi`) | Video games | https://upload.wikimedia.org/wikipedia/en/d/db/Yoshi_%28Nintendo_character%29.png |
+| Doge (`doge`) | Memes | https://upload.wikimedia.org/wikipedia/commons/c/cb/Kabosu_and_Atsuko_Sato_2023-11-02_%281%29.jpg |
+| Cheems (`cheems`) | Memes | https://upload.wikimedia.org/wikipedia/en/1/14/Balltze_%28Cheems%29.jpg |
+| Nyan Cat (`nyan-cat`) | Memes | https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG |
+| Grumpy Cat (`grumpy-cat`) | Memes | https://upload.wikimedia.org/wikipedia/commons/d/dc/Grumpy_Cat_%2814556024763%29_%28cropped%29.jpg |
+| Stonks (`meme-man`) | Memes | https://upload.wikimedia.org/wikipedia/en/9/96/Meme_Man_on_transparent_background.webp |
+| Bongo Cat (`bongo-cat`) | Memes | https://upload.wikimedia.org/wikipedia/en/7/7a/Bongo_cat.png |
+| Lil Bub (`lil-bub`) | Memes | https://upload.wikimedia.org/wikipedia/commons/b/b8/Lil-Bub-2013_%28cropped%29.jpg |
+| Smudge (`smudge`) | Memes | https://upload.wikimedia.org/wikipedia/en/1/1f/WomanYellingAtACat_meme.jpg |
+| Pesto (`pesto`) | Memes | https://upload.wikimedia.org/wikipedia/commons/4/4a/Pesto_%28penguin%29_%28cropped%29.png |

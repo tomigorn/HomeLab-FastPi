@@ -6,9 +6,30 @@ import core
 from authentik_api import AuthentikError, Client
 
 APP = pathlib.Path(__file__).resolve().parent
-GALLERY = json.loads((APP / "gallery.json").read_text())
-GROUPS = json.loads((APP / "groups.json").read_text())
-IDS = {g["id"] for g in GALLERY}
+# Avatars marked "pack": "local" are third-party art kept out of git in
+# app/img-local/; the rest are committed in app/img/.
+PACK_DIRS = {None: "img", "local": "img-local"}
+GALLERY, GROUPS, IDS, FILES = [], [], set(), {}
+
+
+def load(app_dir=APP):
+    """Load the gallery, hiding avatars (and then-empty rows) whose image file is
+    missing - e.g. a fresh clone without the local pack."""
+    global GALLERY, GROUPS, IDS, FILES
+    app_dir = pathlib.Path(app_dir)
+    files = {}
+    for g in json.loads((app_dir / "gallery.json").read_text()):
+        path = app_dir / PACK_DIRS.get(g.get("pack"), "img") / f"{g['id']}.png"
+        if path.is_file():
+            files[g["id"]] = (g, path)
+    GALLERY = [g for g, _ in files.values()]
+    shown = {g["group"] for g in GALLERY}
+    GROUPS = [r for r in json.loads((app_dir / "groups.json").read_text()) if r["id"] in shown]
+    IDS = set(files)
+    FILES = {aid: path for aid, (_, path) in files.items()}
+
+
+load()
 INDEX = (APP / "static" / "index.html").read_bytes()
 VERSION = (APP / "VERSION").read_text().strip() if (APP / "VERSION").exists() else "dev"
 
@@ -68,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
             if aid not in IDS:
                 self._send(404, "not found", head=head)
             else:
-                self._send(200, (APP / "img" / f"{aid}.png").read_bytes(),
+                self._send(200, FILES[aid].read_bytes(),
                            "image/png", cache="public, max-age=86400", head=head)
             return True
         return False

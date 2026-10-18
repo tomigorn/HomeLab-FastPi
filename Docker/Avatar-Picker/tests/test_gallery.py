@@ -3,6 +3,13 @@ import json, os, re, struct, unittest
 APP = os.path.join(os.path.dirname(__file__), "..", "app")
 GALLERY = json.load(open(os.path.join(APP, "gallery.json")))
 GROUPS = json.load(open(os.path.join(APP, "groups.json")))
+# Rows whose avatars are third-party art kept out of git ("pack": "local",
+# files in app/img-local/). A fresh clone has none of them; the tests below
+# must pass with or without the local pack present.
+LOCAL_GROUPS = {"movies", "tvcartoons", "anime", "games", "memes"}
+# Meme row: mostly animals/objects, so the 3/3/3 f-m-n rule does not apply.
+FREE_VIBE_GROUPS = {"memes"}
+PACK_DIR = {None: "img", "local": "img-local"}
 
 
 def png_size(path):
@@ -16,19 +23,22 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 12)
-        self.assertEqual(len(GALLERY), 12 * 9)
+        self.assertEqual(len(GROUPS), 18)
+        self.assertEqual(len(GALLERY), 18 * 9)
 
     def test_group_order(self):
         self.assertEqual([g["id"] for g in GROUPS],
                          ["storybook", "paintings", "people3d", "illustrated", "pixel", "cartoon",
-                          "ukiyoe", "belleepoque", "fairytale", "comics", "flatemoji", "swiss"])
+                          "ukiyoe", "belleepoque", "fairytale", "comics", "flatemoji", "swiss",
+                          "classics", "movies", "tvcartoons", "anime", "games", "memes"])
 
     def test_gallery_follows_group_order_and_interleaves(self):
         """The flat list is grouped row by row, each row ordered f, m, n, f, m, n, ..."""
         gids = [g["id"] for g in GROUPS]
         self.assertEqual([a["group"] for a in GALLERY], [g for g in gids for _ in range(9)])
         for i, a in enumerate(GALLERY):
+            if a["group"] in FREE_VIBE_GROUPS:
+                continue
             self.assertEqual(a["vibe"], ("feminine", "masculine", "neutral")[i % 3], a["id"])
 
     def test_file_matches_id(self):
@@ -59,6 +69,8 @@ class GalleryTest(unittest.TestCase):
         for grp in GROUPS:
             row = [a for a in GALLERY if a["group"] == grp["id"]]
             self.assertEqual(len(row), 9, grp["id"])
+            if grp["id"] in FREE_VIBE_GROUPS:
+                continue
             for vibe in ("feminine", "masculine", "neutral"):
                 self.assertEqual(sum(a["vibe"] == vibe for a in row), 3, (grp["id"], vibe))
 
@@ -66,18 +78,42 @@ class GalleryTest(unittest.TestCase):
         for a in GALLERY:
             self.assertIn(a["vibe"], ("feminine", "masculine", "neutral"), a["id"])
 
-    def test_files(self):
+    def test_pack(self):
+        """Local-pack rows are exactly the copyrighted pop-culture rows; everything
+        else (incl. the public-domain classics) is committed."""
         for a in GALLERY:
-            p = os.path.join(APP, "img", a["file"])
+            self.assertIn(a.get("pack"), PACK_DIR, a["id"])
+            self.assertEqual(a.get("pack") == "local", a["group"] in LOCAL_GROUPS, a["id"])
+
+    def check_png(self, p, aid):
+        self.assertEqual(png_size(p), (512, 512), aid)
+        self.assertLess(os.path.getsize(p), 500 * 1024, aid)
+        with open(p, "rb") as f:
+            self.assertEqual(f.read()[-8:-4], b"IEND", aid)  # not truncated
+
+    def test_files(self):
+        """Committed images must exist; local-pack images are checked if present."""
+        for a in GALLERY:
+            p = os.path.join(APP, PACK_DIR[a.get("pack")], a["file"])
+            if a.get("pack") == "local" and not os.path.exists(p):
+                continue
             self.assertTrue(os.path.isfile(p), p)
-            self.assertEqual(png_size(p), (512, 512), a["id"])
-            self.assertLess(os.path.getsize(p), 500 * 1024, a["id"])
-            with open(p, "rb") as f:
-                self.assertEqual(f.read()[-8:-4], b"IEND", a["id"])  # not truncated
+            self.check_png(p, a["id"])
 
     def test_no_orphan_images(self):
-        files = {a["file"] for a in GALLERY}
-        self.assertEqual(set(os.listdir(os.path.join(APP, "img"))), files)
+        committed = {a["file"] for a in GALLERY if a.get("pack") is None}
+        self.assertEqual(set(os.listdir(os.path.join(APP, "img"))), committed)
+        local_dir = os.path.join(APP, "img-local")
+        if os.path.isdir(local_dir):
+            local = {a["file"] for a in GALLERY if a.get("pack") == "local"}
+            self.assertLessEqual(set(os.listdir(local_dir)), local)
+
+    def test_local_pack_is_gitignored(self):
+        """Copyrighted art must never be committed to the public repo."""
+        ignore = open(os.path.join(APP, "..", ".gitignore")).read().split("\n")
+        self.assertIn("app/img-local/", ignore)
+        dockerignore = open(os.path.join(APP, "..", ".dockerignore")).read()
+        self.assertNotIn("img-local", dockerignore)  # but it is baked into the image
 
     def test_colors(self):
         for a in GALLERY:

@@ -103,3 +103,17 @@ repo (`scripts/build-gallery.py`) from the upstream PNGs; output committed under
 - Integration: pick → Authentik user attribute set → `/application/o/userinfo/`
   `picture` returns the URL; Nextcloud and Jellyfin show it after a login.
 - Smoke-test script gets checks for `/img/` (200 public) and `/` (302 to SSO).
+
+## Addendum v1.3.0 (2026-10-18): pop-culture rows and the local pack
+
+- Six rows added (18 x 9): "Classic cartoons (public domain)" (committed; US
+  public domain only, see LICENSES.md) and five pop-culture rows (movies, TV &
+  cartoons, anime, video games, memes).
+- The pop-culture art is copyrighted, so it lives in a **local pack**:
+  `app/img-local/` (gitignored; still in the Docker build context, so it is baked
+  into the private image). Entries carry `"pack": "local"` in `gallery.json`.
+- The server serves both dirs under the same `/img/<id>.png` URL and, at start-up,
+  hides any avatar whose file is missing (and any row left empty), so a fresh
+  clone or CI run works without the pack. `build-gallery.py --only <rows>`
+  re-fetches it.
+- Memes row is exempt from the strict f/m/n order (it happens to be balanced).
