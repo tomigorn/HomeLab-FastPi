@@ -1,0 +1,33 @@
+# Home Assistant - https://ha.holy-grail.ch, LAN + VPN only (local-networks@file; not
+# published through the Cloudflare tunnel, AdGuard answers *.holy-grail.ch locally).
+# Project: /home/pi/Projects/Docker/Home-Assistant
+#
+# No authentik@file forward auth here: HA does the SSO itself (custom component
+# hass-oidc-auth against the "home-assistant" OIDC provider in Authentik, provisioned by
+# Authentik/scripts/provision-admin-sso.py). Forward auth would break the Companion apps
+# and the HA API. HA is host-networked, so the service is the host port; websockets
+# (the HA frontend) pass through Traefik natively. HA trusts this hop via
+# trusted_proxies in .storage/http (HA 2026.10+: UI-managed, not YAML; see its README).
+#
+# Break-glass (Authentik down): the HA owner account's local login stays enabled at
+#   https://ha.holy-grail.ch/?skip_oidc_redirect=true
+# or directly on the LAN at http://192.168.1.2:8123/?skip_oidc_redirect=true. The IP URL
+# is also what the Companion apps use, so they do not depend on this route. SSO works
+# only on this hostname (Authentik accepts just https://ha.holy-grail.ch/auth/oidc/callback).
+http:
+  routers:
+    home-assistant:
+      rule: "Host(`ha.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      service: home-assistant
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+  services:
+    home-assistant:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:8123"
+        passHostHeader: true
