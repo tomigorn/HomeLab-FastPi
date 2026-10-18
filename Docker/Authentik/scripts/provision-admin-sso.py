@@ -53,8 +53,9 @@ oidc_mappings = [ScopeMapping.objects.get(managed=f"goauthentik.io/providers/oau
 oidc_src = OAuth2Provider.objects.get(name="Nextcloud")  # flows + signing key to copy
 
 
-def oidc(name, redirects, logout_redirects=()):
-    """Confidential OIDC provider. client_id/secret are generated once and kept on rerun."""
+def oidc(name, redirects, logout_redirects=(), mappings=None):
+    """Confidential OIDC provider. client_id/secret are generated once and kept on rerun.
+    mappings replaces the default scope mappings (oidc_mappings) as a whole, on every run."""
     p, created = OAuth2Provider.objects.get_or_create(name=name, defaults={
         "client_id": secrets.token_urlsafe(30), "client_secret": secrets.token_urlsafe(60),
         "authorization_flow": oidc_src.authorization_flow,
@@ -69,7 +70,7 @@ def oidc(name, redirects, logout_redirects=()):
         [RedirectURI(RedirectURIMatchingMode.STRICT, u, RedirectURIType.AUTHORIZATION) for u in redirects]
         + [RedirectURI(RedirectURIMatchingMode.STRICT, u, RedirectURIType.LOGOUT) for u in logout_redirects])
     p.save()
-    p.property_mappings.set(oidc_mappings)
+    p.property_mappings.set(oidc_mappings if mappings is None else mappings)
     return p
 
 
@@ -116,6 +117,24 @@ if os.environ.get("ADGUARD_PROXY_PASSWORD"):
     admins.attributes["adguard_username"] = "authentik-proxy"
     admins.attributes["adguard_password"] = os.environ["ADGUARD_PROXY_PASSWORD"]
     admins.save()
+
+# 5. wg-easy (its own generic OIDC login; route in Docker/Traefik/traefik/dynamic/wg-easy.yml,
+# config in Docker/WireguardVPN/docker-compose.yaml). wg-easy rejects a login whose userinfo
+# says email_verified=false, which the default email mapping reports for every Authentik user.
+# The addresses are trusted anyway (enrolment is invite-only with a verified email), so this
+# provider gets its own email mapping instead of the default one. wg-easy links an Authentik
+# login to an existing wg-easy user with the same email (auto-register stays off).
+# Redirects: /api/auth/<provider>/callback (login) and /link (link from the profile page).
+wg_email, _ = ScopeMapping.objects.update_or_create(name="wg-easy email (verified)", defaults={
+    "scope_name": "email",
+    "description": "Email address (marked verified: enrolment is invite-only + verified)",
+    "expression": 'return {"email": request.user.email, "email_verified": True}'})
+wg_easy = oidc("wg-easy", ["https://wg-easy.holy-grail.ch/api/auth/oidc/callback",
+                           "https://wg-easy.holy-grail.ch/api/auth/oidc/link"],
+               mappings=[m for m in oidc_mappings if not m.managed.endswith("scope-email")] + [wg_email])
+app_for("wg-easy", "wg-easy (VPN admin)", wg_easy, "https://wg-easy.holy-grail.ch")
+env("WireguardVPN/.env", WG_EASY_OIDC_CLIENT_ID=wg_easy.client_id,
+    WG_EASY_OIDC_CLIENT_SECRET=wg_easy.client_secret)
 
 outpost.save()
 print("OK provisioned")
