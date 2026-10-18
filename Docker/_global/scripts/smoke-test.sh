@@ -49,9 +49,9 @@ check "portainer oauth validate"   'Unable to authenticate through OAuth' "$(cur
 check "portainer not on LAN :9443" '^000$' "$(http -k https://192.168.1.2:9443/api/status)"
 check "portainer auth = oauth"     '"AuthenticationMethod":3' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public | tr -d ' ')"
 check "portainer oauth -> sso"     'sso\.holy-grail\.ch/application/o/authorize/\?.*redirect_uri=https://portainer\.holy-grail\.ch/' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public)"
-# AdGuard: forward auth + injected Basic creds (user authentik-proxy); break-glass = own login on :3000.
+# AdGuard: forward auth + injected Basic creds (user authentik-proxy, the only user; no human login).
 check "adguard ui -> sso"          'sso\.holy-grail\.ch' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve adguard.holy-grail.ch:443:192.168.1.2 https://adguard.holy-grail.ch/)"
-check "adguard break-glass (401)"  '^40[13]$' "$(http http://192.168.1.2:3000/control/status)"
+check "adguard anon refused (401)" '^40[13]$' "$(http http://192.168.1.2:3000/control/status)"
 check "adguard local zone"         '^192\.168\.1\.2$' "$(dig +short @192.168.1.2 sso.holy-grail.ch | head -1)"
 
 echo "== Monitoring"

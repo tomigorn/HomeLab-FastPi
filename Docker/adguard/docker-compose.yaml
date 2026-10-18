@@ -5,6 +5,17 @@ services:
 # #########################################################
 # AdGuard Home ############################################
 # #########################################################
+# SSO only (2026-10-19): conf/AdGuardHome.yaml `users:` holds only the machine
+# user authentik-proxy, whose Basic credentials Authentik injects after the SSO
+# login (https://adguard.holy-grail.ch, middleware authentik-basic@file). There is
+# no human password. Recovery when Authentik is down (server shell only):
+#   1. htpasswd -nbB <name> '<password>'          # bcrypt hash
+#   2. docker stop adguardhome; sudo nano conf/AdGuardHome.yaml   # add under users:
+#        - name: <name>
+#          password: <hash>
+#      docker start adguardhome                    # DNS is down while stopped
+#   3. ssh -L 3000:127.0.0.1:3000 fastpi, then http://localhost:3000/
+#   Remove the user again afterwards. Backup: conf/AdGuardHome.yaml.bak-2026-10-19.
   adguardhome:
     image: adguard/adguardhome:latest
     container_name: adguardhome
