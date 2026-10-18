@@ -15,17 +15,25 @@
 # Authentik's own documentation says the same thing: integrate Jellyfin by OIDC,
 # not by proxy/forward auth.
 #
-# So SSO for Jellyfin is done INSIDE Jellyfin, via the jellyfin-plugin-sso OIDC
-# plugin pointed at an Authentik OAuth2/OpenID provider. Users then log in with
-# their Authentik account, and credentials live in Authentik - which is the actual
-# goal. See Docker/Traefik/docs/2026-10-06-authentik-sso.md.
+# So SSO for Jellyfin is done INSIDE Jellyfin, via the "OIDC Authentication"
+# plugin (edmogeor/jellyfin-plugin-oidc) pointed at an Authentik OAuth2/OpenID
+# provider. See Docker/Traefik/docs/2026-10-06-authentik-sso.md and the Jellyfin
+# README in HomeLab-BeefyServer.
 #
-# HONEST LIMITATION: Jellyfin always keeps at least one local admin account - it
-# cannot be deleted, and the native apps still POST to Jellyfin's own
-# /Users/AuthenticateByName endpoint. So "no local login at all" is not reachable
-# for Jellyfin the way it is for the arr apps. What IS reachable: every human
-# account is an Authentik account, and the local admin is reduced to a
-# break-glass credential with a long random password.
+# ============================================================================
+# SSO ONLY: NO PASSWORD LOGIN, FOR ANYONE (2026-10-18)
+# ============================================================================
+# Like every other homelab app, Jellyfin is "Sign In with Holy Grail" only:
+#   1. Server side, in Jellyfin: the plugin's "Local password sign-in" is
+#      "Disable for all users", which swaps every user (including the local
+#      `admin`) to the plugin's password-disabled auth provider. A correct
+#      password is refused. The plugin also hides the password form.
+#   2. Here, defence in depth: `jellyfin-password-login-block` answers 403 to
+#      every password endpoint for EVERY client, LAN and VPN included - there is
+#      deliberately no break-glass over the web. Recovery when Authentik is down
+#      is server-shell only (Jellyfin README, "SSO only / recovery").
+# Quick Connect is untouched: /QuickConnect/* and /Users/AuthenticateWithQuickConnect
+# do not match the block, and TV/phone apps sign in that way.
 #
 # ============================================================================
 # ANONYMOUS WAKES: browsers sign in first, apps still wake (2026-10-11)
@@ -60,6 +68,23 @@ http:
       rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^/startup`)"
       entryPoints: ["websecure"]
       priority: 30
+      service: jellyfin
+      middlewares:
+        - jellyfin-deny-all
+      tls:
+        certResolver: cloudflare
+
+    # Password login is refused for everyone (see header "SSO ONLY"). Covers
+    # every route Jellyfin answers for it: /Users/AuthenticateByName, the legacy
+    # /Users/{id}/Authenticate, ForgotPassword(/Pin), with or without the /emby or
+    # /mediabrowser prefix, any case, trailing slash. Unanchored on purpose.
+    # It does NOT match /Users/AuthenticateWithQuickConnect (Quick Connect).
+    # jellyfin-deny-all allows only loopback, so every request through Traefik
+    # gets 403 and never reaches the wake gate (a refused login must not boot beefy).
+    jellyfin-password-login-block:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)/users/(authenticatebyname|[^/]+/authenticate|forgotpassword)(/|$)`)"
+      entryPoints: ["websecure"]
+      priority: 29
       service: jellyfin
       middlewares:
         - jellyfin-deny-all
