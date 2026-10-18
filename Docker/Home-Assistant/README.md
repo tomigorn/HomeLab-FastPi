@@ -47,8 +47,14 @@ There is no YAML for "create my login". On first run, open the UI and:
    dashboard cost calc).
 3. Enable **2FA**: *username (bottom-left) → Multi-factor Authentication → TOTP*.
 
-Credentials live in `config/.storage/auth` (password hashes + tokens) — this is
+Credentials live in `config/.storage/auth` (users + tokens) — this is
 **gitignored** and must never be committed.
+
+> **Fresh install note (since 2026-10-18):** onboarding needs the password provider,
+> so on a brand-new `.storage` comment out `auth_providers: []` in
+> `configuration.yaml` first, onboard, sign in once with Holy Grail, make that OIDC
+> user the owner, delete the local account and put `[]` back — see
+> [Authentik SSO](#authentik-sso).
 
 ## Authentik SSO
 
@@ -75,25 +81,58 @@ out their HA user — do that in HA (*Settings → People → Users*) and revoke
 refresh tokens. A first login creates a new HA user + person
 (`automatic_person_creation`).
 
-**Break-glass = the local owner account.** `automatic_user_linking` is **off** and
-must stay off: the owner account is never linked to an Authentik identity, so it keeps
-working with its own password + TOTP when Authentik is down. With
-`features.default_redirect: true` the browser goes straight to Authentik; the
-username/password form is at:
+**SSO-only — there is no local login (since 2026-10-18).** `configuration.yaml` sets
+`homeassistant: auth_providers: []`, which disables HA's username/password provider
+(omitting the key would bring it back: HA's default is `[{type: homeassistant}]`).
+`auth_oidc` registers itself as the only provider, so `/auth/providers` lists just
+`auth_oidc`, a `login_flow` with handler `homeassistant` is refused, and
+`?skip_oidc_redirect=true` no longer offers a password form. The smoke test checks this
+("home assistant sso-only").
 
-- `https://ha.holy-grail.ch/?skip_oidc_redirect=true`
-- `http://192.168.1.2:8123/?skip_oidc_redirect=true`
+- **Owner = the OIDC user** "Tomigorn" (created at the first SSO login, `system-admin`).
+  The old local owner `admin` was deleted (user, credential, password entry, refresh
+  tokens, frontend prefs). Its person `person.admin` was kept, unlinked (no user), so
+  its entity and history stay; it never had device trackers. Long-term statistics,
+  states, the Energy dashboard (`.storage/energy`) and the Electricity dashboard
+  (`ui-lovelace.yaml`) are global — not tied to any user — and were verified unchanged.
+- **No long-lived access tokens exist**; InfluxDB/Grafana get HA data by HA *pushing*
+  to InfluxDB (config entry), so no consumer depends on a user.
+- `automatic_user_linking` stays **off**.
+- **Backup taken before the switch** (HA stopped, whole `config/` incl. `.storage`,
+  `home-assistant_v2.db`, `zigbee.db`, plus compose + `.env`):
+  `/home/pi/backups/home-assistant/ha-config-2026-10-18-pre-sso-only.tgz` (mode 600).
 
-SSO itself only works on `https://ha.holy-grail.ch`: Authentik accepts only that
-callback URL, so in a browser on `http://192.168.1.2:8123` the automatic redirect
-ends on an Authentik "redirect URI" error — use the `?skip_oidc_redirect=true` URL
-there.
+SSO only works on `https://ha.holy-grail.ch`: Authentik accepts only that callback URL,
+so a browser on `http://192.168.1.2:8123` ends on an Authentik "redirect URI" error.
+Use `https://ha.holy-grail.ch` (LAN + VPN).
 
-**Companion apps** keep using `http://192.168.1.2:8123` with their existing tokens —
-nothing changes for them, and they never depend on Traefik. For a *new* app login use
-the normal username/password option on that URL. The component's OIDC option in the
-app (a **device code** entered in a browser) only works if the app's server URL is
-`https://ha.holy-grail.ch` (LAN/VPN only), for the same callback reason.
+**Shell recovery (Authentik down, or `auth_oidc` fails to load).** Without a working
+`auth_oidc` HA has *zero* login methods, so recover from fastpi's shell:
+
+```bash
+cd /home/pi/Projects/Docker/Home-Assistant
+# 1. create a local password credential (safe while HA runs: with auth_providers: []
+#    nothing else writes that store)
+docker exec -it homeassistant hass --script auth -c /config add recovery '<password>'
+# 2. re-enable the password provider: in config/configuration.yaml replace
+#      auth_providers: []
+#    with
+#      auth_providers:
+#        - type: homeassistant
+sudo nano config/configuration.yaml
+docker compose restart
+# 3. log in at http://192.168.1.2:8123/?skip_oidc_redirect=true as "recovery"
+#    (the first login creates an admin user)
+# 4. undo: delete the "recovery" user in Settings > People > Users,
+#    put auth_providers: [] back, docker compose restart
+```
+
+Last resort: restore the backup above (`docker compose stop`, extract over `config/`,
+`docker compose start`) — that brings back the old `admin` owner and its password.
+
+**Companion apps** log in via the OIDC option (a **device code** entered in a browser).
+That only works with the app's server URL **`https://ha.holy-grail.ch`** (LAN/VPN
+only), for the same callback reason. Username/password login in the app is gone.
 
 **Reverse-proxy trust lives in `.storage/http`, not YAML.** Since HA 2026.10 the
 `http:` integration is configured in the UI (*Settings → System → Network*) and stored

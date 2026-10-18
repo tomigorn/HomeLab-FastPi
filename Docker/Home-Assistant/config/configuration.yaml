@@ -5,6 +5,19 @@ default_config:
 # Custom YAML lives in packages/ (one file per feature) — config-as-code.
 homeassistant:
   packages: !include_dir_named packages
+  # SSO-only (2026-10-18): an EMPTY list disables HA's own username/password
+  # provider ("homeassistant"); the only login is "Holy Grail" (auth_oidc below,
+  # which registers itself as a provider at runtime). Omitting the key would bring
+  # the password provider back (HA defaults to [{type: homeassistant}]).
+  # Shell recovery if Authentik is down or auth_oidc fails to load
+  # (there is NO local user any more - see README "Authentik SSO"):
+  #   1. docker exec -it homeassistant hass --script auth -c /config add <name> <password>
+  #      (safe while HA runs: with [] nothing else writes that password store)
+  #   2. Temporarily replace [] with:  - type: homeassistant
+  #   3. docker compose restart; log in at http://192.168.1.2:8123/?skip_oidc_redirect=true
+  #      (the first login creates an admin user). Undo afterwards: delete that user
+  #      in Settings > People > Users, put [] back, restart.
+  auth_providers: []
 
 # Load frontend themes from the themes folder
 frontend:
@@ -46,10 +59,9 @@ scene: !include scenes.yaml
 # Docker/Authentik/scripts/provision-admin-sso.py; the client id comes from .env
 # (HA_OIDC_CLIENT_ID, passed in by docker-compose.yaml). Only members of
 # homelab-admins are let in, as admins. Roles are applied at FIRST login only.
-# Users are never auto-linked to existing HA users (the local owner account is the
-# break-glass login). Backup username/password login:
-#   https://ha.holy-grail.ch/?skip_oidc_redirect=true
-#   http://192.168.1.2:8123/?skip_oidc_redirect=true (SSO only works on ha.holy-grail.ch)
+# Users are never auto-linked to existing HA users. There is no local login any
+# more (auth_providers: [] above); the owner is the OIDC user. Break-glass = shell
+# recovery, see the comment under homeassistant: above.
 # The schema silently drops unknown keys - check names against the component docs.
 auth_oidc:
   client_id: !env_var HA_OIDC_CLIENT_ID
