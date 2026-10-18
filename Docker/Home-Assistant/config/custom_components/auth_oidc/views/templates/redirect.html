@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}OIDC Redirect - Home Assistant{% endblock %}
+{% block head %}
+{{ super() }}
+{% endblock %}
+{% block layout %}
+<div role="status" id="loader">
+    <svg class="h-12 w-12 animate-spin" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <circle class="stroke-divider" cx="24" cy="24" r="20" stroke-width="4" />
+        <circle class="stroke-primary" cx="24" cy="24" r="20" stroke-width="4" stroke-linecap="round"
+            stroke-dasharray="31.4 94.3" />
+    </svg>
+    <span class="sr-only">Redirecting...</span>
+</div>
+<script>
+    // Redirect after loading the page to show the redirect visual
+    setTimeout(() => {
+        auth_url = decodeURIComponent("{{ url }}");
+        window.location.href = auth_url;
+    }, 0);
+</script>
+{% endblock %}

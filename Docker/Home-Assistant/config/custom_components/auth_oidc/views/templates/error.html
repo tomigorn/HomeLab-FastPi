@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Oops! - Home Assistant{% endblock %}
+{% block head %}
+{{ super() }}
+{% endblock %}
+{% block content %}
+{% import "_alert.html" as ui %}
+<div class="text-center">
+    <h1 class="mb-4 text-3xl font-normal">Login failed.</h1>
+    {% call ui.alert('error') %}{{ error }}{% endcall %}
+    <a href='/auth/oidc/redirect'
+        class="inline-flex items-center justify-center w-full h-10 px-4 bg-primary text-white font-medium leading-none rounded-full mt-6 transition-colors duration-150 ease-out hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">Try
+        again</a>
+</div>
+{% endblock %}

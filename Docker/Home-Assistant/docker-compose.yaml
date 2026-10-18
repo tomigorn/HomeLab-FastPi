@@ -16,6 +16,9 @@ services:
     network_mode: host
     environment:
       - TZ=${TZ}
+      # Authentik OIDC client id (public client, not secret), read in
+      # configuration.yaml as `client_id: !env_var HA_OIDC_CLIENT_ID`.
+      - HA_OIDC_CLIENT_ID=${HA_OIDC_CLIENT_ID}
     # Pass the SONOFF ZBDongle-P Zigbee coordinator into the container so the
     # built-in ZHA integration can drive it. Mapped from the stable by-id path
     # (immune to ttyUSB renumbering) to a fixed /dev/ttyUSB0 inside the container.

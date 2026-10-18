@@ -1,0 +1,22 @@
+{
+  "domain": "auth_oidc",
+  "name": "OpenID Connect/SSO Authentication",
+  "codeowners": [
+    "@christiaangoossens"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "auth",
+    "http"
+  ],
+  "documentation": "https://github.com/christiaangoossens/hass-oidc-auth",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/christiaangoossens/hass-oidc-auth/issues",
+  "requirements": [
+    "aiofiles",
+    "jinja2",
+    "joserfc"
+  ],
+  "version": "1.2.1"
+}

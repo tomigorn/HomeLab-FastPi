@@ -30,12 +30,13 @@ docker compose logs -f          # watch boot; Ctrl+C stops the view, not HA
 | `http://192.168.1.2:8123` | ✅ always | Plain HTTP on the IP — the reliable address. |
 | `http://fastpi.homelab:8123` | ✅ on LAN | Resolves via AdGuard. May need an explicit `http://`. |
 | `https://…:8123` | ❌ | HA serves **plain HTTP** here, no TLS. Don't use `https`. |
+| `https://ha.holy-grail.ch` | ✅ LAN + VPN | Via Traefik, Authentik login — see [Authentik SSO](#authentik-sso). |
 
 > **Browser gotcha:** modern browsers auto-upgrade typed hostnames to `https://`
 > ("Always use secure connections" / HSTS from other `*.holy-grail.ch` sites).
 > Since HA has no TLS on `:8123`, the upgraded request fails. Use the **IP**, an
 > **incognito** window, or disable the browser's HTTPS-upgrade for the hostname.
-> A proper `https://` name would require fronting HA with Traefik (see TODO).
+> For a proper `https://` name use **`https://ha.holy-grail.ch`** (Traefik).
 
 ### Onboarding (one-time, manual — NOT in git)
 
@@ -48,6 +49,83 @@ There is no YAML for "create my login". On first run, open the UI and:
 
 Credentials live in `config/.storage/auth` (password hashes + tokens) — this is
 **gitignored** and must never be committed.
+
+## Authentik SSO
+
+Since 2026-10-18, **`https://ha.holy-grail.ch`** (LAN + VPN only) logs in through
+Authentik with the custom component
+[hass-oidc-auth](https://github.com/christiaangoossens/hass-oidc-auth) (MIT) — HA's
+own login, not Traefik forward auth (that would break the Companion apps and the API).
+
+| Piece | Where |
+|---|---|
+| Authentik provider/app `home-assistant` (PUBLIC client + PKCE, strict redirect `https://ha.holy-grail.ch/auth/oidc/callback`, bound to `homelab-admins`) | `Docker/Authentik/scripts/provision-admin-sso.py` section 6 |
+| Client id (not secret) | `.env` `HA_OIDC_CLIENT_ID` (written by the provisioning pipe) → `docker-compose.yaml` env → `client_id: !env_var HA_OIDC_CLIENT_ID` |
+| `auth_oidc:` block | `config/configuration.yaml` |
+| Component code | `config/custom_components/auth_oidc/` (committed, pinned) |
+| Traefik route | `Docker/Traefik/traefik/dynamic/home-assistant.yml` (`local-networks@file`) |
+| Reverse-proxy trust | `config/.storage/http` — see below |
+
+**Who gets in, as what.** Only members of the Authentik group `homelab-admins`
+(`roles.user` and `roles.admin` are both that group), and they become HA
+**administrators**. The groups claim comes with the `profile` scope — Authentik has
+no `groups` scope, so `features.include_groups_scope: false`. **Roles are applied at
+first login only**: removing someone from the group later does not demote or lock
+out their HA user — do that in HA (*Settings → People → Users*) and revoke their
+refresh tokens. A first login creates a new HA user + person
+(`automatic_person_creation`).
+
+**Break-glass = the local owner account.** `automatic_user_linking` is **off** and
+must stay off: the owner account is never linked to an Authentik identity, so it keeps
+working with its own password + TOTP when Authentik is down. With
+`features.default_redirect: true` the browser goes straight to Authentik; the
+username/password form is at:
+
+- `https://ha.holy-grail.ch/?skip_oidc_redirect=true`
+- `http://192.168.1.2:8123/?skip_oidc_redirect=true`
+
+SSO itself only works on `https://ha.holy-grail.ch`: Authentik accepts only that
+callback URL, so in a browser on `http://192.168.1.2:8123` the automatic redirect
+ends on an Authentik "redirect URI" error — use the `?skip_oidc_redirect=true` URL
+there.
+
+**Companion apps** keep using `http://192.168.1.2:8123` with their existing tokens —
+nothing changes for them, and they never depend on Traefik. For a *new* app login use
+the normal username/password option on that URL. The component's OIDC option in the
+app (a **device code** entered in a browser) only works if the app's server URL is
+`https://ha.holy-grail.ch` (LAN/VPN only), for the same callback reason.
+
+**Reverse-proxy trust lives in `.storage/http`, not YAML.** Since HA 2026.10 the
+`http:` integration is configured in the UI (*Settings → System → Network*) and stored
+in `.storage/http`; an `http:` block in `configuration.yaml` is **ignored** (only a
+repair issue appears) once the one-time YAML migration has run. The stored `stable`
+config holds `use_x_forwarded_for: true` and `trusted_proxies: [172.24.0.0/16]`
+(the `traefik_proxy` bridge — Traefik connects from its container IP, `172.24.0.3`
+today, which is not pinned). Without it every request via Traefik gets **400**
+("request from a reverse proxy … not set-up for reverse proxies"); direct `:8123`
+requests are unaffected. If `.storage` is ever lost, set it again in the UI, or with
+HA **stopped** add those two keys to `data.stable` in `.storage/http`.
+
+**Installing / updating the component.** It is not from HACS; the release zip is
+vendored in git (`custom_components/auth_oidc/`, plus the upstream `LICENSE.md`).
+To update (check the release notes and the minimum HA version first):
+
+```bash
+V=1.2.1   # new version
+D=$(mktemp -d); X=$(mktemp -d)
+curl -sSfL -o $D/z.zip https://github.com/christiaangoossens/hass-oidc-auth/releases/download/v$V/hass-oidc-auth.zip
+sha256sum $D/z.zip   # must equal the asset digest:
+gh api repos/christiaangoossens/hass-oidc-auth/releases/tags/v$V --jq '.assets[] | {name,digest}'
+(cd $X && unzip -q $D/z.zip) && grep '"version"' $X/manifest.json
+sudo rsync -a --delete --exclude LICENSE.md $X/ config/custom_components/auth_oidc/
+docker compose restart
+```
+
+1.2.1 = sha256 `e5badaaacaa63cfd6fe733924a05e76d75058836190398598fb24de57cd47ccd`
+(needs HA ≥ 2025.11; its `joserfc`/`aiofiles`/`jinja2` requirements are already in
+the HA image). The `auth_oidc` schema **silently drops unknown keys** — check option
+names against the component's `docs/configuration.md` and confirm with
+`docker exec -e HA_OIDC_CLIENT_ID=x homeassistant python -m homeassistant --script check_config -c /config --info auth_oidc`.
 
 ## Config-as-code
 
@@ -451,10 +529,6 @@ no MQTT broker / extra containers). Full hardware detail in
   router(s) (Swiss Type-J pass-through plug or Sonoff ZBMINI in-wall) to reach
   the far rooms through the concrete walls; USB-extension the dongle. (Coordinator
   + first sensors already done — see the **Zigbee (ZHA)** section above.)
-- **Traefik route + HTTPS** — `homeassistant.holy-grail.ch` (file provider,
-  service `http://192.168.1.2:8123` since HA is host-networked). Needs HA's
-  reverse-proxy trust block (`http: use_x_forwarded_for + trusted_proxies`).
-  No Authentik forward-auth (breaks the HA mobile app/API) — rely on HA login + 2FA.
 - **Prometheus export** — HA's built-in `prometheus:` endpoint (`/api/prometheus`)
   to feed the existing Prometheus/Grafana stack.
 - **Tower plug DHCP reservation** — add `3c:e9:0e:7d:13:a0` → `192.168.1.248` on

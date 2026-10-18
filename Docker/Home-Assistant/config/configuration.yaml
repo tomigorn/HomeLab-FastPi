@@ -27,3 +27,40 @@ lovelace:
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
+
+# Reverse proxy: https://ha.holy-grail.ch is Traefik (Docker/Traefik/traefik/dynamic/
+# home-assistant.yml) -> http://192.168.1.2:8123. Since HA 2026.10 the `http:`
+# settings are NOT YAML any more: they live in .storage/http (UI: Settings > System
+# > Network) and an `http:` block here is ignored (repair issue). Set there:
+#   use_x_forwarded_for: true
+#   trusted_proxies: [172.24.0.0/16]
+# Traefik sits on the docker bridge traefik_proxy, so its connections to the host
+# port arrive from its container IP (172.24.0.3 today, NOT pinned - it can change
+# when containers are recreated or the host reboots). HA answers 400 to any
+# X-Forwarded-For from an untrusted peer, so the whole bridge is trusted rather
+# than the one current IP. Direct LAN requests to :8123 carry no X-Forwarded-For
+# and are unaffected. See README "Authentik SSO".
+
+# Authentik login (custom component hass-oidc-auth 1.2.1 in custom_components/auth_oidc).
+# PUBLIC client + PKCE, provider/application "home-assistant" provisioned by
+# Docker/Authentik/scripts/provision-admin-sso.py; the client id comes from .env
+# (HA_OIDC_CLIENT_ID, passed in by docker-compose.yaml). Only members of
+# homelab-admins are let in, as admins. Roles are applied at FIRST login only.
+# Users are never auto-linked to existing HA users (the local owner account is the
+# break-glass login). Backup username/password login:
+#   https://ha.holy-grail.ch/?skip_oidc_redirect=true
+#   http://192.168.1.2:8123/?skip_oidc_redirect=true (SSO only works on ha.holy-grail.ch)
+# The schema silently drops unknown keys - check names against the component docs.
+auth_oidc:
+  client_id: !env_var HA_OIDC_CLIENT_ID
+  discovery_url: "https://sso.holy-grail.ch/application/o/home-assistant/.well-known/openid-configuration"
+  display_name: "authentik"
+  roles:
+    admin: homelab-admins
+    user: homelab-admins
+  features:
+    automatic_user_linking: false
+    automatic_person_creation: true
+    # Authentik has no "groups" scope; the groups claim comes with "profile".
+    include_groups_scope: false
+    default_redirect: true
