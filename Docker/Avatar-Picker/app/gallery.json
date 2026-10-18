@@ -1,338 +1,434 @@
 [
   {
+    "id": "olive",
+    "name": "Olive",
+    "file": "olive.png",
+    "color": "#F1C6C6",
+    "group": "storybook",
+    "vibe": "feminine"
+  },
+  {
+    "id": "popeye",
+    "name": "Popeye",
+    "file": "popeye.png",
+    "color": "#C6F1D2",
+    "group": "storybook",
+    "vibe": "masculine"
+  },
+  {
+    "id": "peter-rabbit",
+    "name": "Peter",
+    "file": "peter-rabbit.png",
+    "color": "#DFC6F1",
+    "group": "storybook",
+    "vibe": "neutral"
+  },
+  {
+    "id": "alice",
+    "name": "Alice",
+    "file": "alice.png",
+    "color": "#F1EBC6",
+    "group": "storybook",
+    "vibe": "feminine"
+  },
+  {
+    "id": "moritz",
+    "name": "Moritz",
+    "file": "moritz.png",
+    "color": "#C6EAF1",
+    "group": "storybook",
+    "vibe": "masculine"
+  },
+  {
+    "id": "cheshire-cat",
+    "name": "Cheshire",
+    "file": "cheshire-cat.png",
+    "color": "#F1C6DD",
+    "group": "storybook",
+    "vibe": "neutral"
+  },
+  {
+    "id": "jemima",
+    "name": "Jemima",
+    "file": "jemima.png",
+    "color": "#D1F1C6",
+    "group": "storybook",
+    "vibe": "feminine"
+  },
+  {
+    "id": "struwwelpeter",
+    "name": "Struwwelpeter",
+    "file": "struwwelpeter.png",
+    "color": "#C8C6F1",
+    "group": "storybook",
+    "vibe": "masculine"
+  },
+  {
+    "id": "white-rabbit",
+    "name": "White Rabbit",
+    "file": "white-rabbit.png",
+    "color": "#F1D4C6",
+    "group": "storybook",
+    "vibe": "neutral"
+  },
+  {
+    "id": "mona-lisa",
+    "name": "Mona",
+    "file": "mona-lisa.png",
+    "color": "#C6F1E1",
+    "group": "paintings",
+    "vibe": "feminine"
+  },
+  {
+    "id": "van-gogh",
+    "name": "Vincent",
+    "file": "van-gogh.png",
+    "color": "#EDC6F1",
+    "group": "paintings",
+    "vibe": "masculine"
+  },
+  {
+    "id": "great-wave",
+    "name": "Wave",
+    "file": "great-wave.png",
+    "color": "#E8F1C6",
+    "group": "paintings",
+    "vibe": "neutral"
+  },
+  {
+    "id": "pearl-earring",
+    "name": "Pearl",
+    "file": "pearl-earring.png",
+    "color": "#C6DBF1",
+    "group": "paintings",
+    "vibe": "feminine"
+  },
+  {
+    "id": "rembrandt",
+    "name": "Rembrandt",
+    "file": "rembrandt.png",
+    "color": "#F1C6CF",
+    "group": "paintings",
+    "vibe": "masculine"
+  },
+  {
+    "id": "starry-night",
+    "name": "Starry",
+    "file": "starry-night.png",
+    "color": "#C6F1CA",
+    "group": "paintings",
+    "vibe": "neutral"
+  },
+  {
+    "id": "klimt-adele",
+    "name": "Adele",
+    "file": "klimt-adele.png",
+    "color": "#D6C6F1",
+    "group": "paintings",
+    "vibe": "feminine"
+  },
+  {
+    "id": "durer",
+    "name": "Albrecht",
+    "file": "durer.png",
+    "color": "#F1E3C6",
+    "group": "paintings",
+    "vibe": "masculine"
+  },
+  {
+    "id": "monet-sunrise",
+    "name": "Sunrise",
+    "file": "monet-sunrise.png",
+    "color": "#C6F1EF",
+    "group": "paintings",
+    "vibe": "neutral"
+  },
+  {
+    "id": "astronaut",
+    "name": "Astronaut",
+    "file": "astronaut.png",
+    "color": "#CFE0FA",
+    "group": "people3d",
+    "vibe": "feminine"
+  },
+  {
+    "id": "firefighter",
+    "name": "Firefighter",
+    "file": "firefighter.png",
+    "color": "#FFD6CC",
+    "group": "people3d",
+    "vibe": "masculine"
+  },
+  {
     "id": "fox",
     "name": "Fox",
     "file": "fox.png",
     "color": "#FFD8B5",
-    "group": "animals3d"
+    "group": "people3d",
+    "vibe": "neutral"
   },
   {
-    "id": "owl",
-    "name": "Owl",
-    "file": "owl.png",
-    "color": "#E3D5C3",
-    "group": "animals3d"
+    "id": "artist",
+    "name": "Artist",
+    "file": "artist.png",
+    "color": "#F6D9F0",
+    "group": "people3d",
+    "vibe": "feminine"
+  },
+  {
+    "id": "scientist",
+    "name": "Scientist",
+    "file": "scientist.png",
+    "color": "#D4F0E8",
+    "group": "people3d",
+    "vibe": "masculine"
   },
   {
     "id": "panda",
     "name": "Panda",
     "file": "panda.png",
     "color": "#D9F2D0",
-    "group": "animals3d"
+    "group": "people3d",
+    "vibe": "neutral"
   },
   {
-    "id": "tiger",
-    "name": "Tiger",
-    "file": "tiger.png",
-    "color": "#FFE3A3",
-    "group": "animals3d"
+    "id": "technologist",
+    "name": "Coder",
+    "file": "technologist.png",
+    "color": "#E3DCFA",
+    "group": "people3d",
+    "vibe": "feminine"
   },
   {
-    "id": "cat",
-    "name": "Cat",
-    "file": "cat.png",
-    "color": "#FFE9C7",
-    "group": "animals3d"
+    "id": "mage",
+    "name": "Wizard",
+    "file": "mage.png",
+    "color": "#E0D4F5",
+    "group": "people3d",
+    "vibe": "masculine"
   },
   {
-    "id": "dog",
-    "name": "Dog",
-    "file": "dog.png",
-    "color": "#E8DCCB",
-    "group": "animals3d"
+    "id": "owl",
+    "name": "Owl",
+    "file": "owl.png",
+    "color": "#E3D5C3",
+    "group": "people3d",
+    "vibe": "neutral"
   },
   {
-    "id": "penguin",
-    "name": "Penguin",
-    "file": "penguin.png",
-    "color": "#CFE8F7",
-    "group": "animals3d"
-  },
-  {
-    "id": "unicorn",
-    "name": "Unicorn",
-    "file": "unicorn.png",
-    "color": "#EBD9FA",
-    "group": "animals3d"
-  },
-  {
-    "id": "adventurer-1",
-    "name": "Zap",
-    "file": "adventurer-1.png",
-    "color": "#F1C6C6",
-    "group": "illustrated"
-  },
-  {
-    "id": "adventurer-2",
-    "name": "Skye",
-    "file": "adventurer-2.png",
-    "color": "#C6F1D2",
-    "group": "illustrated"
-  },
-  {
-    "id": "adventurer-3",
-    "name": "Plum",
-    "file": "adventurer-3.png",
-    "color": "#DFC6F1",
-    "group": "illustrated"
-  },
-  {
-    "id": "adventurer-4",
-    "name": "Pigtails",
-    "file": "adventurer-4.png",
-    "color": "#F1EBC6",
-    "group": "illustrated"
-  },
-  {
-    "id": "lorelei-1",
-    "name": "Grin",
-    "file": "lorelei-1.png",
-    "color": "#C6EAF1",
-    "group": "illustrated"
-  },
-  {
-    "id": "lorelei-2",
-    "name": "Curly",
-    "file": "lorelei-2.png",
-    "color": "#F1C6DD",
-    "group": "illustrated"
-  },
-  {
-    "id": "lorelei-3",
-    "name": "Bun",
-    "file": "lorelei-3.png",
-    "color": "#D1F1C6",
-    "group": "illustrated"
-  },
-  {
-    "id": "lorelei-4",
-    "name": "Beardie",
-    "file": "lorelei-4.png",
-    "color": "#C8C6F1",
-    "group": "illustrated"
-  },
-  {
-    "id": "avataaars-1",
-    "name": "Sunny",
-    "file": "avataaars-1.png",
-    "color": "#F1D4C6",
-    "group": "cartoon"
-  },
-  {
-    "id": "avataaars-2",
-    "name": "Blazer",
-    "file": "avataaars-2.png",
-    "color": "#C6F1E1",
-    "group": "cartoon"
-  },
-  {
-    "id": "avataaars-3",
-    "name": "Frosty",
-    "file": "avataaars-3.png",
-    "color": "#EDC6F1",
-    "group": "cartoon"
-  },
-  {
-    "id": "avataaars-4",
-    "name": "Cheeky",
-    "file": "avataaars-4.png",
-    "color": "#E8F1C6",
-    "group": "cartoon"
-  },
-  {
-    "id": "big-smile-1",
-    "name": "Gold",
-    "file": "big-smile-1.png",
-    "color": "#C6DBF1",
-    "group": "cartoon"
-  },
-  {
-    "id": "big-smile-2",
-    "name": "Clown",
-    "file": "big-smile-2.png",
-    "color": "#F1C6CF",
-    "group": "cartoon"
-  },
-  {
-    "id": "big-smile-3",
-    "name": "Shades",
-    "file": "big-smile-3.png",
-    "color": "#C6F1CA",
-    "group": "cartoon"
-  },
-  {
-    "id": "big-smile-4",
-    "name": "Braids",
-    "file": "big-smile-4.png",
-    "color": "#D6C6F1",
-    "group": "cartoon"
-  },
-  {
-    "id": "pixel-1",
-    "name": "Pixel Knight",
-    "file": "pixel-1.png",
-    "color": "#F1E3C6",
-    "group": "pixel"
-  },
-  {
-    "id": "pixel-2",
-    "name": "Lime",
-    "file": "pixel-2.png",
-    "color": "#C6F1EF",
-    "group": "pixel"
-  },
-  {
-    "id": "pixel-3",
-    "name": "Sprout",
-    "file": "pixel-3.png",
+    "id": "adventurer-flora",
+    "name": "Flora",
+    "file": "adventurer-flora.png",
     "color": "#F1C6E6",
-    "group": "pixel"
+    "group": "illustrated",
+    "vibe": "feminine"
   },
   {
-    "id": "pixel-4",
-    "name": "Specs",
-    "file": "pixel-4.png",
+    "id": "adventurer-oscar",
+    "name": "Oscar",
+    "file": "adventurer-oscar.png",
     "color": "#D9F1C6",
-    "group": "pixel"
+    "group": "illustrated",
+    "vibe": "masculine"
   },
   {
-    "id": "pixel-5",
-    "name": "Rusty",
-    "file": "pixel-5.png",
+    "id": "adventurer-kai",
+    "name": "Kai",
+    "file": "adventurer-kai.png",
     "color": "#C6CDF1",
-    "group": "pixel"
+    "group": "illustrated",
+    "vibe": "neutral"
   },
   {
-    "id": "pixel-6",
-    "name": "Flame",
-    "file": "pixel-6.png",
+    "id": "adventurer-ruby",
+    "name": "Ruby",
+    "file": "adventurer-ruby.png",
     "color": "#F1CBC6",
-    "group": "pixel"
+    "group": "illustrated",
+    "vibe": "feminine"
   },
   {
-    "id": "pixel-7",
-    "name": "Goggles",
-    "file": "pixel-7.png",
+    "id": "adventurer-leo",
+    "name": "Leo",
+    "file": "adventurer-leo.png",
     "color": "#C6F1D8",
-    "group": "pixel"
+    "group": "illustrated",
+    "vibe": "masculine"
   },
   {
-    "id": "pixel-8",
-    "name": "Spike",
-    "file": "pixel-8.png",
+    "id": "adventurer-robin",
+    "name": "Robin",
+    "file": "adventurer-robin.png",
     "color": "#E4C6F1",
-    "group": "pixel"
+    "group": "illustrated",
+    "vibe": "neutral"
   },
   {
-    "id": "robot-1",
-    "name": "Bolt",
-    "file": "robot-1.png",
+    "id": "lorelei-blossom",
+    "name": "Blossom",
+    "file": "lorelei-blossom.png",
     "color": "#F1F1C6",
-    "group": "robots"
+    "group": "illustrated",
+    "vibe": "feminine"
   },
   {
-    "id": "robot-2",
-    "name": "Cyclops",
-    "file": "robot-2.png",
+    "id": "lorelei-jack",
+    "name": "Jack",
+    "file": "lorelei-jack.png",
     "color": "#C6E4F1",
-    "group": "robots"
+    "group": "illustrated",
+    "vibe": "masculine"
   },
   {
-    "id": "robot-3",
-    "name": "Visor",
-    "file": "robot-3.png",
+    "id": "lorelei-river",
+    "name": "River",
+    "file": "lorelei-river.png",
     "color": "#F1C6D8",
-    "group": "robots"
+    "group": "illustrated",
+    "vibe": "neutral"
   },
   {
-    "id": "robot-4",
-    "name": "Rusty Bot",
-    "file": "robot-4.png",
+    "id": "pixel-lily",
+    "name": "Lily",
+    "file": "pixel-lily.png",
     "color": "#CBF1C6",
-    "group": "robots"
+    "group": "pixel",
+    "vibe": "feminine"
   },
   {
-    "id": "robot-5",
-    "name": "Pulse",
-    "file": "robot-5.png",
+    "id": "pixel-bram",
+    "name": "Bram",
+    "file": "pixel-bram.png",
     "color": "#CDC6F1",
-    "group": "robots"
+    "group": "pixel",
+    "vibe": "masculine"
   },
   {
-    "id": "robot-6",
-    "name": "Slate",
-    "file": "robot-6.png",
+    "id": "pixel-nova",
+    "name": "Nova",
+    "file": "pixel-nova.png",
     "color": "#F1DAC6",
-    "group": "robots"
+    "group": "pixel",
+    "vibe": "neutral"
   },
   {
-    "id": "robot-7",
-    "name": "Azure",
-    "file": "robot-7.png",
+    "id": "pixel-scarlet",
+    "name": "Scarlet",
+    "file": "pixel-scarlet.png",
     "color": "#C6F1E6",
-    "group": "robots"
+    "group": "pixel",
+    "vibe": "feminine"
   },
   {
-    "id": "robot-8",
-    "name": "Chatter",
-    "file": "robot-8.png",
+    "id": "pixel-tom",
+    "name": "Tom",
+    "file": "pixel-tom.png",
     "color": "#F1C6EF",
-    "group": "robots"
+    "group": "pixel",
+    "vibe": "masculine"
   },
   {
-    "id": "peep-1",
-    "name": "Sketchy",
-    "file": "peep-1.png",
+    "id": "pixel-shades",
+    "name": "Shades",
+    "file": "pixel-shades.png",
     "color": "#E2F1C6",
-    "group": "sketch"
+    "group": "pixel",
+    "vibe": "neutral"
   },
   {
-    "id": "peep-2",
-    "name": "Scarf",
-    "file": "peep-2.png",
+    "id": "pixel-mae",
+    "name": "Mae",
+    "file": "pixel-mae.png",
     "color": "#C6D6F1",
-    "group": "sketch"
+    "group": "pixel",
+    "vibe": "feminine"
   },
   {
-    "id": "peep-3",
-    "name": "Afro",
-    "file": "peep-3.png",
+    "id": "pixel-gus",
+    "name": "Gus",
+    "file": "pixel-gus.png",
     "color": "#F1C6C9",
-    "group": "sketch"
+    "group": "pixel",
+    "vibe": "masculine"
   },
   {
-    "id": "peep-4",
-    "name": "Redhead",
-    "file": "peep-4.png",
+    "id": "pixel-quest",
+    "name": "Quest",
+    "file": "pixel-quest.png",
     "color": "#C6F1CF",
-    "group": "sketch"
+    "group": "pixel",
+    "vibe": "neutral"
   },
   {
-    "id": "notion-1",
-    "name": "Quiff",
-    "file": "notion-1.png",
+    "id": "avataaars-ava",
+    "name": "Ava",
+    "file": "avataaars-ava.png",
     "color": "#DBC6F1",
-    "group": "sketch"
+    "group": "cartoon",
+    "vibe": "feminine"
   },
   {
-    "id": "notion-2",
-    "name": "Spiky",
-    "file": "notion-2.png",
+    "id": "avataaars-ben",
+    "name": "Ben",
+    "file": "avataaars-ben.png",
     "color": "#F1E8C6",
-    "group": "sketch"
+    "group": "cartoon",
+    "vibe": "masculine"
   },
   {
-    "id": "notion-3",
-    "name": "Cap",
-    "file": "notion-3.png",
+    "id": "avataaars-pat",
+    "name": "Pat",
+    "file": "avataaars-pat.png",
     "color": "#C6EDF1",
-    "group": "sketch"
+    "group": "cartoon",
+    "vibe": "neutral"
   },
   {
-    "id": "notion-4",
-    "name": "Bob",
-    "file": "notion-4.png",
+    "id": "peep-bea",
+    "name": "Bea",
+    "file": "peep-bea.png",
     "color": "#F1C6E0",
-    "group": "sketch"
+    "group": "cartoon",
+    "vibe": "feminine"
+  },
+  {
+    "id": "peep-hugo",
+    "name": "Hugo",
+    "file": "peep-hugo.png",
+    "color": "#D4F1C6",
+    "group": "cartoon",
+    "vibe": "masculine"
+  },
+  {
+    "id": "peep-jo",
+    "name": "Jo",
+    "file": "peep-jo.png",
+    "color": "#C6C7F1",
+    "group": "cartoon",
+    "vibe": "neutral"
+  },
+  {
+    "id": "notion-lena",
+    "name": "Lena",
+    "file": "notion-lena.png",
+    "color": "#F1D1C6",
+    "group": "cartoon",
+    "vibe": "feminine"
+  },
+  {
+    "id": "notion-ned",
+    "name": "Ned",
+    "file": "notion-ned.png",
+    "color": "#C6F1DD",
+    "group": "cartoon",
+    "vibe": "masculine"
+  },
+  {
+    "id": "notion-ash",
+    "name": "Ash",
+    "file": "notion-ash.png",
+    "color": "#EAC6F1",
+    "group": "cartoon",
+    "vibe": "neutral"
   }
 ]

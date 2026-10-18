@@ -1,26 +1,26 @@
 [
   {
-    "id": "animals3d",
-    "label": "3D animals"
+    "id": "storybook",
+    "label": "Classic storybook & comics"
+  },
+  {
+    "id": "paintings",
+    "label": "Art classics"
+  },
+  {
+    "id": "people3d",
+    "label": "3D characters"
   },
   {
     "id": "illustrated",
-    "label": "Illustrated characters"
-  },
-  {
-    "id": "cartoon",
-    "label": "Cartoon faces"
+    "label": "Illustrated people"
   },
   {
     "id": "pixel",
     "label": "Pixel art"
   },
   {
-    "id": "robots",
-    "label": "Robots"
-  },
-  {
-    "id": "sketch",
-    "label": "Sketch people"
+    "id": "cartoon",
+    "label": "Cartoon & sketch"
   }
 ]
