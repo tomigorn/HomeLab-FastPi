@@ -93,7 +93,8 @@ check "port-updater in sync"       'Port (OK|updated)' "$(docker logs --since 30
 check "mousehole -> MAM"           '"ok"' "$(curl -s -m 5 http://127.0.0.1:5010/health)"
 # localhost-only host ports (SSO-only, 2026-10-19): nothing answers on the LAN IP.
 check "sabnzbd (localhost :8090)"  '^200$' "$(http http://127.0.0.1:8090/)"
-for p in 5010 8085 8087 8090; do check "port $p not on LAN"          '^000$' "$(http http://192.168.1.2:$p/)"; done
+check "cup api (172.24.0.1:8000)"  '"images"' "$(curl -s -m 10 http://172.24.0.1:8000/api/v3/json | head -c 20)"
+for p in 5010 8000 8085 8087 8090; do check "port $p not on LAN"          '^000$' "$(http http://192.168.1.2:$p/)"; done
 
 echo "== wg-easy (v15)"
 check "wg-easy version"            '15\.4\.0' "$(docker inspect -f '{{.Config.Image}}' WireGuard-VPN)"

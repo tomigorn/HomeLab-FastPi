@@ -206,8 +206,9 @@ scrape_configs:
   # Cup container-update counts, via json-exporter.
   #
   # Scraped through the host-published port rather than the container name because
-  # Cup lives in a different compose project/network - the same reason the traefik
-  # job above uses 192.168.1.2:8080.
+  # Cup lives in a different compose project/network. Since 2026-10-19 Cup publishes
+  # 8000 only on 172.24.0.1 (the traefik_proxy bridge gateway), not on the LAN, so
+  # its unauthenticated API is no longer open to LAN/VPN clients.
   #
   # 15m: Cup itself only refreshes weekly (Sundays 04:00), so anything faster is
   # just load for a number that cannot have changed.
@@ -220,7 +221,7 @@ scrape_configs:
       module: [default]
     static_configs:
       - targets:
-          - http://192.168.1.2:8000/api/v3/json
+          - http://172.24.0.1:8000/api/v3/json
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

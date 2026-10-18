@@ -29,10 +29,14 @@ services:
       # Committed, config-as-code (see cup.json)
       - ./cup.json:/config/cup.json:ro
     ports:
-      # Direct LAN access. Traefik reaches Cup over traefik_proxy by
-      # container name (http://Cup:8000), so this publish is just a
-      # convenient fallback if Traefik/Cloudflare are down.
-      - "8000:8000"
+      # NOT on the LAN (2026-10-19): Cup has no auth, so 0.0.0.0:8000 exposed the
+      # full image inventory to every LAN/VPN client. Traefik reaches Cup over
+      # traefik_proxy by container name (http://Cup:8000, behind authentik@file).
+      # This bind on the traefik_proxy gateway exists only for Prometheus'
+      # json-exporter (other compose network): grafana/prometheus/prometheus.yml
+      # job "cup" -> http://172.24.0.1:8000/api/v3/json. From a shell:
+      # curl http://172.24.0.1:8000/api/v3/json
+      - "172.24.0.1:8000:8000"
     mem_limit: 128m
     restart: unless-stopped
     # Healthcheck REMOVED (2026-09-26). It ran
