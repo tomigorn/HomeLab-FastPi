@@ -9,11 +9,9 @@
 # (the HA frontend) pass through Traefik natively. HA trusts this hop via
 # trusted_proxies in .storage/http (HA 2026.10+: UI-managed, not YAML; see its README).
 #
-# Break-glass (Authentik down): the HA owner account's local login stays enabled at
-#   https://ha.holy-grail.ch/?skip_oidc_redirect=true
-# or directly on the LAN at http://192.168.1.2:8123/?skip_oidc_redirect=true. The IP URL
-# is also what the Companion apps use, so they do not depend on this route. SSO works
-# only on this hostname (Authentik accepts just https://ha.holy-grail.ch/auth/oidc/callback).
+# No local login: HA is SSO-only since 2026-10-19 (auth_providers: [], old owner
+# account deleted). Recovery when Authentik is down = server shell only, see
+# Docker/Home-Assistant/README.md "Authentik SSO".
 http:
   routers:
     home-assistant:

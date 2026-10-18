@@ -361,7 +361,7 @@ the VPN: the Cloudflare SSH tunnel (see `WireguardVPN/README.md`). Machine acces
 | Portainer | https://portainer.holy-grail.ch | native OAuth (CE "Custom"; user `tomigorn` pre-created as admin, auto-provisioning off) | `POST /api/auth` refused by Traefik (router `portainer-password-login-block`), port `127.0.0.1:9443`. Shell: `ssh -L 9443:127.0.0.1:9443 fastpi`, then `https://localhost:9443/#!/internal-auth` as the initial admin; lost password: stop the container, `docker run --rm -v docker_portainer_data:/data portainer/helper-reset-password` |
 | AdGuard Home | https://adguard.holy-grail.ch | forward auth; Authentik injects HTTP Basic for AdGuard user `authentik-proxy` (middleware `authentik-basic@file`; credentials in `homelab-admins` group attributes `adguard_username` / `adguard_password`) | no human user (only `authentik-proxy`). Shell: add a user (bcrypt hash) under `users:` in `adguard/conf/AdGuardHome.yaml` with the container stopped, start it, `ssh -L 3000:127.0.0.1:3000 fastpi`; steps in `adguard/docker-compose.yaml` |
 | wg-easy | https://wg-easy.holy-grail.ch | native OIDC (custom `email_verified` scope mapping; admin linked by email) | password login disabled (`DISABLE_PASSWORD_AUTH=true`). Shell: set it to `false` in `WireguardVPN/docker-compose.yaml`, `docker compose up -d`, log in at `/login?auto_launch=false`, set it back; lost password: `docker exec -it WireGuard-VPN cli db:admin:reset` |
-| Home Assistant | https://ha.holy-grail.ch | `hass-oidc-auth` 1.2.1 (public client) | owner account at `/?skip_oidc_redirect=true` (also on `http://192.168.1.2:8123`) |
+| Home Assistant | https://ha.holy-grail.ch | `hass-oidc-auth` 1.2.1 (public client) | none over the web: re-add the `homeassistant` auth provider from the shell + restart (see Home-Assistant README) |
 
 ### Re-running the provisioning
 
@@ -393,7 +393,7 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 - The embedded outpost takes about 30 s to pick up a new app (404 meanwhile).
 - Home Assistant 2026.10 ignores YAML `http:`: proxy trust lives in
   `.storage/http` (`trusted_proxies` `172.24.0.0/16`, as Traefik's IP is unpinned).
-- A Home Assistant browser on the IP URL needs `?skip_oidc_redirect=true`.
+- Home Assistant has no password login at all; Holy Grail works only on https://ha.holy-grail.ch (strict redirect URI).
 - AdGuard locks out after 5 bad auths for 15 minutes.
 
 ### Pending (stage 2)
