@@ -1,0 +1,146 @@
+[
+  {
+    "id": "fox",
+    "name": "Fox",
+    "file": "fox.png",
+    "color": "#FFD8B5"
+  },
+  {
+    "id": "owl",
+    "name": "Owl",
+    "file": "owl.png",
+    "color": "#E3D5C3"
+  },
+  {
+    "id": "panda",
+    "name": "Panda",
+    "file": "panda.png",
+    "color": "#D9F2D0"
+  },
+  {
+    "id": "tiger",
+    "name": "Tiger",
+    "file": "tiger.png",
+    "color": "#FFE3A3"
+  },
+  {
+    "id": "lion",
+    "name": "Lion",
+    "file": "lion.png",
+    "color": "#FBE0B0"
+  },
+  {
+    "id": "koala",
+    "name": "Koala",
+    "file": "koala.png",
+    "color": "#D6E4F0"
+  },
+  {
+    "id": "rabbit",
+    "name": "Rabbit",
+    "file": "rabbit.png",
+    "color": "#F8D7E3"
+  },
+  {
+    "id": "cat",
+    "name": "Cat",
+    "file": "cat.png",
+    "color": "#FFE9C7"
+  },
+  {
+    "id": "dog",
+    "name": "Dog",
+    "file": "dog.png",
+    "color": "#E8DCCB"
+  },
+  {
+    "id": "penguin",
+    "name": "Penguin",
+    "file": "penguin.png",
+    "color": "#CFE8F7"
+  },
+  {
+    "id": "frog",
+    "name": "Frog",
+    "file": "frog.png",
+    "color": "#D3F0C2"
+  },
+  {
+    "id": "monkey",
+    "name": "Monkey",
+    "file": "monkey.png",
+    "color": "#EAD7C2"
+  },
+  {
+    "id": "unicorn",
+    "name": "Unicorn",
+    "file": "unicorn.png",
+    "color": "#EBD9FA"
+  },
+  {
+    "id": "dragon",
+    "name": "Dragon",
+    "file": "dragon.png",
+    "color": "#CDEFD9"
+  },
+  {
+    "id": "octopus",
+    "name": "Octopus",
+    "file": "octopus.png",
+    "color": "#FAD3D3"
+  },
+  {
+    "id": "turtle",
+    "name": "Turtle",
+    "file": "turtle.png",
+    "color": "#D7F0E4"
+  },
+  {
+    "id": "hedgehog",
+    "name": "Hedgehog",
+    "file": "hedgehog.png",
+    "color": "#EFE2D2"
+  },
+  {
+    "id": "bear",
+    "name": "Bear",
+    "file": "bear.png",
+    "color": "#E6D3C3"
+  },
+  {
+    "id": "wolf",
+    "name": "Wolf",
+    "file": "wolf.png",
+    "color": "#DDE3EA"
+  },
+  {
+    "id": "raccoon",
+    "name": "Raccoon",
+    "file": "raccoon.png",
+    "color": "#E1E1E8"
+  },
+  {
+    "id": "sloth",
+    "name": "Sloth",
+    "file": "sloth.png",
+    "color": "#E9E2CF"
+  },
+  {
+    "id": "otter",
+    "name": "Otter",
+    "file": "otter.png",
+    "color": "#D8E8EC"
+  },
+  {
+    "id": "whale",
+    "name": "Whale",
+    "file": "whale.png",
+    "color": "#CFE3FA"
+  },
+  {
+    "id": "butterfly",
+    "name": "Butterfly",
+    "file": "butterfly.png",
+    "color": "#F3DDF7"
+  }
+]
