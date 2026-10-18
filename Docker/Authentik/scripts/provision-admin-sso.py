@@ -9,7 +9,10 @@
 from authentik.core.models import Application, Group
 from authentik.outposts.models import Outpost
 from authentik.policies.models import PolicyBinding
+from authentik.providers.oauth2.models import (
+    ClientType, OAuth2Provider, RedirectURI, RedirectURIMatchingMode, RedirectURIType, ScopeMapping)
 from authentik.providers.proxy.models import ProxyMode, ProxyProvider
+import secrets
 
 admins = Group.objects.get(name="homelab-admins")
 src = ProxyProvider.objects.get(name="cup-proxy")  # flows to copy (default authz/invalidation)
@@ -37,10 +40,50 @@ def proxy(name, host, **extra):
     return p
 
 
+OIDC_SCOPES = ["openid", "email", "profile", "offline_access"]
+# By managed id, not scope_name: several custom mappings also use scope "email"/"profile".
+oidc_mappings = [ScopeMapping.objects.get(managed=f"goauthentik.io/providers/oauth2/scope-{s}")
+                 for s in OIDC_SCOPES]
+oidc_src = OAuth2Provider.objects.get(name="Nextcloud")  # flows + signing key to copy
+
+
+def oidc(name, redirects, logout_redirects=()):
+    """Confidential OIDC provider. client_id/secret are generated once and kept on rerun."""
+    p, created = OAuth2Provider.objects.get_or_create(name=name, defaults={
+        "client_id": secrets.token_urlsafe(30), "client_secret": secrets.token_urlsafe(60),
+        "authorization_flow": oidc_src.authorization_flow})
+    p.authorization_flow = oidc_src.authorization_flow
+    p.invalidation_flow = oidc_src.invalidation_flow
+    p.signing_key = oidc_src.signing_key
+    p.client_type = ClientType.CONFIDENTIAL
+    p.grant_types = ["authorization_code", "refresh_token"]  # empty = every request rejected
+    p.include_claims_in_id_token = True
+    p.redirect_uris = (
+        [RedirectURI(RedirectURIMatchingMode.STRICT, u, RedirectURIType.AUTHORIZATION) for u in redirects]
+        + [RedirectURI(RedirectURIMatchingMode.STRICT, u, RedirectURIType.LOGOUT) for u in logout_redirects])
+    p.save()
+    p.property_mappings.set(oidc_mappings)
+    return p
+
+
+def env(path, **kv):
+    for k, v in kv.items():
+        print(f"ENV {path} {k}={v}")
+
+
 # 1. Traefik dashboard (forward auth; Traefik route in Docker/Traefik/traefik/dynamic/dashboard.yml)
 app_for("traefik-dashboard", "Traefik dashboard",
         proxy("traefik-dashboard-proxy", "https://traefik.holy-grail.ch"),
         "https://traefik.holy-grail.ch/dashboard/")
+
+# 2. Grafana (Grafana's own generic_oauth; route in Docker/Traefik/traefik/dynamic/grafana.yml).
+# Logout redirect is /login, not /logout: /logout itself bounces to Authentik's end-session,
+# so registering it as post-logout target would make a loop possible.
+grafana = oidc("grafana", ["https://grafana.holy-grail.ch/login/generic_oauth"],
+               ["https://grafana.holy-grail.ch/login"])
+app_for("grafana", "Grafana", grafana, "https://grafana.holy-grail.ch")
+env("grafana/.env", GRAFANA_OAUTH_CLIENT_ID=grafana.client_id,
+    GRAFANA_OAUTH_CLIENT_SECRET=grafana.client_secret)
 
 outpost.save()
 print("OK provisioned")
