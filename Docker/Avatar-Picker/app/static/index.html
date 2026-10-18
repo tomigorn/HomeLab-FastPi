@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose your avatar</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#141414;color:#e5e5e5;font-family:system-ui,sans-serif}
+  main{max-width:960px;margin:0 auto;padding:2rem 1rem;text-align:center}
+  h1{font-weight:500;font-size:2rem;margin:.5rem 0}
+  p.sub{color:#999;margin:0 0 2rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:1.4rem}
+  button.av{background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit}
+  button.av img{width:100%;aspect-ratio:1;border-radius:.5rem;border:3px solid transparent;
+    transition:transform .15s,border-color .15s}
+  button.av:hover:not(:disabled) img{transform:scale(1.06);border-color:#fff}
+  button.av.mine img{border-color:#e50914}
+  button.av:disabled{cursor:not-allowed}
+  button.av:disabled img{filter:grayscale(1) brightness(.45)}
+  .name{display:block;margin-top:.4rem;color:#b3b3b3;font-size:.9rem}
+  .mine .name{color:#fff;font-weight:600}
+  #msg{min-height:1.5rem;margin:1rem 0;color:#e87c03}
+  footer{color:#555;font-size:.75rem;margin-top:3rem}
+</style></head>
+<body><main>
+  <h1>Choose your avatar</h1>
+  <p class="sub" id="who">Loading&hellip;</p>
+  <div id="msg" role="status"></div>
+  <div class="grid" id="grid"></div>
+  <footer>Shown in Authentik, Jellyfin and Nextcloud (after your next sign-in there).
+    Images: Fluent Emoji &copy; Microsoft, MIT. <span id="ver"></span></footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+async function load() {
+  const r = await fetch("api/state", {cache: "no-store"});
+  if (!r.ok) { $("msg").textContent = "Can't load right now - try again in a minute."; return; }
+  const s = await r.json();
+  $("who").textContent = "Signed in as " + s.user + ". Each avatar can only belong to one person.";
+  $("ver").textContent = "v" + s.version;
+  const g = $("grid"); g.textContent = "";
+  for (const a of s.avatars) {
+    const b = document.createElement("button");
+    b.className = "av" + (a.status === "mine" ? " mine" : "");
+    b.disabled = a.status === "taken";
+    b.title = a.status === "taken" ? a.name + " (taken)" : a.name;
+    b.innerHTML = '<img alt=""><span class="name"></span>';
+    b.querySelector("img").src = a.url; b.querySelector("img").alt = a.name;
+    b.querySelector(".name").textContent = a.status === "taken" ? a.name + " · taken" : a.name;
+    b.onclick = () => pick(a.id, a.name);
+    g.appendChild(b);
+  }
+}
+async function pick(id, name) {
+  $("msg").textContent = "Saving " + name + "…";
+  const r = await fetch("api/pick", {method: "POST", headers: {"Content-Type": "application/json"},
+                                     body: JSON.stringify({id})});
+  const j = await r.json().catch(() => ({}));
+  $("msg").textContent = r.ok ? name + " is yours." : (j.error || "Couldn't save - try again.");
+  load();
+}
+load();
+</script></body></html>
