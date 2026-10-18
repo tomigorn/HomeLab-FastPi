@@ -95,8 +95,9 @@ services:
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
       - "--storage.path=/alertmanager"
-      # Needed for silence/unsilence links in notifications to resolve.
-      - "--web.external-url=http://192.168.1.2:9093"
+      # Needed for silence/unsilence links in notifications to resolve. The port
+      # is localhost-only, so the links work through `ssh -L 9093:127.0.0.1:9093 fastpi`.
+      - "--web.external-url=http://localhost:9093"
     # Runs as uid 1000 to MATCH the owner of alertmanager/secrets/, so the SMTP
     # password can stay mode 600 instead of being made world-readable. The image
     # defaults to nobody (65534), which produced
@@ -104,8 +105,10 @@ services:
     # and silently retried forever - caught only by sending a test alert.
     user: "1000:1000"
     ports:
-      # LAN only — the UI is where you create silences during an incident.
-      - "9093:9093"
+      # localhost only (2026-10-19): the UI has no auth, and anyone who reaches it
+      # can create silences. During an incident: ssh -L 9093:127.0.0.1:9093 fastpi.
+      # Prometheus reaches alertmanager:9093 over the project network.
+      - "127.0.0.1:9093:9093"
     cap_drop:
       - ALL
     security_opt:
