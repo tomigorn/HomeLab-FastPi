@@ -166,3 +166,21 @@ python3 scripts/test_crowdsec_exporter.py
 
 `docker exec crowdsec cscli alerts list`, `cscli decisions list`, `cscli metrics`,
 `cscli capi status`, `cscli bouncers list`, `cscli hub list`.
+
+## Home IP allowlist (2026-10-19)
+
+The home WAN IP is in the CrowdSec allowlist `home`, so CrowdSec never bans it. Without this,
+one ban caused a loop: the bouncer's 403s fed `LePresidente/http-generic-403-bf`, which banned
+the IP again every few minutes (it happened 7 times on 2026-10-18, set off by the LanguageTool
+browser extension retrying). The allowlist lives in CrowdSec's database, not in a file:
+
+```bash
+docker exec crowdsec cscli allowlists list
+docker exec crowdsec cscli allowlists check <ip>
+# if the ISP ever changes the home IP:
+docker exec crowdsec cscli allowlists remove home <old-ip>
+docker exec crowdsec cscli allowlists add home <new-ip> -d "home WAN IP"
+```
+
+The smoke test check "crowdsec home IP allowlisted" fails when the current home IP
+(`lang-tool.ddns.net`) is no longer the allowlisted one.
