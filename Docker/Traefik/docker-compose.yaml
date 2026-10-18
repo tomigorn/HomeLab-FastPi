@@ -32,7 +32,11 @@ services:
       # comment in traefik/traefik.yml for the outage this prevents.
       - ./traefik/plugins-local:/plugins-local:ro
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        # Pinned: wg-easy DNATs VPN clients' web traffic for 192.168.1.2 straight to this
+        # address (so it arrives as 172.24.0.5 = VPN, not via docker-proxy as 172.24.0.1 =
+        # Cloudflare tunnel), and Home Assistant trusts it as proxy. Don't change.
+        ipv4_address: 172.24.0.3
     dns:
       - 1.1.1.1
       - 8.8.8.8
