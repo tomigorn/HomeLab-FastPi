@@ -345,7 +345,16 @@ LAN and VPN only, via the `local-networks@file` Traefik middleware. The whole
 setup is config as code in `scripts/provision-admin-sso.py`; the design is in
 `docs/superpowers/specs/2026-10-18-homelab-admin-sso-design.md`.
 
-| Tool | URL | Method | Break-glass |
+**SSO only (2026-10-19).** No web UI accepts a username/password login over the
+network (internet, LAN or VPN); the old break-glass logins are gone (plan
+`docs/superpowers/plans/2026-10-19-sso-only-batch-a.md`, evidence in
+`docs/superpowers/specs/2026-10-19-sso-only-inventory.md`). When Authentik is down,
+recovery happens from a **server shell only**: flip an env flag and recreate, run a
+CLI reset, or open an ssh tunnel to a port bound to 127.0.0.1. Remote shell without
+the VPN: the Cloudflare SSH tunnel (see `WireguardVPN/README.md`). Machine access
+(API keys, service-account tokens, agents, scrapers) is unaffected.
+
+| Tool | URL | Method | Shell recovery |
 |---|---|---|---|
 | Traefik dashboard | https://traefik.holy-grail.ch | forward auth (`authentik@file`) | none over the network (basicAuth router removed 2026-10-19). Shell: `docker logs traefik`, the access log, or drop a temporary router file into `Traefik/traefik/dynamic/` (watched, no restart) |
 | Grafana | https://grafana.holy-grail.ch | native generic OAuth (role `GrafanaAdmin` from groups) | login form + Basic auth disabled, port `127.0.0.1:3001`. Shell: set `GF_AUTH_DISABLE_LOGIN_FORM=false` in `grafana/docker-compose.yaml`, `docker compose up -d`, `ssh -L 3001:127.0.0.1:3001 fastpi`, log in at `http://localhost:3001/login?disableAutoLogin=true`, set it back; lost password: `docker exec grafana grafana cli admin reset-admin-password <pw>` |
@@ -392,6 +401,8 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 - [ ] Confirm one SSO login per tool
 - [x] wg-easy: set `DISABLE_PASSWORD_AUTH=true` and recreate, remove `WG_EASY_ADMIN_PASSWORD` from `.env` / `.env.example`, verify `/api/auth/password` is rejected (2026-10-19, 403)
 - [ ] AdGuard: confirm the UI opens without its own login prompt after SSO
+  (2026-10-19: the injected `authentik-proxy` credentials return 200 on `/control/status`;
+  the `admin` user is removed)
 
 ## Branding
 
