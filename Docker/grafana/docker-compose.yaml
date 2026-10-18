@@ -15,6 +15,12 @@ services:
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      # Long history (2026-10-19) so the CrowdSec dashboard can show attacks per
+      # country/scenario over months, not just the 15-day default. Measured: 1.4 GB
+      # for 15 d at ~8.9k series -> ~35 GB/year; the root NVMe has 338 GB free.
+      # The size cap is the guard: Prometheus drops the oldest blocks first.
+      - "--storage.tsdb.retention.time=400d"
+      - "--storage.tsdb.retention.size=60GB"
     restart: unless-stopped
     ports:
       - "127.0.0.1:9090:9090"   # SSO-only policy: no LAN access, Grafana reaches it by container name

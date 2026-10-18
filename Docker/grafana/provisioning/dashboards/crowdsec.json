@@ -1,1071 +1,2138 @@
 {
-  "uid": "crowdsec-overview",
-  "title": "CrowdSec",
-  "tags": [
-    "crowdsec",
-    "security",
-    "fastpi"
-  ],
-  "timezone": "browser",
-  "schemaVersion": 39,
-  "version": 1,
-  "refresh": "1m",
-  "time": {
-    "from": "now-24h",
-    "to": "now"
+ "uid": "crowdsec-overview",
+ "title": "CrowdSec",
+ "tags": [
+  "crowdsec",
+  "security",
+  "fastpi"
+ ],
+ "description": "CrowdSec on fastpi: what is blocked, who attacks, and whether detection and enforcement work. Docs: Docker/CrowdSec/README.md",
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 2,
+ "refresh": "1m",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "editable": true,
+ "graphTooltip": 1,
+ "templating": {
+  "list": []
+ },
+ "annotations": {
+  "list": []
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "row",
+   "title": "Right now",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
   },
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": []
-  },
-  "panels": [
+  {
+   "type": "stat",
+   "title": "Blocked (24h)",
+   "description": "Requests the Traefik bouncer refused in the last 24 h - the bouncer's own count, reported to CrowdSec every 10 min (cscli metrics show bouncers). Exact, unlike the Traefik 403 count, which also includes 403s from other middlewares.",
+   "targets": [
     {
-      "id": 1,
-      "type": "row",
-      "title": "Right now",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Active bans (total)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(cs_active_decisions)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "description": "IPs currently banned at the edge: community blocklist (CAPI) + bans this CrowdSec decided itself."
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Bans from my own logs",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(cs_active_decisions{origin!=\"CAPI\"}) or vector(0)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "orange"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "description": "Active bans CrowdSec created from attacks seen in Traefik's access log (origin crowdsec / cscli)."
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Alerts raised (all time)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(cs_alerts)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "orange"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "description": "Scenario triggers recorded in the local database (excludes community-blocklist imports)."
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Blocked requests (24h)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(traefik_entrypoint_requests_total{code=\"403\",entrypoint=\"websecure\"}[24h]))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "description": "HTTP 403s answered at the websecure entrypoint over 24h. Mostly the CrowdSec bouncer; a few may be 403s from backend apps. The bouncer's own dropped-request counter is only in 'cscli metrics', not Prometheus."
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "All requests (24h)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(traefik_entrypoint_requests_total{entrypoint=\"websecure\"}[24h]))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "description": "Everything arriving on the public (websecure) entrypoint."
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Log lines read (24h)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(cs_filesource_hits_total[24h]))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "description": "Access-log lines CrowdSec analysed."
-    },
-    {
-      "id": 8,
-      "type": "row",
-      "title": "Hits and blocks",
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Blocked (403) vs all requests",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 6,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(traefik_entrypoint_requests_total{code=\"403\",entrypoint=\"websecure\"}[5m]))*60",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "blocked (403)"
-        },
-        {
-          "refId": "B",
-          "expr": "sum(rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\"}[5m]))*60",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "all requests"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqpm",
-          "custom": {
-            "fillOpacity": 15,
-            "lineWidth": 1
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "blocked (403)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "description": "Requests per minute on the public entrypoint. Red = 403 (blocked). Gap between the lines = legitimate traffic."
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Responses by status class",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 6,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (c) (label_replace(rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\"}[5m]),\"c\",\"${1}xx\",\"code\",\"(.)..\"))*60",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{c}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqpm",
-          "custom": {
-            "fillOpacity": 15,
-            "lineWidth": 1
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "description": "2xx fine, 3xx redirects (Authentik logins), 4xx client errors (403 = blocked, 404 = scanners), 5xx server errors."
-    },
-    {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Active bans by origin",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (origin) (cs_active_decisions)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{origin}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "fillOpacity": 15,
-            "lineWidth": 1
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "description": "CAPI = community blocklist pulled by CrowdSec. crowdsec = banned from my own logs. cscli = manual."
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Alerts raised per hour (my own logs)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 14,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(cs_bucket_overflowed_total[1h]))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "overflows"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "fillOpacity": 30,
-            "lineWidth": 1,
-            "drawStyle": "bars"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "description": "Scenario buckets that overflowed = attack patterns detected in Traefik's access log (each leads to a ban)."
-    },
-    {
-      "id": 13,
-      "type": "row",
-      "title": "What attackers are doing",
-      "gridPos": {
-        "x": 0,
-        "y": 22,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "id": 14,
-      "type": "bargauge",
-      "title": "Alerts by scenario (all time)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 23,
-        "w": 12,
-        "h": 10
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sort_desc(sum by (reason) (cs_alerts))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{reason}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
-      },
-      "description": "Which attack patterns have triggered, since the local database began."
-    },
-    {
-      "id": 15,
-      "type": "bargauge",
-      "title": "Attacks detected by scenario (24h)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 23,
-        "w": 12,
-        "h": 10
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sort_desc(sum by (name) (increase(cs_bucket_overflowed_total[24h])) > 0)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{name}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
-      },
-      "description": "Bucket overflows in the last 24 hours."
-    },
-    {
-      "id": 16,
-      "type": "bargauge",
-      "title": "Active bans by reason",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 33,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sort_desc(sum by (reason) (cs_active_decisions))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{reason}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
-      },
-      "description": "Why the IPs on the ban list are banned. Dominated by the community blocklist."
-    },
-    {
-      "id": 17,
-      "type": "bargauge",
-      "title": "Active bans: my own detections only",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 33,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sort_desc(sum by (reason) (cs_active_decisions{origin!=\"CAPI\"}))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{reason}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
-      },
-      "description": "Bans created by this CrowdSec instance."
-    },
-    {
-      "id": 18,
-      "type": "row",
-      "title": "Engine health",
-      "gridPos": {
-        "x": 0,
-        "y": 41,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "id": 19,
-      "type": "timeseries",
-      "title": "Log lines: read / parsed / unparsed",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 42,
-        "w": 8,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(cs_filesource_hits_total[5m]))*60",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "read"
-        },
-        {
-          "refId": "B",
-          "expr": "sum(rate(cs_parser_hits_ok_total[5m]))*60",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "parsed"
-        },
-        {
-          "refId": "C",
-          "expr": "(sum(rate(cs_parser_hits_ko_total[5m]))*60 or vector(0))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "unparsed"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "fillOpacity": 15,
-            "lineWidth": 1
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "description": "Lines per minute. Unparsed should stay near zero; a rise means Traefik's log format changed and detection is blind."
-    },
-    {
-      "id": 20,
-      "type": "timeseries",
-      "title": "Bouncer queries to CrowdSec",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 42,
-        "w": 8,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (bouncer) (rate(cs_lapi_bouncer_requests_total[5m]))*60",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "{{bouncer}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqpm",
-          "custom": {
-            "fillOpacity": 15,
-            "lineWidth": 1
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "description": "How often the Traefik bouncer asks 'is this IP banned?'. Flat zero = the bouncer is not enforcing."
-    },
-    {
-      "id": 21,
-      "type": "timeseries",
-      "title": "CrowdSec memory and CPU",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 42,
-        "w": 8,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "process_resident_memory_bytes{job=\"crowdsec\"}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "memory"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(process_cpu_seconds_total{job=\"crowdsec\"}[5m])",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "CPU cores"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "fillOpacity": 15,
-            "lineWidth": 1
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "CPU cores"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "description": "Container limit is 384 MiB. CPU (right axis) in cores."
-    },
-    {
-      "id": 22,
-      "type": "stat",
-      "title": "CrowdSec up",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 50,
-        "w": 4,
-        "h": 3
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "up{job=\"crowdsec\"}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                }
-              }
-            }
-          ],
-          "noValue": "?"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "background"
-      },
-      "description": "1 = Prometheus can scrape CrowdSec."
-    },
-    {
-      "id": 23,
-      "type": "stat",
-      "title": "Last community-blocklist pull",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 50,
-        "w": 4,
-        "h": 3
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "time()-cs_papi_last_pull_timestamp{job=\"crowdsec\"}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "n/a"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "description": "Time since CrowdSec last polled the community blocklist (PAPI). Only meaningful if enrolled; otherwise absent."
+     "refId": "A",
+     "expr": "round(sum(increase(crowdsec_bouncer_dropped_requests_total[24h]))) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
     }
-  ]
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 2,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Blocked (7d)",
+   "description": "Same as the 24h tile over 7 days. History starts 2026-10-19 (exporter installed); until then this undercounts. Lifetime total: crowdsec_bouncer_dropped_requests_total.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "round(sum(increase(crowdsec_bouncer_dropped_requests_total[7d]))) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 3,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Bans: my detections",
+   "description": "IPs banned right now because CrowdSec saw them attack THIS server (origin crowdsec, plus manual cscli bans). Usually a handful; bans last 4 h.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(cs_active_decisions{origin!=\"CAPI\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 4,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Bans: community list",
+   "description": "IPs banned right now from the CrowdSec community blocklist (CAPI), refreshed every 2 h. These are attackers seen by other CrowdSec users, blocked pre-emptively.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(cs_active_decisions{origin=\"CAPI\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "purple"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 5,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Attacks (24h)",
+   "description": "Counting unit on this dashboard: ONE ATTACK = ONE CrowdSec ALERT = one IP tripping one scenario (e.g. probing 10 sensitive paths within seconds). One attack is typically 5-50 requests. From CrowdSec's own alert DB, so correct regardless of Prometheus history.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(crowdsec_attacks_recent{window=\"24h\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 6,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Attacker IPs (24h)",
+   "description": "Distinct source IPs behind the attacks of the last 24 h.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(crowdsec_attackers_recent{window=\"24h\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 7,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "CrowdSec",
+   "description": "Prometheus can scrape CrowdSec. When DOWN the bouncer fails OPEN (keeps the last ban list, lets everyone else through) and the CrowdSecDown alert fires after 10 min.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "up{job=\"crowdsec\"}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "DOWN",
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "DOWN",
+         "color": "red",
+         "index": 0
+        },
+        "1": {
+         "text": "UP",
+         "color": "green",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 8,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Last sync",
+   "description": "Time since Traefik's bouncer last pulled the decision list (stream mode, every 60 s). Over 10 min = new bans are not reaching the edge (alert CrowdSecBouncerNotPulling). Exporter resolution 5 min.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - max(crowdsec_bouncer_last_pull_timestamp_seconds)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "mappings": [],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 600
+       },
+       {
+        "color": "red",
+        "value": 1200
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 9,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 3,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "CAPI pull",
+   "description": "Time since the last community-blocklist (CAPI) pull. CrowdSec pulls every 2 h; over 8 h alerts (CrowdSecCommunityBlocklistStale). Source: newest 'update' alert of kind capi.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - crowdsec_capi_last_pull_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "mappings": [],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 10800
+       },
+       {
+        "color": "red",
+        "value": 28800
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 10,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Parsed",
+   "description": "Share of Traefik access-log lines CrowdSec's parsers understood (15 min). Below 100% for long = the log format changed and detection is going blind (alert CrowdSecLogsUnparsed). 'no traffic' when nothing was logged.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "(sum(rate(cs_parser_hits_ok_total[15m])) / sum(rate(cs_parser_hits_total[15m]))) and on() (sum(rate(cs_parser_hits_total[15m])) > 0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "noValue": "no traffic",
+     "mappings": [],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.8
+       },
+       {
+        "color": "green",
+        "value": 0.98
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 11,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 9,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Version",
+   "description": "Running CrowdSec version (auto-updated daily, patch/minor only).",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "cs_info",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{version}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "name",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 12,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Auto-update",
+   "description": "Outcome of the last daily auto-update run (scripts/crowdsec-autoupdate.sh): current, updated, hub_updated, rolled_back, held_back, major_available, paused, error.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "crowdsec_autoupdate_result == 1",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{result}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "never ran",
+     "mappings": [],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "name",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 13,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 15,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Hub age",
+   "description": "Age of the hub index (parsers/scenarios catalogue). The auto-update refreshes it daily; the container also refreshes it on start.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - crowdsec_hub_index_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "mappings": [],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 172800
+       },
+       {
+        "color": "red",
+        "value": 345600
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 14,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Data age",
+   "description": "Age of the cscli-derived numbers (country map, top IPs, bouncer counts, sync times). Refreshed every 5 min by crowdsec-exporter.timer.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - crowdsec_exporter_last_success_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "mappings": [],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 900
+       },
+       {
+        "color": "red",
+        "value": 1800
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "wideLayout": true
+   },
+   "id": 15,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 21,
+    "y": 5,
+    "w": 3,
+    "h": 3
+   }
+  },
+  {
+   "id": 16,
+   "type": "row",
+   "title": "Blocked traffic",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Requests blocked per hour",
+   "description": "Bouncer = exact count of requests the CrowdSec bouncer refused (10-min resolution). Traefik 403 = every 403 on the public entrypoint, which also includes scanner filters and auth denials.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(crowdsec_bouncer_dropped_requests_total[30m])) * 3600",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "blocked by bouncer"
+    },
+    {
+     "refId": "B",
+     "expr": "sum(rate(traefik_entrypoint_requests_total{code=\"403\",entrypoint=\"websecure\"}[30m])) * 3600",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "all 403s (Traefik)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 15,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 17,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 9,
+    "w": 12,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Public responses by status class (per minute)",
+   "description": "websecure entrypoint. 3xx = SSO redirects, 4xx = mostly scanners and blocks, 5xx = backend trouble.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (c) (label_replace(rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\",code=~\"[1-5]..\"}[5m]),\"c\",\"${1}xx\",\"code\",\"(.)..\")) * 60",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{c}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 15,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 18,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 9,
+    "w": 12,
+    "h": 8
+   }
+  },
+  {
+   "id": 19,
+   "type": "row",
+   "title": "Where attacks come from",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 17,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "geomap",
+   "title": "Attacks by country (selected time range)",
+   "description": "One attack = one CrowdSec alert (see 'Attacks (24h)'). Counted for the dashboard's time range (increase of crowdsec_attacks_by_country_total). Bigger and redder = more. Country from CrowdSec's own GeoIP enrichment; nothing leaves the server. History before 2026-10-19 is only in the lifetime totals.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "round(sum by (country, country_name) (increase(crowdsec_attacks_by_country_total[$__range]))) > 0",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no attacks in this range",
+     "color": {
+      "mode": "continuous-YlRd"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "view": {
+     "id": "coords",
+     "lat": 30,
+     "lon": 10,
+     "zoom": 1.4,
+     "allLayers": true
+    },
+    "controls": {
+     "showZoom": true,
+     "mouseWheelZoom": false,
+     "showAttribution": true
+    },
+    "tooltip": {
+     "mode": "details"
+    },
+    "basemap": {
+     "type": "geojson",
+     "name": "World",
+     "config": {
+      "src": "public/maps/countries.geojson",
+      "rules": [],
+      "style": {
+       "color": {
+        "fixed": "#3a3f4b"
+       },
+       "opacity": 0.5,
+       "lineWidth": 1
+      }
+     }
+    },
+    "layers": [
+     {
+      "type": "markers",
+      "name": "Attacks",
+      "tooltip": true,
+      "location": {
+       "mode": "lookup",
+       "lookup": "country",
+       "gazetteer": "public/gazetteer/countries.json"
+      },
+      "config": {
+       "showLegend": true,
+       "style": {
+        "size": {
+         "field": "Value",
+         "min": 6,
+         "max": 40,
+         "fixed": 6
+        },
+        "color": {
+         "field": "Value",
+         "fixed": "dark-red"
+        },
+        "opacity": 0.75,
+        "symbol": {
+         "mode": "fixed",
+         "fixed": "img/icons/marker/circle.svg"
+        },
+        "text": {
+         "mode": "field",
+         "field": "country",
+         "fixed": ""
+        },
+        "textConfig": {
+         "fontSize": 9,
+         "offsetY": 0,
+         "textAlign": "center",
+         "textBaseline": "middle"
+        }
+       }
+      }
+     }
+    ]
+   },
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      },
+      "renameByName": {
+       "country_name": "Country"
+      }
+     }
+    }
+   ],
+   "id": 20,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 18,
+    "w": 16,
+    "h": 12
+   }
+  },
+  {
+   "type": "table",
+   "title": "Attacks by country (selected range)",
+   "description": "Same numbers as the map.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sort_desc(round(sum by (country, country_name) (increase(crowdsec_attacks_by_country_total[$__range]))) > 0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "no attacks in this range",
+     "custom": {
+      "align": "auto"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Attacks"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "gauge",
+         "mode": "gradient"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "continuous-YlRd"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Code"
+      },
+      "properties": [
+       {
+        "id": "custom.width",
+        "value": 60
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Attacks",
+      "desc": true
+     }
+    ],
+    "cellHeight": "sm"
+   },
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      },
+      "indexByName": {
+       "country_name": 0,
+       "country": 1,
+       "Value": 2
+      },
+      "renameByName": {
+       "country_name": "Country",
+       "country": "Code",
+       "Value": "Attacks"
+      }
+     }
+    }
+   ],
+   "id": 21,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 18,
+    "w": 8,
+    "h": 12
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Attacks per country over time (top 10 of the range)",
+   "description": "Attacks per hour, stacked; the 10 countries with most attacks in the selected range.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "round(sum by (country_name) (increase(crowdsec_attacks_by_country_total[$__interval]))) and on (country_name) topk(10, sum by (country_name) (increase(crowdsec_attacks_by_country_total[$__range] @ end())) > 0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{country_name}}",
+     "interval": "1h"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "lineWidth": 1,
+      "fillOpacity": 80,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "sum"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 22,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 12,
+    "h": 9
+   }
+  },
+  {
+   "type": "bargauge",
+   "title": "Lifetime attacks per country (top 15)",
+   "description": "All attacks ever counted, per country. Seeded on 2026-10-19 from every alert still in CrowdSec's DB (oldest: 2026-10-11; CrowdSec keeps 7 days / 5000 alerts), monotonic since. Independent of Prometheus retention.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "topk(15, sum by (country_name) (crowdsec_attacks_by_country_total) > 0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{country_name}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "min": 0,
+     "color": {
+      "mode": "continuous-YlRd"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "showUnfilled": true,
+    "valueMode": "color",
+    "namePlacement": "left",
+    "sizing": "manual",
+    "minVizHeight": 16,
+    "maxVizHeight": 22
+   },
+   "id": 23,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 30,
+    "w": 12,
+    "h": 9
+   }
+  },
+  {
+   "type": "table",
+   "title": "Top attacking IPs (last 24h)",
+   "description": "The 20 IPs with most attacks in the last 24 h (refreshed every 5 min, always the trailing 24 h regardless of the time picker). Scenario = the one it tripped most. Looking one up: docker exec crowdsec cscli alerts list -i <ip>",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sort_desc(crowdsec_top_attacker_attacks_24h)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "no attacks in the last 24h"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Attacks"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "gauge",
+         "mode": "gradient"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "continuous-YlRd"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 180
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Attacks",
+      "desc": true
+     }
+    ],
+    "cellHeight": "sm"
+   },
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "instance": true,
+       "job": true,
+       "country": true
+      },
+      "indexByName": {
+       "ip": 0,
+       "country_name": 1,
+       "as_name": 2,
+       "scenario": 3,
+       "Value": 4
+      },
+      "renameByName": {
+       "ip": "IP",
+       "country_name": "Country",
+       "as_name": "Network (AS)",
+       "scenario": "Main scenario",
+       "Value": "Attacks"
+      }
+     }
+    }
+   ],
+   "id": 24,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 39,
+    "w": 24,
+    "h": 9
+   }
+  },
+  {
+   "id": 25,
+   "type": "row",
+   "title": "What attackers are doing",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 48,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "bargauge",
+   "title": "Top scenarios (last 24h)",
+   "description": "Attacks per scenario in the trailing 24 h, from CrowdSec's alert DB.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sort_desc(crowdsec_attacks_24h_by_scenario)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{scenario}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "none in 24h",
+     "min": 0,
+     "color": {
+      "mode": "continuous-YlRd"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "showUnfilled": true,
+    "valueMode": "color",
+    "namePlacement": "left",
+    "sizing": "manual",
+    "minVizHeight": 16,
+    "maxVizHeight": 22
+   },
+   "id": 26,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 49,
+    "w": 8,
+    "h": 10
+   }
+  },
+  {
+   "type": "bargauge",
+   "title": "Top scenarios (selected range)",
+   "description": "Attacks per scenario in the dashboard's time range (from the persistent counter; history from 2026-10-19).",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sort_desc(round(sum by (scenario) (increase(crowdsec_attacks_by_scenario_total[$__range]))) > 0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{scenario}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "none in this window",
+     "min": 0,
+     "color": {
+      "mode": "continuous-YlRd"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "showUnfilled": true,
+    "valueMode": "color",
+    "namePlacement": "left",
+    "sizing": "manual",
+    "minVizHeight": 16,
+    "maxVizHeight": 22
+   },
+   "id": 27,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 49,
+    "w": 8,
+    "h": 10
+   }
+  },
+  {
+   "type": "bargauge",
+   "title": "Top scenarios (lifetime)",
+   "description": "All attacks ever counted, per scenario (seeded from CrowdSec's DB on 2026-10-19).",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "topk(15, crowdsec_attacks_by_scenario_total > 0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{scenario}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "min": 0,
+     "color": {
+      "mode": "continuous-YlRd"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "showUnfilled": true,
+    "valueMode": "color",
+    "namePlacement": "left",
+    "sizing": "manual",
+    "minVizHeight": 16,
+    "maxVizHeight": 22
+   },
+   "id": 28,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 49,
+    "w": 8,
+    "h": 10
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Attacks over time by scenario",
+   "description": "Attacks (alerts) per hour, stacked by scenario.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "round(sum by (scenario) (increase(crowdsec_attacks_by_scenario_total[$__interval]))) > 0",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{scenario}}",
+     "interval": "1h"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "lineWidth": 1,
+      "fillOpacity": 80,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "sum"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 29,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 59,
+    "w": 12,
+    "h": 9
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Active bans by origin",
+   "description": "crowdsec = my own detections (4 h bans), CAPI = community blocklist, cscli = manual.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (origin) (cs_active_decisions)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{origin}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 15,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "CAPI"
+      },
+      "properties": [
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "purple"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 30,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 59,
+    "w": 12,
+    "h": 9
+   }
+  },
+  {
+   "id": 31,
+   "type": "row",
+   "title": "Engine health",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 68,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Log lines per minute",
+   "description": "read = lines tailed from Traefik's access log; parsed = understood by the parsers; unparsed = read but not understood (should be 0); whitelisted = LAN/VPN/docker traffic CrowdSec ignores on purpose.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(cs_filesource_hits_total[5m])) * 60",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "read"
+    },
+    {
+     "refId": "B",
+     "expr": "sum(rate(cs_parser_hits_ok_total[5m])) * 60",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "parsed"
+    },
+    {
+     "refId": "C",
+     "expr": "clamp_min(sum(rate(cs_parser_hits_total[5m])) - sum(rate(cs_parser_hits_ok_total[5m])), 0) * 60",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "unparsed"
+    },
+    {
+     "refId": "D",
+     "expr": "sum(rate(cs_node_wl_hits_ok_total{name=\"crowdsecurity/whitelists\"}[5m])) * 60 or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "whitelisted (LAN)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 15,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "unparsed"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 32,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 69,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Bouncer syncs per minute",
+   "description": "Traefik bouncer pulling the decision stream (expect ~1/min). Flat zero = Traefik is no longer receiving new bans.",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(cs_lapi_bouncer_requests_total{route=\"/v1/decisions/stream\"}[5m])) * 60 or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "stream pulls"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 15,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 33,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 69,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "LAPI latency (p95) and memory",
+   "description": "Local API response time, and CrowdSec's resident memory (limit 384 MiB).",
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(cs_lapi_request_duration_seconds_bucket[5m])))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "LAPI p95"
+    },
+    {
+     "refId": "B",
+     "expr": "process_resident_memory_bytes{job=\"crowdsec\"}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "memory"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 15,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "memory"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "bytes"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 34,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 69,
+    "w": 8,
+    "h": 8
+   }
+  }
+ ]
 }

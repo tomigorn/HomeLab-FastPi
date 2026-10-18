@@ -1,0 +1,165 @@
+# CrowdSec: engine health, enforcement, and the daily auto-update
+# (Docker/CrowdSec/scripts/crowdsec-autoupdate.sh, results via node-exporter's
+# textfile collector, same pattern as security-posture.yml).
+#
+# Routing (alertmanager/alertmanager.yml): critical/warning -> email AND Telegram;
+# info -> Telegram only, at most weekly per alert.
+#
+# Why CrowdSecDown matters more than it looks: the Traefik bouncer runs in stream
+# mode with updateMaxFailure -1, i.e. it FAILS OPEN - while CrowdSec is down the
+# edge keeps serving and keeps blocking the last known ban list, but no NEW ban is
+# applied. That is the right trade for availability, and only acceptable because
+# this alert makes it visible.
+groups:
+  - name: crowdsec
+    rules:
+      - alert: CrowdSecDown
+        expr: up{job="crowdsec"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CrowdSec is down - the edge is running on a stale ban list"
+          description: >-
+            Prometheus cannot scrape crowdsec:6060. The Traefik bouncer fails open
+            (stream mode, updateMaxFailure -1): public routes still work and
+            already-known attackers stay blocked, but new attacks are neither
+            detected nor banned. Check `docker ps -a | grep crowdsec` and
+            `docker logs --tail 50 crowdsec`.
+
+      - alert: CrowdSecBouncerNotPulling
+        # Stream mode pulls every 60 s. Ten minutes without a pull means Traefik
+        # is not receiving new decisions (key revoked, plugin disabled, network).
+        expr: time() - max(crowdsec_bouncer_last_pull_timestamp_seconds) > 600 and on() up{job="crowdsec"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Traefik bouncer has not pulled CrowdSec decisions for {{ $value | humanizeDuration }}"
+          description: >-
+            CrowdSec is up but the Traefik plugin stopped syncing, so bans are not
+            enforced. `docker exec crowdsec cscli bouncers list`, and
+            `docker logs traefik --since 15m 2>&1 | grep -i crowdsec`. Remember
+            `cscli bouncers delete` prefix-matches (see Traefik README).
+
+      - alert: CrowdSecCommunityBlocklistStale
+        # CAPI pulls every 2 h. 8 h = three missed pulls.
+        expr: time() - crowdsec_capi_last_pull_timestamp_seconds > 8 * 3600
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "Community blocklist not pulled for {{ $value | humanizeDuration }}"
+          description: >-
+            CrowdSec normally pulls the community blocklist from api.crowdsec.net
+            every 2 h. Check `docker exec crowdsec cscli capi status`.
+
+      - alert: CrowdSecLogsUnparsed
+        # Parser lines in vs lines parsed. Sustained unparsed lines = the Traefik
+        # access-log format changed and detection is going blind.
+        expr: (sum(rate(cs_parser_hits_total[15m])) - sum(rate(cs_parser_hits_ok_total[15m]))) / sum(rate(cs_parser_hits_total[15m])) > 0.2
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of Traefik log lines are not parsed by CrowdSec"
+          description: >-
+            Detection is partially blind. Most likely the Traefik access-log format
+            changed. `docker exec crowdsec cscli explain --file /var/log/traefik/access.log --type traefik`
+            on a sample line shows where parsing stops.
+
+      - alert: CrowdSecExporterStale
+        expr: time() - crowdsec_exporter_last_success_timestamp_seconds > 1800 or crowdsec_exporter_errors > 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec dashboard exporter is failing or stale"
+          description: >-
+            crowdsec-exporter.timer (every 5 min) has not succeeded for 30 min; the
+            dashboard's country map, top IPs and bouncer counts are frozen.
+            `journalctl -u crowdsec-exporter --since -1h`.
+
+  - name: crowdsec-autoupdate
+    rules:
+      - alert: CrowdSecAutoUpdated
+        # Success report. Fires once per change (the change is <24h old), info ->
+        # Telegram only.
+        expr: >-
+          (crowdsec_autoupdate_result{result=~"updated|hub_updated"} == 1)
+          and on() (time() - crowdsec_autoupdate_last_change_timestamp_seconds < 86400)
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec auto-update: {{ $labels.result }} {{ $labels.from }} -> {{ $labels.to }}"
+          description: >-
+            Verified after the change: container up, LAPI answering, bouncer
+            re-pulled, a test ban enforced by Traefik, clean client passes, public
+            route OK. For an image update, commit the bumped
+            Docker/CrowdSec/.env.example ("CrowdSec: update to {{ $labels.to }}").
+
+      - alert: CrowdSecAutoUpdateRolledBack
+        expr: crowdsec_autoupdate_result{result="rolled_back"} == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: "CrowdSec {{ $labels.to }} failed verification and was rolled back to {{ $labels.from }}"
+          description: >-
+            The new version is skipped until a newer release appears
+            (/var/lib/crowdsec-autoupdate/bad_versions). CrowdSec runs the old
+            version on restored volumes. Details: journalctl -u crowdsec-autoupdate.
+
+      - alert: CrowdSecAutoUpdateHeldBack
+        # The nights after a rollback: the bad version is skipped. info = weekly
+        # Telegram reminder rather than a twice-daily warning.
+        expr: crowdsec_autoupdate_result{result="held_back"} == 1
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec {{ $labels.to }} held back (failed verification earlier); staying on {{ $labels.from }}"
+          description: >-
+            Retried automatically once a newer release exists. To retry this one,
+            remove it from /var/lib/crowdsec-autoupdate/bad_versions.
+
+      - alert: CrowdSecAutoUpdateRollbackFailed
+        expr: crowdsec_autoupdate_result{result="rollback_failed"} == 1
+        labels:
+          severity: critical
+        annotations:
+          summary: "CrowdSec update to {{ $labels.to }} AND rollback to {{ $labels.from }} both failed"
+          description: >-
+            CrowdSec is not verified working. The edge stays up (bouncer fails
+            open) but new bans may not apply. Backups of both volumes are in
+            ~/backups/pre-update/<date>/crowdsec-autoupdate/. journalctl -u crowdsec-autoupdate.
+
+      - alert: CrowdSecMajorUpdateAvailable
+        expr: crowdsec_autoupdate_result{result="major_available"} == 1
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec {{ $labels.to }} is a new MAJOR - not auto-installed"
+          description: >-
+            Read the release notes, check the Traefik bouncer plugin's
+            compatibility, then set CROWDSEC_TAG in Docker/CrowdSec/.env and run
+            the update by hand (_global/UPDATE-RUNBOOK.md).
+
+      - alert: CrowdSecAutoUpdateError
+        expr: crowdsec_autoupdate_result{result="error"} == 1
+        for: 36h      # one failed night (GitHub down) is noise; two is not
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec auto-update could not run for two nights"
+          description: "journalctl -u crowdsec-autoupdate --since -2d"
+
+      - alert: CrowdSecAutoUpdateStale
+        expr: time() - crowdsec_autoupdate_last_run_timestamp_seconds > 3 * 86400
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "CrowdSec auto-update has not run for 3 days"
+          description: >-
+            crowdsec-autoupdate.timer is disabled or failing
+            (systemctl list-timers 'crowdsec-*'). If it was paused on purpose,
+            CROWDSEC_AUTOUPDATE=off reports result=paused instead of going stale.
