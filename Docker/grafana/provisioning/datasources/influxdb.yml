@@ -13,3 +13,29 @@ datasources:
       token: ${GRAFANA_INFLUX_TOKEN}
     isDefault: false
     editable: true
+  # The two datasources below were created in the UI (2026-07) pointing at the host
+  # IP. Provisioning them here with the SAME name + uid re-points them to the
+  # container names, so the host ports 9090/8086 can be bound to 127.0.0.1
+  # (SSO-only policy, 2026-10-19) without breaking the dashboards. Grafana marks
+  # provisioned datasources read-only in the UI; edit them here instead.
+  - name: prometheus
+    uid: dfc6abdxzsem8a
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090/
+    isDefault: true
+    editable: false
+  - name: influxdb
+    uid: dfc6d7roab08we
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: myorg
+      defaultBucket: rpi
+      httpMode: POST
+    secureJsonData:
+      token: ${GRAFANA_INFLUX_TOKEN}
+    isDefault: false
+    editable: false
