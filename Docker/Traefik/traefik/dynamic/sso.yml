@@ -11,6 +11,21 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Authentik's UI is ~100 hashed JS chunks fetched in parallel on first load.
+    # Through default-rate-limit (burst 50 per client IP) dozens of them got 429,
+    # and the login page sat on an endless spinner in every fresh browser. Static
+    # assets are public, immutable files, so they skip the limiter; logins, the
+    # flow executor and the API stay rate-limited by the router above.
+    authentik-static:
+      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/static/`)"
+      entryPoints: ["websecure"]
+      priority: 50
+      service: authentik
+      middlewares:
+        - authentik-secure-headers
+      tls:
+        certResolver: cloudflare
+
   middlewares:
     authentik-secure-headers:
       headers:
