@@ -1,0 +1,26 @@
+[
+  {
+    "id": "animals3d",
+    "label": "3D animals"
+  },
+  {
+    "id": "illustrated",
+    "label": "Illustrated characters"
+  },
+  {
+    "id": "cartoon",
+    "label": "Cartoon faces"
+  },
+  {
+    "id": "pixel",
+    "label": "Pixel art"
+  },
+  {
+    "id": "robots",
+    "label": "Robots"
+  },
+  {
+    "id": "sketch",
+    "label": "Sketch people"
+  }
+]

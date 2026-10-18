@@ -2,8 +2,8 @@ import os, sys, unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 import core
 
-GALLERY = [{"id": "fox", "name": "Fox", "file": "fox.png", "color": "#fff"},
-           {"id": "owl", "name": "Owl", "file": "owl.png", "color": "#fff"}]
+GALLERY = [{"id": "fox", "name": "Fox", "file": "fox.png", "color": "#fff", "group": "g1"},
+           {"id": "owl", "name": "Owl", "file": "owl.png", "color": "#fff", "group": "g1"}]
 BASE = "https://avatars.example"
 
 def user(pk, username, avatar=None, **attrs):
@@ -25,6 +25,7 @@ class State(unittest.TestCase):
         st = core.gallery_state(GALLERY, users, BASE, "me")
         self.assertEqual({x["id"]: x["status"] for x in st}, {"fox": "mine", "owl": "taken"})
         self.assertTrue(all("username" not in x for x in st))  # never leak who
+        self.assertEqual({x["id"]: x["group"] for x in st}, {"fox": "g1", "owl": "g1"})
 
     def test_free_when_nobody_holds(self):
         st = core.gallery_state(GALLERY, [user(1, "me")], BASE, "me")

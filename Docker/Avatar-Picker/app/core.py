@@ -42,7 +42,7 @@ def gallery_state(gallery, users, base, caller):
         holder = held.get(g["id"])
         status = "free" if holder is None else ("mine" if holder == caller else "taken")
         out.append({"id": g["id"], "name": g["name"], "url": avatar_url(base, g["id"]),
-                    "color": g["color"], "status": status})
+                    "color": g["color"], "group": g.get("group"), "status": status})
     return out
 
 

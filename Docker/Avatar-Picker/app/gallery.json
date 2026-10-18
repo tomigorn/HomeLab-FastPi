@@ -3,144 +3,336 @@
     "id": "fox",
     "name": "Fox",
     "file": "fox.png",
-    "color": "#FFD8B5"
+    "color": "#FFD8B5",
+    "group": "animals3d"
   },
   {
     "id": "owl",
     "name": "Owl",
     "file": "owl.png",
-    "color": "#E3D5C3"
+    "color": "#E3D5C3",
+    "group": "animals3d"
   },
   {
     "id": "panda",
     "name": "Panda",
     "file": "panda.png",
-    "color": "#D9F2D0"
+    "color": "#D9F2D0",
+    "group": "animals3d"
   },
   {
     "id": "tiger",
     "name": "Tiger",
     "file": "tiger.png",
-    "color": "#FFE3A3"
-  },
-  {
-    "id": "lion",
-    "name": "Lion",
-    "file": "lion.png",
-    "color": "#FBE0B0"
-  },
-  {
-    "id": "koala",
-    "name": "Koala",
-    "file": "koala.png",
-    "color": "#D6E4F0"
-  },
-  {
-    "id": "rabbit",
-    "name": "Rabbit",
-    "file": "rabbit.png",
-    "color": "#F8D7E3"
+    "color": "#FFE3A3",
+    "group": "animals3d"
   },
   {
     "id": "cat",
     "name": "Cat",
     "file": "cat.png",
-    "color": "#FFE9C7"
+    "color": "#FFE9C7",
+    "group": "animals3d"
   },
   {
     "id": "dog",
     "name": "Dog",
     "file": "dog.png",
-    "color": "#E8DCCB"
+    "color": "#E8DCCB",
+    "group": "animals3d"
   },
   {
     "id": "penguin",
     "name": "Penguin",
     "file": "penguin.png",
-    "color": "#CFE8F7"
-  },
-  {
-    "id": "frog",
-    "name": "Frog",
-    "file": "frog.png",
-    "color": "#D3F0C2"
-  },
-  {
-    "id": "monkey",
-    "name": "Monkey",
-    "file": "monkey.png",
-    "color": "#EAD7C2"
+    "color": "#CFE8F7",
+    "group": "animals3d"
   },
   {
     "id": "unicorn",
     "name": "Unicorn",
     "file": "unicorn.png",
-    "color": "#EBD9FA"
+    "color": "#EBD9FA",
+    "group": "animals3d"
   },
   {
-    "id": "dragon",
-    "name": "Dragon",
-    "file": "dragon.png",
-    "color": "#CDEFD9"
+    "id": "adventurer-1",
+    "name": "Zap",
+    "file": "adventurer-1.png",
+    "color": "#F1C6C6",
+    "group": "illustrated"
   },
   {
-    "id": "octopus",
-    "name": "Octopus",
-    "file": "octopus.png",
-    "color": "#FAD3D3"
+    "id": "adventurer-2",
+    "name": "Skye",
+    "file": "adventurer-2.png",
+    "color": "#C6F1D2",
+    "group": "illustrated"
   },
   {
-    "id": "turtle",
-    "name": "Turtle",
-    "file": "turtle.png",
-    "color": "#D7F0E4"
+    "id": "adventurer-3",
+    "name": "Plum",
+    "file": "adventurer-3.png",
+    "color": "#DFC6F1",
+    "group": "illustrated"
   },
   {
-    "id": "hedgehog",
-    "name": "Hedgehog",
-    "file": "hedgehog.png",
-    "color": "#EFE2D2"
+    "id": "adventurer-4",
+    "name": "Pigtails",
+    "file": "adventurer-4.png",
+    "color": "#F1EBC6",
+    "group": "illustrated"
   },
   {
-    "id": "bear",
-    "name": "Bear",
-    "file": "bear.png",
-    "color": "#E6D3C3"
+    "id": "lorelei-1",
+    "name": "Grin",
+    "file": "lorelei-1.png",
+    "color": "#C6EAF1",
+    "group": "illustrated"
   },
   {
-    "id": "wolf",
-    "name": "Wolf",
-    "file": "wolf.png",
-    "color": "#DDE3EA"
+    "id": "lorelei-2",
+    "name": "Curly",
+    "file": "lorelei-2.png",
+    "color": "#F1C6DD",
+    "group": "illustrated"
   },
   {
-    "id": "raccoon",
-    "name": "Raccoon",
-    "file": "raccoon.png",
-    "color": "#E1E1E8"
+    "id": "lorelei-3",
+    "name": "Bun",
+    "file": "lorelei-3.png",
+    "color": "#D1F1C6",
+    "group": "illustrated"
   },
   {
-    "id": "sloth",
-    "name": "Sloth",
-    "file": "sloth.png",
-    "color": "#E9E2CF"
+    "id": "lorelei-4",
+    "name": "Beardie",
+    "file": "lorelei-4.png",
+    "color": "#C8C6F1",
+    "group": "illustrated"
   },
   {
-    "id": "otter",
-    "name": "Otter",
-    "file": "otter.png",
-    "color": "#D8E8EC"
+    "id": "avataaars-1",
+    "name": "Sunny",
+    "file": "avataaars-1.png",
+    "color": "#F1D4C6",
+    "group": "cartoon"
   },
   {
-    "id": "whale",
-    "name": "Whale",
-    "file": "whale.png",
-    "color": "#CFE3FA"
+    "id": "avataaars-2",
+    "name": "Blazer",
+    "file": "avataaars-2.png",
+    "color": "#C6F1E1",
+    "group": "cartoon"
   },
   {
-    "id": "butterfly",
-    "name": "Butterfly",
-    "file": "butterfly.png",
-    "color": "#F3DDF7"
+    "id": "avataaars-3",
+    "name": "Frosty",
+    "file": "avataaars-3.png",
+    "color": "#EDC6F1",
+    "group": "cartoon"
+  },
+  {
+    "id": "avataaars-4",
+    "name": "Cheeky",
+    "file": "avataaars-4.png",
+    "color": "#E8F1C6",
+    "group": "cartoon"
+  },
+  {
+    "id": "big-smile-1",
+    "name": "Gold",
+    "file": "big-smile-1.png",
+    "color": "#C6DBF1",
+    "group": "cartoon"
+  },
+  {
+    "id": "big-smile-2",
+    "name": "Clown",
+    "file": "big-smile-2.png",
+    "color": "#F1C6CF",
+    "group": "cartoon"
+  },
+  {
+    "id": "big-smile-3",
+    "name": "Shades",
+    "file": "big-smile-3.png",
+    "color": "#C6F1CA",
+    "group": "cartoon"
+  },
+  {
+    "id": "big-smile-4",
+    "name": "Braids",
+    "file": "big-smile-4.png",
+    "color": "#D6C6F1",
+    "group": "cartoon"
+  },
+  {
+    "id": "pixel-1",
+    "name": "Pixel Knight",
+    "file": "pixel-1.png",
+    "color": "#F1E3C6",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-2",
+    "name": "Lime",
+    "file": "pixel-2.png",
+    "color": "#C6F1EF",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-3",
+    "name": "Sprout",
+    "file": "pixel-3.png",
+    "color": "#F1C6E6",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-4",
+    "name": "Specs",
+    "file": "pixel-4.png",
+    "color": "#D9F1C6",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-5",
+    "name": "Rusty",
+    "file": "pixel-5.png",
+    "color": "#C6CDF1",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-6",
+    "name": "Flame",
+    "file": "pixel-6.png",
+    "color": "#F1CBC6",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-7",
+    "name": "Goggles",
+    "file": "pixel-7.png",
+    "color": "#C6F1D8",
+    "group": "pixel"
+  },
+  {
+    "id": "pixel-8",
+    "name": "Spike",
+    "file": "pixel-8.png",
+    "color": "#E4C6F1",
+    "group": "pixel"
+  },
+  {
+    "id": "robot-1",
+    "name": "Bolt",
+    "file": "robot-1.png",
+    "color": "#F1F1C6",
+    "group": "robots"
+  },
+  {
+    "id": "robot-2",
+    "name": "Cyclops",
+    "file": "robot-2.png",
+    "color": "#C6E4F1",
+    "group": "robots"
+  },
+  {
+    "id": "robot-3",
+    "name": "Visor",
+    "file": "robot-3.png",
+    "color": "#F1C6D8",
+    "group": "robots"
+  },
+  {
+    "id": "robot-4",
+    "name": "Rusty Bot",
+    "file": "robot-4.png",
+    "color": "#CBF1C6",
+    "group": "robots"
+  },
+  {
+    "id": "robot-5",
+    "name": "Pulse",
+    "file": "robot-5.png",
+    "color": "#CDC6F1",
+    "group": "robots"
+  },
+  {
+    "id": "robot-6",
+    "name": "Slate",
+    "file": "robot-6.png",
+    "color": "#F1DAC6",
+    "group": "robots"
+  },
+  {
+    "id": "robot-7",
+    "name": "Azure",
+    "file": "robot-7.png",
+    "color": "#C6F1E6",
+    "group": "robots"
+  },
+  {
+    "id": "robot-8",
+    "name": "Chatter",
+    "file": "robot-8.png",
+    "color": "#F1C6EF",
+    "group": "robots"
+  },
+  {
+    "id": "peep-1",
+    "name": "Sketchy",
+    "file": "peep-1.png",
+    "color": "#E2F1C6",
+    "group": "sketch"
+  },
+  {
+    "id": "peep-2",
+    "name": "Scarf",
+    "file": "peep-2.png",
+    "color": "#C6D6F1",
+    "group": "sketch"
+  },
+  {
+    "id": "peep-3",
+    "name": "Afro",
+    "file": "peep-3.png",
+    "color": "#F1C6C9",
+    "group": "sketch"
+  },
+  {
+    "id": "peep-4",
+    "name": "Redhead",
+    "file": "peep-4.png",
+    "color": "#C6F1CF",
+    "group": "sketch"
+  },
+  {
+    "id": "notion-1",
+    "name": "Quiff",
+    "file": "notion-1.png",
+    "color": "#DBC6F1",
+    "group": "sketch"
+  },
+  {
+    "id": "notion-2",
+    "name": "Spiky",
+    "file": "notion-2.png",
+    "color": "#F1E8C6",
+    "group": "sketch"
+  },
+  {
+    "id": "notion-3",
+    "name": "Cap",
+    "file": "notion-3.png",
+    "color": "#C6EDF1",
+    "group": "sketch"
+  },
+  {
+    "id": "notion-4",
+    "name": "Bob",
+    "file": "notion-4.png",
+    "color": "#F1C6E0",
+    "group": "sketch"
   }
 ]

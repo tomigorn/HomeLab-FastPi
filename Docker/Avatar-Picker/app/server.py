@@ -7,6 +7,7 @@ from authentik_api import AuthentikError, Client
 
 APP = pathlib.Path(__file__).resolve().parent
 GALLERY = json.loads((APP / "gallery.json").read_text())
+GROUPS = json.loads((APP / "groups.json").read_text())
 IDS = {g["id"] for g in GALLERY}
 INDEX = (APP / "static" / "index.html").read_bytes()
 VERSION = (APP / "VERSION").read_text().strip() if (APP / "VERSION").exists() else "dev"
@@ -95,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
             except AuthentikError as e:
                 self.log_error("authentik: %s", e)
                 return self._send(503, {"error": "Authentik unreachable"})
-            return self._send(200, {"user": caller, "version": VERSION,
+            return self._send(200, {"user": caller, "version": VERSION, "groups": GROUPS,
                                     "avatars": core.gallery_state(GALLERY, users, _cfg["base"], caller)})
         return self._send(404, "not found")
 

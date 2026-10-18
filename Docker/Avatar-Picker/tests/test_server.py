@@ -62,7 +62,10 @@ class ServerTest(unittest.TestCase):
     def test_state(self):
         self.start(FakeClient(self.users()))
         code, body = self.req("/api/state", user="me")
-        st = {a["id"]: a["status"] for a in json.loads(body)["avatars"]}
+        data = json.loads(body)
+        st = {a["id"]: a["status"] for a in data["avatars"]}
+        self.assertEqual(data["groups"][0], {"id": "animals3d", "label": "3D animals"})
+        self.assertIn("group", data["avatars"][0])
         self.assertEqual(code, 200); self.assertEqual(st["fox"], "taken"); self.assertEqual(st["owl"], "free")
 
     def test_pick_free_writes_merged(self):
