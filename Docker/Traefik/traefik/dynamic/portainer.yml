@@ -1,0 +1,32 @@
+# Portainer CE — Docker management UI, LAN + VPN only, behind Authentik SSO.
+# Project: /home/pi/Projects/Docker/Portainer
+#
+# No authentik@file forward auth here: Portainer does the SSO itself (its OAuth
+# "Custom" provider against the "portainer" OIDC provider in Authentik, provisioned
+# by Authentik/scripts/provision-admin-sso.py; Portainer users are not auto-created,
+# so only pre-created users who are also in homelab-admins get in).
+# local-networks@file keeps the hostname off the internet even though it has a
+# public certificate.
+#
+# Break-glass (Authentik down): the initial admin's internal login keeps working —
+# https://portainer.holy-grail.ch/#!/internal-auth or directly on the LAN port
+# https://192.168.1.2:9443/#!/internal-auth (self-signed cert).
+#
+# Backend is Portainer's plain-HTTP port 9000, only reachable inside traefik_proxy.
+http:
+  routers:
+    portainer:
+      rule: "Host(`portainer.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      service: portainer
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+  services:
+    portainer:
+      loadBalancer:
+        servers:
+          - url: "http://portainer:9000"
+        passHostHeader: true
