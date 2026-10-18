@@ -1,0 +1,42 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# AVATAR-PICKER ###########################################
+# #########################################################
+  avatar-picker:
+    build: .
+    image: avatar-picker:${AVATAR_PICKER_TAG:-local}
+    container_name: avatar-picker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AUTHENTIK_TOKEN_FILE: /run/secrets/authentik_token
+    volumes:
+      - ./secrets/authentik_token:/run/secrets/authentik_token:ro
+    networks:
+      - traefik_proxy
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
