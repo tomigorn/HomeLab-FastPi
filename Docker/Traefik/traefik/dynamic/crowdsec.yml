@@ -13,10 +13,24 @@ http:
       plugin:
         crowdsec-bouncer:
           enabled: true
-          # live = query the Local API per request. The alternative, stream mode,
-          # caches the whole decision list locally; live is simpler and this
-          # volume of traffic does not need the cache.
-          crowdsecMode: live
+          # stream = keep the whole decision list in memory, synced from the LAPI
+          # every updateIntervalSeconds. Chosen (2026-10-19) over `live` for
+          # FAILURE BEHAVIOUR, not speed:
+          #   live:   every uncached IP is looked up per request; if the LAPI does
+          #           not answer, the plugin returns "banned" -> 403 for ALL external
+          #           visitors (fail CLOSED; read in bouncer.go handleNoStreamCache).
+          #           A CrowdSec restart or a failed update = public edge down.
+          #           updateMaxFailure does not apply to live mode.
+          #   stream: a failed sync keeps the last known list; with
+          #           updateMaxFailure -1 ("never block", per the plugin README)
+          #           known attackers stay blocked and everyone else gets through
+          #           while CrowdSec is down (fail OPEN on stale data).
+          # Trade-off accepted: during a CrowdSec outage NEW bans are not enforced;
+          # the CrowdSecDown alert (grafana/prometheus/rules/crowdsec.yml) says so.
+          # Cost: a new ban takes up to updateIntervalSeconds to reach Traefik.
+          crowdsecMode: stream
+          updateIntervalSeconds: 60
+          updateMaxFailure: -1
           crowdsecLapiScheme: http
           crowdsecLapiHost: crowdsec:8080
           crowdsecLapiKeyFile: /secrets/crowdsec_lapi_key
