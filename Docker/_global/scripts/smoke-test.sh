@@ -39,6 +39,10 @@ check "traefik break-glass (401)"  '^401$' "$(http -H 'Host: fastpi.homelab' htt
 # Grafana does its own OIDC: /login -> /login/generic_oauth -> Authentik authorize.
 check "grafana login -> sso"       'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -L --max-redirs 1 -o /dev/null -w '%{redirect_url}' --resolve grafana.holy-grail.ch:443:192.168.1.2 https://grafana.holy-grail.ch/login)"
 check "grafana break-glass form"   '^200$' "$(http -k --resolve grafana.holy-grail.ch:443:192.168.1.2 'https://grafana.holy-grail.ch/login?disableAutoLogin=true')"
+# Portainer does its own OAuth (Custom provider -> Authentik); break-glass = internal admin login on :9443.
+check "portainer via traefik"      '^200$' "$(http -k --resolve portainer.holy-grail.ch:443:192.168.1.2 https://portainer.holy-grail.ch/)"
+check "portainer auth = oauth"     '"AuthenticationMethod":3' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public | tr -d ' ')"
+check "portainer oauth -> sso"     'sso\.holy-grail\.ch/application/o/authorize/\?.*redirect_uri=https://portainer\.holy-grail\.ch/' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public)"
 
 echo "== Monitoring"
 running prometheus alertmanager grafana influxdb telegraf node-exporter blackbox-exporter json-exporter
