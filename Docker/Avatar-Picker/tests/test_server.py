@@ -64,9 +64,9 @@ class ServerTest(unittest.TestCase):
         code, body = self.req("/api/state", user="me")
         data = json.loads(body)
         st = {a["id"]: a["status"] for a in data["avatars"]}
-        # the movies row is hidden (local pack) in a fresh clone; storybook then comes first
+        # the Disney row is hidden (local pack) in a fresh clone; storybook then comes first
         local = pathlib.Path(server.__file__).with_name("img-local") / "elsa.png"
-        self.assertEqual(data["groups"][0], {"id": "movies", "label": "Movies & animated films"}
+        self.assertEqual(data["groups"][0], {"id": "disney", "label": "Disney & Pixar"}
                          if local.exists() else {"id": "storybook", "label": "Classic storybook"})
         self.assertIn("group", data["avatars"][0])
         self.assertEqual(code, 200); self.assertEqual(st["fox"], "taken"); self.assertEqual(st["owl"], "free")

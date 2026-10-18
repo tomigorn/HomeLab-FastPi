@@ -6,23 +6,49 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 # Rows whose avatars are third-party art kept out of git ("pack": "local",
 # files in app/img-local/). A fresh clone has none of them; the tests below
 # must pass with or without the local pack present.
-LOCAL_GROUPS = {"classics", "movies", "tvcartoons", "anime", "games", "memes"}
-# Meme row: mostly animals/objects, and the colours row has no people at all,
-# so the f-m-n interleave rule does not apply to them.
-FREE_VIBE_GROUPS = {"memes", "colours"}
-# Order the user asked for (v1.4): the four pop-culture rows first, then
+LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "tvcartoons", "tvshows", "anime",
+                "pokemon", "games", "mario", "memes"}
+# Rows exempt from the f-m-n interleave: memes (mostly animals/objects), colours (no
+# people at all) and Pokemon (creatures; every entry is "neutral").
+FREE_VIBE_GROUPS = {"memes", "colours", "pokemon"}
+# Order the user asked for (v1.5): Disney & Pixar, other animated films, live-action
+# movies, cartoons, live-action TV, anime, Pokemon, video games, Super Mario, then
 # storybook, illustrated people, flat emoji, art classics, memes, cartoon & sketch,
-# then the rest, with the colours row last.
-ORDER = ["movies", "tvcartoons", "anime", "games", "storybook", "illustrated", "flatemoji",
-         "paintings", "memes", "cartoon", "ukiyoe", "belleepoque", "fairytale", "comics",
-         "swiss", "people3d", "pixel", "classics", "colours"]
-LABELS = {"movies": "Movies & animated films", "tvcartoons": "TV & cartoons", "anime": "Anime",
-          "games": "Video games", "storybook": "Classic storybook", "illustrated": "Illustrated people",
-          "flatemoji": "Flat emoji", "paintings": "Art classics", "memes": "Memes",
-          "cartoon": "Cartoon & sketch", "colours": "Colours"}
+# the rest, with the colours row last.
+ORDER = ["disney", "animated", "movies", "tvcartoons", "tvshows", "anime", "pokemon", "games",
+         "mario", "storybook", "illustrated", "flatemoji", "paintings", "memes", "cartoon",
+         "ukiyoe", "belleepoque", "fairytale", "comics", "swiss", "people3d", "pixel", "classics",
+         "colours"]
+LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "Movies",
+          "tvcartoons": "Cartoons", "tvshows": "TV series", "anime": "Anime", "pokemon": "Pokémon",
+          "games": "Video games", "mario": "Super Mario", "storybook": "Classic storybook",
+          "illustrated": "Illustrated people", "flatemoji": "Flat emoji", "paintings": "Art classics",
+          "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"movies": 27, "tvcartoons": 27, "anime": 27, "games": 27, "flatemoji": 18,
-         "paintings": 18, "memes": 18, "colours": 18}
+SIZES = {"disney": 27, "animated": 27, "movies": 27, "tvcartoons": 27, "tvshows": 27, "anime": 27,
+         "pokemon": 18, "games": 27, "mario": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
+         "colours": 18}
+# One character, one row: entries that show the same character under a different
+# name or id map to a shared key here (e.g. the meme "Big Chungus" is Bugs Bunny);
+# every other entry's key is its name without a "(...)" qualifier. No two entries
+# may share a key, so a character can never appear in two rows (or twice in one).
+CHARACTER_ALIASES = {
+    "big-chungus": "bugs bunny", "mickey-1930": "mickey mouse", "minnie-1928": "minnie mouse",
+    "pluto-1930": "pluto", "pooh-1926": "winnie-the-pooh", "piglet-1926": "piglet",
+    "betty-boop-1930": "betty boop", "oswald-1927": "oswald the lucky rabbit",
+    "felix-1925": "felix the cat", "clarabelle-1930": "clarabelle cow",
+    "powerpuff-girls": "blossom (powerpuff girls)", "meme-man": "meme man",
+    "spider-man": "spider-man (peter parker)", "miles-morales": "spider-man (miles morales)",
+    "gwen-stacy": "spider-woman (gwen stacy)", "mandalorian": "din djarin",
+    "doge": "kabosu", "cheems": "balltze", "smudge": "smudge the cat", "e-t": "e.t.",
+    "kermit": "kermit the frog", "oscar-grouch": "oscar the grouch", "count-von-count": "count von count",
+    "white-rabbit": "white rabbit (alice)", "peter-rabbit": "peter rabbit",
+}
+# Rows of generic, unnamed figures (emoji, generated people, colours): not characters.
+GENERIC_GROUPS = {"illustrated", "flatemoji", "cartoon", "people3d", "pixel", "colours"}
+# Characters that must never appear because another entry already is that character.
+FORBIDDEN_DUPLICATES = {"big chungus", "mickey", "minnie", "pluto", "winnie the pooh", "piglet",
+                        "baby yoda", "the child"}
 PACK_DIR = {None: "img", "local": "img-local"}
 
 
@@ -37,8 +63,8 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 19)
-        self.assertEqual(len(GALLERY), 11 * 9 + 4 * 27 + 4 * 18)  # 279
+        self.assertEqual(len(GROUPS), 24)
+        self.assertEqual(len(GALLERY), 11 * 9 + 7 * 27 + 6 * 18)  # 396
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -70,6 +96,28 @@ class GalleryTest(unittest.TestCase):
             self.assertEqual(a["vibe"], "neutral", a["id"])
             self.assertRegex(a["name"], r"^[A-Z][a-z]+$", a["id"])
         self.assertEqual(GROUPS[-1]["id"], "colours")
+
+    def test_one_row_per_character(self):
+        """No character appears in more than one row (or twice in a row)."""
+        def key(a):
+            if a["id"] in CHARACTER_ALIASES:
+                return CHARACTER_ALIASES[a["id"]]
+            return re.sub(r"\s*\(.*\)$", "", a["name"]).strip().lower()
+        seen = {}
+        for a in GALLERY:
+            if a["group"] in GENERIC_GROUPS:
+                continue
+            k = key(a)
+            if k in seen:
+                self.fail(f"{a['id']} ({a['group']}) duplicates {seen[k]}")
+            seen[k] = f"{a['id']} ({a['group']})"
+            self.assertNotIn(a["name"].lower(), FORBIDDEN_DUPLICATES, a["id"])
+
+    def test_pokemon_row_is_neutral(self):
+        """The Pokemon row is vibe-exempt; every entry is marked neutral."""
+        row = [a for a in GALLERY if a["group"] == "pokemon"]
+        self.assertEqual(len(row), 18)
+        self.assertTrue(all(a["vibe"] == "neutral" for a in row))
 
     def test_file_matches_id(self):
         for a in GALLERY:

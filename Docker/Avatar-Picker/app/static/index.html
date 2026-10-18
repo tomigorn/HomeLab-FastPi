@@ -2,74 +2,391 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Choose your avatar</title>
+<link rel="icon" href="data:,">
 <style>
-  :root{color-scheme:dark}
-  body{margin:0;background:#141414;color:#e5e5e5;font-family:system-ui,sans-serif}
-  main{max-width:1400px;margin:0 auto;padding:2rem 1rem;text-align:center}
-  @media(min-width:720px){main{padding:2.5rem 2.5rem}}
+  :root{color-scheme:dark;--bg:#141414;--panel:#1c1c1c;--line:#2a2a2a;--text:#e5e5e5;--muted:#999;
+    --accent:#e50914;--bar-h:0px;--stick-h:0px}
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow-x:hidden}
+  [hidden]{display:none!important}
+  :focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .wrap{max-width:1600px;margin:0 auto;padding:0 16px}
+  @media(min-width:720px){.wrap{padding:0 2.5rem}}
+
+  /* intro */
+  .intro{text-align:center;padding-top:2rem}
   h1{font-weight:500;font-size:2rem;margin:.5rem 0}
-  p.sub{color:#999;margin:0 0 2rem}
-  .row{margin:0 0 2rem;text-align:left}
+  p.sub{color:var(--muted);margin:0 0 1.5rem}
+
+  /* sticky toolbar: search, current avatar, surprise */
+  .bar{position:sticky;top:0;z-index:20;background:rgba(20,20,20,.94);border-bottom:1px solid var(--line);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;padding-top:.6rem;padding-bottom:.6rem}
+  .search{position:relative;flex:1 1 100%;min-width:0}
+  @media(min-width:720px){.search{flex:0 1 22rem}}
+  .search label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .search svg{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);width:1rem;height:1rem;
+    fill:none;stroke:#888;stroke-width:2;pointer-events:none}
+  .search input{width:100%;height:2.4rem;padding:0 .8rem 0 2.2rem;border-radius:1.2rem;border:1px solid #333;
+    background:#0e0e0e;color:var(--text);font:inherit;font-size:16px}
+  .search input:focus{border-color:#666;outline:none}
+  .search input:focus-visible{outline:2px solid #fff;outline-offset:1px}
+  .search input::placeholder{color:#777}
+  .spacer{flex:1 1 auto}
+  .pill{display:inline-flex;align-items:center;gap:.5rem;height:2.4rem;padding:0 .9rem;border-radius:1.2rem;
+    border:1px solid #333;background:var(--panel);color:var(--text);font:inherit;font-size:.9rem;white-space:nowrap}
+  button.pill{cursor:pointer}
+  button.pill:hover{background:#262626;border-color:#555}
+  .cur{min-width:0;flex:1 1 auto;padding-left:.3rem}
+  @media(min-width:720px){.cur{flex:0 1 auto}}
+  .cur img{width:1.8rem;height:1.8rem;border-radius:50%;border:2px solid var(--accent);flex:none;object-fit:cover}
+  .cur .lbl{color:var(--muted)}
+  .cur .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+  .cur.none{color:var(--muted);padding-left:.9rem}
+  .cur .go{color:var(--muted);font-size:.8rem}
+  #ui-surprise{flex:none}
+
+  /* layout: sidebar nav on desktop, chip bar on mobile */
+  .layout{padding-top:1rem}
+  nav.cats ul{list-style:none;margin:0;padding:0}
+  nav.cats a{display:flex;align-items:center;justify-content:space-between;gap:.5rem;color:#b3b3b3;
+    text-decoration:none;font-size:.9rem;white-space:nowrap}
+  nav.cats a .n{color:#666;font-size:.75rem;font-variant-numeric:tabular-nums}
+  nav.cats a:hover{color:#fff}
+  nav.cats a[aria-current="true"]{color:#fff}
+  @media(max-width:999.98px){
+    nav.cats{position:sticky;top:var(--bar-h);z-index:15;margin:-1rem -16px 0;background:rgba(20,20,20,.94);
+      border-bottom:1px solid var(--line);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+      overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+    nav.cats::-webkit-scrollbar{display:none}
+    nav.cats ul{display:flex;gap:.5rem;padding:.55rem 16px;width:max-content}
+    nav.cats a{height:2rem;padding:0 .8rem;border-radius:1rem;background:var(--panel);border:1px solid #333}
+    nav.cats a[aria-current="true"]{background:#fff;color:#141414;border-color:#fff}
+    nav.cats a[aria-current="true"] .n{color:#555}
+    #rows{padding-top:1rem}
+  }
+  @media(min-width:720px) and (max-width:999.98px){nav.cats{margin:-1rem -2.5rem 0}nav.cats ul{padding:.55rem 2.5rem}}
+  @media(min-width:1000px){
+    .layout{display:grid;grid-template-columns:15rem minmax(0,1fr);gap:2rem;align-items:start;padding-top:1.5rem}
+    nav.cats{position:sticky;top:calc(var(--bar-h) + 1.5rem);max-height:calc(100vh - var(--bar-h) - 3rem);
+      overflow-y:auto;scrollbar-width:thin;padding-right:.25rem}
+    nav.cats .hd{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:0 0 .5rem .75rem}
+    nav.cats a{padding:.45rem .75rem;border-radius:.4rem;border-left:3px solid transparent;white-space:normal;line-height:1.25}
+    nav.cats a .n{flex:none}
+    nav.cats a:hover{background:#1e1e1e}
+    nav.cats a[aria-current="true"]{background:#222;border-left-color:var(--accent);font-weight:600}
+  }
+  @media(max-width:999.98px){nav.cats .hd,nav.cats.empty{display:none}}
+  nav.cats.empty{visibility:hidden}
+
+  /* rows + avatars */
+  .row{margin:0 0 2rem;text-align:left;scroll-margin-top:calc(var(--stick-h) + .75rem)}
   .row h2{font-size:1.15rem;font-weight:600;margin:0 0 .6rem .25rem}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:1.2rem}
-  @media(min-width:720px){.grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));padding:.4rem .25rem}}
-  @media(min-width:1200px){.grid{grid-template-columns:repeat(9,1fr)}}  /* 9 per line on desktop; longer rows wrap to 2-3 lines */
-  button.av{background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit}
-  button.av img{width:100%;aspect-ratio:1;border-radius:.5rem;border:3px solid transparent;
-    transition:transform .15s,border-color .15s}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:1rem}
+  @media(min-width:720px){.grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1.2rem;padding:.4rem .25rem}}
+  button.av{background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit;border-radius:.6rem;
+    scroll-margin-top:calc(var(--stick-h) + 1rem);scroll-margin-bottom:5rem;min-width:0}
+  button.av img{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:.5rem;border:3px solid transparent;
+    background:#222;transition:transform .15s,border-color .15s}
   button.av:hover:not(:disabled) img{transform:scale(1.06);border-color:#fff}
-  button.av.mine img{border-color:#e50914}
+  button.av:focus-visible{outline:none}
+  button.av:focus-visible img{border-color:#fff;box-shadow:0 0 0 2px #141414,0 0 0 4px #fff}
+  button.av.mine img{border-color:var(--accent)}
   button.av:disabled{cursor:not-allowed}
   button.av:disabled img{filter:grayscale(1) brightness(.45)}
-  .name{display:block;margin-top:.4rem;color:#b3b3b3;font-size:.9rem}
+  .name{display:block;margin-top:.4rem;color:#b3b3b3;font-size:.9rem;overflow-wrap:anywhere}
   .mine .name{color:#fff;font-weight:600}
-  #msg{min-height:1.5rem;margin:1rem 0;color:#e87c03}
-  footer{color:#555;font-size:.75rem;margin-top:3rem}
+  button.av:disabled .name{color:#6b6b6b}
+  button.av.flash img{animation:pulse .7s ease-out 3;border-color:#ffd54a}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,213,74,.9)}100%{box-shadow:0 0 0 14px rgba(255,213,74,0)}}
+  #ui-empty{text-align:center;color:var(--muted);padding:3rem 1rem}
+  #ui-empty button{margin-top:.75rem}
+
+  /* status toast + back to top */
+  #msg{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);
+    background:#262626;border:1px solid #3a3a3a;color:#f0b35a;padding:.6rem 1rem;border-radius:.6rem;
+    box-shadow:0 6px 24px rgba(0,0,0,.5);font-size:.95rem;text-align:center}
+  #msg:empty{display:none}
+  #ui-top{position:fixed;right:16px;bottom:1.25rem;z-index:25;opacity:0;visibility:hidden;transform:translateY(8px);
+    transition:opacity .2s,transform .2s,visibility .2s;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  #ui-top.show{opacity:1;visibility:visible;transform:none}
+  @media(max-width:719.98px){#ui-top.lift{bottom:4.5rem}}
+  footer{color:#555;font-size:.75rem;margin:3rem 0 2rem;text-align:center}
+
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition:none!important;animation:none!important}
+    button.av.flash img{border-color:#ffd54a;box-shadow:0 0 0 4px rgba(255,213,74,.7)}
+  }
 </style></head>
-<body><main>
-  <h1>Choose your avatar</h1>
-  <p class="sub" id="who">Loading&hellip;</p>
-  <div id="msg" role="status"></div>
-  <div id="rows"></div>
-  <footer>Shown in Authentik, Jellyfin and Nextcloud (after your next sign-in there).
-    Art: public-domain artwork via Wikimedia Commons, Fluent Emoji (Microsoft, MIT), Noto Emoji
-    (Google, Apache 2.0) and DiceBear collections by their illustrators &mdash; see LICENSES.md.
-    <span id="ver"></span></footer>
-</main>
+<body>
+  <header class="intro wrap">
+    <h1>Choose your avatar</h1>
+    <p class="sub" id="who">Loading&hellip;</p>
+  </header>
+  <div class="bar" id="ui-bar"><div class="wrap">
+    <div class="search">
+      <label for="ui-q">Search avatars by name</label>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="ui-q" type="search" placeholder="Search avatars&hellip;" autocomplete="off" spellcheck="false">
+    </div>
+    <span class="pill cur none" id="ui-cur">No avatar yet</span>
+    <span class="spacer"></span>
+    <button type="button" class="pill" id="ui-surprise" title="Show me a random free avatar">&#x1F3B2; Surprise me</button>
+  </div></div>
+  <div class="layout wrap">
+    <nav class="cats" id="ui-nav" aria-label="Categories"><p class="hd" aria-hidden="true">Categories</p><ul id="ui-navlist"></ul></nav>
+    <main>
+      <div id="rows"></div>
+      <div id="ui-empty" hidden><span id="ui-emptytxt">No avatars match.</span><br>
+        <button type="button" class="pill" id="ui-clear">Clear search</button></div>
+      <footer>Shown in Authentik, Jellyfin and Nextcloud (after your next sign-in there).
+        Art: public-domain artwork via Wikimedia Commons, Fluent Emoji (Microsoft, MIT), Noto Emoji
+        (Google, Apache 2.0) and DiceBear collections by their illustrators &mdash; see LICENSES.md.
+        <span id="ver"></span></footer>
+    </main>
+  </div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <button type="button" class="pill" id="ui-top" aria-label="Back to top">&#x2191; Back to top</button>
 <script>
 const $ = id => document.getElementById(id);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+const desktop = matchMedia("(min-width: 1000px)");
+const behavior = () => reduced.matches ? "auto" : "smooth";
+const fold = t => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+let state = null, first = true, observer = null, activeId = null, lockId = null, lockTimer = 0, msgTimer = 0;
+const seen = new Set();  // sections currently inside the "active" band
+
+function setMsg(text, autohide) {
+  clearTimeout(msgTimer);
+  $("msg").textContent = text;
+  if (autohide) msgTimer = setTimeout(() => { $("msg").textContent = ""; }, 4000);
+}
+
 async function load() {
   const r = await fetch("api/state", {cache: "no-store"});
-  if (!r.ok) { $("msg").textContent = "Can't load right now - try again in a minute."; return; }
+  if (!r.ok) { setMsg("Can't load right now - try again in a minute."); return; }
   const s = await r.json();
+  state = s;
   $("who").textContent = "Signed in as " + s.user + ". Each avatar can only belong to one person.";
   $("ver").textContent = "v" + s.version;
-  const rows = $("rows"); rows.textContent = "";
+  render(s);
+}
+
+function render(s) {
+  const rows = $("rows"), list = $("ui-navlist");
+  rows.textContent = ""; list.textContent = "";  // rebuilt from scratch: never duplicated
   for (const grp of s.groups) {
+    const items = s.avatars.filter(x => x.group === grp.id);
+    if (!items.length) continue;
     const sec = document.createElement("section"); sec.className = "row";
-    const h = document.createElement("h2"); h.textContent = grp.label;
+    sec.id = grp.id;  // deep links: #movies, #pokemon, ...
+    sec.dataset.label = fold(grp.label);
+    const h = document.createElement("h2"); h.textContent = grp.label; h.id = "h-" + grp.id;
+    sec.setAttribute("aria-labelledby", h.id);
     const g = document.createElement("div"); g.className = "grid";
     sec.append(h, g); rows.appendChild(sec);
-    for (const a of s.avatars.filter(x => x.group === grp.id)) {
+    for (const a of items) {
     const b = document.createElement("button");
+    b.type = "button";
     b.className = "av" + (a.status === "mine" ? " mine" : "");
     b.disabled = a.status === "taken";
     b.title = a.status === "taken" ? a.name + " (taken)" : a.name;
-    b.innerHTML = '<img alt=""><span class="name"></span>';
+    b.dataset.id = a.id; b.dataset.status = a.status; b.dataset.name = fold(a.name);
+    b.innerHTML = '<img alt="" loading="lazy" decoding="async" width="512" height="512"><span class="name"></span>';
     b.querySelector("img").src = "img/" + a.id + ".png";  // same-origin (behind the login)
     b.querySelector("img").alt = a.name;
     b.querySelector(".name").textContent = a.status === "taken" ? a.name + " · taken" : a.name;
+    if (a.status === "mine") b.setAttribute("aria-current", "true");
     b.onclick = () => pick(a.id, a.name);
     g.appendChild(b);
     }
+    const li = document.createElement("li"); li.dataset.for = grp.id;
+    const link = document.createElement("a"); link.href = "#" + grp.id;
+    link.innerHTML = '<span class="t"></span><span class="n"></span>';
+    link.querySelector(".t").textContent = grp.label;
+    link.onclick = e => { e.preventDefault(); jumpTo(grp.id); };
+    li.appendChild(link); list.appendChild(li);
+  }
+  renderCurrent(s);
+  applyFilter();
+  measure();
+  observe();
+  if (first) {
+    first = false;
+    const target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (target && target.classList.contains("row")) {
+      target.scrollIntoView({block: "start"});  // instant on first load
+      setActive(target.id);
+      return;
+    }
+  }
+  setActive(activeId && document.getElementById(activeId) ? activeId : (rows.querySelector(".row:not([hidden])") || {}).id);
+}
+
+function renderCurrent(s) {
+  const mine = s.avatars.find(a => a.status === "mine");
+  const old = $("ui-cur");
+  let el;
+  if (mine) {
+    el = document.createElement("button"); el.type = "button";
+    el.className = "pill cur";
+    el.title = "Show my current avatar";
+    el.innerHTML = '<img alt="" width="64" height="64" decoding="async"><span class="lbl">Yours:</span><span class="nm"></span><span class="go" aria-hidden="true">&#x2193;</span>';
+    el.querySelector("img").src = "img/" + mine.id + ".png";
+    el.querySelector(".nm").textContent = mine.name;
+    el.setAttribute("aria-label", "Your current avatar: " + mine.name + ". Show it");
+    el.onclick = () => showMine(mine.id);
+  } else {
+    el = document.createElement("span"); el.className = "pill cur none"; el.textContent = "No avatar yet";
+  }
+  el.id = "ui-cur";
+  old.replaceWith(el);
+}
+
+/* ---- search ---- */
+function applyFilter() {
+  const q = fold($("ui-q").value);
+  let any = false;
+  for (const sec of document.querySelectorAll("#rows .row")) {
+    // a query that starts a word of the row label shows the whole row ("pokemon" finds the Pokémon row)
+    const labelHit = q.length >= 3 && (" " + sec.dataset.label).includes(" " + q);
+    let n = 0;
+    for (const b of sec.querySelectorAll("button.av")) {
+      const show = !q || labelHit || b.dataset.name.includes(q);
+      b.hidden = !show; if (show) n++;
+    }
+    sec.hidden = n === 0; any = any || n > 0;
+    const li = document.querySelector('#ui-navlist li[data-for="' + sec.id + '"]');
+    if (li) { li.hidden = n === 0; li.querySelector(".n").textContent = n; }
+  }
+  $("ui-empty").hidden = any;
+  $("ui-nav").classList.toggle("empty", !any);
+  $("ui-emptytxt").textContent = 'No avatars match "' + $("ui-q").value.trim() + '".';
+  if (activeId && $(activeId) && $(activeId).hidden) setActive((document.querySelector("#rows .row:not([hidden])") || {}).id);
+  requestAnimationFrame(onScroll);
+}
+function clearSearch() { $("ui-q").value = ""; applyFilter(); }
+$("ui-q").addEventListener("input", applyFilter);
+$("ui-q").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.preventDefault(); clearSearch(); }
+});
+$("ui-clear").onclick = () => { clearSearch(); $("ui-q").focus(); };
+
+/* ---- category navigation ---- */
+function measure() {
+  const bar = $("ui-bar").offsetHeight, nav = desktop.matches ? 0 : $("ui-nav").offsetHeight;
+  const root = document.documentElement.style;
+  root.setProperty("--bar-h", bar + "px");
+  root.setProperty("--stick-h", (bar + nav) + "px");
+  return bar + nav;
+}
+function observe() {
+  if (observer) observer.disconnect();
+  seen.clear();
+  const stick = measure();
+  observer = new IntersectionObserver(entries => {
+    for (const e of entries) e.isIntersecting ? seen.add(e.target) : seen.delete(e.target);
+    pickActive();
+  }, {rootMargin: "-" + (stick + 1) + "px 0px -55% 0px", threshold: 0});
+  document.querySelectorAll("#rows .row").forEach(sec => observer.observe(sec));
+}
+function pickActive() {
+  if (lockId) return;
+  const secs = [...document.querySelectorAll("#rows .row:not([hidden])")];
+  const atBottom = innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
+  let id = null;
+  if (atBottom && secs.length) {  // short last rows never reach the top band
+    const vis = secs.filter(s => s.getBoundingClientRect().top < innerHeight);
+    id = (vis[vis.length - 1] || {}).id;
+  } else {
+    const hit = secs.find(s => seen.has(s));
+    if (hit) id = hit.id;
+  }
+  if (id) setActive(id);
+}
+function setActive(id) {
+  if (!id) return;
+  activeId = id;
+  let cur = null;
+  for (const a of document.querySelectorAll("#ui-navlist a")) {
+    const on = a.parentElement.dataset.for === id;
+    if (on) { a.setAttribute("aria-current", "true"); cur = a; } else a.removeAttribute("aria-current");
+  }
+  if (!cur) return;
+  const nav = $("ui-nav");  // keep the active entry visible inside the bar/sidebar only (never scroll the page)
+  if (desktop.matches) {
+    const top = cur.offsetTop - nav.clientHeight / 2 + cur.offsetHeight / 2;
+    if (nav.scrollHeight > nav.clientHeight) nav.scrollTo({top, behavior: behavior()});
+  } else {
+    const li = cur.parentElement;
+    nav.scrollTo({left: li.offsetLeft - nav.clientWidth / 2 + li.offsetWidth / 2, behavior: behavior()});
   }
 }
+function jumpTo(id) {
+  const sec = $(id); if (!sec) return;
+  setActive(id);
+  lockId = id; clearTimeout(lockTimer);
+  lockTimer = setTimeout(unlock, 1200);
+  sec.scrollIntoView({behavior: behavior(), block: "start"});
+  history.replaceState(null, "", "#" + id);
+}
+function unlock() { clearTimeout(lockTimer); lockId = null; }
+addEventListener("scrollend", () => { if (lockId) { unlock(); } });
+
+/* ---- current avatar / surprise / highlight ---- */
+function flash(b) {
+  document.querySelectorAll("button.av.flash").forEach(x => x.classList.remove("flash"));
+  void b.offsetWidth;  // restart the animation
+  b.classList.add("flash");
+  setTimeout(() => b.classList.remove("flash"), 2100);
+  b.scrollIntoView({behavior: behavior(), block: "center"});
+  b.focus({preventScroll: true});
+}
+function showMine(id) {
+  let b = document.querySelector('button.av[data-id="' + CSS.escape(id) + '"]');
+  if (!b) return;
+  if (b.hidden) { clearSearch(); }
+  flash(b);
+}
+function surprise() {
+  const free = [...document.querySelectorAll('#rows .row:not([hidden]) button.av[data-status="free"]:not([hidden])')];
+  if (!free.length) { setMsg("No free avatars in view - try clearing the search.", true); return; }
+  const b = free[Math.floor(Math.random() * free.length)];
+  flash(b);  // only shows it; picking still needs a click
+  setMsg("How about " + b.querySelector("img").alt + "? Click it to make it yours.", true);
+}
+$("ui-surprise").onclick = surprise;
+
+/* ---- back to top ---- */
+let ticking = false;
+function onScroll() {
+  ticking = false;
+  $("ui-top").classList.toggle("show", scrollY > 700);
+  $("ui-top").classList.toggle("lift", $("msg").textContent !== "");
+  if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) pickActive();
+}
+addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, {passive: true});
+$("ui-top").onclick = () => {
+  unlock();
+  scrollTo({top: 0, behavior: behavior()});
+  $("ui-q").focus({preventScroll: true});
+};
+new MutationObserver(() => requestAnimationFrame(onScroll)).observe($("msg"), {childList: true});
+
+/* re-measure sticky heights when the bar wraps or the breakpoint changes */
+let resizeT = 0;
+const remeasure = () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (state) { observe(); setActive(activeId); } }, 100); };
+const ro = new ResizeObserver(remeasure);
+ro.observe($("ui-bar")); ro.observe($("ui-nav"));
+desktop.addEventListener("change", remeasure);
+
 async function pick(id, name) {
-  $("msg").textContent = "Saving " + name + "…";
+  setMsg("Saving " + name + "…");
   const r = await fetch("api/pick", {method: "POST", headers: {"Content-Type": "application/json"},
                                      body: JSON.stringify({id})});
   const j = await r.json().catch(() => ({}));
-  $("msg").textContent = r.ok ? name + " is yours." : (j.error || "Couldn't save - try again.");
+  setMsg(r.ok ? name + " is yours." : (j.error || "Couldn't save - try again."), r.ok);
   load();
 }
 load();

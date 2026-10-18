@@ -1,19 +1,39 @@
 [
   {
+    "id": "disney",
+    "label": "Disney & Pixar"
+  },
+  {
+    "id": "animated",
+    "label": "Animated films"
+  },
+  {
     "id": "movies",
-    "label": "Movies & animated films"
+    "label": "Movies"
   },
   {
     "id": "tvcartoons",
-    "label": "TV & cartoons"
+    "label": "Cartoons"
+  },
+  {
+    "id": "tvshows",
+    "label": "TV series"
   },
   {
     "id": "anime",
     "label": "Anime"
   },
   {
+    "id": "pokemon",
+    "label": "Pok\u00e9mon"
+  },
+  {
     "id": "games",
     "label": "Video games"
+  },
+  {
+    "id": "mario",
+    "label": "Super Mario"
   },
   {
     "id": "storybook",

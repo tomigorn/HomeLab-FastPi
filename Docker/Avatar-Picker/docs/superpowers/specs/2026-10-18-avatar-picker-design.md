@@ -131,3 +131,32 @@ repo (`scripts/build-gallery.py`) from the upstream PNGs; output committed under
   `build-gallery.py` (no downloads, nothing third-party).
 - Memes stay animal/drawn-character only; the memes and colours rows are exempt
   from the f/m/n interleave.
+
+## Addendum v1.5.0 (2026-10-19): live action, franchise rows, one row per character, crops, navigation
+
+- 24 rows, 396 avatars (144 committed, 252 in the local pack). New order:
+  Disney & Pixar, Animated films (other studios), Movies (live action),
+  Cartoons, TV series (live action + TV puppets), Anime, Pokémon, Video games,
+  Super Mario, then storybook, illustrated people, flat emoji, art classics,
+  memes, cartoon & sketch, the rest, colours last.
+- Group ids `movies` and `tvcartoons` are kept (now "Movies" = live action and
+  "Cartoons"); new ids `disney`, `animated`, `tvshows`, `pokemon`, `mario`.
+  Existing avatar ids keep their ids and only move rows (e.g. elsa -> disney,
+  shrek -> animated, grogu/kermit/elmo -> tvshows, the Pokémon -> pokemon, the
+  Mario characters -> mario). Dropped: `big-chungus` (the same character as Bugs
+  Bunny) - Authentik checked first, no user had it.
+- Live-action rule: well-known fictional characters played by actors are
+  allowed, only as in-character film/TV images (posters, promotional stills,
+  infobox images); no candid photos, nothing scary/gory, no weapon focus.
+  All of it is in the local pack.
+- One character, one row: `tests/test_gallery.py` normalises names (plus an
+  alias map for renamed variants such as Big Chungus = Bugs Bunny, Mickey
+  (1930) = Mickey Mouse) and fails on any duplicate.
+- Vibe exemptions: memes, colours and Pokémon (all "neutral").
+- Every local-pack crop was re-checked on large contact sheets so the face/head
+  is centred, inside the frame and readable at 96 px; group shots and busy
+  photos were replaced by single-character sources.
+- Picker page: category navigation (sticky sidebar on desktop, chip bar on
+  phones, `#<group id>` anchors), live name search, "your current avatar" chip,
+  lazy-loaded images, back-to-top and "Surprise me" (scrolls/highlights only,
+  never picks).
