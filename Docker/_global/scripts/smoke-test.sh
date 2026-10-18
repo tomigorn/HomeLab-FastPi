@@ -90,7 +90,9 @@ q=$(docker exec qbittorrent_mouse wget -qO- -T 8 https://ifconfig.me/ip 2>/dev/n
 if [[ -n $q && $q != "$HOME_IP" ]]; then ok "qbittorrent egress via VPN" "$q"; else bad "qbittorrent egress via VPN" "got: ${q:-none} (home $HOME_IP)"; fi
 check "qbittorrent on Proton ASN"  'AS209103' "$(curl -s -m 8 https://ipinfo.io/$q/org)"
 check "port-updater in sync"       'Port (OK|updated)' "$(docker logs --since 30m port_updater 2>&1 | grep -E 'Port (OK|updated)' | tail -1)"
-check "mousehole -> MAM"           '"ok"' "$(curl -s -m 5 http://192.168.1.2:5010/health)"
+check "mousehole -> MAM"           '"ok"' "$(curl -s -m 5 http://127.0.0.1:5010/health)"
+# localhost-only host ports (SSO-only, 2026-10-19): nothing answers on the LAN IP.
+for p in 5010 8085 8087; do check "port $p not on LAN"          '^000$' "$(http http://192.168.1.2:$p/)"; done
 
 echo "== wg-easy (v15)"
 check "wg-easy version"            '15\.4\.0' "$(docker inspect -f '{{.Config.Image}}' WireGuard-VPN)"

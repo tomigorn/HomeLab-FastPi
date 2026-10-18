@@ -149,13 +149,16 @@ services:
     # expose host ports here because other containers share gluetun's network namespace
     ports:
       # web UI (host_port:container_port) - use 8085:8080 (8080 already used by Traefik)
-      - "8085:8080"
+      # localhost only (2026-10-19, SSO-only): qBittorrent's password form must not be
+      # reachable over the network. Use ssh -L 8085:127.0.0.1:8085 fastpi.
+      # port_updater talks to it inside mouse_network (172.32.0.2:8080), not via this port.
+      - "127.0.0.1:8085:8080"
       # # torrent listening port (TCP/UDP)
       # # unfortunately we can't choose the port. ProtonVPN assigns a random port on each connection, so we need to expose the default torrent port and let the port updater container handle the dynamic forwarding.
       # - "43210:43210"
       # - "43210:43210/udp"
-      # mousehole port
-      - "5010:5010"
+      # mousehole port - localhost only (2026-10-19): ssh -L 5010:127.0.0.1:5010 fastpi
+      - "127.0.0.1:5010:5010"
       # gluetun control server
       # - "8000:8000"
     restart: always
@@ -231,7 +234,7 @@ services:
     environment:
       - TZ=Europe/Zurich
       # Mousehole >= 0.5 refuses to start without auth for its web UI (5010 is
-      # published on the LAN via gluetun). Password lives in .env.
+      # published on 127.0.0.1 via gluetun). Password lives in .env.
       - MOUSEHOLE_AUTH_PASSWORD=${MOUSEHOLE_AUTH_PASSWORD}
       # The UI refuses hosts not listed here ("host not allowed" + Retry).
       # 0.5 keeps its state (incl. the MAM cookie) in /var/lib/mousehole by
@@ -250,7 +253,9 @@ services:
     container_name: port_updater
     mem_limit: 64m
     ports:
-      - "${WEB_PORT:-8088}:${WEB_PORT:-8088}"
+      # localhost only (2026-10-19, SSO-only: no password login over the network).
+      # Status page: ssh -L 8087:127.0.0.1:8087 fastpi, then http://localhost:8087/
+      - "127.0.0.1:${WEB_PORT:-8088}:${WEB_PORT:-8088}"
     # Real docker.sock REMOVED (2026-09-26) - it is root on the host. This script
     # only inspects and restarts/stops a few named containers, so it uses the
     # docker CLI against socket-proxy-autoheal (containers + POST, no images, no
