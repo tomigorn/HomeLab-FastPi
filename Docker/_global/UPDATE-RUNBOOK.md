@@ -147,3 +147,24 @@ otherwise it re-tags the old image IDs and recreates (automatic rollback).
 `SERVICES="a b"` limits the pull/build to those services (keep gluetun out of it).
 It does NOT read release notes for you: majors and the stateful apps listed above
 still get the manual treatment.
+
+---
+
+## Automatically updated: CrowdSec
+
+CrowdSec is the one project that updates itself (`Docker/CrowdSec/scripts/crowdsec-autoupdate.sh`,
+daily 05:07, `crowdsec-autoupdate.timer`). It follows this runbook (backup of both volumes ->
+pull -> recreate -> verify -> rollback), with CrowdSec-specific checks (LAPI, bouncer re-pull,
+a test ban enforced by Traefik, public route) and a rollback that **also restores the volumes**.
+Patch/minor only; a new major is reported to Telegram and left for you. Hub content
+(parsers/scenarios) is upgraded the same night.
+
+- **Pause:** `CROWDSEC_AUTOUPDATE=off` in `Docker/CrowdSec/.env`, or
+  `sudo systemctl disable --now crowdsec-autoupdate.timer`.
+- **After an auto-update:** commit the bumped `Docker/CrowdSec/.env.example`.
+- **After a rollback:** the bad version sits in `/var/lib/crowdsec-autoupdate/bad_versions` and is
+  skipped until a newer release exists.
+- Safe because the Traefik bouncer fails **open** (stream mode, `updateMaxFailure: -1`): a CrowdSec
+  restart or a failed update never takes the public edge down.
+
+Details: `Docker/CrowdSec/README.md` -> "Auto-update".

@@ -22,7 +22,9 @@ check "traefik version"            '^3\.7\.15$' "$(docker exec traefik traefik v
 check "public site (home)"         '^200$' "$(http https://home.holy-grail.ch/)"
 check "scanner filter (/.env)"     '^403$' "$(http https://cloud.holy-grail.ch/.env)"
 running cloudflared crowdsec
-check "crowdsec version"           '^v1\.8\.1' "$(docker exec crowdsec cscli version 2>&1 | awk '/version:/{print $2}')"
+check "bouncer fails open"          '^stream -1$' "$(awk '/crowdsecMode:/{m=$2} /updateMaxFailure:/{f=$2} END{print m, f}' /home/pi/Projects/Docker/Traefik/traefik/dynamic/crowdsec.yml)"
+check "crowdsec exporter < 15 min"  '^yes$' "$(s=$(sed -n 's/^crowdsec_exporter_last_success_timestamp_seconds //p' /var/lib/node-exporter/textfile/crowdsec_status.prom 2>/dev/null); (( $(date +%s) - ${s:-0} < 900 )) && echo yes || echo no)"
+check "crowdsec version"           '^v1\.' "$(docker exec crowdsec cscli version 2>&1 | awk '/version:/{print $2}')"
 check "crowdsec LAPI"              'successfully' "$(docker exec crowdsec cscli lapi status 2>&1 | tail -1)"
 check "bouncer pulled < 10 min"    '^yes$' "$(docker exec crowdsec cscli bouncers list -o json 2>/dev/null | python3 -c 'import json,sys,datetime as d; n=d.datetime.now(d.timezone.utc); print("yes" if any(b.get("last_pull") and (n-d.datetime.fromisoformat(b["last_pull"].replace("Z","+00:00"))).total_seconds()<600 for b in json.load(sys.stdin)) else "no")')"
 
