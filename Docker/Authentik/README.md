@@ -445,6 +445,49 @@ To change the artwork, edit the store and run its deploy script - see
 are not automatic: Cloudflare caches the logo for four hours (hence md5-prefixed
 filenames), and `logo_data()` is `lru_cache`d (hence a restart).
 
+## Dashboard look
+
+The user dashboard ("My applications", `/if/user/#/library`) is config as code. It has
+sections, self-hosted icons, descriptions, a navy and gold theme, apps opening in a new
+tab, and the wake helpers hidden. Re-apply after adding an app or changing the look:
+
+```bash
+cd Docker/Authentik
+./scripts/fetch-app-icons.sh                                     # icons -> data/media/public/apps/
+docker compose exec -T server ak shell < scripts/dashboard-look.py
+```
+
+Both scripts are idempotent.
+
+- **`fetch-app-icons.sh`** downloads SVGs from homarr-labs/dashboard-icons (Apache-2.0)
+  at a **pinned commit**. Files are named `apps/<slug>-<md5-8>.svg`; the hash beats
+  Cloudflare's 4-hour media cache. The logos are their owners' trademarks and this repo
+  is public, so only the script and its icon list are committed. The SVGs live in the
+  gitignored `data/`. The script opens the read-only `data/media/public` only to
+  create `apps/` once.
+- **`dashboard-look.py`** sets only look fields: `group`, `meta_description`,
+  `meta_publisher`, `meta_icon`, `open_in_new_tab` and `meta_hide`, plus the brand's
+  `branding_custom_css`. Launch URLs, providers, bindings, flows and footer links are
+  untouched. It warns about missing slugs and lists apps it doesn't manage. To add an
+  app, add a line to `APPS` (and to `ICONS` in the fetch script).
+- **Hidden helpers:** `jellyfin-wake` and `nextcloud-wake` have `meta_hide=True`. That
+  only removes the tile; their providers and bindings still work.
+- **Sections** sort A to Z in authentik, so a custom CSS rule moves Media first. That
+  works in grid view only, because list view is a plain block.
+- **The custom CSS relies on undocumented internal selectors** (`[part=app-list]`,
+  `[part=card]`, `[data-group-id]`, `[part=background-wrapper]`,
+  `:host([theme=dark])`), read from the 2026.8.4 source. **Re-check the dashboard after
+  every authentik upgrade.** authentik adopts brand CSS into every component, so each
+  rule is scoped to dashboard parts. The login and recovery flows were checked
+  unchanged, and recovery-link (safe-mode) sessions get no custom CSS at all.
+- **Why the navy background is CSS, not `settings.theme.background`:** that attribute
+  is an inline style applied in light mode too, where the dark title text would sit on
+  navy. The CSS rule is scoped to dark theme; light-mode users keep the stock look plus
+  the gold hover ring.
+- **Grid or list** is a per-browser toggle (phones always get list view). Admins can't
+  set a default. In grid view the description sits behind each tile's ⋮ menu; in list
+  view it shows inline.
+
 ## Routing
 
 `sso.holy-grail.ch` is routed by Traefik's file provider
