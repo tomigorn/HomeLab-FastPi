@@ -5,15 +5,15 @@ pipeline that already exists (`security_scan.py <group>`):
 
 | Concern | Group | What answers it | Hosts | Cadence |
 |---|---|---|---|---|
-| Are any secrets public? | `secrets` | gitleaks over the published GitHub history of both repos | repos | daily 04:12 |
+| Are any secrets public? | `secrets` | gitleaks over the published GitHub history of both repos | repos | daily 04:05 |
 | Could a secret become public? | `secrets` | filename hygiene check + a pre-commit hook | fastpi | daily / every commit |
-| Is the OS patched? | `patches` | `apt list --upgradable`, security updates counted separately | fastpi, beefy | daily 04:12 |
-| Is Unraid patched? | `patches` | `plugin checkall` + `unraidcheck` (json, no Unraid notification) | tower | daily 04:12 |
-| Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:12 |
-| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake | all three | daily 04:12 |
-| Malware? | `av` | pulls the ClamAV results of the nightly 05:00 scans (`Docker/antivirus`) | all three | daily 05:40, 06:40 |
+| Is the OS patched? | `patches` | `apt list --upgradable`, security updates counted separately | fastpi, beefy | daily 04:05 |
+| Is Unraid patched? | `patches` | `plugin checkall` + `unraidcheck` (json, no Unraid notification) | tower | daily 04:05 |
+| Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:05 |
+| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake | all three | daily 04:05 |
+| Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 |
 | Are container images vulnerable? | `images` | Trivy across the images actually running | all three | weekly Sun 04:20 |
-| Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 05:00 |
+| Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
 | Everything in one message | - | `WeeklyUpdateDigest` alert (`grafana/prometheus/rules/weekly-digest.yml`) | - | Mon 05:00 local |
 
 Metrics:
@@ -84,7 +84,7 @@ rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl sta
 
 **The audit unit is not sandboxed.** It runs the tools via sudo and they must see the real system (PrivateTmp/ProtectHome would hide what chkrootkit looks at).
 
-**MalwareFound is "last run had hits"**, `max by (host) (clamav_infected_last_run) > 0` over every mode (new, all, path, hook), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. It clears with the next clean run of that mode. `for: 45m`, so the 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error.
+**MalwareFound is "last run had hits"**, `max by (host) (clamav_infected_last_run) > 0` over every mode (new, all, path, hook), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. It clears with the next clean run of that mode. `for: 45m`, so the 04:20 (beefy) or 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error.
 
 **The digest fires on Monday 05:00 local all year.** Prometheus knows only UTC; `homelab:local_utc_offset_hours` (2 from the last Sunday in March to the last Sunday in October, else 1) shifts the clock. Its own Alertmanager route `telegram-digest` sends no resolved message.
 
@@ -129,7 +129,7 @@ behind it.
   backlog figure. A newly published CRITICAL in an image that already had some
   will not stand out. `image-cves-<host>.txt` is the thing to read.
 - **No real-time intrusion detection.** rkhunter, chkrootkit and Lynis run weekly on fastpi and beefy (not tower: Unraid has no apt). Nothing watches continuously: no auditd or AIDE.
-- **beefy and tower are only read when awake.** beefy is often off at 04:12 and 05:00; its subjects then go stale (`SecurityScanStale`: 48 h daily, 7 d for tower, 14 d for weekly subjects and Cup).
+- **beefy and tower are only read when awake.** beefy is up only 03:55 to about 04:26 (maintenance wake, then its idle watcher), so everything reading beefy runs between 04:00 and 04:25. When it is missed, its subjects go stale (`SecurityScanStale`: 48 h daily, 7 d for tower, 14 d for weekly subjects and Cup).
 
 ## unattended-upgrades covers less than it looks like
 
@@ -195,10 +195,10 @@ option — an `auth.log` on disk is required.
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
 | `test_security_scan.py` | 82 tests over the pure functions (`python3 test_security_scan.py`) |
-| `security-scan.{service,timer}` | daily 04:12: secrets, patches (incl. tower Unraid), logins, cup |
-| `security-av.{service,timer}` | daily 05:40 + 06:40: av |
+| `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
+| `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
 | `security-image-scan.{service,timer}` | weekly Sun 04:20: images |
-| `security-audit.{service,timer}` | weekly Sun 05:00: audit |
+| `security-audit.{service,timer}` | weekly Sun 04:05: audit (beefy first) |
 | `install.sh` | idempotent installer |
 | `install-audit-tools.sh` | rkhunter, chkrootkit, Lynis (CISOfy repo), rkhunter baseline |
 | `../../.gitleaks.toml` | rules + triaged allowlists (repo root) |

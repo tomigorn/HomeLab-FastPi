@@ -3,8 +3,8 @@ Description=Weekly rootkit check and Lynis audit
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 
 [Timer]
-OnCalendar=Sun *-*-* 05:00:00
-RandomizedDelaySec=300
+# Sun 04:05, inside beefy's 04:00-04:25 window (beefy's own ClamAV scan runs alongside). beefy is audited first.
+OnCalendar=Sun *-*-* 04:05:00
 Persistent=true
 
 [Install]
