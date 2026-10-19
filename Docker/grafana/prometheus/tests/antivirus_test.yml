@@ -1,0 +1,103 @@
+# promtool test rules tests/antivirus_test.yml  (see Server/4-Security-Monitoring/README.md, Verify)
+rule_files:
+  - ../rules/antivirus.yml
+evaluation_interval: 1m
+tests:
+  - name: malware quotes the hit list, waits for the 05:40 pull
+    interval: 1m
+    input_series:
+      - series: 'clamav_infected_last_run{host="beefy",instance="node-exporter:9100",mode="new"}'
+        values: '1x120'
+      - series: 'clamav_infected_last_run{host="fastpi",instance="node-exporter:9100",mode="new"}'
+        values: '0x120'
+      - series: 'security_av_infected_info{host="beefy",path="/scan/dl/a.exe",signature="Win.Test.EICAR_HDB-1"}'
+        values: '1x120'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: MalwareFound
+        exp_alerts: []
+      - eval_time: 50m
+        alertname: MalwareFound
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy}
+            exp_annotations:
+              summary: "beefy: ClamAV found 1 infected file(s) in its last scan"
+              description: "Hits: /scan/dl/a.exe (Win.Test.EICAR_HDB-1); New-files scans moved them to quarantine (index.txt next to it). Full list: /var/lib/security-scan/last-infected-beefy.txt on fastpi. Clears with the next clean scan."
+
+  - name: malware without a collected hit list still fires
+    interval: 1m
+    input_series:
+      - series: 'clamav_infected_last_run{host="tower",mode="new"}'
+        values: '2x60'
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: MalwareFound
+        exp_alerts:
+          - exp_labels: {severity: warning, host: tower}
+            exp_annotations:
+              summary: "tower: ClamAV found 2 infected file(s) in its last scan"
+              description: "Hits: not collected yet; New-files scans moved them to quarantine (index.txt next to it). Full list: /var/lib/security-scan/last-infected-tower.txt on fastpi. Clears with the next clean scan."
+
+  - name: a counter reset alone does not fire
+    interval: 1m
+    input_series:
+      - series: 'clamav_infected_total{host="fastpi"}'
+        values: '1x30 0x60'
+      - series: 'clamav_infected_last_run{host="fastpi",mode="new"}'
+        values: '0x90'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: MalwareFound
+        exp_alerts: []
+
+  - name: stale scan after three days
+    interval: 1m
+    input_series:
+      - series: 'clamav_last_run_timestamp_seconds{host="beefy",mode="new"}'
+        values: '0x4500'
+      - series: 'clamav_last_run_timestamp_seconds{host="beefy",mode="all"}'
+        values: '255600x4500'
+    alert_rule_test:
+      - eval_time: 71h
+        alertname: ClamavScanStale
+        exp_alerts: []
+      - eval_time: 74h
+        alertname: ClamavScanStale
+        exp_alerts:
+          - exp_labels: {severity: info, host: beefy}
+            exp_annotations:
+              summary: "beefy: no ClamAV new-files scan for 3d 2h 0m 0s"
+              description: "The nightly clamav-scan has not finished on beefy for over 3 days (timer stopped, container down, or the host asleep at 05:00). Check: systemctl list-timers clamav-scan."
+
+  - name: scan errors need two nightly runs
+    interval: 1m
+    input_series:
+      - series: 'clamav_scan_errors{host="fastpi",mode="new"}'
+        values: '3x1700'
+    alert_rule_test:
+      - eval_time: 25h
+        alertname: ClamavScanErrors
+        exp_alerts: []
+      - eval_time: 27h
+        alertname: ClamavScanErrors
+        exp_alerts:
+          - exp_labels: {severity: info, host: fastpi}
+            exp_annotations:
+              summary: "fastpi: ClamAV reported 3 scan error(s)"
+              description: "clamscan could not read some files in two nightly runs; those files are unscanned. Details: last-new.log in the scanner's state directory."
+
+  - name: signatures older than a week
+    interval: 1m
+    input_series:
+      - series: 'clamav_signature_age_seconds{host="tower"}'
+        values: '700000x200'
+      - series: 'clamav_signature_age_seconds{host="fastpi"}'
+        values: '48895x200'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: ClamavSignaturesStale
+        exp_alerts:
+          - exp_labels: {severity: info, host: tower}
+            exp_annotations:
+              summary: "tower: ClamAV signatures are 8d 2h 26m 40s old"
+              description: "freshclam in the clamav container has not updated the database for over 7 days. Check: docker logs clamav."

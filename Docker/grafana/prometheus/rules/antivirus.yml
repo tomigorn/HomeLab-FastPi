@@ -1,0 +1,53 @@
+# ClamAV nightly scans on fastpi, beefy and tower (Docker/antivirus, scan.sh).
+# fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 05:40 and 06:40) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
+# Tests: prometheus/tests/antivirus_test.yml
+groups:
+  - name: antivirus
+    rules:
+      # Not increase(clamav_infected_total): a counter reset (the EICAR test on 2026-10-19) reads as a hit. "Last run had hits, until the next clean run" is the wanted meaning.
+      # for: 45m so the 05:40 pull has put the hit list in place before the one notification goes out.
+      - alert: MalwareFound
+        expr: max by (host) (clamav_infected_last_run) > 0
+        for: 45m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: ClamAV found {{ $value }} infected file(s) in its last scan"
+          description: >-
+            Hits: {{ with query (printf "security_av_infected_info{host='%s'}" $labels.host) }}{{ range . }}{{ .Labels.path }} ({{ .Labels.signature }}); {{ end }}{{ else }}not collected yet; {{ end }}New-files scans moved them to quarantine (index.txt next to it).
+            Full list: /var/lib/security-scan/last-infected-{{ $labels.host }}.txt on fastpi.
+            Clears with the next clean scan.
+
+      - alert: ClamavScanStale
+        expr: time() - max by (host) (clamav_last_run_timestamp_seconds{mode="new"}) > 259200
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: no ClamAV new-files scan for {{ $value | humanizeDuration }}"
+          description: >-
+            The nightly clamav-scan has not finished on {{ $labels.host }} for over 3 days (timer stopped, container down, or the host asleep at 05:00).
+            Check: systemctl list-timers clamav-scan.
+
+      # Two nightly runs in a row, so one unreadable file being written at 05:00 does not page.
+      - alert: ClamavScanErrors
+        expr: max by (host) (clamav_scan_errors{mode="new"}) > 0
+        for: 26h
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: ClamAV reported {{ $value }} scan error(s)"
+          description: >-
+            clamscan could not read some files in two nightly runs; those files are unscanned.
+            Details: last-new.log in the scanner's state directory.
+
+      - alert: ClamavSignaturesStale
+        expr: max by (host) (clamav_signature_age_seconds) > 604800
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: ClamAV signatures are {{ $value | humanizeDuration }} old"
+          description: >-
+            freshclam in the clamav container has not updated the database for over 7 days.
+            Check: docker logs clamav.
