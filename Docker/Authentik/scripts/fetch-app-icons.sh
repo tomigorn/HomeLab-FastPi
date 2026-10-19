@@ -8,8 +8,10 @@
 # The logos remain their owners' trademarks; they are used to identify the apps
 # on a private dashboard. They are NOT committed (this repo is public): only
 # this script and the icon list below are tracked. data/ is gitignored.
+# Our own icons (icons/<slug>.svg in this project, Holy Grail style) are
+# committed and installed the same way.
 #
-# Files land as data/media/public/apps/<slug>-<md5-8>.svg. The content hash in
+# All files land as data/media/public/apps/<slug>-<md5-8>.svg. The content hash in
 # the name is deliberate: sso.holy-grail.ch sits behind Cloudflare, which caches
 # media for 4 hours, so new artwork must mean a new URL. dashboard-look.py finds
 # each icon by globbing apps/<slug>-*.svg. Idempotent: re-running with the same
@@ -59,23 +61,32 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-for pair in "${ICONS[@]}"; do
-  slug=${pair%%:*}
-  name=${pair#*:}
-  curl -fsSL --retry 3 -A "$UA" -o "$tmp/$slug.svg" "$BASE/$name.svg"
+# install <slug> <file>: put the file in place under its hashed name, drop old versions.
+install_icon() {
+  local slug=$1 file=$2 hash target
   # Refuse anything that is not an SVG document.
-  if ! head -c 512 "$tmp/$slug.svg" | grep -qi '<svg\|<?xml'; then
-    echo "ERROR: $name.svg is not an SVG" >&2
+  if ! head -c 512 "$file" | grep -qi '<svg\|<?xml'; then
+    echo "ERROR: $file is not an SVG" >&2
     exit 1
   fi
-  hash=$(md5sum "$tmp/$slug.svg" | cut -c1-8)
+  hash=$(md5sum "$file" | cut -c1-8)
   target="$DEST/$slug-$hash.svg"
   if [ -f "$target" ]; then
     echo "unchanged  apps/$slug-$hash.svg"
   else
-    install -m 444 "$tmp/$slug.svg" "$target"
+    install -m 444 "$file" "$target"
     echo "new        apps/$slug-$hash.svg"
   fi
-  # Remove older versions of this slug's icon.
   find "$DEST" -maxdepth 1 -name "$slug-*.svg" ! -name "$slug-$hash.svg" -delete
+}
+
+for pair in "${ICONS[@]}"; do
+  slug=${pair%%:*}
+  name=${pair#*:}
+  curl -fsSL --retry 3 -A "$UA" -o "$tmp/$slug.svg" "$BASE/$name.svg"
+  install_icon "$slug" "$tmp/$slug.svg"
+done
+
+for file in "$HERE"/icons/*.svg; do
+  install_icon "$(basename "$file" .svg)" "$file"
 done

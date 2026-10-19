@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.35" r="0.65">
+      <stop offset="0" stop-color="#FFE7A3"/>
+      <stop offset="0.6" stop-color="#E9B949"/>
+      <stop offset="1" stop-color="#C08852"/>
+    </radialGradient>
+    <clipPath id="disc"><circle cx="32" cy="32" r="27"/></clipPath>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="#0B1628"/>
+  <circle cx="32" cy="32" r="27" fill="url(#glow)"/>
+  <g clip-path="url(#disc)" fill="#0B1628">
+    <circle cx="32" cy="25" r="9.5"/>
+    <path d="M12 60 C12 44 20 38 32 38 C44 38 52 44 52 60 Z"/>
+  </g>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#FFF3C4" stroke-width="1.5" stroke-opacity="0.8"/>
+</svg>

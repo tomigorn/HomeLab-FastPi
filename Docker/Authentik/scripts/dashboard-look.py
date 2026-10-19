@@ -20,9 +20,9 @@ ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the h
 # slug: (section, description, publisher, icon)
 #   description: a short noun phrase; an optional second line (after "\n") is the wake
 #   note for apps that wake a sleeping host, shown under the caption and in the menu.
-#   icon: None = apps/<slug>-*.svg from fetch-app-icons.sh, otherwise a literal
-#   meta_icon value (fa://, https://, /static/...).
-# Sections sort A to Z in authentik; the custom CSS below pulls Media to the top.
+#   icon: None = apps/<slug>-*.svg from fetch-app-icons.sh (downloaded, or bundled in
+#   icons/), otherwise a literal meta_icon value (fa://, https://, /static/...).
+# Sections sort A to Z in authentik; the custom CSS below orders them Media, Downloads, Account, Homelab.
 BEEFY = "\nwakes Beefy · ~55 s"
 TOWER = "\nwakes Tower · ~110 s"
 APPS = {
@@ -44,7 +44,7 @@ APPS = {
     "home-assistant":    ("Homelab", "Smart home", "Home Assistant", None),
     "cup":               ("Homelab", "Container updates", "Cup", None),
     "claude-mockups":    ("Homelab", "UI mockups", "Holy Grail", "fa://fa-palette"),
-    "avatar-picker":     ("Account", "Your profile picture", "Holy Grail", "fa://fa-user-circle"),
+    "avatar-picker":     ("Account", "Your profile picture", "Holy Grail", None),
 }
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,

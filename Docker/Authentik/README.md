@@ -482,12 +482,13 @@ Both scripts are idempotent.
   Cloudflare's 4-hour media cache. The logos are their owners' trademarks and this repo
   is public, so only the script and its icon list are committed. The SVGs live in the
   gitignored `data/`. The script opens the read-only `data/media/public` only to
-  create `apps/` once.
+  create `apps/` once. Our own icons (`icons/<slug>.svg`, Holy Grail style, e.g. the
+  avatar picker) are committed and installed by the same script.
 - **`dashboard-look.py`** sets only look fields: `group`, `meta_description`,
   `meta_publisher`, `meta_icon`, `open_in_new_tab` and `meta_hide`, plus the brand's
   `branding_custom_css`. Launch URLs, providers, bindings, flows and footer links are
   untouched. It warns about missing slugs and lists apps it doesn't manage. To add an
-  app, add a line to `APPS` (and to `ICONS` in the fetch script).
+  app, add a line to `APPS` (and to `ICONS` in the fetch script, or an SVG in `icons/`).
 - **Hidden helpers:** `jellyfin-wake` and `nextcloud-wake` have `meta_hide=True`. That
   only removes the tile; their providers and bindings still work.
 - **Sections** sort A to Z in authentik; custom CSS `order` rules make it Media,
