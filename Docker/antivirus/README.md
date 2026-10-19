@@ -16,15 +16,16 @@ Install / reinstall the units: `Docker/antivirus/install.sh`.
 
 | Command on fastpi | Scans | Infected files |
 |---|---|---|
-| `docker exec clamav /scan.sh new` | files under `/scan/seagate-red` and `/scan/seagate-black` changed since the last good run (first run: last 24 h) | moved to quarantine |
+| `docker exec clamav /scan.sh new` | files under `/scan/seagate-red` and `/scan/seagate-black` changed since the last good run | moved to quarantine |
 | `docker exec clamav /scan.sh all` | both disks and the host root (`/host`, read-only, one filesystem); takes hours | report only |
 | `docker exec clamav /scan.sh /scan/seagate-red/qbittorrent/downloads/<folder>` | the given files/folders | moved when under `/scan/...`, report only for `/host/...` |
 
 - Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`, `/etc/x` = `/host/etc/x`.
+- "Changed" = ctime or mtime newer than the marker, so unpacked archives with old mtimes count. First run (no marker): the last 24 h.
 - Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, `*.part`, `*.!qB`.
 - Exit codes: `0` clean, `1` infected, `2` errors. On errors `new` keeps its marker, so the next run retries the same files.
 - The quarantine folder must exist: when seagate-red is not mounted every run fails with exit 2 instead of scanning an empty mountpoint.
-- ClamAV cannot scan files over 2 GiB; they are skipped (the `Max file-size` warning in each run).
+- Files over 2 GiB (most films) are size-skipped by ClamAV itself (`--max-filesize=2047M`, its real limit); counted in `clamav_files_skipped_large`.
 - Logs: `journalctl -u clamav-scan`, last output per mode in `/var/lib/clamav-scan/last-<mode>.log`.
 
 ## Results
@@ -44,7 +45,7 @@ grep '<file name>' /mnt/seagate-red/antivirus-quarantine/index.txt     # origina
 sudo mv /mnt/seagate-red/antivirus-quarantine/<file> /mnt/seagate-red/<original path>
 ```
 
-The next `new` run does not pick it up again (a move keeps the mtime). A file that changes later is scanned again.
+The move changes the ctime, so the next `new` run scans it again and quarantines it again. Keep it out of the scan roots until the signature is fixed, or accept that.
 
 ## Second opinion: VirusTotal
 
@@ -67,6 +68,7 @@ Unknown files are uploaded to VirusTotal: not for private files.
 | `clamav_files_scanned` | host, mode |
 | `clamav_scan_errors` | host, mode |
 | `clamav_infected_last_run` | host, mode |
+| `clamav_files_skipped_large` (over 2047M, not scanned) | host, mode |
 | `clamav_infected_total` (counter, persisted) | host |
 | `clamav_signature_age_seconds` (from the daily DB build time) | host |
 | `clamav_db_version` | host |
