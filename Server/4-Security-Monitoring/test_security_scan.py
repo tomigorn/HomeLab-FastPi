@@ -17,6 +17,7 @@ from security_scan import (  # noqa: E402
     NoData,
     classify_secret_file,
     collect_av,
+    count_failed_logins,
     filter_exposition,
     parse_infected_list,
     count_fixable,
@@ -419,6 +420,58 @@ def test_guarded_no_data_is_neither_error_nor_unreachable():
     assert 'security_scan_errors{subject="av-tower"} 0' in status
     assert 'security_scan_host_unreachable{subject="av-tower"} 0' in status
     assert not (d / "textfile" / "security_av_tower.prom").exists()
+
+
+# --- failed logins -----------------------------------------------------------
+
+import calendar  # noqa: E402
+
+NOW = calendar.timegm((2026, 10, 19, 20, 0, 0))   # 22:00 CEST
+
+AUTH_LOG = """2026-10-19T21:47:53.452034+02:00 beefy sshd-session[1]: Invalid user admin from 203.0.113.9 port 4000
+2026-10-19T21:47:55.000000+02:00 beefy sshd-session[1]: Failed password for invalid user admin from 203.0.113.9 port 4000 ssh2
+2026-10-19T21:48:00.000000+02:00 beefy sshd-session[2]: pam_unix(sshd:auth): authentication failure; logname= uid=0 rhost=203.0.113.9
+2026-10-19T21:49:00.000000+02:00 beefy sshd-session[3]: Accepted publickey for buntu from 192.168.1.2 port 1 ssh2
+2026-10-19T21:50:00.000000+02:00 beefy sudo: pam_unix(sudo:auth): authentication failure; logname=buntu
+2026-10-17T21:47:53.000000+02:00 beefy sshd-session[9]: Failed password for root from 203.0.113.9 port 4000 ssh2
+"""
+
+
+def test_failed_logins_counts_the_three_patterns_in_window():
+    assert count_failed_logins(AUTH_LOG, NOW) == 3
+
+
+def test_failed_logins_ignores_accepted_and_non_sshd_lines():
+    assert count_failed_logins(AUTH_LOG.splitlines()[3] + "\n" + AUTH_LOG.splitlines()[4], NOW) == 0
+
+
+def test_failed_logins_ignores_lines_older_than_24h():
+    assert count_failed_logins(AUTH_LOG.splitlines()[5], NOW) == 0
+
+
+def test_failed_logins_reads_journal_short_iso():
+    line = "2026-10-19T21:00:01+0200 fastpi sshd[77]: Failed password for pi from 192.168.1.50 port 2 ssh2"
+    assert count_failed_logins(line, NOW) == 1
+
+
+def test_failed_logins_reads_classic_syslog_in_local_time():
+    import time as _t
+    stamp = _t.strftime("%b %d %H:%M:%S", _t.localtime(NOW - 3600))
+    old = _t.strftime("%b %d %H:%M:%S", _t.localtime(NOW - 2 * 86400))
+    text = (f"{stamp} Tower sshd-session[5]: Invalid user test from 192.168.1.60 port 3\n"
+            f"{old} Tower sshd-session[5]: Invalid user test from 192.168.1.60 port 3\n")
+    assert count_failed_logins(text, NOW) == 1
+
+
+def test_failed_logins_syslog_year_rollover():
+    # On 1 January a "Dec 31" line belongs to last year, not to a date eleven months ahead.
+    import time as _t
+    new_year = _t.mktime((2027, 1, 1, 0, 30, 0, 0, 0, -1))
+    assert count_failed_logins("Dec 31 23:50:00 Tower sshd[1]: Invalid user x from 1.2.3.4", new_year) == 1
+
+
+def test_failed_logins_skips_unparseable_lines():
+    assert count_failed_logins("-- No entries --\nsshd Failed password garbage\n", NOW) == 0
 
 
 if __name__ == "__main__":

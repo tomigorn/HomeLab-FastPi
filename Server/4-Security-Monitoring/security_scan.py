@@ -281,6 +281,50 @@ def parse_infected_list(text: str) -> list[tuple[str, str]]:
     return hits
 
 
+_FAILED_LOGIN_RE = re.compile(r"Failed password|Invalid user|authentication failure")
+_ISO_TS_RE = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.\d+)?(Z|[+-]\d\d:?\d\d)\s")
+_SYSLOG_TS_RE = re.compile(r"^([A-Z][a-z]{2}) +(\d{1,2}) (\d\d):(\d\d):(\d\d)\s")
+_MONTHS = {m: i for i, m in enumerate(
+    ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), 1)}
+
+
+def _log_timestamp(line: str, now: float) -> float | None:
+    """Unix time of an ISO-8601 (rsyslog, journalctl -o short-iso) or classic syslog line."""
+    from datetime import datetime
+    m = _ISO_TS_RE.match(line)
+    if m:
+        off = m[2]
+        if off == "Z":
+            off = "+00:00"
+        elif ":" not in off:
+            off = off[:3] + ":" + off[3:]
+        return datetime.fromisoformat(m[1] + off).timestamp()
+    m = _SYSLOG_TS_RE.match(line)
+    if m and m[1] in _MONTHS:
+        year = time.localtime(now).tm_year
+        fields = (_MONTHS[m[1]], int(m[2]), int(m[3]), int(m[4]), int(m[5]))
+        ts = time.mktime((year, *fields, 0, 0, -1))
+        if ts > now + 86400:   # classic syslog has no year: "Dec 31" read on 1 January
+            ts = time.mktime((year - 1, *fields, 0, 0, -1))
+        return ts
+    return None
+
+
+def count_failed_logins(text: str, now: float, window: int = 86400) -> int:
+    """sshd lines saying Failed password / Invalid user / authentication failure within the window.
+
+    One bad attempt usually logs two of these lines; the count is lines, which is what the threshold is set against.
+    """
+    n = 0
+    for line in text.splitlines():
+        if "sshd" not in line or not _FAILED_LOGIN_RE.search(line):
+            continue
+        ts = _log_timestamp(line, now)
+        if ts is not None and now - window <= ts <= now + 300:
+            n += 1
+    return n
+
+
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
@@ -629,6 +673,24 @@ def fetch_file(host: str, path: str) -> str | None:
     return r.stdout
 
 
+AUTH_LOGS = {"beefy": "/var/log/auth.log", "tower": "/var/log/syslog"}
+
+
+def collect_failed_logins(host: str) -> int:
+    if host == "fastpi":
+        r = run(["journalctl", "_COMM=sshd", "_COMM=sshd-session", "--since", "-24h",
+                 "-o", "short-iso", "--no-pager", "-q"], timeout=120)
+    else:
+        log = AUTH_LOGS[host]
+        # The rotated file too: the 24 h window crosses the weekly rotation once a week.
+        r = ssh(host, f"for f in {log}.1 {log}; do [ -r $f ] && grep -hE "
+                      f"'sshd.*(Failed password|Invalid user|authentication failure)' $f; done; [ -r {log} ]",
+                timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"auth log on {host}: rc={r.returncode} {r.stderr.strip()[:200]}")
+    return count_failed_logins(r.stdout, time.time())
+
+
 HELPS = {
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
@@ -641,6 +703,7 @@ HELPS = {
     "security_image_vulnerabilities_fixable": "Subset of the above that an image update could actually fix (Trivy reports a FixedVersion).",
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
+    "security_failed_logins_total": "Failed SSH logins in the last 24 h (log lines: Failed password, Invalid user, authentication failure).",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
 }
 
@@ -720,6 +783,12 @@ def main() -> int:
                     ("security_pending_updates", {"host": host, "type": "security"}, c["security"]),
                 ]
             guarded(f"patches-{host}", _pat, host=host)
+
+    if want("logins"):
+        for host in ("fastpi", "beefy", "tower"):
+            def _logins(host=host):
+                return [("security_failed_logins_total", {"host": host}, collect_failed_logins(host))]
+            guarded(f"logins-{host}", _logins, host=host)
 
     if want("av"):
         for host in AV_PATHS:

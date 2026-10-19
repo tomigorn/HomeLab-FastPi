@@ -1,5 +1,5 @@
 [Unit]
-Description=Security posture scan (secrets, secret-file hygiene, pending OS updates)
+Description=Security posture scan (secrets, secret-file hygiene, pending OS updates, failed logins)
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 After=network-online.target docker.service
 Wants=network-online.target
@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=oneshot
 User=pi
 Group=pi
-ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches logins
 # Bounded. The secrets+patches pass measures ~5s; ten minutes covers a slow
 # GitHub fetch and beefy's SSH timeout without ever overlapping the next firing.
 # TimeoutStartSec, not RuntimeMaxSec: RuntimeMaxSec is silently ignored for
