@@ -122,6 +122,7 @@ CUSTOM_CSS = """\
   transform: none;
   width: auto; min-width: 0; max-width: none;
   margin: 0; padding: 0 .4rem;
+  overflow: hidden;
   background: transparent; box-shadow: none; filter: none; border: none;
   pointer-events: none;
   text-align: center;
@@ -130,21 +131,31 @@ CUSTOM_CSS = """\
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action"] {
   padding: 0; background: transparent; text-align: center;
 }
-/* Caption: title font, first line = description, second line = wake note (smaller, italic).
-   A fixed height keeps the description line level on tiles with and without a note. */
+/* Caption: title font, line 1 = description, line 2 = wake note (dimmer). The template
+   wraps the text in newlines, so pre-line renders a blank first line (CSS 2.1 10.8: a line
+   ending in a preserved newline keeps its height); a margin of exactly -1lh pulls it out
+   of the fixed-height caption (calc = fallback for browsers without lh). That blank line
+   takes ::first-line, so the note is dimmed with a gradient clipped to the text instead:
+   the split sits on the boundary between line 2 and 3 of the box. */
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action-description"],
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action-description"] {
-  display: block; overflow: hidden;
-  margin: 0;
+  --hg-caption-line: calc(1.4 * .74rem);
+  --hg-caption-line: 1lh;
+  display: block;
+  margin: calc(-1 * var(--hg-caption-line)) 0 0;
   font-family: var(--pf-global--FontFamily--heading--sans-serif);
-  font-size: .68rem; line-height: 1.35; font-style: italic; font-weight: 400;
-  color: var(--hg-caption-note-color, var(--pf-global--Color--200));
+  font-size: .74rem; line-height: 1.4; font-weight: 500;
+  color: var(--hg-caption-color, var(--pf-global--Color--100));
   text-wrap: pretty;
 }
-[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action-description"]::first-line,
-[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action-description"]::first-line {
-  font-size: .78rem; font-style: normal; font-weight: 500;
-  color: var(--hg-caption-color, var(--pf-global--Color--100));
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action-description"],
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action-description"] {
+  background: linear-gradient(var(--hg-caption-color, var(--pf-global--Color--100)) 0 calc(2 * var(--hg-caption-line)),
+                              var(--hg-caption-note-color, var(--pf-global--Color--200)) calc(2 * var(--hg-caption-line)) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
 }
 [part="app-list"]:not([data-view-mode="list"]) [part="card-wrapper"] {
   --hg-caption-color: var(--pf-global--Color--200);

@@ -499,12 +499,17 @@ Both scripts are idempotent.
   per-browser toggle with no server default). The custom CSS renders that menu's closed
   state in-flow as a caption in the title's font: line 1 the description (a 2-3 word
   noun phrase), line 2 the wake note (`wakes Beefy · ~55 s`, `wakes Tower · ~110 s`),
-  smaller and italic, styled via `::first-line`. The note is a `\n` in
-  `meta_description`, shown as a line break with `white-space: pre-line` (also in the
-  open menu). The caption area has a fixed height, so tiles with and without a note
-  align. Opening `⋮` still shows publisher, description and the admin's "Edit
-  application" link. Verified on an offline copy of the 2026.8.4 tile DOM and
-  stylesheets; check on the live page too.
+  dimmer. The note is a `\n` in `meta_description`, shown as a line break with
+  `white-space: pre-line` (also in the open menu). The template wraps the text in
+  newlines, so pre-line renders a blank first line; the caption hides it with a one-line
+  negative margin (`-1lh`, calc fallback) like the list view. That blank line takes
+  `::first-line`, so the note is dimmed with a gradient clipped to the text
+  (`background-clip: text`) instead, not smaller or italic. The caption area has a fixed
+  height with `overflow: hidden` (the popover's UA default is `auto`), so tiles with and
+  without a note align and never scroll. Opening `⋮` still shows publisher, description
+  and the admin's "Edit application" link. Verified on an offline copy of the 2026.8.4
+  tile DOM (with the template's whitespace text nodes) and stylesheets; check on the
+  live page too.
 - **List view rows** (phones, < 768 px): authentik renders one string, description `·`
   publisher. The CSS keeps the `\n` as a line break (description, then the wake note
   with the publisher last) and hides the blank first line the template whitespace
