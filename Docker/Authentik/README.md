@@ -492,9 +492,15 @@ Both scripts are idempotent.
   only removes the tile; their providers and bindings still work.
 - **Sections** sort A to Z in authentik, so a custom CSS rule moves Media first. That
   works in grid view only, because list view is a plain block.
+- **Descriptions under the tile name** (grid view, >= 768 px): authentik 2026.8 shows
+  `meta_description` only in the tile's `⋮` menu (and inline in list view, which is a
+  per-browser toggle with no server default). The custom CSS renders that menu's closed
+  state in-flow as a caption; opening `⋮` still shows publisher, description and the
+  admin's "Edit application" link. Phones keep the stock compact tile. Verified on an
+  offline copy of the 2026.8.4 tile DOM and stylesheets; check on the live page too.
 - **The custom CSS relies on undocumented internal selectors** (`[part=app-list]`,
-  `[part=card]`, `[data-group-id]`, `[part=background-wrapper]`,
-  `:host([theme=dark])`), read from the 2026.8.4 source. **Re-check the dashboard after
+  `[part=card]`, `[part=card-header-actions-menu]`, `[data-group-id]`,
+  `[part=background-wrapper]`, `:host([theme=dark])`), read from the 2026.8.4 source. **Re-check the dashboard after
   every authentik upgrade.** authentik adopts brand CSS into every component, so each
   rule is scoped to dashboard parts. The login and recovery flows were checked
   unchanged, and recovery-link (safe-mode) sessions get no custom CSS at all.

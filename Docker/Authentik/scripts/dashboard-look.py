@@ -78,6 +78,61 @@ CUSTOM_CSS = """\
 /* Gold section titles */
 :host([theme="dark"]) [part="app-group-header"] h2 { color: #ffe7a3; }
 
+/* Description under the tile name (grid view, desktop widths). authentik 2026.8 renders
+   meta_description only inside the tile's "⋮" popover menu; this shows that menu's CLOSED
+   state in-flow as a caption and leaves the open menu (publisher, Edit for admins) alone.
+   Phones keep the stock compact tile. Selectors from the 2026.8.4 LibraryApplication source. */
+@media (min-width: 768px) {
+[part="app-list"]:not([data-view-mode="list"]) [part="card-wrapper"] { --hg-caption-height: 2.1rem; }
+[part="app-list"]:not([data-view-mode="list"]) .card-header-aspect-wrapper {
+  inset-block-end: var(--hg-caption-height);
+  height: auto;
+}
+[part="app-list"]:not([data-view-mode="list"]) [part="card"] ak-app-icon { --icon-height: 44%; }
+[part="app-list"]:not([data-view-mode="list"]) [part="card"] ak-app-icon::part(icon) {
+  inset-block-start: .5rem;
+  inset-block-end: calc(var(--hg-caption-height) + 1.2rem);
+}
+[part="app-list"]:not([data-view-mode="list"]) [part="card-title"] { align-items: flex-end; }
+[part="app-list"]:not([data-view-mode="list"]) [part="card-header-actions"] {
+  inset: 0;
+  pointer-events: none;
+}
+[part="app-list"]:not([data-view-mode="list"]) [part="card-header-actions-button"] {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  pointer-events: auto;
+}
+[part="app-list"]:not([data-view-mode="list"]) [part="card-header-actions-menu"] { pointer-events: auto; }
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open),
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] {
+  display: block;
+  position: absolute;
+  inset: auto 0 0 0;
+  transform: none;
+  width: auto; min-width: 0; max-width: none;
+  margin: 0; padding: 0 .5rem .4rem;
+  background: transparent; box-shadow: none; filter: none; border: none;
+  pointer-events: none;
+  font-size: .72rem; line-height: 1.2; text-align: center;
+  color: var(--pf-global--Color--200);
+}
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action"],
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action"] {
+  padding: 0; background: transparent; white-space: normal; text-align: center; color: inherit; font-size: inherit; line-height: inherit;
+}
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action-description"],
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action-description"] {
+  margin: 0; font-size: inherit; line-height: inherit;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) :is([part="card-header-action-publisher"], ak-divider, li:has(> a)),
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] :is([part="card-header-action-publisher"], ak-divider, li:has(> a)) {
+  display: none;
+}
+}
+
 /* Section order (sections otherwise sort A-Z; grid view only):
    Media first, Homelab (infrastructure admin tools) last. */
 [part="app-list"] [data-group-id="media"] { order: -1; }
