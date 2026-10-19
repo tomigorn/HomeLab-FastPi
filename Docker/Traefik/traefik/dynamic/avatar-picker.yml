@@ -2,20 +2,43 @@
 #   - avatars.holy-grail.ch: Authentik forward auth (every Authentik user), plus a
 #     shared-secret header (avatar-picker-secret@file, gitignored) so the container
 #     only trusts requests that came through this router.
-#   - sso.holy-grail.ch/avatar-img/*: the avatar image URLs stored in Authentik.
-#     local-networks@file only (LAN + VPN). Jellyfin (beefy) and Nextcloud (tower)
-#     fetch them from the LAN; they must live on the IdP host because Jellyfin's
-#     OIDC plugin only accepts private addresses for the issuer host.
+#   - sso.holy-grail.ch/avatar-img/*: the avatar image URLs stored in Authentik. Two
+#     routers for the same path:
+#       avatar-img-local (priority 100): LAN + VPN, no login. Jellyfin (beefy) and
+#         Nextcloud (tower) fetch the images server-side from the LAN; they must live
+#         on the IdP host because Jellyfin's OIDC plugin only accepts private
+#         addresses for the issuer host. The ClientIP() part of the rule mirrors
+#         local-networks@file: Traefik never falls through to the next router once a
+#         rule matched, so the client IP has to be part of the match itself.
+#       avatar-img-session (priority 90): everyone else, gated by the Authentik login
+#         session. forwardAuth asks Authentik's own API (/api/v3/core/users/me/) with
+#         the request's cookies; 200 = logged in, 403 = not. The browser sends the
+#         authentik_session cookie because the images are on the sso host, so a
+#         logged-in user sees their avatar from anywhere (phone on mobile data).
+#         Cache-Control: private on this router, because Cloudflare caches .png by
+#         default and would otherwise hand a logged-in user's fetch to anyone.
 http:
   routers:
     avatar-img-local:
-      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`)"
+      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`) && (ClientIP(`127.0.0.1/32`) || ClientIP(`::1/128`) || ClientIP(`192.168.1.0/24`) || ClientIP(`172.24.0.5/32`))"
       entryPoints: ["websecure"]
       priority: 100
       service: avatar-picker
       middlewares:
         - local-networks@file
         - avatar-img-strip
+      tls:
+        certResolver: cloudflare
+    avatar-img-session:
+      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`)"
+      entryPoints: ["websecure"]
+      priority: 90
+      service: avatar-picker
+      middlewares:
+        - avatar-img-session
+        - avatar-img-private
+        - avatar-img-strip
+        - default-rate-limit@file
       tls:
         certResolver: cloudflare
     avatar-picker-outpost:
@@ -37,6 +60,16 @@ http:
       tls:
         certResolver: cloudflare
   middlewares:
+    avatar-img-session:
+      forwardAuth:
+        address: "http://authentik-server:9000/api/v3/core/users/me/"
+        trustForwardHeader: false
+        authResponseHeaders: []
+        maxResponseBodySize: 4096
+    avatar-img-private:
+      headers:
+        customResponseHeaders:
+          Cache-Control: "private, max-age=300"
     avatar-img-strip:
       stripPrefix:
         prefixes:
