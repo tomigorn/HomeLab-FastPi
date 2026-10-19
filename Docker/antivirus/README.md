@@ -1,0 +1,91 @@
+# Antivirus
+
+ClamAV scans on fastpi, plus a VirusTotal helper for a second opinion. `clamav/scan.sh` is the one source of truth, copied verbatim to beefy and tower.
+
+## What runs when
+
+| What | When | How |
+|---|---|---|
+| `freshclam` (signature updates) | always, 24 checks a day | container `clamav` (entrypoint), healthcheck `pgrep freshclam` |
+| `scan.sh new` | 05:00 daily, catches up after downtime | `clamav-scan.timer` → `clamav-scan.service` → `docker exec clamav /scan.sh new` |
+| `scan.sh all`, `scan.sh <path>…` | by hand | see below |
+
+Install / reinstall the units: `Docker/antivirus/install.sh`.
+
+## Modes
+
+| Command on fastpi | Scans | Infected files |
+|---|---|---|
+| `docker exec clamav /scan.sh new` | files under `/scan/seagate-red` and `/scan/seagate-black` changed since the last good run (first run: last 24 h) | moved to quarantine |
+| `docker exec clamav /scan.sh all` | both disks and the host root (`/host`, read-only, one filesystem); takes hours | report only |
+| `docker exec clamav /scan.sh /scan/seagate-red/qbittorrent/downloads/<folder>` | the given files/folders | moved when under `/scan/...`, report only for `/host/...` |
+
+- Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`, `/etc/x` = `/host/etc/x`.
+- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, `*.part`, `*.!qB`.
+- Exit codes: `0` clean, `1` infected, `2` errors. On errors `new` keeps its marker, so the next run retries the same files.
+- The quarantine folder must exist: when seagate-red is not mounted every run fails with exit 2 instead of scanning an empty mountpoint.
+- ClamAV cannot scan files over 2 GiB; they are skipped (the `Max file-size` warning in each run).
+- Logs: `journalctl -u clamav-scan`, last output per mode in `/var/lib/clamav-scan/last-<mode>.log`.
+
+## Results
+
+| Where (host) | What |
+|---|---|
+| `/mnt/seagate-red/antivirus-quarantine/` | quarantined files |
+| `/mnt/seagate-red/antivirus-quarantine/index.txt` | one line per quarantined file: date (UTC) TAB original path TAB signature |
+| `/var/lib/clamav-scan/last-infected.txt` | hits of the last run that found something: path TAB signature |
+| `/var/lib/clamav-scan/` | state: `last-run` marker, `infected-total`, `new.list` |
+| `/var/lib/node-exporter/textfile/clamav.prom` | metrics for Prometheus |
+
+## False positive
+
+```sh
+grep '<file name>' /mnt/seagate-red/antivirus-quarantine/index.txt     # original path, /scan/seagate-red = /mnt/seagate-red
+sudo mv /mnt/seagate-red/antivirus-quarantine/<file> /mnt/seagate-red/<original path>
+```
+
+The next `new` run does not pick it up again (a move keeps the mtime). A file that changes later is scanned again.
+
+## Second opinion: VirusTotal
+
+The `virustotal` container sees the download folders (`/scan/sabnzbd`, `/scan/qbittorrent`), not the quarantine.
+
+```sh
+docker exec virustotal python /scan.py /scan/qbittorrent/<file>
+docker cp /mnt/seagate-red/antivirus-quarantine/<file> virustotal:/tmp/ && docker exec virustotal python /scan.py /tmp/<file>
+```
+
+Unknown files are uploaded to VirusTotal: not for private files.
+
+## Metrics (`clamav.prom`)
+
+| Metric | Labels |
+|---|---|
+| `clamav_last_run_timestamp_seconds` | host, mode |
+| `clamav_run_duration_seconds` | host, mode |
+| `clamav_files_listed` | host, mode |
+| `clamav_files_scanned` | host, mode |
+| `clamav_scan_errors` | host, mode |
+| `clamav_infected_last_run` | host, mode |
+| `clamav_infected_total` (counter, persisted) | host |
+| `clamav_signature_age_seconds` (from the daily DB build time) | host |
+| `clamav_db_version` | host |
+
+`mode` is `new`, `all` or `path`; each mode keeps its last values.
+
+## Settings (env in `docker-compose.yaml`)
+
+`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `SCAN_HOST=0` (`all` without `/host`), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
+
+## Tests
+
+```sh
+Docker/antivirus/tests/test_scan.sh
+docker run --rm --entrypoint sh -v "$PWD/Docker/antivirus:/src:ro" clamav-local:latest /src/tests/test_scan.sh   # busybox
+```
+
+Changing `scan.sh` needs a rebuild: `docker compose up -d --build clamav`.
+
+## Retired: download watcher
+
+Until 2026-10-19 the container ran an inotify watcher on `sabnzbd/.../complete` and `qbittorrent/complete`. Replaced by the nightly `new` scan, which also covers both disks; `inotify-tools` is gone from the image.
