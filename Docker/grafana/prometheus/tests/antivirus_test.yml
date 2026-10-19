@@ -67,7 +67,7 @@ tests:
           - exp_labels: {severity: info, host: beefy}
             exp_annotations:
               summary: "beefy: no ClamAV new-files scan for 3d 2h 0m 0s"
-              description: "The nightly clamav-scan has not finished on beefy for over 3 days (timer stopped, container down, or the host asleep at 05:00). Check: systemctl list-timers clamav-scan."
+              description: "The nightly clamav-scan has not finished on beefy for over 3 days (timer stopped, container down, or the host asleep at its scan time). Check: systemctl list-timers clamav-scan."
 
   - name: scan errors need two nightly runs
     interval: 1m

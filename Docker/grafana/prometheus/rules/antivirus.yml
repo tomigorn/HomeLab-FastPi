@@ -1,11 +1,11 @@
 # ClamAV nightly scans on fastpi, beefy and tower (Docker/antivirus, scan.sh).
-# fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 05:40 and 06:40) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
+# fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 04:20 for beefy, 05:40 and 06:40) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
 # Tests: prometheus/tests/antivirus_test.yml
 groups:
   - name: antivirus
     rules:
       # Not increase(clamav_infected_total): a counter reset (the EICAR test on 2026-10-19) reads as a hit. "Last run had hits, until the next clean run" is the wanted meaning.
-      # for: 45m so the 05:40 pull has put the hit list in place before the one notification goes out.
+      # for: 45m so the 04:20 (beefy) or 05:40 pull has put the hit list in place before the one notification goes out.
       - alert: MalwareFound
         expr: max by (host) (clamav_infected_last_run) > 0
         for: 45m
@@ -26,7 +26,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: no ClamAV new-files scan for {{ $value | humanizeDuration }}"
           description: >-
-            The nightly clamav-scan has not finished on {{ $labels.host }} for over 3 days (timer stopped, container down, or the host asleep at 05:00).
+            The nightly clamav-scan has not finished on {{ $labels.host }} for over 3 days (timer stopped, container down, or the host asleep at its scan time).
             Check: systemctl list-timers clamav-scan.
 
       # Two nightly runs in a row, so one unreadable file being written at 05:00 does not page.

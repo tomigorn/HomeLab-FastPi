@@ -11,7 +11,7 @@
 groups:
   - name: beefy-power
     rules:
-      # A normal day is the 03:55 maintenance wake, the 04:14 security scan and a
+      # A normal day is the 03:55 maintenance wake (security scans 04:05-04:25) and a
       # handful of real sessions - each boot is two changes (up, down), so well
       # under 20. The 2026-10-09 loop produced ~180 changes a day and would have
       # crossed 20 within about four hours.

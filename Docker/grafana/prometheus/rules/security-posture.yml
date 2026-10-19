@@ -149,7 +149,7 @@ groups:
 
   - name: security-audit
     rules:
-      # Weekly (security-audit.timer, Sun 05:00), fastpi and beefy. Telegram only, by decision: rootkit checkers are noisy, so only findings outside the accepted baseline count.
+      # Weekly (security-audit.timer, Sun 04:05), fastpi and beefy. Telegram only, by decision: rootkit checkers are noisy, so only findings outside the accepted baseline count.
       - alert: RootkitWarning
         expr: security_rootkit_warnings > 0
         for: 5m
