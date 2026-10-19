@@ -34,7 +34,9 @@ ICONS=(
   "prowlarr:prowlarr"
   "qbittorrent:qbittorrent"
   "radarr:radarr"
+  "requests:seerr"
   "sabnzbd:sabnzbd"
+  "sonarr:sonarr"
   "traefik-dashboard:traefik"
   "wg-easy:wireguard"
 )

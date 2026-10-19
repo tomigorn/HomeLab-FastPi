@@ -384,6 +384,12 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 - `env(path, KEY=value)` hands a value to `apply-sso-env.py` for the tool's `.env`
 - for forward auth use `proxy(name, host)` instead of `oidc()`
 
+Apps on beefy that are not admin-only live in `scripts/provision-media-sso.py` (same
+helpers, but the group is per app): Sonarr -> `streaming-admins` like Radarr, Requests
+(Seerr) -> `streaming-users` so everyone who may watch may request. Run it with
+`docker compose exec -T server ak shell < scripts/provision-media-sso.py`; the older
+arr apps were created by hand (see `Traefik/docs/2026-10-06-authentik-sso.md`).
+
 ### Gotchas
 
 - Do not add `Authorization` to the shared `authentik@file` middleware's

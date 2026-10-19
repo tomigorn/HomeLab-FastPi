@@ -23,9 +23,11 @@ ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the h
 # Sections sort A to Z in authentik; the custom CSS below pulls Media to the top.
 APPS = {
     "jellyfin":          ("Media", "Films & series (wakes Beefy, ~45 s)", "Jellyfin", None),
+    "requests":          ("Media", "Request films & series (wakes Beefy, ~45 s)", "Seerr", None),
     "audiobookshelf":    ("Media", "Audiobooks & podcasts", "Audiobookshelf", None),
     "nextcloud":         ("Media", "Files, photos & calendar", "Nextcloud", None),
     "radarr":            ("Downloads", "Film manager", "Servarr", None),
+    "sonarr":            ("Downloads", "Series manager", "Servarr", None),
     "prowlarr":          ("Downloads", "Indexer manager", "Servarr", None),
     "sabnzbd":           ("Downloads", "Usenet downloader", "SABnzbd", None),
     "qbittorrent":       ("Downloads", "Torrent client", "qBittorrent", None),
