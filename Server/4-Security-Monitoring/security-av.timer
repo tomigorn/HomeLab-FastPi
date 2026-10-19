@@ -1,0 +1,12 @@
+[Unit]
+Description=Pull ClamAV scan results after the nightly scans
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+
+[Timer]
+# The clamav-scan timers on all three hosts fire at 05:00; the second run catches a scan that took longer. Never wakes a host.
+OnCalendar=*-*-* 05:40:00
+OnCalendar=*-*-* 06:40:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

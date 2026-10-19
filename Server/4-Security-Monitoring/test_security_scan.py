@@ -12,8 +12,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import security_scan  # noqa: E402
 from security_scan import (  # noqa: E402
+    NoData,
     classify_secret_file,
+    collect_av,
+    filter_exposition,
+    parse_infected_list,
     count_fixable,
     is_template,
     looks_like_secret_file,
@@ -295,6 +300,125 @@ def test_render_keeps_timestamp_precision():
 def test_render_ends_with_newline():
     # A file without a trailing newline makes node-exporter log a parse error.
     assert render_metrics([("m", {}, 1)], {}).endswith("\n")
+
+
+# --- av: remote clamav.prom pull --------------------------------------------
+
+CLAMAV_PROM = """# TYPE clamav_infected_last_run gauge
+clamav_infected_last_run{host="beefy",mode="new"} 0
+# TYPE clamav_last_run_timestamp_seconds gauge
+clamav_last_run_timestamp_seconds{host="beefy",mode="new"} 1792440055
+clamav_signature_age_seconds{host="beefy"} 4.8895e4
+"""
+
+
+def test_exposition_keeps_valid_clamav_lines_verbatim():
+    assert filter_exposition(CLAMAV_PROM) == CLAMAV_PROM
+
+
+def test_exposition_drops_metrics_without_clamav_prefix():
+    out = filter_exposition(CLAMAV_PROM + "# TYPE node_load1 gauge\nnode_load1 3\nsecurity_scan_errors{subject=\"x\"} 1\n")
+    assert "node_load1" not in out and "security_" not in out
+    assert "clamav_infected_last_run" in out
+
+
+def test_exposition_drops_malformed_lines():
+    bad = ("clamav_x{host=\"beefy\" 1\n"       # unclosed label set
+           "clamav_y{host=beefy} 1\n"           # unquoted label value
+           "clamav_z{host=\"b\"} notanumber\n"
+           "clamav_w\n"
+           "garbage line here\n"
+           "clamav_ok{host=\"b\"} 1 1792440055000\n")
+    assert filter_exposition(bad) == "clamav_ok{host=\"b\"} 1 1792440055000\n"
+
+
+def test_exposition_accepts_special_float_values():
+    for v in ("NaN", "+Inf", "-Inf", "-1.5", "1e3"):
+        assert filter_exposition(f"clamav_a {v}\n") == f"clamav_a {v}\n", v
+
+
+def test_exposition_drops_duplicate_or_late_type_lines():
+    # node-exporter rejects the whole file when TYPE repeats or follows a sample.
+    text = ("clamav_a 1\n# TYPE clamav_a gauge\n"
+            "# TYPE clamav_b gauge\n# TYPE clamav_b gauge\nclamav_b 2\n")
+    assert filter_exposition(text) == "clamav_a 1\n# TYPE clamav_b gauge\nclamav_b 2\n"
+
+
+def test_exposition_of_empty_or_foreign_file_is_empty():
+    assert filter_exposition("") == ""
+    assert filter_exposition("# just a comment\nfoo 1\n") == ""
+
+
+def test_infected_list_parses_path_tab_signature():
+    text = "/scan/dl/a.exe\tWin.Test.EICAR_HDB-1\n\n/scan/b b.zip\tPUA.Foo\n"
+    assert parse_infected_list(text) == [("/scan/dl/a.exe", "Win.Test.EICAR_HDB-1"), ("/scan/b b.zip", "PUA.Foo")]
+
+
+def test_infected_list_without_signature_is_kept():
+    assert parse_infected_list("/scan/x\n") == [("/scan/x", "unknown")]
+
+
+def test_infected_list_empty_is_no_hits():
+    assert parse_infected_list("") == []
+
+
+def _tmp_dirs():
+    import tempfile
+    d = Path(tempfile.mkdtemp())
+    security_scan.TEXTFILE = d / "textfile"
+    security_scan.STATE = d / "state"
+    security_scan.TEXTFILE.mkdir()
+    security_scan.STATE.mkdir()
+    return d
+
+
+def test_av_publishes_clamav_file_and_hit_list():
+    d = _tmp_dirs()
+    files = {"prom": CLAMAV_PROM, "infected": "/scan/a.exe\tEICAR\n"}
+    samples = collect_av("beefy", lambda what: files[what])
+    assert (d / "textfile" / "clamav_beefy.prom").read_text() == CLAMAV_PROM
+    assert (d / "state" / "last-infected-beefy.txt").read_text() == "/scan/a.exe\tEICAR\n"
+    assert ("security_av_infected_info", {"host": "beefy", "path": "/scan/a.exe", "signature": "EICAR"}, 1) in samples
+
+
+def test_av_missing_remote_file_is_no_data_and_keeps_old_file():
+    # The scanners on beefy/tower may not have run yet: missing means stale, not zero and not an error.
+    d = _tmp_dirs()
+    (d / "textfile" / "clamav_tower.prom").write_text("old\n")
+    try:
+        collect_av("tower", lambda what: None)
+        raise AssertionError("expected NoData")
+    except NoData:
+        pass
+    assert (d / "textfile" / "clamav_tower.prom").read_text() == "old\n"
+
+
+def test_av_file_without_any_clamav_sample_is_no_data():
+    d = _tmp_dirs()
+    try:
+        collect_av("tower", lambda what: "# TYPE x gauge\nfoo 1\n" if what == "prom" else "")
+        raise AssertionError("expected NoData")
+    except NoData:
+        pass
+    assert not (d / "textfile" / "clamav_tower.prom").exists()
+
+
+def test_av_hit_list_is_capped():
+    _tmp_dirs()
+    many = "".join(f"/scan/f{i}\tSig\n" for i in range(100))
+    samples = collect_av("beefy", lambda what: CLAMAV_PROM if what == "prom" else many)
+    assert len([s for s in samples if s[0] == "security_av_infected_info"]) == security_scan.AV_HIT_LIMIT
+
+
+def test_guarded_no_data_is_neither_error_nor_unreachable():
+    d = _tmp_dirs()
+    def _raise():
+        raise NoData("not there yet")
+    security_scan.guarded("av-tower", _raise, host="tower")
+    status = (d / "textfile" / "security_av_tower_status.prom").read_text()
+    assert 'security_scan_errors{subject="av-tower"} 0' in status
+    assert 'security_scan_host_unreachable{subject="av-tower"} 0' in status
+    assert not (d / "textfile" / "security_av_tower.prom").exists()
 
 
 if __name__ == "__main__":

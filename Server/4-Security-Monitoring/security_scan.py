@@ -231,6 +231,56 @@ def _fmt(v: float) -> str:
     return str(int(v)) if float(v).is_integer() else repr(float(v))
 
 
+_SAMPLE_RE = re.compile(
+    r'^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)'
+    r'(?:\{(?:\s*[a-zA-Z_][a-zA-Z0-9_]*="(?:[^"\\\n]|\\.)*"\s*(?:,\s*[a-zA-Z_][a-zA-Z0-9_]*="(?:[^"\\\n]|\\.)*"\s*)*,?\s*)?\})?'
+    r' (?P<value>\S+)(?: (?P<ts>-?\d+))?$')
+_META_RE = re.compile(r'^# (?P<kind>HELP|TYPE) (?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)(?: .*)?$')
+
+
+def filter_exposition(text: str, prefix: str = "clamav_") -> str:
+    """Keep only well-formed exposition lines for metrics starting with `prefix`.
+
+    A file pulled from another host is republished into node-exporter's textfile
+    directory, where one malformed line makes node-exporter drop the WHOLE
+    file. So every line is checked and anything doubtful is dropped rather than
+    passed on. HELP/TYPE are kept once and only before the metric's first
+    sample, because a late or repeated TYPE is also a whole-file error.
+    """
+    out: list[str] = []
+    meta_seen: set[tuple[str, str]] = set()
+    sampled: set[str] = set()
+    for line in text.splitlines():
+        m = _META_RE.match(line)
+        if m:
+            name, kind = m["name"], m["kind"]
+            if name.startswith(prefix) and name not in sampled and (name, kind) not in meta_seen:
+                meta_seen.add((name, kind))
+                out.append(line)
+            continue
+        m = _SAMPLE_RE.match(line)
+        if not m or not m["name"].startswith(prefix):
+            continue
+        try:
+            float(m["value"])
+        except ValueError:
+            continue
+        sampled.add(m["name"])
+        out.append(line)
+    return "\n".join(out) + "\n" if out else ""
+
+
+def parse_infected_list(text: str) -> list[tuple[str, str]]:
+    """`last-infected.txt` (path TAB signature per hit) -> [(path, signature)]."""
+    hits = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        path, _, sig = line.partition("\t")
+        hits.append((path, sig.strip() or "unknown"))
+    return hits
+
+
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
@@ -524,6 +574,61 @@ def collect_images(host: str) -> tuple[dict[str, int], dict[str, int], int, int]
     return totals, fixables, scanned, unscannable
 
 
+class NoData(Exception):
+    """The source exists but has nothing to report yet: leave old data, flag nothing."""
+
+
+# Hit lists are labels on an info series so the MalwareFound alert can quote them; capped so a mass infection cannot blow up cardinality.
+AV_HIT_LIMIT = 20
+AV_PATHS = {
+    "fastpi": {"infected": "/var/lib/clamav-scan/last-infected.txt"},
+    "beefy": {"prom": "/var/lib/clamav-scan/textfile/clamav.prom",
+              "infected": "/var/lib/clamav-scan/last-infected.txt"},
+    "tower": {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
+              "infected": "/mnt/data/appdata/clamav/state/last-infected.txt"},
+}
+
+
+def collect_av(host: str, fetch) -> list:
+    """Republish a host's clamav.prom as clamav_<host>.prom and its hit list.
+
+    `fetch(what)` returns the file's text, or None when the file does not exist.
+    fastpi's own clamav.prom is written by its scanner straight into the
+    textfile directory, so only its hit list is collected here.
+    """
+    if "prom" in AV_PATHS.get(host, {"prom": None}):
+        raw = fetch("prom")
+        if raw is None:
+            raise NoData(f"no clamav.prom on {host} yet")
+        prom = filter_exposition(raw)
+        if not prom:
+            raise NoData(f"clamav.prom on {host} has no clamav_ samples")
+    else:
+        prom = None
+    infected = fetch("infected") or ""
+    hits = parse_infected_list(infected)
+    (STATE / f"last-infected-{host}.txt").write_text(infected)
+    if prom is not None:
+        write_atomic(TEXTFILE / f"clamav_{host}.prom", prom)
+    return [("security_av_infected_info", {"host": host, "path": p, "signature": sig}, 1)
+            for p, sig in hits[:AV_HIT_LIMIT]]
+
+
+def fetch_file(host: str, path: str) -> str | None:
+    """A file's text, locally on fastpi or over ssh; None when it does not exist."""
+    if host == "fastpi":
+        try:
+            return Path(path).read_text()
+        except FileNotFoundError:
+            return None
+    r = ssh(host, f"test -e {path} || exit 3; cat {path}", timeout=60)
+    if r.returncode == 3:
+        return None
+    if r.returncode != 0:
+        raise RuntimeError(f"read {path} on {host}: rc={r.returncode} {r.stderr.strip()[:200]}")
+    return r.stdout
+
+
 HELPS = {
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
@@ -536,6 +641,7 @@ HELPS = {
     "security_image_vulnerabilities_fixable": "Subset of the above that an image update could actually fix (Trivy reports a FixedVersion).",
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
+    "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
 }
 
 
@@ -554,6 +660,13 @@ def guarded(subject: str, fn, *, host: str | None = None) -> None:
     status_path = TEXTFILE / _prom_name(f"{subject}-status")
     try:
         samples = fn()
+    except NoData as e:
+        print(f"NODATA {subject}: {e}", file=sys.stderr)
+        write_atomic(status_path, render_metrics([
+            ("security_scan_errors", {"subject": subject}, 0),
+            ("security_scan_host_unreachable", {"subject": subject}, 0),
+        ], HELPS))
+        return
     except Exception as e:  # noqa: BLE001
         # beefy powering off when idle is normal operation, not a fault; it is
         # reported on its own metric so the alert for a genuinely broken scan
@@ -607,6 +720,12 @@ def main() -> int:
                     ("security_pending_updates", {"host": host, "type": "security"}, c["security"]),
                 ]
             guarded(f"patches-{host}", _pat, host=host)
+
+    if want("av"):
+        for host in AV_PATHS:
+            def _av(host=host):
+                return collect_av(host, lambda what: fetch_file(host, AV_PATHS[host][what]))
+            guarded(f"av-{host}", _av, host=host)
 
     if want("images"):
         for host in ("fastpi", "beefy", "tower"):
