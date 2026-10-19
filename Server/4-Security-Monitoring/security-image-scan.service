@@ -1,5 +1,5 @@
 [Unit]
-Description=Trivy CVE scan of container images in use (fastpi and beefy)
+Description=Trivy CVE scan of container images in use (fastpi, beefy, tower)
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 After=network-online.target docker.service
 Wants=network-online.target

@@ -12,7 +12,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:05 |
 | Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 |
-| Are container images vulnerable? | `images` | Trivy across the images actually running | all three | weekly Sun 04:20 |
+| Are container images vulnerable? | `images` | Trivy across the images actually running | all three | weekly Sun 04:10 |
 | Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
 | Everything in one message | - | `WeeklyUpdateDigest` alert (`grafana/prometheus/rules/weekly-digest.yml`) | - | Mon 05:00 local |
 
@@ -89,8 +89,10 @@ rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl sta
 
 **The digest fires on Monday 05:00 local all year.** Prometheus knows only UTC; `homelab:local_utc_offset_hours` (2 from the last Sunday in March to the last Sunday in October, else 1) shifts the clock. Its own Alertmanager route `telegram-digest` sends no resolved message.
 
-**Trivy reads images through the read-only socket proxy** (`POST=0`), which each
-host already runs for Cup and telegraf. Trivy is not made a new Docker socket
+**beefy and tower are scanned from fastpi.** Their running image digests are read over ssh first (seconds), then Trivy on fastpi scans the registry copy (`--image-src remote --platform linux/amd64`), so the scan finishes even after beefy powered off. A locally built image (`clamav-local`) has no registry copy and counts as unscannable.
+
+**On fastpi Trivy reads images through the read-only socket proxy** (`POST=0`), which
+the host already runs for Cup and telegraf. Trivy is not made a new Docker socket
 consumer: the socket-hardening work cut that list down to Portainer deliberately,
 and a `:ro` socket mount protects the socket *file*, not the root-equivalent API
 behind it.
@@ -198,7 +200,7 @@ option — an `auth.log` on disk is required.
 | `test_security_scan.py` | 82 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
-| `security-image-scan.{service,timer}` | weekly Sun 04:20: images |
+| `security-image-scan.{service,timer}` | weekly Sun 04:10: images |
 | `security-audit.{service,timer}` | weekly Sun 04:05: audit (beefy first) |
 | `install.sh` | idempotent installer |
 | `install-audit-tools.sh` | rkhunter, chkrootkit, Lynis (CISOfy repo), rkhunter baseline |

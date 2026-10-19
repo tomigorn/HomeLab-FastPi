@@ -631,7 +631,8 @@ def running_images(host: str) -> list[str]:
 # copy is only accurate if it is the SAME image, so running_image_digests()
 # resolves each running container to its repo digest (repo@sha256:...), and the
 # scan pins the platform because fastpi is arm64 and tower is amd64.
-REMOTE_SCAN_HOSTS = {"tower": "linux/amd64"}
+# beefy joined 2026-10-19: it is up only until about 04:26, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is counted unscannable.
+REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
 
 
 def running_image_digests(host: str) -> list[str]:
@@ -655,34 +656,24 @@ TRIVY_HOSTS = {
         "docker_host": "tcp://socket-proxy-ro:2375",
         "cache": "/var/lib/security-scan/trivy-cache",
     },
-    "beefy": {
-        "network": "cup_socket",
-        "docker_host": "tcp://cup-socket-proxy-ro:2375",
-        "cache": "$HOME/.cache/trivy",   # no sudoers entry needed on beefy
-    },
 }
 
 
-def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str] | str:
-    """Build a Trivy invocation, local (list) or remote (shell string)."""
+def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str]:
+    """Build a Trivy invocation; it always runs on fastpi."""
     if host in REMOTE_SCAN_HOSTS:   # runs on fastpi, needs the internet, no socket
         return ["docker", "run", "--rm",
                 "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
                 "aquasec/trivy:latest", *args]
     cfg = TRIVY_HOSTS[host]
     net = ["--network", cfg["network"], "-e", f"DOCKER_HOST={cfg['docker_host']}"] if attach_proxy else []
-    if host == "fastpi":
-        return ["docker", "run", "--rm", *net,
-                "-v", f"{cfg['cache']}:/root/.cache/trivy",
-                "aquasec/trivy:latest", *args]
-    return ("mkdir -p ~/.cache/trivy && docker run --rm " + " ".join(net) +
-            f' -v "{cfg["cache"]}":/root/.cache/trivy aquasec/trivy:latest ' + " ".join(args))
+    return ["docker", "run", "--rm", *net,
+            "-v", f"{cfg['cache']}:/root/.cache/trivy",
+            "aquasec/trivy:latest", *args]
 
 
 def _trivy_run(host: str, args: list[str], *, attach_proxy: bool, timeout: int):
-    cmd = _trivy_cmd(host, args, attach_proxy=attach_proxy)
-    local = host == "fastpi" or host in REMOTE_SCAN_HOSTS
-    return run(cmd, timeout=timeout) if local else ssh(host, cmd, timeout=timeout)
+    return run(_trivy_cmd(host, args, attach_proxy=attach_proxy), timeout=timeout)
 
 
 def download_trivy_db(host: str) -> None:
@@ -709,7 +700,25 @@ def download_trivy_db(host: str) -> None:
             raise RuntimeError(f"trivy {label}-db download on {host}: {r.stderr.strip()[-300:]}")
 
 
-def collect_images(host: str) -> tuple[dict[str, int], dict[str, int], int, int]:
+def scan_all_images(hosts, lister, scan) -> None:
+    """Read every host's running-image list first, then scan.
+
+    The lists are the only part that needs the host; the Trivy part runs on
+    fastpi against the registry and may take an hour, by which time beefy has
+    powered itself off. A failed list is handed to that host's scan as the
+    exception, so the scan reports it.
+    """
+    lists = {}
+    for h in hosts:
+        try:
+            lists[h] = lister(h)
+        except Exception as e:  # noqa: BLE001
+            lists[h] = e
+    for h in hosts:
+        scan(h, lists[h])
+
+
+def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[str, int], int, int]:
     """Trivy CVE counts across the images actually in use on a host.
 
     Only running images are scanned. Cup already reports that 11 of beefy's 12
@@ -732,7 +741,7 @@ def collect_images(host: str) -> tuple[dict[str, int], dict[str, int], int, int]
     download_trivy_db(host)
     platform = REMOTE_SCAN_HOSTS.get(host)
     src = ["--image-src", "remote", "--platform", platform] if platform else ["--image-src", "docker"]
-    for image in running_images(host):
+    for image in images:
         r = _trivy_run(host, [
             "image", *src, "--scanners", "vuln",
             "--skip-db-update", "--skip-java-db-update",
@@ -1093,9 +1102,11 @@ def main() -> int:
             guarded(f"av-{host}", _av, host=host)
 
     if want("images"):
-        for host in ("fastpi", "beefy", "tower"):
-            def _img(host=host):
-                totals, fixables, scanned, bad = collect_images(host)
+        def _scan(host, images):
+            def _img():
+                if isinstance(images, Exception):
+                    raise images
+                totals, fixables, scanned, bad = collect_images(host, images)
                 out = [("security_image_vulnerabilities", {"host": host, "severity": k}, v)
                        for k, v in sorted(totals.items())]
                 out += [("security_image_vulnerabilities_fixable", {"host": host, "severity": k}, v)
@@ -1104,6 +1115,7 @@ def main() -> int:
                 out.append(("security_images_unscannable", {"host": host}, bad))
                 return out
             guarded(f"images-{host}", _img, host=host)
+        scan_all_images(("fastpi", "beefy", "tower"), running_images, _scan)
 
     return 0
 

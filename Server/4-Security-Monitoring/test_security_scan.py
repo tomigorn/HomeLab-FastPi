@@ -34,6 +34,7 @@ from security_scan import (  # noqa: E402
     parse_apt_upgradable,
     parse_trivy,
     parse_unraid_check,
+    scan_all_images,
     unraid_samples,
     render_metrics,
     triage_findings,
@@ -765,6 +766,39 @@ def test_cup_same_reference_on_two_hosts_counts_on_both():
     assert hosts["fastpi"]["digest"] == 1 and hosts["beefy"]["digest"] == 1
     assert len(info) == 2
 
+
+
+# --- images: lists first, Trivy afterwards -----------------------------------
+
+def test_image_lists_of_all_hosts_are_read_before_any_scan():
+    # beefy powers off around 04:26: its list (ssh) must be in hand before the long Trivy part starts.
+    calls = []
+    def lister(h):
+        calls.append(("list", h))
+        return [f"{h}-img"]
+    def scan(h, images):
+        calls.append(("scan", h, tuple(images)))
+    scan_all_images(("fastpi", "beefy", "tower"), lister, scan)
+    assert [c[0] for c in calls] == ["list", "list", "list", "scan", "scan", "scan"]
+    assert ("scan", "beefy", ("beefy-img",)) in calls
+
+
+def test_image_list_failure_reaches_that_hosts_scan_only():
+    got = {}
+    def lister(h):
+        if h == "tower":
+            raise RuntimeError("tower asleep")
+        return [h]
+    def scan(h, images):
+        got[h] = images
+    scan_all_images(("fastpi", "tower"), lister, scan)
+    assert got["fastpi"] == ["fastpi"]
+    assert isinstance(got["tower"], RuntimeError)
+
+
+def test_beefy_and_tower_are_scanned_from_fastpi():
+    # Trivy for these runs on fastpi against the registry: no ssh after the list is read.
+    assert set(security_scan.REMOTE_SCAN_HOSTS) == {"beefy", "tower"}
 
 if __name__ == "__main__":
     import traceback
