@@ -30,7 +30,8 @@ Metrics:
 Everything lands as Prometheus metrics via node-exporter's textfile collector
 and alerts through `grafana/prometheus/rules/security-posture.yml`, `antivirus.yml`
 and `weekly-digest.yml` → Alertmanager → email + Telegram (severity info = Telegram
-only). There is no second dashboard, no second notifier and no
+only). Dashboard: **Grafana > fastpi > Updates & security**,
+https://grafana.holy-grail.ch/d/updates-security. There is no second notifier and no
 second place the Telegram token lives.
 
 ## Install

@@ -1,0 +1,3011 @@
+{
+  "uid": "updates-security",
+  "title": "Updates & security",
+  "description": "Pending OS and image updates, CVEs, antivirus, host audit, CrowdSec and firing alerts for fastpi, beefy and tower. Docs: Server/4-Security-Monitoring/README.md",
+  "tags": [
+    "security",
+    "updates",
+    "fastpi"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Overview (per host)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "OS security updates",
+      "description": "Pending security updates (apt) per host, daily security-scan. Alert PendingSecurityUpdates. tower runs Unraid: see the tower tiles.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_pending_updates{type=\"security\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "OS updates (all)",
+      "description": "All pending apt updates per host, security ones included.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_pending_updates{type=\"all\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "tower Unraid OS",
+      "description": "Installed and newest Unraid OS release on tower. Orange = update available (alert UnraidUpdateAvailable).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_unraid_os_update",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{installed}} \u2192 {{available}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "tower plugin updates",
+      "description": "Unraid plugins on tower with an update available. Names: tower Plugins page or the UnraidUpdateAvailable alert.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(security_unraid_plugin_update)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "plugins",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Fixable critical CVEs",
+      "description": "CRITICAL vulnerabilities with a fixed version available, summed over all images per host (Trivy, weekly image scan). Alert CriticalImageVulnerabilities.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_image_vulnerabilities_fixable{severity=\"CRITICAL\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Fixable high CVEs",
+      "description": "HIGH vulnerabilities with a fixed version available, summed over all images per host (Trivy).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_image_vulnerabilities_fixable{severity=\"HIGH\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 250
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Images to update",
+      "description": "Running images with a newer version or digest according to Cup. List: table 'Image updates by name' below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_image_updates{type=\"all\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
+        "h": 6
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Image updates by kind",
+      "description": "Image updates per host and kind (Cup). digest = same tag, rebuilt image.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_image_updates{type!=\"all\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no data",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "major"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "minor"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "patch"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "digest"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "blue",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unknown"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "purple",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "type",
+            "rowField": "host",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "host\\type": 0,
+              "major": 1,
+              "minor": 2,
+              "patch": 3,
+              "digest": 4,
+              "unknown": 5
+            },
+            "renameByName": {
+              "host\\type": "Host"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 4,
+        "y": 5,
+        "w": 11,
+        "h": 6
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Unreachable",
+      "description": "Scan subjects whose host was asleep or unreachable at the last try (values kept from the previous run). Which ones: Scan freshness below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(security_scan_host_unreachable == 1) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 5,
+        "w": 3,
+        "h": 6
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Scan errors",
+      "description": "Scan subjects whose last run reported errors (alert SecurityScanFailing). Which ones: Scan freshness below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(security_scan_errors > 0) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 3,
+        "h": 6
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Oldest scan",
+      "description": "Age of the oldest last successful scan over all subjects. Weekly subjects (images, audit, cup) may be up to 7 days old; alert SecurityScanStale has per-cadence limits.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - min(security_scan_last_success_timestamp_seconds)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 691200
+              },
+              {
+                "color": "red",
+                "value": 1209600
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 5,
+        "w": 3,
+        "h": 6
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Scan freshness",
+      "description": "Last successful run per scan subject (Server/4-Security-Monitoring/security_scan.py). Stale uses the SecurityScanStale limits: 2 days, tower subjects 7 days, images/audit/cup 14 days.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (subject) (time() - security_scan_last_success_timestamp_seconds)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "max by (subject) ((time() - security_scan_last_success_timestamp_seconds{subject!~\"(images|audit|cup)-.*|.*-tower\"} > bool 172800) or (time() - security_scan_last_success_timestamp_seconds{subject=~\".*-tower\",subject!~\"(images|audit|cup)-.*\"} > bool 604800) or (time() - security_scan_last_success_timestamp_seconds{subject=~\"(images|audit|cup)-.*\"} > bool 1209600))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "expr": "max by (subject) (security_scan_host_unreachable)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "expr": "max by (subject) (security_scan_errors)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no scan data",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last success"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "ok",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "stale",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Host reachable"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "yes",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "no (asleep)",
+                        "color": "orange",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Subject",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
+            "indexByName": {
+              "subject": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4
+            },
+            "renameByName": {
+              "subject": "Subject",
+              "Value #A": "Last success",
+              "Value #B": "Status",
+              "Value #C": "Host reachable",
+              "Value #D": "Errors"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 9
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Image updates by name",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Image updates by name",
+      "description": "One row per image with an update according to Cup (reference = image:tag as running). Click a header to sort. Update helper: Docker/_global/scripts/update-project.sh.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (host, reference, type) (security_image_update_info)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no image updates",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kind"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "major": {
+                        "text": "major",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "minor": {
+                        "text": "minor",
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "patch": {
+                        "text": "patch",
+                        "color": "yellow",
+                        "index": 2
+                      },
+                      "digest": {
+                        "text": "digest",
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "unknown": {
+                        "text": "unknown",
+                        "color": "purple",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Host"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Host",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true,
+              "Value": true
+            },
+            "indexByName": {
+              "host": 0,
+              "reference": 1,
+              "type": 2
+            },
+            "renameByName": {
+              "host": "Host",
+              "reference": "Image",
+              "type": "Kind"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 12
+      }
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Antivirus (ClamAV)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Infected (last run)",
+      "description": "Files ClamAV flagged in the last run per host, any mode (alert MalwareFound). Hit list: table below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (host) (clamav_infected_last_run)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Infected (total)",
+      "description": "Hits since the counter started, per host (EICAR tests included).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamav_infected_total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 34,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Signature age",
+      "description": "Age of the ClamAV signature database per host (freshclam). Alert ClamavSignaturesStale after 7 days.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamav_signature_age_seconds",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 172800
+              },
+              {
+                "color": "red",
+                "value": 604800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "DB version",
+      "description": "ClamAV daily database version per host; all hosts should match.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamav_db_version",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 34,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 21,
+      "type": "table",
+      "title": "Scans per host and mode",
+      "description": "One row per host and scan mode: new = nightly new-files scan, path = tower's full path scan, hook = beefy's download hook. Last run of mode new goes stale after 3 days (ClamavScanStale). Vanished = file deleted between listing and scanning. Errors = unreadable files (ClamavScanErrors after two nights).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (host, mode) (time() - clamav_last_run_timestamp_seconds)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "max by (host, mode) (clamav_run_duration_seconds)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "expr": "max by (host, mode) (clamav_files_listed)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "expr": "max by (host, mode) (clamav_files_scanned)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "expr": "max by (host, mode) (clamav_files_skipped_large)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "F",
+          "expr": "max by (host, mode) (clamav_files_vanished)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "G",
+          "expr": "max by (host, mode) (clamav_scan_errors)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "H",
+          "expr": "max by (host, mode) (clamav_infected_last_run)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no scan data",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last run"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 129600
+                    },
+                    {
+                      "color": "red",
+                      "value": 259200
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Skipped (large)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Infected"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Vanished"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "n/a"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Host",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
+            "indexByName": {
+              "host": 0,
+              "mode": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #F": 7,
+              "Value #G": 8,
+              "Value #H": 9
+            },
+            "renameByName": {
+              "host": "Host",
+              "mode": "Mode",
+              "Value #A": "Last run",
+              "Value #B": "Duration",
+              "Value #C": "Listed",
+              "Value #D": "Scanned",
+              "Value #E": "Skipped (large)",
+              "Value #F": "Vanished",
+              "Value #G": "Errors",
+              "Value #H": "Infected"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 7
+      }
+    },
+    {
+      "id": 22,
+      "type": "table",
+      "title": "Infected files",
+      "description": "Hit list of the last scans (security_av_infected_info). New-files scans moved the files to quarantine. Full list: /var/lib/security-scan/last-infected-<host>.txt on fastpi.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (host, path, signature) (security_av_infected_info)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no infected files",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true,
+              "Value": true
+            },
+            "indexByName": {
+              "host": 0,
+              "path": 1,
+              "signature": 2
+            },
+            "renameByName": {
+              "host": "Host",
+              "path": "Path",
+              "signature": "Signature"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 5
+      }
+    },
+    {
+      "id": 23,
+      "type": "row",
+      "title": "Host audit",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Failed SSH logins (24h)",
+      "description": "Failed SSH logins in the last 24 h per host. Alert FailedLoginsSpike over 20.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_failed_logins_total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "Rootkit: new findings",
+      "description": "rkhunter/chkrootkit findings outside the accepted baseline (weekly, Sun 04:05). Alert RootkitWarning. Details: /var/lib/security-scan/audit-<host>.txt.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_rootkit_warnings",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}} {{tool}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 51,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Rootkit: all findings",
+      "description": "All rkhunter/chkrootkit findings, accepted baseline included.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_rootkit_findings",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}} {{tool}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 51,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Lynis warnings",
+      "description": "Warnings in the weekly Lynis quick audit per host.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_lynis_warnings",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 51,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "Lynis hardening index (90 days)",
+      "description": "Lynis hardening index per host (0-100, weekly audit). Alert LynisHardeningDropped when it falls more than 5 points in 7 days.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "timeFrom": "90d",
+      "hideTimeOverride": false,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(security_lynis_hardening_index[$__interval])",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
+          "interval": "1h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": true,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 18,
+        "h": 7
+      }
+    },
+    {
+      "id": 29,
+      "type": "stat",
+      "title": "Lynis index now",
+      "description": "Current Lynis hardening index per host.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_lynis_hardening_index",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 55,
+        "w": 6,
+        "h": 7
+      }
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "CrowdSec (details: CrowdSec dashboard)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "Engine version",
+      "description": "Running CrowdSec version (auto-updated daily, patch/minor only).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cs_info",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{version}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 63,
+        "w": 6,
+        "h": 3
+      }
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Auto-update",
+      "description": "Outcome of the last daily auto-update run: current, updated, hub_updated, rolled_back, held_back, major_available, paused, error.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "crowdsec_autoupdate_result == 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{result}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "never ran",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 63,
+        "w": 6,
+        "h": 3
+      }
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "Hub checked",
+      "description": "Time since crowdsec-autoupdate.timer last ran (daily 05:07). Over 36 h = a missed night.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - crowdsec_autoupdate_last_run_timestamp_seconds",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "never ran",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 129600
+              },
+              {
+                "color": "red",
+                "value": 259200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 63,
+        "w": 6,
+        "h": 3
+      }
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "Bouncer plugin",
+      "description": "Traefik bouncer plugin: vendored / newest upstream. Red when upstream is newer or the running bouncer reports another version (CrowdSec README 'Updating the bouncer plugin').",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "crowdsec_bouncer_plugin_version_info * on() group_left() (crowdsec_bouncer_plugin_outdated + crowdsec_bouncer_reported_version_mismatch)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{installed}} / {{latest}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 63,
+        "w": 6,
+        "h": 3
+      }
+    },
+    {
+      "id": 35,
+      "type": "row",
+      "title": "Firing alerts",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 36,
+      "type": "table",
+      "title": "Firing alerts (updates and security)",
+      "description": "Firing Prometheus alerts of the rule groups antivirus, security-*, container-updates, crowdsec and crowdsec-autoupdate (matched by alert name). Details and routing: Alertmanager / Telegram.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS{alertstate=\"firing\", alertname=~\"MalwareFound|Clamav.*|Container.*|Cup.*|CrowdSec.*|Rootkit.*|Lynis.*|.*Image.*|FailedLogins.*|PendingSecurityUpdates|Unraid.*|SecurityScan.*|TextfileCollectorError|Secret.*\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no firing alerts",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Severity"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": {
+                        "text": "critical",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "warning": {
+                        "text": "warning",
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "info": {
+                        "text": "info",
+                        "color": "blue",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Severity",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "alertstate": true,
+              "Value": true,
+              "job": true
+            },
+            "indexByName": {
+              "alertname": 0,
+              "severity": 1,
+              "host": 2,
+              "subject": 3
+            },
+            "renameByName": {
+              "alertname": "Alert",
+              "severity": "Severity",
+              "host": "Host",
+              "subject": "Subject",
+              "instance": "Instance"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 24,
+        "h": 7
+      }
+    }
+  ]
+}
