@@ -11,6 +11,8 @@
 # agent (`servers.beefy` in Cup's config) and merges the results, so no second scrape
 # job or exporter is needed here. Verified the aggregate block keeps the same shape
 # with a remote server attached - monitored_images simply went 123 -> 135.
+# tower joined 2026-10-19 (`servers.tower`). A host asleep at Cup's refresh is left
+# out, so the counts then cover only the hosts that answered; the scrape still works.
 #
 # Cup's JSON already carries an aggregate `metrics` block, so this is a plain scalar
 # mapping with no per-image cardinality:
