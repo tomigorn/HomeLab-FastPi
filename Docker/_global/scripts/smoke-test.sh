@@ -89,6 +89,10 @@ check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan
 if [[ -f /var/lib/node-exporter/textfile/clamav.prom ]]; then
   check "clamav nightly scan < 2 days" '^yes$' "$(s=$(sed -n 's/^clamav_last_run_timestamp_seconds{.*mode="new"} //p' /var/lib/node-exporter/textfile/clamav.prom); (( $(date +%s) - ${s:-0} < 172800 )) && echo yes || echo "no (${s:-none})")"
 else skip "clamav nightly scan < 2 days" "no clamav.prom yet"; fi
+check "security timers active"     '^active active active active$' "$(systemctl is-active security-scan.timer security-image-scan.timer security-av.timer security-audit.timer | xargs)"
+rules_loaded() { curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"] if r.get("health")=="ok"}; w=sys.argv[1:]; print("ok" if all(x in n for x in w) else "missing " + " ".join(x for x in w if x not in n))' "$@"; }
+check "antivirus rules loaded"     '^ok$' "$(rules_loaded MalwareFound ClamavScanStale ClamavScanErrors ClamavSignaturesStale)"
+check "digest rule loaded"         '^ok$' "$(rules_loaded WeeklyUpdateDigest homelab:local_utc_offset_hours)"
 check "adguard resolves"           '^[0-9.]+$' "$(dig +short @127.0.0.1 example.com | head -1)"
 check "portainer version"          '2\.45\.2' "$(curl -sk -m 5 https://127.0.0.1:9443/api/status)"
 check "audiobookshelf"             '^200$' "$(http https://audiobookshelf.holy-grail.ch/)"
