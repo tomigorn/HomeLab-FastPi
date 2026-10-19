@@ -1,5 +1,5 @@
 [Unit]
-Description=Security posture scan (secrets, secret-file hygiene, pending OS updates, failed logins)
+Description=Security posture scan (secrets, hygiene, OS and Unraid updates, failed logins, Cup per host)
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 After=network-online.target docker.service
 Wants=network-online.target
@@ -8,12 +8,11 @@ Wants=network-online.target
 Type=oneshot
 User=pi
 Group=pi
-ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches logins
-# Bounded. The secrets+patches pass measures ~5s; ten minutes covers a slow
-# GitHub fetch and beefy's SSH timeout without ever overlapping the next firing.
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches logins cup
+# Bounded. The pass measures ~5s, ~30s more when Cup refreshes (beefy or tower awake); fifteen minutes covers a slow GitHub fetch, SSH timeouts and Cup's refresh without ever overlapping the next firing.
 # TimeoutStartSec, not RuntimeMaxSec: RuntimeMaxSec is silently ignored for
 # Type=oneshot, so a hung run would sit here until the next boot.
-TimeoutStartSec=600
+TimeoutStartSec=900
 Nice=10
 IOSchedulingClass=idle
 

@@ -420,6 +420,36 @@ def unraid_samples(check: dict) -> list:
     return out
 
 
+CUP_TYPES = ("major", "minor", "patch", "digest")
+
+
+def parse_cup(data: dict) -> tuple[dict[str, dict[str, int]], list[tuple[str, str, str]]]:
+    """Cup's /api/v3/json -> ({host: {type: count}}, [(host, reference, type)]).
+
+    `server` null is fastpi itself. A host missing from the JSON (asleep at
+    Cup's last refresh) is missing here too, never reported as zero.
+    """
+    hosts: dict[str, dict[str, int]] = {}
+    info: set[tuple[str, str, str]] = set()
+    for img in data.get("images") or []:
+        host = img.get("server") or "fastpi"
+        counts = hosts.setdefault(host, {"all": 0, **{t: 0 for t in CUP_TYPES}, "unknown": 0})
+        res = img.get("result") or {}
+        if res.get("has_update") is None:
+            counts["unknown"] += 1
+            continue
+        if not res.get("has_update"):
+            continue
+        det = res.get("info") or {}
+        kind = det.get("version_update_type") if det.get("type") == "version" else det.get("type")
+        kind = kind if kind in CUP_TYPES else "unknown"
+        if (host, img.get("reference", "?"), kind) in info:
+            continue
+        info.add((host, img.get("reference", "?"), kind))
+        counts["all"] += 1
+        counts[kind] += 1
+    return hosts, sorted(info)
+
 
 # ---------------------------------------------------------------------------
 # I/O
@@ -859,6 +889,35 @@ def collect_unraid() -> list:
     return unraid_samples(parse_unraid_check(r.stdout))
 
 
+CUP_URL = os.environ.get("SECSCAN_CUP_URL", "http://172.24.0.1:8000")
+# Waker status endpoints answer without waking anything; Cup's own refresh runs Sundays 04:00, when beefy and tower are usually off.
+WAKER_STATUS = {"beefy": "http://192.168.1.2:9001/status", "tower": "http://192.168.1.2:9002/status"}
+
+
+def _http_get(url: str, timeout: int) -> bytes:
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=timeout) as r:
+        return r.read()
+
+
+def host_awake(host: str) -> bool:
+    try:
+        return bool(json.loads(_http_get(WAKER_STATUS[host], 5)).get("up"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def read_cup() -> dict:
+    awake = [h for h in WAKER_STATUS if host_awake(h)]
+    if awake:
+        print(f"cup refresh, awake: {', '.join(awake)}", file=sys.stderr)
+        try:
+            _http_get(f"{CUP_URL}/api/v3/refresh", 300)
+        except Exception as e:  # noqa: BLE001
+            print(f"cup refresh failed, using the last result: {e}", file=sys.stderr)
+    return json.loads(_http_get(f"{CUP_URL}/api/v3/json", 60))
+
+
 HELPS = {
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
@@ -878,6 +937,8 @@ HELPS = {
     "security_lynis_warnings": "Lynis warnings in the weekly quick audit.",
     "security_unraid_os_update": "1 if a newer Unraid OS release is available on tower.",
     "security_unraid_plugin_update": "1 if a newer version of this Unraid plugin is available on tower.",
+    "security_image_updates": "Images with an update according to Cup, per host and update type.",
+    "security_image_update_info": "One series per image with an update according to Cup (host, reference, type).",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
 }
 
@@ -968,6 +1029,21 @@ def main() -> int:
     if want("audit"):
         for host in AUDIT_HOSTS:
             guarded(f"audit-{host}", lambda host=host: collect_audit(host), host=host)
+
+    if want("cup"):
+        cup: dict = {}
+        for host in ("fastpi", "beefy", "tower"):
+            def _cup(host=host):
+                if not cup:
+                    cup.update(zip(("hosts", "info"), parse_cup(read_cup())))
+                if host not in cup["hosts"]:
+                    raise NoData(f"{host} not in Cup's last result (asleep at its refresh)")
+                out = [("security_image_updates", {"host": host, "type": t}, n)
+                       for t, n in sorted(cup["hosts"][host].items())]
+                out += [("security_image_update_info", {"host": h, "reference": ref, "type": t}, 1)
+                        for h, ref, t in cup["info"] if h == host]
+                return out
+            guarded(f"cup-{host}", _cup)
 
     if want("av"):
         for host in AV_PATHS:

@@ -22,6 +22,7 @@ from security_scan import (  # noqa: E402
     new_findings,
     parse_audit_output,
     parse_chkrootkit,
+    parse_cup,
     parse_lynis_report,
     parse_rkhunter,
     filter_exposition,
@@ -649,6 +650,54 @@ def test_unraid_check_error_response_raises():
         raise AssertionError("expected RuntimeError")
     except RuntimeError:
         pass
+
+
+# --- Cup per-server image updates --------------------------------------------
+
+def _img(server, ref, result):
+    return {"server": server, "reference": ref, "result": result}
+
+
+CUP = {"images": [
+    _img("beefy", "lscr.io/linuxserver/qbittorrent:5.2.4", {"error": None, "has_update": True,
+         "info": {"type": "version", "version_update_type": "major"}}),
+    _img(None, "caddy:2.10-alpine", {"error": None, "has_update": True,
+         "info": {"type": "version", "version_update_type": "minor"}}),
+    _img(None, "traefik:latest", {"error": None, "has_update": True, "info": {"type": "digest"}}),
+    _img(None, "postgres:16", {"error": None, "has_update": False, "info": None}),
+    _img(None, "wg-easy:rollback-v14", {"error": "Unauthorized", "has_update": None, "info": None}),
+    _img("tower", "ghcr.io/sergi0g/cup:v3.5.1", {"error": None, "has_update": False, "info": None}),
+]}
+
+
+def test_cup_counts_updates_per_server_and_type():
+    hosts, _ = parse_cup(CUP)
+    assert hosts["fastpi"] == {"all": 2, "major": 0, "minor": 1, "patch": 0, "digest": 1, "unknown": 1}
+    assert hosts["beefy"] == {"all": 1, "major": 1, "minor": 0, "patch": 0, "digest": 0, "unknown": 0}
+    assert hosts["tower"]["all"] == 0
+
+
+def test_cup_lists_each_image_with_an_update():
+    _, info = parse_cup(CUP)
+    assert sorted(info) == [
+        ("beefy", "lscr.io/linuxserver/qbittorrent:5.2.4", "major"),
+        ("fastpi", "caddy:2.10-alpine", "minor"),
+        ("fastpi", "traefik:latest", "digest"),
+    ]
+
+
+def test_cup_server_missing_from_json_is_absent_not_zero():
+    # A host asleep at Cup's refresh is left out of the JSON; zero would claim it is up to date.
+    hosts, _ = parse_cup({"images": [i for i in CUP["images"] if i["server"] != "tower"]})
+    assert "tower" not in hosts
+
+
+def test_cup_same_reference_on_two_hosts_counts_on_both():
+    hosts, info = parse_cup({"images": [
+        _img(None, "alpine/socat:latest", {"has_update": True, "info": {"type": "digest"}}),
+        _img("beefy", "alpine/socat:latest", {"has_update": True, "info": {"type": "digest"}})]})
+    assert hosts["fastpi"]["digest"] == 1 and hosts["beefy"]["digest"] == 1
+    assert len(info) == 2
 
 
 if __name__ == "__main__":
