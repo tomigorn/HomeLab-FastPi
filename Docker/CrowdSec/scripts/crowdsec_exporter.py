@@ -12,6 +12,9 @@ needs to answer, so this fills exactly those gaps from `cscli ... -o json`:
     the Traefik plugin reports to the LAPI every 10 min; cscli-only otherwise)
   * when the bouncer last pulled decisions, when the community blocklist (CAPI)
     was last pulled, and the hub index age
+  * the vendored Traefik bouncer plugin's version against the newest upstream
+    release (GitHub, cached 6 h) and against what the running bouncer reports
+    to the LAPI, so a plugin left behind or a forgotten Traefik restart alerts
 
 Counting unit: ONE ALERT = ONE ATTACK. An alert is CrowdSec deciding that one IP
 tripped one scenario (e.g. "probed 10 sensitive paths in 10 s"). It is not a
@@ -33,16 +36,23 @@ import collections
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 
 CONTAINER = os.environ.get("CROWDSEC_CONTAINER", "crowdsec")
 DATA_FILES = ("GeoLite2-City.mmdb", "GeoLite2-ASN.mmdb")   # hub data files whose age the dashboard shows
 TEXTFILE_DIR = os.environ.get("TEXTFILE_DIR", "/var/lib/node-exporter/textfile")
 STATE_PATH = os.environ.get("STATE_PATH", "/var/lib/crowdsec-exporter/state.json")
 ISO_PATH = "/usr/share/iso-codes/json/iso_3166-1.json"
+PLUGIN_DIR = os.environ.get("PLUGIN_DIR", "/home/pi/Projects/Docker/Traefik/traefik/plugins-local/src/"
+                            "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin")
+PLUGIN_RELEASES_URL = "https://api.github.com/repos/maxlerebourg/crowdsec-bouncer-traefik-plugin/releases/latest"
+LATEST_CACHE_PATH = os.environ.get("LATEST_CACHE_PATH", "/var/lib/crowdsec-exporter/plugin_latest.json")
+LATEST_TTL_S = 6 * 3600       # 4 unauthenticated GitHub calls a day, far below the 60/h limit
 
 # Kinds that are not "something attacked this server". kind is null on alerts
 # written by CrowdSec < 1.7, which are real detections, so null is kept.
@@ -124,6 +134,52 @@ def ingest_dropped(state: dict, raw_totals: dict[str, int]) -> None:
         seen[b] = raw
 
 
+def parse_version(s) -> tuple[int, ...] | None:
+    m = re.fullmatch(r"v?(\d+(?:\.\d+)*)", (s or "").strip())
+    return tuple(int(x) for x in m.group(1).split(".")) if m else None
+
+
+def read_plugin_version(plugin_dir: str) -> str | None:
+    """The version the vendored plugin reports to the LAPI (version.go)."""
+    try:
+        with open(os.path.join(plugin_dir, "version.go")) as f:
+            m = re.search(r'pluginVersion\s*=\s*"([^"]+)"', f.read())
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def reported_version(bouncers: list[dict]) -> str | None:
+    """Version of the bouncer that pulled most recently. Traefik re-registers as
+    traefik-bouncer@<ip> after each restart, so older entries linger with the
+    version they had back then."""
+    live = [b for b in bouncers if b.get("last_pull")]
+    if not live:
+        return None
+    return max(live, key=lambda b: parse_ts(b["last_pull"])).get("version") or None
+
+
+def plugin_status(installed: str | None, latest: str | None, reported: str | None) -> dict:
+    vi, vl = parse_version(installed), parse_version(latest)
+    return {
+        "installed": installed, "latest": latest, "reported": reported,
+        "outdated": None if vi is None or vl is None else int(vl > vi),
+        "mismatch": int(reported != installed),
+    }
+
+
+def refresh_latest(cache: dict, now: float, fetch) -> dict:
+    """Newest upstream release tag, re-fetched at most every LATEST_TTL_S. A failed
+    fetch keeps the last good answer (and its timestamp, so staleness is visible)."""
+    if cache.get("checked") and now - cache["checked"] < LATEST_TTL_S:
+        return cache
+    try:
+        return {"latest": fetch(), "checked": now}
+    except Exception as e:  # noqa: BLE001 - network, rate limit, bad JSON: all non-fatal
+        print(f"crowdsec exporter: plugin release check failed: {e!r}", file=sys.stderr)
+        return cache
+
+
 def esc(v: str) -> str:
     return str(v).replace("\\", "\\\\").replace("\n", " ").replace('"', '\\"')
 
@@ -203,6 +259,22 @@ def render(state: dict, now: float, countries: dict[str, str], extra: dict) -> s
         metric("crowdsec_data_file_timestamp_seconds", "gauge",
                "mtime of hub data files (GeoIP databases); refreshed by the daily cscli hub upgrade when upstream changes.",
                [(labels(file=f), f"{t:.0f}") for f, t in sorted(extra["data_files"].items())])
+    if extra.get("plugin"):
+        pl = extra["plugin"]
+        metric("crowdsec_bouncer_plugin_version_info", "gauge",
+               "Traefik bouncer plugin: vendored (installed), newest upstream release (latest), what the running bouncer reports (reported).",
+               [(labels(installed=pl["installed"] or "unknown", latest=pl["latest"] or "unknown",
+                        reported=pl["reported"] or "none"), 1)])
+        if pl.get("outdated") is not None:
+            metric("crowdsec_bouncer_plugin_outdated", "gauge",
+                   "1 if a newer plugin release exists upstream than the vendored one (manual Traefik update).",
+                   [("", pl["outdated"])])
+        metric("crowdsec_bouncer_reported_version_mismatch", "gauge",
+               "1 if the running bouncer reports another version than the vendored files (Traefik not restarted?) or has never pulled.",
+               [("", pl["mismatch"])])
+        if pl.get("checked"):
+            metric("crowdsec_bouncer_plugin_latest_checked_timestamp_seconds", "gauge",
+                   "Last successful upstream release check (GitHub).", [("", f"{pl['checked']:.0f}")])
     return "\n".join(out) + "\n"
 
 
@@ -235,6 +307,31 @@ def write_atomic(path: str, text: str) -> None:
     os.replace(tmp, path)
 
 
+def fetch_latest_release() -> str:
+    req = urllib.request.Request(PLUGIN_RELEASES_URL, headers={
+        "Accept": "application/vnd.github+json", "User-Agent": "crowdsec-exporter"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        tag = json.load(r)["tag_name"]
+    if parse_version(tag) is None:
+        raise ValueError(f"unexpected tag {tag!r}")
+    return tag
+
+
+def plugin_check(bouncers: list[dict], now: float) -> dict:
+    try:
+        with open(LATEST_CACHE_PATH) as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        cache = {}
+    new = refresh_latest(cache, now, fetch_latest_release)
+    if new is not cache:
+        os.makedirs(os.path.dirname(LATEST_CACHE_PATH), exist_ok=True)
+        write_atomic(LATEST_CACHE_PATH, json.dumps(new))
+    st = plugin_status(read_plugin_version(PLUGIN_DIR), new.get("latest"), reported_version(bouncers))
+    st["checked"] = new.get("checked")
+    return st
+
+
 def load_countries() -> dict[str, str]:
     try:
         with open(ISO_PATH) as f:
@@ -261,7 +358,9 @@ def collect(state: dict, now: float) -> dict:
     ingest_dropped(state, dict(raw))
 
     extra: dict = {"bouncer_last_pull": {}}
-    for b in cscli("bouncers", "list") or []:
+    bouncers = cscli("bouncers", "list") or []
+    extra["plugin"] = plugin_check(bouncers, now)
+    for b in bouncers:
         if b.get("last_pull"):
             base = b["name"].split("@")[0]
             t = parse_ts(b["last_pull"])

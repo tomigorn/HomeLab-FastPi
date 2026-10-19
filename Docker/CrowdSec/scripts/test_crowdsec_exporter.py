@@ -107,5 +107,86 @@ class Render(unittest.TestCase):
         self.assertEqual(txt.count("crowdsec_top_attacker_attacks_24h{"), ex.TOP_N)
 
 
+class PluginVersion(unittest.TestCase):
+    BOUNCERS = [
+        {"name": "traefik-bouncer", "version": "v1.7.1", "last_pull": "2026-10-08T22:36:02Z"},
+        {"name": "traefik-bouncer@172.24.0.10", "version": "v1.7.1", "last_pull": "2026-10-08T22:53:02Z"},
+        {"name": "traefik-bouncer@172.24.0.3", "version": "v1.8.1", "last_pull": "2026-10-19T08:29:44Z"},
+    ]
+
+    def test_parse_version(self):
+        self.assertEqual(ex.parse_version("v1.8.1"), (1, 8, 1))
+        self.assertEqual(ex.parse_version("1.10.0"), (1, 10, 0))
+        self.assertIsNone(ex.parse_version("unknown"))
+        self.assertIsNone(ex.parse_version(None))
+
+    def test_read_plugin_version_from_version_go(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "version.go"), "w") as f:
+                f.write('package crowdsec_bouncer_traefik_plugin\n\nvar pluginVersion = "v1.8.1" //nolint\n')
+            self.assertEqual(ex.read_plugin_version(d), "v1.8.1")
+            self.assertIsNone(ex.read_plugin_version(os.path.join(d, "missing")))
+
+    def test_reported_version_is_the_most_recent_pull(self):
+        # Stale registrations of older plugin versions must not raise a false mismatch.
+        self.assertEqual(ex.reported_version(self.BOUNCERS), "v1.8.1")
+        self.assertIsNone(ex.reported_version([]))
+        self.assertIsNone(ex.reported_version([{"name": "x", "version": "v1.0.0", "last_pull": None}]))
+
+    def test_status_flags(self):
+        st = ex.plugin_status("v1.8.1", "v1.8.1", "v1.8.1")
+        self.assertEqual((st["outdated"], st["mismatch"]), (0, 0))
+        st = ex.plugin_status("v1.8.1", "v1.9.0", "v1.8.1")
+        self.assertEqual(st["outdated"], 1)
+        st = ex.plugin_status("v1.8.1", "v1.8.1", "v1.7.1")   # files updated, Traefik not restarted
+        self.assertEqual(st["mismatch"], 1)
+        st = ex.plugin_status("v1.8.1", "v1.8.1", None)       # no bouncer has ever pulled
+        self.assertEqual(st["mismatch"], 1)
+        st = ex.plugin_status("v1.9.0", "v1.8.1", "v1.9.0")   # ahead of upstream is not outdated
+        self.assertEqual(st["outdated"], 0)
+        st = ex.plugin_status("v1.8.1", None, "v1.8.1")       # upstream unknown: no verdict, no false alarm
+        self.assertIsNone(st["outdated"])
+
+    def test_latest_release_cached_and_survives_api_failure(self):
+        calls = []
+
+        def fetch_ok():
+            calls.append(1)
+            return "v1.8.1"
+
+        def fetch_fail():
+            calls.append(1)
+            raise OSError("rate limited")
+
+        c = ex.refresh_latest({}, NOW, fetch_ok)
+        self.assertEqual((c["latest"], c["checked"]), ("v1.8.1", NOW))
+        c2 = ex.refresh_latest(c, NOW + 3600, fetch_fail)      # inside the TTL: not even called
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(c2, c)
+        c3 = ex.refresh_latest(c, NOW + ex.LATEST_TTL_S + 1, fetch_fail)   # API down: keep the old answer
+        self.assertEqual(len(calls), 2)
+        self.assertEqual((c3["latest"], c3["checked"]), ("v1.8.1", NOW))
+        c4 = ex.refresh_latest({}, NOW, fetch_fail)             # never succeeded: nothing known
+        self.assertIsNone(c4.get("latest"))
+
+    def test_render_plugin_metrics(self):
+        txt = ex.render({}, NOW, {}, {"plugin": {"installed": "v1.8.1", "latest": "v1.8.1", "reported": "v1.8.1",
+                                               "checked": NOW, "outdated": 0, "mismatch": 0}})
+        self.assertIn('crowdsec_bouncer_plugin_version_info{installed="v1.8.1",latest="v1.8.1",reported="v1.8.1"} 1', txt)
+        self.assertIn("crowdsec_bouncer_plugin_outdated 0", txt)
+        self.assertIn("crowdsec_bouncer_reported_version_mismatch 0", txt)
+        self.assertIn(f"crowdsec_bouncer_plugin_latest_checked_timestamp_seconds {NOW:.0f}", txt)
+        for line in txt.strip().splitlines():
+            self.assertRegex(line, Render.LINE)
+        txt = ex.render({}, NOW, {}, {"plugin": {"installed": "v1.8.1", "latest": None, "reported": None,
+                                               "checked": None, "outdated": None, "mismatch": 1}})
+        self.assertIn('latest="unknown",reported="none"', txt)
+        self.assertNotIn("crowdsec_bouncer_plugin_outdated", txt)
+        self.assertNotIn("latest_checked", txt)
+        self.assertIn("crowdsec_bouncer_reported_version_mismatch 1", txt)
+        self.assertNotIn("crowdsec_bouncer_plugin", ex.render({}, NOW, {}, {}))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

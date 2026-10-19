@@ -95,6 +95,52 @@ groups:
             dashboard's country map, top IPs and bouncer counts are frozen.
             `journalctl -u crowdsec-exporter --since -1h`.
 
+      - alert: CrowdSecBouncerPluginOutdated
+        # The Traefik bouncer plugin is vendored (Traefik/traefik/plugins-local) and
+        # is NOT auto-updated; the engine is. 1 d so a release gets a day of
+        # soak time before the nag. Routed like the other warnings (email + Telegram,
+        # repeat 12 h), resolves itself once the new version runs.
+        expr: crowdsec_bouncer_plugin_outdated == 1
+        for: 1d
+        labels:
+          severity: warning
+        annotations:
+          summary: "Traefik bouncer plugin {{ with query \"crowdsec_bouncer_plugin_version_info\" }}{{ with index . 0 }}{{ .Labels.installed }} is outdated, upstream has {{ .Labels.latest }}{{ end }}{{ end }}"
+          description: >-
+            CrowdSec auto-updates daily, the plugin does not. Update it by hand:
+            Docker/CrowdSec/README.md "Updating the bouncer plugin" (replace
+            Traefik/traefik/plugins-local/..., restart Traefik, check
+            `cscli bouncers list` reports the new version, commit).
+
+      - alert: CrowdSecBouncerPluginMismatch
+        # The running bouncer reports another version than the vendored files, or
+        # no bouncer has pulled at all: plugin files replaced but Traefik not
+        # restarted, or a restart that silently kept the old build.
+        expr: crowdsec_bouncer_reported_version_mismatch == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Traefik runs bouncer plugin {{ with query \"crowdsec_bouncer_plugin_version_info\" }}{{ with index . 0 }}{{ .Labels.reported }}, the vendored files are {{ .Labels.installed }}{{ end }}{{ end }}"
+          description: >-
+            `docker restart traefik`, then `docker exec crowdsec cscli bouncers list`
+            must show the vendored version on the newest traefik-bouncer@<ip> entry
+            and `docker logs traefik` must be clean (Traefik fails closed on a
+            broken plugin).
+
+      - alert: CrowdSecBouncerPluginCheckStale
+        # Without the upstream check, "outdated" can never fire. GitHub down for a
+        # night is noise; three days is not.
+        expr: time() - crowdsec_bouncer_plugin_latest_checked_timestamp_seconds > 3 * 86400 or absent(crowdsec_bouncer_plugin_latest_checked_timestamp_seconds)
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Bouncer plugin release check has not succeeded for 3 days"
+          description: >-
+            crowdsec_exporter.py could not read GitHub's /releases/latest for
+            maxlerebourg/crowdsec-bouncer-traefik-plugin. `journalctl -u crowdsec-exporter --since -1d | grep release`.
+
   - name: crowdsec-autoupdate
     rules:
       - alert: CrowdSecAutoUpdated

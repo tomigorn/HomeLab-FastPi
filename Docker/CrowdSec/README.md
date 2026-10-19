@@ -39,7 +39,7 @@ count ("Blocked" tiles count requests).
 |---|---|---|
 | Right now | blocked requests 24h/7d, active bans (mine vs community), attacks and attacker IPs 24h | exporter + `cs_active_decisions` |
 | Status tiles | CrowdSec up, bouncer last sync, last CAPI pull, % log lines parsed, version, auto-update result, hub age, exporter age | exporter + engine |
-| Threat data | bans by origin, hub last changed / last checked, GeoIP data age, extra blocklists (see "Threat data refresh") | exporter + auto-update + engine |
+| Threat data | bans by origin, hub last changed / last checked, GeoIP data age, extra blocklists (see "Threat data refresh"), bouncer plugin installed / latest (red = outdated or Traefik not restarted) | exporter + auto-update + engine |
 | Blocked traffic | bouncer drops per hour vs all Traefik 403s; responses by status class | exporter + Traefik |
 | Where attacks come from | **map** + table for the selected time range, top-10 countries over time, **lifetime per country**, top 20 IPs (24h) | exporter |
 | What attackers are doing | top scenarios 24h / selected range / lifetime, attacks per hour by scenario, bans by origin | exporter + engine |
@@ -69,6 +69,8 @@ Data paths:
   - `crowdsec_bouncer_last_pull_timestamp_seconds`, `crowdsec_capi_last_pull_timestamp_seconds`
     (newest `update : +N/-M IPs` alert of kind `capi`), `crowdsec_hub_index_timestamp_seconds`,
     `crowdsec_hub_items_not_ok`, and `crowdsec_exporter_*` in a separate status file.
+  - `crowdsec_bouncer_plugin_*` / `crowdsec_bouncer_reported_version_mismatch`: see
+    "Updating the bouncer plugin".
   - Geo data is CrowdSec's own GeoIP enrichment (`source.cn`, `as_name`); the
     map draws Grafana's bundled `public/maps/countries.geojson`, with no tile server, so
     nothing about viewers or attackers leaves the server.
@@ -132,9 +134,57 @@ forced-failure drill (rolled back to v1.8.0 with restored volumes, verified,
 notification arrived in Telegram.
 
 **Not covered:** the Traefik bouncer plugin. It is vendored as a local plugin
-(`Traefik/traefik/plugins-local/`, see the Traefik README for why) and updating it
-is a Traefik static change, so it stays manual. v1.8.1 is installed (updated
-2026-10-19 from v1.7.1, same config keys; backup of the old tree is a git revert away).
+(`Traefik/traefik/plugins-local/`, see `Traefik/traefik/traefik.yml` for why) and
+updating it is a Traefik static change, so it stays manual, but it is **monitored**
+(next section) so updating one side never silently leaves the other behind.
+
+## Updating the bouncer plugin
+
+The exporter (every 5 min) reads the vendored `version.go`, the newest upstream
+release (GitHub `/releases/latest`, cached 6 h in `/var/lib/crowdsec-exporter/plugin_latest.json`,
+a failed check keeps the last answer) and the version the running bouncer reports to
+the LAPI (`cscli bouncers list`, newest `last_pull` wins because Traefik re-registers as
+`traefik-bouncer@<ip>` after each restart and old entries linger):
+
+| Metric | Meaning |
+|---|---|
+| `crowdsec_bouncer_plugin_version_info{installed,latest,reported}` | the three versions as labels (dashboard tile "Bouncer plugin") |
+| `crowdsec_bouncer_plugin_outdated` | 1 = upstream has a newer release (absent while upstream is unknown: no false alarm) |
+| `crowdsec_bouncer_reported_version_mismatch` | 1 = Traefik runs another version than the files, or no bouncer has pulled |
+| `crowdsec_bouncer_plugin_latest_checked_timestamp_seconds` | last successful GitHub check |
+
+| Alert | When | Where |
+|---|---|---|
+| `CrowdSecBouncerPluginOutdated` | outdated for 1 d (a release gets a day of soak time) | warning: email + Telegram, repeated every 12 h until updated |
+| `CrowdSecBouncerPluginMismatch` | mismatch for 15 min (files replaced, Traefik not restarted; or a restart kept the old build) | warning: email + Telegram |
+| `CrowdSecBouncerPluginCheckStale` | no successful GitHub check for 3 days | info: Telegram |
+
+Both warnings resolve themselves (one RESOLVED message) once `reported` = `installed` =
+`latest`. Cup only tracks container images (`images.extra` takes image references, not
+files or releases), so the Prometheus path above is the only monitoring; the plugin does
+not appear in Cup.
+
+The plugin states no CrowdSec minimum/maximum, only feature gates (AppSec needs plugin
+>= 1.2.0 + CrowdSec >= 1.6.0, AppSec bot detection plugin >= 1.8.0 + CrowdSec >= 1.8.0),
+so there is no compatibility alert. `CrowdSecMajorUpdateAvailable` is the moment to
+read the plugin's release notes.
+
+```bash
+V=v1.9.0   # the tag the alert names
+cd /home/pi/Projects/Docker/Traefik/traefik/plugins-local/src/github.com/maxlerebourg
+curl -fsSL "https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/archive/refs/tags/$V.tar.gz" | tar xz
+rm -rf crowdsec-bouncer-traefik-plugin && mv "crowdsec-bouncer-traefik-plugin-${V#v}" crowdsec-bouncer-traefik-plugin
+grep pluginVersion crowdsec-bouncer-traefik-plugin/version.go          # must say $V
+diff <(git show HEAD:Docker/Traefik/traefik/plugins-local/src/github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/README.md) crowdsec-bouncer-traefik-plugin/README.md | grep -i -E "crowdsec [0-9]|breaking|renamed" # config keys, CrowdSec requirements
+docker restart traefik && sleep 90 && docker logs --since 2m traefik 2>&1 | grep -i -E "error|crowdsec"   # fails closed: must be clean
+docker exec crowdsec cscli bouncers list                                 # newest traefik-bouncer@<ip> reports $V
+sudo systemctl start crowdsec-exporter.service && grep bouncer_plugin /var/lib/node-exporter/textfile/crowdsec.prom
+Docker/_global/scripts/smoke-test.sh                                     # "bouncer plugin current + running  0 0"
+git add -A Docker/Traefik/traefik/plugins-local && git commit -m "Traefik: update CrowdSec bouncer plugin to ${V#v}"
+```
+
+v1.8.1 is installed (updated 2026-10-19 from v1.7.1, same config keys; backup of the
+old tree is a git revert away).
 
 ## Threat data refresh
 
@@ -178,6 +228,7 @@ python3 scripts/test_crowdsec_exporter.py
 | `scripts/crowdsec-autoupdate.sh` | daily update + hub upgrade, verify, rollback |
 | `systemd/` | `crowdsec-exporter.{service,timer}`, `crowdsec-autoupdate.{service,timer}` |
 | `/var/lib/crowdsec-exporter/state.json` | lifetime counters (back it up if you care about them) |
+| `/var/lib/crowdsec-exporter/plugin_latest.json` | cached newest bouncer-plugin release (6 h) |
 | `/var/lib/crowdsec-autoupdate/` | lock, `bad_versions`, `last_change` |
 
 ## Things that will bite
