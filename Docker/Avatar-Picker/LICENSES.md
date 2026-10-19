@@ -562,7 +562,7 @@ photographs of real people (owners/keepers are cropped out).
 | Marge (`marge-simpson`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/0/0b/Marge_Simpson.png |
 | Daphne (`daphne`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/1/1d/Daphne_Blake.png |
 | Mabel (`mabel-pines`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/4/4b/Mabel_Pines.png |
-| Blossom (Powerpuff) (`powerpuff-girls`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/9/95/Powerpuff_girls_characters.jpg |
+| Blossom (Powerpuff) (`powerpuff-girls`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/7/7b/Blossom_PPG_98_Art.png |
 | Smurfette (`smurfette`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/f/fe/Smurfette-comics_version.png |
 | Dora (`dora`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/9/99/Dora_the_Explorer_%28character%29.webp |
 | Homer (`homer-simpson`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/0/02/Homer_Simpson_2006.png |
@@ -628,7 +628,7 @@ photographs of real people (owners/keepers are cropped out).
 | Edward Elric (`edward-elric`) | Anime | https://upload.wikimedia.org/wikipedia/en/b/b5/Edward85as.JPG |
 | Ichigo (`ichigo`) | Anime | https://upload.wikimedia.org/wikipedia/en/1/1e/IchigoKurosakiBleach.jpg |
 | Astro Boy (`astro-boy`) | Anime | https://upload.wikimedia.org/wikipedia/en/f/f2/Astro_Boy_anime_version.png |
-| Totoro (`totoro`) | Anime | https://www.ghibli.jp/gallery/totoro030.jpg |
+| Totoro (`totoro`) | Anime | https://www.ghibli.jp/gallery/totoro029.jpg |
 | Jiji (`jiji`) | Anime | https://www.ghibli.jp/gallery/majo018.jpg |
 | Doraemon (`doraemon`) | Anime | https://upload.wikimedia.org/wikipedia/en/b/bd/Doraemon_character.png |
 | No-Face (`no-face`) | Anime | https://www.ghibli.jp/gallery/chihiro041.jpg |
