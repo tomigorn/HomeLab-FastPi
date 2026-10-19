@@ -114,9 +114,7 @@ check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
 check "tower waker v1.2.0"         '1\.2\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
 
-echo "== Tracker (Ryot)"
-running ryot ryot-db
-check "ryot version"               'v10\.5\.3' "$(docker inspect -f '{{.Config.Image}}' ryot 2>/dev/null)"
+echo "== Tracker (Ryot on beefy; containers + backup in the beefy section)"
 check "tracker -> sso"             'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/ | cut -c1-60)"
 check "tracker OIDC discovery"     '^200$' "$(http https://sso.holy-grail.ch/application/o/tracker-login/.well-known/openid-configuration)"
 # /_i/ is the Jellyfin webhook path without forward auth: refused from the tunnel, open on the LAN.
@@ -128,8 +126,10 @@ if [[ -n $cfip ]]; then
   check "tracker integrations public 403" '^403$' "$(http -X POST --resolve tracker.holy-grail.ch:443:$cfip https://tracker.holy-grail.ch/_i/smoke)"
 else skip "tracker integrations public 403" "no public hostname for tracker yet"; fi
 # Ryot queues the POST for any slug and answers 202 (observed v10.5.3); an unknown slug is dropped silently.
-check "tracker integrations LAN reach ryot" '^202$' "$(http -k -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/_i/smoke)"
-check "ryot backup < 2 days"       '^yes$' "$(f=$(ls -t /home/pi/backups/ryot/ryot-*.dump 2>/dev/null | head -1); [[ -n $f ]] && (( $(date +%s) - $(stat -c %Y "$f") < 172800 )) && echo yes || echo "no (${f:-none})")"
+# /_i/ never wakes beefy, so asleep = no answer: checked only while beefy is up.
+if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
+  check "tracker integrations LAN reach ryot" '^202$' "$(http -k -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/_i/smoke)"
+else skip "tracker integrations LAN reach ryot" "beefy asleep - not woken"; fi
 
 echo "== VPN downloaders (gluetun pinned v3.41.3)"
 running gluetun_mouse qbittorrent_mouse mousehole samba port_updater gluetun_nzb sabnzbd
@@ -160,10 +160,13 @@ check "web"                        '^200$' "$(http http://127.0.0.1:3002/)"
 
 echo "== beefy (only if awake)"
 if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
-  r=$(timeout 60 ssh -o BatchMode=yes beefy 'echo "sec=$(apt list --upgradable 2>/dev/null | grep -c security)"; docker ps --format "{{.Names}} {{.Image}} {{.Status}}"' 2>/dev/null)
+  r=$(timeout 60 ssh -o BatchMode=yes beefy 'echo "sec=$(apt list --upgradable 2>/dev/null | grep -c security)"; docker ps --format "{{.Names}} {{.Image}} {{.Status}}"; f=$(ls -t ~/backups/ryot/ryot-*.dump 2>/dev/null | head -1); echo "ryotbackup=$([[ -n $f ]] && (( $(date +%s) - $(stat -c %Y "$f") < 172800 )) && echo yes || echo "no (${f:-none})")"' 2>/dev/null)
   check "beefy security updates"   'sec=0' "$(grep sec= <<<"$r")"
   check "portainer agent"          'portainer/agent:2\.45\.2 Up' "$(grep portainer <<<"$r")"
   for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
+  for s in ryot ryot-db; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
+  check "ryot version"             'ryot:v10\.5\.3 ' "$(grep '^ryot ' <<<"$r")"
+  check "ryot backup < 2 days"     '^ryotbackup=yes$' "$(grep ryotbackup= <<<"$r")"
 else skip "beefy" "asleep - not woken"; fi
 
 echo "== tower (only if awake)"
