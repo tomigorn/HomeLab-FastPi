@@ -35,17 +35,12 @@ Install / reinstall the units: `Docker/antivirus/install.sh`.
 | `/mnt/seagate-red/antivirus-quarantine/` | quarantined files |
 | `/mnt/seagate-red/antivirus-quarantine/index.txt` | one line per quarantined file: date (UTC) TAB original path TAB signature |
 | `/var/lib/clamav-scan/last-infected.txt` | hits of the last run that found something: path TAB signature |
-| `/var/lib/clamav-scan/` | state: `last-run` marker, `infected-total`, `new.list` |
+| `/var/lib/clamav-scan/` | state: `last-run` marker, `infected-total`, `new.list`, `allow.txt` (restored false positives) |
 | `/var/lib/node-exporter/textfile/clamav.prom` | metrics for Prometheus |
 
 ## False positive
 
-```sh
-grep '<file name>' /mnt/seagate-red/antivirus-quarantine/index.txt     # original path, /scan/seagate-red = /mnt/seagate-red
-sudo mv /mnt/seagate-red/antivirus-quarantine/<file> /mnt/seagate-red/<original path>
-```
-
-The move changes the ctime, so the next `new` run scans it again and quarantines it again. Keep it out of the scan roots until the signature is fixed, or accept that.
+`docker exec clamav /scan.sh restore '<file name in antivirus-quarantine>'`: moves it back to its original path from `index.txt`, marks that line `restored <date>` and adds the path to `/var/lib/clamav-scan/allow.txt`, which every mode skips (exact path). Refuses when the original path exists again.
 
 ## Second opinion: VirusTotal
 
