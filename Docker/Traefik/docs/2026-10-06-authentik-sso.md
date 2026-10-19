@@ -306,3 +306,15 @@ completed the wizard (server "Holy Grail", local break-glass admin), the tempora
 removed from the `jellyfin` and `jellyfin-public-info` routers, and `jellyfin-startup-block`
 keeps `/Startup*` at 403 permanently. Verified: `/System/Info/Public` 200, `/Environment/Drives`
 401, `/Startup/Configuration` 403.
+
+## 8. Sonarr and Requests/Seerr (added 2026-10-19)
+
+Both created by `Authentik/scripts/provision-media-sso.py` (config as code, idempotent):
+
+| App | Route | Provider / group | Notes |
+|---|---|---|---|
+| Sonarr | `dynamic/sonarr.yml`, `https://sonarr.holy-grail.ch` | `sonarr-proxy` (forward auth single) / `streaming-admins` | Sonarr auth = `External`, same as Radarr |
+| Requests (Seerr) | `dynamic/requests.yml`, `https://requests.holy-grail.ch` | `requests-proxy` / `streaming-users` | friends may request; `default-rate-limit@file` on; Seerr v3.5.0 has no OIDC, its own session is a Jellyfin Quick Connect login behind this gate (Seerr README in HomeLab-BeefyServer) |
+
+Order on both routers: `authentik@file` before the wake gate, so only a signed-in
+user boots beefy. Dashboard entries and icons: `dashboard-look.py` / `fetch-app-icons.sh`.

@@ -1,0 +1,70 @@
+# Seerr (requests for films & series) on beefy, behind Authentik SSO.
+#
+# https://requests.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Meant for friends, not only admins: the Authentik application `requests` is
+# bound to group streaming-users, the same group that may sign in to Jellyfin.
+# Seerr has no OIDC of its own (v3.5.0), so the forward auth here is the real
+# gate and Seerr's own session comes second: users sign in to Seerr with Jellyfin
+# Quick Connect (Jellyfin passwords are disabled), see the Seerr README in
+# HomeLab-BeefyServer.
+#
+# MIDDLEWARE ORDER IS DELIBERATE: authentik runs BEFORE requests-wake. A request
+# page that wakes beefy is acceptable (same as Jellyfin), but only for a signed-in
+# user; an anonymous hit must never boot the machine. Unlike Jellyfin this app is
+# browser-only, so the plain gate is enough and no sign-in-to-wake page is needed.
+#
+# default-rate-limit is on: this is a page-style app with bursts of small TMDB
+# proxy calls, well inside 100 avg / 50 burst. CrowdSec is attached to the
+# websecure entrypoint and not listed here.
+http:
+  routers:
+    # The outpost callback path. NO middlewares and a higher priority so it wins
+    # over the catch-all router below. Without it the login flow is dead.
+    requests-outpost:
+      rule: "Host(`requests.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    requests:
+      rule: "Host(`requests.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: requests
+      middlewares:
+        - authentik@file
+        - requests-wake
+        - default-rate-limit@file
+        - requests-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # ?port=5055 makes the Beefy-Waker wait for Seerr itself, not merely for sshd.
+    requests-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=5055"
+        trustForwardHeader: false
+
+    requests-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    requests:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:5055"
+        passHostHeader: true

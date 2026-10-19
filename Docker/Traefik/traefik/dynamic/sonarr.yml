@@ -1,0 +1,63 @@
+# Sonarr on beefy, behind Authentik SSO.
+#
+# https://sonarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Same shape as radarr.yml: Sonarr's own login is set to "External" (Settings ->
+# General -> Security -> Authentication), this gate is the login. Its API is
+# unaffected: Prowlarr, Bazarr and Seerr reach it over beefy's Docker network.
+#
+# MIDDLEWARE ORDER IS DELIBERATE: authentik runs BEFORE sonarr-wake, so only a
+# logged-in user can boot the sleeping beefy (see radarr.yml for the reasoning).
+#
+# CrowdSec is attached to the websecure entrypoint, not listed here. No rate
+# limit: a low-traffic admin UI that fires many small XHRs.
+http:
+  routers:
+    # The outpost callback path. NO middlewares and a higher priority so it wins
+    # over the catch-all router below. Without it the login flow is dead.
+    sonarr-outpost:
+      rule: "Host(`sonarr.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    sonarr:
+      rule: "Host(`sonarr.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: sonarr
+      middlewares:
+        - authentik@file
+        - sonarr-wake
+        - sonarr-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # ?port=8989 makes the Beefy-Waker wait for Sonarr itself, not merely for sshd.
+    sonarr-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8989"
+        trustForwardHeader: false
+
+    sonarr-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    sonarr:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8989"
+        passHostHeader: true
