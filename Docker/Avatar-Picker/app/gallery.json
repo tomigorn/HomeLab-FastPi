@@ -15,7 +15,8 @@
     "color": "#EDC6F1",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "stitch",
@@ -24,7 +25,8 @@
     "color": "#DAF1C6",
     "group": "disney",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "anna",
@@ -42,7 +44,8 @@
     "color": "#E8F1C6",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "olaf",
@@ -69,7 +72,8 @@
     "color": "#C6DCF1",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "wall-e",
@@ -78,7 +82,8 @@
     "color": "#F1CBC6",
     "group": "disney",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "rapunzel",
@@ -96,12 +101,13 @@
     "color": "#F1C6CF",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
-    "id": "lightning-mcqueen",
-    "name": "Lightning McQueen",
-    "file": "lightning-mcqueen.png",
+    "id": "mater",
+    "name": "Mater",
+    "file": "mater.png",
     "color": "#C6F1D7",
     "group": "disney",
     "vibe": "neutral",
@@ -123,7 +129,8 @@
     "color": "#C6F1C9",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "dory",
@@ -132,7 +139,8 @@
     "color": "#E4C6F1",
     "group": "disney",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mirabel",
@@ -141,7 +149,8 @@
     "color": "#D1F1C6",
     "group": "disney",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "donald-duck",
@@ -150,7 +159,8 @@
     "color": "#D6C6F1",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "baymax",
@@ -168,7 +178,8 @@
     "color": "#C7C6F1",
     "group": "disney",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "goofy",
@@ -177,7 +188,8 @@
     "color": "#F1E2C6",
     "group": "disney",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "thumper",
@@ -186,7 +198,8 @@
     "color": "#C6E5F1",
     "group": "disney",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "merida",
@@ -213,7 +226,8 @@
     "color": "#F1C6D8",
     "group": "disney",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "snow-white",
@@ -234,9 +248,9 @@
     "pack": "local"
   },
   {
-    "id": "pascal",
-    "name": "Pascal",
-    "file": "pascal.png",
+    "id": "rex",
+    "name": "Rex",
+    "file": "rex.png",
     "color": "#CCF1C6",
     "group": "disney",
     "vibe": "neutral",
@@ -249,7 +263,8 @@
     "color": "#CDC6F1",
     "group": "animated",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "shrek",
@@ -258,7 +273,8 @@
     "color": "#F1E8C6",
     "group": "animated",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "scrat",
@@ -267,7 +283,8 @@
     "color": "#C6DFF1",
     "group": "animated",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "gwen-stacy",
@@ -285,7 +302,8 @@
     "color": "#C6EDF1",
     "group": "animated",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "minion",
@@ -294,7 +312,8 @@
     "color": "#F1C6D3",
     "group": "animated",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "lola-bunny",
@@ -303,7 +322,8 @@
     "color": "#C6F1E6",
     "group": "animated",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "gru",
@@ -312,7 +332,8 @@
     "color": "#F1C6E1",
     "group": "animated",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "donkey",
@@ -321,7 +342,8 @@
     "color": "#C6F1C6",
     "group": "animated",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "anastasia",
@@ -339,7 +361,8 @@
     "color": "#D4F1C6",
     "group": "animated",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "toothless",
@@ -369,22 +392,23 @@
     "pack": "local"
   },
   {
-    "id": "iron-giant",
-    "name": "Iron Giant",
-    "file": "iron-giant.png",
+    "id": "shaun",
+    "name": "Shaun the Sheep",
+    "file": "shaun.png",
     "color": "#F1DFC6",
     "group": "animated",
     "vibe": "neutral",
     "pack": "local"
   },
   {
-    "id": "mavis",
-    "name": "Mavis",
-    "file": "mavis.png",
+    "id": "agnes",
+    "name": "Agnes",
+    "file": "agnes.png",
     "color": "#C6D6F1",
     "group": "animated",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "wallace",
@@ -411,7 +435,8 @@
     "color": "#F1C6CA",
     "group": "animated",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "megamind",
@@ -423,13 +448,14 @@
     "pack": "local"
   },
   {
-    "id": "rango",
-    "name": "Rango",
-    "file": "rango.png",
+    "id": "max",
+    "name": "Max",
+    "file": "max.png",
     "color": "#F1C6EA",
     "group": "animated",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "fei-fei",
@@ -450,13 +476,14 @@
     "pack": "local"
   },
   {
-    "id": "blu",
-    "name": "Blu",
-    "file": "blu.png",
+    "id": "snowball",
+    "name": "Snowball",
+    "file": "snowball.png",
     "color": "#DDF1C6",
     "group": "animated",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "poppy",
@@ -477,13 +504,14 @@
     "pack": "local"
   },
   {
-    "id": "migo",
-    "name": "Migo",
-    "file": "migo.png",
+    "id": "buster-moon",
+    "name": "Buster Moon",
+    "file": "buster-moon.png",
     "color": "#C6D1F1",
     "group": "animated",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "hermione",
@@ -510,7 +538,8 @@
     "color": "#F1E7C6",
     "group": "movies",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mary-poppins",
@@ -672,7 +701,8 @@
     "color": "#C6F1DC",
     "group": "movies",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "black-widow",
@@ -699,7 +729,8 @@
     "color": "#E9C6F1",
     "group": "movies",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "katniss",
@@ -735,7 +766,8 @@
     "color": "#C6E0F1",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "homer-simpson",
@@ -744,7 +776,8 @@
     "color": "#F1C7C6",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "spongebob",
@@ -753,7 +786,8 @@
     "color": "#C6F1E2",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "velma",
@@ -762,7 +796,8 @@
     "color": "#F1C6D3",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "fred-flintstone",
@@ -771,7 +806,8 @@
     "color": "#C6F1D3",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "scooby-doo",
@@ -780,7 +816,8 @@
     "color": "#EEC6F1",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "leela",
@@ -789,7 +826,8 @@
     "color": "#C7F1C6",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "rick-sanchez",
@@ -798,7 +836,8 @@
     "color": "#E0C6F1",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "garfield",
@@ -807,7 +846,8 @@
     "color": "#E7F1C6",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "marge-simpson",
@@ -816,7 +856,8 @@
     "color": "#D1C6F1",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "bart-simpson",
@@ -825,7 +866,8 @@
     "color": "#F1ECC6",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "snoopy",
@@ -834,7 +876,8 @@
     "color": "#C6DAF1",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "daphne",
@@ -843,7 +886,8 @@
     "color": "#F1DEC6",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "peter-griffin",
@@ -852,7 +896,8 @@
     "color": "#C6E9F1",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "patrick-star",
@@ -861,7 +906,8 @@
     "color": "#F1C6CE",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mabel-pines",
@@ -870,7 +916,8 @@
     "color": "#C6F1EA",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "cartman",
@@ -879,7 +926,8 @@
     "color": "#F1C6DC",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "pink-panther",
@@ -888,7 +936,8 @@
     "color": "#C6F1CA",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "powerpuff-girls",
@@ -897,7 +946,8 @@
     "color": "#F1C6EB",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "bugs-bunny",
@@ -906,7 +956,8 @@
     "color": "#D0F1C6",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "gromit",
@@ -924,7 +975,8 @@
     "color": "#DEF1C6",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "aang",
@@ -933,7 +985,8 @@
     "color": "#C9C6F1",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "jerry-mouse",
@@ -942,7 +995,8 @@
     "color": "#F1E3C6",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "dora",
@@ -951,7 +1005,8 @@
     "color": "#C6D2F1",
     "group": "tvcartoons",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "finn",
@@ -960,7 +1015,8 @@
     "color": "#F1D5C6",
     "group": "tvcartoons",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "tweety",
@@ -969,7 +1025,8 @@
     "color": "#C6F1F0",
     "group": "tvcartoons",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "jessica-fletcher",
@@ -1131,7 +1188,8 @@
     "color": "#E6C6F1",
     "group": "tvshows",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "miss-piggy",
@@ -1248,7 +1306,8 @@
     "color": "#D9F1C6",
     "group": "anime",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "naruto",
@@ -1257,7 +1316,8 @@
     "color": "#CEC6F1",
     "group": "anime",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "jiji",
@@ -1284,7 +1344,8 @@
     "color": "#F1DAC6",
     "group": "anime",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "doraemon",
@@ -1293,7 +1354,8 @@
     "color": "#C6ECF1",
     "group": "anime",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "anya",
@@ -1338,7 +1400,8 @@
     "color": "#F1C6EE",
     "group": "anime",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "calcifer",
@@ -1356,7 +1419,8 @@
     "color": "#E5C6F1",
     "group": "anime",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "deku",
@@ -1365,7 +1429,8 @@
     "color": "#E1F1C6",
     "group": "anime",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "gundam",
@@ -1428,7 +1493,8 @@
     "color": "#C6F1DE",
     "group": "anime",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "asuka",
@@ -1446,7 +1512,8 @@
     "color": "#C6F1D0",
     "group": "anime",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "luna",
@@ -1464,7 +1531,8 @@
     "color": "#C9F1C6",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "eevee",
@@ -1473,7 +1541,8 @@
     "color": "#CFC6F1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "charizard",
@@ -1482,7 +1551,8 @@
     "color": "#F1DBC6",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "bulbasaur",
@@ -1491,7 +1561,8 @@
     "color": "#C6F1E8",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "squirtle",
@@ -1500,7 +1571,8 @@
     "color": "#F1C6ED",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "charmander",
@@ -1509,7 +1581,8 @@
     "color": "#E1F1C6",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "jigglypuff",
@@ -1518,7 +1591,8 @@
     "color": "#C6D4F1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "psyduck",
@@ -1527,7 +1601,8 @@
     "color": "#F1C6C8",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "snorlax",
@@ -1536,7 +1611,8 @@
     "color": "#C6F1D1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mewtwo",
@@ -1545,7 +1621,8 @@
     "color": "#DDC6F1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mew",
@@ -1554,7 +1631,8 @@
     "color": "#F1EAC6",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "gengar",
@@ -1563,7 +1641,8 @@
     "color": "#C6EBF1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "meowth",
@@ -1572,7 +1651,8 @@
     "color": "#F1C6DF",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "lucario",
@@ -1581,7 +1661,8 @@
     "color": "#D2F1C6",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mimikyu",
@@ -1590,7 +1671,8 @@
     "color": "#C6C6F1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "gardevoir",
@@ -1599,7 +1681,8 @@
     "color": "#F1D2C6",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "ditto",
@@ -1608,7 +1691,8 @@
     "color": "#C6F1DF",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "cubone",
@@ -1617,7 +1701,8 @@
     "color": "#EBC6F1",
     "group": "pokemon",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "zelda",
@@ -1626,7 +1711,8 @@
     "color": "#EAF1C6",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "sonic",
@@ -1635,7 +1721,8 @@
     "color": "#C6CFF1",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "pac-man",
@@ -1644,7 +1731,8 @@
     "color": "#F1D7C6",
     "group": "games",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "lara-croft",
@@ -1653,7 +1741,8 @@
     "color": "#C6DEF1",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "master-chief",
@@ -1662,7 +1751,8 @@
     "color": "#F1C9C6",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "kirby",
@@ -1671,7 +1761,8 @@
     "color": "#C6F1E4",
     "group": "games",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "samus",
@@ -1680,7 +1771,8 @@
     "color": "#F1C6D1",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "link",
@@ -1689,7 +1781,8 @@
     "color": "#C6F1D5",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "creeper",
@@ -1707,7 +1800,8 @@
     "color": "#C6F1C7",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "crash-bandicoot",
@@ -1716,7 +1810,8 @@
     "color": "#E2C6F1",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "crewmate",
@@ -1734,7 +1829,8 @@
     "color": "#D3C6F1",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "steve",
@@ -1743,7 +1839,8 @@
     "color": "#F1EEC6",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "angry-bird",
@@ -1752,7 +1849,8 @@
     "color": "#C6D8F1",
     "group": "games",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "tifa",
@@ -1761,7 +1859,8 @@
     "color": "#F1E0C6",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "ratchet",
@@ -1770,7 +1869,8 @@
     "color": "#C6E7F1",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "blinky",
@@ -1779,7 +1879,8 @@
     "color": "#F1C6CC",
     "group": "games",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "madeline",
@@ -1788,7 +1889,8 @@
     "color": "#C6F1EC",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "rayman",
@@ -1797,7 +1899,8 @@
     "color": "#F1C6DA",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "slime",
@@ -1806,7 +1909,8 @@
     "color": "#C6F1CC",
     "group": "games",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "tracer",
@@ -1815,7 +1919,8 @@
     "color": "#F1C6E8",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "cuphead",
@@ -1842,7 +1947,8 @@
     "color": "#DCF1C6",
     "group": "games",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "cloud-strife",
@@ -1851,7 +1957,8 @@
     "color": "#CBC6F1",
     "group": "games",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "sackboy",
@@ -1860,7 +1967,8 @@
     "color": "#F1E5C6",
     "group": "games",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "princess-peach",
@@ -1869,7 +1977,8 @@
     "color": "#EAF1C6",
     "group": "mario",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "mario",
@@ -1878,7 +1987,8 @@
     "color": "#C6F1ED",
     "group": "mario",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "yoshi",
@@ -1887,7 +1997,8 @@
     "color": "#E3C6F1",
     "group": "mario",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "princess-daisy",
@@ -1896,7 +2007,8 @@
     "color": "#C6DDF1",
     "group": "mario",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "luigi",
@@ -1905,7 +2017,8 @@
     "color": "#F1C6E8",
     "group": "mario",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "toad",
@@ -1914,7 +2027,8 @@
     "color": "#F1EFC6",
     "group": "mario",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "toadette",
@@ -1923,7 +2037,8 @@
     "color": "#F1C6D1",
     "group": "mario",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "bowser",
@@ -1932,7 +2047,8 @@
     "color": "#DBF1C6",
     "group": "mario",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "goomba",
@@ -1941,7 +2057,8 @@
     "color": "#C6E6F1",
     "group": "mario",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "rosalina",
@@ -1950,7 +2067,8 @@
     "color": "#C6F1C8",
     "group": "mario",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "donkey-kong",
@@ -1959,7 +2077,8 @@
     "color": "#C6CFF1",
     "group": "mario",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "koopa-troopa",
@@ -1968,7 +2087,8 @@
     "color": "#F1C6D9",
     "group": "mario",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "pauline",
@@ -1977,7 +2097,8 @@
     "color": "#D4C6F1",
     "group": "mario",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "wario",
@@ -1986,7 +2107,8 @@
     "color": "#F1CAC6",
     "group": "mario",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "piranha-plant",
@@ -1995,7 +2117,8 @@
     "color": "#CDF1C6",
     "group": "mario",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "birdo",
@@ -2004,7 +2127,8 @@
     "color": "#F1E1C6",
     "group": "mario",
     "vibe": "feminine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "waluigi",
@@ -2013,7 +2137,8 @@
     "color": "#C6F1D6",
     "group": "mario",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "luma",
@@ -2022,7 +2147,8 @@
     "color": "#CBC6F1",
     "group": "mario",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "alice",
@@ -2499,7 +2625,8 @@
     "color": "#F1CEC6",
     "group": "memes",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "bongo-cat",
@@ -2580,7 +2707,8 @@
     "color": "#C6F1E9",
     "group": "memes",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "big-floppa",
@@ -3237,7 +3365,8 @@
     "color": "#C6F1C8",
     "group": "classics",
     "vibe": "masculine",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "pluto-1930",
@@ -3273,7 +3402,8 @@
     "color": "#F1C6E7",
     "group": "classics",
     "vibe": "neutral",
-    "pack": "local"
+    "pack": "local",
+    "square": true
   },
   {
     "id": "colour-red",

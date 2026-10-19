@@ -110,8 +110,8 @@ COMMONS = {
     "storybook": [
         # John Tenniel (d. 1914), The Nursery "Alice" (colour), 1890 - {{PD-old-auto-expired}}
         ("alice", "Alice", "feminine",
-         "File:John Tenniel - Illustration from The Nursery Alice (1890) - c03757 07.jpg",
-         (340, 370, 300)),
+         "File:John Tenniel - Illustration from The Nursery Alice (1890) - 066110.jpg",
+         (560, 0, 520)),
         # Wilhelm Busch (d. 1908), Max und Moritz title image, 1865 - {{PD-Art|PD-old-auto-expired}}
         ("moritz", "Moritz", "masculine",
          "File:Max und Moritz.JPG", (320, 0, 310)),
@@ -230,10 +230,10 @@ COMMONS = {
         # Toshusai Sharaku (fl. 1794-95), Ichikawa Yaozo III, 1794 - PD-Art (Rijksmuseum)
         ("sharaku-yaozo", "Yaozo", "masculine",
          "File:Busteportret van Ichikawa Yaozo III-Rijksmuseum RP-P-1956-590.jpeg",
-         (380, 450, 1200)),
+         (330, 560, 880)),
         # Utagawa Hiroshige (d. 1858), Asakusa Ricefields and Torinomachi Festival, 1857 - PD-Art
         ("hiroshige-cat", "Neko", "neutral",
-         "File:Hiroshige, Asakusa ricefields and torinomachi festival, 1857.jpg", (430, 1350, 650)),
+         "File:Hiroshige, Asakusa ricefields and torinomachi festival, 1857.jpg", (480, 1400, 560)),
     ],
     "belleepoque": [
         # Alphonse Mucha (d. 1939), Zodiac (La Plume calendar), 1896 - PD-Art
@@ -241,11 +241,11 @@ COMMONS = {
          "File:Alphonse Mucha - Zodiac, 1869.jpg", (380, 540, 650)),
         # Henri de Toulouse-Lautrec (d. 1901), Ambassadeurs: Aristide Bruant, 1892 - PD-Art
         ("lautrec-bruant", "Aristide", "masculine",
-         "File:Lautrec Ambassadeurs Aristide Bruant.jpg", (60, 180, 480)),
+         "File:Lautrec Ambassadeurs Aristide Bruant.jpg", (120, 210, 420)),
         # Theophile-Alexandre Steinlen (d. 1923), Tournee du Chat Noir, 1896 - PD-Art
         ("steinlen-chat-noir", "Chat Noir", "neutral",
          "File:Théophile Alexandre Steinlen - Tournée du Chat Noir - Google Art Project.jpg",
-         (550, 120, 650)),
+         (615, 215, 520)),
         # Henri de Toulouse-Lautrec (d. 1901), Jane Avril, 1899 - PD-Art
         ("lautrec-jane-avril", "Jane", "feminine",
          "File:Lautrec jane avril (poster) 1899.jpg", (200, 90, 280)),
@@ -258,11 +258,11 @@ COMMONS = {
          (960, 0, 440)),
         # Jules Cheret (d. 1932), Yvette Guilbert au Concert Parisien, 1891 - PD-Art
         ("cheret-yvette", "Yvette", "feminine",
-         "File:Cheret-Yvette-Guilbert.jpg", (430, 280, 450)),
+         "File:Cheret-Yvette-Guilbert.jpg", (580, 340, 280)),
         # Henri de Toulouse-Lautrec (d. 1901), Moulin Rouge - La Goulue (Valentin le Desosse), 1891 - PD-Art
         ("lautrec-valentin", "Valentin", "masculine",
          "File:Henri de Toulouse-Lautrec, Moulin Rouge - La Goulue, 1891 - The Metropolitan Museum of Art.jpg",
-         (1200, 1250, 700)),
+         (1180, 1280, 640)),
         # Theophile-Alexandre Steinlen (d. 1923), Calico cat, before 1923 - PD-old-auto-expired
         ("steinlen-calico", "Calico", "neutral",
          "File:Calico cat (Steinlen).jpg", (250, 230, 450)),
@@ -302,10 +302,10 @@ COMMONS = {
     "comics": [
         # E. C. Segar (d. 1938), Thimble Theatre, 24 Jan 1929 - {{PD-old-auto-expired}}
         ("olive", "Olive", "feminine",
-         "File:Popeye and Olive Oyl - First shared panel.png", (540, 70, 220)),
+         "File:Popeye and Olive Oyl - First shared panel.png", (520, 95, 240)),
         # E. C. Segar (d. 1938), Thimble Theatre, 26 Dec 1929
         ("popeye", "Popeye", "masculine",
-         "File:Sea Hag from Thimble Theatre (December 26, 1929).png", (700, 260, 300)),
+         "File:Sea Hag from Thimble Theatre (December 26, 1929).png", (720, 270, 270)),
         # George Herriman (d. 1944), Krazy Kat, 17 Dec 1918
         ("krazy-kat", "Krazy", "neutral",
          "File:Krazy Kat 1.png", (0, 0, 240)),
@@ -329,7 +329,7 @@ COMMONS = {
          "File:Mutt and Jeff Book 7 Cover.jpg", (1180, 820, 360)),
         # E. C. Segar (d. 1938), Thimble Theatre, Eugene the Jeep debut, 1936
         ("jeep", "Jeep", "neutral",
-         "File:Eugene The Jeep debut.jpg", (700, 120, 230)),
+         "File:Eugene The Jeep debut.jpg", (740, 150, 160)),
     ],
     "swiss": [
         # Albert Anker (d. 1910), Maedchenbildnis, 1885 - PD-Art
@@ -370,7 +370,7 @@ COMMONS = {
          "File:Minnie Mouse (Steamboat Willie).png", (90, 20, 300)),
         # Walt Disney Productions, The Chain Gang poster, 1930 - {{PD-US-expired}}, US PD since 2026
         ("mickey-1930", "Mickey (1930)", "masculine",
-         "File:The Chain Gang.jpg", (120, 10, 230)),
+         "File:The Chain Gang.jpg", (150, 20, 200)),
         # Pat Sullivan / Educational Pictures, Exhibitors Herald ad, June 1925 - {{PD-US-expired}}
         ("felix-1925", "Felix the Cat", "neutral",
          "File:Felix the Cat - June 1925 EH.jpg", (0, 410, 210)),
@@ -405,47 +405,52 @@ LOCAL_COMMONS = {"classics"}
 # images of the character's English Wikipedia article (non-free, fetched straight
 # from upload.wikimedia.org), Wikimedia Commons photos for the meme animals, and
 # Studio Ghibli's official free-to-use stills (ghibli.jp/info/013344).
-# (id, name, vibe, image URL, (x, y, size) crop box - may exceed the image; any
-# transparent or outside area becomes the avatar colour)
+# (id, name, vibe, image URL, (x, y, size) crop box). Transparent sources: the box
+# may run past the image, the avatar colour fills the rest (gallery.json "square").
+# Opaque sources: the box must lie inside the image (it is clamped, with a warning).
 WP = "https://upload.wikimedia.org/wikipedia/"
+# Disney's official character portraits (frozen.disney.com, princess.disney.com,
+# characters.disney.com/toy-story, cars.disney.com, movies.disney.com/big-hero-6)
+DISNEY = "https://lumiere-a.akamaihd.net/v1/images/"
+# Illumination's official character renders (illumination.com/movie/...)
+ILLUMINATION = "https://www.illumination.com/wp-content/uploads/"
 LOCAL = {
     # Disney & Pixar (27): Disney Animation and Pixar characters, 1937-2021
     "disney": [
-        ("elsa", "Elsa", "feminine", WP + "en/5/5e/Elsa_from_Disney%27s_Frozen.png", (32, 0, 112)),
-        ("anna", "Anna", "feminine", WP + "en/8/8a/Anna_Frozen.png", (40, 0, 110)),
-        ("moana", "Moana", "feminine", WP + "en/5/56/Moana_%28character%29.png", (30, 0, 150)),
-        ("rapunzel", "Rapunzel", "feminine", WP + "en/6/6a/Rapunzel_tangled.png", (170, 45, 100)),
-        ("ariel", "Ariel", "feminine", WP + "en/7/77/Ariel_disney.png", (32, 17, 151)),
-        ("mirabel", "Mirabel", "feminine", WP + "en/e/e7/Mirabel_Madrigal.png", (31, 14, 145)),
+        ("elsa", "Elsa", "feminine", DISNEY + "ct_frozen_elsa_18466_22a50822_ad6090d1.jpeg", (40, 20, 520)),
+        ("anna", "Anna", "feminine", DISNEY + "ct_frozen_anna_18466_6775584b_520ae44b.jpeg", (40, 20, 520)),
+        ("moana", "Moana", "feminine", DISNEY + "ct_princess_moana_3497_0a28209c.jpeg", (90, 40, 620)),
+        ("rapunzel", "Rapunzel", "feminine", DISNEY + "ct_princess_rapunzel_3497_5b2f90a4.jpeg", (130, 40, 600)),
+        ("ariel", "Ariel", "feminine", DISNEY + "ct_princess_ariel_3497_d17c9d8a.jpeg", (40, 20, 620)),
+        ("mirabel", "Mirabel", "feminine", WP + "en/e/e7/Mirabel_Madrigal.png", (28, 0, 155)),
         ("joy", "Joy", "feminine", WP + "en/3/30/Joy_-_Inside_Out.webp", (0, 0, 189)),
-        ("merida", "Merida", "feminine", WP + "en/e/e8/Merida_disney.png", (31, 96, 79)),
-        ("snow-white", "Snow White", "feminine", WP + "en/e/e1/Snow_white_disney.png", (59, -2, 97)),
+        ("merida", "Merida", "feminine", DISNEY + "ct_princess_merida_3497_7906fc57.jpeg", (60, 20, 680)),
+        ("snow-white", "Snow White", "feminine", DISNEY + "ct_princess_snowwhite_3497_e41686e8.jpeg", (120, 20, 620)),
         ("mike-wazowski", "Mike Wazowski", "masculine", WP + "en/6/6a/Mike_Wazowski.png", (25, 4, 200)),
         ("simba", "Simba", "masculine",
          WP + "en/9/94/Simba_%28_Disney_character_-_adult%29.png",
          (22, -8, 178)),
-        ("genie", "Genie", "masculine", WP + "en/0/0c/The_Genie_Aladdin.png", (61, 4, 154)),
+        ("genie", "Genie", "masculine", WP + "en/0/0c/The_Genie_Aladdin.png", (55, -10, 170)),
         ("mr-incredible", "Mr. Incredible", "masculine", WP + "en/2/22/Mr._Incredible.png", (62, -2, 124)),
         ("carl", "Carl", "masculine", WP + "en/9/9f/Carl_from_Up_2009.png", (41, -10, 165)),
         ("donald-duck", "Donald Duck", "masculine",
          WP + "en/a/a5/Donald_Duck_angry_transparent_background.png",
-         (27, 7, 162)),
+         (27, 0, 170)),
         ("goofy", "Goofy", "masculine", WP + "en/5/50/Goofy_Duckipedia.png", (50, -6, 158)),
         ("sulley", "Sulley", "masculine", WP + "en/6/63/Monsters_Inc.JPG", (67, 36, 121)),
-        ("buzz-lightyear", "Buzz Lightyear", "masculine", WP + "en/1/13/Toy_Story.jpg", (69, 56, 112)),
+        ("buzz-lightyear", "Buzz Lightyear", "masculine",
+         DISNEY + "b_toystory_characterbanner_buzz_desktop_gradient_v2_78f93ff8.jpeg", (870, 0, 280)),
         ("stitch", "Stitch", "neutral",
          WP + "en/thumb/d/d2/Stitch_%28Lilo_%26_Stitch%29.svg/960px-Stitch_%28Lilo_%26_Stitch%29.svg.png",
          (0, 0, 960)),
-        ("olaf", "Olaf", "neutral", WP + "en/6/6d/Olaf_from_Disney%27s_Frozen.png", (11, 60, 198)),
+        ("olaf", "Olaf", "neutral", DISNEY + "ct_frozen_olaf_18466_eabe1344_2dd6212f.jpeg", (0, 0, 600)),
         ("wall-e", "WALL-E", "neutral", WP + "en/6/68/WALL-E_%28character%29.png", (0, 5, 271)),
-        ("lightning-mcqueen", "Lightning McQueen", "neutral",
-         WP + "en/8/82/Lightning_McQueen.png",
-         (0, -56, 250)),
-        ("dory", "Dory", "neutral", WP + "en/a/ae/Dory_%28Finding_Nemo%29.png", (0, 18, 300)),
-        ("baymax", "Baymax", "neutral", WP + "en/4/4b/Big_Hero_6_%28film%29_poster.jpg", (48, -4, 158)),
+        ("mater", "Mater", "neutral", DISNEY + "mater_characterimage_b6ea14ea.jpeg", (190, 40, 400)),
+        ("dory", "Dory", "neutral", WP + "en/a/ae/Dory_%28Finding_Nemo%29.png", (-18, 0, 336)),
+        ("baymax", "Baymax", "neutral", DISNEY + "character_bighero6_baymax_5aa2754b_14cc5b05.jpeg", (60, 40, 330)),
         ("thumper", "Thumper", "neutral", WP + "en/a/ab/Thumper_%28Bambi_character%29.png", (0, -19, 298)),
         ("sisu", "Sisu", "neutral", WP + "en/a/aa/Disney_Sisu.png", (31, -12, 217)),
-        ("pascal", "Pascal", "neutral", WP + "en/2/2f/Maximus_with_Pascal.jpg", (239, 89, 96)),
+        ("rex", "Rex", "neutral", DISNEY + "t_toystory_rex_characterimage_v3_646b6daa.jpeg", (120, 20, 400)),
     ],
     # Animated films (27): other studios - DreamWorks, Illumination, Sony, Warner, Aardman, Laika, Blue Sky, Fox/Don Bluth, Netflix, Cartoon Saloon
     "animated": [
@@ -455,13 +460,11 @@ LOCAL = {
          (71, 14, 174)),
         ("lola-bunny", "Lola Bunny", "feminine",
          WP + "en/thumb/3/3d/Lola_Bunny_Space_Jam_svg.svg/960px-Lola_Bunny_Space_Jam_svg.svg.png",
-         (264, 67, 432)),
-        ("anastasia", "Anastasia", "feminine", WP + "en/0/09/Anya_Anastasia.jpeg", (-13, 24, 252)),
+         (230, 0, 500)),
+        ("anastasia", "Anastasia", "feminine", WP + "en/0/09/Anya_Anastasia.jpeg", (0, 24, 252)),
         ("nimona", "Nimona", "feminine", WP + "en/f/f5/Nimona_poster.png", (72, 108, 91)),
-        ("mavis", "Mavis", "feminine",
-         WP + "en/9/9e/Hotel_Transylvania_3_%282018%29_Poster.jpg",
-         (164, 140, 65)),
-        ("shrek-dragon", "Dragon (Shrek)", "feminine", WP + "en/c/cd/Shrek_Dragon_render.png", (-2, 56, 130)),
+        ("agnes", "Agnes", "feminine", ILLUMINATION + "2019/11/A_P0170_SRGB.png", (300, 380, 560)),
+        ("shrek-dragon", "Dragon (Shrek)", "feminine", WP + "en/c/cd/Shrek_Dragon_render.png", (-2, 20, 170)),
         ("fei-fei", "Fei Fei", "feminine", WP + "en/d/dc/Over_the_Moon_%282020%29.png", (82, 19, 92)),
         ("poppy", "Poppy", "feminine", WP + "en/b/bd/Trolls3film.jpg", (20, 255, 126)),
         ("shrek", "Shrek", "masculine", WP + "en/4/4d/Shrek_%28character%29.png", (45, -10, 185)),
@@ -476,24 +479,24 @@ LOCAL = {
          WP + "en/5/50/Miles_Morales_%28Across_the_Spider-Verse%29.jpg",
          (88, 38, 190)),
         ("wallace", "Wallace", "masculine", WP + "en/e/ec/Wallace_and_gromit.jpg", (90, 0, 164)),
-        ("megamind", "Megamind", "masculine", WP + "en/8/89/Megamind2010Poster.jpg", (72, 22, 96)),
+        ("megamind", "Megamind", "masculine",
+         "https://www.dreamworks.com/storage/movies/megamind/megamind-about.jpg", (120, 60, 1200)),
         ("boss-baby", "Boss Baby", "masculine", WP + "en/0/0e/The_Boss_Baby_poster.jpg", (44, 58, 132)),
         ("mr-wolf", "Mr. Wolf", "masculine", WP + "en/0/00/The_Bad_Guys_poster.jpeg", (108, 27, 102)),
         ("scrat", "Scrat", "neutral", WP + "en/e/ec/Scrat_Ice_Age.png", (0, -68, 300)),
-        ("minion", "Minion", "neutral",
-         WP + "commons/thumb/4/41/Minion_sculpture_in_Brisbane%2C_2024.jpg/1280px-Minion_sculpture_in_Brisbane%2C_2024.jpg",
-         (256, 128, 768)),
+        ("minion", "Minion", "neutral", ILLUMINATION + "2019/11/Minions_Kevin2.png", (200, 100, 820)),
         ("donkey", "Donkey", "neutral", WP + "en/6/6c/Donkey_%28Shrek%29.png", (22, -9, 154)),
         ("toothless", "Toothless", "neutral",
-         WP + "en/9/99/How_to_Train_Your_Dragon_Poster.jpg",
-         (-22, -1, 198)),
-        ("iron-giant", "Iron Giant", "neutral", WP + "en/d/d3/The_Iron_Giant_poster.JPG", (61, 50, 121)),
+         WP + "commons/thumb/4/48/Chimuelo_en_el_Parque_de_la_Amistad_%287%29.jpg/1920px-Chimuelo_en_el_Parque_de_la_Amistad_%287%29.jpg",
+         (880, 700, 640)),
+        ("shaun", "Shaun the Sheep", "neutral",
+         "https://www.aardman.com/media/pkgdssav/beast_still_square.jpg", (505, 585, 380)),
         ("spirit", "Spirit", "neutral",
          WP + "en/3/3b/Spirit_Stallion_of_the_Cimarron_poster.jpg",
          (53, 100, 91)),
-        ("rango", "Rango", "neutral", WP + "en/6/6d/Rango2011Poster.jpg", (50, 30, 130)),
-        ("blu", "Blu", "neutral", WP + "en/b/bb/Rio2011Poster.jpg", (65, 82, 104)),
-        ("migo", "Migo", "neutral", WP + "en/e/e8/Smallfoot_%28film%29.png", (73, 136, 88)),
+        ("max", "Max", "neutral", ILLUMINATION + "2019/11/Pets_Max.png", (240, 40, 720)),
+        ("snowball", "Snowball", "neutral", ILLUMINATION + "2019/11/Pets_Snowball.png", (0, 0, 1188)),
+        ("buster-moon", "Buster Moon", "neutral", ILLUMINATION + "2019/10/Sing_Buster_2.png", (250, 300, 700)),
     ],
     # Movies (27): live-action film characters, in-character stills/posters/infobox images (no candid photos)
     "movies": [
@@ -518,8 +521,8 @@ LOCAL = {
          (416, 32, 448)),
         ("darth-vader", "Darth Vader", "masculine",
          WP + "en/0/0b/Darth_Vader_in_The_Empire_Strikes_Back.jpg",
-         (71, -8, 174)),
-        ("yoda", "Yoda", "masculine", WP + "en/9/9b/Yoda_Empire_Strikes_Back.png", (0, -10, 250)),
+         (71, 0, 174)),
+        ("yoda", "Yoda", "masculine", WP + "en/9/9b/Yoda_Empire_Strikes_Back.png", (0, 0, 250)),
         ("spider-man", "Spider-Man", "masculine",
          WP + "en/0/0f/Tom_Holland_as_Spider-Man.jpg",
          (62, 10, 115)),
@@ -528,7 +531,7 @@ LOCAL = {
          (76, 86, 127)),
         ("marty-mcfly", "Marty McFly", "masculine",
          WP + "en/d/d8/Michael_J._Fox_as_Marty_McFly_in_Back_to_the_Future%2C_1985.jpg",
-         (26, -5, 180)),
+         (26, 0, 180)),
         ("willy-wonka", "Willy Wonka", "masculine",
          WP + "en/8/85/Gene_Wilder_as_Willy_Wonka.jpeg",
          (67, 33, 201)),
@@ -564,12 +567,12 @@ LOCAL = {
         ("lisa-simpson", "Lisa", "feminine", WP + "en/e/ec/Lisa_Simpson.png", (19, -20, 185)),
         ("velma", "Velma", "feminine", WP + "en/9/9d/Velma_Dinkley.png", (38, -12, 125)),
         ("leela", "Leela", "feminine", WP + "en/d/d4/Turanga_Leela.png", (14, -4, 135)),
-        ("marge-simpson", "Marge", "feminine", WP + "en/0/0b/Marge_Simpson.png", (-10, 60, 150)),
+        ("marge-simpson", "Marge", "feminine", WP + "en/0/0b/Marge_Simpson.png", (-45, 0, 220)),
         ("daphne", "Daphne", "feminine", WP + "en/1/1d/Daphne_Blake.png", (48, -6, 117)),
         ("mabel-pines", "Mabel", "feminine", WP + "en/4/4b/Mabel_Pines.png", (45, -6, 179)),
         ("powerpuff-girls", "Blossom (Powerpuff)", "feminine",
          WP + "en/7/7b/Blossom_PPG_98_Art.png",
-         (0, -25, 290)),
+         (-20, -20, 280)),
         ("smurfette", "Smurfette", "feminine", WP + "en/f/fe/Smurfette-comics_version.png", (33, 9, 178)),
         ("dora", "Dora", "feminine", WP + "en/9/99/Dora_the_Explorer_%28character%29.webp", (24, -2, 124)),
         ("homer-simpson", "Homer", "masculine", WP + "en/0/02/Homer_Simpson_2006.png", (40, -5, 150)),
@@ -580,7 +583,7 @@ LOCAL = {
         ("cartman", "Cartman", "masculine", WP + "en/7/77/EricCartman.png", (0, -28, 329)),
         ("bugs-bunny", "Bugs Bunny", "masculine",
          WP + "en/thumb/1/17/Bugs_Bunny.svg/960px-Bugs_Bunny.svg.png",
-         (80, 130, 760)),
+         (120, 0, 800)),
         ("aang", "Aang", "masculine", WP + "en/8/86/Avatar_Aang.png", (84, 24, 138)),
         ("finn", "Finn", "masculine",
          WP + "commons/thumb/a/a6/Finn_the_Human_character.svg/960px-Finn_the_Human_character.svg.png",
@@ -597,13 +600,13 @@ LOCAL = {
         ("pink-panther", "Pink Panther", "neutral", WP + "en/9/96/Pink_Panther.png", (33, 4, 130)),
         ("gromit", "Gromit", "neutral", WP + "en/e/ec/Wallace_and_gromit.jpg", (192, 68, 164)),
         ("jerry-mouse", "Jerry", "neutral", WP + "en/2/2f/Jerry_Mouse.png", (20, -2, 162)),
-        ("tweety", "Tweety", "neutral", WP + "en/thumb/0/02/Tweety.svg/960px-Tweety.svg.png", (-40, 100, 1040)),
+        ("tweety", "Tweety", "neutral", WP + "en/thumb/0/02/Tweety.svg/960px-Tweety.svg.png", (-40, 60, 1040)),
     ],
     # TV series (27): live-action TV characters and TV puppets (Muppets, Sesame Street)
     "tvshows": [
         ("jessica-fletcher", "Jessica Fletcher", "feminine",
          WP + "en/a/a6/Jessicaflecther.jpg",
-         (30, 34, 120)),
+         (40, 50, 110)),
         ("rachel-green", "Rachel", "feminine",
          WP + "en/e/ec/Jennifer_Aniston_as_Rachel_Green.jpg",
          (60, 0, 140)),
@@ -615,9 +618,7 @@ LOCAL = {
          (173, 17, 151)),
         ("buffy", "Buffy", "feminine", WP + "en/a/a2/S514_Buffy.png", (56, 15, 187)),
         ("scully", "Scully", "feminine", WP + "en/7/7c/Scully2016.png", (60, 18, 148)),
-        ("miss-piggy", "Miss Piggy", "feminine",
-         WP + "commons/9/9c/Miss_Piggy_puppet_1979.jpg",
-         (240, 120, 620)),
+        ("miss-piggy", "Miss Piggy", "feminine", WP + "it/9/9f/Miss_Piggy.jpeg", (430, 0, 560)),
         ("janeway", "Janeway", "feminine",
          WP + "en/4/43/Kathryn_Janeway_season_7_publicity_photo.jpg",
          (71, 24, 142)),
@@ -635,18 +636,18 @@ LOCAL = {
         ("spock", "Spock", "masculine", WP + "commons/f/fa/Leonard_Nimoy_as_Spock_1967.jpg", (155, 138, 397)),
         ("picard", "Picard", "masculine",
          WP + "en/8/8e/Patrick_Steward_as_Jean-Luc_Picard_in_1996%27s_Star_Trek_First_Contact.jpg",
-         (62, -2, 153)),
+         (62, 0, 153)),
         ("ted-lasso", "Ted Lasso", "masculine", WP + "en/2/21/Jason_Sudeikis_as_Ted_Lasso.jpg", (53, 1, 133)),
-        ("jon-snow", "Jon Snow", "masculine", WP + "en/3/30/Jon_Snow_Season_8.png", (46, 24, 118)),
+        ("jon-snow", "Jon Snow", "masculine", WP + "en/3/30/Jon_Snow_Season_8.png", (55, 30, 150)),
         ("mandalorian", "The Mandalorian", "masculine", WP + "en/a/a1/TheMandalorian.jpg", (90, 15, 130)),
         ("elmo", "Elmo", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Season_3_introduces_one_of_Sesame_Street%27s_original_character_Elmo_%284313578924%29.jpg/1920px-Season_3_introduces_one_of_Sesame_Street%27s_original_character_Elmo_%284313578924%29.jpg",
          (682, 288, 576)),
         ("grogu", "Grogu", "neutral", WP + "en/a/a0/Grogu_%28Star_Wars%29.jpg", (25, 0, 260)),
-        ("animal-muppet", "Animal", "neutral", WP + "en/e/e7/Animal_%28Muppet%29.jpg", (17, -6, 173)),
+        ("animal-muppet", "Animal", "neutral", WP + "en/e/e7/Animal_%28Muppet%29.jpg", (17, 0, 173)),
         ("big-bird", "Big Bird", "neutral",
          WP + "commons/5/5a/LBJ_Foundation_DIG14086-057_%2835105588940%29.jpg",
-         (70, -28, 1257)),
+         (70, 0, 1257)),
         ("oscar-grouch", "Oscar the Grouch", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/LBJ_Foundation_DIG14086-069_%2834650875314%29.jpg/1280px-LBJ_Foundation_DIG14086-069_%2834650875314%29.jpg",
          (330, 60, 620)),
@@ -661,13 +662,13 @@ LOCAL = {
     ],
     # Anime (27)
     "anime": [
-        ("sailor-moon", "Sailor Moon", "feminine", WP + "en/2/2b/Sailor_Moon_01.jpg", (28, 40, 143)),
+        ("sailor-moon", "Sailor Moon", "feminine", WP + "en/2/2b/Sailor_Moon_01.jpg", (18, 5, 180)),
         ("nezuko", "Nezuko", "feminine", WP + "en/c/c0/NezukoKamado.png", (52, 28, 140)),
         ("chihiro", "Chihiro", "feminine", "https://www.ghibli.jp/gallery/chihiro021.jpg", (442, 127, 576)),
         ("anya", "Anya", "feminine", WP + "en/e/ec/AnyaForger.png", (46, 17, 139)),
         ("hello-kitty", "Hello Kitty", "feminine",
          WP + "en/0/05/Hello_kitty_character_portrait.png",
-         (12, -2, 222)),
+         (12, 0, 222)),
         ("kuromi", "Kuromi", "feminine", WP + "en/0/04/Kuromi_render.png", (22, -9, 252)),
         ("kiki", "Kiki", "feminine", "https://www.ghibli.jp/gallery/majo044.jpg", (288, 31, 768)),
         ("ponyo", "Ponyo", "feminine", "https://www.ghibli.jp/gallery/ponyo016.jpg", (576, 135, 768)),
@@ -676,14 +677,14 @@ LOCAL = {
         ("naruto", "Naruto", "masculine", WP + "en/9/9a/NarutoUzumaki.png", (96, -5, 104)),
         ("luffy", "Luffy", "masculine", WP + "en/c/cb/Monkey_D_Luffy.png", (28, -8, 143)),
         ("vegeta", "Vegeta", "masculine", WP + "en/8/88/Vegeta_Dragon_Ball.jpg", (75, 15, 135)),
-        ("tanjiro", "Tanjiro", "masculine", WP + "en/e/ea/Tanjirou_manga.png", (55, 30, 140)),
+        ("tanjiro", "Tanjiro", "masculine", WP + "en/e/ea/Tanjirou_manga.png", (50, 15, 155)),
         ("deku", "Deku", "masculine",
          WP + "en/d/db/Izuku_Midoriya_%28My_Hero_Academia_character%29.png",
-         (35, 4, 105)),
+         (35, -5, 115)),
         ("edward-elric", "Edward Elric", "masculine", WP + "en/b/b5/Edward85as.JPG", (61, 61, 122)),
         ("ichigo", "Ichigo", "masculine", WP + "en/1/1e/IchigoKurosakiBleach.jpg", (85, 0, 125)),
-        ("astro-boy", "Astro Boy", "masculine", WP + "en/f/f2/Astro_Boy_anime_version.png", (51, 7, 159)),
-        ("totoro", "Totoro", "neutral", "https://www.ghibli.jp/gallery/totoro029.jpg", (870, 30, 640)),
+        ("astro-boy", "Astro Boy", "masculine", WP + "en/f/f2/Astro_Boy_anime_version.png", (51, -3, 170)),
+        ("totoro", "Totoro", "neutral", "https://www.ghibli.jp/gallery/totoro030.jpg", (420, 0, 1038)),
         ("jiji", "Jiji", "neutral", "https://www.ghibli.jp/gallery/majo018.jpg", (547, 406, 288)),
         ("doraemon", "Doraemon", "neutral", WP + "en/b/bd/Doraemon_character.png", (14, -7, 257)),
         ("no-face", "No-Face", "neutral", "https://www.ghibli.jp/gallery/chihiro041.jpg", (720, 71, 480)),
@@ -692,21 +693,21 @@ LOCAL = {
         ("chopper", "Chopper", "neutral", WP + "en/f/f6/Tony_Tony_Chopper.jpg", (73, 64, 178)),
         ("jibanyan", "Jibanyan", "neutral",
          WP + "en/2/28/Jibanyan_artwork_for_Yo-kai_Watch_3.png",
-         (15, 0, 268)),
+         (15, -10, 280)),
         ("luna", "Luna", "neutral", WP + "en/4/4d/Luna_Sailor_Moon.jpg", (50, 8, 120)),
     ],
     # Pokemon (18): official artwork; vibe-exempt row (all neutral)
     "pokemon": [
         ("pikachu", "Pikachu", "neutral", WP + "en/a/a6/Pok%C3%A9mon_Pikachu_art.png", (0, 0, 316)),
-        ("eevee", "Eevee", "neutral", WP + "en/a/a9/Pok%C3%A9mon_Eevee_art.png", (-12, 8, 266)),
+        ("eevee", "Eevee", "neutral", WP + "en/a/a9/Pok%C3%A9mon_Eevee_art.png", (-12, -5, 280)),
         ("charizard", "Charizard", "neutral", WP + "en/1/1f/Pok%C3%A9mon_Charizard_art.png", (0, -35, 326)),
         ("bulbasaur", "Bulbasaur", "neutral", WP + "en/2/28/Pok%C3%A9mon_Bulbasaur_art.png", (0, -10, 275)),
         ("squirtle", "Squirtle", "neutral", WP + "en/5/59/Pok%C3%A9mon_Squirtle_art.png", (-5, -2, 207)),
-        ("charmander", "Charmander", "neutral", WP + "en/5/56/Charmander.png", (-15, 3, 297)),
+        ("charmander", "Charmander", "neutral", WP + "en/5/56/Charmander.png", (-15, -3, 303)),
         ("jigglypuff", "Jigglypuff", "neutral", WP + "en/2/22/Pok%C3%A9mon_Jigglypuff_art.png", (0, 0, 316)),
-        ("psyduck", "Psyduck", "neutral", WP + "en/2/2d/Pok%C3%A9mon_Psyduck_art.png", (0, 4, 172)),
+        ("psyduck", "Psyduck", "neutral", WP + "en/2/2d/Pok%C3%A9mon_Psyduck_art.png", (0, -4, 180)),
         ("snorlax", "Snorlax", "neutral", WP + "en/3/3f/Pok%C3%A9mon_Snorlax_art.png", (0, -36, 354)),
-        ("mewtwo", "Mewtwo", "neutral", WP + "en/4/43/Pok%C3%A9mon_Mewtwo_art.png", (7, 22, 271)),
+        ("mewtwo", "Mewtwo", "neutral", WP + "en/4/43/Pok%C3%A9mon_Mewtwo_art.png", (0, -5, 285)),
         ("mew", "Mew", "neutral", WP + "en/4/4b/Pok%C3%A9mon_Mew_art.png", (28, -1, 225)),
         ("gengar", "Gengar", "neutral", WP + "en/b/bf/Pok%C3%A9mon_Gengar_art.png", (-4, 0, 320)),
         ("meowth", "Meowth", "neutral", WP + "en/9/99/Meowth.png", (33, -11, 237)),
@@ -721,14 +722,14 @@ LOCAL = {
         ("zelda", "Zelda", "feminine", WP + "en/6/6e/Link_to_the_Past_Zelda.png", (41, -23, 130)),
         ("lara-croft", "Lara", "feminine", WP + "en/a/a8/LaraCroftInfobox.png", (85, -7, 96)),
         ("samus", "Samus", "feminine", WP + "en/d/d6/Samus_Aran.png", (70, -11, 96)),
-        ("isabelle", "Isabelle", "feminine", WP + "en/2/26/Isabelle_AF.png", (-4, 13, 186)),
-        ("jinx", "Jinx", "feminine", WP + "en/a/ad/Jinx-artwork-lol.png", (73, 52, 81)),
+        ("isabelle", "Isabelle", "feminine", WP + "en/2/26/Isabelle_AF.png", (-10, 0, 200)),
+        ("jinx", "Jinx", "feminine", WP + "en/a/ad/Jinx-artwork-lol.png", (55, 15, 115)),
         ("tifa", "Tifa", "feminine", WP + "en/6/61/Tifa_Lockhart_art.png", (53, -3, 98)),
         ("madeline", "Madeline", "feminine",
          WP + "commons/4/42/Celeste_character_Madeline.png",
-         (330, 100, 640)),
-        ("tracer", "Tracer", "feminine", WP + "en/3/30/Tracer_Overwatch_2_portrait.png", (54, 18, 73)),
-        ("chun-li", "Chun-Li", "feminine", WP + "en/5/53/Chun-Li.png", (38, 0, 69)),
+         (330, 60, 680)),
+        ("tracer", "Tracer", "feminine", WP + "en/3/30/Tracer_Overwatch_2_portrait.png", (50, 5, 85)),
+        ("chun-li", "Chun-Li", "feminine", WP + "en/5/53/Chun-Li.png", (36, -4, 76)),
         ("sonic", "Sonic", "masculine", WP + "en/f/f4/Sonic_modern_and_classic_designs.png", (-9, 0, 164)),
         ("master-chief", "Master Chief", "masculine",
          WP + "en/4/42/Master_chief_halo_infinite.png",
@@ -751,7 +752,7 @@ LOCAL = {
         ("angry-bird", "Angry Bird", "neutral", WP + "en/2/2d/Angry_Birds_promo_art.png", (47, 47, 253)),
         ("blinky", "Blinky", "neutral",
          WP + "commons/thumb/b/be/Blinky%2C_Pinky%2C_Inky_and_Clyde.svg/1280px-Blinky%2C_Pinky%2C_Inky_and_Clyde.svg.png",
-         (-13, 4, 282)),
+         (-13, -2, 290)),
         ("slime", "Slime", "neutral", WP + "en/9/9d/Slime_%28Dragon_Quest%29.png", (0, -8, 324)),
         ("hollow-knight", "Knight", "neutral",
          WP + "en/d/de/Hollow_Knight_2026_cover_art.jpg",
@@ -768,10 +769,10 @@ LOCAL = {
          WP + "en/6/6a/Toadette_Artwork_by_Shigehisa_Nakaue.png",
          (20, -13, 202)),
         ("rosalina", "Rosalina", "feminine", WP + "en/5/5e/Rosalina_by_Shigehisa_Nakaue.png", (16, -14, 156)),
-        ("pauline", "Pauline", "feminine", WP + "en/2/28/Pauline_Super_Mario_Odyssey.png", (44, 0, 110)),
+        ("pauline", "Pauline", "feminine", WP + "en/2/28/Pauline_Super_Mario_Odyssey.png", (44, -6, 118)),
         ("birdo", "Birdo", "feminine", WP + "en/f/f9/Birdo-MP9.png", (0, -33, 212)),
         ("mario", "Mario", "masculine", WP + "en/5/5c/Mario_by_Shigehisa_Nakaue.png", (34, -17, 179)),
-        ("luigi", "Luigi", "masculine", WP + "en/b/be/Luigi_by_Shigehisa_Nakaue.png", (26, 6, 156)),
+        ("luigi", "Luigi", "masculine", WP + "en/b/be/Luigi_by_Shigehisa_Nakaue.png", (26, 0, 160)),
         ("bowser", "Bowser", "masculine", WP + "en/d/d1/Bowser_by_Shigehisa_Nakaue.png", (54, -41, 250)),
         ("donkey-kong", "Donkey Kong", "masculine", WP + "en/d/d4/Donkey_Kong_character.png", (48, -16, 221)),
         ("wario", "Wario", "masculine", WP + "en/8/81/Wario.png", (23, -18, 230)),
@@ -784,7 +785,7 @@ LOCAL = {
          (-10, -6, 157)),
         ("piranha-plant", "Piranha Plant", "neutral",
          WP + "en/7/75/Piranha_Plant_by_Shigehisa_Nakaue.png",
-         (12, 11, 221)),
+         (12, 0, 232)),
         ("luma", "Luma", "neutral", WP + "en/5/5e/Rosalina_by_Shigehisa_Nakaue.png", (171, 17, 94)),
     ],
     # Memes: animals and drawn/rendered characters only (no real people's faces).
@@ -800,15 +801,15 @@ LOCAL = {
         ("meme-man", "Stonks", "masculine",
          WP + "en/9/96/Meme_Man_on_transparent_background.webp",
          (32, 0, 284)),
-        ("bongo-cat", "Bongo Cat", "neutral", WP + "en/7/7a/Bongo_cat.png", (44, 58, 161)),
-        ("lil-bub", "Lil Bub", "feminine", WP + "commons/b/b8/Lil-Bub-2013_%28cropped%29.jpg", (34, 20, 390)),
+        ("bongo-cat", "Bongo Cat", "neutral", WP + "en/7/7a/Bongo_cat.png", (25, 50, 140)),
+        ("lil-bub", "Lil Bub", "feminine", WP + "commons/b/b8/Lil-Bub-2013_%28cropped%29.jpg", (34, 1, 390)),
         ("smudge", "Smudge", "masculine", WP + "en/1/1f/WomanYellingAtACat_meme.jpg", (295, 47, 107)),
         ("pesto", "Pesto", "neutral",
          WP + "commons/4/4a/Pesto_%28penguin%29_%28cropped%29.png",
          (700, 0, 1200)),
         ("moo-deng", "Moo Deng", "neutral",
-         WP + "commons/thumb/d/d2/Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-11%29_-_img_02.jpg/1280px-Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-11%29_-_img_02.jpg",
-         (120, 350, 360)),
+         WP + "commons/5/5b/Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-10%29_-_img_01.jpg",
+         (260, 90, 990)),
         ("maru", "Maru", "neutral", WP + "en/f/fb/IamMaruBookCover.jpg", (118, 8, 188)),
         ("dat-boi", "Dat Boi", "neutral", WP + "en/f/f9/Dat_Boi_%28resized_50%25%29.jpg", (0, 0, 201)),
         ("capybara", "Capybara", "neutral",
@@ -822,9 +823,9 @@ LOCAL = {
          (256, 75, 896)),
         ("serious-cat", "Serious Cat", "neutral",
          WP + "commons/thumb/4/44/CatLolCatExample.jpg/1280px-CatLolCatExample.jpg",
-         (320, 414, 640)),
-        ("keyboard-cat", "Keyboard Cat", "neutral", WP + "en/8/87/Keyboard_cat.jpg", (0, -2, 183)),
-        ("jorts", "Jorts", "neutral", WP + "en/0/06/Jorts_the_Cat.jpg", (126, -3, 138)),
+         (440, 410, 400)),
+        ("keyboard-cat", "Keyboard Cat", "neutral", WP + "en/8/87/Keyboard_cat.jpg", (20, 0, 160)),
+        ("jorts", "Jorts", "neutral", WP + "en/0/06/Jorts_the_Cat.jpg", (130, 15, 120)),
     ],
 }
 
@@ -1063,13 +1064,27 @@ def colour_tile(kind, cols):
             px[x, y] = rgb[min(int(t * len(rgb)), len(rgb) - 1)]
     return img
 
-def local_image(url, color, box):
-    """Fetch a local-pack image and crop it; transparent/outside areas take `color`."""
-    x, y, s = box
+def clamp(box, size):
+    """Move a crop box inside the image, shrinking it if it is larger than the image."""
+    x, y, s = box; w, h = size
+    s = min(s, w, h)
+    return (min(max(x, 0), w - s), min(max(y, 0), h - s), s)
+
+def local_image(aid, url, color, box):
+    """Fetch a local-pack image and crop it. Returns (tile, square): a source with
+    transparency is laid on `color` like an emoji on its square and its box may run
+    past the edges (square=True); an opaque source's box is clamped inside the
+    image so the tile colour can never show as a band."""
     src = Image.open(io.BytesIO(get(url))).convert("RGBA")
+    x, y, s = box
+    alpha = src.getchannel("A")
+    square = alpha.getextrema()[0] < 250
+    if not square and clamp(box, src.size) != box:
+        x, y, s = clamp(box, src.size)
+        print(f"warning: {aid}: box {box} clamped to {(x, y, s)} in {src.size}")
     canvas = Image.new("RGBA", (s, s), color)
     canvas.alpha_composite(src.crop((x, y, x + s, y + s)))
-    return canvas.convert("RGB").resize((SIZE, SIZE), Image.LANCZOS)
+    return canvas.convert("RGB").resize((SIZE, SIZE), Image.LANCZOS), square
 
 def tint(img, color):
     """Multiply line art on white paper with a soft colour."""
@@ -1091,18 +1106,32 @@ def main():
         for item in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, []):
             color_of[item[0]] = next(colors)
 
-    def add(group, aid, name, vibe, color, render, pack=None):
+    gallery_json = ROOT / "app" / "gallery.json"
+    previous = {e["id"]: e for e in json.loads(gallery_json.read_text())} if gallery_json.exists() else {}
+
+    def add(group, aid, name, vibe, color, render, pack=None, square=False):
+        """`square`: the tile colour shows around the subject by design (emoji rows,
+        tinted line art, transparent source art); True/False, or None to take it
+        from the render (local sources), kept from the last build when not rebuilt."""
         path = (out_local if pack else out) / f"{aid}.png"
         if only is None or group in only:
-            save(render(), path); print("ok", group, aid)
-        elif not path.exists():
-            if not pack:
-                raise SystemExit(f"{aid}.png missing; rebuild group {group!r}")
-            print("missing (local pack, hidden by the picker):", aid)
+            img = render()
+            if isinstance(img, tuple):
+                img, square = img
+            save(img, path); print("ok", group, aid)
+        else:
+            if square is None:
+                square = previous.get(aid, {}).get("square", False)
+            if not path.exists():
+                if not pack:
+                    raise SystemExit(f"{aid}.png missing; rebuild group {group!r}")
+                print("missing (local pack, hidden by the picker):", aid)
         entry = {"id": aid, "name": name, "file": f"{aid}.png", "color": color,
                  "group": group, "vibe": vibe}
         if pack:
             entry["pack"] = pack
+        if square and pack:
+            entry["square"] = True
         rows.setdefault(group, []).append(entry)
 
     for group, items in COMMONS.items():
@@ -1117,15 +1146,15 @@ def main():
                 return tint(img, color_of[aid]) if tinted else img
             # classics: US public domain only, still protected in CH/EU -> local pack
             add(group, aid, name, vibe, color_of[aid], render,
-                pack="local" if group in LOCAL_COMMONS else None)
+                pack="local" if group in LOCAL_COMMONS else None, square=bool(opt and opt[0]))
     for group, items in LOCAL.items():
         for aid, name, vibe, url, box in items:
-            def render(url=url, color=color_of[aid], box=box):
-                img = local_image(url, color, box)
+            def render(aid=aid, url=url, color=color_of[aid], box=box):
+                img = local_image(aid, url, color, box)
                 if not CACHE:
                     time.sleep(2)
                 return img
-            add(group, aid, name, vibe, color_of[aid], render, pack="local")
+            add(group, aid, name, vibe, color_of[aid], render, pack="local", square=None)
     for aid, name, vibe, folder, tone, color in FLUENT_ITEMS:
         add("people3d", aid, name, vibe, color,
             lambda folder=folder, tone=tone, color=color: on_square(fluent(folder, tone), color))

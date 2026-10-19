@@ -1,4 +1,5 @@
 import json, os, re, struct, unittest
+from PIL import Image
 
 APP = os.path.join(os.path.dirname(__file__), "..", "app")
 GALLERY = json.load(open(os.path.join(APP, "gallery.json")))
@@ -50,6 +51,11 @@ GENERIC_GROUPS = {"illustrated", "flatemoji", "cartoon", "people3d", "pixel", "c
 FORBIDDEN_DUPLICATES = {"big chungus", "mickey", "minnie", "pluto", "winnie the pooh", "piglet",
                         "baby yoda", "the child"}
 PACK_DIR = {None: "img", "local": "img-local"}
+# Rows whose tiles are an emoji, a generated figure or a swatch on a plain square:
+# the tile colour showing at the edges is the design. Elsewhere a uniform edge in
+# the tile colour means the crop box ran past the source image (a "band"), unless
+# the entry is flagged "square" (transparent source art on its colour).
+SQUARE_GROUPS = {"people3d", "flatemoji", "illustrated", "pixel", "cartoon", "colours"}
 
 
 def png_size(path):
@@ -194,6 +200,30 @@ class GalleryTest(unittest.TestCase):
         self.assertIn("app/img-local/", ignore)
         dockerignore = open(os.path.join(APP, "..", ".dockerignore")).read()
         self.assertNotIn("img-local", dockerignore)  # but it is baked into the image
+
+    def test_no_edge_band(self):
+        """No tile shows its background colour as a band along an edge (the crop
+        box must lie inside the source image); squares are exempt."""
+        for a in GALLERY:
+            if a["group"] in SQUARE_GROUPS or a.get("square"):
+                continue
+            p = os.path.join(APP, PACK_DIR[a.get("pack")], a["file"])
+            if not os.path.exists(p):
+                continue
+            px = Image.open(p).convert("RGB").load()
+            col = tuple(int(a["color"][i:i + 2], 16) for i in (1, 3, 5))
+            edges = {"top": [(x, 0) for x in range(512)], "bottom": [(x, 511) for x in range(512)],
+                     "left": [(0, y) for y in range(512)], "right": [(511, y) for y in range(512)]}
+            for edge, pts in edges.items():
+                same = sum(max(abs(px[pt][k] - col[k]) for k in range(3)) <= 8 for pt in pts)
+                self.assertLess(same / 512, 0.95, f"{a['id']}: {edge} edge is a band of the tile colour")
+
+    def test_square_flag(self):
+        """`square` marks local-pack tiles whose transparent source shows the tile colour."""
+        for a in GALLERY:
+            if "square" in a:
+                self.assertIs(a["square"], True, a["id"])
+                self.assertEqual(a.get("pack"), "local", a["id"])
 
     def test_colors(self):
         for a in GALLERY:

@@ -19,7 +19,7 @@ the face/subject and resized to 512x512.
 
 | Avatar | Work | Artist | Year | Commons licence tag | Commons page |
 |---|---|---|---|---|---|
-| Alice (`alice`) | Alice, The Nursery "Alice" (colour edition) | John Tenniel (1820-1914) | 1890 | PD-100 | https://commons.wikimedia.org/wiki/File:John_Tenniel_-_Illustration_from_The_Nursery_Alice_(1890)_-_c03757_07.jpg |
+| Alice (`alice`) | Alice with the "Drink me" bottle, The Nursery "Alice" (colour edition) | John Tenniel (1820-1914) | 1890 | PD-100 | https://commons.wikimedia.org/wiki/File:John_Tenniel_-_Illustration_from_The_Nursery_Alice_(1890)_-_066110.jpg |
 | Moritz (`moritz`) | Max und Moritz, title image (Moritz cropped) | Wilhelm Busch (1832-1908) | 1865 | PD-Art, PD-old-auto-expired | https://commons.wikimedia.org/wiki/File:Max_und_Moritz.JPG |
 | Cheshire (`cheshire-cat`) | The Cheshire Cat appearing, Alice's Adventures in Wonderland | John Tenniel (1820-1914) | 1865 | PD-old-100-1923 | https://commons.wikimedia.org/wiki/File:Cheshire_Cat_appearing_(detail).jpg |
 | Jemima (`jemima`) | The Tale of Jemima Puddle-Duck, cover | Beatrix Potter (1866-1943) | 1908 | PD/1923, 1943 | https://commons.wikimedia.org/wiki/File:The_Tale_of_Jemima_Puddle-Duck_cover.jpg |
@@ -451,17 +451,25 @@ LAN-only, login-protected homelab avatar gallery for a handful of users, are
 and only baked into the private Docker image. `gallery.json` lists their names
 and ids (`"pack": "local"`); a fresh clone simply hides them. Each image was
 cropped to the character's head/face and resized to 512x512 (transparent areas
-filled with a soft colour).
+filled with the avatar colour; crop boxes never run past an opaque source, see
+`tests/test_gallery.py`, `test_no_edge_band`).
 
-Sources: the character's (or film's) English Wikipedia infobox image
-(low-resolution non-free file: character art, official posters, promotional or
-in-character film/TV stills), Wikimedia Commons (meme animals, Pac-Man,
+Sources (v1.5.2: every crop box lies inside its source image, no padding; a
+transparent source is laid on the avatar colour like an emoji and flagged
+`"square": true` in `gallery.json`): the studios' official character portraits
+(Disney: frozen.disney.com, princess.disney.com, characters.disney.com,
+cars.disney.com, movies.disney.com; Illumination: illumination.com; DreamWorks:
+dreamworks.com; Aardman: aardman.com), the character's (or film's) Wikipedia
+infobox image (English or another language edition; low-resolution non-free
+file: character art, official posters, promotional or in-character film/TV
+stills), Wikimedia Commons (meme animals, Pac-Man,
 SpongeBob, Patrick, Finn, Jake, the Creeper, the Pac-Man ghosts; public-domain
 studio publicity stills and screenshots - Mary Poppins, Dorothy (1939), King Kong
 (1933), Godzilla (1954), Lassie, Spock (1967); and freely licensed or public-domain
 photographs of character figures, props and puppets - the Minion statue, the
-R2-D2 prop, the E.T. and Katniss figures at Madame Tussauds, the TARDIS and Dalek
-props, the Kermit, Elmo, Big Bird, Oscar and Miss Piggy puppets; the photos are
+R2-D2 prop, the E.T. and Katniss figures at Madame Tussauds, the Toothless
+statue, the TARDIS and Dalek props, the Kermit, Elmo, Big Bird and Oscar puppets;
+the photos are
 free, the depicted characters remain copyrighted), and Studio Ghibli's official
 stills, which the studio offers for free use "within the bounds of common sense"
 (https://www.ghibli.jp/info/013344/).
@@ -475,15 +483,15 @@ photographs of real people (owners/keepers are cropped out).
 
 | Avatar | Row | Source image |
 |---|---|---|
-| Elsa (`elsa`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/5/5e/Elsa_from_Disney%27s_Frozen.png |
-| Anna (`anna`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/8/8a/Anna_Frozen.png |
-| Moana (`moana`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/5/56/Moana_%28character%29.png |
-| Rapunzel (`rapunzel`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/6/6a/Rapunzel_tangled.png |
-| Ariel (`ariel`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/7/77/Ariel_disney.png |
+| Elsa (`elsa`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_frozen_elsa_18466_22a50822_ad6090d1.jpeg |
+| Anna (`anna`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_frozen_anna_18466_6775584b_520ae44b.jpeg |
+| Moana (`moana`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_princess_moana_3497_0a28209c.jpeg |
+| Rapunzel (`rapunzel`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_princess_rapunzel_3497_5b2f90a4.jpeg |
+| Ariel (`ariel`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_princess_ariel_3497_d17c9d8a.jpeg |
 | Mirabel (`mirabel`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/e/e7/Mirabel_Madrigal.png |
 | Joy (`joy`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/3/30/Joy_-_Inside_Out.webp |
-| Merida (`merida`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/e/e8/Merida_disney.png |
-| Snow White (`snow-white`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/e/e1/Snow_white_disney.png |
+| Merida (`merida`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_princess_merida_3497_7906fc57.jpeg |
+| Snow White (`snow-white`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_princess_snowwhite_3497_e41686e8.jpeg |
 | Mike Wazowski (`mike-wazowski`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/6/6a/Mike_Wazowski.png |
 | Simba (`simba`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/9/94/Simba_%28_Disney_character_-_adult%29.png |
 | Genie (`genie`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/0/0c/The_Genie_Aladdin.png |
@@ -492,22 +500,22 @@ photographs of real people (owners/keepers are cropped out).
 | Donald Duck (`donald-duck`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/a/a5/Donald_Duck_angry_transparent_background.png |
 | Goofy (`goofy`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/5/50/Goofy_Duckipedia.png |
 | Sulley (`sulley`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/6/63/Monsters_Inc.JPG |
-| Buzz Lightyear (`buzz-lightyear`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/1/13/Toy_Story.jpg |
+| Buzz Lightyear (`buzz-lightyear`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/b_toystory_characterbanner_buzz_desktop_gradient_v2_78f93ff8.jpeg |
 | Stitch (`stitch`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/thumb/d/d2/Stitch_%28Lilo_%26_Stitch%29.svg/960px-Stitch_%28Lilo_%26_Stitch%29.svg.png |
-| Olaf (`olaf`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/6/6d/Olaf_from_Disney%27s_Frozen.png |
+| Olaf (`olaf`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/ct_frozen_olaf_18466_eabe1344_2dd6212f.jpeg |
 | WALL-E (`wall-e`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/6/68/WALL-E_%28character%29.png |
-| Lightning McQueen (`lightning-mcqueen`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/8/82/Lightning_McQueen.png |
+| Mater (`mater`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/mater_characterimage_b6ea14ea.jpeg |
 | Dory (`dory`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/a/ae/Dory_%28Finding_Nemo%29.png |
-| Baymax (`baymax`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/4/4b/Big_Hero_6_%28film%29_poster.jpg |
+| Baymax (`baymax`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/character_bighero6_baymax_5aa2754b_14cc5b05.jpeg |
 | Thumper (`thumper`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/a/ab/Thumper_%28Bambi_character%29.png |
 | Sisu (`sisu`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/a/aa/Disney_Sisu.png |
-| Pascal (`pascal`) | Disney & Pixar | https://upload.wikimedia.org/wikipedia/en/2/2f/Maximus_with_Pascal.jpg |
+| Rex (`rex`) | Disney & Pixar | https://lumiere-a.akamaihd.net/v1/images/t_toystory_rex_characterimage_v3_646b6daa.jpeg |
 | Fiona (`fiona`) | Animated films | https://upload.wikimedia.org/wikipedia/en/b/b9/Princess_Fiona.png |
 | Spider-Gwen (`gwen-stacy`) | Animated films | https://upload.wikimedia.org/wikipedia/en/b/b1/Gwen_Stacy_%28Into_the_Spider-Verse%29.jpg |
 | Lola Bunny (`lola-bunny`) | Animated films | https://upload.wikimedia.org/wikipedia/en/thumb/3/3d/Lola_Bunny_Space_Jam_svg.svg/960px-Lola_Bunny_Space_Jam_svg.svg.png |
 | Anastasia (`anastasia`) | Animated films | https://upload.wikimedia.org/wikipedia/en/0/09/Anya_Anastasia.jpeg |
 | Nimona (`nimona`) | Animated films | https://upload.wikimedia.org/wikipedia/en/f/f5/Nimona_poster.png |
-| Mavis (`mavis`) | Animated films | https://upload.wikimedia.org/wikipedia/en/9/9e/Hotel_Transylvania_3_%282018%29_Poster.jpg |
+| Agnes (`agnes`) | Animated films | https://www.illumination.com/wp-content/uploads/2019/11/A_P0170_SRGB.png |
 | Dragon (Shrek) (`shrek-dragon`) | Animated films | https://upload.wikimedia.org/wikipedia/en/c/cd/Shrek_Dragon_render.png |
 | Fei Fei (`fei-fei`) | Animated films | https://upload.wikimedia.org/wikipedia/en/d/dc/Over_the_Moon_%282020%29.png |
 | Poppy (`poppy`) | Animated films | https://upload.wikimedia.org/wikipedia/en/b/bd/Trolls3film.jpg |
@@ -517,18 +525,18 @@ photographs of real people (owners/keepers are cropped out).
 | Puss in Boots (`puss-in-boots`) | Animated films | https://upload.wikimedia.org/wikipedia/en/8/8a/Puss_in_Boots_from_Shrek.png |
 | Miles Morales (`miles-morales`) | Animated films | https://upload.wikimedia.org/wikipedia/en/5/50/Miles_Morales_%28Across_the_Spider-Verse%29.jpg |
 | Wallace (`wallace`) | Animated films | https://upload.wikimedia.org/wikipedia/en/e/ec/Wallace_and_gromit.jpg |
-| Megamind (`megamind`) | Animated films | https://upload.wikimedia.org/wikipedia/en/8/89/Megamind2010Poster.jpg |
+| Megamind (`megamind`) | Animated films | https://www.dreamworks.com/storage/movies/megamind/megamind-about.jpg |
 | Boss Baby (`boss-baby`) | Animated films | https://upload.wikimedia.org/wikipedia/en/0/0e/The_Boss_Baby_poster.jpg |
 | Mr. Wolf (`mr-wolf`) | Animated films | https://upload.wikimedia.org/wikipedia/en/0/00/The_Bad_Guys_poster.jpeg |
 | Scrat (`scrat`) | Animated films | https://upload.wikimedia.org/wikipedia/en/e/ec/Scrat_Ice_Age.png |
-| Minion (`minion`) | Animated films | https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Minion_sculpture_in_Brisbane%2C_2024.jpg/1280px-Minion_sculpture_in_Brisbane%2C_2024.jpg |
+| Minion (`minion`) | Animated films | https://www.illumination.com/wp-content/uploads/2019/11/Minions_Kevin2.png |
 | Donkey (`donkey`) | Animated films | https://upload.wikimedia.org/wikipedia/en/6/6c/Donkey_%28Shrek%29.png |
-| Toothless (`toothless`) | Animated films | https://upload.wikimedia.org/wikipedia/en/9/99/How_to_Train_Your_Dragon_Poster.jpg |
-| Iron Giant (`iron-giant`) | Animated films | https://upload.wikimedia.org/wikipedia/en/d/d3/The_Iron_Giant_poster.JPG |
+| Toothless (`toothless`) | Animated films | https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Chimuelo_en_el_Parque_de_la_Amistad_%287%29.jpg/1920px-Chimuelo_en_el_Parque_de_la_Amistad_%287%29.jpg |
+| Shaun the Sheep (`shaun`) | Animated films | https://www.aardman.com/media/pkgdssav/beast_still_square.jpg |
 | Spirit (`spirit`) | Animated films | https://upload.wikimedia.org/wikipedia/en/3/3b/Spirit_Stallion_of_the_Cimarron_poster.jpg |
-| Rango (`rango`) | Animated films | https://upload.wikimedia.org/wikipedia/en/6/6d/Rango2011Poster.jpg |
-| Blu (`blu`) | Animated films | https://upload.wikimedia.org/wikipedia/en/b/bb/Rio2011Poster.jpg |
-| Migo (`migo`) | Animated films | https://upload.wikimedia.org/wikipedia/en/e/e8/Smallfoot_%28film%29.png |
+| Max (`max`) | Animated films | https://www.illumination.com/wp-content/uploads/2019/11/Pets_Max.png |
+| Snowball (`snowball`) | Animated films | https://www.illumination.com/wp-content/uploads/2019/11/Pets_Snowball.png |
+| Buster Moon (`buster-moon`) | Animated films | https://www.illumination.com/wp-content/uploads/2019/10/Sing_Buster_2.png |
 | Hermione (`hermione`) | Movies | https://upload.wikimedia.org/wikipedia/en/d/d3/Hermione_Granger_poster.jpg |
 | Mary Poppins (`mary-poppins`) | Movies | https://upload.wikimedia.org/wikipedia/commons/8/84/Mary_Poppins_screen_2_%28cropped%29.jpg |
 | Dorothy (`dorothy`) | Movies | https://thumb.wikimedia.org/wikipedia/commons/thumb/9/98/The_Wizard_of_Oz_Judy_Garland_1939.jpg/1280px-The_Wizard_of_Oz_Judy_Garland_1939.jpg |
@@ -589,7 +597,7 @@ photographs of real people (owners/keepers are cropped out).
 | Daenerys (`daenerys`) | TV series | https://upload.wikimedia.org/wikipedia/en/0/0d/Daenerys_Targaryen_with_Dragon-Emilia_Clarke.jpg |
 | Buffy (`buffy`) | TV series | https://upload.wikimedia.org/wikipedia/en/a/a2/S514_Buffy.png |
 | Scully (`scully`) | TV series | https://upload.wikimedia.org/wikipedia/en/7/7c/Scully2016.png |
-| Miss Piggy (`miss-piggy`) | TV series | https://upload.wikimedia.org/wikipedia/commons/9/9c/Miss_Piggy_puppet_1979.jpg |
+| Miss Piggy (`miss-piggy`) | TV series | https://upload.wikimedia.org/wikipedia/it/9/9f/Miss_Piggy.jpeg |
 | Janeway (`janeway`) | TV series | https://upload.wikimedia.org/wikipedia/en/4/43/Kathryn_Janeway_season_7_publicity_photo.jpg |
 | Lorelai (`lorelai`) | TV series | https://upload.wikimedia.org/wikipedia/en/c/c6/LorelaiGilmore.jpg |
 | Kermit (`kermit`) | TV series | https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Kermit_puppet.jpg/1280px-Kermit_puppet.jpg |
@@ -628,7 +636,7 @@ photographs of real people (owners/keepers are cropped out).
 | Edward Elric (`edward-elric`) | Anime | https://upload.wikimedia.org/wikipedia/en/b/b5/Edward85as.JPG |
 | Ichigo (`ichigo`) | Anime | https://upload.wikimedia.org/wikipedia/en/1/1e/IchigoKurosakiBleach.jpg |
 | Astro Boy (`astro-boy`) | Anime | https://upload.wikimedia.org/wikipedia/en/f/f2/Astro_Boy_anime_version.png |
-| Totoro (`totoro`) | Anime | https://www.ghibli.jp/gallery/totoro029.jpg |
+| Totoro (`totoro`) | Anime | https://www.ghibli.jp/gallery/totoro030.jpg |
 | Jiji (`jiji`) | Anime | https://www.ghibli.jp/gallery/majo018.jpg |
 | Doraemon (`doraemon`) | Anime | https://upload.wikimedia.org/wikipedia/en/b/bd/Doraemon_character.png |
 | No-Face (`no-face`) | Anime | https://www.ghibli.jp/gallery/chihiro041.jpg |
@@ -709,7 +717,7 @@ photographs of real people (owners/keepers are cropped out).
 | Lil Bub (`lil-bub`) | Memes | https://upload.wikimedia.org/wikipedia/commons/b/b8/Lil-Bub-2013_%28cropped%29.jpg |
 | Smudge (`smudge`) | Memes | https://upload.wikimedia.org/wikipedia/en/1/1f/WomanYellingAtACat_meme.jpg |
 | Pesto (`pesto`) | Memes | https://upload.wikimedia.org/wikipedia/commons/4/4a/Pesto_%28penguin%29_%28cropped%29.png |
-| Moo Deng (`moo-deng`) | Memes | https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-11%29_-_img_02.jpg/1280px-Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-11%29_-_img_02.jpg |
+| Moo Deng (`moo-deng`) | Memes | https://upload.wikimedia.org/wikipedia/commons/5/5b/Moo_deng_%E0%B8%AB%E0%B8%A1%E0%B8%B9%E0%B9%80%E0%B8%94%E0%B9%89%E0%B8%87_%282024-09-10%29_-_img_01.jpg |
 | Maru (`maru`) | Memes | https://upload.wikimedia.org/wikipedia/en/f/fb/IamMaruBookCover.jpg |
 | Dat Boi (`dat-boi`) | Memes | https://upload.wikimedia.org/wikipedia/en/f/f9/Dat_Boi_%28resized_50%25%29.jpg |
 | Capybara (`capybara`) | Memes | https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Capybaracropped.jpg/1280px-Capybaracropped.jpg |
