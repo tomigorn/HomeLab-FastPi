@@ -62,5 +62,5 @@ systemctl --no-pager --lines=0 status security-scan.service | head -4 | sed 's/^
 echo
 echo "Done. Verify:"
 echo "  systemctl list-timers 'security-*'"
-echo "  curl -s localhost:9100/metrics | grep '^security_'"
+echo "  docker exec prometheus wget -qO- http://node-exporter:9100/metrics | grep -E '^(security|clamav)_'"
 echo "  python3 $HERE/test_security_scan.py"

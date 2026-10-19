@@ -1,18 +1,36 @@
 # Security monitoring
 
-Four security questions, answered on a schedule and routed into the alerting
-pipeline that already exists:
+Security questions, answered on a schedule and routed into the alerting
+pipeline that already exists (`security_scan.py <group>`):
 
-| Concern | What answers it | Cadence |
-|---|---|---|
-| Are any secrets public? | gitleaks over the published GitHub history of both repos | daily 04:12 |
-| Could a secret become public? | filename hygiene check + a pre-commit hook | daily / every commit |
-| Is the OS patched? | `apt list --upgradable`, security updates counted separately | daily 04:12 |
-| Are container images vulnerable? | Trivy across the images actually running | weekly Sun 04:20 |
+| Concern | Group | What answers it | Hosts | Cadence |
+|---|---|---|---|---|
+| Are any secrets public? | `secrets` | gitleaks over the published GitHub history of both repos | repos | daily 04:12 |
+| Could a secret become public? | `secrets` | filename hygiene check + a pre-commit hook | fastpi | daily / every commit |
+| Is the OS patched? | `patches` | `apt list --upgradable`, security updates counted separately | fastpi, beefy | daily 04:12 |
+| Is Unraid patched? | `patches` | `plugin checkall` + `unraidcheck` (json, no Unraid notification) | tower | daily 04:12 |
+| Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:12 |
+| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake | all three | daily 04:12 |
+| Malware? | `av` | pulls the ClamAV results of the nightly 05:00 scans (`Docker/antivirus`) | all three | daily 05:40, 06:40 |
+| Are container images vulnerable? | `images` | Trivy across the images actually running | all three | weekly Sun 04:20 |
+| Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 05:00 |
+| Everything in one message | - | `WeeklyUpdateDigest` alert (`grafana/prometheus/rules/weekly-digest.yml`) | - | Mon 05:00 local |
+
+Metrics:
+
+| Metric | Labels |
+|---|---|
+| `security_failed_logins_total` | host |
+| `security_unraid_os_update`, `security_unraid_plugin_update` | installed, available / plugin |
+| `security_image_updates`, `security_image_update_info` | host, type / host, reference, type |
+| `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
+| `security_rootkit_warnings` (new), `security_rootkit_findings` (all) | host, tool |
+| `security_lynis_hardening_index`, `security_lynis_warnings` | host |
 
 Everything lands as Prometheus metrics via node-exporter's textfile collector
-and alerts through `grafana/prometheus/rules/security-posture.yml` → Alertmanager
-→ email + Telegram. There is no second dashboard, no second notifier and no
+and alerts through `grafana/prometheus/rules/security-posture.yml`, `antivirus.yml`
+and `weekly-digest.yml` → Alertmanager → email + Telegram (severity info = Telegram
+only). There is no second dashboard, no second notifier and no
 second place the Telegram token lives.
 
 ## Install
@@ -20,6 +38,21 @@ second place the Telegram token lives.
 ```bash
 ./install.sh          # on fastpi; idempotent
 ```
+
+`install.sh` also runs `install-audit-tools.sh` (rkhunter, chkrootkit, Lynis). beefy:
+
+```bash
+ssh beefy 'bash -s' < install-audit-tools.sh
+```
+
+| Piece | Value |
+|---|---|
+| Lynis apt source | `deb [signed-by=/etc/apt/keyrings/cisofy-software-public.gpg] https://packages.cisofy.com/community/lynis/deb/ stable main` in `/etc/apt/sources.list.d/cisofy-lynis.list` |
+| Lynis key | `https://packages.cisofy.com/keys/cisofy-software-public.key`, dearmored to `/etc/apt/keyrings/cisofy-software-public.gpg` |
+| rkhunter baseline | `sudo rkhunter --propupd` (done by the installer); `APT_AUTOGEN="true"` in `/etc/default/rkhunter` refreshes it after every apt run |
+| packaged `chkrootkit.timer` | disabled; `security-audit.timer` runs it weekly |
+
+Done 2026-10-19 on fastpi and beefy.
 
 On beefy only the pre-commit hook is needed (`.gitleaks.toml` +
 `.githooks/pre-commit` + `git config core.hooksPath .githooks`); everything else
@@ -42,6 +75,18 @@ one alert with `for: 0m`.
 routinely unobtainable. A collector that fails leaves its previous `.prom` file
 untouched rather than writing zero — zero would read as "beefy has no pending
 security updates". The `SecurityScanStale` alert watches the timestamps instead.
+
+**Rootkit checkers report against a baseline.** Both tools flag known false positives on a stock system (on beefy, Ubuntu 26.04's uutils coreutils reads as INFECTED to chkrootkit). The first run accepts what it finds, like `rkhunter --propupd`; `security_rootkit_warnings` counts only findings not in `/var/lib/security-scan/audit-accepted-<host>-<tool>.txt`. chkrootkit findings are its WARNING headers and INFECTED lines, not the paths listed under a header (those change every run: `/proc/<pid>`, scripts in `/tmp`). Report: `audit-<host>.txt`, NEW marks unaccepted findings. Accept again:
+
+```bash
+rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl start security-audit.service
+```
+
+**The audit unit is not sandboxed.** It runs the tools via sudo and they must see the real system (PrivateTmp/ProtectHome would hide what chkrootkit looks at).
+
+**MalwareFound is "last run had hits"**, `max by (host) (clamav_infected_last_run) > 0` over every mode (new, all, path, hook), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. It clears with the next clean run of that mode. `for: 45m`, so the 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error.
+
+**The digest fires on Monday 05:00 local all year.** Prometheus knows only UTC; `homelab:local_utc_offset_hours` (2 from the last Sunday in March to the last Sunday in October, else 1) shifts the clock. Its own Alertmanager route `telegram-digest` sends no resolved message.
 
 **Trivy reads images through the read-only socket proxy** (`POST=0`), which each
 host already runs for Cup and telegraf. Trivy is not made a new Docker socket
@@ -83,9 +128,8 @@ behind it.
 - **Trivy counts, not diffs.** The alert is on an absolute CVE count, which is a
   backlog figure. A newly published CRITICAL in an image that already had some
   will not stand out. `image-cves-<host>.txt` is the thing to read.
-- **No runtime intrusion detection.** This answers "what is vulnerable" and
-  "what is exposed", not "is something running that should not be". There is no
-  auditd, AIDE or rkhunter here.
+- **No real-time intrusion detection.** rkhunter, chkrootkit and Lynis run weekly on fastpi and beefy (not tower: Unraid has no apt). Nothing watches continuously: no auditd or AIDE.
+- **beefy and tower are only read when awake.** beefy is often off at 04:12 and 05:00; its subjects then go stale (`SecurityScanStale`: 48 h daily, 7 d for tower, 14 d for weekly subjects and Cup).
 
 ## unattended-upgrades covers less than it looks like
 
@@ -101,6 +145,8 @@ packages unattended-upgrades will never touch, and `PendingSecurityUpdates`
 fires if they sit for three days. Auto-patch what is safe; alert on the rest.
 
 ## SSH / CrowdSec — deliberately not wired
+
+**No CrowdSec on beefy or tower either** (decision 2026-10-19): SSH there is LAN-only too, and a CrowdSec agent per host is a moving part for logs with no attacks in them. Instead `security_failed_logins_total` counts failed logins on all three (fastpi journal, beefy `/var/log/auth.log`, tower `/var/log/syslog`) and `FailedLoginsSpike` (> 20 in 24 h, info) tells.
 
 CrowdSec has the `crowdsecurity/sshd` collection **enabled but fed nothing**: its
 only acquisition source is Traefik's access log. That is misleading, so it is
@@ -148,21 +194,26 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 36 tests over the pure functions (`python3 test_security_scan.py`) |
-| `security-scan.{service,timer}` | daily: secrets, hygiene, patches |
-| `security-image-scan.{service,timer}` | weekly: Trivy |
+| `test_security_scan.py` | 82 tests over the pure functions (`python3 test_security_scan.py`) |
+| `security-scan.{service,timer}` | daily 04:12: secrets, patches (incl. tower Unraid), logins, cup |
+| `security-av.{service,timer}` | daily 05:40 + 06:40: av |
+| `security-image-scan.{service,timer}` | weekly Sun 04:20: images |
+| `security-audit.{service,timer}` | weekly Sun 05:00: audit |
 | `install.sh` | idempotent installer |
+| `install-audit-tools.sh` | rkhunter, chkrootkit, Lynis (CISOfy repo), rkhunter baseline |
 | `../../.gitleaks.toml` | rules + triaged allowlists (repo root) |
 | `../../.githooks/pre-commit` | blocks secrets at commit time |
 
 Reports written for the alerts to point at, in `/var/lib/security-scan/`:
-`hygiene-problems.txt`, `image-cves-<host>.txt`, `gitleaks-<repo>.json`.
+`hygiene-problems.txt`, `image-cves-<host>.txt`, `gitleaks-<repo>.json`,
+`last-infected-<host>.txt`, `audit-<host>.txt`, `audit-accepted-<host>-<tool>.txt`.
 
 ## Verify
 
 ```bash
 python3 test_security_scan.py
 systemctl list-timers 'security-*'
-curl -s localhost:9100/metrics | grep '^security_'
-curl -s localhost:9100/metrics | grep '^node_textfile_scrape_error'   # must be 0
+docker exec prometheus wget -qO- http://node-exporter:9100/metrics | grep -E '^(security|clamav)_'
+docker exec prometheus wget -qO- http://node-exporter:9100/metrics | grep '^node_textfile_scrape_error'   # must be 0
+cd ../../Docker/grafana/prometheus && docker run --rm --entrypoint promtool -v "$PWD":/w -w /w/tests prom/prometheus:latest test rules antivirus_test.yml security_test.yml weekly-digest_test.yml weekly-digest-dst_test.yml
 ```
