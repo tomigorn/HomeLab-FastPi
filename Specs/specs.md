@@ -96,6 +96,18 @@ Home-lab "fastpi" server (always-on tier: Docker host, Traefik, Home Assistant, 
 
 **Total raw storage:** 512 GB NVMe + 2× 2 TB USB HDD = **~4.5 TB**.
 
+### USB disk mounts (`/etc/fstab`)
+
+Both USB disks are mounted by UUID with `nofail,x-systemd.device-timeout=30s,x-systemd.before=docker.service` (plus `noatime,lazytime,errors=remount-ro,nosuid,nodev`):
+
+| Option | Why |
+|---|---|
+| `nofail` | a missing or dead disk no longer drops the headless Pi into emergency mode (edge stack, LAN DNS and VPN stay up) |
+| `x-systemd.device-timeout=30s` | wait at most 30 s for the disk instead of 90 s |
+| `x-systemd.before=docker.service` | Docker starts only after the mount attempt, `nofail` alone removes that ordering |
+
+Containers that need a disk guard themselves: the compose bind mounts on `/mnt/seagate-*` use `bind: create_host_path: false`, so Compose refuses to start them instead of binding an empty directory on the NVMe. After an fstab edit: `sudo findmnt --verify`, `sudo systemctl daemon-reload`, `systemctl show docker -p After` lists both mounts.
+
 ---
 
 ## Networking
