@@ -28,6 +28,10 @@ check "crowdsec version"           '^v1\.' "$(docker exec crowdsec cscli version
 check "crowdsec LAPI"              'successfully' "$(docker exec crowdsec cscli lapi status 2>&1 | tail -1)"
 check "crowdsec home IP allowlisted" 'is allowlisted' "$(docker exec crowdsec cscli allowlists check "$(dig +short lang-tool.ddns.net @1.1.1.1 | tail -1)" 2>&1 | tail -1)"   # fails if the ISP changed the home IP
 check "bouncer pulled < 10 min"    '^yes$' "$(docker exec crowdsec cscli bouncers list -o json 2>/dev/null | python3 -c 'import json,sys,datetime as d; n=d.datetime.now(d.timezone.utc); print("yes" if any(b.get("last_pull") and (n-d.datetime.fromisoformat(b["last_pull"].replace("Z","+00:00"))).total_seconds()<600 for b in json.load(sys.stdin)) else "no")')"
+# The vendored Traefik bouncer plugin is updated by hand: the exporter compares version.go with
+# upstream and with what the running bouncer reports (CrowdSec README "Updating the bouncer plugin").
+check "bouncer plugin version exported" "^installed=\"$(sed -n 's/.*pluginVersion = "\([^"]*\)".*/\1/p' /home/pi/Projects/Docker/Traefik/traefik/plugins-local/src/github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/version.go)\"" "$(grep -o 'installed="[^"]*"' /var/lib/node-exporter/textfile/crowdsec.prom 2>/dev/null | head -1)"
+check "bouncer plugin current + running" '^0 0$' "$(awk '/^crowdsec_bouncer_plugin_outdated /{o=$2} /^crowdsec_bouncer_reported_version_mismatch /{m=$2} END{print o, m}' /var/lib/node-exporter/textfile/crowdsec.prom 2>/dev/null)"
 # Threat data freshness (CrowdSec README "Threat data refresh"): community list every 2 h,
 # hub content + GeoIP checked daily at 05:07 by crowdsec-autoupdate.timer.
 age() { s=$(sed -n "s/^$1 //p" /var/lib/node-exporter/textfile/$2 2>/dev/null | head -1); s=${s%.*}; echo $(( $(date +%s) - ${s:-0} )); }
