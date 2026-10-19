@@ -22,6 +22,7 @@ from security_scan import (  # noqa: E402
     new_findings,
     parse_audit_output,
     parse_chkrootkit,
+    parse_chkrootkit_detail,
     parse_cup,
     parse_lynis_report,
     parse_rkhunter,
@@ -543,6 +544,54 @@ def test_chkrootkit_findings_are_headers_and_infected_lines_not_the_listed_paths
     ]
 
 
+CHK_SCRATCH = """WARNING: Possible Linux.Xor.DDoS installed:
+/tmp/beefy-boot-test.sh
+/tmp/claude-1000/x/scratchpad/run.py
+
+WARNING: The following suspicious PHP files were found:
+/tmp/claude-1000/x/scratchpad/page.php
+
+WARNING: output from chkwtmp:
+deleted 3 entries 2025-01-01
+
+WARNING: Output from ifpromisc:
+eth0: PACKET SNIFFER(/usr/sbin/dhcpcd[512])
+"""
+
+
+def test_chkrootkit_detail_keeps_the_listed_paths_per_category():
+    detail = parse_chkrootkit_detail(CHK_SCRATCH)
+    assert detail[0] == ("WARNING: Possible Linux.Xor.DDoS installed:",
+                         ["/tmp/beefy-boot-test.sh", "/tmp/claude-1000/x/scratchpad/run.py"])
+    assert detail[2] == ("WARNING: output from chkwtmp:", ["deleted 3 entries 2025-01-01"])
+
+
+def test_chkrootkit_scratch_files_alone_do_not_make_a_xor_or_php_finding():
+    # Scratch scripts in /tmp/claude-* and /tmp/*.sh change daily and are not malware.
+    assert parse_chkrootkit(CHK_SCRATCH) == [
+        "WARNING: output from chkwtmp:",
+        "WARNING: Output from ifpromisc:",
+    ]
+
+
+def test_chkrootkit_xor_finding_stays_when_another_path_is_listed():
+    text = "WARNING: Possible Linux.Xor.DDoS installed:\n/tmp/claude-1000/a.sh\n/var/tmp/evil\n"
+    assert parse_chkrootkit(text) == ["WARNING: Possible Linux.Xor.DDoS installed:"]
+
+
+def test_chkrootkit_ignore_list_does_not_apply_to_other_categories():
+    text = "WARNING: The following suspicious files and directories were found:\n/tmp/claude-1000/.x\n"
+    assert parse_chkrootkit(text) == ["WARNING: The following suspicious files and directories were found:"]
+
+
+def test_audit_report_lists_paths_under_each_finding():
+    d = _tmp_dirs()
+    audit_samples("fastpi", AUDIT_OUT.replace(CHKROOTKIT, CHK_SCRATCH))
+    rep = (d / "state" / "audit-fastpi.txt").read_text()
+    assert "        /tmp/claude-1000/x/scratchpad/page.php" in rep
+    assert "ignored  WARNING: The following suspicious PHP files were found:" in rep
+
+
 def test_new_findings_are_the_ones_not_accepted():
     assert new_findings(["a", "b", "c"], {"a", "c"}) == ["b"]
     assert new_findings(["a"], {"a", "gone"}) == []
@@ -598,7 +647,7 @@ def test_audit_later_run_counts_only_new_findings():
     samples = audit_samples("beefy", out)
     assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="chkrootkit") == [1]
     assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="rkhunter") == [0]
-    assert "NEW  Checking `ls'... INFECTED" in (d / "state" / "audit-beefy.txt").read_text()
+    assert "NEW      Checking `ls'... INFECTED" in (d / "state" / "audit-beefy.txt").read_text()
 
 
 def test_audit_tool_failure_raises():

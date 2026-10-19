@@ -333,13 +333,40 @@ def parse_rkhunter(text: str) -> list[str]:
 _CHK_RE = re.compile(r"\bWARNING:|\bINFECTED\b", re.I)
 
 
-def parse_chkrootkit(text: str) -> list[str]:
-    """`chkrootkit -q` findings: WARNING headers and INFECTED lines.
+# Scratch scripts and pages that change daily; Xor.DDoS flags any script in /tmp, the PHP check any .php there.
+CHK_IGNORED_PATHS = ("/tmp/claude-*", "/tmp/*.sh")
+CHK_IGNORABLE = ("Xor.DDoS", "suspicious PHP files")
 
-    The paths listed under a header are left out on purpose: they change every
-    run (/proc/<pid>, scripts in /tmp), so the header is the stable identity.
+
+def parse_chkrootkit_detail(text: str) -> list[tuple[str, list[str]]]:
+    """`chkrootkit -q` -> [(finding, lines listed under it)]; findings are WARNING headers and INFECTED lines."""
+    out: list[tuple[str, list[str]]] = []
+    current = None
+    for line in text.splitlines():
+        if _CHK_RE.search(line):
+            current = (line.rstrip(), [])
+            out.append(current)
+        elif not line.strip():
+            current = None
+        elif current is not None:
+            current[1].append(line.strip())
+    return out
+
+
+def _chk_ignored(finding: str, paths: list[str]) -> bool:
+    import fnmatch
+    return (any(c in finding for c in CHK_IGNORABLE) and bool(paths)
+            and all(any(fnmatch.fnmatch(p, g) for g in CHK_IGNORED_PATHS) for p in paths))
+
+
+def parse_chkrootkit(text: str) -> list[str]:
+    """chkrootkit findings by category (the header), not by listed path.
+
+    The listed paths change every run (/proc/<pid>, scripts in /tmp), so the
+    header is the stable identity. A Xor.DDoS or PHP finding whose paths are
+    all scratch files (CHK_IGNORED_PATHS) is not a finding.
     """
-    return [l.rstrip() for l in text.splitlines() if _CHK_RE.search(l)]
+    return [f for f, paths in parse_chkrootkit_detail(text) if not _chk_ignored(f, paths)]
 
 
 def new_findings(findings: list[str], accepted: set[str]) -> list[str]:
@@ -823,7 +850,8 @@ def collect_failed_logins(host: str) -> int:
     return count_failed_logins(r.stdout, time.time())
 
 
-AUDIT_HOSTS = ("fastpi", "beefy")
+# beefy first: it is only up until about 04:26.
+AUDIT_HOSTS = ("beefy", "fastpi")
 # rc lines are separate so a tool that failed is told apart from one that found something. rkhunter exits 1 when it has warnings.
 AUDIT_SCRIPT = (
     "echo '### rkhunter'; sudo -n rkhunter --check --sk --rwo --nocolors 2>&1; echo \"### rc $?\"; "
@@ -860,7 +888,14 @@ def audit_samples(host: str, text: str) -> list:
         new = new_findings(findings, accepted)
         samples.append(("security_rootkit_warnings", {"host": host, "tool": tool}, len(new)))
         samples.append(("security_rootkit_findings", {"host": host, "tool": tool}, len(findings)))
-        report += [f"## {tool}"] + [("NEW  " if f in new else "ok   ") + f for f in findings] + [""]
+        report.append(f"## {tool}")
+        if tool == "chkrootkit":
+            for f, paths in parse_chkrootkit_detail(sections[tool][0]):
+                report.append(("ignored  " if f not in findings else "NEW      " if f in new else "ok       ") + f)
+                report += [f"        {p}" for p in paths]
+        else:
+            report += [("NEW      " if f in new else "ok       ") + f for f in findings]
+        report.append("")
     index, warnings = parse_lynis_report(sections["lynis"][0])
     samples.append(("security_lynis_hardening_index", {"host": host}, index))
     samples.append(("security_lynis_warnings", {"host": host}, warnings))
