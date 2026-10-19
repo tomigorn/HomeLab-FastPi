@@ -224,6 +224,11 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD}
       - DOCKER_INFLUXDB_INIT_ORG=myorg
       - DOCKER_INFLUXDB_INIT_BUCKET=rpi
+      # RAM caps (2026-10-20): all data stays on disk, old ranges just load slower.
+      - INFLUXD_STORAGE_CACHE_MAX_MEMORY_SIZE=268435456
+      - INFLUXD_STORAGE_CACHE_SNAPSHOT_MEMORY_SIZE=10485760
+      - INFLUXD_STORAGE_SERIES_ID_SET_CACHE_SIZE=20
+      - INFLUXD_QUERY_MEMORY_BYTES=134217728
     restart: unless-stopped
 
 # #########################################################
