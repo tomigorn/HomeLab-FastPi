@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/sergi0g/cup/main/cup.schema.json",
   "version": 3,
   "theme": "default",
+  "socket": "none",
   "refresh_interval": "0 0 4 * * Sun",
   "ignore_update_type": "none",
   "images": {
@@ -9,6 +10,7 @@
     "extra": []
   },
   "servers": {
+    "fastpi": "http://cup-agent-fastpi:8000",
     "beefy": "http://192.168.1.102:8000",
     "tower": "http://192.168.1.101:8000"
   }

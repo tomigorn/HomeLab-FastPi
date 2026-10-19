@@ -25,8 +25,9 @@ services:
       # "client error (Connect)" even though curl and the docker CLI both use the
       # same socket happily), so the volume lands on /var/run and Cup finds
       # /var/run/docker.sock where it expects it.
-      - socket_bridge:/var/run
-      # Committed, config-as-code (see cup.json)
+      # Committed, config-as-code (see cup.json). The server itself reads no socket
+      # ("socket": "none"): fastpi's images come from cup-agent-fastpi below, so
+      # the UI names them "fastpi" instead of "Local images".
       - ./cup.json:/config/cup.json:ro
     ports:
       # NOT on the LAN (2026-10-19): Cup has no auth, so 0.0.0.0:8000 exposed the
@@ -55,6 +56,24 @@ services:
       # with no route out and it failed with "client error (Connect)" while
       # fetching the image list.
       - traefik_proxy
+      - cup_agents
+
+# #########################################################
+# CUP AGENT (fastpi) ######################################
+# #########################################################
+# Same image in agent mode: reads fastpi's images through the bridged socket and
+# serves them to the server above as server "fastpi" (like beefy and tower).
+  cup-agent-fastpi:
+    image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
+    container_name: cup-agent-fastpi
+    command: -c /config/cup.json serve
+    volumes:
+      - socket_bridge:/var/run
+      - ./cup-agent.json:/config/cup.json:ro
+    mem_limit: 64m
+    restart: unless-stopped
+    networks:
+      - cup_agents
 
 # =========================================================
 # Networks ================================================
@@ -62,6 +81,8 @@ services:
 networks:
   traefik_proxy:
     external: true
+  cup_agents:
+    driver: bridge
 
 
 # =========================================================

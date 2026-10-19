@@ -4,11 +4,11 @@ Image update checker, web UI at `https://cup.holy-grail.ch` (Holy Grail login). 
 
 ## Servers
 
-Cup lists fastpi itself plus every agent in `cup.json` → `servers`.
+Cup reads no socket itself (`"socket": "none"`); every host, fastpi included, is an agent in `cup.json` → `servers`, so the UI names them fastpi, beefy, tower.
 
 | Server | URL | Agent lives in | Started by |
 |---|---|---|---|
-| fastpi | local (socket proxy) | `Docker/Cup` | `docker compose up -d` |
+| fastpi | `http://cup-agent-fastpi:8000` (compose network `cup_agents`) | `Docker/Cup`, service `cup-agent-fastpi`, `cup-agent.json` | `docker compose up -d` |
 | beefy | `http://192.168.1.102:8000` | beefy repo, `Docker/Cup-Agent/` | `docker compose up -d` |
 | tower | `http://192.168.1.101:8000` | tower repo, `boot/config/scripts/stacks/cup-agent/` | `up.sh`, then Docker restarts it at array start |
 
