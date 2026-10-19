@@ -384,7 +384,7 @@ def _tmp_dirs():
 
 def test_av_publishes_clamav_file_and_hit_list():
     d = _tmp_dirs()
-    files = {"prom": CLAMAV_PROM, "infected": "/scan/a.exe\tEICAR\n"}
+    files = {"prom": CLAMAV_PROM, "hook": None, "infected": "/scan/a.exe\tEICAR\n"}
     samples = collect_av("beefy", lambda what: files[what])
     assert (d / "textfile" / "clamav_beefy.prom").read_text() == CLAMAV_PROM
     assert (d / "state" / "last-infected-beefy.txt").read_text() == "/scan/a.exe\tEICAR\n"
@@ -418,6 +418,23 @@ def test_av_hit_list_is_capped():
     many = "".join(f"/scan/f{i}\tSig\n" for i in range(100))
     samples = collect_av("beefy", lambda what: CLAMAV_PROM if what == "prom" else many)
     assert len([s for s in samples if s[0] == "security_av_infected_info"]) == security_scan.AV_HIT_LIMIT
+
+
+def test_av_also_publishes_the_beefy_hook_file():
+    d = _tmp_dirs()
+    hook = 'clamav_infected_last_run{host="beefy",mode="hook"} 0\nclamav_infected_total{host="beefy",mode="hook"} 2\n'
+    files = {"prom": CLAMAV_PROM, "hook": hook, "infected": ""}
+    collect_av("beefy", lambda what: files[what])
+    assert (d / "textfile" / "clamav_hook_beefy.prom").read_text() == hook
+
+
+def test_av_missing_hook_file_is_skipped_not_no_data():
+    d = _tmp_dirs()
+    (d / "textfile" / "clamav_hook_beefy.prom").write_text("old\n")
+    files = {"prom": CLAMAV_PROM, "hook": None, "infected": ""}
+    collect_av("beefy", lambda what: files[what])
+    assert (d / "textfile" / "clamav_beefy.prom").exists()
+    assert (d / "textfile" / "clamav_hook_beefy.prom").read_text() == "old\n"
 
 
 def test_guarded_no_data_is_neither_error_nor_unreachable():

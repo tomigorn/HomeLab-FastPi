@@ -753,6 +753,7 @@ AV_HIT_LIMIT = 20
 AV_PATHS = {
     "fastpi": {"infected": "/var/lib/clamav-scan/last-infected.txt"},
     "beefy": {"prom": "/var/lib/clamav-scan/textfile/clamav.prom",
+              "hook": "/var/lib/clamav-scan/textfile/clamav-hook.prom",   # SABnzbd/qBittorrent completion hook, mode="hook"
               "infected": "/var/lib/clamav-scan/last-infected.txt"},
     "tower": {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
               "infected": "/mnt/data/appdata/clamav/state/last-infected.txt"},
@@ -780,6 +781,11 @@ def collect_av(host: str, fetch) -> list:
     (STATE / f"last-infected-{host}.txt").write_text(infected)
     if prom is not None:
         write_atomic(TEXTFILE / f"clamav_{host}.prom", prom)
+    if "hook" in AV_PATHS.get(host, {}):
+        # Optional: no hook run yet just means no hook file; the nightly file decides NoData.
+        hook = filter_exposition(fetch("hook") or "")
+        if hook:
+            write_atomic(TEXTFILE / f"clamav_hook_{host}.prom", hook)
     return [("security_av_infected_info", {"host": host, "path": p, "signature": sig}, 1)
             for p, sig in hits[:AV_HIT_LIMIT]]
 
