@@ -495,9 +495,14 @@ Both scripts are idempotent.
 - **Descriptions under the tile name** (grid view, >= 768 px): authentik 2026.8 shows
   `meta_description` only in the tile's `⋮` menu (and inline in list view, which is a
   per-browser toggle with no server default). The custom CSS renders that menu's closed
-  state in-flow as a caption; opening `⋮` still shows publisher, description and the
-  admin's "Edit application" link. Phones keep the stock compact tile. Verified on an
-  offline copy of the 2026.8.4 tile DOM and stylesheets; check on the live page too.
+  state in-flow as a caption in the title's font: line 1 the description (a 2-3 word
+  noun phrase), line 2 the wake note (`wakes Beefy · ~55 s`, `wakes Tower · ~110 s`),
+  smaller and italic, styled via `::first-line`. The note is a `\n` in
+  `meta_description`, shown as a line break with `white-space: pre-line` (also in the
+  open menu). The caption area has a fixed height, so tiles with and without a note
+  align. Opening `⋮` still shows publisher, description and the admin's "Edit
+  application" link. Phones keep the stock compact tile. Verified on an offline copy of
+  the 2026.8.4 tile DOM and stylesheets; check on the live page too.
 - **The custom CSS relies on undocumented internal selectors** (`[part=app-list]`,
   `[part=card]`, `[part=card-header-actions-menu]`, `[data-group-id]`,
   `[part=background-wrapper]`, `:host([theme=dark])`), read from the 2026.8.4 source. **Re-check the dashboard after

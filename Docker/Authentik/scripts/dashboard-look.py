@@ -18,29 +18,33 @@ from authentik.core.models import Application
 ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the host
 
 # slug: (section, description, publisher, icon)
+#   description: a short noun phrase; an optional second line (after "\n") is the wake
+#   note for apps that wake a sleeping host, shown under the caption and in the menu.
 #   icon: None = apps/<slug>-*.svg from fetch-app-icons.sh, otherwise a literal
 #   meta_icon value (fa://, https://, /static/...).
 # Sections sort A to Z in authentik; the custom CSS below pulls Media to the top.
+BEEFY = "\nwakes Beefy · ~55 s"
+TOWER = "\nwakes Tower · ~110 s"
 APPS = {
-    "jellyfin":          ("Media", "Films & series (wakes Beefy, ~45 s)", "Jellyfin", None),
-    "requests":          ("Media", "Request films & series (wakes Beefy, ~45 s)", "Seerr", None),
-    "audiobookshelf":    ("Media", "Audiobooks & podcasts", "Audiobookshelf", None),
-    "nextcloud":         ("Media", "Files, photos & calendar", "Nextcloud", None),
-    "radarr":            ("Downloads", "Film manager", "Servarr", None),
-    "sonarr":            ("Downloads", "Series manager", "Servarr", None),
-    "prowlarr":          ("Downloads", "Indexer manager", "Servarr", None),
-    "sabnzbd":           ("Downloads", "Usenet downloader", "SABnzbd", None),
-    "qbittorrent":       ("Downloads", "Torrent client", "qBittorrent", None),
-    "bazarr":            ("Downloads", "Subtitles", "Bazarr", None),
+    "jellyfin":          ("Media", "Film & series streaming" + BEEFY, "Jellyfin", None),
+    "requests":          ("Media", "Request films & series" + BEEFY, "Seerr", None),
+    "audiobookshelf":    ("Media", "Audiobook streaming", "Audiobookshelf", None),
+    "nextcloud":         ("Media", "Files & calendar" + TOWER, "Nextcloud", None),
+    "radarr":            ("Downloads", "Film downloads" + BEEFY, "Servarr", None),
+    "sonarr":            ("Downloads", "Series downloads" + BEEFY, "Servarr", None),
+    "prowlarr":          ("Downloads", "Indexer manager" + BEEFY, "Servarr", None),
+    "sabnzbd":           ("Downloads", "Usenet downloader" + BEEFY, "SABnzbd", None),
+    "qbittorrent":       ("Downloads", "Torrent downloader" + BEEFY, "qBittorrent", None),
+    "bazarr":            ("Downloads", "Subtitles" + BEEFY, "Bazarr", None),
     "grafana":           ("Homelab", "Dashboards & metrics", "Grafana Labs", None),
     "portainer":         ("Homelab", "Docker management", "Portainer", None),
     "adguard":           ("Homelab", "DNS & ad blocking", "AdGuard", None),
-    "traefik-dashboard": ("Homelab", "Reverse proxy routes", "Traefik Labs", None),
-    "wg-easy":           ("Homelab", "WireGuard VPN clients", "wg-easy", None),
+    "traefik-dashboard": ("Homelab", "Reverse proxy", "Traefik Labs", None),
+    "wg-easy":           ("Homelab", "VPN clients", "wg-easy", None),
     "home-assistant":    ("Homelab", "Smart home", "Home Assistant", None),
-    "cup":               ("Homelab", "Container image updates", "Cup", None),
-    "claude-mockups":    ("Homelab", "UI mockups & demos", "Holy Grail", "fa://fa-palette"),
-    "avatar-picker":     ("Account", "Choose your profile picture", "Holy Grail", "fa://fa-user-circle"),
+    "cup":               ("Homelab", "Container updates", "Cup", None),
+    "claude-mockups":    ("Homelab", "UI mockups", "Holy Grail", "fa://fa-palette"),
+    "avatar-picker":     ("Account", "Your profile picture", "Holy Grail", "fa://fa-user-circle"),
 }
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
@@ -82,8 +86,12 @@ CUSTOM_CSS = """\
    meta_description only inside the tile's "⋮" popover menu; this shows that menu's CLOSED
    state in-flow as a caption and leaves the open menu (publisher, Edit for admins) alone.
    Phones keep the stock compact tile. Selectors from the 2026.8.4 LibraryApplication source. */
+/* meta_description may hold one newline: the wake note goes on its own line, in the
+   caption and in the open menu. */
+[part="card-header-action-description"] { white-space: pre-line; }
+
 @media (min-width: 768px) {
-[part="app-list"]:not([data-view-mode="list"]) [part="card-wrapper"] { --hg-caption-height: 2.1rem; }
+[part="app-list"]:not([data-view-mode="list"]) [part="card-wrapper"] { --hg-caption-height: 2.4rem; }
 [part="app-list"]:not([data-view-mode="list"]) .card-header-aspect-wrapper {
   inset-block-end: var(--hg-caption-height);
   height: auto;
@@ -110,22 +118,41 @@ CUSTOM_CSS = """\
   display: block;
   position: absolute;
   inset: auto 0 0 0;
+  height: var(--hg-caption-height);
   transform: none;
   width: auto; min-width: 0; max-width: none;
-  margin: 0; padding: 0 .5rem .4rem;
+  margin: 0; padding: 0 .4rem;
   background: transparent; box-shadow: none; filter: none; border: none;
   pointer-events: none;
-  font-size: .72rem; line-height: 1.2; text-align: center;
-  color: var(--pf-global--Color--200);
+  text-align: center;
 }
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action"],
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action"] {
-  padding: 0; background: transparent; white-space: normal; text-align: center; color: inherit; font-size: inherit; line-height: inherit;
+  padding: 0; background: transparent; text-align: center;
 }
+/* Caption: title font, first line = description, second line = wake note (smaller, italic).
+   A fixed height keeps the description line level on tiles with and without a note. */
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action-description"],
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action-description"] {
-  margin: 0; font-size: inherit; line-height: inherit;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  display: block; overflow: hidden;
+  margin: 0;
+  font-family: var(--pf-global--FontFamily--heading--sans-serif);
+  font-size: .68rem; line-height: 1.35; font-style: italic; font-weight: 400;
+  color: var(--hg-caption-note-color, var(--pf-global--Color--200));
+  text-wrap: pretty;
+}
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) [part="card-header-action-description"]::first-line,
+[part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] [part="card-header-action-description"]::first-line {
+  font-size: .78rem; font-style: normal; font-weight: 500;
+  color: var(--hg-caption-color, var(--pf-global--Color--100));
+}
+[part="app-list"]:not([data-view-mode="list"]) [part="card-wrapper"] {
+  --hg-caption-color: var(--pf-global--Color--200);
+  --hg-caption-note-color: color-mix(in srgb, var(--pf-global--Color--200) 70%, transparent);
+}
+:host([theme="dark"]) [part="app-list"]:not([data-view-mode="list"]) [part="card-wrapper"] {
+  --hg-caption-color: #aeb9cf;
+  --hg-caption-note-color: #7c89a6;
 }
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="anchor-position"] [part="card-header-actions-menu"]:not(:popover-open) :is([part="card-header-action-publisher"], ak-divider, li:has(> a)),
 [part="app-list"]:not([data-view-mode="list"])[data-anchor-strategy="fallback"] [part="card-header-actions"]:not(:focus-within) [part="card-header-actions-menu"] :is([part="card-header-action-publisher"], ak-divider, li:has(> a)) {
