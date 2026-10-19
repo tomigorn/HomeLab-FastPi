@@ -325,6 +325,57 @@ def count_failed_logins(text: str, now: float, window: int = 86400) -> int:
     return n
 
 
+def parse_rkhunter(text: str) -> list[str]:
+    """One finding per `Warning:` line of `rkhunter --rwo`; indented continuation lines belong to it."""
+    return [l.rstrip() for l in text.splitlines() if l.startswith("Warning:")]
+
+
+_CHK_RE = re.compile(r"\bWARNING:|\bINFECTED\b", re.I)
+
+
+def parse_chkrootkit(text: str) -> list[str]:
+    """`chkrootkit -q` findings: WARNING headers and INFECTED lines.
+
+    The paths listed under a header are left out on purpose: they change every
+    run (/proc/<pid>, scripts in /tmp), so the header is the stable identity.
+    """
+    return [l.rstrip() for l in text.splitlines() if _CHK_RE.search(l)]
+
+
+def new_findings(findings: list[str], accepted: set[str]) -> list[str]:
+    return [f for f in findings if f not in accepted]
+
+
+def parse_lynis_report(text: str) -> tuple[int, int]:
+    """(hardening index, warning count) from /var/log/lynis-report.dat."""
+    index = None
+    warnings = 0
+    for line in text.splitlines():
+        if line.startswith("hardening_index="):
+            index = int(line.split("=", 1)[1])
+        elif line.startswith("warning[]="):
+            warnings += 1
+    if index is None:
+        raise ValueError("no hardening_index in the Lynis report")
+    return index, warnings
+
+
+def parse_audit_output(text: str) -> dict[str, tuple[str, int]]:
+    """Split AUDIT_SCRIPT output into {tool: (output, return code)}."""
+    out: dict[str, list] = {}
+    tool = None
+    for line in text.splitlines(keepends=True):
+        if line.startswith("### rc ") and tool:
+            out[tool][1] = int(line.split()[2])
+        elif line.startswith("### "):
+            tool = line[4:].strip()
+            out[tool] = ["", -1]
+        elif tool:
+            out[tool][0] += line
+    return {k: (v[0], v[1]) for k, v in out.items()}
+
+
+
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
@@ -691,6 +742,63 @@ def collect_failed_logins(host: str) -> int:
     return count_failed_logins(r.stdout, time.time())
 
 
+AUDIT_HOSTS = ("fastpi", "beefy")
+# rc lines are separate so a tool that failed is told apart from one that found something. rkhunter exits 1 when it has warnings.
+AUDIT_SCRIPT = (
+    "echo '### rkhunter'; sudo -n rkhunter --check --sk --rwo --nocolors 2>&1; echo \"### rc $?\"; "
+    "echo '### chkrootkit'; sudo -n chkrootkit -q 2>&1; echo \"### rc $?\"; "
+    "echo '### lynis'; sudo -n lynis audit system --quick --quiet --no-colors >/dev/null 2>&1; echo \"### rc $?\"; "
+    "sudo -n cat /var/log/lynis-report.dat"
+)
+AUDIT_OK_RC = {"rkhunter": (0, 1), "chkrootkit": (0,), "lynis": (0,)}
+
+
+def audit_samples(host: str, text: str) -> list:
+    """Metrics from one host's AUDIT_SCRIPT output, against the accepted baseline.
+
+    Both rootkit checkers report known false positives on a stock system
+    (uutils coreutils on Ubuntu 26.04 reads as INFECTED to chkrootkit). The
+    first run accepts what it finds, the way `rkhunter --propupd` accepts the
+    current binaries; afterwards only findings not in the baseline count.
+    Re-accept: delete /var/lib/security-scan/audit-accepted-<host>-<tool>.txt.
+    """
+    sections = parse_audit_output(text)
+    for tool, ok in AUDIT_OK_RC.items():
+        if tool not in sections or sections[tool][1] not in ok:
+            rc = sections.get(tool, ("", "missing"))[1]
+            raise RuntimeError(f"{tool} on {host}: rc={rc} {sections.get(tool, ('', 0))[0].strip()[-200:]}")
+    samples = []
+    report = [f"# rkhunter / chkrootkit findings on {host}. NEW = not in the accepted baseline.",
+              f"# Re-accept a tool: rm /var/lib/security-scan/audit-accepted-{host}-<tool>.txt", ""]
+    for tool, parse in (("rkhunter", parse_rkhunter), ("chkrootkit", parse_chkrootkit)):
+        findings = parse(sections[tool][0])
+        base = STATE / f"audit-accepted-{host}-{tool}.txt"
+        if not base.exists():
+            base.write_text("".join(f + "\n" for f in findings))
+        accepted = set(base.read_text().splitlines())
+        new = new_findings(findings, accepted)
+        samples.append(("security_rootkit_warnings", {"host": host, "tool": tool}, len(new)))
+        samples.append(("security_rootkit_findings", {"host": host, "tool": tool}, len(findings)))
+        report += [f"## {tool}"] + [("NEW  " if f in new else "ok   ") + f for f in findings] + [""]
+    index, warnings = parse_lynis_report(sections["lynis"][0])
+    samples.append(("security_lynis_hardening_index", {"host": host}, index))
+    samples.append(("security_lynis_warnings", {"host": host}, warnings))
+    report += ["## lynis", f"hardening_index={index} warnings={warnings}"]
+    report += [l for l in sections["lynis"][0].splitlines() if l.startswith("warning[]=")]
+    (STATE / f"audit-{host}.txt").write_text("\n".join(report) + "\n")
+    return samples
+
+
+def collect_audit(host: str) -> list:
+    if host == "fastpi":
+        r = run(["bash", "-c", AUDIT_SCRIPT], timeout=3600)
+    else:
+        r = ssh(host, AUDIT_SCRIPT, timeout=3600)
+    if r.returncode != 0 and "### lynis" not in r.stdout:
+        raise RuntimeError(f"audit on {host}: rc={r.returncode} {r.stderr.strip()[:200]}")
+    return audit_samples(host, r.stdout)
+
+
 HELPS = {
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
@@ -704,6 +812,10 @@ HELPS = {
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
     "security_failed_logins_total": "Failed SSH logins in the last 24 h (log lines: Failed password, Invalid user, authentication failure).",
+    "security_rootkit_warnings": "rkhunter/chkrootkit findings NOT in the accepted baseline (audit-accepted-<host>-<tool>.txt).",
+    "security_rootkit_findings": "All rkhunter/chkrootkit findings, accepted ones included.",
+    "security_lynis_hardening_index": "Lynis hardening index (0-100) from the weekly quick audit.",
+    "security_lynis_warnings": "Lynis warnings in the weekly quick audit.",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
 }
 
@@ -789,6 +901,10 @@ def main() -> int:
             def _logins(host=host):
                 return [("security_failed_logins_total", {"host": host}, collect_failed_logins(host))]
             guarded(f"logins-{host}", _logins, host=host)
+
+    if want("audit"):
+        for host in AUDIT_HOSTS:
+            guarded(f"audit-{host}", lambda host=host: collect_audit(host), host=host)
 
     if want("av"):
         for host in AV_PATHS:

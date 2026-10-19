@@ -17,7 +17,13 @@ from security_scan import (  # noqa: E402
     NoData,
     classify_secret_file,
     collect_av,
+    audit_samples,
     count_failed_logins,
+    new_findings,
+    parse_audit_output,
+    parse_chkrootkit,
+    parse_lynis_report,
+    parse_rkhunter,
     filter_exposition,
     parse_infected_list,
     count_fixable,
@@ -472,6 +478,116 @@ def test_failed_logins_syslog_year_rollover():
 
 def test_failed_logins_skips_unparseable_lines():
     assert count_failed_logins("-- No entries --\nsshd Failed password garbage\n", NOW) == 0
+
+
+# --- audit: rkhunter, chkrootkit, Lynis --------------------------------------
+
+RKHUNTER = """Warning: The command '/usr/bin/lwp-request' has been replaced by a script: /usr/bin/lwp-request: Perl script text executable
+Warning: The SSH configuration option 'PermitRootLogin' has not been set.
+         The default value may be 'yes', to allow root access.
+Warning: Suspicious file types found in /dev:
+         /dev/shm/lttng-ust-wait-8: data
+Warning: Hidden file found: /etc/.fstab: ASCII text
+"""
+
+CHKROOTKIT = """Checking `date'... INFECTED
+WARNING: The following suspicious files and directories were found:
+/usr/lib/debug/.build-id
+
+WARNING: Possible Linux BPFDoor Malware installed:
+/proc/1341/stack
+chkproc: Warning: Possible LKM Trojan installed
+"""
+
+
+def test_rkhunter_one_finding_per_warning_line():
+    assert parse_rkhunter(RKHUNTER) == [
+        "Warning: The command '/usr/bin/lwp-request' has been replaced by a script: /usr/bin/lwp-request: Perl script text executable",
+        "Warning: The SSH configuration option 'PermitRootLogin' has not been set.",
+        "Warning: Suspicious file types found in /dev:",
+        "Warning: Hidden file found: /etc/.fstab: ASCII text",
+    ]
+
+
+def test_rkhunter_clean_run_is_empty():
+    assert parse_rkhunter("") == []
+
+
+def test_chkrootkit_findings_are_headers_and_infected_lines_not_the_listed_paths():
+    # Listed paths change every run (/proc/<pid>, files in /tmp); the header is the stable identity.
+    assert parse_chkrootkit(CHKROOTKIT) == [
+        "Checking `date'... INFECTED",
+        "WARNING: The following suspicious files and directories were found:",
+        "WARNING: Possible Linux BPFDoor Malware installed:",
+        "chkproc: Warning: Possible LKM Trojan installed",
+    ]
+
+
+def test_new_findings_are_the_ones_not_accepted():
+    assert new_findings(["a", "b", "c"], {"a", "c"}) == ["b"]
+    assert new_findings(["a"], {"a", "gone"}) == []
+
+
+def test_lynis_report_gives_index_and_warning_count():
+    rep = "report_version=1.0\nhardening_index=64\nwarning[]=KRNL-5830|Reboot|-|-|\nwarning[]=DBS-1828|x|y|z|\nsuggestion[]=A|b|\n"
+    assert parse_lynis_report(rep) == (64, 2)
+
+
+def test_lynis_report_without_index_is_an_error():
+    try:
+        parse_lynis_report("warning[]=X|y|\n")
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass
+
+
+def test_audit_output_splits_tool_sections_and_return_codes():
+    text = ("### rkhunter\nWarning: x\n### rc 1\n"
+            "### chkrootkit\n### rc 0\n"
+            "### lynis\n### rc 0\nhardening_index=60\n")
+    assert parse_audit_output(text) == {
+        "rkhunter": ("Warning: x\n", 1),
+        "chkrootkit": ("", 0),
+        "lynis": ("hardening_index=60\n", 0),
+    }
+
+
+AUDIT_OUT = ("### rkhunter\n" + RKHUNTER + "### rc 1\n### chkrootkit\n" + CHKROOTKIT +
+             "### rc 0\n### lynis\n### rc 0\nhardening_index=64\nwarning[]=KRNL-5830|Reboot|-|-|\n")
+
+
+def _metric(samples, name, **labels):
+    return [v for n, lab, v in samples if n == name and all(lab.get(k) == x for k, x in labels.items())]
+
+
+def test_audit_first_run_accepts_current_findings_as_baseline():
+    d = _tmp_dirs()
+    samples = audit_samples("beefy", AUDIT_OUT)
+    assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="rkhunter") == [0]
+    assert _metric(samples, "security_rootkit_findings", host="beefy", tool="rkhunter") == [4]
+    assert _metric(samples, "security_rootkit_findings", host="beefy", tool="chkrootkit") == [4]
+    assert _metric(samples, "security_lynis_hardening_index", host="beefy") == [64]
+    assert _metric(samples, "security_lynis_warnings", host="beefy") == [1]
+    assert (d / "state" / "audit-accepted-beefy-rkhunter.txt").exists()
+
+
+def test_audit_later_run_counts_only_new_findings():
+    d = _tmp_dirs()
+    audit_samples("beefy", AUDIT_OUT)
+    out = AUDIT_OUT.replace("### rc 0\n### lynis", "Checking `ls'... INFECTED\n### rc 0\n### lynis")
+    samples = audit_samples("beefy", out)
+    assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="chkrootkit") == [1]
+    assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="rkhunter") == [0]
+    assert "NEW  Checking `ls'... INFECTED" in (d / "state" / "audit-beefy.txt").read_text()
+
+
+def test_audit_tool_failure_raises():
+    _tmp_dirs()
+    try:
+        audit_samples("beefy", AUDIT_OUT.replace("### rc 1", "### rc 127"))
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError:
+        pass
 
 
 if __name__ == "__main__":

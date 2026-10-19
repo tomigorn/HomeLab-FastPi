@@ -1,0 +1,15 @@
+[Unit]
+Description=Weekly rootkit check and Lynis audit (fastpi and beefy)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py audit
+TimeoutStartSec=7200
+Nice=19
+IOSchedulingClass=idle
+# No sandboxing, unlike the other security units: the tools run via sudo and must see the real system (PrivateTmp or ProtectHome would hide exactly what chkrootkit looks at, ProtectSystem would stop rkhunter and Lynis writing their logs).

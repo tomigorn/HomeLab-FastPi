@@ -37,13 +37,17 @@ git -C "$REPO" config core.hooksPath .githooks
 chmod +x "$REPO/.githooks/pre-commit"
 echo "    core.hooksPath=$(git -C "$REPO" config core.hooksPath)"
 
+echo "==> rkhunter, chkrootkit, Lynis (beefy: ssh beefy 'bash -s' < install-audit-tools.sh)"
+"$HERE"/install-audit-tools.sh
+
 echo "==> systemd units"
 sudo install -m 0644 "$HERE"/security-scan.service "$HERE"/security-scan.timer \
                      "$HERE"/security-image-scan.service "$HERE"/security-image-scan.timer \
                      "$HERE"/security-av.service "$HERE"/security-av.timer \
+                     "$HERE"/security-audit.service "$HERE"/security-audit.timer \
                      /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer
+sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-audit.timer
 
 echo "==> node-exporter must expose the textfile collector"
 if ! docker inspect node-exporter --format '{{join .Args " "}}' 2>/dev/null | grep -q 'collector.textfile.directory'; then
