@@ -17,7 +17,6 @@ assert_no_grep()  { if grep -q -- "$2" "$3" 2>/dev/null; then bad "$1" "unexpect
 metric() { awk -v n="$1" -v m="$2" '$1 ~ "^"n"[{ ]" && (m == "" || index($1, "mode=\""m"\"")) {print $2}' "$TEXTFILE/clamav.prom"; }
 
 mkdir -p "$T/bin" "$T/db"
-touch -t 202501010100 "$T/ref2025"
 : > "$T/db/daily.cld"
 cat > "$T/bin/clamscan" <<'EOF'
 #!/bin/sh
@@ -40,6 +39,7 @@ while IFS= read -r t; do
 done < "$targets"
 [ -n "$excl" ] && { grep -Ev "$excl" "$files" > "$files.x"; mv "$files.x" "$files"; }
 while IFS= read -r f; do
+  [ -n "$(find "$f" -size +2000k)" ] && continue
   scanned=$((scanned+1))
   if grep -q EICAR-STANDARD-ANTIVIRUS-TEST-FILE "$f"; then
     infected=$((infected+1)); echo "$f: Eicar-Test-Signature FOUND"
@@ -68,31 +68,35 @@ reset() {
 }
 old()   { mkdir -p "$(dirname "$1")"; echo clean > "$1"; touch -t 202001010000 "$1"; }
 fresh() { mkdir -p "$(dirname "$1")"; echo "${2:-clean}" > "$1"; }
-marker() { mkdir -p "$STATE"; touch -t 202501010000 "$STATE/last-run"; }
-advanced() { if [ "$STATE/last-run" -nt "$T/ref2025" ] && [ ! -e "$STATE/last-run.next" ]; then ok "$1"; else bad "$1"; fi; }
+mtime() { stat -c %Y "$1"; }
+marker() { sleep 1; mkdir -p "$STATE"; touch "$STATE/last-run"; M0=$(mtime "$STATE/last-run"); sleep 1; }
+advanced() { if [ "$(mtime "$STATE/last-run")" -gt "$M0" ] && [ ! -e "$STATE/last-run.next" ]; then ok "$1"; else bad "$1"; fi; }
+kept() { assert_eq "$1" "$M0" "$(mtime "$STATE/last-run")"; }
 run() { sh "$SCAN" "$@" > "$T/out" 2>&1; echo $?; }
 
 echo "== new: only files newer than the marker"
-reset; marker
-old "$T/red/movies/old.mkv"; fresh "$T/red/movies/new.mkv"; fresh "$T/black/books/new.epub"
+reset; old "$T/red/movies/old.mkv"; marker
+fresh "$T/red/movies/new.mkv"; fresh "$T/black/books/new.epub"; old "$T/red/movies/unpacked.mkv"
 assert_eq "clean run exits 0" 0 "$(run new)"
 assert_grep "new file in red listed" "$T/red/movies/new.mkv" "$STATE/new.list"
 assert_grep "new file in black listed" "$T/black/books/new.epub" "$STATE/new.list"
 assert_no_grep "old file not listed" old.mkv "$STATE/new.list"
-assert_eq "files_listed" 2 "$(metric clamav_files_listed new)"
-assert_eq "files_scanned" 2 "$(metric clamav_files_scanned new)"
-assert_grep "file-list + move + size limits" "--file-list=$STATE/new.list -i --move=$QUARANTINE --max-filesize=4000M --max-scansize=4000M" "$FAKE_LOG"
+assert_grep "old mtime, new ctime (unpacked) listed" unpacked.mkv "$STATE/new.list"
+assert_eq "files_listed" 3 "$(metric clamav_files_listed new)"
+assert_eq "files_scanned" 3 "$(metric clamav_files_scanned new)"
+assert_grep "file-list + move + size limits" "--file-list=$STATE/new.list -i --move=$QUARANTINE --max-filesize=2047M --max-scansize=2047M" "$FAKE_LOG"
+assert_eq "skipped_large 0" 0 "$(metric clamav_files_skipped_large new)"
 advanced "marker advanced"
 
 echo "== new: first run takes the last 24 h"
 reset
-old "$T/red/movies/old.mkv"; fresh "$T/red/movies/new.mkv"
+fresh "$T/red/movies/new.mkv"
 assert_eq "first run exits 0" 0 "$(run new)"
-assert_eq "only the recent file" "$T/red/movies/new.mkv" "$(cat "$STATE/new.list")"
+assert_eq "recent file listed" "$T/red/movies/new.mkv" "$(cat "$STATE/new.list")"
 [ -e "$STATE/last-run" ] && ok "marker created" || bad "marker created"
 
 echo "== new: nothing new skips clamscan"
-reset; marker; old "$T/red/movies/old.mkv"
+reset; old "$T/red/movies/old.mkv"; marker
 assert_eq "exits 0" 0 "$(run new)"
 [ -e "$FAKE_LOG" ] && bad "clamscan not called" || ok "clamscan not called"
 assert_eq "files_listed 0" 0 "$(metric clamav_files_listed new)"
@@ -107,7 +111,7 @@ assert_eq "only keep.mkv listed" "$T/red/movies/keep.mkv" "$(cat "$STATE/new.lis
 echo "== new: error keeps the marker"
 reset; marker; fresh "$T/red/movies/new.mkv"
 assert_eq "error exits 2" 2 "$(FAKE_FAIL=1 run new)"
-if [ "$STATE/last-run" -nt "$T/ref2025" ]; then bad "marker kept"; else ok "marker kept"; fi
+kept "marker kept"
 assert_eq "scan_errors 1" 1 "$(metric clamav_scan_errors new)"
 assert_eq "retry picks the file again" 0 "$(run new)"
 assert_grep "file listed on retry" new.mkv "$STATE/new.list"
@@ -140,7 +144,7 @@ assert_grep "duration" '^clamav_run_duration_seconds{host="testhost",mode="new"}
 assert_grep "signature age" '^clamav_signature_age_seconds{host="testhost"} [0-9]' "$P"
 assert_grep "db version" '^clamav_db_version{host="testhost"} 28158$' "$P"
 assert_grep "infected_total" '^clamav_infected_total{host="testhost"} 0$' "$P"
-assert_eq "one TYPE line per metric" 9 "$(grep -c '^# TYPE clamav_' "$P")"
+assert_eq "one TYPE line per metric" 10 "$(grep -c '^# TYPE clamav_' "$P")"
 assert_eq "no temp files left" "clamav.prom" "$(ls -A "$TEXTFILE")"
 sig_age=$(metric clamav_signature_age_seconds)
 exp=$(( $(date +%s) - 1792391160 ))
@@ -148,6 +152,16 @@ exp=$(( $(date +%s) - 1792391160 ))
 sh "$SCAN" "$T/red/movies" > /dev/null 2>&1
 assert_grep "new mode kept after a path run" 'mode="new"' "$P"
 assert_grep "path mode added" 'clamav_files_scanned{host="testhost",mode="path"} 1' "$P"
+
+echo "== files over 2047M are counted as skipped"
+reset; marker; fresh "$T/red/movies/new.mkv"; dd if=/dev/zero of="$T/red/movies/film.mkv" bs=1 count=0 seek=2146435073 2>/dev/null
+dd if=/dev/zero of="$T/black/books/limit.mkv" bs=1 count=0 seek=2146435072 2>/dev/null
+assert_eq "exits 0" 0 "$(run new)"
+assert_eq "new: one over the limit" 1 "$(metric clamav_files_skipped_large new)"
+run "$T/red/movies" "$T/black/books" > /dev/null
+assert_eq "path: one over the limit" 1 "$(metric clamav_files_skipped_large path)"
+SCAN_HOST=0 run all > /dev/null
+assert_eq "all: one over the limit" 1 "$(metric clamav_files_skipped_large all)"
 
 echo "== all: report only, roots + /host"
 reset; fresh "$T/red/movies/evil.exe" "$SIG"; old "$T/black/books/old.epub"
@@ -180,7 +194,7 @@ echo "== missing quarantine (disk not mounted) is an error"
 reset; marker; fresh "$T/red/movies/new.mkv"; rmdir "$QUARANTINE"
 assert_eq "exits 2" 2 "$(run new)"
 [ -e "$QUARANTINE" ] && bad "quarantine not created" || ok "quarantine not created"
-if [ "$STATE/last-run" -nt "$T/ref2025" ]; then bad "marker kept"; else ok "marker kept"; fi
+kept "marker kept"
 
 echo "== usage"
 assert_eq "no args exits 2" 2 "$(run)"

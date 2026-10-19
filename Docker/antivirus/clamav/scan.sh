@@ -6,7 +6,8 @@ TEXTFILE=${TEXTFILE:-/textfile}
 DB_DIR=${DB_DIR:-/var/lib/clamav}
 HOST=${HOST:-$(hostname)}
 SCAN_HOST=${SCAN_HOST:-1}
-LIMITS="--max-filesize=4000M --max-scansize=4000M"
+MAXBYTES=2146435072
+LIMITS="--max-filesize=2047M --max-scansize=2047M"
 TAB=$(printf '\t')
 
 usage() {
@@ -50,10 +51,16 @@ under_roots() {
 }
 
 list_find() {
-	if [ -e "$STATE/last-run" ]; then newer="-newer $STATE/last-run"; else newer="-mmin -1440"; fi
+	if [ -e "$STATE/last-run" ]; then since=$(stat -c %Y "$STATE/last-run"); else since=$(( $(date +%s) - 86400 )); fi
 	find $SCAN_ROOTS -xdev \
 		\( -path "$QUARANTINE" -o -path '*/quarantine' -o -path '*/.snapshots' -o -path '*/incomplete' \) -prune -o \
-		-type f ! -name '*.part' ! -name '*.!qB' $newer -print 2>> "$LOG"
+		-type f ! -name '*.part' ! -name '*.!qB' \
+		-exec stat -c '%Z %Y %n' {} + > "$STATE/find.out" 2>> "$LOG" || return 1
+	awk -v s="$since" '$1 > s || $2 > s { sub(/^[0-9]+ [0-9]+ /, ""); print }' "$STATE/find.out"
+}
+
+count_large() {
+	find "$@" -xdev -path "$QUARANTINE" -prune -o -type f -size +"$MAXBYTES"c -print 2>/dev/null | wc -l | tr -d ' '
 }
 
 list_btrfs() {
@@ -80,16 +87,19 @@ run_new() {
 	sleep 1  # busybox find -newer compares whole seconds
 	if [ "$SCAN_BTRFS" = 1 ]; then list_btrfs > "$list" || RC=2; else list_find > "$list" || RC=2; fi
 	LISTED=$(wc -l < "$list" | tr -d ' ')
+	SKIPPED=$(while IFS= read -r f; do stat -c %s "$f"; done < "$list" 2>/dev/null | awk -v m="$MAXBYTES" '$1 > m { n++ } END { print n + 0 }')
 	[ "$LISTED" -gt 0 ] && clam --file-list="$list" -i --move="$QUARANTINE" $LIMITS
 }
 
 run_all() {
 	targets=$SCAN_ROOTS
 	[ "$SCAN_HOST" = 1 ] && targets="$targets /host"
+	SKIPPED=$(count_large $targets)
 	clam -r -i --cross-fs=no --exclude-dir="^$QUARANTINE" $LIMITS $targets
 }
 
 run_paths() {
+	SKIPPED=$(count_large "$@")
 	: > "$STATE/path-move.list"
 	: > "$STATE/path-report.list"
 	for p in "$@"; do
@@ -104,6 +114,7 @@ run_paths() {
 }
 
 LISTED=
+SKIPPED=0
 if [ ! -d "$QUARANTINE" ]; then
 	echo "ERROR: $QUARANTINE missing (disk not mounted?)" >> "$LOG"
 	RC=2
@@ -151,6 +162,7 @@ clamav_files_listed{$L} $LISTED
 clamav_files_scanned{$L} $SCANNED
 clamav_scan_errors{$L} $ERRORS
 clamav_infected_last_run{$L} $INFECTED
+clamav_files_skipped_large{$L} $SKIPPED
 EOF
 
 db=$(ls "$DB_DIR"/daily.cld "$DB_DIR"/daily.cvd 2>/dev/null | head -1)
