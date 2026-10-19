@@ -79,6 +79,9 @@ running prometheus alertmanager grafana influxdb telegraf node-exporter blackbox
 check "influxdb"                   'v2\.9\.1.*pass|pass.*v2\.9\.1' "$(curl -s -m 5 http://127.0.0.1:8086/health)"
 check "telegraf write errors (5m)" '^0$' "$(docker logs --since 5m telegraf 2>&1 | grep -c 'E! ')"
 check "grafana db"                 '"ok"' "$(curl -s -m 5 http://127.0.0.1:3001/api/health | grep -o '"database": "[a-z]*"')"
+# The Grafana API needs a login (basic auth off, SSO only), so provisioned dashboards are read from Grafana's own DB.
+grafana_dashboards() { local d; d=$(mktemp); docker exec grafana cat /var/lib/grafana/grafana.db > "$d" 2>/dev/null; python3 -c 'import sqlite3,sys; c=sqlite3.connect(f"file:{sys.argv[1]}?mode=ro",uri=True); w=sys.argv[2:]; n={r[0] for r in c.execute("select name from resource where resource=\"dashboards\"")}; print("ok" if all(x in n for x in w) else "missing " + " ".join(x for x in w if x not in n))' "$d" "$@" 2>&1 | tail -1; rm -f "$d"; }
+check "grafana dashboards provisioned" '^ok$' "$(grafana_dashboards crowdsec-overview updates-security)"
 check "alertmanager ready"         '^OK$' "$(curl -s -m 5 http://127.0.0.1:9093/-/ready)"
 check "alertmanager not on LAN"    '^000$' "$(http http://192.168.1.2:9093/-/ready)"
 check "prometheus targets down"    '^0$' "$(curl -s -m 5 'http://127.0.0.1:9090/api/v1/targets?state=active' | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print(sum(1 for x in t if x["health"]!="up"))')"
