@@ -375,6 +375,51 @@ def parse_audit_output(text: str) -> dict[str, tuple[str, int]]:
     return {k: (v[0], v[1]) for k, v in out.items()}
 
 
+_PLG_RE = re.compile(r'^(?P<dir>/\S+)/(?P<name>[^/]+)\.plg:<!ENTITY\s+version\s+"(?P<ver>[^"]*)"')
+UNRAID_BUILTIN_PLUGINS = {"unRAIDServer", "unRAIDServer-"}
+
+
+def parse_unraid_check(text: str) -> dict:
+    """UNRAID_SCRIPT output -> {"os": (installed, available, newer), "plugins": {name: (installed, available|None)}}.
+
+    Plugin versions come from `<!ENTITY version>` of the installed .plg
+    (/var/log/plugins) and of the one `plugin checkall` just fetched
+    (/tmp/plugins), the same comparison Unraid's own plugincheck makes.
+    """
+    head, _, rest = text.partition("### plugins\n")
+    plg, _, os_json = rest.partition("### os\n")
+    m = re.search(r'version="([^"]+)"', head)
+    if not m:
+        raise RuntimeError("no version in /etc/unraid-version")
+    installed_os = m[1]
+    installed: dict[str, str] = {}
+    fetched: dict[str, str] = {}
+    for line in plg.splitlines():
+        pm = _PLG_RE.match(line)
+        if not pm or pm["name"] in UNRAID_BUILTIN_PLUGINS:
+            continue
+        (installed if pm["dir"] == "/var/log/plugins" else fetched)[pm["name"]] = pm["ver"]
+    try:
+        os_check = json.loads(os_json)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"unraidcheck output is not JSON: {os_json.strip()[:200]}") from e
+    if "error" in os_check or "version" not in os_check:
+        raise RuntimeError(f"unraidcheck: {os_check.get('error', 'no version')}")
+    newer = bool(os_check.get("isNewer"))
+    available = os_check["version"] if newer else installed_os
+    return {"os": (installed_os, available, newer),
+            "plugins": {n: (v, fetched.get(n)) for n, v in sorted(installed.items())}}
+
+
+def unraid_samples(check: dict) -> list:
+    installed, available, newer = check["os"]
+    out = [("security_unraid_os_update", {"installed": installed, "available": available}, 1 if newer else 0)]
+    for name, (have, latest) in check["plugins"].items():
+        # Unraid's plugincheck compares with strcmp; plugin versions are dates (2026.10.12).
+        out.append(("security_unraid_plugin_update", {"plugin": name}, 1 if latest and latest > have else 0))
+    return out
+
+
 
 # ---------------------------------------------------------------------------
 # I/O
@@ -799,6 +844,21 @@ def collect_audit(host: str) -> list:
     return audit_samples(host, r.stdout)
 
 
+# `plugin checkall` only downloads the latest .plg files into /tmp/plugins (RAM). Not plugincheck/unraidcheck as they are: both send an Unraid notification per update; json=true makes unraidcheck print its result and exit before notifying.
+UNRAID_SCRIPT = (
+    "cat /etc/unraid-version; echo '### plugins'; plugin checkall >/dev/null 2>&1; "
+    "grep -m1 -H 'ENTITY version' /var/log/plugins/*.plg /tmp/plugins/*.plg 2>/dev/null; echo '### os'; "
+    "QUERY_STRING=json=true /usr/local/emhttp/plugins/dynamix.plugin.manager/scripts/unraidcheck"
+)
+
+
+def collect_unraid() -> list:
+    r = ssh("tower", UNRAID_SCRIPT, timeout=300)
+    if r.returncode != 0:
+        raise RuntimeError(f"unraid check on tower: rc={r.returncode} {r.stderr.strip()[:200]}")
+    return unraid_samples(parse_unraid_check(r.stdout))
+
+
 HELPS = {
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
@@ -816,6 +876,8 @@ HELPS = {
     "security_rootkit_findings": "All rkhunter/chkrootkit findings, accepted ones included.",
     "security_lynis_hardening_index": "Lynis hardening index (0-100) from the weekly quick audit.",
     "security_lynis_warnings": "Lynis warnings in the weekly quick audit.",
+    "security_unraid_os_update": "1 if a newer Unraid OS release is available on tower.",
+    "security_unraid_plugin_update": "1 if a newer version of this Unraid plugin is available on tower.",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
 }
 
@@ -895,6 +957,7 @@ def main() -> int:
                     ("security_pending_updates", {"host": host, "type": "security"}, c["security"]),
                 ]
             guarded(f"patches-{host}", _pat, host=host)
+        guarded("patches-tower", collect_unraid, host="tower")
 
     if want("logins"):
         for host in ("fastpi", "beefy", "tower"):

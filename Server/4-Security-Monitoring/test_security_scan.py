@@ -31,6 +31,8 @@ from security_scan import (  # noqa: E402
     looks_like_secret_file,
     parse_apt_upgradable,
     parse_trivy,
+    parse_unraid_check,
+    unraid_samples,
     render_metrics,
     triage_findings,
 )
@@ -585,6 +587,65 @@ def test_audit_tool_failure_raises():
     _tmp_dirs()
     try:
         audit_samples("beefy", AUDIT_OUT.replace("### rc 1", "### rc 127"))
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError:
+        pass
+
+
+# --- Unraid OS / plugin updates ----------------------------------------------
+
+UNRAID_OUT = """version="7.3.2"
+### plugins
+/var/log/plugins/community.applications.plg:<!ENTITY version   "2026.07.21">
+/var/log/plugins/fix.common.problems.plg:<!ENTITY version "2026.05.16">
+/var/log/plugins/tips.and.tweaks.plg:<!ENTITY version\t"2025.03.06">
+/var/log/plugins/unRAIDServer.plg:<!ENTITY version   "7.3.2">
+/var/log/plugins/user.scripts.plg:<!ENTITY version "2025.06.21">
+/tmp/plugins/community.applications.plg:<!ENTITY version   "2026.07.21">
+/tmp/plugins/fix.common.problems.plg:<!ENTITY version   "2026.10.12">
+/tmp/plugins/tips.and.tweaks.plg:<!ENTITY version\t"2025.03.06">
+### os
+{
+  "version": "7.3.3",
+  "name": "Unraid 7.3.3",
+  "isNewer": true,
+  "isEligible": true
+}
+"""
+
+
+def test_unraid_check_reads_os_and_plugin_versions():
+    r = parse_unraid_check(UNRAID_OUT)
+    assert r["os"] == ("7.3.2", "7.3.3", True)
+    assert r["plugins"] == {
+        "community.applications": ("2026.07.21", "2026.07.21"),
+        "fix.common.problems": ("2026.05.16", "2026.10.12"),
+        "tips.and.tweaks": ("2025.03.06", "2025.03.06"),
+        "user.scripts": ("2025.06.21", None),
+    }
+
+
+def test_unraid_os_plugin_is_not_a_plugin_update():
+    assert "unRAIDServer" not in parse_unraid_check(UNRAID_OUT)["plugins"]
+
+
+def test_unraid_samples_flag_only_newer_versions():
+    samples = unraid_samples(parse_unraid_check(UNRAID_OUT))
+    assert ("security_unraid_os_update", {"installed": "7.3.2", "available": "7.3.3"}, 1) in samples
+    assert ("security_unraid_plugin_update", {"plugin": "fix.common.problems"}, 1) in samples
+    assert ("security_unraid_plugin_update", {"plugin": "community.applications"}, 0) in samples
+    assert ("security_unraid_plugin_update", {"plugin": "user.scripts"}, 0) in samples
+
+
+def test_unraid_os_current_has_available_equal_installed():
+    out = UNRAID_OUT.replace('"isNewer": true', '"isNewer": false').replace('"version": "7.3.3"', '"version": "7.3.2"')
+    samples = unraid_samples(parse_unraid_check(out))
+    assert ("security_unraid_os_update", {"installed": "7.3.2", "available": "7.3.2"}, 0) in samples
+
+
+def test_unraid_check_error_response_raises():
+    try:
+        parse_unraid_check(UNRAID_OUT.split("### os")[0] + '### os\n{"error": "Could not resolve host"}\n')
         raise AssertionError("expected RuntimeError")
     except RuntimeError:
         pass
