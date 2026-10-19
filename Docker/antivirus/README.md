@@ -22,7 +22,8 @@ Install / reinstall the units: `Docker/antivirus/install.sh`.
 
 - Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`, `/etc/x` = `/host/etc/x`.
 - "Changed" = ctime or mtime newer than the marker, so unpacked archives with old mtimes count. First run (no marker): the last 24 h.
-- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, `*.part`, `*.!qB`.
+- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
+- A file deleted between listing and scanning (clamscan `No such file or directory` + `Can't access file`) is not an error: counted in `clamav_files_vanished`. Unreadable files and other failures stay errors.
 - Exit codes: `0` clean, `1` infected, `2` errors. On errors `new` keeps its marker, so the next run retries the same files.
 - The quarantine folder must exist: when seagate-red is not mounted every run fails with exit 2 instead of scanning an empty mountpoint.
 - Files over 2 GiB (most films) are size-skipped by ClamAV itself (`--max-filesize=2047M`, its real limit); counted in `clamav_files_skipped_large`.
@@ -62,6 +63,7 @@ Unknown files are uploaded to VirusTotal: not for private files.
 | `clamav_files_listed` | host, mode |
 | `clamav_files_scanned` | host, mode |
 | `clamav_scan_errors` | host, mode |
+| `clamav_files_vanished` (deleted before the scan reached them) | host, mode |
 | `clamav_infected_last_run` | host, mode |
 | `clamav_files_skipped_large` (over 2047M, not scanned) | host, mode |
 | `clamav_infected_total` (counter, persisted) | host |
