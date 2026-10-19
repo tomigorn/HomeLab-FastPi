@@ -24,7 +24,7 @@ if [ -z "$SCAN_ROOTS" ] || [ -z "$QUARANTINE" ]; then
 	echo "scan.sh: SCAN_ROOTS and QUARANTINE must be set" >&2
 	exit 2
 fi
-mkdir -p "$STATE" "$QUARANTINE" "$TEXTFILE"
+mkdir -p "$STATE" "$TEXTFILE"
 
 case $1 in
 	new) MODE=new ;;
@@ -104,11 +104,17 @@ run_paths() {
 }
 
 LISTED=
-case $MODE in
-	new) run_new ;;
-	all) run_all ;;
-	path) run_paths "$@" ;;
-esac
+if [ ! -d "$QUARANTINE" ]; then
+	echo "ERROR: $QUARANTINE missing (disk not mounted?)" >> "$LOG"
+	RC=2
+	LISTED=0
+else
+	case $MODE in
+		new) run_new ;;
+		all) run_all ;;
+		path) run_paths "$@" ;;
+	esac
+fi
 cat "$LOG"
 
 HITS=$STATE/hits.tsv

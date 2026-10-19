@@ -176,6 +176,12 @@ assert_eq "scanned all three" 3 "$(metric clamav_files_scanned path)"
 assert_eq "clean path exits 0" 0 "$(run "$T/black/books")"
 assert_eq "missing path exits 2" 2 "$(run "$T/nope")"
 
+echo "== missing quarantine (disk not mounted) is an error"
+reset; marker; fresh "$T/red/movies/new.mkv"; rmdir "$QUARANTINE"
+assert_eq "exits 2" 2 "$(run new)"
+[ -e "$QUARANTINE" ] && bad "quarantine not created" || ok "quarantine not created"
+if [ "$STATE/last-run" -nt "$T/ref2025" ]; then bad "marker kept"; else ok "marker kept"; fi
+
 echo "== usage"
 assert_eq "no args exits 2" 2 "$(run)"
 assert_eq "SCAN_ROOTS unset exits 2" 2 "$(SCAN_ROOTS= run new)"
