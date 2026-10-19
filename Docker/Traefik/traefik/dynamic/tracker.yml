@@ -36,6 +36,20 @@ http:
       tls:
         certResolver: cloudflare
 
+    # /go/tmdb/<movie|show>/<id>: Jellyfin's "Rate in Tracker" link, resolved to the Ryot item by ryot-go (beefy :8011). Same gates as the catch-all.
+    tracker-go:
+      rule: "Host(`tracker.holy-grail.ch`) && PathPrefix(`/go/`)"
+      entryPoints: ["websecure"]
+      priority: 15
+      service: tracker-go
+      middlewares:
+        - authentik@file
+        - tracker-wake
+        - default-rate-limit@file
+        - tracker-secure-headers
+      tls:
+        certResolver: cloudflare
+
     tracker:
       rule: "Host(`tracker.holy-grail.ch`)"
       entryPoints: ["websecure"]
@@ -74,3 +88,8 @@ http:
         servers:
           - url: "http://192.168.1.102:8010"
         passHostHeader: true
+
+    tracker-go:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8011"
