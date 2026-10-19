@@ -89,7 +89,7 @@ rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl sta
 
 **The digest fires on Monday 05:00 local all year.** Prometheus knows only UTC; `homelab:local_utc_offset_hours` (2 from the last Sunday in March to the last Sunday in October, else 1) shifts the clock. Its own Alertmanager route `telegram-digest` sends no resolved message.
 
-**beefy and tower are scanned from fastpi.** Their running image digests are read over ssh first (seconds), then Trivy on fastpi scans the registry copy (`--image-src remote --platform linux/amd64`), so the scan finishes even after beefy powered off. A locally built image (`clamav-local`) has no registry copy and counts as unscannable.
+**beefy and tower are scanned from fastpi.** Their running image digests are read over ssh first (seconds), then Trivy on fastpi scans the registry copy (`--image-src remote --platform linux/amd64`), so the scan finishes even after beefy powered off. A locally built image (`clamav-local`; no repo digest, or the registry refuses it) is skipped and counted in `security_images_local_only{host}`, not as unscannable, so `ImagesUnscannable` stays quiet. fastpi's own local builds are still scanned through its socket proxy.
 
 **On fastpi Trivy reads images through the read-only socket proxy** (`POST=0`), which
 the host already runs for Cup and telegraf. Trivy is not made a new Docker socket
@@ -197,7 +197,7 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 82 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | 93 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
 | `security-image-scan.{service,timer}` | weekly Sun 04:10: images |

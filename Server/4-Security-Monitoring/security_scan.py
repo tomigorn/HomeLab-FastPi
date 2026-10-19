@@ -631,7 +631,7 @@ def running_images(host: str) -> list[str]:
 # copy is only accurate if it is the SAME image, so running_image_digests()
 # resolves each running container to its repo digest (repo@sha256:...), and the
 # scan pins the platform because fastpi is arm64 and tower is amd64.
-# beefy joined 2026-10-19: it is up only until about 04:26, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is counted unscannable.
+# beefy joined 2026-10-19: it is up only until about 04:26, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is skipped and counted in security_images_local_only.
 REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
 
 
@@ -700,6 +700,18 @@ def download_trivy_db(host: str) -> None:
             raise RuntimeError(f"trivy {label}-db download on {host}: {r.stderr.strip()[-300:]}")
 
 
+_REGISTRY_MISSING_RE = re.compile(r"UNAUTHORIZED|MANIFEST_UNKNOWN|NAME_UNKNOWN|repository does not exist")
+
+
+def image_only_local(ref: str, trivy_error: str = "") -> bool:
+    """True for an image a remote-source scan cannot reach: built locally, in no registry.
+
+    Either it resolved to no repo digest, or the registry refused it (Docker
+    Hub answers UNAUTHORIZED for a repository that does not exist).
+    """
+    return "@sha256:" not in ref or bool(_REGISTRY_MISSING_RE.search(trivy_error))
+
+
 def scan_all_images(hosts, lister, scan) -> None:
     """Read every host's running-image list first, then scan.
 
@@ -718,7 +730,7 @@ def scan_all_images(hosts, lister, scan) -> None:
         scan(h, lists[h])
 
 
-def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[str, int], int, int]:
+def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[str, int], int, int, int]:
     """Trivy CVE counts across the images actually in use on a host.
 
     Only running images are scanned. Cup already reports that 11 of beefy's 12
@@ -733,6 +745,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     totals = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     fixables = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     scanned = unscannable = 0
+    local_only: list[str] = []
     # Per-image detail goes to a file rather than into labels. 60+ images times
     # five severities is cardinality Prometheus does not need to carry for a
     # figure that is read once a week, and an aggregate alert that cannot say
@@ -742,6 +755,9 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     platform = REMOTE_SCAN_HOSTS.get(host)
     src = ["--image-src", "remote", "--platform", platform] if platform else ["--image-src", "docker"]
     for image in images:
+        if platform and image_only_local(image):
+            local_only.append(image)
+            continue
         r = _trivy_run(host, [
             "image", *src, "--scanners", "vuln",
             "--skip-db-update", "--skip-java-db-update",
@@ -749,6 +765,9 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
             "--timeout", "10m", image,
         ], attach_proxy=not platform, timeout=1200)
         if r.returncode != 0 or not r.stdout.strip():
+            if platform and image_only_local(image, r.stderr):
+                local_only.append(image)
+                continue
             unscannable += 1
             print(f"  unscannable on {host}: {image} ({r.stderr.strip()[-160:]})", file=sys.stderr)
             continue
@@ -776,8 +795,10 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     lines += [f"{c:>8}  {f:>7}  {h:>4}  {img}" for c, h, f, img in detail]
     if unscannable:
         lines += ["", f"# {unscannable} image(s) could not be scanned - see journalctl -u security-image-scan"]
+    if local_only:
+        lines += ["", "# built locally, in no registry, not scanned:"] + [f"#   {i}" for i in local_only]
     (STATE / f"image-cves-{host}.txt").write_text("\n".join(lines) + "\n")
-    return totals, fixables, scanned, unscannable
+    return totals, fixables, scanned, unscannable, len(local_only)
 
 
 class NoData(Exception):
@@ -980,6 +1001,7 @@ HELPS = {
     "security_image_vulnerabilities_fixable": "Subset of the above that an image update could actually fix (Trivy reports a FixedVersion).",
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
+    "security_images_local_only": "Images on beefy/tower built locally (in no registry), skipped by the registry scan.",
     "security_failed_logins_total": "Failed SSH logins in the last 24 h (log lines: Failed password, Invalid user, authentication failure).",
     "security_rootkit_warnings": "rkhunter/chkrootkit findings NOT in the accepted baseline (audit-accepted-<host>-<tool>.txt).",
     "security_rootkit_findings": "All rkhunter/chkrootkit findings, accepted ones included.",
@@ -1106,13 +1128,14 @@ def main() -> int:
             def _img():
                 if isinstance(images, Exception):
                     raise images
-                totals, fixables, scanned, bad = collect_images(host, images)
+                totals, fixables, scanned, bad, local = collect_images(host, images)
                 out = [("security_image_vulnerabilities", {"host": host, "severity": k}, v)
                        for k, v in sorted(totals.items())]
                 out += [("security_image_vulnerabilities_fixable", {"host": host, "severity": k}, v)
                         for k, v in sorted(fixables.items())]
                 out.append(("security_images_scanned", {"host": host}, scanned))
                 out.append(("security_images_unscannable", {"host": host}, bad))
+                out.append(("security_images_local_only", {"host": host}, local))
                 return out
             guarded(f"images-{host}", _img, host=host)
         scan_all_images(("fastpi", "beefy", "tower"), running_images, _scan)

@@ -33,6 +33,7 @@ from security_scan import (  # noqa: E402
     looks_like_secret_file,
     parse_apt_upgradable,
     parse_trivy,
+    image_only_local,
     parse_unraid_check,
     scan_all_images,
     unraid_samples,
@@ -799,6 +800,24 @@ def test_image_list_failure_reaches_that_hosts_scan_only():
 def test_beefy_and_tower_are_scanned_from_fastpi():
     # Trivy for these runs on fastpi against the registry: no ssh after the list is read.
     assert set(security_scan.REMOTE_SCAN_HOSTS) == {"beefy", "tower"}
+
+
+def test_image_without_repo_digest_is_local_only():
+    assert image_only_local("clamav-local:latest")
+    assert not image_only_local("lscr.io/linuxserver/radarr@sha256:ea68")
+
+
+def test_registry_refusal_means_local_only():
+    # clamav-local carries a repo digest but exists in no registry: Docker Hub answers UNAUTHORIZED.
+    err = "clamav-local/manifests/sha256:a06: UNAUTHORIZED: authentication required; [map[Action:pull Name:library/clamav-local]]"
+    assert image_only_local("clamav-local@sha256:a06", err)
+    assert image_only_local("x@sha256:1", "MANIFEST_UNKNOWN: manifest unknown")
+    assert image_only_local("x@sha256:1", "NAME_UNKNOWN: repository name not known to registry")
+
+
+def test_other_trivy_failures_stay_unscannable():
+    assert not image_only_local("x@sha256:1", "context deadline exceeded")
+    assert not image_only_local("x@sha256:1", "")
 
 if __name__ == "__main__":
     import traceback
