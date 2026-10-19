@@ -142,7 +142,7 @@ echo "== tower (only if awake)"
 if timeout 2 bash -c '</dev/tcp/192.168.1.101/22' 2>/dev/null; then
   check "nextcloud version"        '"versionstring":"34\.0\.5"' "$(curl -s -m 10 http://192.168.1.101:8080/status.php)"
   check "nextcloud /login -> SSO"  'user_oidc/login' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' http://192.168.1.101:8080/login)"
-  check "btrfs pool raid1"         'Data, \?RAID1.*Metadata, \?RAID1' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'btrfs filesystem df /mnt/data | tr "\n" " "' 2>/dev/null)"
+  check "btrfs pool raid1"         'Data, ?RAID1.*Metadata, ?RAID1' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'btrfs filesystem df /mnt/data | tr "\n" " "' 2>/dev/null)"
   check "btrfs device errors"      '^0$' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'btrfs device stats /mnt/data | awk "{s+=\$2} END {print s+0}"' 2>/dev/null)"
   check "no kernel oops this boot" '^0$' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'grep -cE "NULL pointer|general protection" /var/log/syslog' 2>/dev/null)"
 else skip "tower" "asleep - not woken"; fi
