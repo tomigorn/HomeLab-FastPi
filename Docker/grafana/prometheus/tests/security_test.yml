@@ -77,3 +77,27 @@ tests:
               summary: "Security scan logins-beefy has not succeeded in 3d 0h 0m 0s"
               description: "Thresholds differ by subject because the cadences do: the daily secrets/patches scan is stale after 48h (two missed runs, which tolerates one night of beefy staying asleep), tower's daily subjects after 7 days (tower is often off for days), and the weekly image and audit scans and Cup (refreshed weekly) after 14 days. Figures for this subject are still being served from the last success, so the dashboard looks populated."
 
+  - name: unraid OS and plugin updates
+    interval: 1m
+    input_series:
+      - series: 'security_unraid_os_update{installed="7.3.2",available="7.3.3"}'
+        values: '1x90'
+      - series: 'security_unraid_plugin_update{plugin="fix.common.problems"}'
+        values: '1x90'
+      - series: 'security_unraid_plugin_update{plugin="user.scripts"}'
+        values: '0x90'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: UnraidUpdateAvailable
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: UnraidUpdateAvailable
+        exp_alerts:
+          - exp_labels: {severity: info, installed: "7.3.2", available: "7.3.3"}
+            exp_annotations:
+              summary: "tower: Unraid OS 7.3.3 available (installed 7.3.2)"
+              description: "Update by hand on tower: Tools > Update OS for the OS, Plugins > Check for updates for plugins. Weekly reminder at most (info)."
+          - exp_labels: {severity: info, plugin: fix.common.problems}
+            exp_annotations:
+              summary: "tower: plugin fix.common.problems has an update"
+              description: "Update by hand on tower: Tools > Update OS for the OS, Plugins > Check for updates for plugins. Weekly reminder at most (info)."

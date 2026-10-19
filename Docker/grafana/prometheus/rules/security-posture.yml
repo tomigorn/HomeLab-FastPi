@@ -81,6 +81,18 @@ groups:
             /var/log/unattended-upgrades/. Total pending (including
             non-security) is in security_pending_updates{type="all"}.
 
+      # tower (Unraid) has no apt; its OS and plugins are checked daily by the patches group when tower is awake.
+      - alert: UnraidUpdateAvailable
+        expr: security_unraid_os_update > 0 or security_unraid_plugin_update > 0
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "tower: {{ if $labels.plugin }}plugin {{ $labels.plugin }} has an update{{ else }}Unraid OS {{ $labels.available }} available (installed {{ $labels.installed }}){{ end }}"
+          description: >-
+            Update by hand on tower: Tools > Update OS for the OS, Plugins > Check for updates for plugins.
+            Weekly reminder at most (info).
+
   - name: security-images
     rules:
       # severity: info on purpose - Telegram only, weekly at most. A standing
