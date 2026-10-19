@@ -15,6 +15,7 @@ usage() {
 usage: scan.sh new        files under \$SCAN_ROOTS changed since the last good run, infected ones to \$QUARANTINE
        scan.sh all        everything under \$SCAN_ROOTS and /host (SCAN_HOST=0 skips it), report only
        scan.sh <path>...  quarantined when under \$SCAN_ROOTS, else report only
+       scan.sh restore <file in quarantine>  move back to its original path and never flag it again
 exit:  0 clean, 1 infected, 2 errors
 EOF
 	exit 2
@@ -26,6 +27,26 @@ if [ -z "$SCAN_ROOTS" ] || [ -z "$QUARANTINE" ]; then
 	exit 2
 fi
 mkdir -p "$STATE" "$TEXTFILE"
+ALLOW=$STATE/allow.txt
+
+restore() {
+	case $1 in */*) q=$1 ;; *) q=$QUARANTINE/$1 ;; esac
+	name=${q##*/}
+	base=$(printf '%s\n' "$name" | sed 's/\.[0-9][0-9][0-9]$//')
+	[ -f "$q" ] || { echo "restore: $q not found" >&2; exit 2; }
+	n=$(awk -F '\t' -v b="$base" 'NF == 3 { f = $2; sub(/.*\//, "", f); if (f == b) n = NR } END { print n + 0 }' "$QUARANTINE/index.txt" 2>/dev/null)
+	[ "$n" -gt 0 ] || { echo "restore: no index.txt line for $name" >&2; exit 2; }
+	orig=$(awk -F '\t' -v n="$n" 'NR == n { print $2 }' "$QUARANTINE/index.txt")
+	[ -e "$orig" ] && { echo "restore: $orig exists, not overwriting" >&2; exit 2; }
+	mkdir -p "$(dirname "$orig")" && mv "$q" "$orig" || exit 2
+	awk -v n="$n" -v d="$(date -Iseconds)" 'NR == n { $0 = $0 "\trestored " d } { print }' "$QUARANTINE/index.txt" > "$QUARANTINE/.index.tmp" &&
+		mv "$QUARANTINE/.index.tmp" "$QUARANTINE/index.txt"
+	grep -qxF "$orig" "$ALLOW" 2>/dev/null || printf '%s\n' "$orig" >> "$ALLOW"
+	echo "restored $orig, added to $ALLOW"
+	exit 0
+}
+
+[ "$1" = restore ] && { [ $# -eq 2 ] || usage; restore "$2"; }
 
 case $1 in
 	new) MODE=new ;;
@@ -38,6 +59,11 @@ RC=0
 : > "$LOG"
 
 clam() {
+	if [ -s "$ALLOW" ]; then
+		while IFS= read -r a; do
+			set -- "$@" "--exclude=^$(printf '%s\n' "$a" | sed 's/[]\\.*^$+?(){}|[]/\\&/g')\$"
+		done < "$ALLOW"
+	fi
 	clamscan "$@" >> "$LOG" 2>&1
 	r=$?
 	[ "$r" -gt "$RC" ] && RC=$r
@@ -85,7 +111,12 @@ run_new() {
 	list=$STATE/new.list
 	touch "$STATE/last-run.next"
 	sleep 1  # busybox find -newer compares whole seconds
-	if [ "$SCAN_BTRFS" = 1 ]; then list_btrfs > "$list" || RC=2; else list_find > "$list" || RC=2; fi
+	if [ "$SCAN_BTRFS" = 1 ]; then list_btrfs > "$list.all" || RC=2; else list_find > "$list.all" || RC=2; fi
+	if [ -s "$ALLOW" ]; then
+		awk 'NR == FNR { allow[$0] = 1; next } !($0 in allow)' "$ALLOW" "$list.all" > "$list"
+	else
+		mv "$list.all" "$list"
+	fi
 	LISTED=$(wc -l < "$list" | tr -d ' ')
 	SKIPPED=$(while IFS= read -r f; do stat -c %s "$f"; done < "$list" 2>/dev/null | awk -v m="$MAXBYTES" '$1 > m { n++ } END { print n + 0 }')
 	[ "$LISTED" -gt 0 ] && clam --file-list="$list" -i --move="$QUARANTINE" $LIMITS

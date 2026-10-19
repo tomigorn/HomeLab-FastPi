@@ -27,6 +27,7 @@ for a; do
     --file-list=*) cat "${a#*=}" >> "$targets" ;;
     --move=*) move=${a#*=} ;;
     --exclude-dir=*) excl=${a#*=} ;;
+    --exclude=*) printf '%s\n' "${a#*=}" >> "$targets.excl" ;;
     -*) ;;
     *) printf '%s\n' "$a" >> "$targets" ;;
   esac
@@ -38,6 +39,9 @@ while IFS= read -r t; do
   else echo "$t: No such file or directory"; echo "WARNING: $t: Can't access file"; errors=$((errors+1)); fi
 done < "$targets"
 [ -n "$excl" ] && { grep -Ev "$excl" "$files" > "$files.x"; mv "$files.x" "$files"; }
+if [ -s "$targets.excl" ]; then
+  while IFS= read -r re; do grep -Ev "$re" "$files" > "$files.x"; mv "$files.x" "$files"; done < "$targets.excl"
+fi
 while IFS= read -r f; do
   [ -n "$(find "$f" -size +2000k)" ] && continue
   scanned=$((scanned+1))
@@ -48,7 +52,7 @@ while IFS= read -r f; do
 done < "$files"
 [ -n "$FAKE_FAIL" ] && { echo "ERROR: fake failure"; errors=$((errors+1)); }
 printf '\n----------- SCAN SUMMARY -----------\nKnown viruses: 1\nEngine version: 1.4.6\nScanned directories: 0\nScanned files: %s\nInfected files: %s\nData scanned: 0.00 MB\n' "$scanned" "$infected"
-rm -f "$targets" "$files"
+rm -f "$targets" "$targets.excl" "$files"
 [ "$errors" -gt 0 ] && exit 2
 [ "$infected" -gt 0 ] && exit 1
 exit 0
@@ -195,6 +199,29 @@ reset; marker; fresh "$T/red/movies/new.mkv"; rmdir "$QUARANTINE"
 assert_eq "exits 2" 2 "$(run new)"
 [ -e "$QUARANTINE" ] && bad "quarantine not created" || ok "quarantine not created"
 kept "marker kept"
+
+echo "== restore a false positive"
+reset; marker
+fresh "$T/red/movies/my [odd] file.exe" "$SIG"
+assert_eq "hit exits 1" 1 "$(run new)"
+assert_eq "restore exits 0" 0 "$(run restore "my [odd] file.exe")"
+[ -e "$T/red/movies/my [odd] file.exe" ] && [ ! -e "$QUARANTINE/my [odd] file.exe" ] && ok "moved back" || bad "moved back"
+assert_grep "index line marked restored" "$TAB$T/red/movies/my \[odd\] file.exe${TAB}Eicar-Test-Signature${TAB}restored " "$QUARANTINE/index.txt"
+assert_eq "allow list entry" "$T/red/movies/my [odd] file.exe" "$(cat "$STATE/allow.txt")"
+assert_eq "new skips it" 0 "$(run new)"
+assert_no_grep "not listed by new" "odd" "$STATE/new.list"
+[ -e "$T/red/movies/my [odd] file.exe" ] && ok "still in place after new" || bad "still in place after new"
+assert_eq "path mode skips it" 0 "$(run "$T/red/movies")"
+[ -e "$T/red/movies/my [odd] file.exe" ] && ok "still in place after path" || bad "still in place after path"
+assert_eq "path mode on the file itself skips it" 0 "$(run "$T/red/movies/my [odd] file.exe")"
+assert_eq "all skips it" 0 "$(SCAN_HOST=0 run all)"
+fresh "$T/red/movies/my [odd] file.exe.bak" "$SIG"
+assert_eq "exact match only: a similar name is still caught" 1 "$(run "$T/red/movies")"
+assert_eq "restore unknown file exits 2" 2 "$(run restore nope.exe)"
+fresh "$T/black/books/dup.exe" "$SIG"; run new > /dev/null; fresh "$T/black/books/dup.exe"
+assert_eq "restore over an existing file exits 2" 2 "$(run restore "$QUARANTINE/dup.exe")"
+[ -e "$QUARANTINE/dup.exe" ] && ok "quarantined copy kept" || bad "quarantined copy kept"
+assert_eq "allow list unchanged" 1 "$(wc -l < "$STATE/allow.txt" | tr -d ' ')"
 
 echo "== usage"
 assert_eq "no args exits 2" 2 "$(run)"
