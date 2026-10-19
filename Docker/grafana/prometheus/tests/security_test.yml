@@ -1,0 +1,23 @@
+# promtool test rules tests/security_test.yml
+rule_files:
+  - ../rules/security-posture.yml
+evaluation_interval: 1m
+tests:
+  - name: failed logins above 20 per 24 h
+    interval: 1m
+    input_series:
+      - series: 'security_failed_logins_total{host="beefy",instance="node-exporter:9100"}'
+        values: '21x60'
+      - series: 'security_failed_logins_total{host="fastpi",instance="node-exporter:9100"}'
+        values: '20x60'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FailedLoginsSpike
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: FailedLoginsSpike
+        exp_alerts:
+          - exp_labels: {severity: info, host: beefy, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "beefy: 21 failed SSH logins in 24 h"
+              description: "More than 20 sshd lines with Failed password / Invalid user / authentication failure in the last 24 h. SSH is LAN-only, so the source is inside the LAN or VPN. Look: journalctl _COMM=sshd (fastpi), /var/log/auth.log (beefy), /var/log/syslog (tower)."

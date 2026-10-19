@@ -120,6 +120,21 @@ groups:
             proxy. They are reported rather than skipped so the CVE totals are
             not quietly understating coverage.
 
+  - name: security-logins
+    rules:
+      # Stands in for CrowdSec on beefy and tower: SSH is LAN-only there, so a count is enough (Server/4-Security-Monitoring/README.md).
+      - alert: FailedLoginsSpike
+        expr: security_failed_logins_total > 20
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} failed SSH logins in 24 h"
+          description: >-
+            More than 20 sshd lines with Failed password / Invalid user / authentication failure in the last 24 h.
+            SSH is LAN-only, so the source is inside the LAN or VPN.
+            Look: journalctl _COMM=sshd (fastpi), /var/log/auth.log (beefy), /var/log/syslog (tower).
+
   - name: security-scan-health
     rules:
       # Without these the whole mechanism is a dashboard that reads "0 secrets
