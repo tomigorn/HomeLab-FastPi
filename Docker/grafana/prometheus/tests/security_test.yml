@@ -21,3 +21,59 @@ tests:
             exp_annotations:
               summary: "beefy: 21 failed SSH logins in 24 h"
               description: "More than 20 sshd lines with Failed password / Invalid user / authentication failure in the last 24 h. SSH is LAN-only, so the source is inside the LAN or VPN. Look: journalctl _COMM=sshd (fastpi), /var/log/auth.log (beefy), /var/log/syslog (tower)."
+
+  - name: rootkit findings outside the baseline
+    interval: 1m
+    input_series:
+      - series: 'security_rootkit_warnings{host="beefy",tool="chkrootkit"}'
+        values: '1x30'
+      - series: 'security_rootkit_warnings{host="fastpi",tool="rkhunter"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RootkitWarning
+        exp_alerts:
+          - exp_labels: {severity: info, host: beefy, tool: chkrootkit}
+            exp_annotations:
+              summary: "beefy: 1 new chkrootkit finding(s)"
+              description: "Findings not in the accepted baseline are marked NEW in /var/lib/security-scan/audit-beefy.txt on fastpi. Check them by hand; a false positive is accepted by deleting /var/lib/security-scan/audit-accepted-beefy-chkrootkit.txt and running systemctl start security-audit.service."
+
+  - name: lynis hardening index drops more than 5 points in a week
+    interval: 1m
+    input_series:
+      - series: 'security_lynis_hardening_index{host="fastpi"}'
+        values: '70x10080 64x200'
+      - series: 'security_lynis_hardening_index{host="beefy"}'
+        values: '63x10080 58x200'
+    alert_rule_test:
+      - eval_time: 10070m
+        alertname: LynisHardeningDropped
+        exp_alerts: []
+      - eval_time: 10160m
+        alertname: LynisHardeningDropped
+        exp_alerts:
+          - exp_labels: {severity: info, host: fastpi}
+            exp_annotations:
+              summary: "fastpi: Lynis hardening index fell to 64 (6 points in 7 days)"
+              description: "Something weakened the configuration since last week's audit. The warnings are in /var/lib/security-scan/audit-fastpi.txt on fastpi; the full report is /var/log/lynis-report.dat on the host."
+
+  - name: staleness thresholds follow each subject's cadence
+    interval: 1m
+    input_series:
+      - series: 'security_scan_last_success_timestamp_seconds{subject="audit-beefy"}'
+        values: '0x4400'
+      - series: 'security_scan_last_success_timestamp_seconds{subject="logins-tower"}'
+        values: '0x4400'
+      - series: 'security_scan_last_success_timestamp_seconds{subject="logins-beefy"}'
+        values: '0x4400'
+      - series: 'security_scan_last_success_timestamp_seconds{subject="cup-beefy"}'
+        values: '0x4400'
+    alert_rule_test:
+      - eval_time: 72h
+        alertname: SecurityScanStale
+        exp_alerts:
+          - exp_labels: {severity: warning, subject: logins-beefy}
+            exp_annotations:
+              summary: "Security scan logins-beefy has not succeeded in 3d 0h 0m 0s"
+              description: "Thresholds differ by subject because the cadences do: the daily secrets/patches scan is stale after 48h (two missed runs, which tolerates one night of beefy staying asleep), tower's daily subjects after 7 days (tower is often off for days), and the weekly image and audit scans and Cup (refreshed weekly) after 14 days. Figures for this subject are still being served from the last success, so the dashboard looks populated."
+

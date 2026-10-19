@@ -135,6 +135,31 @@ groups:
             SSH is LAN-only, so the source is inside the LAN or VPN.
             Look: journalctl _COMM=sshd (fastpi), /var/log/auth.log (beefy), /var/log/syslog (tower).
 
+  - name: security-audit
+    rules:
+      # Weekly (security-audit.timer, Sun 05:00), fastpi and beefy. Telegram only, by decision: rootkit checkers are noisy, so only findings outside the accepted baseline count.
+      - alert: RootkitWarning
+        expr: security_rootkit_warnings > 0
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} new {{ $labels.tool }} finding(s)"
+          description: >-
+            Findings not in the accepted baseline are marked NEW in /var/lib/security-scan/audit-{{ $labels.host }}.txt on fastpi.
+            Check them by hand; a false positive is accepted by deleting /var/lib/security-scan/audit-accepted-{{ $labels.host }}-{{ $labels.tool }}.txt and running systemctl start security-audit.service.
+
+      - alert: LynisHardeningDropped
+        expr: (security_lynis_hardening_index offset 7d) - security_lynis_hardening_index > 5
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: Lynis hardening index fell to {{ with query (printf \"security_lynis_hardening_index{host='%s'}\" $labels.host) }}{{ . | first | value }}{{ end }} ({{ $value }} points in 7 days)"
+          description: >-
+            Something weakened the configuration since last week's audit.
+            The warnings are in /var/lib/security-scan/audit-{{ $labels.host }}.txt on fastpi; the full report is /var/log/lynis-report.dat on the host.
+
   - name: security-scan-health
     rules:
       # Without these the whole mechanism is a dashboard that reads "0 secrets
@@ -160,9 +185,11 @@ groups:
       # reachable for longer than its normal off-hours.
       - alert: SecurityScanStale
         expr: >-
-          (time() - security_scan_last_success_timestamp_seconds{subject!~"images-.*"} > 172800)
+          (time() - security_scan_last_success_timestamp_seconds{subject!~"(images|audit|cup)-.*|.*-tower"} > 172800)
           or
-          (time() - security_scan_last_success_timestamp_seconds{subject=~"images-.*"} > 1209600)
+          (time() - security_scan_last_success_timestamp_seconds{subject=~".*-tower",subject!~"(images|audit|cup)-.*"} > 604800)
+          or
+          (time() - security_scan_last_success_timestamp_seconds{subject=~"(images|audit|cup)-.*"} > 1209600)
         for: 1h
         labels:
           severity: warning
@@ -171,8 +198,9 @@ groups:
           description: >-
             Thresholds differ by subject because the cadences do: the daily
             secrets/patches scan is stale after 48h (two missed runs, which
-            tolerates one night of beefy staying asleep), and the weekly image
-            scan after 14 days. Figures for this subject are still being served
+            tolerates one night of beefy staying asleep), tower's daily subjects
+            after 7 days (tower is often off for days), and the weekly image and
+            audit scans and Cup (refreshed weekly) after 14 days. Figures for this subject are still being served
             from the last success, so the dashboard looks populated.
 
       # Guards the transport itself. A malformed .prom file makes node-exporter
