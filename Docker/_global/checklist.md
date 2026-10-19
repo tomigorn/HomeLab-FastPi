@@ -1,9 +1,9 @@
 # Project Checklist
 
-Split by host: the projects below live in two different repos on two different
+Split by host: the projects below live in different repos on different
 machines, and some names collide across them (fastpi runs `Cup`, the web UI;
-beefy runs `Cup-Agent`, which feeds it). A single flat list could not tell them
-apart.
+beefy and tower run `Cup-Agent`, which feeds it). A single flat list could not
+tell them apart.
 
 ## fastpi — `HomeLab-FastPi`, `/home/pi/Projects/Docker/`
 
@@ -48,3 +48,9 @@ apart.
 | Jellyfin | ❌ | ❌ | | |  |
 | Movie-Downloads | ❌ | ❌ | | |  |
 | Portainer-Agent | ❌ | ❌ | | |  |
+
+## tower — `HomeLab-Unraid-Tower`, `/boot/config/scripts/stacks/`
+
+| Project | Reviewed | Deployed | Image / Tag Version | my update performed date | Tag |
+|---|---|---|---|---|---|
+| Cup-Agent | ❌ | ❌ | | |  |

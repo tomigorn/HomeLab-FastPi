@@ -145,6 +145,13 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.101/22' 2>/dev/null; then
   check "btrfs pool raid1"         'Data, ?RAID1.*Metadata, ?RAID1' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'btrfs filesystem df /mnt/data | tr "\n" " "' 2>/dev/null)"
   check "btrfs device errors"      '^0$' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'btrfs device stats /mnt/data | awk "{s+=\$2} END {print s+0}"' 2>/dev/null)"
   check "no kernel oops this boot" '^0$' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'grep -cE "NULL pointer|general protection" /var/log/syslog' 2>/dev/null)"
+  check "cup agent (fastpi only)"  '"images"' "$(curl -s -m 10 http://192.168.1.101:8000/api/v3/json | head -c 20)"
+  check "cup agent DOCKER-USER"    '! -s 192\.168\.1\.2/32 -i br0 -p tcp -m tcp --dport 8000 -j DROP' "$(timeout 20 ssh -o BatchMode=yes tower-direct 'iptables -S DOCKER-USER' 2>/dev/null)"
+  # Cup only fetches agents at its own refresh; tower asleep then = no tower images until the next one.
+  n=$(curl -s -m 10 http://172.24.0.1:8000/api/v3/json | python3 -c 'import json,sys; print(sum(i.get("server")=="tower" for i in json.load(sys.stdin)["images"]))' 2>/dev/null)
+  if (( ${n:-0} > 0 )); then ok "cup lists server tower" "$n images"
+  elif docker logs Cup 2>&1 | grep -E 'Checked [0-9]+ images|101:8000/api/v3/refresh: Failed' | tail -2 | head -1 | grep -q Failed; then skip "cup lists server tower" "tower asleep at the last Cup refresh"
+  else bad "cup lists server tower" "got: ${n:-no answer}"; fi
 else skip "tower" "asleep - not woken"; fi
 
 echo; printf 'PASS %d   FAIL %d   SKIP %d\n' $PASS $FAIL $SKIP
