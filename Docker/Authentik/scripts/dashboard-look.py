@@ -160,9 +160,25 @@ CUSTOM_CSS = """\
 }
 }
 
-/* Section order (sections otherwise sort A-Z; grid view only):
-   Media first, Homelab (infrastructure admin tools) last. */
-[part="app-list"] [data-group-id="media"] { order: -1; }
+/* List view (authentik switches to it under 768 px, so this is the phone layout).
+   The row text is one string "description · publisher" with the wake note after a
+   newline: pre-line puts the note on its own line, publisher last. The template leaves
+   a newline before the text, which pre-line renders as a blank first line (CSS 2.1
+   10.8: a line ending in a preserved newline keeps its height); the negative margin
+   of exactly one line hides it (lh where supported, the calc mirrors the stock
+   font-size and line-height of .row-meta). */
+[part="app-list"][data-view-mode="list"] [part="row-meta"] {
+  white-space: pre-line;
+  margin-top: calc(-1.3 * var(--pf-global--FontSize--sm));
+  margin-top: -1lh;
+}
+
+/* Section order, grid and list (sections otherwise sort A-Z):
+   Media, Downloads, Account, Homelab (infrastructure admin tools) last.
+   The list container is display:block in authentik, so make it a flex column for order. */
+[part="app-list"][data-view-mode="list"][data-anchor-strategy] { display: flex; flex-direction: column; }
+[part="app-list"] [data-group-id="media"] { order: -2; }
+[part="app-list"] [data-group-id="downloads"] { order: -1; }
 [part="app-list"] [data-group-id="homelab"] { order: 99; }
 """
 

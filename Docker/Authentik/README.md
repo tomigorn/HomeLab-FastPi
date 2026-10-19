@@ -490,8 +490,9 @@ Both scripts are idempotent.
   app, add a line to `APPS` (and to `ICONS` in the fetch script).
 - **Hidden helpers:** `jellyfin-wake` and `nextcloud-wake` have `meta_hide=True`. That
   only removes the tile; their providers and bindings still work.
-- **Sections** sort A to Z in authentik, so a custom CSS rule moves Media first. That
-  works in grid view only, because list view is a plain block.
+- **Sections** sort A to Z in authentik; custom CSS `order` rules make it Media,
+  Downloads, Account, Homelab in both views (the list container is turned into a flex
+  column for that).
 - **Descriptions under the tile name** (grid view, >= 768 px): authentik 2026.8 shows
   `meta_description` only in the tile's `⋮` menu (and inline in list view, which is a
   per-browser toggle with no server default). The custom CSS renders that menu's closed
@@ -501,8 +502,13 @@ Both scripts are idempotent.
   `meta_description`, shown as a line break with `white-space: pre-line` (also in the
   open menu). The caption area has a fixed height, so tiles with and without a note
   align. Opening `⋮` still shows publisher, description and the admin's "Edit
-  application" link. Phones keep the stock compact tile. Verified on an offline copy of
-  the 2026.8.4 tile DOM and stylesheets; check on the live page too.
+  application" link. Verified on an offline copy of the 2026.8.4 tile DOM and
+  stylesheets; check on the live page too.
+- **List view rows** (phones, < 768 px): authentik renders one string, description `·`
+  publisher. The CSS keeps the `\n` as a line break (description, then the wake note
+  with the publisher last) and hides the blank first line the template whitespace
+  would produce, with a one-line negative margin (`-1lh`, calc fallback). Lines after
+  the first can't be styled separately there, so the note is not smaller in list view.
 - **The custom CSS relies on undocumented internal selectors** (`[part=app-list]`,
   `[part=card]`, `[part=card-header-actions-menu]`, `[data-group-id]`,
   `[part=background-wrapper]`, `:host([theme=dark])`), read from the 2026.8.4 source. **Re-check the dashboard after
@@ -514,8 +520,8 @@ Both scripts are idempotent.
   navy. The CSS rule is scoped to dark theme; light-mode users keep the stock look plus
   the gold hover ring.
 - **Grid or list** is a per-browser toggle (phones always get list view). Admins can't
-  set a default. In grid view the description sits behind each tile's ⋮ menu; in list
-  view it shows inline.
+  set a default. In grid view the description sits behind each tile's ⋮ menu (shown as
+  a caption by the CSS); in list view it shows inline.
 
 ## Routing
 
