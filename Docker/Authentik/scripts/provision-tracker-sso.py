@@ -1,8 +1,8 @@
-# Idempotent Authentik setup for the Tracker (Ryot on fastpi): forward auth plus Ryot's OIDC login.
-# Runs locally, not via beefy like provision-media-sso.py: Ryot lives on fastpi, so the client
-# id/secret leave only as "ENV Ryot/.env KEY=value" lines, written by apply-sso-env.py:
-#   cd Docker/Authentik && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
-#     | python3 scripts/apply-sso-env.py
+# Idempotent Authentik setup for the Tracker (Ryot on beefy): forward auth plus Ryot's OIDC login.
+# The client id/secret leave only as "ENV Ryot/.env KEY=value" lines, written on beefy by apply-sso-env.py:
+#   cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
+#     && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
+#     | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
 # Group streaming-users: everyone who may watch may track.
 from authentik.core.models import Application, Group
 from authentik.outposts.models import Outpost

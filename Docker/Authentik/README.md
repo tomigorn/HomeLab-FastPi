@@ -393,8 +393,8 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Sonarr (`sonarr`) | forward auth `sonarr-proxy` | `streaming-admins` | like Radarr |
 | Requests (`requests`) | forward auth `requests-proxy` | `streaming-users` | outer gate for Seerr, stays on |
 | Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-users` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
-| Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (fastpi), stays on. In `scripts/provision-tracker-sso.py` |
-| Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id/secret go to fastpi `Ryot/.env` |
+| Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (beefy), stays on. In `scripts/provision-tracker-sso.py` |
+| Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id/secret go to beefy `Ryot/.env` |
 
 Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
 
@@ -406,11 +406,12 @@ cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
 
 Then on beefy `~/Projects/Docker/Seerr/scripts/configure.sh` puts them into Seerr.
 
-Tracker (Ryot on fastpi), written locally into `Ryot/.env`, then `cd ../Ryot && docker compose up -d`:
+Tracker (Ryot on beefy), written into beefy `Ryot/.env`, then on beefy `cd ~/Projects/Docker/Ryot && sudo docker compose up -d`:
 
 ```bash
-cd Docker/Authentik && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
-  | python3 scripts/apply-sso-env.py
+cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
+  && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
+  | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
 ```
 
 ### Gotchas
