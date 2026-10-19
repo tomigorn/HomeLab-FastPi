@@ -116,6 +116,7 @@ check "tower waker v1.2.0"         '1\.2\.0' "$(curl -s -m 5 http://192.168.1.2:
 
 echo "== Tracker (Ryot on beefy; containers + backup in the beefy section)"
 check "tracker -> sso"             'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/ | cut -c1-60)"
+check "tracker /go -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/go/tmdb/movie/603 | cut -c1-60)"
 check "tracker OIDC discovery"     '^200$' "$(http https://sso.holy-grail.ch/application/o/tracker-login/.well-known/openid-configuration)"
 # /_i/ is the Jellyfin webhook path without forward auth: refused from the tunnel, open on the LAN.
 # Tunnel traffic reaches Traefik from the docker gateway 172.24.0.1, the same source as this probe to the container IP.
@@ -164,7 +165,7 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   check "beefy security updates"   'sec=0' "$(grep sec= <<<"$r")"
   check "portainer agent"          'portainer/agent:2\.45\.2 Up' "$(grep portainer <<<"$r")"
   for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
-  for s in ryot ryot-db; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
+  for s in ryot ryot-db ryot-go; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
   check "ryot version"             'ryot:v10\.5\.3 ' "$(grep '^ryot ' <<<"$r")"
   check "ryot backup < 2 days"     '^ryotbackup=yes$' "$(grep ryotbackup= <<<"$r")"
 else skip "beefy" "asleep - not woken"; fi
