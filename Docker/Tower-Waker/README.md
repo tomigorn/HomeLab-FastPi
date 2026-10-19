@@ -12,7 +12,7 @@ below is only what differs for tower).
 | Part | beefy | tower |
 |---|---|---|
 | Idle → power off | systemd watcher, 15 min | User Scripts cron `*/5`, **30 min** idle (`idle-shutdown` on the flash) |
-| Busy signals | SSH, VS Code, inbound service conns, CPU/net/disk | SSH/SMB/NFS conns, Nextcloud requests + in-flight uploads, backup jobs, parity/ZFS/SMART jobs, disk writes |
+| Busy signals | SSH, VS Code, inbound service conns, CPU/net/disk | SSH/SMB/NFS conns, Nextcloud requests + in-flight uploads, backup jobs, parity/scrub/SMART jobs, disk writes |
 | Pause auto-off | `touch /run/beefy-keep-awake` | `touch /boot/config/no-autoshutdown` (survives reboots) |
 | WoL armed | netplan `wakeonlan: true` | NIC `Wake-on: g`; the script re-arms it right before `powerdown` |
 | Wake on request | `beefy-wake` → `:9001` | `tower-wake` → `:9002`, chained behind a rate limit (Nextcloud is public) |
@@ -61,7 +61,7 @@ Where the time goes and what could change it:
   BIOS experiments.
 - The ~46 s kernel→sshd is Unraid's USB-flash boot (bzroot extraction + plugin
   install). A faster USB stick helps a little; nothing in the BIOS does.
-- Array start (+20–25 s) is the HDD spin-up plus ZFS pool import; inherent.
+- Array start (+20–25 s) is the HDD spin-up plus pool mount; inherent.
 
 ## Config (`.env`)
 

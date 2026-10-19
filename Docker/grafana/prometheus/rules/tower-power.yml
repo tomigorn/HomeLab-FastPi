@@ -6,7 +6,7 @@ groups:
     rules:
       # tower answers on 22 but Nextcloud has not come up: the array is not
       # started (licence, disk, pool) or Docker is down. 30m covers a normal
-      # boot (Nextcloud follows sshd by ~30 s) and a slow parity/ZFS import.
+      # boot (Nextcloud follows sshd by ~30 s) and a slow parity check or pool mount.
       # This is the alert that was missing when the trial licence expired on
       # 2026-09-14 and tower sat half-dead for a month.
       - alert: TowerUpButNextcloudDown

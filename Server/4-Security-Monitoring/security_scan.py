@@ -378,9 +378,9 @@ def running_images(host: str) -> list[str]:
 
 
 # Hosts whose images are scanned FROM fastpi, straight from the registry, instead
-# of on the host. tower (Unraid, Docker on a ZFS dataset) hit a kernel ZFS oops on
-# 2026-10-17 a minute after a Trivy container started writing its cache and image
-# layers to the pool; nothing heavy runs there any more. Scanning the registry
+# of on the host. tower (Unraid) hit a kernel ZFS oops on 2026-10-17 a minute
+# after a Trivy container started writing its cache and image layers to the pool
+# (since replaced by btrfs); nothing heavy runs there any more. Scanning the registry
 # copy is only accurate if it is the SAME image, so running_image_digests()
 # resolves each running container to its repo digest (repo@sha256:...), and the
 # scan pins the platform because fastpi is arm64 and tower is amd64.
