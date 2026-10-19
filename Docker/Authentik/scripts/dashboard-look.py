@@ -4,7 +4,7 @@
 # Run (after scripts/fetch-app-icons.sh has put the icons in place):
 #   cd Docker/Authentik && docker compose exec -T server ak shell < scripts/dashboard-look.py
 #
-# Touches ONLY look fields: Application.group / meta_description / meta_publisher /
+# Touches ONLY look fields: Application.group / meta_description / meta_publisher (cleared) /
 # meta_icon / open_in_new_tab / meta_hide, and on the default Brand
 # branding_custom_css. Names, providers, launch URLs, policy bindings (who sees what),
 # flows and footer links are left alone, so this never conflicts with
@@ -17,7 +17,7 @@ from authentik.core.models import Application
 
 ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the host
 
-# slug: (section, description, publisher, icon)
+# slug: (section, description, icon)
 #   description: a short noun phrase; an optional second line (after "\n") is the wake
 #   note for apps that wake a sleeping host, shown under the caption and in the menu.
 #   icon: None = apps/<slug>-*.svg from fetch-app-icons.sh (downloaded, or bundled in
@@ -26,25 +26,25 @@ ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the h
 BEEFY = "\nwakes Beefy · ~55 s"
 TOWER = "\nwakes Tower · ~110 s"
 APPS = {
-    "jellyfin":          ("Media", "Film & series streaming" + BEEFY, "Jellyfin", None),
-    "requests":          ("Media", "Request films & series" + BEEFY, "Seerr", None),
-    "audiobookshelf":    ("Media", "Audiobook streaming", "Audiobookshelf", None),
-    "nextcloud":         ("Media", "Files & calendar" + TOWER, "Nextcloud", None),
-    "radarr":            ("Downloads", "Film downloads" + BEEFY, "Servarr", None),
-    "sonarr":            ("Downloads", "Series downloads" + BEEFY, "Servarr", None),
-    "prowlarr":          ("Downloads", "Indexer manager" + BEEFY, "Servarr", None),
-    "sabnzbd":           ("Downloads", "Usenet downloader" + BEEFY, "SABnzbd", None),
-    "qbittorrent":       ("Downloads", "Torrent downloader" + BEEFY, "qBittorrent", None),
-    "bazarr":            ("Downloads", "Subtitles" + BEEFY, "Bazarr", None),
-    "grafana":           ("Homelab", "Dashboards & metrics", "Grafana Labs", None),
-    "portainer":         ("Homelab", "Docker management", "Portainer", None),
-    "adguard":           ("Homelab", "DNS & ad blocking", "AdGuard", None),
-    "traefik-dashboard": ("Homelab", "Reverse proxy", "Traefik Labs", None),
-    "wg-easy":           ("Homelab", "VPN clients", "wg-easy", None),
-    "home-assistant":    ("Homelab", "Smart home", "Home Assistant", None),
-    "cup":               ("Homelab", "Container updates", "Cup", None),
-    "claude-mockups":    ("Homelab", "UI mockups", "Holy Grail", "fa://fa-palette"),
-    "avatar-picker":     ("Account", "Your profile picture", "Holy Grail", None),
+    "jellyfin":          ("Media", "Film & series streaming" + BEEFY, None),
+    "requests":          ("Media", "Request films & series" + BEEFY, None),
+    "audiobookshelf":    ("Media", "Audiobook streaming", None),
+    "nextcloud":         ("Media", "Files & calendar" + TOWER, None),
+    "radarr":            ("Downloads", "Film downloads" + BEEFY, None),
+    "sonarr":            ("Downloads", "Series downloads" + BEEFY, None),
+    "prowlarr":          ("Downloads", "Indexer manager" + BEEFY, None),
+    "sabnzbd":           ("Downloads", "Usenet downloader" + BEEFY, None),
+    "qbittorrent":       ("Downloads", "Torrent downloader" + BEEFY, None),
+    "bazarr":            ("Downloads", "Subtitles" + BEEFY, None),
+    "grafana":           ("Homelab", "Dashboards & metrics", None),
+    "portainer":         ("Homelab", "Docker management", None),
+    "adguard":           ("Homelab", "DNS & ad blocking", None),
+    "traefik-dashboard": ("Homelab", "Reverse proxy", None),
+    "wg-easy":           ("Homelab", "VPN clients", None),
+    "home-assistant":    ("Homelab", "Smart home", None),
+    "cup":               ("Homelab", "Container updates", None),
+    "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
+    "avatar-picker":     ("Account", "Your profile picture", None),
 }
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
@@ -203,8 +203,8 @@ def icon_for(slug, literal):
     return os.path.relpath(found[-1], ICON_DIR)  # e.g. apps/jellyfin-4ebae366.svg
 
 
-for slug, (group, desc, publisher, literal) in APPS.items():
-    fields = {"group": group, "meta_description": desc, "meta_publisher": publisher,
+for slug, (group, desc, literal) in APPS.items():
+    fields = {"group": group, "meta_description": desc, "meta_publisher": "",
               "open_in_new_tab": True, "meta_hide": False}
     icon = icon_for(slug, literal)
     if icon:

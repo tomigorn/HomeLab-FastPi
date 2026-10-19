@@ -506,13 +506,12 @@ Both scripts are idempotent.
   `::first-line`, so the note is dimmed with a gradient clipped to the text
   (`background-clip: text`) instead, not smaller or italic. The caption area has a fixed
   height with `overflow: hidden` (the popover's UA default is `auto`), so tiles with and
-  without a note align and never scroll. Opening `⋮` still shows publisher, description
+  without a note align and never scroll. Opening `⋮` still shows the description
   and the admin's "Edit application" link. Verified on an offline copy of the 2026.8.4
   tile DOM (with the template's whitespace text nodes) and stylesheets; check on the
   live page too.
 - **List view rows** (phones, < 768 px): authentik renders one string, description `·`
-  publisher. The CSS keeps the `\n` as a line break (description, then the wake note
-  with the publisher last) and hides the blank first line the template whitespace
+  publisher, so `meta_publisher` is cleared on every app. The CSS keeps the `\n` as a line break (description, then the wake note) and hides the blank first line the template whitespace
   would produce, with a one-line negative margin (`-1lh`, calc fallback). Lines after
   the first can't be styled separately there, so the note is not smaller in list view.
 - **The custom CSS relies on undocumented internal selectors** (`[part=app-list]`,
