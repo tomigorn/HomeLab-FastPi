@@ -1193,7 +1193,7 @@
    "id": 40,
    "type": "stat",
    "title": "Extra blocklists",
-   "description": "Last successful import of additional (non-CAPI) blocklists. None are configured: Spamhaus DROP / DShield / Firehol are CIDR lists and the Traefik bouncer plugin (stream mode, v1.7.1 and upstream main) only matches exact IPs, so imported ranges would never be enforced. See README 'Threat data refresh'.",
+   "description": "Last successful import of additional (non-CAPI) blocklists. None are configured: Spamhaus DROP / DShield / Firehol are CIDR lists and the Traefik bouncer plugin (stream mode, v1.8.1 and upstream main) only matches exact IPs, so imported ranges would never be enforced. See README 'Threat data refresh'.",
    "datasource": {
     "type": "prometheus",
     "uid": "dfc6abdxzsem8a"

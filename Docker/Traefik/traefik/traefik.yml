@@ -104,7 +104,7 @@ experimental:
   #
   # localPlugins reads the vendored source from /plugins-local and never contacts
   # the network, so a registry outage cannot affect this host. The source is
-  # committed at traefik/plugins-local/ and is the unmodified v1.7.1 release.
+  # committed at traefik/plugins-local/ and is the unmodified v1.8.1 release.
   # To upgrade: replace that directory with the new release's contents.
   localPlugins:
     crowdsec-bouncer:

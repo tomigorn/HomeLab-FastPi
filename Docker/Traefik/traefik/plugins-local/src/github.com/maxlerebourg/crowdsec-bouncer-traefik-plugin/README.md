@@ -21,6 +21,8 @@ When used with Crowdsec it will leverage the local API which will analyze Traefi
 
 Appsec feature is supported from plugin version 1.2.0 and Crowdsec 1.6.0.
 
+Appsec bot detection is supported from plugin version 1.8.0 and Crowdsec 1.8.0.
+
 The AppSec Component offers:
 
 - Low-effort virtual patching capabilities.
@@ -374,14 +376,16 @@ make run
   - bool
   - default: true
   - Block request when Crowdsec Appsec Server have a [status 500](https://docs.crowdsec.net/docs/next/appsec/protocol#response-code).
+  - A status 401 (API key rejected) or any other unexpected status always blocks the request, whatever this option says, and is logged at INFO.
 - CrowdsecAppsecUnreachableBlock
   - bool
   - default: true
   - Block request when Crowdsec Appsec Server is unreachable.
+  - A status 502, 503 or 504 counts as unreachable.
 - CrowdsecAppsecBodyLimit
   - int64
   - default: 10485760 (= 10MB)
-  - Transmit only the first number of bytes to Crowdsec Appsec Server.
+  - Transmit only the first number of bytes to Crowdsec Appsec Server. If the body cannot be read while it is buffered (typically the client aborted the upload), the request is answered with `499` when the client is gone or `400` otherwise, and is neither banned nor counted as a blocked request.
 - CrowdsecAppsecUnreadableBodyBlock
   - bool
   - default: true
@@ -428,7 +432,7 @@ make run
 - RemediationHeadersCustomName
   - string
   - default: ""
-  - Name of the header you want in response when request are handled by plugin (possible value of the header `ban`, `captcha` or `solved-captcha`)
+  - Name of the header you want in response when request are handled by plugin (possible value of the header `ban`, `challenge`, `captcha` or `solved-captcha`)
 - ForwardedHeadersCustomName
   - string
   - default: "X-Forwarded-For"
@@ -473,7 +477,8 @@ make run
 - UpdateMaxFailure
   - int64
   - default: 0
-  - Used only in `stream` and `alone` mode, the maximum number of time we can not reach Crowdsec before blocking traffic (set -1 to never block)
+  - In `stream` and `alone` mode, the maximum number of time we can not reach Crowdsec before blocking traffic (set -1 to never block)
+  - In `live` and `none` mode, only `-1` has an effect: a request is let through instead of blocked when Crowdsec cannot be reached. Any other value blocks on the first failure, there is no failure counter on that path.
 - StreamStartupBlock
   - bool
   - default: true
@@ -500,6 +505,7 @@ make run
 - CaptchaProvider
   - string
   - Provider to validate the captcha, expected values are: `hcaptcha`, `recaptcha`, `turnstile` or `custom`
+  - Also used when AppSec answers with a `captcha` action. Without a provider, those requests are banned.
 - CaptchaCustomJsURL
   - string
   - If CaptchaProvider is `custom`, URL used to load the challenge in the HTML (in case of hcaptcha: `https://hcaptcha.com/1/api.js`)
@@ -755,6 +761,66 @@ Set `crowdsecAppsecScheme` to `https`. Same three options as for the LAPI, prefi
 
 Currently AppSec does not support mTLS authentication for the AppSec Component.
 
+#### AppSec bot detection: route `/crowdsec-internal`
+
+When AppSec bot detection is enabled, the challenge page it returns loads its fingerprint
+script from `/crowdsec-internal/challenge/fpscanner.js`, an absolute path. Any router
+protected by this middleware therefore has to match that prefix as well, otherwise the
+script 404s, the proof-of-work never runs, and the client is stuck on the challenge page
+with no error anywhere:
+
+```yaml
+  - "traefik.http.routers.my-router.rule=PathPrefix(`/my-app`) || PathPrefix(`/crowdsec-internal`)"
+```
+
+The backend service never sees these requests: the plugin forwards them to the AppSec
+component and returns its response directly, and answers `404` when AppSec does not serve
+them (for example when it is unreachable), so the prefix only needs to reach a router
+carrying the middleware. Requests from `clientTrustedIps` bypass the plugin, so they are
+the only exception.
+
+The proof-of-work result is posted to `/crowdsec-internal/challenge/submit`, and AppSec
+has to receive that form in full. Keep `crowdsecAppsecBodyLimit` above `0` and large enough
+for it, which the default of 10MB is. With `0` the plugin sends no body to AppSec, and with
+a smaller limit the proof is cut short: either way it is rejected and the visitor is
+challenged again forever.
+
+CrowdSec documents the same requirement, that the bouncer must forward
+`/crowdsec-internal/challenge/*` unchanged: see
+[enabling bot detection](https://docs.crowdsec.net/docs/appsec/bot_detection/enable) and the
+[challenge protocol](https://docs.crowdsec.net/docs/appsec/bot_detection/challenge_protocol).
+
+See [examples/bot-detection/README.md](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/bot-detection/README.md).
+
+#### AppSec bot detection: Content-Security-Policy
+
+The challenge runs an inline script and a blob: worker, so AppSec sends every challenge with a fixed Content-Security-Policy allowing both:
+
+```
+default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; worker-src 'self' blob:;
+```
+
+If your own policy forbids inline scripts or blob: workers, the challenge can never be solved: blank page, and Refused to
+execute inline script / Refused to create a worker in the console.
+
+The plugin replaces any policy already set on the response, as the challenge protocol
+(https://docs.crowdsec.net/docs/appsec/bot_detection/challenge_protocol#requirements-for-a-remediation-component)
+requires. Traefik's headers middleware does not: it applies its headers when the response is written, after the plugin.
+Listed before this one, it therefore overwrites the challenge policy with yours.
+
+Put your Content-Security-Policy in a headers middleware listed after this one. Your other security headers can stay
+before it.
+The captcha and ban pages get none of your default CSP so rewrite it on your template.
+
+```yaml
+  - "traefik.http.routers.my-router.middlewares=security-headers@docker,crowdsec@docker,csp@docker"
+  - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
+  - "traefik.http.middlewares.csp.headers.contentSecurityPolicy=default-src 'self'"
+```
+
+/!\ CrowdSec describes the same conflict, and how to solve it in nginx, in
+[enabling bot detection: Content-Security-Policy](https://docs.crowdsec.net/docs/appsec/bot_detection/enable#content-security-policy).
+
 #### Manually add an IP to the blocklist (for testing purposes)
 
 ```bash
@@ -788,6 +854,8 @@ docker exec crowdsec cscli decisions remove --ip 10.0.0.10 -t captcha
 #### 10. Using Traefik with Custom Ban HTML Page [examples/custom-ban-page/README.md](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/custom-ban-page/README.md)
 
 #### 11. Using Traefik with Custom Captcha Whiketkeeper[examples/custom-captcha/README.md](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/custom-captcha/README.md)
+
+#### 12. Using Traefik with AppSec bot detection enabled [examples/bot-detection/README.md](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/bot-detection/README.md)
 
 ### Local Mode
 

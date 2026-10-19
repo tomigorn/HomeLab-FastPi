@@ -63,7 +63,7 @@ Data paths:
     (top 20). Trailing windows straight from CrowdSec's DB, so they don't depend on
     Prometheus history.
   - `crowdsec_bouncer_dropped_requests_total`: the bouncer's own exact drop count.
-    The plugin (v1.7.1) reports remediation usage metrics to the LAPI every 10 min,
+    The plugin (v1.8.1) reports remediation usage metrics to the LAPI every 10 min,
     and they were otherwise only visible in `cscli metrics show bouncers`. Made
     monotonic across LAPI metric flushes.
   - `crowdsec_bouncer_last_pull_timestamp_seconds`, `crowdsec_capi_last_pull_timestamp_seconds`
@@ -133,8 +133,8 @@ notification arrived in Telegram.
 
 **Not covered:** the Traefik bouncer plugin. It is vendored as a local plugin
 (`Traefik/traefik/plugins-local/`, see the Traefik README for why) and updating it
-is a Traefik static change, so it stays manual. v1.7.1 is installed; v1.8.1 was
-released on 2026-10-18.
+is a Traefik static change, so it stays manual. v1.8.1 is installed (updated
+2026-10-19 from v1.7.1, same config keys; backup of the old tree is a git revert away).
 
 ## Threat data refresh
 
@@ -155,14 +155,14 @@ DShield and Firehol level1 are free for private use and low on false positives, 
 `cscli decisions import --scope range` loads them fine (tried 2026-10-19 with
 203.0.113.0/24). But the Traefik bouncer plugin in stream mode keys its cache by the
 decision value and looks the client IP up by exact match (`handleStreamCache` /
-`cacheClient.Get(remoteIP)`, v1.7.1 and upstream `main`/v1.8.1 alike), so a range
+`cacheClient.Get(remoteIP)`, v1.8.1 and upstream `main` alike), so a range
 decision is never enforced: 203.0.113.250 kept getting 200 for 100 s with the /24
 banned. Only live mode (LAPI matches ranges server-side) would enforce them, and live
 mode fails closed, which is why it was abandoned. The CrowdSec Console blocklists
 would be delivered as single IPs, but need enrollment (not wanted). If an extra list
 is ever wanted: DShield's 20 /24s could be expanded to ~5k single IPs, but note the
-v1.7.1 plugin applies `New` before `Deleted` in one sync, so a delete-and-reimport
-cycle must not happen inside one 60 s window (fixed order upstream). Dashboard tile
+plugin applies `Deleted` before `New` in one sync since v1.8.0, so a
+delete-and-reimport cycle inside one 60 s window is safe. Dashboard tile
 "Extra blocklists" shows "none configured" until something is imported.
 
 ## Install / files
