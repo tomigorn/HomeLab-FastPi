@@ -86,8 +86,16 @@ services:
         level2 oplocks = no
 
     volumes:
-      - /mnt/seagate-red:/mnt/seagate-red
-      - /mnt/seagate-black:/mnt/seagate-black
+      - type: bind
+        source: /mnt/seagate-red
+        target: /mnt/seagate-red
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-black
+        target: /mnt/seagate-black
+        bind:
+          create_host_path: false
     logging:
       driver: "json-file"
       options:
@@ -199,8 +207,16 @@ services:
       - WEBUI_PORT=8080
       - TORRENTING_PORT=1
     volumes:
-      - /mnt/seagate-red/qbittorrent/config:/config
-      - /mnt/seagate-red/qbittorrent/downloads:/downloads
+      - type: bind
+        source: /mnt/seagate-red/qbittorrent/config
+        target: /config
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-red/qbittorrent/downloads
+        target: /downloads
+        bind:
+          create_host_path: false
     logging:
       driver: "json-file"
       options:
