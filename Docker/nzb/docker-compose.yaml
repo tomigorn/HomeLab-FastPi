@@ -92,7 +92,11 @@ services:
       - TZ=Europe/Zurich
       - HOST_WHITELIST_ENTRIES=fastpi,fastpi.homelab
     volumes:
-      - /mnt/seagate-red/sabnzbd/config:/config
+      - type: bind
+        source: /mnt/seagate-red/sabnzbd/config
+        target: /config
+        bind:
+          create_host_path: false
     logging:
       driver: "json-file"
       options:
