@@ -1,0 +1,58 @@
+# promtool test rules tests/weekly-digest-dst_test.yml
+# Separate file for its hourly evaluation: these eval times lie months after promtool's time 0 (Thursday 1970-01-01 UTC).
+rule_files:
+  - ../rules/weekly-digest.yml
+evaluation_interval: 1h
+tests:
+  - name: local offset follows CET/CEST
+    interval: 1h
+    input_series: []
+    promql_expr_test:
+      - expr: homelab:local_utc_offset_hours
+        eval_time: 86d12h
+        exp_samples:
+          - labels: 'homelab:local_utc_offset_hours'
+            value: 1
+      - expr: homelab:local_utc_offset_hours
+        eval_time: 88d12h
+        exp_samples:
+          - labels: 'homelab:local_utc_offset_hours'
+            value: 2
+      - expr: homelab:local_utc_offset_hours
+        eval_time: 151d12h
+        exp_samples:
+          - labels: 'homelab:local_utc_offset_hours'
+            value: 2
+      - expr: homelab:local_utc_offset_hours
+        eval_time: 296d12h
+        exp_samples:
+          - labels: 'homelab:local_utc_offset_hours'
+            value: 2
+      - expr: homelab:local_utc_offset_hours
+        eval_time: 298d12h
+        exp_samples:
+          - labels: 'homelab:local_utc_offset_hours'
+            value: 1
+
+  - name: summer Monday 05:00 CEST is 03:00 UTC
+    interval: 1h
+    input_series: []
+    alert_rule_test:
+      - eval_time: 151d4h
+        alertname: WeeklyUpdateDigest
+        exp_alerts: []
+      - eval_time: 151d3h
+        alertname: WeeklyUpdateDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Weekly update digest"
+              description: |-
+                <b>Apt</b> (all / security): no data
+                <b>Images</b> (Cup): no data
+                <b>Fixable critical CVEs</b>: no data
+                <b>Unraid</b>: no data; plugins: none
+                <b>CrowdSec</b>: no data; bouncer plugin no data
+                <b>Antivirus</b> (last new-files scan, infected): no data
+                <b>Rootkit</b> (new findings): no data
+                <b>Lynis</b>: no data

@@ -1,0 +1,34 @@
+# Weekly update digest: one Telegram message on Monday 05:00 local time. Tests: prometheus/tests/weekly-digest_test.yml
+# Alertmanager routes it to telegram-digest (no resolved message); the alert fires for one hour, so each Monday is a new notification.
+groups:
+  - name: weekly-digest
+    rules:
+      # Prometheus only knows UTC. CEST (UTC+2) runs from the last Sunday in March to the last Sunday in October; day_of_month - day_of_week is the date of the most recent Sunday, and a last Sunday always falls on the 25th or later. Off by an hour only during the switch night itself.
+      - record: homelab:local_utc_offset_hours
+        expr: |-
+          (vector(2) and on() (
+              (month() > 3 and month() < 10)
+            or (month() == 3 and (day_of_month() - day_of_week()) >= 25)
+            or (month() == 10 and (day_of_month() - day_of_week()) < 25)
+          )) or vector(1)
+
+      - alert: WeeklyUpdateDigest
+        expr: |-
+          vector(1)
+            and on() (day_of_week(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) == 1)
+            and on() (hour(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) == 5)
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Weekly update digest"
+          description: |-
+            <b>Apt</b> (all / security): {{ range $i, $s := query `security_pending_updates{type="all"}` | sortByLabel "host" }}{{ if $i }}, {{ end }}{{ $s.Labels.host }} {{ $s.Value }} / {{ with query (printf `security_pending_updates{type="security",host="%s"}` $s.Labels.host) }}{{ . | first | value }}{{ else }}?{{ end }}{{ else }}no data{{ end }}
+            <b>Images</b> (Cup): {{ range $i, $s := query `security_image_updates{type="all"}` | sortByLabel "host" }}{{ if $i }}, {{ end }}{{ $s.Labels.host }} {{ $s.Value }}{{ else }}no data{{ end }}{{ range query `security_image_update_info` | sortByLabel "reference" | sortByLabel "host" }}
+            {{ .Labels.host }}: {{ .Labels.reference }} ({{ .Labels.type }}){{ end }}
+            <b>Fixable critical CVEs</b>: {{ range $i, $s := query `security_image_vulnerabilities_fixable{severity="CRITICAL"}` | sortByLabel "host" }}{{ if $i }}, {{ end }}{{ $s.Labels.host }} {{ $s.Value }}{{ else }}no data{{ end }}
+            <b>Unraid</b>: {{ with query `security_unraid_os_update` }}{{ with first . }}{{ if eq .Value 1.0 }}OS {{ .Labels.installed }} → {{ .Labels.available }}{{ else }}OS {{ .Labels.installed }} current{{ end }}{{ end }}{{ else }}no data{{ end }}; plugins: {{ range $i, $s := query `security_unraid_plugin_update == 1` | sortByLabel "plugin" }}{{ if $i }}, {{ end }}{{ $s.Labels.plugin }}{{ else }}none{{ end }}
+            <b>CrowdSec</b>: {{ range $i, $s := query `crowdsec_autoupdate_result == 1` }}{{ if $i }}, {{ end }}engine {{ $s.Labels.to }} ({{ $s.Labels.result }}){{ else }}no data{{ end }}; bouncer plugin {{ with query `crowdsec_bouncer_plugin_outdated` }}{{ if eq (. | first | value) 1.0 }}OUTDATED{{ else }}current{{ end }}{{ else }}no data{{ end }}
+            <b>Antivirus</b> (last new-files scan, infected): {{ range $i, $s := query `time() - clamav_last_run_timestamp_seconds{mode="new"}` | sortByLabel "host" }}{{ if $i }}, {{ end }}{{ $s.Labels.host }} {{ $s.Value | humanizeDuration }} ago, {{ with query (printf `clamav_infected_last_run{mode="new",host="%s"}` $s.Labels.host) }}{{ . | first | value }}{{ else }}?{{ end }} infected{{ else }}no data{{ end }}
+            <b>Rootkit</b> (new findings): {{ range $i, $s := query `security_rootkit_warnings` | sortByLabel "tool" | sortByLabel "host" }}{{ if $i }}, {{ end }}{{ $s.Labels.host }}/{{ $s.Labels.tool }} {{ $s.Value }}{{ else }}no data{{ end }}
+            <b>Lynis</b>: {{ range $i, $s := query `security_lynis_hardening_index` | sortByLabel "host" }}{{ if $i }}, {{ end }}{{ $s.Labels.host }} {{ $s.Value }}{{ else }}no data{{ end }}

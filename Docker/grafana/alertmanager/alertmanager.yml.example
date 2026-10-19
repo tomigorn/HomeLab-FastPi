@@ -35,6 +35,13 @@ route:
   group_interval: 5m
   repeat_interval: 12h
   routes:
+    # Weekly digest (prometheus/rules/weekly-digest.yml): fires Monday 05:00 for one hour. No resolved message, which would repeat the whole digest an hour later.
+    - matchers:
+        - alertname="WeeklyUpdateDigest"
+      receiver: telegram-digest
+      group_wait: 0s
+      repeat_interval: 168h
+
     # Informational things (container updates) go to Telegram ONLY. They do not
     # deserve an email — a weekly nag by mail is how people learn to filter alerts
     # into the bin, and then miss a real one.
@@ -103,3 +110,13 @@ receivers:
           {{ range .Alerts }}{{ .Annotations.summary }}
           {{ .Annotations.description }}
           {{ end }}
+
+  - name: telegram-digest
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: false
+        message: |-
+          <b>{{ .CommonAnnotations.summary }}</b>
+          {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
