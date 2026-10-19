@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly ClamAV scan of new files
+Documentation=file:///home/pi/Projects/Docker/antivirus/README.md
+
+[Timer]
+OnCalendar=*-*-* 05:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
