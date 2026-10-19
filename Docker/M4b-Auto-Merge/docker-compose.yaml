@@ -28,8 +28,16 @@ services:
       # The library is the one thing this writes to: the merged .m4b goes in and
       # the originals move out to quarantine. Both are on the same filesystem, so
       # a promote is a rename, never a copy.
-      - ${LIB_DIR}:${LIB_DIR}
-      - ${QUARANTINE_DIR}:${QUARANTINE_DIR}
+      - type: bind
+        source: ${LIB_DIR}
+        target: ${LIB_DIR}
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${QUARANTINE_DIR}
+        target: ${QUARANTINE_DIR}
+        bind:
+          create_host_path: false
       # The merge tooling, at the SAME path as on the host so orchestrate.py's
       # absolute defaults resolve. Scripts read-only; runs/ writable for the log,
       # progress.json and the lock file.

@@ -96,5 +96,8 @@ rebuild it on a fresh checkout:
 - Nothing is ever deleted. Originals move to
   `/mnt/seagate-black/m4b-originals-quarantine`, and `restore-book.py` in the
   m4b-merge project reverses any merge.
+- The library and quarantine binds use `create_host_path: false`: if
+  `/mnt/seagate-black` is not mounted, Compose refuses to start the container
+  instead of binding an empty directory.
 - beefy is always used, by design. It gets woken if it is asleep and idles back
   off afterwards.
