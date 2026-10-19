@@ -85,6 +85,10 @@ check "prometheus targets down"    '^0$' "$(curl -s -m 5 'http://127.0.0.1:9090/
 
 echo "== Apps on fastpi"
 running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
+if [[ -f /var/lib/node-exporter/textfile/clamav.prom ]]; then
+  check "clamav nightly scan < 2 days" '^yes$' "$(s=$(sed -n 's/^clamav_last_run_timestamp_seconds{.*mode="new"} //p' /var/lib/node-exporter/textfile/clamav.prom); (( $(date +%s) - ${s:-0} < 172800 )) && echo yes || echo "no (${s:-none})")"
+else skip "clamav nightly scan < 2 days" "no clamav.prom yet"; fi
 check "adguard resolves"           '^[0-9.]+$' "$(dig +short @127.0.0.1 example.com | head -1)"
 check "portainer version"          '2\.45\.2' "$(curl -sk -m 5 https://127.0.0.1:9443/api/status)"
 check "audiobookshelf"             '^200$' "$(http https://audiobookshelf.holy-grail.ch/)"
