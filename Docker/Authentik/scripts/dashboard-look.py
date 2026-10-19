@@ -49,7 +49,7 @@ APPS = {
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
 # launch URLs and bindings are untouched, so the wake-on-sign-in flows keep working.
-HIDDEN = ["jellyfin-wake", "nextcloud-wake"]
+HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login"]
 
 # Brand custom CSS. authentik adopts it into EVERY component's shadow root (login and
 # recovery flows included), so every rule is scoped to the library page's own parts

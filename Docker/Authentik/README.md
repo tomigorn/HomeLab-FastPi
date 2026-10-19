@@ -385,10 +385,24 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 - for forward auth use `proxy(name, host)` instead of `oidc()`
 
 Apps on beefy that are not admin-only live in `scripts/provision-media-sso.py` (same
-helpers, but the group is per app): Sonarr -> `streaming-admins` like Radarr, Requests
-(Seerr) -> `streaming-users` so everyone who may watch may request. Run it with
-`docker compose exec -T server ak shell < scripts/provision-media-sso.py`; the older
-arr apps were created by hand (see `Traefik/docs/2026-10-06-authentik-sso.md`).
+helpers, but the group is per app); the older arr apps were created by hand (see
+`Traefik/docs/2026-10-06-authentik-sso.md`).
+
+| App (slug) | Provider | Group | Notes |
+|---|---|---|---|
+| Sonarr (`sonarr`) | forward auth `sonarr-proxy` | `streaming-admins` | like Radarr |
+| Requests (`requests`) | forward auth `requests-proxy` | `streaming-users` | outer gate for Seerr, stays on |
+| Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-users` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
+
+Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
+
+```bash
+cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
+  && docker compose exec -T server ak shell < scripts/provision-media-sso.py 2>/dev/null \
+  | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
+```
+
+Then on beefy `~/Projects/Docker/Seerr/scripts/configure.sh` puts them into Seerr.
 
 ### Gotchas
 

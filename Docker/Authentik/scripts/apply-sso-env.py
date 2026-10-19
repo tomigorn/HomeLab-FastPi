@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write secrets from provision-admin-sso.py into gitignored .env files.
+"""Write secrets from provision-admin-sso.py / provision-media-sso.py into gitignored .env files.
 
 Reads stdin. Each line "ENV <dir>/.env KEY=value" upserts KEY in <base>/<dir>/.env
 (replace the existing KEY= line in place, else append) and prints "set <path> KEY"
