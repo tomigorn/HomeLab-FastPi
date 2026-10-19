@@ -64,6 +64,8 @@ check "portainer not on LAN :9443" '^000$' "$(http -k https://192.168.1.2:9443/a
 check "portainer auth = oauth"     '"AuthenticationMethod":3' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public | tr -d ' ')"
 check "portainer oauth -> sso"     'sso\.holy-grail\.ch/application/o/authorize/\?.*redirect_uri=https://portainer\.holy-grail\.ch/' "$(curl -sk -m 5 https://127.0.0.1:9443/api/settings/public)"
 # AdGuard: forward auth + injected Basic creds (user authentik-proxy, the only user; no human login).
+# beefy media stack behind forward auth (sonarr: streaming-admins, requests/Seerr: streaming-users).
+for a in sonarr requests; do check "$a -> sso"               'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve $a.holy-grail.ch:443:192.168.1.2 https://$a.holy-grail.ch/ | cut -c1-60)"; done
 check "adguard ui -> sso"          'sso\.holy-grail\.ch' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve adguard.holy-grail.ch:443:192.168.1.2 https://adguard.holy-grail.ch/)"
 check "adguard anon refused (401)" '^40[13]$' "$(http http://192.168.1.2:3000/control/status)"
 check "adguard local zone"         '^192\.168\.1\.2$' "$(dig +short @192.168.1.2 sso.holy-grail.ch | head -1)"
@@ -129,7 +131,7 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   r=$(timeout 60 ssh -o BatchMode=yes beefy 'echo "sec=$(apt list --upgradable 2>/dev/null | grep -c security)"; docker ps --format "{{.Names}} {{.Image}} {{.Status}}"' 2>/dev/null)
   check "beefy security updates"   'sec=0' "$(grep sec= <<<"$r")"
   check "portainer agent"          'portainer/agent:2\.45\.2 Up' "$(grep portainer <<<"$r")"
-  for s in radarr prowlarr sabnzbd gluetun; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
+  for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
 else skip "beefy" "asleep - not woken"; fi
 
 echo "== tower (only if awake)"
