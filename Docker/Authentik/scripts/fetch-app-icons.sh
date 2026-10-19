@@ -39,6 +39,7 @@ ICONS=(
   "requests:seerr"
   "sabnzbd:sabnzbd"
   "sonarr:sonarr"
+  "tracker:ryot"
   "traefik-dashboard:traefik"
   "wg-easy:wireguard"
 )

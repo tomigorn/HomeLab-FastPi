@@ -28,6 +28,7 @@ TOWER = "\nwakes Tower · ~110 s"
 APPS = {
     "jellyfin":          ("Media", "Film & series streaming" + BEEFY, None),
     "requests":          ("Media", "Request films & series" + BEEFY, None),
+    "tracker":           ("Media", "Watch history & ratings", None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "nextcloud":         ("Media", "Files & calendar" + TOWER, None),
     "radarr":            ("Downloads", "Film downloads" + BEEFY, None),
@@ -49,7 +50,7 @@ APPS = {
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
 # launch URLs and bindings are untouched, so the wake-on-sign-in flows keep working.
-HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login"]
+HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login", "tracker-login"]
 
 # Brand custom CSS. authentik adopts it into EVERY component's shadow root (login and
 # recovery flows included), so every rule is scoped to the library page's own parts
