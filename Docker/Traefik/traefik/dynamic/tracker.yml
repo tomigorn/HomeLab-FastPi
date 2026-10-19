@@ -1,4 +1,4 @@
-# Ryot (watch history & ratings) on fastpi, behind Authentik SSO.
+# Ryot (watch history & ratings) on beefy, behind Authentik SSO.
 #
 # https://tracker.holy-grail.ch/   (public via the Cloudflare tunnel)
 #
@@ -10,6 +10,10 @@
 # Jellyfin is not a browser and cannot pass forward auth, so that path has NO
 # authentik: the secret slug is the credential, and local-networks@file keeps it
 # off the internet (tunnel traffic = 403). Jellyfin reaches it via extra_hosts.
+#
+# Wake: like requests.yml, authentik runs BEFORE tracker-wake, so only a signed-in
+# user boots beefy. /_i/ has NO wake on purpose: a webhook only fires while
+# Jellyfin plays, so beefy is already up; asleep = Traefik 502, nothing woken.
 http:
   routers:
     # The outpost callback path. NO middlewares and a higher priority so it wins
@@ -39,12 +43,19 @@ http:
       service: tracker
       middlewares:
         - authentik@file
+        - tracker-wake
         - default-rate-limit@file
         - tracker-secure-headers
       tls:
         certResolver: cloudflare
 
   middlewares:
+    # ?port=8010 makes the Beefy-Waker wait for Ryot itself, not merely for sshd.
+    tracker-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8010"
+        trustForwardHeader: false
+
     tracker-secure-headers:
       headers:
         stsSeconds: 31536000
@@ -61,5 +72,5 @@ http:
     tracker:
       loadBalancer:
         servers:
-          - url: "http://ryot:8000"
+          - url: "http://192.168.1.102:8010"
         passHostHeader: true
