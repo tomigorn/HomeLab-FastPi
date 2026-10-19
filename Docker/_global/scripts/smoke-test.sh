@@ -114,6 +114,23 @@ check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
 check "tower waker v1.2.0"         '1\.2\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
 
+echo "== Tracker (Ryot)"
+running ryot ryot-db
+check "ryot version"               'v10\.5\.3' "$(docker inspect -f '{{.Config.Image}}' ryot 2>/dev/null)"
+check "tracker -> sso"             'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/ | cut -c1-60)"
+check "tracker OIDC discovery"     '^200$' "$(http https://sso.holy-grail.ch/application/o/tracker-login/.well-known/openid-configuration)"
+# /_i/ is the Jellyfin webhook path without forward auth: refused from the tunnel, open on the LAN.
+# Tunnel traffic reaches Traefik from the docker gateway 172.24.0.1, the same source as this probe to the container IP.
+check "tracker integrations tunnel 403" '^403$' "$([[ -n $tip ]] && curl -sk -m 10 -o /dev/null -w '%{http_code}' -X POST --resolve "tracker.holy-grail.ch:443:$tip" https://tracker.holy-grail.ch/_i/smoke || echo "no traefik ip")"
+# fastpi resolves tracker to the LAN (AdGuard), so the public check pins the Cloudflare edge IP.
+cfip=$(dig +short tracker.holy-grail.ch @1.1.1.1 | grep -E '^[0-9.]+$' | head -1)
+if [[ -n $cfip ]]; then
+  check "tracker integrations public 403" '^403$' "$(http -X POST --resolve tracker.holy-grail.ch:443:$cfip https://tracker.holy-grail.ch/_i/smoke)"
+else skip "tracker integrations public 403" "no public hostname for tracker yet"; fi
+# Ryot queues the POST for any slug and answers 202 (observed v10.5.3); an unknown slug is dropped silently.
+check "tracker integrations LAN reach ryot" '^202$' "$(http -k -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/_i/smoke)"
+check "ryot backup < 2 days"       '^yes$' "$(f=$(ls -t /home/pi/backups/ryot/ryot-*.dump 2>/dev/null | head -1); [[ -n $f ]] && (( $(date +%s) - $(stat -c %Y "$f") < 172800 )) && echo yes || echo "no (${f:-none})")"
+
 echo "== VPN downloaders (gluetun pinned v3.41.3)"
 running gluetun_mouse qbittorrent_mouse mousehole samba port_updater gluetun_nzb sabnzbd
 for g in gluetun_mouse gluetun_nzb; do
