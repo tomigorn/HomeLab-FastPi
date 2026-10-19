@@ -41,25 +41,38 @@ services:
       - autoheal-antivirus=true
     environment:
       - FRESHCLAM_CHECK_INTERVAL=${FRESHCLAM_CHECK_INTERVAL:-60}
+      - HOST=fastpi
+      - SCAN_ROOTS=/scan/seagate-red /scan/seagate-black
+      - QUARANTINE=/scan/seagate-red/antivirus-quarantine
+      - STATE=/state
+      - TEXTFILE=/textfile
     volumes:
       - clamav-db:/var/lib/clamav
       - type: bind
-        source: /mnt/seagate-red/sabnzbd/config/Downloads
-        target: /scan/sabnzbd
+        source: /mnt/seagate-red
+        target: /scan/seagate-red
         bind:
           create_host_path: false
       - type: bind
-        source: /mnt/seagate-red/qbittorrent/downloads
-        target: /scan/qbittorrent
+        source: /mnt/seagate-black
+        target: /scan/seagate-black
         bind:
           create_host_path: false
+      # Host root for "scan.sh all", report only.
       - type: bind
-        source: /mnt/seagate-red/antivirus-quarantine
-        target: /scan/quarantine
+        source: /
+        target: /host
+        read_only: true
+      - type: bind
+        source: /var/lib/clamav-scan
+        target: /state
+      - type: bind
+        source: /var/lib/node-exporter/textfile
+        target: /textfile
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD-SHELL", "pgrep inotifywait >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep freshclam >/dev/null || exit 1"]
       interval: 60s
       retries: 3
       start_period: 120s
