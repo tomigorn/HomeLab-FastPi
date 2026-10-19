@@ -1,0 +1,65 @@
+# Ryot (watch history & ratings) on fastpi, behind Authentik SSO.
+#
+# https://tracker.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Two logins in a row, like Seerr: the forward auth (Authentik app `tracker`,
+# group streaming-users) is the outer gate, then Ryot's own "Sign in with Holy
+# Grail" (OIDC app `tracker-login`) creates/opens the per-user Ryot account.
+#
+# /_i/<slug> is Ryot's integration webhook (Jellyfin on beefy posts playback there).
+# Jellyfin is not a browser and cannot pass forward auth, so that path has NO
+# authentik: the secret slug is the credential, and local-networks@file keeps it
+# off the internet (tunnel traffic = 403). Jellyfin reaches it via extra_hosts.
+http:
+  routers:
+    # The outpost callback path. NO middlewares and a higher priority so it wins
+    # over the catch-all router below. Without it the login flow is dead.
+    tracker-outpost:
+      rule: "Host(`tracker.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    tracker-integrations:
+      rule: "Host(`tracker.holy-grail.ch`) && PathPrefix(`/_i/`)"
+      entryPoints: ["websecure"]
+      priority: 20
+      service: tracker
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+    tracker:
+      rule: "Host(`tracker.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: tracker
+      middlewares:
+        - authentik@file
+        - default-rate-limit@file
+        - tracker-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    tracker-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    tracker:
+      loadBalancer:
+        servers:
+          - url: "http://ryot:8000"
+        passHostHeader: true
