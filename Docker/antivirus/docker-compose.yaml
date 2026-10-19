@@ -43,9 +43,21 @@ services:
       - FRESHCLAM_CHECK_INTERVAL=${FRESHCLAM_CHECK_INTERVAL:-60}
     volumes:
       - clamav-db:/var/lib/clamav
-      - /mnt/seagate-red/sabnzbd/config/Downloads:/scan/sabnzbd
-      - /mnt/seagate-red/qbittorrent/downloads:/scan/qbittorrent
-      - /mnt/seagate-red/antivirus-quarantine:/scan/quarantine
+      - type: bind
+        source: /mnt/seagate-red/sabnzbd/config/Downloads
+        target: /scan/sabnzbd
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-red/qbittorrent/downloads
+        target: /scan/qbittorrent
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-red/antivirus-quarantine
+        target: /scan/quarantine
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD-SHELL", "pgrep inotifywait >/dev/null || exit 1"]
       interval: 60s
@@ -73,8 +85,18 @@ services:
     environment:
       - VT_API_KEY=${VT_API_KEY}
     volumes:
-      - /mnt/seagate-red/sabnzbd/config/Downloads:/scan/sabnzbd:ro
-      - /mnt/seagate-red/qbittorrent/downloads:/scan/qbittorrent:ro
+      - type: bind
+        source: /mnt/seagate-red/sabnzbd/config/Downloads
+        target: /scan/sabnzbd
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-red/qbittorrent/downloads
+        target: /scan/qbittorrent
+        read_only: true
+        bind:
+          create_host_path: false
     logging:
       driver: "json-file"
       options:
