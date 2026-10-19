@@ -1,0 +1,17 @@
+# AI working files (global rule, see ~/.claude/CLAUDE.md): never committed
+docs/superpowers/
+.claude/settings.local.json
+CLAUDE.local.md
+AGENTS.md
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
