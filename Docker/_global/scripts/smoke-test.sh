@@ -9,10 +9,12 @@ bad()  { printf '  \e[31mFAIL\e[0m %-34s %s\n' "$1" "${2:-}"; FAIL=$((FAIL+1)); 
 skip() { printf '  \e[33mSKIP\e[0m %-34s %s\n' "$1" "${2:-}"; SKIP=$((SKIP+1)); }
 check() { # check <name> <expected-regex> <actual>
   if [[ $3 =~ $2 ]]; then ok "$1" "$3"; else bad "$1" "got: $3"; fi; }
-running() { # running <container...>  -> running, healthy if it has a healthcheck, not restarting
+running() { # running <container...>  -> running, healthy if it has a healthcheck, no restart in the last 10 min (the lifetime count grows in outages)
   for c in "$@"; do
-    s=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}} r{{.RestartCount}}' "$c" 2>/dev/null || echo missing)
-    check "container $c" '^running (healthy|-) r0$' "$s"
+    s=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}} r{{.RestartCount}} {{.State.StartedAt}}' "$c" 2>/dev/null || echo missing)
+    read -r st he rc at <<<"$s"; up=$(( $(date +%s) - $(date -d "${at:-now}" +%s 2>/dev/null || date +%s) ))
+    s="$st $he $rc up ${up}s"; [[ $rc != r0 ]] && (( up < 600 )) && s="$s restarted <10m"
+    check "container $c" '^running (healthy|-) r[0-9]+ up [0-9]+s$' "$s"
   done; }
 http() { curl -s -m 10 -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 smoke-test' "$@"; }
 HOME_IP=$(curl -s -m 8 https://ifconfig.me/ip)
