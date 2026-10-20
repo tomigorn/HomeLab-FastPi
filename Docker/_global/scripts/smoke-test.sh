@@ -87,6 +87,9 @@ check "grafana dashboards provisioned" '^ok$' "$(grafana_dashboards crowdsec-ove
 check "alertmanager ready"         '^OK$' "$(curl -s -m 5 http://127.0.0.1:9093/-/ready)"
 check "alertmanager not on LAN"    '^000$' "$(http http://192.168.1.2:9093/-/ready)"
 check "prometheus targets down"    '^0$' "$(curl -s -m 5 'http://127.0.0.1:9090/api/v1/targets?state=active' | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print(sum(1 for x in t if x["health"]!="up"))')"
+check "container exporter < 3 min"  '^yes$' "$(s=$(sed -n 's/^container_exporter_last_success_timestamp_seconds //p' /var/lib/node-exporter/textfile/container_exporter_status.prom 2>/dev/null); (( $(date +%s) - ${s:-0} < 180 )) && echo yes || echo no)"
+check "containers expected but down" '^0$' "$(curl -s -m 5 -G --data-urlencode 'query=count(container_expected_running == 1 and container_running == 0) or vector(0)' http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["result"][0]["value"][1])')"
+check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]}; w={"ContainerDown","ContainerCrashLooping","ContainerUnhealthy","ContainerExporterStale","HostRebooted","HostRebootedUnclean"}; print("ok" if w<=n else "missing " + " ".join(sorted(w-n)))')"
 
 echo "== Apps on fastpi"
 running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
