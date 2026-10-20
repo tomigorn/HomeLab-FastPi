@@ -96,6 +96,7 @@ scrape_configs:
       - targets:
           - https://cup.holy-grail.ch/
           - https://radarr.holy-grail.ch/
+          - https://sonarr.holy-grail.ch/
           - https://prowlarr.holy-grail.ch/
           - https://bazarr.holy-grail.ch/
           - https://qbittorrent.holy-grail.ch/
