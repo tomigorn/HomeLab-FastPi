@@ -34,9 +34,10 @@ services:
     networks:
       traefik_proxy:
         # Pinned: wg-easy DNATs VPN clients' web traffic for 192.168.1.2 straight to this
-        # address (so it arrives as 172.24.0.5 = VPN, not via docker-proxy as 172.24.0.1 =
-        # Cloudflare tunnel), and Home Assistant trusts it as proxy. Don't change.
-        ipv4_address: 172.24.0.3
+        # address (so it arrives as 172.24.255.5 = VPN, not via docker-proxy as 172.24.0.1 =
+        # Cloudflare tunnel). Top of the subnet on purpose: after a reboot Docker hands out
+        # addresses from the bottom, and 172.24.0.3 was once taken by authentik-server first.
+        ipv4_address: 172.24.255.3
     dns:
       - 1.1.1.1
       - 8.8.8.8

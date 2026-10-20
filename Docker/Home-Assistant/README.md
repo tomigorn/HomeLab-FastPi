@@ -139,7 +139,7 @@ only), for the same callback reason. Username/password login in the app is gone.
 in `.storage/http`; an `http:` block in `configuration.yaml` is **ignored** (only a
 repair issue appears) once the one-time YAML migration has run. The stored `stable`
 config holds `use_x_forwarded_for: true` and `trusted_proxies: [172.24.0.0/16]`
-(the `traefik_proxy` bridge — Traefik connects from its container IP, `172.24.0.3`
+(the `traefik_proxy` bridge — Traefik connects from its container IP, `172.24.255.3`
 today, which is not pinned). Without it every request via Traefik gets **400**
 ("request from a reverse proxy … not set-up for reverse proxies"); direct `:8123`
 requests are unaffected. If `.storage` is ever lost, set it again in the UI, or with

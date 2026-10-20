@@ -48,7 +48,7 @@ scene: !include scenes.yaml
 #   use_x_forwarded_for: true
 #   trusted_proxies: [172.24.0.0/16]
 # Traefik sits on the docker bridge traefik_proxy, so its connections to the host
-# port arrive from its container IP (172.24.0.3 today, NOT pinned - it can change
+# port arrive from its container IP (172.24.255.3, pinned in Traefik compose
 # when containers are recreated or the host reboots). HA answers 400 to any
 # X-Forwarded-For from an untrusted peer, so the whole bridge is trusted rather
 # than the one current IP. Direct LAN requests to :8123 carry no X-Forwarded-For

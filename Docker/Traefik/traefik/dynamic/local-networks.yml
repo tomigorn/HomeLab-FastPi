@@ -4,10 +4,10 @@
 #
 # How traffic arrives at Traefik:
 #   - LAN clients hitting 192.168.1.2:443 directly -> their real 192.168.1.x address
-#   - WireGuard clients -> 172.24.0.5, the wg-easy container (it NATs 10.8.0.0/24);
+#   - WireGuard clients -> 172.24.255.5, the wg-easy container (it NATs 10.8.0.0/24);
 #     pinned in Docker/WireguardVPN/docker-compose.yaml so it cannot drift.
 #     This only works because wg-easy's PostUp hook DNATs VPN traffic for
-#     192.168.1.2:80/443 straight to Traefik (pinned 172.24.0.3). Without it the
+#     192.168.1.2:80/443 straight to Traefik (pinned 172.24.255.3). Without it the
 #     packets hairpin through docker-proxy and arrive as 172.24.0.1 = tunnel = 403
 #     (that was the case until 2026-10-19).
 #   - Cloudflare tunnel traffic -> 172.24.0.1 (docker gateway). It must NEVER be in
@@ -23,4 +23,4 @@ http:
           - "127.0.0.1/32"
           - "::1/128"
           - "192.168.1.0/24"   # LAN
-          - "172.24.0.5/32"    # WireGuard VPN (wg-easy container, NATs 10.8.0.0/24)
+          - "172.24.255.5/32"  # WireGuard VPN (wg-easy container, NATs 10.8.0.0/24)

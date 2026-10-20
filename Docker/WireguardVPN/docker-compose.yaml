@@ -70,8 +70,8 @@ services:
     networks:
       traefik_proxy:
         # Pinned: VPN clients reach Traefik NATed to this address, and the shared
-        # Traefik middleware local-networks@file allows exactly 172.24.0.5/32.
-        ipv4_address: 172.24.0.5
+        # Traefik middleware local-networks@file allows exactly 172.24.255.5/32.
+        ipv4_address: 172.24.255.5
     restart: unless-stopped
 
 # =========================================================

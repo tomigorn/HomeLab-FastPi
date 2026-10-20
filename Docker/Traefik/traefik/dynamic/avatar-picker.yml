@@ -20,7 +20,7 @@
 http:
   routers:
     avatar-img-local:
-      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`) && (ClientIP(`127.0.0.1/32`) || ClientIP(`::1/128`) || ClientIP(`192.168.1.0/24`) || ClientIP(`172.24.0.5/32`))"
+      rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`) && (ClientIP(`127.0.0.1/32`) || ClientIP(`::1/128`) || ClientIP(`192.168.1.0/24`) || ClientIP(`172.24.255.5/32`))"
       entryPoints: ["websecure"]
       priority: 100
       service: avatar-picker
