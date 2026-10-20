@@ -7,8 +7,8 @@
 #     && docker compose exec -T server ak shell < scripts/provision-media-sso.py 2>/dev/null \
 #     | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
 #
-# Unlike provision-admin-sso.py the group is per app: admin tools go to
-# streaming-admins, apps meant for friends to streaming-users (the Jellyfin group).
+# Unlike provision-admin-sso.py the group is per app; the matrix and the groups themselves
+# live in provision-media-groups.py (run it afterwards, a unit test keeps both in step).
 from authentik.core.models import Application, Group
 from authentik.outposts.models import Outpost
 from authentik.policies.models import PolicyBinding
@@ -69,9 +69,8 @@ def app_for(slug, name, host, group, provider=None):
 # Sonarr (route Docker/Traefik/traefik/dynamic/sonarr.yml), admins only like Radarr.
 app_for("sonarr", "Sonarr", "https://sonarr.holy-grail.ch", "streaming-admins")
 
-# Seerr (route Docker/Traefik/traefik/dynamic/requests.yml): everyone who may watch
-# may request.
-app_for("requests", "Requests", "https://requests.holy-grail.ch", "streaming-users")
+# Seerr (route Docker/Traefik/traefik/dynamic/requests.yml): only streaming-requesters.
+app_for("requests", "Requests", "https://requests.holy-grail.ch", "streaming-requesters")
 
 # Seerr's own "Sign in with Holy Grail" (OIDC, preview image, see HomeLab-BeefyServer
 # Docker/Seerr/README.md). Issuer https://sso.holy-grail.ch/application/o/requests-login/.
@@ -79,7 +78,7 @@ app_for("requests", "Requests", "https://requests.holy-grail.ch", "streaming-use
 # (dashboard-look.py HIDDEN). Redirects: /login (sign-in) and the Linked Accounts page.
 seerr = oidc("requests-login", ["https://requests.holy-grail.ch/login",
                                 "https://requests.holy-grail.ch/profile/settings/linked-accounts"])
-app_for("requests-login", "Requests login", "https://requests.holy-grail.ch", "streaming-users",
+app_for("requests-login", "Requests login", "https://requests.holy-grail.ch", "streaming-requesters",
         provider=seerr)
 print(f"ENV Seerr/.env SEERR_OIDC_CLIENT_ID={seerr.client_id}")
 print(f"ENV Seerr/.env SEERR_OIDC_CLIENT_SECRET={seerr.client_secret}")

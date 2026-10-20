@@ -14,8 +14,8 @@
 # green. Same shape of failure as the 2026-10-04 outage - the probe measured
 # "answers" where the question was "answers correctly".
 #
-# Bound to the streaming-admins group in Authentik, not streaming-users: this is
-# host inventory, which is admin information.
+# Bound to the homelab-admins group in Authentik (since 2026-10-20, was
+# streaming-admins): this is host inventory of every host, not a media tool.
 #
 # See docs/2026-10-06-authentik-sso.md.
 http:

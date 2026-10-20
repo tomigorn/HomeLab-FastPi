@@ -2,12 +2,10 @@
 #
 # https://requests.holy-grail.ch/   (public via the Cloudflare tunnel)
 #
-# Meant for friends, not only admins: the Authentik application `requests` is
-# bound to group streaming-users, the same group that may sign in to Jellyfin.
-# Seerr has no OIDC of its own (v3.5.0), so the forward auth here is the real
-# gate and Seerr's own session comes second: users sign in to Seerr with Jellyfin
-# Quick Connect (Jellyfin passwords are disabled), see the Seerr README in
-# HomeLab-BeefyServer.
+# The Authentik application `requests` is bound to group streaming-requesters
+# (Authentik/scripts/provision-media-groups.py). This forward auth is the outer
+# gate; Seerr's own session comes second via "Sign in with Holy Grail" (app
+# `requests-login`), see the Seerr README in HomeLab-BeefyServer.
 #
 # MIDDLEWARE ORDER IS DELIBERATE: authentik runs BEFORE requests-wake. A request
 # page that wakes beefy is acceptable (same as Jellyfin), but only for a signed-in

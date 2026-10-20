@@ -314,7 +314,7 @@ Both created by `Authentik/scripts/provision-media-sso.py` (config as code, idem
 | App | Route | Provider / group | Notes |
 |---|---|---|---|
 | Sonarr | `dynamic/sonarr.yml`, `https://sonarr.holy-grail.ch` | `sonarr-proxy` (forward auth single) / `streaming-admins` | Sonarr auth = `External`, same as Radarr |
-| Requests (Seerr) | `dynamic/requests.yml`, `https://requests.holy-grail.ch` | `requests-proxy` / `streaming-users` | friends may request; `default-rate-limit@file` on; Seerr v3.5.0 has no OIDC, its own session is a Jellyfin Quick Connect login behind this gate (Seerr README in HomeLab-BeefyServer) |
+| Requests (Seerr) | `dynamic/requests.yml`, `https://requests.holy-grail.ch` | `requests-proxy` / `streaming-requesters` (since 2026-10-20, was `streaming-users`) | `default-rate-limit@file` on; Seerr's own login is "Sign in with Holy Grail" (app `requests-login`, same group) behind this gate (Seerr README in HomeLab-BeefyServer) |
 
 Order on both routers: `authentik@file` before the wake gate, so only a signed-in
 user boots beefy. Dashboard entries and icons: `dashboard-look.py` / `fetch-app-icons.sh`.

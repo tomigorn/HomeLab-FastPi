@@ -43,8 +43,9 @@ Next time, start here:
    until **Continue** is pressed.
 3. Walk the whole flow through with a throwaway address.
 4. New users are auto-added to `streaming-users` (and nothing else) by the
-   enrollment user-write stage. Grant `cloud-users` / `cloud-admins` by hand if
-   they should reach Nextcloud, or Authentik refuses them at the Nextcloud gate.
+   enrollment user-write stage. Everything else is by hand (Directory → Groups → group → Users → Add existing user):
+   `streaming-requesters` (Requests), `streaming-admins` (download apps, Jellyfin admin),
+   `cloud-users` / `cloud-admins` (Nextcloud). See "Media groups" below.
 
 Also outstanding, unrelated to invites: give Nextcloud's local `admin` account a
 long random password and enable Nextcloud's own TOTP on it — it is the one login
@@ -384,6 +385,20 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 - `env(path, KEY=value)` hands a value to `apply-sso-env.py` for the tool's `.env`
 - for forward auth use `proxy(name, host)` instead of `oidc()`
 
+### Media groups
+
+Three independent groups (no parent nesting), owner `tomigorn` in all three. Config as code: `scripts/provision-media-groups.py` (idempotent; `docker compose exec -T server ak shell < scripts/provision-media-groups.py`; tests `python3 -m unittest discover -s scripts`).
+
+| Group | Apps | Who |
+|---|---|---|
+| `streaming-users` | Jellyfin (+ wake page), Tracker (+ login) | every invitee, automatic |
+| `streaming-requesters` | Requests (+ login) | by hand |
+| `streaming-admins` | Radarr, Sonarr, Prowlarr, Bazarr, SABnzbd, qBittorrent; Jellyfin administrator (OIDC plugin `AdministratorGroup`, re-checked at every sign-in) | by hand |
+
+- A requester or admin who should also watch needs `streaming-users` too (groups do not imply each other).
+- Cup (image versions of every host) is `homelab-admins`, not a media tool.
+- Check who may open what: `ak shell` with `PolicyEngine(app, user)`, `build()`, then `passing` per app (done 2026-10-20 for each group alone: only its own apps pass).
+
 Apps on beefy that are not admin-only live in `scripts/provision-media-sso.py` (same
 helpers, but the group is per app); the older arr apps were created by hand (see
 `Traefik/docs/2026-10-06-authentik-sso.md`).
@@ -391,8 +406,8 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | App (slug) | Provider | Group | Notes |
 |---|---|---|---|
 | Sonarr (`sonarr`) | forward auth `sonarr-proxy` | `streaming-admins` | like Radarr |
-| Requests (`requests`) | forward auth `requests-proxy` | `streaming-users` | outer gate for Seerr, stays on |
-| Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-users` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
+| Requests (`requests`) | forward auth `requests-proxy` | `streaming-requesters` | outer gate for Seerr, stays on |
+| Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-requesters` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
 | Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (beefy), stays on. In `scripts/provision-tracker-sso.py` |
 | Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id/secret go to beefy `Ryot/.env` |
 
