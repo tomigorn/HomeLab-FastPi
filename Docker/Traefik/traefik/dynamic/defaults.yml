@@ -2,9 +2,8 @@ http:
   middlewares:
     default-rate-limit:
       rateLimit:
-        # TEMPORARY (2026-10-18/19 work run): effectively disabled at the user's request.
-        # REVERT to `average: 100` / `burst: 50` after the run (reminder scheduled for
-        # 2026-10-20). Authentik static assets are permanently exempt via the
-        # `authentik-static` router in sso.yml, so the login spinner stays fixed after reverting.
-        average: 100000
-        burst: 100000
+        # Restored to normal 2026-10-20 after the big work run. Authentik static assets
+        # are permanently exempt via the `authentik-static` router in sso.yml, so the
+        # login spinner stays fixed (that was the reason the limit had to be lifted).
+        average: 100
+        burst: 50
