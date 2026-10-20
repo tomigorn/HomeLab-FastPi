@@ -50,6 +50,18 @@ http:
       tls:
         certResolver: cloudflare
 
+    # PWA install ("Add to Home screen"): browsers fetch the manifest and its icons WITHOUT cookies, so behind forward auth they get the SSO redirect and the app installs as a plain bookmark. Only Ryot's static manifest and icons, GET only, no wake (asleep = 502).
+    tracker-pwa:
+      rule: "Host(`tracker.holy-grail.ch`) && Method(`GET`) && (Path(`/manifest.json`) || PathRegexp(`^/icons/maskable_icon(_x[0-9]+)?\\.png$`))"
+      entryPoints: ["websecure"]
+      priority: 18
+      service: tracker
+      middlewares:
+        - default-rate-limit@file
+        - tracker-secure-headers
+      tls:
+        certResolver: cloudflare
+
     tracker:
       rule: "Host(`tracker.holy-grail.ch`)"
       entryPoints: ["websecure"]
