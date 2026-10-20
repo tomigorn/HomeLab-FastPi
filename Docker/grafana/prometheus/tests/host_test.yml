@@ -1,0 +1,43 @@
+# promtool test rules host_test.yml  (see grafana/README.md, Container and reboot alerts)
+rule_files:
+  - ../rules/host.yml
+evaluation_interval: 1m
+tests:
+  - name: power loss reboot is a warning, for the first 6 h after boot
+    interval: 1m
+    input_series:
+      - series: 'node_boot_time_seconds{instance="node-exporter:9100",job="raspberry-pi"}'
+        values: '0x400'
+      - series: 'host_last_boot_unclean{instance="node-exporter:9100",job="raspberry-pi"}'
+        values: '1x400'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: HostRebootedUnclean
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100", job: raspberry-pi}
+            exp_annotations:
+              summary: "fastpi restarted without a clean shutdown 2h 0m 0s ago"
+              description: "Power loss or hard reset. Clock reset to 1970 at boot (journalctl -b -k | grep rpi_rtc) = power was cut. Check: vcgencmd get_throttled; journalctl -b -1 -n 50; then the smoke test (Docker/_global/scripts/smoke-test.sh)."
+      - eval_time: 2h
+        alertname: HostRebooted
+        exp_alerts: []
+      - eval_time: 6h1m
+        alertname: HostRebootedUnclean
+        exp_alerts: []
+
+  - name: clean reboot is info; unknown cleanliness counts as clean
+    interval: 1m
+    input_series:
+      - series: 'node_boot_time_seconds{instance="node-exporter:9100",job="raspberry-pi"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: HostRebooted
+        exp_alerts:
+          - exp_labels: {severity: info, instance: "node-exporter:9100", job: raspberry-pi}
+            exp_annotations:
+              summary: "fastpi rebooted 30m 0s ago"
+              description: "Clean shutdown. If nobody rebooted it, check: journalctl -b -1 -n 50. Then the smoke test (Docker/_global/scripts/smoke-test.sh)."
+      - eval_time: 30m
+        alertname: HostRebootedUnclean
+        exp_alerts: []

@@ -1,0 +1,26 @@
+# fastpi reboots. It is never rebooted on purpose (machine.md), so every boot is news.
+# host_last_boot_unclean comes from grafana/container-exporter (journald found a dirty journal at boot).
+# 6 h window, not changes(): Prometheus may come up long after the boot (2026-10-20: ~2 h) and must still report it.
+# Tests: prometheus/tests/host_test.yml
+groups:
+  - name: host
+    rules:
+      - alert: HostRebootedUnclean
+        expr: (time() - node_boot_time_seconds{job="raspberry-pi"} < 21600) and on() host_last_boot_unclean == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi restarted without a clean shutdown {{ $value | humanizeDuration }} ago"
+          description: >-
+            Power loss or hard reset. Clock reset to 1970 at boot (journalctl -b -k | grep rpi_rtc) = power was cut.
+            Check: vcgencmd get_throttled; journalctl -b -1 -n 50; then the smoke test (Docker/_global/scripts/smoke-test.sh).
+
+      - alert: HostRebooted
+        expr: (time() - node_boot_time_seconds{job="raspberry-pi"} < 21600) unless on() host_last_boot_unclean == 1
+        labels:
+          severity: info
+        annotations:
+          summary: "fastpi rebooted {{ $value | humanizeDuration }} ago"
+          description: >-
+            Clean shutdown. If nobody rebooted it, check: journalctl -b -1 -n 50.
+            Then the smoke test (Docker/_global/scripts/smoke-test.sh).

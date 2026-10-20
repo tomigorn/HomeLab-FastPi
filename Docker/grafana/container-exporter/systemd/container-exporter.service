@@ -1,0 +1,23 @@
+[Unit]
+Description=Container state textfile exporter, Telegram fallback when Prometheus or Alertmanager is down
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+After=docker.service
+
+[Service]
+Type=oneshot
+# Root: Docker's manual-stop flag lives only in /var/lib/docker/containers/*/config.v2.json.
+StateDirectory=container-exporter
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/container-exporter/container_exporter.py
+TimeoutStartSec=90
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

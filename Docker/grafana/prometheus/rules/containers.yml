@@ -1,0 +1,49 @@
+# Containers on fastpi, from grafana/container-exporter (textfile, every minute).
+# Added after 2026-10-20: after a power loss two containers took the fixed IPs of Traefik and wg-easy, and Traefik, CrowdSec, WireGuard and Prometheus stayed down ~2 h unnoticed.
+# Prometheus itself being down is caught by the exporter's own Telegram fallback, not here.
+# Tests: prometheus/tests/containers_test.yml
+groups:
+  - name: containers
+    rules:
+      # "Should run" is Docker's own view: restart policy always/unless-stopped and not stopped by hand, so docker compose stop never alerts.
+      - alert: ContainerDown
+        expr: container_expected_running == 1 and container_running == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: container {{ $labels.name }} is not running"
+          description: >-
+            Its restart policy says it should run and nobody stopped it.
+            Why: docker ps -a --filter name=^{{ $labels.name }}$; docker logs --tail 50 {{ $labels.name }}; journalctl -u docker -b | grep 'failed to start container'.
+            Start: cd to its project ({{ $labels.project }}) and docker compose up -d.
+
+      # The rate, not the lifetime RestartCount: that one keeps every restart of an outage (cloudflared r53) long after the container is fine again.
+      - alert: ContainerCrashLooping
+        expr: increase(container_restart_count[15m]) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: container {{ $labels.name }} restarted {{ $value | printf \"%.0f\" }} times in 15 min"
+          description: >-
+            Crash loop. Why: docker logs --tail 50 {{ $labels.name }}.
+
+      - alert: ContainerUnhealthy
+        expr: container_unhealthy == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: container {{ $labels.name }} is unhealthy"
+          description: >-
+            Its healthcheck fails for 10+ min. Why: docker inspect -f '{{ "{{" }}json .State.Health{{ "}}" }}' {{ $labels.name }}.
+
+      - alert: ContainerExporterStale
+        expr: time() - container_exporter_last_success_timestamp_seconds > 600 or absent(container_exporter_last_success_timestamp_seconds)
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "fastpi: container state not exported for 10+ min"
+          description: >-
+            ContainerDown and ContainerCrashLooping are blind. Check: systemctl status container-exporter.timer container-exporter.service.

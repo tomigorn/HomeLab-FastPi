@@ -1,0 +1,94 @@
+# promtool test rules containers_test.yml host_test.yml  (see grafana/README.md, Container and reboot alerts)
+rule_files:
+  - ../rules/containers.yml
+evaluation_interval: 1m
+tests:
+  - name: a container Docker should keep running is down for 5 min
+    interval: 1m
+    input_series:
+      - series: 'container_expected_running{name="traefik",project="infra__traefik"}'
+        values: '1x20'
+      - series: 'container_running{name="traefik",project="infra__traefik"}'
+        values: '1 1 0x18'
+      - series: 'container_expected_running{name="jenkins-jdk-21",project="cicd"}'
+        values: '0x20'
+      - series: 'container_running{name="jenkins-jdk-21",project="cicd"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ContainerDown
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: ContainerDown
+        exp_alerts:
+          - exp_labels: {severity: warning, name: traefik, project: infra__traefik}
+            exp_annotations:
+              summary: "fastpi: container traefik is not running"
+              description: "Its restart policy says it should run and nobody stopped it. Why: docker ps -a --filter name=^traefik$; docker logs --tail 50 traefik; journalctl -u docker -b | grep 'failed to start container'. Start: cd to its project (infra__traefik) and docker compose up -d."
+
+  - name: crash loop, not the lifetime restart count
+    interval: 1m
+    input_series:
+      - series: 'container_restart_count{name="cloudflared",project="infra__cloudflare"}'
+        values: '53x10 53 54 55 56 57x10'
+      - series: 'container_restart_count{name="stonks",project="stonks"}'
+        values: '48x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ContainerCrashLooping
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ContainerCrashLooping
+        exp_alerts:
+          - exp_labels: {severity: warning, name: cloudflared, project: infra__cloudflare}
+            exp_annotations:
+              summary: "fastpi: container cloudflared restarted 4 times in 15 min"
+              description: "Crash loop. Why: docker logs --tail 50 cloudflared."
+
+  - name: unhealthy for 10 min
+    interval: 1m
+    input_series:
+      - series: 'container_unhealthy{name="gluetun_nzb",project="nzb"}'
+        values: '0 1x20'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: ContainerUnhealthy
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: ContainerUnhealthy
+        exp_alerts:
+          - exp_labels: {severity: warning, name: gluetun_nzb, project: nzb}
+            exp_annotations:
+              summary: "fastpi: container gluetun_nzb is unhealthy"
+              description: "Its healthcheck fails for 10+ min. Why: docker inspect -f '{{json .State.Health}}' gluetun_nzb."
+
+  - name: exporter stale or missing
+    interval: 1m
+    input_series:
+      - series: 'container_exporter_last_success_timestamp_seconds'
+        values: '0+60x5 300x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ContainerExporterStale
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: ContainerExporterStale
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "fastpi: container state not exported for 10+ min"
+              description: "ContainerDown and ContainerCrashLooping are blind. Check: systemctl status container-exporter.timer container-exporter.service."
+
+  - name: exporter never ran
+    interval: 1m
+    input_series:
+      - series: 'up{job="raspberry-pi"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ContainerExporterStale
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "fastpi: container state not exported for 10+ min"
+              description: "ContainerDown and ContainerCrashLooping are blind. Check: systemctl status container-exporter.timer container-exporter.service."
