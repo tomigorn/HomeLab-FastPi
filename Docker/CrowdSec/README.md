@@ -240,6 +240,7 @@ python3 scripts/test_crowdsec_exporter.py
   the LanguageTool browser extension retrying. Lift with
   `docker exec crowdsec cscli decisions delete -i <ip>`.
 - `cscli bouncers delete` prefix-matches (see the Traefik README).
+- Stale `traefik-bouncer@<old ip>` entries (Traefik restarted or got a new IP): `docker exec crowdsec cscli bouncers prune -d 10m --force` removes every bouncer that has not pulled for 10 min; the live one pulls every minute. The exporter and alerts strip `@<ip>`, so nothing else changes.
 - `cs_papi_last_pull_timestamp` is the Console **Polling** API and is always 0 without
   enrollment. Use `crowdsec_capi_last_pull_timestamp_seconds`.
 
