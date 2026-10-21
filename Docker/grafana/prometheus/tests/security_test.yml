@@ -101,3 +101,34 @@ tests:
             exp_annotations:
               summary: "tower: plugin fix.common.problems has an update"
               description: "Update by hand on tower: Tools > Update OS for the OS, Plugins > Check for updates for plugins. Weekly reminder at most (info)."
+
+  - name: new critical image vulnerabilities (rise since yesterday)
+    # 1-minute-dense samples: in production node-exporter serves the textfile
+    # continuously, so the metric is never stale; the test mirrors that (hourly
+    # samples would go stale between scans under the file's 1m eval and the 5m
+    # 'for' could never accumulate).
+    interval: 1m
+    input_series:
+      # fastpi: 2 fixable criticals for 27h, then a new disclosure makes it 5.
+      - series: 'security_image_vulnerabilities_fixable{host="fastpi",severity="CRITICAL"}'
+        values: '2+0x1619 5+0x360'
+      # beefy: steady, never rises -> must stay silent.
+      - series: 'security_image_vulnerabilities_fixable{host="beefy",severity="CRITICAL"}'
+        values: '3+0x1979'
+      # tower: we patched, count drops -> negative difference, must stay silent.
+      - series: 'security_image_vulnerabilities_fixable{host="tower",severity="CRITICAL"}'
+        values: '6+0x1619 1+0x360'
+    alert_rule_test:
+      # Before the rise (20h): fastpi has no sample 24h earlier -> silent.
+      - eval_time: 20h
+        alertname: NewCriticalImageVulnerabilities
+        exp_alerts: []
+      # An hour after fastpi's rise (28h): only fastpi pages; beefy (flat) and
+      # tower (dropped) stay silent.
+      - eval_time: 28h
+        alertname: NewCriticalImageVulnerabilities
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi}
+            exp_annotations:
+              summary: "fastpi: 3 NEW fixable critical CVE(s) since yesterday"
+              description: "The count of FIXABLE critical CVEs in images running on fastpi rose by 3 since the last daily scan - a new critical disclosure or a new image. Act today: update the affected image(s). Worst first: /var/lib/security-scan/image-cves-fastpi.txt on fastpi. Cross-check Cup at https://cup.holy-grail.ch/ for a newer tag."

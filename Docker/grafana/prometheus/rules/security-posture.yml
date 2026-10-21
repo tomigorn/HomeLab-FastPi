@@ -119,6 +119,33 @@ groups:
             /var/lib/security-scan/image-cves-{{ $labels.host }}.txt on fastpi.
             HIGH counts are in the same metric family.
 
+      # The standing count above is a quiet weekly info line. THIS one is the
+      # page: it fires when the number of fixable criticals on a host GOES UP,
+      # i.e. a new critical CVE just landed (a fresh disclosure, or a new image).
+      # Compares today's count to the value 24h ago (offset, so it is an exact
+      # integer, not an extrapolated delta). The textfile metric is served
+      # continuously between the daily 04:10 scans, so the offset always lands on
+      # a real sample; a brand-new host has nothing 24h ago and stays silent. A
+      # drop (we patched) is negative = silent. It pages for ~a day after a rise,
+      # then self-resolves once the offset window passes it. severity warning ->
+      # the default 'admins' receiver = email + Telegram.
+      - alert: NewCriticalImageVulnerabilities
+        expr: >-
+          security_image_vulnerabilities_fixable{severity="CRITICAL"}
+          - (security_image_vulnerabilities_fixable{severity="CRITICAL"} offset 24h) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} NEW fixable critical CVE(s) since yesterday"
+          description: >-
+            The count of FIXABLE critical CVEs in images running on
+            {{ $labels.host }} rose by {{ $value }} since the last daily scan -
+            a new critical disclosure or a new image. Act today: update the
+            affected image(s). Worst first:
+            /var/lib/security-scan/image-cves-{{ $labels.host }}.txt on fastpi.
+            Cross-check Cup at https://cup.holy-grail.ch/ for a newer tag.
+
       - alert: ImagesUnscannable
         expr: security_images_unscannable > 0
         for: 1d
