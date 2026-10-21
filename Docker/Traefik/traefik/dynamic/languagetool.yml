@@ -14,7 +14,7 @@ http:
     # middleware; real POSTs fall through to the token routers (priority 5).
     languagetool-preflight:
       rule: "Host(`lang-tool.ddns.net`) && Method(`OPTIONS`)"
-      entryPoints: ["websecure", "langtool"]
+      entryPoints: ["langtool"]
       priority: 10
       service: languagetool
       middlewares:
