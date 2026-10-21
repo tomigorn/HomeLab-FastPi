@@ -72,4 +72,7 @@ services:
 # #########################################################
 secrets:
   cloudflared_tunnel_token:
+    # Must stay readable by the cloudflared container, which runs as nonroot
+    # (uid 65532) - keep this file at 644, NOT 600. /home/pi is 0700 so the host
+    # is still protected. A 600 here makes cloudflared fail 'token file: permission denied'.
     file: ./secrets/tunnel_token.secret
