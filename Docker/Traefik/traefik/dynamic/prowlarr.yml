@@ -37,6 +37,10 @@ http:
       priority: 1
       service: prowlarr
       middlewares:
+        # LAN/VPN-only (2026-10-22): internet (tunnel source) gets 403 here before
+        # auth, so this admin app is reachable only from home or WireGuard. Reach it
+        # over the VPN when away. Seerr (requests) stays public.
+        - local-networks@file
         - authentik@file
         - prowlarr-wake
         - prowlarr-secure-headers
