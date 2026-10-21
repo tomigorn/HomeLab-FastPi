@@ -25,7 +25,7 @@ http:
   routers:
     languagetool-token-<LABEL>:
       rule: "Host(`lang-tool.ddns.net`) && PathPrefix(`/REPLACE_WITH_TOKEN`)"
-      entryPoints: ["websecure"]
+      entryPoints: ["websecure", "langtool"]
       priority: 5
       service: languagetool           # defined in languagetool.yml
       middlewares:

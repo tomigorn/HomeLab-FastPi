@@ -41,6 +41,20 @@ entryPoints:
       aliasHeadersStrategy: delete
       middlewares:
         - default-rate-limit@file
+  # LanguageTool's own public entrypoint (direct ingress, lang-tool.ddns.net).
+  # Separate from websecure so the external 443 forward can point here instead of
+  # the shared entrypoint: a spoofed Host on :8443 then matches only the LT
+  # routers, closing the home-IP:443 bypass of every holy-grail.ch service.
+  # Mirrors websecure (crowdsec, forwarded-header trust) so LT's posture is kept.
+  langtool:
+    address: ":8443"
+    http:
+      aliasHeadersStrategy: delete
+      middlewares:
+        - crowdsec@file
+    forwardedHeaders:
+      trustedIPs:
+        - "172.24.0.1/32"
 
 api:
   dashboard: true

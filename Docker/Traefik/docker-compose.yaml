@@ -18,6 +18,7 @@ services:
       - 80:80       # HTTP
       - 443:443     # HTTPS
       - 8080:8080   # Internal — dashboard only, restricted by IPAllowList
+      - 8443:8443   # LanguageTool — external 443 forward points here (lang-tool.ddns.net)
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/dynamic:ro
