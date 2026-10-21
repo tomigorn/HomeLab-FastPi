@@ -12,9 +12,13 @@ proj=$(docker compose config --format json 2>/dev/null | python3 -c 'import json
 bk="$HOME/backups/pre-update/$(date +%F)/$proj"; mkdir -p "$bk"
 echo "=== $proj ($dir) mode=$mode"
 
-# snapshot: container -> image ref + running image id
+# snapshot: container -> "ref|imageid|containerid|restartcount". The container id
+# and RestartCount are the baseline: RestartCount is a LIFETIME counter, so the
+# verify must compare the DELTA during this update, not demand it be 0 - a project
+# member that restarted once days ago and is NOT recreated here would otherwise
+# trip a false rollback.
 declare -A oldid
-while read -r name ref; do oldid[$name]="$ref|$(docker inspect -f '{{.Image}}' "$name")"; done < <(docker compose ps -q | xargs -r docker inspect -f '{{.Name}} {{.Config.Image}}' | sed 's|^/||')
+while read -r name ref id rc; do oldid[$name]="$ref|$(docker inspect -f '{{.Image}}' "$name")|$id|$rc"; done < <(docker compose ps -q | xargs -r docker inspect -f '{{.Name}} {{.Config.Image}} {{.Id}} {{.RestartCount}}' | sed 's|^/||')
 for n in "${!oldid[@]}"; do echo "  before: $n ${oldid[$n]}"; done
 
 # backups
@@ -33,15 +37,22 @@ docker compose up -d --remove-orphans 2>&1 | grep -E 'Recreat|Creat|Error|error'
 sleep "${WAIT:-45}"
 ok=1
 for n in "${!oldid[@]}"; do
-  st=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}nohc{{end}} {{.RestartCount}}' "$n" 2>/dev/null || echo "missing")
-  new=$(docker inspect -f '{{.Image}}' "$n" 2>/dev/null)
-  echo "  after : $n $st  image $( [[ "$new" == "${oldid[$n]#*|}" ]] && echo unchanged || echo UPDATED)"
-  [[ $st == running\ nohc\ 0 || $st == running\ healthy\ 0 || $st == running\ starting\ 0 ]] || ok=0
+  IFS='|' read -r _ oldimg oldcid oldrc <<< "${oldid[$n]}"
+  info=$(docker inspect -f '{{.State.Status}}|{{if index .State "Health"}}{{(index .State "Health").Status}}{{else}}nohc{{end}}|{{.Image}}|{{.Id}}|{{.RestartCount}}' "$n" 2>/dev/null || echo "missing|-|-|-|0")
+  IFS='|' read -r status health newimg newcid newrc <<< "$info"
+  # A recreated container is a NEW container (id changed) whose count starts at 0;
+  # an untouched one keeps its old id and lifetime count. A crash loop shows up as
+  # restarts DURING this window: >=2 on a fresh container, or any rise on an
+  # untouched one.
+  if [[ "$newcid" == "$oldcid" ]]; then crashloop=$(( newrc > oldrc )); else crashloop=$(( newrc >= 2 )); fi
+  upd=$( [[ "$newimg" == "$oldimg" ]] && echo unchanged || echo UPDATED )
+  echo "  after : $n $status $health rc=$oldrc->$newrc  image $upd"
+  [[ $status == running && ( $health == healthy || $health == nohc || $health == starting ) && $crashloop -eq 0 ]] || ok=0
 done
 if (( ok )); then echo "OK $proj"; exit 0; fi
 
 echo "ROLLBACK $proj"
-for n in "${!oldid[@]}"; do ref=${oldid[$n]%%|*}; id=${oldid[$n]#*|}; docker tag "$id" "$ref"; done
+for n in "${!oldid[@]}"; do IFS='|' read -r ref iid _ _ <<< "${oldid[$n]}"; docker tag "$iid" "$ref" 2>/dev/null; done
 docker compose up -d --force-recreate 2>&1 | tail -3; sleep 20
 docker compose ps --format '{{.Name}} {{.Status}}'
 exit 1
