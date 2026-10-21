@@ -6,6 +6,9 @@ http:
       priority: 1
       service: stonks
       middlewares:
+        # LAN/VPN-only 2026-10-22 (user: stonks private). Internet gets 403 here;
+        # reach it over WireGuard. (stonks has no Holy Grail gate by design.)
+        - local-networks@file
         - default-rate-limit@file
         - stonks-secure-headers
       tls:
