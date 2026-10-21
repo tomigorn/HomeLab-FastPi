@@ -12,7 +12,9 @@
 # "local" endpoint already expects (/var/run/docker.sock), so nothing in Portainer
 # needs reconfiguring.
 #
-# HONEST LIMIT: Portainer manages containers (create/start/stop/exec), and
+# READ-ONLY since 2026-10-22: the proxy denies POST+EXEC, so Portainer is a pure
+# viewer (no start/stop/create/exec) and is NOT root-equivalent. Manage via shell.
+# (Former note kept for context:) Portainer manages containers (create/start/stop/exec), and
 # container-create with bind mounts is itself root-equivalent on the host. This does
 # NOT remove that. What it removes is the direct socket-file mount, blocks every
 # endpoint group Portainer does not need (swarm, secrets, configs, nodes, services,
@@ -37,8 +39,11 @@ services:
       VERSION: 1         # /version - endpoint handshake
       EVENTS: 1          # /events stream - live container state in the UI
       PING: 1            # /_ping - endpoint health
-      POST: 1            # required for start/stop/restart/create/remove and exec creation
-      EXEC: 1            # /exec/{id}/start + resize - the container console
+      # READ-ONLY (2026-10-22, user choice): POST+EXEC off = Portainer can VIEW every
+      # stack/container/log but cannot start/stop/create/remove/exec anything. This
+      # removes the root-equivalence entirely - manage containers via the shell/compose.
+      POST: 0
+      EXEC: 0
       # Explicitly denied, listed so the intent is obvious rather than implied.
       # Portainer has no use for these on a single standalone engine, and several
       # are the dangerous ones (secrets, configs, swarm control, build):

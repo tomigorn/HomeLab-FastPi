@@ -1,3 +1,7 @@
+> Portainer is READ-ONLY since 2026-10-22: its socket proxy denies POST and EXEC,
+> so it can view every stack, container and log but cannot start, stop, create or
+> exec anything. Manage containers via the shell / compose scripts.
+
 # Portainer
 
 Docker management UI (Portainer CE) for fastpi and, via the Portainer agent, beefy.
