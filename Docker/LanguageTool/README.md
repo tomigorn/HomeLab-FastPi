@@ -77,6 +77,25 @@ To update LanguageTool: bump the pinned tag in both compose files
 (`erikvl87/languagetool:6.8` → newer), `up -d`, then run `test.sh`.
 Tags: <https://hub.docker.com/r/erikvl87/languagetool/tags>. Never `:latest`.
 
+### CVE status (checked 2026-10-21)
+
+6.8 is the newest `erikvl87/languagetool` tag (identical digest to
+`latest`) and the newest upstream LanguageTool release — **there is no
+7.x**. Trivy flags 3 fixable CRITICALs, all in bundled Java libraries,
+none in LanguageTool code:
+
+| CVE | Library | Fixed in |
+|-----|---------|----------|
+| CVE-2026-75595 | netty-handler 4.2.5 | 4.1.137 / 4.2.17 — TLS SNI routing bypass |
+| CVE-2026-40682 | opennlp-tools 1.9.4 | 1.9.5 — dictionary-parsing XXE |
+| CVE-2026-42027 | opennlp-tools 1.9.4 | 1.9.5 — model-manifest class loading |
+
+They clear only when a future image rebuilds LT against the patched
+libraries; none is reachable through `/v2/check` (the netty path is the
+unused gRPC remote-rules client; the OpenNLP CVEs need attacker-supplied
+dictionary/model files, not request text). Hold on 6.8 until a newer tag
+ships — no custom image.
+
 ---
 
 ## Picky mode is set PER CLIENT (not on the server)
