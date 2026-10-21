@@ -1,7 +1,104 @@
 # =========================================================
 # Services ================================================
 # =========================================================
+#
+# Portainer no longer mounts /var/run/docker.sock directly. That mount is ROOT ON
+# THE HOST: the Docker API can start a privileged container bind-mounting / and read
+# or write anything. Portainer was the last container on fastpi still holding it.
+#
+# It now reaches the daemon through its own tecnativa/docker-socket-proxy, on an
+# internal network, exposing only the API groups Portainer actually uses. A socat
+# bridge turns that TCP proxy back into a unix socket at the path Portainer's stored
+# "local" endpoint already expects (/var/run/docker.sock), so nothing in Portainer
+# needs reconfiguring.
+#
+# HONEST LIMIT: Portainer manages containers (create/start/stop/exec), and
+# container-create with bind mounts is itself root-equivalent on the host. This does
+# NOT remove that. What it removes is the direct socket-file mount, blocks every
+# endpoint group Portainer does not need (swarm, secrets, configs, nodes, services,
+# tasks, plugins, build, commit, auth, session, distribution), and gives one
+# filtered, restartable choke point in front of the daemon instead of a raw mount.
 services:
+# #########################################################
+# SOCKET PROXY (Portainer's filtered Docker API) ##########
+# #########################################################
+  socket-proxy:
+    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-0.3.0}
+    container_name: portainer-socket-proxy
+    restart: unless-stopped
+    environment:
+      # Groups Portainer needs. Everything not listed defaults to 0 (denied).
+      CONTAINERS: 1      # list/inspect/logs/start/stop/restart/create/remove
+      IMAGES: 1          # image list and pull
+      NETWORKS: 1        # network list/inspect/create (stack + container wiring)
+      VOLUMES: 1         # volume list/inspect/create
+      INFO: 1            # /info - dashboard, endpoint snapshot
+      SYSTEM: 1          # /system/df - dashboard disk usage
+      VERSION: 1         # /version - endpoint handshake
+      EVENTS: 1          # /events stream - live container state in the UI
+      PING: 1            # /_ping - endpoint health
+      POST: 1            # required for start/stop/restart/create/remove and exec creation
+      EXEC: 1            # /exec/{id}/start + resize - the container console
+      # Explicitly denied, listed so the intent is obvious rather than implied.
+      # Portainer has no use for these on a single standalone engine, and several
+      # are the dangerous ones (secrets, configs, swarm control, build):
+      AUTH: 0
+      SECRETS: 0
+      CONFIGS: 0
+      SWARM: 0
+      NODES: 0
+      SERVICES: 0
+      TASKS: 0
+      PLUGINS: 0
+      BUILD: 0
+      COMMIT: 0
+      DISTRIBUTION: 0
+      SESSION: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - portainer_socket
+    # NOT read_only. The entrypoint renders haproxy.cfg from its template at startup,
+    # so that directory must stay writable; tmpfs-ing it masks the template that
+    # ships in the image. The socket itself is mounted read-only and the capability
+    # restrictions below do the meaningful work.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+
+# #########################################################
+# UNIX BRIDGE (TCP proxy -> unix socket for Portainer) ####
+# #########################################################
+# Portainer's stored "local" endpoint is a unix socket at /var/run/docker.sock.
+# socat republishes the TCP proxy as a unix socket on a named volume, which Portainer
+# mounts at /var/run - so /var/run/docker.sock is now the filtered proxy, not the
+# real daemon, with no change to Portainer's configuration.
+  socket-proxy-unix:
+    image: alpine/socat:latest
+    container_name: portainer-socket-proxy-unix
+    restart: unless-stopped
+    command: >-
+      UNIX-LISTEN:/sock/docker.sock,fork,unlink-early,mode=660
+      TCP:socket-proxy:2375
+    volumes:
+      - portainer_sock:/sock
+    networks:
+      - portainer_socket
+    depends_on:
+      - socket-proxy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 32m
+
 # #########################################################
 # Portainer ###############################################
 # #########################################################
@@ -18,23 +115,35 @@ services:
       # Agents are unaffected: Portainer dials beefy's agent on :9001 outbound.
       - "127.0.0.1:9443:9443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # The filtered proxy's unix socket, mounted where Portainer expects the daemon.
+      # No raw /var/run/docker.sock mount any more.
+      - portainer_sock:/var/run
       - portainer_data:/data
     extra_hosts:
       # Portainer's OAuth token/userinfo calls must reach Authentik over the LAN
       # (Traefik on this host), not via the public Cloudflare tunnel.
       - "sso.holy-grail.ch:192.168.1.2"
     restart: unless-stopped
+    depends_on:
+      - socket-proxy-unix
     networks:
-      - traefik_proxy
+      - traefik_proxy     # inbound (Traefik) and outbound (beefy agent :9001)
+      - portainer_socket  # Docker API via the proxy
 # =========================================================
 # Volumes =================================================
 # =========================================================
 volumes:
   portainer_data:
+  # Carries the bridged unix socket from socat to Portainer.
+  portainer_sock:
 # =========================================================
 # Networks ================================================
 # =========================================================
 networks:
   traefik_proxy:
     external: true
+  # Portainer <-> its socket proxy only. internal: no route to the internet.
+  portainer_socket:
+    name: portainer_socket
+    driver: bridge
+    internal: true
