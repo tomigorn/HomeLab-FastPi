@@ -161,8 +161,15 @@ check "wg-easy password POST (403)" '^403$' "$(curl -sk -m 10 -o /dev/null -w '%
 check "wg-easy oidc -> sso"        'sso\.holy-grail\.ch/application/o/authorize/\?redirect_uri=https%3A%2F%2Fwg-easy\.holy-grail\.ch%2Fapi%2Fauth%2Foidc%2Fcallback' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve wg-easy.holy-grail.ch:443:192.168.1.2 https://wg-easy.holy-grail.ch/api/auth/oidc)"
 
 echo "== Digitec price tracker"
-check "postgres version"           '^18\.' "$(docker exec digitec_db postgres --version | awk '{print $3}')"
-check "web"                        '^200$' "$(http http://127.0.0.1:3002/)"
+# Digitec is intentionally offline (2026-10-21, not productive yet): skip its
+# checks while stopped so the suite reflects reality. Restart it and these run again.
+if docker ps --format '{{.Names}}' | grep -q '^digitec_web$'; then
+  check "postgres version"           '^18\.' "$(docker exec digitec_db postgres --version | awk '{print $3}')"
+  check "web"                        '^200$' "$(http http://127.0.0.1:3002/)"
+else
+  skip "digitec postgres version" "digitec intentionally offline"
+  skip "digitec web"              "digitec intentionally offline"
+fi
 
 echo "== beefy (only if awake)"
 if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
