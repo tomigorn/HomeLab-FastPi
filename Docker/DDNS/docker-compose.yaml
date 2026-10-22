@@ -20,6 +20,8 @@ services:
     volumes:
       - ./config:/config
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 # #########################################################
 # No-IP ###################################################
 # #########################################################
@@ -38,6 +40,8 @@ services:
     volumes:
       - ./noip_config:/config
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     
 # =========================================================
 # Networks ================================================

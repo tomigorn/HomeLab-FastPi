@@ -11,6 +11,8 @@ services:
     container_name: autoheal-antivirus
     mem_limit: 64m
     restart: always
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal-antivirus
       - AUTOHEAL_INTERVAL=3600
@@ -37,6 +39,8 @@ services:
     container_name: clamav
     mem_limit: 2g
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     labels:
       - autoheal-antivirus=true
     environment:
@@ -93,6 +97,8 @@ services:
     container_name: virustotal
     mem_limit: 256m
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     labels:
       - autoheal-antivirus=true
     environment:

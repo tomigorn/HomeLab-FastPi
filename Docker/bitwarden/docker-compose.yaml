@@ -22,6 +22,8 @@ services:
     volumes:
       - ./data:/data # make sure to create this directory
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     labels:
       - "traefik.enable=true"
       # Route the registered DuckDNS domain to this Jenkins service
