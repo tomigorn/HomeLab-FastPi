@@ -16,8 +16,8 @@ Edge/stateful restarts are machine.md yes-first → done only with owner home on
 | alertmanager | 65004 | ✅ done+verified | chowned secrets + alertmanager_data volume; /-/healthy 200 |
 | beefy-waker | 65005 | ✅ done+verified | host-net; chowned ./secrets; /key readable, serving :9001 |
 | tower-waker | 65006 | ✅ done+verified | host-net; no secret mount; serving :9002, healthy |
-| audiobookshelf | — | ⚠ careful | reads /mnt library (host uid 1101); uid change affects shared-mnt access |
-| m4b-auto-merge | — | ⚠ careful | writes /mnt library+quarantine (shared uid 1101) |
+| audiobookshelf | 65017 | ✅ done+verified | kept group_add 1100 (ACL); chowned config+metadata; healthy, DB intact, library rw ok |
+| m4b-auto-merge | — | ⛔ EXCEPTION (stays 1000) | compose documents a hard uid-1000 dependency: it renames library files owned by uid 1000, and the image's `merger` user + `/home/merger/.ssh` + ssh keys assume 1000. Moving it needs a dedicated supervised session (verify the merge pipeline + beefy SSH after). |
 | authentik-server | — | 🏠 home (EDGE/SSO) | |
 | authentik-worker | — | 🏠 home (EDGE/SSO) | |
 
@@ -25,12 +25,17 @@ Edge/stateful restarts are machine.md yes-first → done only with owner home on
 Done+verified non-root 2026-10-22: **stonks→65007**, **backdrop-carousel→65008** (both serve 200),
 **sbb-easyride→65009** (pre-provided cert mounted ro + HOME=/tmp; serves 200; OIDC = user-spot-check).
 
-Still root, in-repo, tractable next (test each, rollback to root on failure):
-- autoheal×3 (antivirus/mouse/nzb) — talk to socket-proxy over TCP, no file deps → likely clean non-root.
-- virustotal — reads `/scan` downloads owned 1101; non-root only if those are other-readable (verify).
-- claude-mockups (caddy) — check its listen port before non-root (cap_net_bind if :80).
-- whoami — trivial, but lives in the Traefik (edge) compose → treat as edge/home.
-- blackbox-exporter — non-root + `cap_add: NET_RAW` for ICMP.
+More done+verified 2026-10-22: autoheal×3→65011/65012/65013 (reach socket-proxy, ping 200),
+virustotal→65014 (reads /scan, downloads are other-readable), blackbox-exporter→65015 (modules are
+http/tcp/dns only — NO NET_RAW needed; actively probing).
+
+Still root, remaining:
+- claude-mockups (caddy) — DEFERRED: binds :80 AND writes its config/data dir → non-root needs
+  cap_add NET_BIND_SERVICE + a writable tmpfs/XDG dirs. Own small batch.
+- whoami — lives in the Traefik (edge) compose → edge/home.
+- cap_drop:[ALL]+minimal on the must-stay-root set (careful, each needs its cap list): clamav, samba,
+  gluetun(NET_ADMIN), qbittorrent/sabnzbd — these are the media/download pipeline, verify after each.
+- EDGE/stateful (home): adguard, traefik, crowdsec, authentik×2, influxdb, postgres, cloudflared, WireGuard.
 
 Must stay root but `cap_drop:[ALL]`+minimal + no-new-priv: adguard(:53), traefik(:80/443), crowdsec,
 clamav(reads all uids), samba, gluetun(NET_ADMIN), qbittorrent/sabnzbd(/mnt 1101), influxdb/postgres(home).
