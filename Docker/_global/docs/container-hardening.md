@@ -1,5 +1,19 @@
 # Container escape-hardening (fastpi)
 
+> **DNS / container egress (fixed 2026-10-22).** `/etc/docker/daemon.json` (a host file, NOT in git) now
+> contains `{ "dns": ["192.168.1.2"] }` — the host LAN IP where AdGuard listens. Before this, bridge
+> containers were handed the router (192.168.1.1) which doesn't recurse, so container DNS + image builds
+> failed. This one line fixes both runtime and builds, keeps every container behind AdGuard. Requires a
+> `sudo systemctl restart docker` to take effect (done 2026-10-22, whole homelab bounced + verified: SSO
+> canary OK, all 56 containers back, `apk` in a fresh container works). AdGuard `allowed_clients: []` (all
+> allowed) so no ACL change was needed. **If fastpi is ever rebuilt, recreate this file.**
+
+> **ROOT-HARDENING IS DEFERRED until AFTER the userns-remap migration** (user decision 2026-10-22): the
+> migration changes the whole uid/cap picture, so re-doing cap_drop/non-root first would be wasted. The
+> remaining root-hardening list is at the bottom of this doc — revisit it post-migration. See
+> `userns-remap-recipe.md` for the migration plan.
+
+
 Goal: make a container escape very hard to turn into host takeover. Daemon-wide userns-remap was
 REJECTED (see userns-remap-plan.md) — this is the per-container replacement. Levers, per stack:
 `no-new-privileges` (Tier 1, done widely) → run off uid 1000 → non-root where the image allows →
