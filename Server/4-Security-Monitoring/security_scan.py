@@ -609,10 +609,18 @@ def collect_patches(host: str) -> dict[str, int]:
     return parse_apt_upgradable(r.stdout)
 
 
+# buntu is not in beefy's docker group; tower's ssh user is root.
+REMOTE_DOCKER = {"beefy": "sudo docker"}
+
+
+def docker_cmd(host: str) -> str:
+    return REMOTE_DOCKER.get(host, "docker")
+
+
 def running_images(host: str) -> list[str]:
     if host in REMOTE_SCAN_HOSTS:
         return running_image_digests(host)
-    cmd = "docker ps --format '{{.Image}}'"
+    cmd = f"{docker_cmd(host)} ps --format '{{{{.Image}}}}'"
     r = run(["docker", "ps", "--format", "{{.Image}}"], timeout=120) if host == "fastpi" else ssh(host, cmd)
     if r.returncode != 0:
         raise RuntimeError(f"docker ps on {host}: {r.stderr.strip()[:200]}")
@@ -636,8 +644,9 @@ REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
 
 
 def running_image_digests(host: str) -> list[str]:
-    cmd = ("for i in $(docker ps --format '{{.Image}}' | sort -u); do "
-           "docker image inspect -f '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}'\"$i\"'{{end}}' \"$i\"; done")
+    d = docker_cmd(host)
+    cmd = (f"for i in $({d} ps --format '{{{{.Image}}}}' | sort -u); do "
+           f"{d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{else}}}}'\"$i\"'{{{{end}}}}' \"$i\"; done")
     r = ssh(host, cmd, timeout=120)
     if r.returncode != 0:
         raise RuntimeError(f"docker ps on {host}: {r.stderr.strip()[:200]}")

@@ -802,6 +802,12 @@ def test_beefy_and_tower_are_scanned_from_fastpi():
     assert set(security_scan.REMOTE_SCAN_HOSTS) == {"beefy", "tower"}
 
 
+def test_remote_docker_needs_sudo_on_beefy_only():
+    # buntu is not in beefy's docker group (2026-10-23); tower's ssh user is root.
+    assert security_scan.docker_cmd("beefy") == "sudo docker"
+    assert security_scan.docker_cmd("tower") == "docker"
+
+
 def test_image_without_repo_digest_is_local_only():
     assert image_only_local("clamav-local:latest")
     assert not image_only_local("lscr.io/linuxserver/radarr@sha256:ea68")
