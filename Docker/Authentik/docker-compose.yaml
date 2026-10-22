@@ -45,7 +45,7 @@ services:
 # Authentik Server ########################################
 # #########################################################
   server:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:?set AUTHENTIK_TAG in .env}
     container_name: authentik-server
     restart: unless-stopped
     user: "65019:65019"
@@ -88,7 +88,7 @@ services:
 # Authentik Worker ########################################
 # #########################################################
   worker:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:?set AUTHENTIK_TAG in .env}
     container_name: authentik-worker
     restart: unless-stopped
     user: "65019:65019"
