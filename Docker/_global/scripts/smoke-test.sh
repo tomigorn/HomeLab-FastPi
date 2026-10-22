@@ -173,7 +173,7 @@ fi
 
 echo "== beefy (only if awake)"
 if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
-  r=$(timeout 60 ssh -o BatchMode=yes beefy 'echo "sec=$(apt list --upgradable 2>/dev/null | grep -c security)"; docker ps --format "{{.Names}} {{.Image}} {{.Status}}"; f=$(ls -t ~/backups/ryot/ryot-*.dump 2>/dev/null | head -1); echo "ryotbackup=$([[ -n $f ]] && (( $(date +%s) - $(stat -c %Y "$f") < 172800 )) && echo yes || echo "no (${f:-none})")"' 2>/dev/null)
+  r=$(timeout 60 ssh -o BatchMode=yes beefy 'echo "sec=$(apt list --upgradable 2>/dev/null | grep -c security)"; sudo docker ps --format "{{.Names}} {{.Image}} {{.Status}}"; f=$(ls -t ~/backups/ryot/ryot-*.dump 2>/dev/null | head -1); echo "ryotbackup=$([[ -n $f ]] && (( $(date +%s) - $(stat -c %Y "$f") < 172800 )) && echo yes || echo "no (${f:-none})")"' 2>/dev/null)
   check "beefy security updates"   'sec=0' "$(grep sec= <<<"$r")"
   check "portainer agent"          'portainer/agent:2\.45\.2 Up' "$(grep portainer <<<"$r")"
   for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
