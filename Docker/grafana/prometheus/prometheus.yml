@@ -60,7 +60,7 @@ scrape_configs:
   # only kind of check that would have caught it - an outside-in probe that
   # treats 404 as failure.
   #
-  # 60s, not the global 15s: these leave the house and go through Cloudflare.
+  # These go out over the LAN path: AdGuard's wildcard resolves *.holy-grail.ch to Traefik directly. The Cloudflare path is the blackbox-wan-* jobs below.
   # ---------------------------------------------------------------------------
   - job_name: "blackbox-public"
     scrape_interval: 60s
@@ -164,6 +164,68 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
+
+  # ---------------------------------------------------------------------------
+  # The same routes through Cloudflare, via blackbox-exporter-wan (public DNS, so
+  # out to Cloudflare and back in through the tunnel). Catches a dead cloudflared,
+  # a deleted Public Hostname or a broken DNS record, which the LAN jobs above
+  # cannot see. Only hostnames with a public DNS record: radarr & co. have none.
+  # Rules: PublicPathDown, CloudflareTunnelDown (public-endpoints.yml).
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-wan-public"
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_public_wan]
+    static_configs:
+      - targets:
+          - https://audiobookshelf.holy-grail.ch/
+          - https://sso.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter-wan:9115
+
+  - job_name: "blackbox-wan-gated"
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_gated]
+    static_configs:
+      - targets:
+          - https://cup.holy-grail.ch/
+          - https://claude-mockups.holy-grail.ch/
+          - https://tracker.holy-grail.ch/
+          - https://avatars.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter-wan:9115
+
+  - job_name: "blackbox-wan-lan-locked"
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_forbidden_origin]
+    static_configs:
+      - targets:
+          - https://stonks.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter-wan:9115
 
   # ---------------------------------------------------------------------------
   # beefy power state: up = sshd answers.

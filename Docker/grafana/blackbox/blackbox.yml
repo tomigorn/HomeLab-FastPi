@@ -13,7 +13,7 @@
 # So 404 must FAIL and those others must PASS.
 
 modules:
-  # For hostnames reached through the Cloudflare tunnel.
+  # Public hostnames. From blackbox-exporter this is the LAN path (AdGuard -> Traefik); from blackbox-exporter-wan it is the Cloudflare path.
   http_public:
     prober: http
     timeout: 15s
@@ -92,6 +92,31 @@ modules:
       valid_status_codes: [403]
       follow_redirects: false
       preferred_ip_protocol: ip4
+
+  # Cloudflare path (blackbox-exporter-wan) of public routes. Same as http_public minus 403: through Cloudflare a 403 is usually a Cloudflare block, not the app.
+  http_public_wan:
+    prober: http
+    timeout: 15s
+    http:
+      method: GET
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 301, 302, 401]
+      follow_redirects: false
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+
+  # Cloudflare path of LAN-locked routes: the 403 must be Traefik's ipAllowList answer (body exactly "Forbidden"), not a Cloudflare block page.
+  http_forbidden_origin:
+    prober: http
+    timeout: 15s
+    http:
+      method: GET
+      valid_status_codes: [403]
+      follow_redirects: false
+      fail_if_body_not_matches_regexp:
+        - '^Forbidden$'
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
 
   tcp_connect:
     prober: tcp

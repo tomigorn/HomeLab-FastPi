@@ -80,3 +80,8 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `blackbox-gated` | 302 to sso.holy-grail.ch | cup, claude-mockups, tracker, avatars | `PublicEndpointDown` |
 | `blackbox-gated-wake` (15m) | 302 to sso.holy-grail.ch | requests (Seerr, behind `requests-wake`) | `WakeGatedEndpointNotGated` |
 | `blackbox-lan-locked` | 403 | radarr, sonarr, prowlarr, bazarr, qbittorrent, sabnzbd, stonks, traefik, adguard | `LanLockedEndpointNotLocked` |
+| `blackbox-wan-public` | 200/301/302/401 | audiobookshelf, sso | `PublicPathDown`, `CloudflareTunnelDown` |
+| `blackbox-wan-gated` | 302 to sso.holy-grail.ch | cup, claude-mockups, tracker, avatars | `PublicPathDown`, `CloudflareTunnelDown` |
+| `blackbox-wan-lan-locked` | 403 with Traefik's body `Forbidden` | stonks | `PublicPathDown`, `CloudflareTunnelDown` |
+
+`blackbox-wan-*` run on `blackbox-exporter-wan` (uid 65010, read-only), which resolves through 1.1.1.1/9.9.9.9 and so goes through Cloudflare and the tunnel. Only hostnames with a public DNS record (radarr & co. have none). `CloudflareTunnelDown` = every Cloudflare probe fails while a LAN probe passes; it also fires when fastpi's internet is down.

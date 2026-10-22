@@ -63,3 +63,83 @@ tests:
       - eval_time: 80m
         alertname: WakeGatedEndpointNotGated
         exp_alerts: []
+
+  # Cloudflare path (blackbox-exporter-wan, public DNS): the tunnel is gone while Traefik on the LAN still answers.
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-wan-public", instance="https://audiobookshelf.holy-grail.ch/"}'
+        values: '1x4 0x15'
+      - series: 'probe_http_status_code{job="blackbox-wan-public", instance="https://audiobookshelf.holy-grail.ch/"}'
+        values: '200x4 530x15'
+      - series: 'probe_success{job="blackbox-wan-gated", instance="https://cup.holy-grail.ch/"}'
+        values: '1x4 0x15'
+      - series: 'probe_http_status_code{job="blackbox-wan-gated", instance="https://cup.holy-grail.ch/"}'
+        values: '302x4 530x15'
+      - series: 'probe_success{job="blackbox-wan-lan-locked", instance="https://stonks.holy-grail.ch/"}'
+        values: '1x4 0x15'
+      - series: 'probe_success{job="blackbox-public", instance="https://audiobookshelf.holy-grail.ch/"}'
+        values: '1x19'
+      - series: 'probe_http_status_code{job="blackbox-public", instance="https://audiobookshelf.holy-grail.ch/"}'
+        values: '200x19'
+      - series: 'probe_success{job="blackbox-gated", instance="https://cup.holy-grail.ch/"}'
+        values: '1x19'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: CloudflareTunnelDown
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: CloudflareTunnelDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Cloudflare path down: all 3 public-DNS probes fail while Traefik answers on the LAN"
+              description: "Every probe through Cloudflare fails but the LAN probes pass, so the tunnel, its ingress or the Cloudflare DNS records are broken (or fastpi's internet is down). Check: docker logs --since 15m cloudflared; the tunnel's Public Hostnames in the Cloudflare dashboard. Restarting cloudflared is a tunnel change: owner only."
+      - eval_time: 10m
+        alertname: PublicPathDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: blackbox-wan-public
+              instance: https://audiobookshelf.holy-grail.ch/
+            exp_annotations:
+              summary: "Public path through Cloudflare down: https://audiobookshelf.holy-grail.ch/"
+              description: "https://audiobookshelf.holy-grail.ch/ resolved via public DNS failed for 5 minutes (HTTP 530; the LAN probe of the same job type says HTTP 200). 530/502/1033 = tunnel or cloudflared, 0 = public DNS or connection, 403 on a public route = a Cloudflare block, 200 on a LAN-locked route = local-networks@file leaked."
+          - exp_labels:
+              severity: critical
+              job: blackbox-wan-gated
+              instance: https://cup.holy-grail.ch/
+            exp_annotations:
+              summary: "Public path through Cloudflare down: https://cup.holy-grail.ch/"
+              description: "https://cup.holy-grail.ch/ resolved via public DNS failed for 5 minutes (HTTP 530; the LAN probe of the same job type says HTTP ). 530/502/1033 = tunnel or cloudflared, 0 = public DNS or connection, 403 on a public route = a Cloudflare block, 200 on a LAN-locked route = local-networks@file leaked."
+          - exp_labels:
+              severity: critical
+              job: blackbox-wan-lan-locked
+              instance: https://stonks.holy-grail.ch/
+            exp_annotations:
+              summary: "Public path through Cloudflare down: https://stonks.holy-grail.ch/"
+              description: "https://stonks.holy-grail.ch/ resolved via public DNS failed for 5 minutes (HTTP ; the LAN probe of the same job type says HTTP ). 530/502/1033 = tunnel or cloudflared, 0 = public DNS or connection, 403 on a public route = a Cloudflare block, 200 on a LAN-locked route = local-networks@file leaked."
+
+  # One route broken only on the Cloudflare side (e.g. its Public Hostname deleted): no tunnel alert, one path alert.
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-wan-public", instance="https://audiobookshelf.holy-grail.ch/"}'
+        values: '1x4 0x15'
+      - series: 'probe_success{job="blackbox-wan-public", instance="https://sso.holy-grail.ch/"}'
+        values: '1x19'
+      - series: 'probe_success{job="blackbox-public", instance="https://audiobookshelf.holy-grail.ch/"}'
+        values: '1x19'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: CloudflareTunnelDown
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: PublicPathDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: blackbox-wan-public
+              instance: https://audiobookshelf.holy-grail.ch/
+            exp_annotations:
+              summary: "Public path through Cloudflare down: https://audiobookshelf.holy-grail.ch/"
+              description: "https://audiobookshelf.holy-grail.ch/ resolved via public DNS failed for 5 minutes (HTTP ; the LAN probe of the same job type says HTTP ). 530/502/1033 = tunnel or cloudflared, 0 = public DNS or connection, 403 on a public route = a Cloudflare block, 200 on a LAN-locked route = local-networks@file leaked."

@@ -135,4 +135,10 @@ inhibit_rules:
   - source_matchers:
       - 'alertname="BlackboxExporterDown"'
     target_matchers:
-      - 'alertname=~"PublicEndpointDown|LanLockedEndpointNotLocked|AllPublicEndpointsDown|AdGuardDnsResolutionFailing"'
+      - 'alertname=~"PublicEndpointDown|LanLockedEndpointNotLocked|AllPublicEndpointsDown|AdGuardDnsResolutionFailing|WakeGatedEndpointNotGated|PublicPathDown|CloudflareTunnelDown"'
+
+  # Edge dead (all LAN probes fail) or tunnel dead (all Cloudflare probes fail): one page, not one per route.
+  - source_matchers:
+      - 'alertname=~"AllPublicEndpointsDown|CloudflareTunnelDown"'
+    target_matchers:
+      - 'alertname="PublicPathDown"'

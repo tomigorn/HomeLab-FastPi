@@ -96,6 +96,31 @@ services:
       - no-new-privileges:true
 
 # #########################################################
+# Blackbox Exporter WAN ###################################
+# #########################################################
+# Same probes, but through Cloudflare: public DNS instead of AdGuard's LAN wildcard, so a dead tunnel, a deleted Public Hostname or a broken DNS record fails (blackbox-wan-* jobs, PublicPathDown / CloudflareTunnelDown).
+# Docker's embedded DNS still resolves container names and forwards the rest to these servers. Internet egress only; the DOCKER-USER guard keeps it off the LAN.
+  blackbox-exporter-wan:
+    image: prom/blackbox-exporter:v0.29.1
+    container_name: blackbox-exporter-wan
+    user: "65010:65010"
+    mem_limit: 128m
+    restart: unless-stopped
+    read_only: true
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    # No ports: only Prometheus talks to it, over the project network.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+# #########################################################
 # Alertmanager ############################################
 # #########################################################
 # Routes the Prometheus alerts in prometheus/rules/ to email and (once configured)

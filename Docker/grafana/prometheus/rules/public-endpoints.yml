@@ -22,7 +22,7 @@ groups:
           summary: "Public endpoint down: {{ $labels.instance }}"
           description: >-
             {{ $labels.instance }} has not answered like a working backend for
-            3 minutes (HTTP {{ with printf "probe_http_status_code{instance=%q}" $labels.instance | query }}{{ . | first | value }}{{ end }}).
+            3 minutes (HTTP {{ with printf "probe_http_status_code{instance=%q,job=%q}" $labels.instance $labels.job | query }}{{ . | first | value }}{{ end }}).
             A 404 here usually means Traefik lost the router rather than the app
             being down - check `docker logs traefik | grep -i plugin` first, since
             a failed plugin download disables the websecure entrypoint middleware
@@ -39,7 +39,7 @@ groups:
           summary: "LAN-locked endpoint not locked: {{ $labels.instance }}"
           description: >-
             {{ $labels.instance }} should answer 403 from outside the LAN/VPN but
-            returned HTTP {{ with printf "probe_http_status_code{instance=%q}" $labels.instance | query }}{{ . | first | value }}{{ end }}
+            returned HTTP {{ with printf "probe_http_status_code{instance=%q,job=%q}" $labels.instance $labels.job | query }}{{ . | first | value }}{{ end }}
             for 3 minutes. 200 or 302 means local-networks@file is gone from its
             Traefik router and the app is publicly reachable; 404 means the route is gone.
 
@@ -55,6 +55,36 @@ groups:
             HTTP {{ with printf "last_over_time(probe_http_status_code{instance=%q}[20m])" $labels.instance | query }}{{ . | first | value }}{{ end }}.
             Without authentik@file in front of its *-wake middleware every visitor (and this probe) wakes beefy.
             Check its router in Docker/Traefik/traefik/dynamic/ and docker logs traefik.
+
+      # The same routes through Cloudflare (blackbox-exporter-wan resolves via 1.1.1.1, so it goes out and back in through the tunnel).
+      # The LAN jobs above never leave the house: AdGuard's wildcard sends *.holy-grail.ch straight to Traefik.
+      - alert: PublicPathDown
+        expr: probe_success{job=~"blackbox-wan-.*"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Public path through Cloudflare down: {{ $labels.instance }}"
+          description: >-
+            {{ $labels.instance }} resolved via public DNS failed for 5 minutes
+            (HTTP {{ with printf "probe_http_status_code{instance=%q,job=%q}" $labels.instance $labels.job | query }}{{ . | first | value }}{{ end }};
+            the LAN probe of the same job type says HTTP {{ with printf "probe_http_status_code{instance=%q,job=%q}" $labels.instance (reReplaceAll "^blackbox-wan-" "blackbox-" $labels.job) | query }}{{ . | first | value }}{{ end }}).
+            530/502/1033 = tunnel or cloudflared, 0 = public DNS or connection, 403 on a public route = a Cloudflare block,
+            200 on a LAN-locked route = local-networks@file leaked.
+
+      - alert: CloudflareTunnelDown
+        expr: >-
+          count(probe_success{job=~"blackbox-wan-.*"} == 0) == count(probe_success{job=~"blackbox-wan-.*"})
+          and on() max(probe_success{job=~"blackbox-public|blackbox-gated"}) == 1
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cloudflare path down: all {{ $value }} public-DNS probes fail while Traefik answers on the LAN"
+          description: >-
+            Every probe through Cloudflare fails but the LAN probes pass, so the tunnel, its ingress or the
+            Cloudflare DNS records are broken (or fastpi's internet is down). Check: docker logs --since 15m cloudflared;
+            the tunnel's Public Hostnames in the Cloudflare dashboard. Restarting cloudflared is a tunnel change: owner only.
 
       # Catches the whole edge going at once, which is the plugin-failure
       # signature and is worth a louder, faster alert than a single service.
