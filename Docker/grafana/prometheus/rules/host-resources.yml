@@ -1,0 +1,160 @@
+# fastpi host resources (node-exporter, job raspberry-pi): disk, inodes, memory, swap, temperature, load, OOM.
+# fastpi must never wedge or reboot (machine.md), so these warn early. Subset of the upstream node-exporter mixin, thresholds for a Pi 5 (8 GB RAM, 10 GB swap, NVMe + 2 USB disks).
+# Warning and critical use disjoint ranges so one condition never sends both.
+# Tests: prometheus/tests/host-resources_test.yml
+groups:
+  - name: host-resources
+    rules:
+      - alert: HostFilesystemSpaceLow
+        expr: >-
+          (100 * node_filesystem_avail_bytes{job="raspberry-pi",fstype=~"ext4|xfs|btrfs|vfat"} / node_filesystem_size_bytes < 15 >= 5)
+          and node_filesystem_readonly == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: {{ $labels.mountpoint }} has {{ $value | printf \"%.0f\" }}% space left"
+          description: >-
+            Under 15% free for 30 min. Find it: sudo du -xh --max-depth=2 {{ $labels.mountpoint }} | sort -h | tail; docker system df.
+
+      - alert: HostFilesystemSpaceCritical
+        expr: >-
+          (100 * node_filesystem_avail_bytes{job="raspberry-pi",fstype=~"ext4|xfs|btrfs|vfat"} / node_filesystem_size_bytes < 5)
+          and node_filesystem_readonly == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "fastpi: {{ $labels.mountpoint }} has {{ $value | printf \"%.0f\" }}% space left"
+          description: >-
+            Under 5% free: writes (downloads, Prometheus TSDB, container logs) start failing when it is full.
+            Find it: sudo du -xh --max-depth=2 {{ $labels.mountpoint }} | sort -h | tail; docker system df.
+
+      - alert: HostFilesystemFillingUp
+        expr: >-
+          (100 * node_filesystem_avail_bytes{job="raspberry-pi",fstype=~"ext4|xfs|btrfs|vfat"} / node_filesystem_size_bytes < 40)
+          and predict_linear(node_filesystem_avail_bytes{job="raspberry-pi",fstype=~"ext4|xfs|btrfs|vfat"}[6h], 24 * 3600) < 0
+          and node_filesystem_readonly == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: {{ $labels.mountpoint }} will be full within 24 h at the current rate"
+          description: >-
+            {{ $value | printf "%.0f" }}% free and falling for 1 h (6 h trend). Find what writes: sudo du -xh --max-depth=2 {{ $labels.mountpoint }} | sort -h | tail.
+
+      - alert: HostFilesystemReadOnly
+        expr: node_filesystem_readonly{job="raspberry-pi",fstype=~"ext4|xfs|btrfs"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "fastpi: {{ $labels.mountpoint }} is mounted read-only"
+          description: >-
+            ext4 remounts read-only after I/O errors. Check: sudo dmesg | grep -iE 'ext4|nvme|I/O error'; sudo smartctl -a {{ $labels.device }}.
+
+      - alert: HostInodesLow
+        expr: >-
+          (100 * node_filesystem_files_free{job="raspberry-pi",fstype=~"ext4|xfs|btrfs"} / node_filesystem_files < 10 >= 5)
+          and node_filesystem_readonly == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: {{ $labels.mountpoint }} has {{ $value | printf \"%.0f\" }}% inodes left"
+          description: >-
+            Under 10% of inodes free: many small files (logs, caches, image layers). Find them: sudo du -x --inodes --max-depth=3 {{ $labels.mountpoint }} | sort -n | tail.
+
+      - alert: HostInodesCritical
+        expr: >-
+          (100 * node_filesystem_files_free{job="raspberry-pi",fstype=~"ext4|xfs|btrfs"} / node_filesystem_files < 5)
+          and node_filesystem_readonly == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "fastpi: {{ $labels.mountpoint }} has {{ $value | printf \"%.0f\" }}% inodes left"
+          description: >-
+            Under 5% of inodes free: file creation fails with 'No space left' while df still shows space.
+            Find them: sudo du -x --inodes --max-depth=3 {{ $labels.mountpoint }} | sort -n | tail.
+
+      - alert: HostMemoryLow
+        expr: 100 * node_memory_MemAvailable_bytes{job="raspberry-pi"} / node_memory_MemTotal_bytes < 10 >= 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: only {{ $value | printf \"%.0f\" }}% memory available"
+          description: >-
+            Under 10% MemAvailable for 10 min. Biggest containers: docker stats --no-stream --format '{{ "{{" }}.MemUsage{{ "}}" }} {{ "{{" }}.Name{{ "}}" }}' | sort -h | tail; dashboard fastpi-resources.
+
+      - alert: HostMemoryCritical
+        expr: 100 * node_memory_MemAvailable_bytes{job="raspberry-pi"} / node_memory_MemTotal_bytes < 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "fastpi: only {{ $value | printf \"%.0f\" }}% memory available"
+          description: >-
+            Under 5% MemAvailable for 5 min: the OOM killer is close and a wedge needs a power cycle.
+            Stop the biggest non-edge container now: docker stats --no-stream --format '{{ "{{" }}.MemUsage{{ "}}" }} {{ "{{" }}.Name{{ "}}" }}' | sort -h | tail.
+
+      - alert: HostSwapHigh
+        expr: 100 * (1 - node_memory_SwapFree_bytes{job="raspberry-pi"} / node_memory_SwapTotal_bytes) > 80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: {{ $value | printf \"%.0f\" }}% of swap in use"
+          description: >-
+            Over 80% of the 10 GB swap for 15 min: RAM is overcommitted and the Pi slows to a crawl. Check: free -h; vmstat 5 3; dashboard fastpi-resources.
+
+      - alert: HostCpuHot
+        expr: node_thermal_zone_temp{job="raspberry-pi",type="cpu-thermal"} > 75 <= 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: CPU at {{ $value | printf \"%.0f\" }} °C"
+          description: >-
+            Over 75 °C for 10 min; the Pi throttles from 80 °C. Check the fan and airflow: vcgencmd measure_temp; vcgencmd get_throttled.
+
+      - alert: HostCpuThrottling
+        expr: node_thermal_zone_temp{job="raspberry-pi",type="cpu-thermal"} > 80
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "fastpi: CPU at {{ $value | printf \"%.0f\" }} °C, throttling"
+          description: >-
+            Over 80 °C for 5 min: the firmware is cutting the clock. Fan stopped or blocked? vcgencmd measure_temp; vcgencmd get_throttled.
+
+      # The drive reports its own warning threshold as temp_max (temp1 = composite; the other sensors report a bogus 65261 °C max, so they never match).
+      - alert: HostNvmeHot
+        expr: node_hwmon_temp_celsius{job="raspberry-pi",chip=~"nvme.*"} >= node_hwmon_temp_max_celsius{job="raspberry-pi",chip=~"nvme.*"}
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: NVMe at {{ $value | printf \"%.0f\" }} °C, over its own warning temperature"
+          description: >-
+            Above the drive's warning threshold for 10 min; it throttles and wears faster. Check: sudo smartctl -a /dev/nvme0 | grep -i temp.
+
+      - alert: HostLoadHigh
+        expr: node_load15{job="raspberry-pi"} / count by (instance, job) (node_cpu_seconds_total{job="raspberry-pi",mode="idle"}) > 2
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: load {{ $value | printf \"%.1f\" }} per core for 30 min"
+          description: >-
+            15-min load over 2 per core for 30 min (often I/O wait on the USB disks). Check: top -o %CPU; sudo iotop -o; docker stats --no-stream.
+
+      - alert: HostOomKill
+        expr: increase(node_vmstat_oom_kill{job="raspberry-pi"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: the kernel OOM-killed a process"
+          description: >-
+            Who: sudo dmesg -T | grep -i 'killed process'; docker ps -a --filter status=exited.

@@ -1,0 +1,243 @@
+# promtool test rules host-resources_test.yml  (see grafana/README.md, Host resource alerts)
+rule_files:
+  - ../rules/host-resources.yml
+evaluation_interval: 1m
+tests:
+  - name: disk space low is a warning, under 5% is critical, tmpfs is ignored
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '100x60'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '10x60'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '0x60'
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sdb1",fstype="ext4",mountpoint="/mnt/seagate-red"}'
+        values: '100x60'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sdb1",fstype="ext4",mountpoint="/mnt/seagate-red"}'
+        values: '3x60'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sdb1",fstype="ext4",mountpoint="/mnt/seagate-red"}'
+        values: '0x60'
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '100x60'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '1x60'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HostFilesystemSpaceLow
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: HostFilesystemSpaceLow
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
+            exp_annotations:
+              summary: "fastpi: / has 10% space left"
+              description: "Under 15% free for 30 min. Find it: sudo du -xh --max-depth=2 / | sort -h | tail; docker system df."
+      - eval_time: 10m
+        alertname: HostFilesystemSpaceCritical
+        exp_alerts:
+          - exp_labels: {severity: critical, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/sdb1, fstype: ext4, mountpoint: /mnt/seagate-red}
+            exp_annotations:
+              summary: "fastpi: /mnt/seagate-red has 3% space left"
+              description: "Under 5% free: writes (downloads, Prometheus TSDB, container logs) start failing when it is full. Find it: sudo du -xh --max-depth=2 /mnt/seagate-red | sort -h | tail; docker system df."
+
+  - name: disk filling up within 24 h, from a 6 h trend
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '100x120'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '39-0.1x120'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '0x120'
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '100x120'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '70x120'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '0x120'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: HostFilesystemFillingUp
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: HostFilesystemFillingUp
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/sda1, fstype: ext4, mountpoint: /mnt/seagate-black}
+            exp_annotations:
+              summary: "fastpi: /mnt/seagate-black will be full within 24 h at the current rate"
+              description: "32% free and falling for 1 h (6 h trend). Find what writes: sudo du -xh --max-depth=2 /mnt/seagate-black | sort -h | tail."
+
+  - name: read-only filesystem is critical; ramfs credential mounts are ignored
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '0x5 1x10'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="ramfs",fstype="ramfs",mountpoint="/run/credentials/systemd-sysctl.service"}'
+        values: '1x15'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HostFilesystemReadOnly
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: HostFilesystemReadOnly
+        exp_alerts:
+          - exp_labels: {severity: critical, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
+            exp_annotations:
+              summary: "fastpi: / is mounted read-only"
+              description: "ext4 remounts read-only after I/O errors. Check: sudo dmesg | grep -iE 'ext4|nvme|I/O error'; sudo smartctl -a /dev/nvme0n1p2."
+
+  - name: inodes low and critical
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_files{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '1000x60'
+      - series: 'node_filesystem_files_free{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '80x60'
+      - series: 'node_filesystem_files{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '1000x60'
+      - series: 'node_filesystem_files_free{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '20x60'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/nvme0n1p2",fstype="ext4",mountpoint="/"}'
+        values: '0x60'
+      - series: 'node_filesystem_readonly{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: HostInodesLow
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
+            exp_annotations:
+              summary: "fastpi: / has 8% inodes left"
+              description: "Under 10% of inodes free: many small files (logs, caches, image layers). Find them: sudo du -x --inodes --max-depth=3 / | sort -n | tail."
+      - eval_time: 40m
+        alertname: HostInodesCritical
+        exp_alerts:
+          - exp_labels: {severity: critical, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/sda1, fstype: ext4, mountpoint: /mnt/seagate-black}
+            exp_annotations:
+              summary: "fastpi: /mnt/seagate-black has 2% inodes left"
+              description: "Under 5% of inodes free: file creation fails with 'No space left' while df still shows space. Find them: sudo du -x --inodes --max-depth=3 /mnt/seagate-black | sort -n | tail."
+
+  - name: memory low, critical, and heavy swap
+    interval: 1m
+    input_series:
+      - series: 'node_memory_MemTotal_bytes{job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '100x40'
+      - series: 'node_memory_MemAvailable_bytes{job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '40x5 8x15 4x20'
+      - series: 'node_memory_SwapTotal_bytes{job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '100x40'
+      - series: 'node_memory_SwapFree_bytes{job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '70x10 15x30'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: HostMemoryLow
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "fastpi: only 8% memory available"
+              description: "Under 10% MemAvailable for 10 min. Biggest containers: docker stats --no-stream --format '{{.MemUsage}} {{.Name}}' | sort -h | tail; dashboard fastpi-resources."
+      - eval_time: 18m
+        alertname: HostMemoryCritical
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: HostMemoryLow
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: HostMemoryCritical
+        exp_alerts:
+          - exp_labels: {severity: critical, job: raspberry-pi, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "fastpi: only 4% memory available"
+              description: "Under 5% MemAvailable for 5 min: the OOM killer is close and a wedge needs a power cycle. Stop the biggest non-edge container now: docker stats --no-stream --format '{{.MemUsage}} {{.Name}}' | sort -h | tail."
+      - eval_time: 20m
+        alertname: HostSwapHigh
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: HostSwapHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "fastpi: 85% of swap in use"
+              description: "Over 80% of the 10 GB swap for 15 min: RAM is overcommitted and the Pi slows to a crawl. Check: free -h; vmstat 5 3; dashboard fastpi-resources."
+
+  - name: CPU hot, throttling, NVMe over its own warning temperature
+    interval: 1m
+    input_series:
+      - series: 'node_thermal_zone_temp{job="raspberry-pi",instance="node-exporter:9100",type="cpu-thermal",zone="0"}'
+        values: '50x5 77x20 82x20'
+      - series: 'node_hwmon_temp_celsius{job="raspberry-pi",instance="node-exporter:9100",chip="nvme_nvme0",sensor="temp1"}'
+        values: '70x30'
+      - series: 'node_hwmon_temp_max_celsius{job="raspberry-pi",instance="node-exporter:9100",chip="nvme_nvme0",sensor="temp1"}'
+        values: '67.85x30'
+      - series: 'node_hwmon_temp_celsius{job="raspberry-pi",instance="node-exporter:9100",chip="nvme_nvme0",sensor="temp2"}'
+        values: '30x30'
+      - series: 'node_hwmon_temp_max_celsius{job="raspberry-pi",instance="node-exporter:9100",chip="nvme_nvme0",sensor="temp2"}'
+        values: '65261.85x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostCpuHot
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: HostCpuHot
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", type: cpu-thermal, zone: "0"}
+            exp_annotations:
+              summary: "fastpi: CPU at 77 °C"
+              description: "Over 75 °C for 10 min; the Pi throttles from 80 °C. Check the fan and airflow: vcgencmd measure_temp; vcgencmd get_throttled."
+      - eval_time: 35m
+        alertname: HostCpuHot
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: HostCpuThrottling
+        exp_alerts:
+          - exp_labels: {severity: critical, job: raspberry-pi, instance: "node-exporter:9100", type: cpu-thermal, zone: "0"}
+            exp_annotations:
+              summary: "fastpi: CPU at 82 °C, throttling"
+              description: "Over 80 °C for 5 min: the firmware is cutting the clock. Fan stopped or blocked? vcgencmd measure_temp; vcgencmd get_throttled."
+      - eval_time: 20m
+        alertname: HostNvmeHot
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", chip: nvme_nvme0, sensor: temp1}
+            exp_annotations:
+              summary: "fastpi: NVMe at 70 °C, over its own warning temperature"
+              description: "Above the drive's warning threshold for 10 min; it throttles and wears faster. Check: sudo smartctl -a /dev/nvme0 | grep -i temp."
+
+  - name: sustained load and OOM kills
+    interval: 1m
+    input_series:
+      - series: 'node_load15{job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '9x60'
+      - series: 'node_cpu_seconds_total{job="raspberry-pi",instance="node-exporter:9100",cpu="0",mode="idle"}'
+        values: '0+1x60'
+      - series: 'node_cpu_seconds_total{job="raspberry-pi",instance="node-exporter:9100",cpu="1",mode="idle"}'
+        values: '0+1x60'
+      - series: 'node_cpu_seconds_total{job="raspberry-pi",instance="node-exporter:9100",cpu="2",mode="idle"}'
+        values: '0+1x60'
+      - series: 'node_cpu_seconds_total{job="raspberry-pi",instance="node-exporter:9100",cpu="3",mode="idle"}'
+        values: '0+1x60'
+      - series: 'node_vmstat_oom_kill{job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '0x10 1x50'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HostLoadHigh
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: HostLoadHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "fastpi: load 2.2 per core for 30 min"
+              description: "15-min load over 2 per core for 30 min (often I/O wait on the USB disks). Check: top -o %CPU; sudo iotop -o; docker stats --no-stream."
+      - eval_time: 12m
+        alertname: HostOomKill
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "fastpi: the kernel OOM-killed a process"
+              description: "Who: sudo dmesg -T | grep -i 'killed process'; docker ps -a --filter status=exited."
+      - eval_time: 40m
+        alertname: HostOomKill
+        exp_alerts: []

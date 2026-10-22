@@ -35,3 +35,20 @@ python3 container-exporter/test_container_exporter.py
 docker run --rm --network none --entrypoint sh -v "$PWD/prometheus":/w:ro -w /w/tests prom/prometheus:v3.15.1 -c 'promtool test rules *.yml'   # glob expands inside the container
 docker kill -s HUP prometheus   # reload rules
 ```
+
+## Host resource alerts
+
+`prometheus/rules/host-resources.yml` (node-exporter, job `raspberry-pi`; disks ext4/xfs/btrfs/vfat). Warning and critical use disjoint ranges.
+
+| Alert | Fires when | Severity |
+|---|---|---|
+| `HostFilesystemSpaceLow` / `…Critical` | < 15% free for 30 min / < 5% for 5 min | warning / critical |
+| `HostFilesystemFillingUp` | < 40% free and the 6 h trend hits 0 within 24 h, for 1 h | warning |
+| `HostFilesystemReadOnly` | a disk is mounted read-only for 2 min | critical |
+| `HostInodesLow` / `…Critical` | < 10% inodes free for 30 min / < 5% for 5 min | warning / critical |
+| `HostMemoryLow` / `…Critical` | MemAvailable < 10% for 10 min / < 5% for 5 min | warning / critical |
+| `HostSwapHigh` | > 80% of swap used for 15 min | warning |
+| `HostCpuHot` / `HostCpuThrottling` | CPU > 75 °C for 10 min / > 80 °C for 5 min | warning / critical |
+| `HostNvmeHot` | NVMe at or over its own warning temperature for 10 min | warning |
+| `HostLoadHigh` | load15 > 2 per core for 30 min | warning |
+| `HostOomKill` | kernel OOM kill in the last 15 min | warning |
