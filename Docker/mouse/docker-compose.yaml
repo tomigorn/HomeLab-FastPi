@@ -269,6 +269,7 @@ services:
 # #########################################################
   mousehole:
     container_name: mousehole
+    user: "65041:65041"
     image: tmmrtn/mousehole:latest
     mem_limit: 256m
     security_opt:
@@ -308,6 +309,7 @@ services:
   port-updater:
     build: ./port-updater
     container_name: port_updater
+    user: "65042:65042"
     mem_limit: 64m
     security_opt:
       - no-new-privileges:true
