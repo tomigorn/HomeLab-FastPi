@@ -20,7 +20,7 @@ services:
       # the orchestrator's live progress + history, read-only
       - ${RUNS_DIR}:/srv/www/runs:ro
     # Static file serving needs no root, no capabilities and very little memory.
-    user: "1000:1000"
+    user: "65001:65001"
     cap_drop:
       - ALL
     # The caddy binary carries cap_net_bind_service as a FILE capability. Dropping

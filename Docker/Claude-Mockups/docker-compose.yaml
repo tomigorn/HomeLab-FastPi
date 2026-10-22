@@ -28,7 +28,7 @@ services:
     container_name: claude-mockups-inbox
     mem_limit: 128m
     restart: unless-stopped
-    user: "1000:1000"
+    user: "65003:65003"
     read_only: true
     security_opt:
       - no-new-privileges:true

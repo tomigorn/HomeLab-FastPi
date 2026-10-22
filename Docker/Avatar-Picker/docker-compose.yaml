@@ -19,7 +19,7 @@ services:
       - ./secrets/picker_secret:/run/secrets/picker_secret:ro
     networks:
       - traefik_proxy
-    user: "1000:1000"
+    user: "65002:65002"
     read_only: true
     cap_drop:
       - ALL
