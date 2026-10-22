@@ -32,6 +32,6 @@ Not covered: fastpi off or offline. That needs an external dead-man's switch; `A
 ```bash
 sudo cp container-exporter/systemd/container-exporter.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now container-exporter.timer
 python3 container-exporter/test_container_exporter.py
-cd prometheus && docker run --rm --entrypoint promtool -v "$PWD":/w -w /w/tests prom/prometheus:latest test rules containers_test.yml host_test.yml
+cd prometheus && docker run --rm --entrypoint promtool -v "$PWD":/w -w /w/tests prom/prometheus:latest test rules containers_test.yml host_test.yml public-endpoints_test.yml
 docker kill -s HUP prometheus   # reload rules
 ```

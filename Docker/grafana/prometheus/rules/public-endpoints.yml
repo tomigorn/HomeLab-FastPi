@@ -28,6 +28,21 @@ groups:
             a failed plugin download disables the websecure entrypoint middleware
             and takes every public route with it.
 
+      # The LAN/VPN-locked admin apps must answer 403 to this off-LAN probe.
+      # Any other result fails: 200/302 = the lockdown leaked, 404/5xx = route gone.
+      - alert: LanLockedEndpointNotLocked
+        expr: probe_success{job="blackbox-lan-locked"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LAN-locked endpoint not locked: {{ $labels.instance }}"
+          description: >-
+            {{ $labels.instance }} should answer 403 from outside the LAN/VPN but
+            returned HTTP {{ with printf "probe_http_status_code{instance=%q}" $labels.instance | query }}{{ . | first | value }}{{ end }}
+            for 3 minutes. 200 or 302 means local-networks@file is gone from its
+            Traefik router and the app is publicly reachable; 404 means the route is gone.
+
       # Catches the whole edge going at once, which is the plugin-failure
       # signature and is worth a louder, faster alert than a single service.
       - alert: AllPublicEndpointsDown
@@ -63,7 +78,7 @@ groups:
       # Certificates are renewed by Traefik; this is the backstop for when that
       # quietly stops working.
       - alert: PublicCertExpiringSoon
-        expr: probe_ssl_earliest_cert_expiry{job=~"blackbox-public|blackbox-gated"} - time() < 14 * 24 * 3600
+        expr: probe_ssl_earliest_cert_expiry{job=~"blackbox-public|blackbox-gated|blackbox-lan-locked"} - time() < 14 * 24 * 3600
         for: 1h
         labels:
           severity: warning

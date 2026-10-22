@@ -1,0 +1,40 @@
+rule_files:
+  - ../rules/public-endpoints.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-lan-locked", instance="https://radarr.holy-grail.ch/"}'
+        values: '1x5 0x10'
+      - series: 'probe_http_status_code{job="blackbox-lan-locked", instance="https://radarr.holy-grail.ch/"}'
+        values: '403x5 302x10'
+      - series: 'probe_success{job="blackbox-lan-locked", instance="https://sonarr.holy-grail.ch/"}'
+        values: '1x15'
+      - series: 'probe_success{job="blackbox-gated", instance="https://cup.holy-grail.ch/"}'
+        values: '1x5 0x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: LanLockedEndpointNotLocked
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: LanLockedEndpointNotLocked
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: blackbox-lan-locked
+              instance: https://radarr.holy-grail.ch/
+            exp_annotations:
+              summary: "LAN-locked endpoint not locked: https://radarr.holy-grail.ch/"
+              description: "https://radarr.holy-grail.ch/ should answer 403 from outside the LAN/VPN but returned HTTP 302 for 3 minutes. 200 or 302 means local-networks@file is gone from its Traefik router and the app is publicly reachable; 404 means the route is gone."
+      - eval_time: 12m
+        alertname: PublicEndpointDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: blackbox-gated
+              instance: https://cup.holy-grail.ch/
+            exp_annotations:
+              summary: "Public endpoint down: https://cup.holy-grail.ch/"
+              description: "https://cup.holy-grail.ch/ has not answered like a working backend for 3 minutes (HTTP ). A 404 here usually means Traefik lost the router rather than the app being down - check `docker logs traefik | grep -i plugin` first, since a failed plugin download disables the websecure entrypoint middleware and takes every public route with it."

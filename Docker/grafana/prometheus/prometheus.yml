@@ -95,6 +95,29 @@ scrape_configs:
     static_configs:
       - targets:
           - https://cup.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ---------------------------------------------------------------------------
+  # Admin apps locked to LAN/VPN (local-networks@file before authentik@file).
+  #
+  # Healthy = 403 from this probe, which reaches the edge from outside the local
+  # zone. A 200/302 means the lockdown leaked and the app is publicly reachable
+  # again; 404/5xx means the route is gone. Both fail; see public-endpoints.yml.
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-lan-locked"
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_forbidden]
+    static_configs:
+      - targets:
           - https://radarr.holy-grail.ch/
           - https://sonarr.holy-grail.ch/
           - https://prowlarr.holy-grail.ch/
