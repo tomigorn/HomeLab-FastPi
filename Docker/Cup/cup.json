@@ -10,6 +10,7 @@
     "extra": []
   },
   "servers": {
-    "fastpi": "http://cup-agent-fastpi:8000"
+    "fastpi": "http://cup-agent-fastpi:8000",
+    "beefy": "http://192.168.1.102:8000"
   }
 }
