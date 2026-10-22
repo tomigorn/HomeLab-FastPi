@@ -24,6 +24,10 @@ services:
     # dominate - not a throughput cap. Measure with something 9 MB or larger.
     command: tunnel --no-autoupdate --metrics localhost:20241 run --token-file /run/secrets/cloudflared_tunnel_token
     restart: always
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "cloudflared", "tunnel", "--metrics", "localhost:20241", "ready"]
       interval: 30s
