@@ -96,6 +96,7 @@ services:
     build: ./virustotal
     image: virustotal-local:latest
     container_name: virustotal
+    user: "65014:65014"
     mem_limit: 256m
     restart: unless-stopped
     security_opt:

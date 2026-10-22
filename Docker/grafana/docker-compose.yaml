@@ -72,6 +72,7 @@ services:
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.29.1
     container_name: blackbox-exporter
+    user: "65015:65015"
     mem_limit: 128m
     restart: unless-stopped
     volumes:
