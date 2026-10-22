@@ -225,20 +225,17 @@ services:
     mem_limit: 512m
     security_opt:
       - no-new-privileges:true
+    # linuxserver non-root mode (supported by this image): s6 and the app run as
+    # mouse:sambashare directly, so no root PID1 and no capabilities. PUID/PGID are ignored.
+    user: "1101:1100"
+    tmpfs:
+      - /run:uid=1101,gid=1100,exec   # s6 service dir
     cap_drop:
       - ALL
-    cap_add:             # linuxserver s6: chown /config, drop root -> PUID 1101
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETUID
-      - SETGID
     depends_on:
       gluetun:
         condition: service_healthy
     environment:
-      - PUID=1101
-      - PGID=1100
       - TZ=Europe/Zurich
       - WEBUI_PORT=8080
       - TORRENTING_PORT=1
@@ -253,7 +250,6 @@ services:
         target: /downloads
         bind:
           create_host_path: false
-      - ../_global/lsio-init/drop-users-group.sh:/custom-cont-init.d/drop-users-group.sh:ro
     logging:
       driver: "json-file"
       options:
