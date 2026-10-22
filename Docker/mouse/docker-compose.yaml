@@ -137,8 +137,16 @@ services:
     image: qmcgaw/gluetun:v3.41.3   # pinned release; :latest is the master/dev build
     container_name: gluetun_mouse
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     cap_add:
-      - NET_ADMIN
+      - NET_ADMIN          # tunnel, routes, firewall
+      - NET_RAW            # iptables-legacy
+      - NET_BIND_SERVICE   # internal DNS on :53
+      - DAC_OVERRIDE       # writes into the 1000-owned /gluetun
+      - CHOWN              # chowns /tmp/gluetun/ip
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
@@ -200,6 +208,16 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent_mouse
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:             # linuxserver s6: chown /config, drop root -> PUID 1101
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
     depends_on:
       gluetun:
         condition: service_healthy
@@ -237,6 +255,10 @@ services:
     container_name: mousehole
     image: tmmrtn/mousehole:latest
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       gluetun:
         condition: service_healthy
@@ -271,6 +293,10 @@ services:
     build: ./port-updater
     container_name: port_updater
     mem_limit: 64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       # localhost only (2026-10-19, SSO-only: no password login over the network).
       # Status page: ssh -L 8087:127.0.0.1:8087 fastpi, then http://localhost:8087/
