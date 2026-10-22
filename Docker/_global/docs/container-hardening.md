@@ -13,9 +13,9 @@ Edge/stateful restarts are machine.md yes-first → done only with owner home on
 | m4b-merge-dashboard | 65001 | ✅ done+verified | caddy, all-ro, read_only |
 | avatar-picker | 65002 | ✅ done+verified | chowned 600 secrets to 65002 |
 | claude-mockups-inbox | 65003 | ✅ done+verified | chowned ./answers; pi still reads them |
-| alertmanager | 65004? | ⏳ todo (safe-ish) | monitoring; chown its data volume |
-| beefy-waker | 65005? | ⏳ todo | host-net; chown ./secrets |
-| tower-waker | 65006? | ⏳ todo | host-net; chown ./secrets |
+| alertmanager | 65004 | ✅ done+verified | chowned secrets + alertmanager_data volume; /-/healthy 200 |
+| beefy-waker | 65005 | ✅ done+verified | host-net; chowned ./secrets; /key readable, serving :9001 |
+| tower-waker | 65006 | ✅ done+verified | host-net; no secret mount; serving :9002, healthy |
 | audiobookshelf | — | ⚠ careful | reads /mnt library (host uid 1101); uid change affects shared-mnt access |
 | m4b-auto-merge | — | ⚠ careful | writes /mnt library+quarantine (shared uid 1101) |
 | authentik-server | — | 🏠 home (EDGE/SSO) | |
