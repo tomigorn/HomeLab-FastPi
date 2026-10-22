@@ -11,8 +11,8 @@ services:
     mem_limit: 64m
     network_mode: host
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=65021
+      - PGID=65021
       - TZ=Europe/Zurich
       - SUBDOMAINS=${DUCKDNS_SUBDOMAINS}
       - TOKEN=${DUCKDNS_TOKEN}
@@ -31,8 +31,8 @@ services:
     mem_limit: 64m
     network_mode: host
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=65022
+      - PGID=65022
       - TZ=Europe/Zurich
       - NOIP_USERNAME=${NOIP_USERNAME}
       - NOIP_PASSWORD=${NOIP_PASSWORD}
