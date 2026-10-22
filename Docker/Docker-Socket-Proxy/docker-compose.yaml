@@ -148,6 +148,7 @@ services:
   socket-proxy-unix:
     image: alpine/socat:latest
     container_name: socket-proxy-unix
+    user: "65027:65027"   # owns the socket_bridge volume; the socket itself is mode 666
     restart: unless-stopped
     command: >-
       UNIX-LISTEN:/sock/docker.sock,fork,unlink-early,mode=666
