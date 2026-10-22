@@ -11,6 +11,19 @@ services:
     container_name: samba
     mem_limit: 256m
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE   # :445 / :139
+      - SETUID             # smbd becomes the connecting user (1101/1102)
+      - SETGID
+      - KILL               # parent signals per-user children
+      - CHOWN              # entrypoint/user setup + file ownership
+      - FOWNER
+      - DAC_OVERRIDE
+      - SYS_CHROOT         # avahi-daemon (share discovery) chroots itself
     labels:
       - autoheal-mouse=true
 
