@@ -8,8 +8,10 @@ services:
   languagetool:
     # LanguageTool 6.8 (community/self-hosted). Pinned, never :latest.
     # Tags: https://hub.docker.com/r/erikvl87/languagetool/tags
-    image: erikvl87/languagetool:6.8
+    build: .   # erikvl87/languagetool:6.8 + the files it patches at start chowned to 65038
+    image: languagetool-local:6.8
     container_name: languagetool
+    user: "65038:65038"   # dedicated; the image uid 100 is the host's messagebus (D-Bus)
     hostname: languagetool
     restart: unless-stopped
     # Hardening: never gain privileges; cap memory above the JVM Xmx so a
@@ -28,6 +30,7 @@ services:
     # langtool_disabledRuleIds, then execs the image's start.sh.
     entrypoint: ["/usr/local/bin/lt-entrypoint.sh"]
     environment:
+      HOME: /tmp   # the dedicated uid has no passwd home
       TZ: 'Europe/Zurich'
 
       # --- JVM heap. No n-grams loaded, so en+de fit comfortably in
