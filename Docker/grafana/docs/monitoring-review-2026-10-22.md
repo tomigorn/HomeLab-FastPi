@@ -75,6 +75,34 @@ Nothing else was changed. All other findings are left for owner confirmation as 
 
 ---
 
+## Follow-up fixes applied (2026-10-22, later same day)
+
+Applied with per-change verification (`promtool check config`/`check rules`, the test files, recreate only monitoring containers, confirm targets `up` + no rule eval errors). Committed to HomeLab-FastPi, not pushed.
+
+| # | Finding | Change | Old → New | Verify | Commit |
+|---|---|---|---|---|---|
+| ✅ | C1 (part) | Pinned the three remaining floating images | prometheus `:latest`→`v3.15.1`, node-exporter `:latest`→`v1.12.1`, telegraf `:latest`→`1.40.2` | all 3 containers up on pinned tags | `543a6ce` |
+| ⚠️ | A1/C1 (Grafana) | Pinned grafana-oss but **did NOT bump to 13.2.4** | grafana-oss `:latest`→`13.0.2` (current running) | up, login/dashboards unchanged | `543a6ce` |
+| ✅ | A2 | Prometheus patch bump (folded into the pin above) | 3.15.0 → 3.15.1 | `prometheus --version` = 3.15.1 | `543a6ce` |
+| ✅ | A3 | blackbox-exporter patch bump | `v0.29.0` → `v0.29.1` | up, version 0.29.1 | `0b2be9b` |
+| ✅ | C2/C3 | Global scrape interval + explicit timeout | `scrape_interval` 5s → 15s, added `scrape_timeout: 10s` | live config shows 15s/10s, all targets up | `390f3b1` |
+| ✅ | C4 | Alertmanager inhibition rules (live + `.example`) | +2 `inhibit_rules`: `AllPublicEndpointsDown`→`PublicEndpointDown`; `BlackboxExporterDown`→probe-derived alerts | `amtool check-config` = 2 inhibit rules; loaded | `9153e9e` |
+| ✅ | B6 | AdGuard DNS functional probe | new blackbox `dns` module `dns_adguard_holy_grail`, job `blackbox-adguard-dns` (192.168.1.2:53), rule `AdGuardDnsResolutionFailing` (critical, 3m), + promtool test | probe_success=1, target up, rule health ok, test passes | `88f0bca` |
+
+Post-change live state: **20 scrape targets** (was 19; +AdGuard DNS), all up except `cup` in its normal 15m post-restart warmup (confirmed answering by manual probe); **19 rule groups**, zero eval errors; all 8 promtool test files pass.
+
+### ⚠️ Grafana 13.2.4 NOT applied — needs owner decision
+
+The review assumed 13.2.4 was available for the image in use. It is not: Docker Hub **`grafana/grafana-oss` tops out at 13.0.2** (pushed 2026-06-02) — the exact version already running. 13.2.4 exists only under the **`grafana/grafana`** repo (2026-10-13). Reaching 13.2.4 therefore means switching image repositories (`grafana-oss` → `grafana`), which flips a deliberate OSS-only choice and pulls in the enterprise-bundle base image (inactive without a licence, but a real change). Left for owner confirmation. Pinned to 13.0.2 in the meantime, which still removes the floating-`:latest` drift risk (the core of C1). If grafana-oss is no longer actively published, that is itself an argument to move to `grafana/grafana` — owner's call.
+
+### Still recommended (not done here)
+
+- **B5** external dead-man's switch — unchanged; needs enrolling an external service (owner yes per machine.md).
+- **B7** duplicate InfluxDB datasource, **C5** scrambled blackbox comment block, **C6** dashboard UI-edit drift — cleanups, left as noted.
+- **A1** Grafana version bump — see the box above.
+
+---
+
 ## Suggested priority order
 
 1. **C1** pin the four `:latest` images (fixes the root cause of A1/A2) — then **A1/A3** bump Grafana + blackbox.
