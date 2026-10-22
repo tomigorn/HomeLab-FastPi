@@ -14,6 +14,19 @@ services:
     # use mDNS/SSDP auto-discovery. With host mode HA serves on the
     # host directly at http://<pi-ip>:8123 (the "ports:" key is ignored).
     network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    # Root (s6-overlay + Zigbee/BT), but only the caps it needs: s6 + writing the
+    # 1000-owned ./config, plus NET_RAW for bluetooth/DHCP discovery.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+      - NET_RAW
     environment:
       - TZ=${TZ}
       # Authentik OIDC client id (public client, not secret), read in
