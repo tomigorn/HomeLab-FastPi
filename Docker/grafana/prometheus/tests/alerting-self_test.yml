@@ -1,0 +1,40 @@
+# promtool test rules alerting-self_test.yml  (the integration label must survive: alertmanager.yml routes integration="telegram" to email)
+rule_files:
+  - ../rules/alerting-self.yml
+evaluation_interval: 1m
+tests:
+  - name: Telegram delivery failing keeps its integration label
+    interval: 1m
+    input_series:
+      - series: 'alertmanager_notifications_failed_total{job="alertmanager",instance="alertmanager:9093",integration="telegram",reason="serverError"}'
+        values: '0+1x40'
+      - series: 'alertmanager_notifications_failed_total{job="alertmanager",instance="alertmanager:9093",integration="email",reason="authError"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AlertNotificationsFailing
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: AlertNotificationsFailing
+        exp_alerts:
+          - exp_labels: {severity: info, job: alertmanager, instance: "alertmanager:9093", integration: telegram, reason: serverError}
+            exp_annotations:
+              summary: "Alertmanager cannot deliver via telegram"
+              description: "telegram notifications are failing (reason: serverError). If this is email, check the Brevo SMTP key has not been deactivated or rotated - it lives in grafana/alertmanager/secrets/smtp_password and is the same key Authentik uses. Diagnose with: docker logs --since 1h alertmanager | grep -i notify"
+
+  - name: Alertmanager not scraped for 10 min
+    interval: 1m
+    input_series:
+      - series: 'up{job="alertmanager",instance="alertmanager:9093"}'
+        values: '1x3 0x20'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: AlertmanagerDown
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AlertmanagerDown
+        exp_alerts:
+          - exp_labels: {severity: info, job: alertmanager, instance: "alertmanager:9093"}
+            exp_annotations:
+              summary: "Alertmanager is not being scraped"
+              description: "Prometheus cannot reach Alertmanager, so NO alert of any kind can be delivered right now. Absence of alerts is not evidence of health."

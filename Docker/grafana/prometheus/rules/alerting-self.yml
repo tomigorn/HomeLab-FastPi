@@ -8,6 +8,9 @@
 #
 # Both rules are severity=info ON PURPOSE, which routes them to Telegram only. That
 # is the point: an alert about email being broken must not be delivered by email.
+# The reverse holds too: AlertNotificationsFailing{integration="telegram"} has its own email-only route in alertmanager.yml.
+# AlertmanagerDown can never be delivered by the Alertmanager that is down; the real cover is container-exporter's Telegram fallback plus an external dead-man's switch (_global/docs/healthchecks-deadman-switch.md).
+# Tests: prometheus/tests/alerting-self_test.yml
 groups:
   - name: alerting-self
     rules:

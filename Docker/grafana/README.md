@@ -85,3 +85,17 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `blackbox-wan-lan-locked` | 403 with Traefik's body `Forbidden` | stonks | `PublicPathDown`, `CloudflareTunnelDown` |
 
 `blackbox-wan-*` run on `blackbox-exporter-wan` (uid 65010, read-only), which resolves through 1.1.1.1/9.9.9.9 and so goes through Cloudflare and the tunnel. Only hostnames with a public DNS record (radarr & co. have none). `CloudflareTunnelDown` = every Cloudflare probe fails while a LAN probe passes; it also fires when fastpi's internet is down.
+
+## Alert routing
+
+`alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`). Check a route: `docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=info`.
+
+| Match | Receiver |
+|---|---|
+| `WeeklyUpdateDigest` | `telegram-digest` |
+| `AlertNotificationsFailing{integration="telegram"}` | `email` (a broken Telegram is not reported over Telegram) |
+| `severity="info"` | `telegram` |
+| `severity="heartbeat"` | `heartbeat` (email, 28 days) |
+| everything else (warning, critical) | `admins` (email + Telegram) |
+
+`AlertmanagerDown` cannot be delivered by the Alertmanager that is down: the cover is the container-exporter Telegram fallback, and for fastpi fully offline an external dead-man's switch (`Docker/_global/docs/healthchecks-deadman-switch.md`, not set up).
