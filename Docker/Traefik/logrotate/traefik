@@ -1,0 +1,15 @@
+/home/pi/Projects/Docker/Traefik/traefik/logs/access.log {
+    daily
+    maxsize 100M
+    rotate 14
+    dateext
+    compress
+    delaycompress
+    missingok
+    notifempty
+    nocreate
+    su root root
+    postrotate
+        /usr/bin/docker kill --signal=USR1 traefik >/dev/null 2>&1 || true
+    endscript
+}

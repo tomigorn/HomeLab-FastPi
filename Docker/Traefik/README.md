@@ -36,6 +36,18 @@ routers (`dynamic/languagetool.yml` + the gitignored `languagetool-token.yml`)
 and `docker compose up -d` Traefik — that is the step that finally closes the
 `:443` bypass.
 
+## Access log rotation
+
+`logrotate/traefik` rotates `traefik/logs/access.log` (daily or at 100 MB, 14 kept, compressed with `delaycompress` so CrowdSec can finish the old file). `postrotate` sends `USR1` to Traefik, which reopens and recreates the file (no restart); CrowdSec's file tail follows the new file.
+
+| Task | Command |
+|---|---|
+| Install / update | `sudo install -m 0644 -o root -g root logrotate/traefik /etc/logrotate.d/traefik` |
+| Dry run | `sudo logrotate -d /etc/logrotate.d/traefik` |
+| Force one rotation | `sudo logrotate -f /etc/logrotate.d/traefik` |
+
+Runs from the system `logrotate.timer`. The file is not created by logrotate (`nocreate`) because uid 65026 has no host user name; Traefik creates it itself.
+
 ## Authentik SSO integration
 
 [Authentik](../Authentik/README.md) is the homelab IdP, reached at
