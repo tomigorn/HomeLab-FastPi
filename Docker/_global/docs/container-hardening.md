@@ -36,7 +36,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65020 | influxdb | | | |
 | 65021 | duckdns (app; PID1 root, see below) | | | |
 | 65022 | noip | | | |
-| 65024 / 65025 | Cup / cup-agent-fastpi | | | |
+| 65023 / 65024 / 65025 | cup-refresh / Cup / cup-agent-fastpi | | | |
 | 65026 | traefik | | | |
 | 65027 | socket-proxy-unix | | | |
 | 65028 | portainer-socket-proxy-unix | | | |
@@ -57,7 +57,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65010, 65023, 65029, 65031, 65051+.
+Free: 65010, 65029, 65031, 65051+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |
