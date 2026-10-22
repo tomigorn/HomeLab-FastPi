@@ -120,6 +120,8 @@ services:
       # Needed for silence/unsilence links in notifications to resolve. The port
       # is localhost-only, so the links work through `ssh -L 9093:127.0.0.1:9093 fastpi`.
       - "--web.external-url=http://localhost:9093"
+      # Notification log must outlive the longest repeat_interval (heartbeat 672h), else AM forgets it sent and re-notifies after the 120h default.
+      - "--data.retention=720h"
     # Runs as a dedicated uid (65004, not pi's 1000) matching the owner of
     # alertmanager/secrets/, so the SMTP password can stay mode 600 instead of being
     # made world-readable. The image defaults to nobody (65534), which produced
