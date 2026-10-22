@@ -251,6 +251,7 @@ services:
         target: /downloads
         bind:
           create_host_path: false
+      - ../_global/lsio-init/drop-users-group.sh:/custom-cont-init.d/drop-users-group.sh:ro
     logging:
       driver: "json-file"
       options:

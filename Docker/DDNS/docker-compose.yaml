@@ -19,9 +19,18 @@ services:
       - UPDATE_IP=ipv4
     volumes:
       - ./config:/config
+      - ../_global/lsio-init/drop-users-group.sh:/custom-cont-init.d/drop-users-group.sh:ro
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:             # linuxserver s6: chown /config, drop root -> PUID
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
 # #########################################################
 # No-IP ###################################################
 # #########################################################
