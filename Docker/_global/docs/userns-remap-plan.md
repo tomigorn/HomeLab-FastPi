@@ -4,8 +4,11 @@ Goal: shrink container-escape blast radius so a breakout does **not** inherit `p
 With daemon-wide `userns-remap`, in-container uid 0..N map to unprivileged host subuids, so a container
 root that escapes lands on a harmless high uid with no host rights.
 
-Status: **PREPARED, NOT CUT OVER.** `daemon.json` not written, dockerd not restarted. Flip is a
-machine.md yes-first, owner-present action (restarts every container incl. edge + VPN + LAN DNS).
+Status: **REJECTED 2026-10-22 — do NOT cut over.** See "## RESOLUTION" at the end: the official Docker
+docs confirm enabling remap on an existing install MASKS all existing named volumes with no supported
+migration, which would orphan Authentik's Postgres / Vault / Grafana-Influx data. The replacement is
+per-container escape-hardening (no-new-privileges, non-root user, cap_drop, read_only), tracked separately.
+`daemon.json` was never written, dockerd never restarted — nothing to roll back.
 
 ## Remap identity (already provisioned, non-disruptive)
 
@@ -200,3 +203,71 @@ would leave it down until morning with no remote access (VPN itself would be dow
 seconds. All of that makes it a machine.md yes-first, owner-present action. The safe, non-disruptive 90% —
 remap user, subuid/subgid ranges, full ownership/exception analysis, and a tested rollback — is done here, so
 the cutover is a ready, supervised one-shot.
+
+## PHASE 1 — LOCKED SCOPE (pre-staged 2026-10-22, flip pending owner-home-on-LAN)
+
+Decision: lowest blast radius — **remap only the small stateless stacks, exempt everything else.**
+
+- **REMAP (userns_mode default, no exemption):** `stonks`, `claude-mockups`(+`claude-mockups-inbox`),
+  `backdrop-carousel`, `Cup`(+`cup-agent-fastpi`), `sbb-easyride-taxreport`, `languagetool`
+  (compose at `LanguageTool/Raspi/docker-compose.yaml`).
+- **EXEMPT (`userns_mode: host`):** every other running stack (the 15 exceptions + edge/stateful:
+  Traefik, Authentik, CrowdSec, grafana, HashiCorpVault, bitwarden, Avatar-Picker, antivirus,
+  cloudflared, DDNS, M4b-*, nzb, mouse, adguard, Home-Assistant, Beefy/Tower-Waker, Jenkins,
+  Docker-Socket-Proxy, Portainer, audiobookshelf).
+- **Watchtower:** not deployed on fastpi (empty dir) — nothing to do.
+- **chown scope (Phase 1, the ONLY chowns):** `Stonks/data` → 296608:296608; `Claude-Mockups/answers`
+  → 297608:297608. All other remapped stacks are `:ro` binds → no chown. No remapped stack owns a
+  named data volume → **no +296608 uid-shift needed anywhere** in Phase 1.
+- **Volume migration (Phase 1):** pure copy of all 29 named volumes (7.3 G) into the new root
+  `/var/lib/docker/296608.296608/volumes/`, ownership preserved (exempted stacks run host-mapped →
+  files keep host uids). Done in-window AFTER `compose down` (DB consistency).
+- **Record touched compose files** to `_global/docs/userns-remap-snapshot/touched-files.manifest`
+  as each `userns_mode: host` edit is made → `userns-rollback.sh full` reads it.
+- **Rollback:** `_global/scripts/userns-rollback.sh panic` (remove daemon.json + restart → original
+  root) or `full` (panic + git-revert manifest + revert the 2 chowns).
+
+### OPEN ITEM to validate live before `--go` (do NOT skip)
+Data-root migration ordering: dockerd creates the empty new root `296608.296608/` only on first
+remapped start. Confirm the correct sequence (likely: write daemon.json → restart docker to create
+empty new root → stop docker → copy volumes in → start docker), vs pre-creating the dir by hand.
+Verify against current Docker docs at execution time; the big-bang runbook above assumes manual
+pre-create at step 4. Images: re-pull is simplest (containers pull on first up); copying image
+layers across roots is not worth the fragility.
+
+### In-window sequence (attended, owner home on LAN)
+1. OOB alert path check: `_global/scripts/oob-alert.sh "userns Phase1 starting"`.
+2. `docker ps -a --format '{{.Names}}' | sort > /tmp/ctr.before`.
+3. `compose down` all stacks, **edge/VPN/DNS last** (Traefik, Authentik, CrowdSec, adguard, WireguardVPN).
+4. Write `/etc/docker/daemon.json` = `{ "userns-remap": "dockremap" }` (owner approves this gated step).
+5. Validate ordering (OPEN ITEM) → migrate volumes (copy, preserve ownership).
+6. Apply `userns_mode: host` to exempt stacks (record each to the manifest); chown the 2 dirs.
+7. `sudo systemctl restart docker`; `docker info | grep userns`.
+8. Bring up Gate A (socket chain) → B (edge, run checklist) → C (DNS+VPN) → D (rest).
+9. `docker ps` vs `/tmp/ctr.before`; `docker logs traefik` clean; full verification checklist.
+Any gate fails → `userns-rollback.sh panic`, then investigate.
+
+## RESOLUTION 2026-10-22 — REJECTED (daemon-wide userns-remap is the wrong tool here)
+
+Validated the "open item" (data-root migration) against the official docs
+(docs.docker.com/engine/security/userns-remap/). Findings that kill the plan:
+
+- **Enabling remap MASKS existing images/containers/named volumes** and there is **no supported
+  migration** into the new `/var/lib/docker/<uid>.<gid>/` root. Docs: *"Enabling userns-remap
+  effectively masks existing image and container layers…"* and *"It is best to enable this feature on
+  a new Docker installation rather than an existing one."* → Authentik Postgres, Vault, Grafana/Influx,
+  CrowdSec named volumes would come up **empty**. `userns_mode: host` does NOT save them (the data-root
+  moves for the whole daemon).
+- **`--network=host` is a documented known-limitation** under a remapped daemon, and host-mode
+  containers still get their image-layer filesystem remapped (breaks setuid/sudo). Our exemption list is
+  mostly host-net + privileged + docker-sock + stateful — i.e. almost everything must be exempted.
+- Net: daemon-wide remap would harden only ~6 trivial stateless stacks while risking all edge/SSO/data.
+  Bad cost/benefit.
+
+**Replacement (adopted): per-container escape-hardening**, incrementally, per stack with verify:
+`security_opt: no-new-privileges:true` (Tier 1), pin `:latest` images (Tier 2), non-root `user:`
+(Tier 3), `cap_drop:[ALL]` + minimal add (Tier 4), `read_only:true`+tmpfs (Tier 5). Edge/stateful =
+prepare-only until owner home (restart = machine.md yes-first).
+
+`userns-rollback.sh` is kept as a generic daemon-remap safety tool should this ever be revisited on a
+fresh install; it is NOT needed for the rejected plan.
