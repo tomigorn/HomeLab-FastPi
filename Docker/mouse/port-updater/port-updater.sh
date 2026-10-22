@@ -78,6 +78,22 @@ apply_qbittorrent_settings() {
   login_qbittorrent
 }
 
+# Sleep until the next full cycle, cut short when qBittorrent's session cookie turns
+# invalid (HTTP 403 = qBittorrent restarted), so the port is re-applied within ~15 s.
+sleep_until_next_cycle() {
+  _waited=0
+  while [ "$_waited" -lt "$CHECK_INTERVAL" ]; do
+    sleep "$SESSION_CHECK_INTERVAL"
+    _waited=$((_waited + SESSION_CHECK_INTERVAL))
+    _code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -b /tmp/qbit_cookie \
+      http://${GLUETUN_IP}:8080/api/v2/app/version 2>/dev/null || echo "000")
+    if [ "$_code" = "403" ]; then
+      echo "qBittorrent session expired (restart?) - re-applying port now"
+      return 0
+    fi
+  done
+}
+
 log_event() {
   _event="$1"
   _port="${2:-0}"
@@ -167,6 +183,7 @@ echo "Starting port monitoring loop..."
 LAST_PORT=0
 ZERO_PORT_COUNT=0
 ZERO_PORT_LIMIT="${ZERO_PORT_LIMIT:-3}"
+SESSION_CHECK_INTERVAL="${SESSION_CHECK_INTERVAL:-15}"
 while true; do
   # Re-login periodically (cookie expires)
   # If qBittorrent is unreachable (often due to gluetun having restarted and
@@ -226,5 +243,5 @@ while true; do
   else
     echo "Port OK: VPN=$PORT, qBit=$QBIT_PORT"
   fi
-  sleep $CHECK_INTERVAL
+  sleep_until_next_cycle
 done
