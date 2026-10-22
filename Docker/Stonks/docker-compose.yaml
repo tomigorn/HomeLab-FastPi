@@ -8,6 +8,7 @@ services:
   stonks:
     image: stonks:latest
     container_name: stonks
+    user: "65007:65007"
     mem_limit: 512m
     restart: unless-stopped
     security_opt:
