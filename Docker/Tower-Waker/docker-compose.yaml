@@ -32,7 +32,7 @@ services:
       start_period: 5s
     # Non-root + no capabilities: it binds :9002 (>1024), sends a broadcast UDP
     # packet (SO_BROADCAST is unprivileged) — neither needs root or any capability.
-    user: "1000:1000"        # the "waker" user created in the Dockerfile
+    user: "65006:65006"      # dedicated uid (not pi's 1000); no secret mounts to chown
     cap_drop:
       - ALL
     mem_limit: 64m

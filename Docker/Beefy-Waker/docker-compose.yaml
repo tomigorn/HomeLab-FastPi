@@ -33,7 +33,7 @@ services:
     # Non-root + no capabilities: it binds :9001 (>1024), sends a broadcast UDP
     # packet (SO_BROADCAST is unprivileged), reads the mounted key, and runs ssh —
     # none of which need root or any capability. uid 1000 owns app/secrets on the host.
-    user: "1000:1000"        # the "waker" user created in the Dockerfile
+    user: "65005:65005"      # dedicated uid (not pi's 1000); secrets chowned to match
     cap_drop:
       - ALL
     mem_limit: 64m
