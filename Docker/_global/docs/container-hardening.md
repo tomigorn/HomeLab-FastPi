@@ -1,68 +1,85 @@
-# Container escape-hardening (fastpi)
+# Container hardening (fastpi)
 
-> **DNS / container egress (fixed 2026-10-22).** `/etc/docker/daemon.json` (a host file, NOT in git) now
-> contains `{ "dns": ["192.168.1.2"] }` — the host LAN IP where AdGuard listens. Before this, bridge
-> containers were handed the router (192.168.1.1) which doesn't recurse, so container DNS + image builds
-> failed. This one line fixes both runtime and builds, keeps every container behind AdGuard. Requires a
-> `sudo systemctl restart docker` to take effect (done 2026-10-22, whole homelab bounced + verified: SSO
-> canary OK, all 56 containers back, `apk` in a fresh container works). AdGuard `allowed_clients: []` (all
-> allowed) so no ACL change was needed. **If fastpi is ever rebuilt, recreate this file.**
+State 2026-10-22, verified from `/proc/<pid>/status` of every process (not `docker exec id`).
 
-> **ROOT-HARDENING IS DEFERRED until AFTER the userns-remap migration** (user decision 2026-10-22): the
-> migration changes the whole uid/cap picture, so re-doing cap_drop/non-root first would be wasted. The
-> remaining root-hardening list is at the bottom of this doc — revisit it post-migration. See
-> `userns-remap-recipe.md` for the migration plan.
+## Rules for every container
+| Rule | How |
+|---|---|
+| Never uid/gid 1000 (`pi`, sudo + docker) | dedicated `user: "650NN:650NN"`, next free in the map below |
+| No root where the image allows it | `user:`; low ports via `sysctls: net.ipv4.ip_unprivileged_port_start: "0"` (bridge) or `NET_BIND_SERVICE` (host-net) |
+| No capabilities | `cap_drop: [ALL]`, `cap_add` only what a test proved is needed |
+| No privilege gain | `security_opt: [no-new-privileges:true]` |
+| Read-only where possible | `read_only: true` + `tmpfs` for `/tmp` / `/run` |
+| Shared data only through a shared group | `group_add`, setgid dir + default ACL; everything else alone in its own group |
+| Never the Docker socket | only the 3 socket proxies hold it (below) |
 
+linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=…,exec`) when the image readme lists "Non-Root Operation". Otherwise mount `_global/lsio-init/drop-users-group.sh` (removes `abc` from `users` = gid 1000).
 
-Goal: make a container escape very hard to turn into host takeover. Daemon-wide userns-remap was
-REJECTED (see userns-remap-plan.md) — this is the per-container replacement. Levers, per stack:
-`no-new-privileges` (Tier 1, done widely) → run off uid 1000 → non-root where the image allows →
-`cap_drop:[ALL]`+minimal → `read_only`+tmpfs. Dedicated uid scheme: **65000+ range, never 1000**.
+## uid map
+| uid | Container | Extra groups | Caps | ro |
+|---|---|---|---|---|
+| 65001 | m4b-merge-dashboard | | NET_BIND_SERVICE | ✅ |
+| 65002 | avatar-picker | | | ✅ |
+| 65003 | claude-mockups-inbox | | | ✅ |
+| 65004 | alertmanager | | | |
+| 65005 / 65006 | beefy-waker / tower-waker | | | |
+| 65007 | stonks | | | |
+| 65008 | backdrop-carousel | | | |
+| 65009 | sbb-easyride-taxreport | | | |
+| 65011–65013 | autoheal-antivirus / -mouse / -nzb | | | |
+| 65014 | virustotal | | | |
+| 65015 | blackbox-exporter | | | |
+| 65016 | claude-mockups | | NET_BIND_SERVICE | |
+| 65017 | audiobookshelf | 1100 | | ✅ |
+| 65018 | m4b-auto-merge | 1100 | | |
+| 65019 | authentik-server, authentik-worker | | | |
+| 65020 | influxdb | | | |
+| 65021 | duckdns (app; PID1 root, see below) | | | |
+| 65022 | noip | | | |
+| 65024 / 65025 | Cup / cup-agent-fastpi | | | |
+| 65026 | traefik | | | |
+| 65027 | socket-proxy-unix | | | |
+| 65028 | portainer-socket-proxy-unix | | | |
+| 65030 | portainer | 65028 | | |
+| 65032 | crowdsec | | | |
+| 65033 | adguardhome (host-net) | | NET_BIND_SERVICE | |
+| 65034 | homelab-dashboard (repo `~/landingpage`) | | | ✅ |
+| 65035 / 65036 | wg-chores-app / -sqliteweb (repo `~/Documents/development/WG-Chores`) | 65037 | | ✅ |
+| 65038 | languagetool | | | |
+| 65039 | clamav | 1100, 65046 | DAC_READ_SEARCH | |
+| 65040 | telegraf | | | |
+| 65041 / 65042 | mousehole / port_updater | | | |
+| 65043 / 65044 / 65045 | prometheus / node-exporter / json-exporter | | | |
+| 65047 / 65048 / 65049 | socket-proxy-ro / socket-proxy-autoheal / portainer-socket-proxy | 991 (docker) | | ✅ |
+| 65050 | grafana | | | |
+| 1101:1100 | sabnzbd, qbittorrent (lsio non-root) | | | |
+| 70 | authentik-postgresql | | | |
+| 65532 | cloudflared (image default) | | | |
 
-Edge/stateful restarts are machine.md yes-first → done only with owner home on LAN.
+Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
+Free: 65010, 65023, 65029, 65031, 65051+.
 
-## uid-1000 (= `pi`/sudo on escape) — the priority
-| Stack / container | New uid | Status | Notes |
-|---|---|---|---|
-| m4b-merge-dashboard | 65001 | ✅ done+verified | caddy, all-ro, read_only |
-| avatar-picker | 65002 | ✅ done+verified | chowned 600 secrets to 65002 |
-| claude-mockups-inbox | 65003 | ✅ done+verified | chowned ./answers; pi still reads them |
-| alertmanager | 65004 | ✅ done+verified | chowned secrets + alertmanager_data volume; /-/healthy 200 |
-| beefy-waker | 65005 | ✅ done+verified | host-net; chowned ./secrets; /key readable, serving :9001 |
-| tower-waker | 65006 | ✅ done+verified | host-net; no secret mount; serving :9002, healthy |
-| audiobookshelf | 65017 | ✅ done+verified | kept group_add 1100 (ACL); chowned config+metadata; healthy, DB intact, library rw ok |
-| m4b-auto-merge | — | ⛔ EXCEPTION (stays 1000) | compose documents a hard uid-1000 dependency: it renames library files owned by uid 1000, and the image's `merger` user + `/home/merger/.ssh` + ssh keys assume 1000. Moving it needs a dedicated supervised session (verify the merge pipeline + beefy SSH after). |
-| authentik-server | — | 🏠 home (EDGE/SSO) | |
-| authentik-worker | — | 🏠 home (EDGE/SSO) | |
+## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
+| Container | Caps | Why it stays root |
+|---|---|---|
+| duckdns | CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID | image has no non-root mode (tested 2026-10-22: s6 init fails); app runs as 65021 |
+| homeassistant | CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, NET_RAW | official image has no supported non-root mode (bluetooth/dbus, pip into /config) |
+| gluetun_nzb, gluetun_mouse | NET_ADMIN, NET_RAW, NET_BIND_SERVICE, DAC_OVERRIDE, CHOWN | creates tun + iptables; no non-root mode |
+| samba | NET_BIND_SERVICE, SETUID, SETGID, KILL, CHOWN, FOWNER, DAC_OVERRIDE, SYS_CHROOT | smbd switches to each user; avahi chroots |
+| WireGuard-VPN | NET_ADMIN, NET_RAW | wg interface + iptables |
+| loyalty-cards / loyalty-sync | untouched | stack PARKED |
 
-## root (uid 0; escape = host root) — reduce where possible
-Done+verified non-root 2026-10-22: **stonks→65007**, **backdrop-carousel→65008** (both serve 200),
-**sbb-easyride→65009** (pre-provided cert mounted ro + HOME=/tmp; serves 200; OIDC = user-spot-check).
+## Docker socket
+Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount it (ro), non-root via group 991. Their entrypoint is overridden to run haproxy on the shipped template (`BIND_CONFIG: ":2375"`) because the upstream entrypoint writes into a root-owned dir. After an image bump: check `docker logs` and that an allowed endpoint returns 200 and a denied one 403.
 
-More done+verified 2026-10-22: autoheal×3→65011/65012/65013 (reach socket-proxy, ping 200),
-virustotal→65014 (reads /scan, downloads are other-readable), blackbox-exporter→65015 (modules are
-http/tcp/dns only — NO NET_RAW needed; actively probing).
+## Host changes (not in git; recreate on rebuild)
+| What | Value |
+|---|---|
+| `/etc/docker/daemon.json` | `{"dns":["192.168.1.2"]}` (containers resolve through AdGuard; needs `systemctl restart docker`) |
+| `/var/lib/node-exporter/textfile` | `pi:65046`, mode 2775 |
+| Traefik secrets (`dynamic/avatar-picker-secret.yml`, `dynamic/languagetool-token.yml`, `secrets/crowdsec_lapi_key`) | `pi:65026`, 640 |
+| Data dirs / volumes | owned by the uid in the map |
 
-Still root, remaining:
-- claude-mockups (caddy) — DEFERRED: binds :80 AND writes its config/data dir → non-root needs
-  cap_add NET_BIND_SERVICE + a writable tmpfs/XDG dirs. Own small batch.
-- whoami — lives in the Traefik (edge) compose → edge/home.
-- cap_drop:[ALL]+minimal on the must-stay-root set (careful, each needs its cap list): clamav, samba,
-  gluetun(NET_ADMIN), qbittorrent/sabnzbd — these are the media/download pipeline, verify after each.
-- EDGE/stateful (home): adguard, traefik, crowdsec, authentik×2, influxdb, postgres, cloudflared, WireGuard.
-
-Must stay root but `cap_drop:[ALL]`+minimal + no-new-priv: adguard(:53), traefik(:80/443), crowdsec,
-clamav(reads all uids), samba, gluetun(NET_ADMIN), qbittorrent/sabnzbd(/mnt 1101), influxdb/postgres(home).
-loyalty-cards = PARKED, skip.
-
-## NOT in this repo (do not edit here — locate their repo first)
-`homelab-dashboard`, `wg-chores-app`, `wg-chores-sqliteweb` run on fastpi but are defined in another
-repo (likely ~/landingpage or a wg-chores project). cloudflared stack also runs `cloudflare-ddns-minecraft`
-+ `cloudflare-ddns-vpn` (account for these when hardening cloudflared).
-
-## Already good (non-root, non-1000)
-grafana(472), prometheus/node-exporter/json-exporter(65534), telegraf(999), languagetool(100), loyalty-sync(10001).
-
-## docker.sock
-Held ONLY by the 3 hardened socket-proxies (portainer-socket-proxy, socket-proxy-ro, socket-proxy-autoheal)
-— consumers go through them, never the real socket. Keep it that way.
+## Not done, on purpose
+- userns-remap: little gain over the above, see `userns-remap-recipe.md`.
+- duckdns: could be replaced by a tiny non-root curl container; kept the standard image.
