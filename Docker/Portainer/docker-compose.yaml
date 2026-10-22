@@ -88,6 +88,7 @@ services:
   socket-proxy-unix:
     image: alpine/socat:latest
     container_name: portainer-socket-proxy-unix
+    user: "65028:65028"   # socket is mode 660 -> only this uid/gid; Portainer joins the group
     restart: unless-stopped
     command: >-
       UNIX-LISTEN:/sock/docker.sock,fork,unlink-early,mode=660
@@ -110,6 +111,9 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
+    user: "65030:65030"
+    group_add:
+      - "65028"           # read the socat bridge socket (mode 660, group 65028)
     security_opt:
       - no-new-privileges:true
     cap_drop:
