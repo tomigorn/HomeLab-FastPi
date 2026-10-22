@@ -73,9 +73,16 @@ bash Raspi/scripts/test.sh
 Both machines pull the `HomeLab-FastPi` git repo; there is **no
 auto-sync**. After a change: `git pull` on each machine, then restart.
 
-To update LanguageTool: bump the pinned tag in both compose files
-(`erikvl87/languagetool:6.8` → newer), `up -d`, then run `test.sh`.
+To update LanguageTool: bump the pinned tag (`erikvl87/languagetool:6.8` → newer)
+in `Raspi/Dockerfile` (`FROM`) and `MacOS/docker-compose.yaml`, then on the Pi
+`docker compose -f Raspi/docker-compose.yaml up -d --build`, then run `test.sh`.
 Tags: <https://hub.docker.com/r/erikvl87/languagetool/tags>. Never `:latest`.
+
+The Pi runs a thin local image (`languagetool-local`, see `Raspi/Dockerfile`) as a
+dedicated uid 65038: the upstream image's uid 100 is the host's `messagebus` (D-Bus)
+user. The Dockerfile only chowns the files `lt-entrypoint.sh` and `start.sh` write at
+start; if a new upstream version moves them, `docker logs languagetool` shows
+`Permission denied` and the list there needs updating.
 
 ### CVE status (checked 2026-10-21)
 
