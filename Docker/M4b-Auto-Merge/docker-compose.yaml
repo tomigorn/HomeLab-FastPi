@@ -47,9 +47,17 @@ services:
       - ./secrets/beefy:/ssh/beefy:ro
       - ./secrets/known_hosts:/ssh/known_hosts:ro
       - ./secrets/ssh_config:/home/merger/.ssh/config:ro
-    # uid 1000 owns the library files on the host, so a rename there works
-    # without root. Nothing here needs a capability.
-    user: "1000:1000"
+      # Gives the dedicated uid 65018 a passwd entry (home /home/merger) so ssh's
+      # getpwuid resolves without baking the uid into the image (Dockerfile sets 65018
+      # too; this covers the current pre-rebuild image). No secret.
+      - ./passwd:/etc/passwd:ro
+    # Dedicated uid (65018, NOT pi's 1000). The library + quarantine dirs are group
+    # sambashare (gid 1100), setgid, with an ACL granting that group rwx (+default),
+    # so group_add 1100 gives rename/create rights there without owning the files or
+    # being uid 1000. Nothing here needs a capability.
+    user: "65018:65018"
+    group_add:
+      - "1100"
     cap_drop:
       - ALL
     security_opt:

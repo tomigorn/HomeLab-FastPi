@@ -6,7 +6,7 @@ FROM python:3.12-alpine
 RUN apk add --no-cache openssh-client rsync ffmpeg \
  && pip install --no-cache-dir watchdog==6.0.0
 
-RUN adduser -D -u 1000 -g 1000 merger
+RUN adduser -D -u 65018 merger
 COPY app/watcher.py /app/watcher.py
 
 USER merger
