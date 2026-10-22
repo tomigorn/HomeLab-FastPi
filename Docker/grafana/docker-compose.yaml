@@ -6,7 +6,7 @@ services:
 # Prometheus ##############################################
 # #########################################################
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.15.1
     container_name: prometheus
     mem_limit: 1g
     volumes:
@@ -34,7 +34,7 @@ services:
 # Node Exporter ###########################################
 # #########################################################
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.12.1
     container_name: node-exporter
     mem_limit: 128m
     restart: unless-stopped
@@ -152,7 +152,7 @@ services:
 # Grafana #################################################
 # #########################################################
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana-oss:13.0.2   # latest tag published for grafana-oss (13.2.x is only on grafana/grafana)
     container_name: grafana
     mem_limit: 512m
     restart: unless-stopped
@@ -235,7 +235,7 @@ services:
 # Telegraf ################################################
 # #########################################################
   telegraf:
-    image: telegraf:latest
+    image: telegraf:1.40.2
     container_name: telegraf
     mem_limit: 256m
     user: telegraf
