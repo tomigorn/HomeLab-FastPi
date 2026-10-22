@@ -16,6 +16,8 @@ services:
     # runaway can't OOM-freeze the shared Pi (RSS runs ~0.5-1G over -Xmx).
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     mem_limit: 1280m
     mem_reservation: 512m
     # No published ports — public access is via Traefik on the
