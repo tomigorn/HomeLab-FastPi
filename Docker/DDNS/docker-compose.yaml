@@ -39,9 +39,9 @@ services:
     container_name: noip
     mem_limit: 64m
     network_mode: host
+    # noip-duc is a single static binary and ignores PUID/PGID, so the uid is set here.
+    user: "65022:65022"
     environment:
-      - PUID=65022
-      - PGID=65022
       - TZ=Europe/Zurich
       - NOIP_USERNAME=${NOIP_USERNAME}
       - NOIP_PASSWORD=${NOIP_PASSWORD}
@@ -51,6 +51,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     
 # =========================================================
 # Networks ================================================
