@@ -21,6 +21,12 @@ scrape_configs:
       - targets:
           - node-exporter:9100
 
+  # Self-scrape: rule failures, dropped notifications, failed reloads, TSDB trouble (rules/prometheus-self.yml).
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - localhost:9090
+
   # Alertmanager's own health, so "the notifier is down" is itself detectable.
   - job_name: "alertmanager"
     static_configs:

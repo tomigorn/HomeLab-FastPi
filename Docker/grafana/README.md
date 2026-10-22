@@ -52,3 +52,20 @@ docker kill -s HUP prometheus   # reload rules
 | `HostNvmeHot` | NVMe at or over its own warning temperature for 10 min | warning |
 | `HostLoadHigh` | load15 > 2 per core for 30 min | warning |
 | `HostOomKill` | kernel OOM kill in the last 15 min | warning |
+
+## Prometheus self-monitoring
+
+Job `prometheus` scrapes `localhost:9090`. Rules: `prometheus/rules/prometheus-self.yml`, all warning.
+
+| Alert | Fires when |
+|---|---|
+| `PrometheusConfigReloadFailed` | last reload failed for 10 min (old config still active) |
+| `PrometheusRuleFailures` / `PrometheusMissingRuleEvaluations` | a rule group errors / skips evaluations for 15 min |
+| `PrometheusErrorSendingAlerts` / `PrometheusNotificationsDropped` | > 1% send errors / any drop to Alertmanager for 15 min |
+| `PrometheusNotConnectedToAlertmanagers` | no Alertmanager discovered for 10 min |
+| `PrometheusTSDBCompactionsFailing` / `…ReloadsFailing` | failures in the last 3 h, for 4 h |
+| `PrometheusTSDBWALCorruptions` | WAL corruption in the last 3 h |
+| `PrometheusNotIngestingSamples` | no samples appended for 10 min |
+| `TargetDown` | `up == 0` for 5 min; excludes `blackbox-*` (`BlackboxExporterDown`; sleeping beefy/tower stay `up`), `alertmanager` (`AlertmanagerDown`), `cup` (`CupNotReporting`) |
+
+`prometheus.yml`, `blackbox.yml` and `alertmanager.yml` are single-file bind mounts: an editor that replaces the file leaves the container on the old inode, so after editing them run `docker compose up -d --force-recreate <service>` instead of a HUP/reload.
