@@ -48,8 +48,13 @@ services:
       # not needed because we will use the web UI through the reverse proxy (Traefik)
       # - "51821:51821/tcp" # Web UI port
     # SYS_MODULE dropped: the host loads wireguard at boot (/etc/modules-load.d/wireguard.conf)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     cap_add:
-      - NET_ADMIN
+      - NET_ADMIN   # wg interface, routes, iptables NAT
+      - NET_RAW     # iptables-legacy opens raw sockets to init the nat table
     # Discovery/token/userinfo calls to Authentik go straight to Traefik on this host
     # (valid public cert) instead of out through the Cloudflare tunnel; the container's
     # resolver may otherwise not see AdGuard's local *.holy-grail.ch answer.
