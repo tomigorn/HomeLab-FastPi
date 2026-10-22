@@ -20,7 +20,7 @@ http() { curl -s -m 10 -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 smoke-test
 HOME_IP=$(curl -s -m 8 https://ifconfig.me/ip)
 
 echo "== Edge: Traefik, Cloudflare tunnel, CrowdSec"
-check "traefik version"            '^3\.7\.15$' "$(docker exec traefik traefik version 2>/dev/null | awk '/Version:/{print $2}')"
+check "traefik version"            '^3\.7\.16$' "$(docker exec traefik traefik version 2>/dev/null | awk '/Version:/{print $2}')"
 check "public site (home)"         '^200$' "$(http https://home.holy-grail.ch/)"
 check "scanner filter (/.env)"     '^403$' "$(http https://cloud.holy-grail.ch/.env)"
 running cloudflared crowdsec
@@ -48,7 +48,7 @@ check "community IP blocked (403)"  '^403$' "$([[ -n $tip && -n $cip ]] && curl 
 
 echo "== Authentik (SSO)"
 running authentik-server authentik-worker authentik-postgresql
-check "authentik version"          '2026\.8\.4' "$(docker inspect -f '{{.Config.Image}}' authentik-server)"
+check "authentik version"          '2026\.8\.5' "$(docker inspect -f '{{.Config.Image}}' authentik-server)"
 check "authentik postgres"         '^18\.' "$(docker exec authentik-postgresql postgres --version | awk '{print $3}')"
 check "login page"                 '^200$' "$(http https://sso.holy-grail.ch/if/flow/default-authentication-flow/)"
 check "OIDC discovery (Nextcloud)" '^200$' "$(http https://sso.holy-grail.ch/application/o/nextcloud/.well-known/openid-configuration)"
