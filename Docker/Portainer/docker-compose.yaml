@@ -143,8 +143,10 @@ services:
     depends_on:
       - socket-proxy-unix
     networks:
-      - traefik_proxy     # inbound (Traefik) and outbound (beefy agent :9001)
-      - portainer_socket  # Docker API via the proxy
+      traefik_proxy:      # inbound (Traefik) and outbound (beefy agent :9001)
+        # Pinned: the host's DOCKER-USER guard lets only this address reach beefy:9001.
+        ipv4_address: 172.24.255.7
+      portainer_socket: {}  # Docker API via the proxy
 # =========================================================
 # Volumes =================================================
 # =========================================================
