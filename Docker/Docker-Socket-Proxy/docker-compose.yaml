@@ -27,6 +27,7 @@ services:
     container_name: socket-proxy-ro
     restart: unless-stopped
     environment:
+      BIND_CONFIG: ":2375"   # IPv4; the internal networks have no IPv6
       # Endpoints granted. Everything not listed defaults to 0 (denied).
       CONTAINERS: 1      # list/inspect containers - telegraf stats, Cup's version checks
       IMAGES: 1          # Cup compares local image digests against registries
@@ -54,20 +55,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - socket_proxy
-    # NOT read_only. The entrypoint renders haproxy.cfg from
-    # /usr/local/etc/haproxy/haproxy.cfg.template at startup, so that directory
-    # must be writable - and tmpfs-ing it MASKS the template that ships in the
-    # image ("sed: haproxy.cfg.template: No such file or directory"). The socket
-    # itself is still mounted read-only, and the capability restrictions below do
-    # the meaningful work here.
+    # Non-root; the docker group (991) opens the socket. The image entrypoint renders
+    # haproxy.cfg into a root-owned dir, so haproxy runs the shipped template directly:
+    # it expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
+    user: "65047:65047"
+    group_add:
+      - "991"
+    entrypoint: ["haproxy", "-W", "-db", "-f", "/usr/local/etc/haproxy/haproxy.cfg.template"]
+    read_only: true
+    tmpfs:
+      - /run:mode=1777,size=1m   # haproxy.pid
     cap_drop:
       - ALL
-    cap_add:
-      # haproxy needs these to bind and drop to its own unprivileged user
-      - CHOWN
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
     mem_limit: 64m
@@ -80,6 +79,7 @@ services:
     container_name: socket-proxy-autoheal
     restart: unless-stopped
     environment:
+      BIND_CONFIG: ":2375"   # IPv4; the internal networks have no IPv6
       CONTAINERS: 1
       # POST is required: autoheal calls POST /containers/{id}/restart. The proxy
       # cannot restrict POST to the restart endpoint alone, so this profile is
@@ -116,19 +116,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - socket_proxy
-    # NOT read_only. The entrypoint renders haproxy.cfg from
-    # /usr/local/etc/haproxy/haproxy.cfg.template at startup, so that directory
-    # must be writable - and tmpfs-ing it MASKS the template that ships in the
-    # image ("sed: haproxy.cfg.template: No such file or directory"). The socket
-    # itself is still mounted read-only, and the capability restrictions below do
-    # the meaningful work here.
+    # Non-root; the docker group (991) opens the socket. The image entrypoint renders
+    # haproxy.cfg into a root-owned dir, so haproxy runs the shipped template directly:
+    # it expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
+    user: "65048:65048"
+    group_add:
+      - "991"
+    entrypoint: ["haproxy", "-W", "-db", "-f", "/usr/local/etc/haproxy/haproxy.cfg.template"]
+    read_only: true
+    tmpfs:
+      - /run:mode=1777,size=1m   # haproxy.pid
     cap_drop:
       - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
     mem_limit: 64m

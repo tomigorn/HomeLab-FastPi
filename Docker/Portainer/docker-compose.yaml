@@ -29,6 +29,7 @@ services:
     container_name: portainer-socket-proxy
     restart: unless-stopped
     environment:
+      BIND_CONFIG: ":2375"   # IPv4; the internal networks have no IPv6
       # Groups Portainer needs. Everything not listed defaults to 0 (denied).
       CONTAINERS: 1      # list/inspect/logs/start/stop/restart/create/remove
       IMAGES: 1          # image list and pull
@@ -63,17 +64,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - portainer_socket
-    # NOT read_only. The entrypoint renders haproxy.cfg from its template at startup,
-    # so that directory must stay writable; tmpfs-ing it masks the template that
-    # ships in the image. The socket itself is mounted read-only and the capability
-    # restrictions below do the meaningful work.
+    # Non-root; the docker group (991) opens the socket. The image entrypoint renders
+    # haproxy.cfg into a root-owned dir, so haproxy runs the shipped template directly:
+    # it expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
+    user: "65049:65049"
+    group_add:
+      - "991"
+    entrypoint: ["haproxy", "-W", "-db", "-f", "/usr/local/etc/haproxy/haproxy.cfg.template"]
+    read_only: true
+    tmpfs:
+      - /run:mode=1777,size=1m   # haproxy.pid
     cap_drop:
       - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
     mem_limit: 64m
