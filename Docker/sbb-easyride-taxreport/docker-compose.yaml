@@ -29,6 +29,8 @@ services:
       - MicrosoftGraph__BaseUrl=https://graph.microsoft.com/v1.0
       - MicrosoftGraph__Scopes=User.Read Mail.Read Mail.ReadBasic
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     networks:
       - app-network
     # volumes:

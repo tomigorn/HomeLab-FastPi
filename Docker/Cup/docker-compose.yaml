@@ -40,6 +40,8 @@ services:
       - "172.24.0.1:8000:8000"
     mem_limit: 128m
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     # Healthcheck REMOVED (2026-09-26). It ran
     #   ["CMD", "wget", "-qO-", "http://localhost:8000/api/v3/json"]
     # but this image is distroless: it contains the cup binary and nothing else -
@@ -72,6 +74,8 @@ services:
       - ./cup-agent.json:/config/cup.json:ro
     mem_limit: 64m
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     networks:
       - cup_agents
 

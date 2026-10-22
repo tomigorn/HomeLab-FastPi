@@ -10,6 +10,8 @@ services:
     container_name: backdrop-carousel
     mem_limit: 256m
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PHOTOS_DIR=/photos
     volumes:
