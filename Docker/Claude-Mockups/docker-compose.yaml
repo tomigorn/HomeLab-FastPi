@@ -8,10 +8,18 @@ services:
   claude-mockups:
     image: caddy:alpine
     container_name: claude-mockups
+    user: "65016:65016"
     mem_limit: 128m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE       # bind :80 as non-root
+    environment:
+      - XDG_CONFIG_HOME=/tmp   # caddy autosave/data (rootfs unwritable for 65016)
+      - XDG_DATA_HOME=/tmp
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro    # serves /srv with browse (auth: Traefik forward auth)
       - ./www:/srv:ro                           # demo content, one subfolder per mockup
