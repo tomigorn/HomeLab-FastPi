@@ -214,6 +214,7 @@ services:
   influxdb:
     image: influxdb:2.9.1   # pinned 2026-10-17 (influxdb:latest is v3 - never use it)
     container_name: influxdb
+    user: "65020:65020"     # dedicated uid; the image default is 1000 (= pi), moved off it
     mem_limit: 1g
     ports:
       - "127.0.0.1:8086:8086"   # SSO-only policy: HA uses 127.0.0.1, telegraf/Grafana the container name
