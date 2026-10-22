@@ -9,6 +9,7 @@ services:
   autoheal-antivirus:
     image: willfarrell/autoheal:latest
     container_name: autoheal-antivirus
+    user: "65011:65011"
     mem_limit: 64m
     restart: always
     security_opt:

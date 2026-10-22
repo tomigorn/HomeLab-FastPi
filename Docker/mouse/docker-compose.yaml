@@ -108,8 +108,11 @@ services:
   autoheal-mouse:
     image: willfarrell/autoheal:latest
     container_name: autoheal-mouse
+    user: "65012:65012"
     mem_limit: 64m
     restart: always
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal-mouse
       - AUTOHEAL_INTERVAL=3600

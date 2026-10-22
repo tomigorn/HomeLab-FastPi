@@ -9,8 +9,11 @@ services:
   autoheal-nzb:
     image: willfarrell/autoheal:latest
     container_name: autoheal-nzb
+    user: "65013:65013"
     mem_limit: 64m
     restart: always
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal-nzb
       - AUTOHEAL_INTERVAL=3600
