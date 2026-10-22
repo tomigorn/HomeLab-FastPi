@@ -8,6 +8,7 @@ services:
   prometheus:
     image: prom/prometheus:v3.15.1
     container_name: prometheus
+    user: "65043:65043"   # dedicated (was the shared nobody 65534)
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -40,6 +41,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.12.1
     container_name: node-exporter
+    user: "65044:65044"   # dedicated (was the shared nobody 65534)
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -145,6 +147,7 @@ services:
   json-exporter:
     image: quay.io/prometheuscommunity/json-exporter:v0.8.0
     container_name: json-exporter
+    user: "65045:65045"   # dedicated (was the shared nobody 65534)
     mem_limit: 128m
     restart: unless-stopped
     volumes:
@@ -260,7 +263,7 @@ services:
     cap_drop:
       - ALL
     mem_limit: 256m
-    user: telegraf
+    user: "65040:65040"   # dedicated; the image uid 999 is the host's vault user
     # The docker group membership and the docker.sock mount are GONE (2026-09-26).
     # Membership of the docker group is equivalent to root on the host: the Docker
     # API can start a privileged container that bind-mounts /. Telegraf only wants
