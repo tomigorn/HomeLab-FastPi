@@ -10,13 +10,16 @@ services:
     container_name: traefik
     mem_limit: 256m
     restart: unless-stopped
+    # Non-root with zero capabilities. The namespaced sysctl lets it bind :80/:443
+    # without NET_BIND_SERVICE. Its secrets in dynamic/ and secrets/ are owner pi,
+    # group 65026, mode 640; letsencrypt/ and logs/ are owned by 65026.
+    user: "65026:65026"
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    cap_add:
-      - NET_BIND_SERVICE   # bind :80/:443/:8443
-      - DAC_OVERRIDE       # read 600 secret dynamic files + write /letsencrypt (dir not root-owned)
     environment:
     - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     ports:
