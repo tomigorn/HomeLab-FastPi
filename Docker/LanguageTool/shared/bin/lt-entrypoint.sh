@@ -92,7 +92,7 @@ strip_block() {
       index($0, e) { skip=0; next }
       !skip        { print }
     ' "$f" > "$tmp"
-    cp "$tmp" "$f"
+    cat "$tmp" > "$f"   # in place: needs write on the file only, not its root-owned dir
     rm -f "$tmp"
   fi
 }
@@ -209,7 +209,7 @@ merge_grammar() {
     echo "$marker_end"
     tail -n "+$last" "$dst"
   } > "$tmp"
-  cp "$tmp" "$dst"
+  cat "$tmp" > "$dst"   # in place: needs write on the file only, not its root-owned dir
   rm -f "$tmp" "$inner_tmp"
 
   log "rules: merged shared/$rel -> ${dst}"
