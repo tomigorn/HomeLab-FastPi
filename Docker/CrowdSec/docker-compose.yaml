@@ -22,6 +22,7 @@ services:
   crowdsec:
     image: ${CROWDSEC_IMAGE:-crowdsecurity/crowdsec}:${CROWDSEC_TAG:?set CROWDSEC_TAG in .env}
     container_name: crowdsec
+    user: "65032:65032"   # owns its two volumes; reads Traefik's access.log (0644)
     restart: unless-stopped
     environment:
       # Parsers/scenarios for Traefik access logs and generic HTTP attacks.
