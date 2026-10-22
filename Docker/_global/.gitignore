@@ -1,0 +1,2 @@
+# Out-of-band alert secret (chat id); reuses the alertmanager bot token file.
+secrets/
