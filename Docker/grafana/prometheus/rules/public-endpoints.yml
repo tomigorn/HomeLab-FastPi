@@ -43,6 +43,19 @@ groups:
             for 3 minutes. 200 or 302 means local-networks@file is gone from its
             Traefik router and the app is publicly reachable; 404 means the route is gone.
 
+      # Gated routes behind a *-wake gate, probed every 15m (blackbox-gated-wake): one failed probe fires, held until a later probe passes.
+      - alert: WakeGatedEndpointNotGated
+        expr: min_over_time(probe_success{job="blackbox-gated-wake"}[20m]) == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Wake-gated endpoint lost its login gate: {{ $labels.instance }}"
+          description: >-
+            {{ $labels.instance }} must answer 302 to sso.holy-grail.ch but the last probe got
+            HTTP {{ with printf "last_over_time(probe_http_status_code{instance=%q}[20m])" $labels.instance | query }}{{ . | first | value }}{{ end }}.
+            Without authentik@file in front of its *-wake middleware every visitor (and this probe) wakes beefy.
+            Check its router in Docker/Traefik/traefik/dynamic/ and docker logs traefik.
+
       # Catches the whole edge going at once, which is the plugin-failure
       # signature and is worth a louder, faster alert than a single service.
       - alert: AllPublicEndpointsDown

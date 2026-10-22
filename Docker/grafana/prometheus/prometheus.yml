@@ -72,7 +72,6 @@ scrape_configs:
       - targets:
           - https://audiobookshelf.holy-grail.ch/
           - https://sso.holy-grail.ch/
-          - https://claude-mockups.holy-grail.ch/
           # Jellyfin is deliberately NOT probed. Its route has no forward auth,
           # so a request goes straight to the beefy wake gate, and a 60s probe
           # sent a WoL every time beefy idled off: ~90 boots a day, beefy never
@@ -104,6 +103,28 @@ scrape_configs:
     static_configs:
       - targets:
           - https://cup.holy-grail.ch/
+          - https://claude-mockups.holy-grail.ch/
+          - https://tracker.holy-grail.ch/
+          - https://avatars.holy-grail.ch/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Gated routes whose backend sits behind a *-wake gate (Seerr on beefy: authentik -> requests-wake).
+  # 15m like blackbox-tower-guard: if the gate is ever lost, every probe passes it and wakes beefy, so it must not run often.
+  - job_name: "blackbox-gated-wake"
+    scrape_interval: 15m
+    scrape_timeout: 20s
+    metrics_path: /probe
+    params:
+      module: [http_gated]
+    static_configs:
+      - targets:
+          - https://requests.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -133,6 +154,9 @@ scrape_configs:
           - https://bazarr.holy-grail.ch/
           - https://qbittorrent.holy-grail.ch/
           - https://sabnzbd.holy-grail.ch/
+          - https://stonks.holy-grail.ch/
+          - https://traefik.holy-grail.ch/
+          - https://adguard.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

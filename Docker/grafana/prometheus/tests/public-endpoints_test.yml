@@ -38,3 +38,28 @@ tests:
             exp_annotations:
               summary: "Public endpoint down: https://cup.holy-grail.ch/"
               description: "https://cup.holy-grail.ch/ has not answered like a working backend for 3 minutes (HTTP ). A 404 here usually means Traefik lost the router rather than the app being down - check `docker logs traefik | grep -i plugin` first, since a failed plugin download disables the websecure entrypoint middleware and takes every public route with it."
+
+  # 15m probe: one failed probe fires, and the alert holds until a later probe passes.
+  - interval: 15m
+    input_series:
+      - series: 'probe_success{job="blackbox-gated-wake", instance="https://requests.holy-grail.ch/"}'
+        values: '1 1 0 0 1 1 1'
+      - series: 'probe_http_status_code{job="blackbox-gated-wake", instance="https://requests.holy-grail.ch/"}'
+        values: '302 302 200 200 302 302 302'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: WakeGatedEndpointNotGated
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: WakeGatedEndpointNotGated
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: blackbox-gated-wake
+              instance: https://requests.holy-grail.ch/
+            exp_annotations:
+              summary: "Wake-gated endpoint lost its login gate: https://requests.holy-grail.ch/"
+              description: "https://requests.holy-grail.ch/ must answer 302 to sso.holy-grail.ch but the last probe got HTTP 200. Without authentik@file in front of its *-wake middleware every visitor (and this probe) wakes beefy. Check its router in Docker/Traefik/traefik/dynamic/ and docker logs traefik."
+      - eval_time: 80m
+        alertname: WakeGatedEndpointNotGated
+        exp_alerts: []

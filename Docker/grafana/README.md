@@ -69,3 +69,14 @@ Job `prometheus` scrapes `localhost:9090`. Rules: `prometheus/rules/prometheus-s
 | `TargetDown` | `up == 0` for 5 min; excludes `blackbox-*` (`BlackboxExporterDown`; sleeping beefy/tower stay `up`), `alertmanager` (`AlertmanagerDown`), `cup` (`CupNotReporting`) |
 
 `prometheus.yml`, `blackbox.yml` and `alertmanager.yml` are single-file bind mounts: an editor that replaces the file leaves the container on the old inode, so after editing them run `docker compose up -d --force-recreate <service>` instead of a HUP/reload.
+
+## Endpoint probes
+
+blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-endpoints.yml`. `blackbox-exporter` resolves `*.holy-grail.ch` through AdGuard to Traefik on the LAN (from a container IP, so outside `local-networks@file`).
+
+| Job | Pass | Targets | Alert |
+|---|---|---|---|
+| `blackbox-public` | 200/301/302/401/403 | audiobookshelf, sso | `PublicEndpointDown`, `AllPublicEndpointsDown` |
+| `blackbox-gated` | 302 to sso.holy-grail.ch | cup, claude-mockups, tracker, avatars | `PublicEndpointDown` |
+| `blackbox-gated-wake` (15m) | 302 to sso.holy-grail.ch | requests (Seerr, behind `requests-wake`) | `WakeGatedEndpointNotGated` |
+| `blackbox-lan-locked` | 403 | radarr, sonarr, prowlarr, bazarr, qbittorrent, sabnzbd, stonks, traefik, adguard | `LanLockedEndpointNotLocked` |
