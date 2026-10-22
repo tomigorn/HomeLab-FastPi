@@ -32,13 +32,13 @@ services:
       - PORT=8080
     # Hardening. Audiobookshelf ran as root with every capability and a writable
     # filesystem; an RCE in it was root in the container.
-    #   user 1000:1000 - matches the bind mounts. /config and /metadata were
+    #   user 65017:65017 - dedicated uid (not pi's 1000). /config and /metadata were
     #     chowned for this; the library is group-writable (664, group sambashare)
     #     and pi is in that group, plus there is an ACL granting it rwx, so
     #     storeCoverWithItem / storeMetadataWithItem keep working.
     #   cap_drop ALL   - it needs no Linux capabilities once it binds a high port.
     #   no-new-privileges - a compromised process cannot gain rights via setuid.
-    user: "1000:1000"
+    user: "65017:65017"
     # The library directory is group-writable by sambashare (gid 1100) and has an
     # ACL granting that group rwx. Host group membership does NOT carry into the
     # container - uid 1000 there has only groups=[1000] - so the ACL did not apply
