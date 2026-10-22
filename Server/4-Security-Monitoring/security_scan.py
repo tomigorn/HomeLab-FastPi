@@ -987,15 +987,22 @@ def host_awake(host: str) -> bool:
         return False
 
 
-def read_cup() -> dict:
-    awake = [h for h in WAKER_STATUS if host_awake(h)]
+def cup_missing_reason(host: str, awake: dict[str, bool]) -> str:
+    if awake.get(host) is False:
+        return f"{host} not reachable (asleep or off), skipped"
+    return f"{host} not in Cup's last result (its agent did not answer or is not in cup.json servers)"
+
+
+def read_cup() -> tuple[dict, dict[str, bool]]:
+    awake_map = {h: host_awake(h) for h in WAKER_STATUS}
+    awake = [h for h, up in awake_map.items() if up]
     if awake:
         print(f"cup refresh, awake: {', '.join(awake)}", file=sys.stderr)
         try:
             _http_get(f"{CUP_URL}/api/v3/refresh", 300)
         except Exception as e:  # noqa: BLE001
             print(f"cup refresh failed, using the last result: {e}", file=sys.stderr)
-    return json.loads(_http_get(f"{CUP_URL}/api/v3/json", 60))
+    return json.loads(_http_get(f"{CUP_URL}/api/v3/json", 60)), awake_map
 
 
 HELPS = {
@@ -1116,9 +1123,16 @@ def main() -> int:
         for host in ("fastpi", "beefy", "tower"):
             def _cup(host=host):
                 if not cup:
-                    cup.update(zip(("hosts", "info"), parse_cup(read_cup())))
+                    # one attempt per run: a failed refresh is not retried for every host
+                    try:
+                        data, awake_map = read_cup()
+                        cup.update(zip(("hosts", "info"), parse_cup(data)), awake=awake_map)
+                    except Exception as e:  # noqa: BLE001
+                        cup["error"] = e
+                if "error" in cup:
+                    raise cup["error"]
                 if host not in cup["hosts"]:
-                    raise NoData(f"{host} not in Cup's last result (asleep at its refresh)")
+                    raise NoData(cup_missing_reason(host, cup["awake"]))
                 out = [("security_image_updates", {"host": host, "type": t}, n)
                        for t, n in sorted(cup["hosts"][host].items())]
                 out += [("security_image_update_info", {"host": h, "reference": ref, "type": t}, 1)

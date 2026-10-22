@@ -24,6 +24,7 @@ from security_scan import (  # noqa: E402
     parse_chkrootkit,
     parse_chkrootkit_detail,
     parse_cup,
+    cup_missing_reason,
     parse_lynis_report,
     parse_rkhunter,
     filter_exposition,
@@ -824,6 +825,19 @@ def test_registry_refusal_means_local_only():
 def test_other_trivy_failures_stay_unscannable():
     assert not image_only_local("x@sha256:1", "context deadline exceeded")
     assert not image_only_local("x@sha256:1", "")
+
+def test_cup_missing_host_asleep_is_skipped():
+    r = cup_missing_reason("tower", {"tower": False})
+    assert r.startswith("tower not reachable") and "skipped" in r
+
+
+def test_cup_missing_host_awake_names_the_agent():
+    r = cup_missing_reason("beefy", {"beefy": True})
+    assert r.startswith("beefy") and "agent" in r and "skipped" not in r
+
+
+def test_cup_missing_fastpi_has_no_awake_entry():
+    assert "agent" in cup_missing_reason("fastpi", {"beefy": False})
 
 if __name__ == "__main__":
     import traceback

@@ -10,7 +10,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Is the OS patched? | `patches` | `apt list --upgradable`, security updates counted separately | fastpi, beefy | daily 04:05 |
 | Is Unraid patched? | `patches` | `plugin checkall` + `unraidcheck` (json, no Unraid notification) | tower | daily 04:05 |
 | Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:05 |
-| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake | all three | daily 04:05 |
+| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error) | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 |
 | Are container images vulnerable? | `images` | Trivy across the images actually running | all three | weekly 04:10 daily |
 | Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
@@ -197,7 +197,7 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 94 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | 97 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
 | `security-image-scan.{service,timer}` | weekly 04:10 daily: images |
