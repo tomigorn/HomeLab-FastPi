@@ -120,3 +120,19 @@ receivers:
         message: |-
           <b>{{ .CommonAnnotations.summary }}</b>
           {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+
+# Stop a whole-edge outage from paging twice. group_by collapses same-alertname
+# fan-out, but the aggregate and per-endpoint alerts have DIFFERENT alertnames, so
+# without inhibition a plugin-failure outage sends AllPublicEndpointsDown AND one
+# PublicEndpointDown per host. And a dead prober (BlackboxExporterDown) makes every
+# probe-derived alert meaningless, so those are muted while it is down.
+inhibit_rules:
+  - source_matchers:
+      - 'alertname="AllPublicEndpointsDown"'
+    target_matchers:
+      - 'alertname="PublicEndpointDown"'
+
+  - source_matchers:
+      - 'alertname="BlackboxExporterDown"'
+    target_matchers:
+      - 'alertname=~"PublicEndpointDown|LanLockedEndpointNotLocked|AllPublicEndpointsDown|AdGuardDnsResolutionFailing"'
