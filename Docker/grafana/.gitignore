@@ -7,3 +7,4 @@ telegraf/telegraf.conf
 alertmanager/alertmanager.yml
 !alertmanager/alertmanager.yml.example
 alertmanager/secrets/
+.grafana-backup-*/

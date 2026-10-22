@@ -152,7 +152,7 @@ services:
 # Grafana #################################################
 # #########################################################
   grafana:
-    image: grafana/grafana-oss:13.0.2   # latest tag published for grafana-oss (13.2.x is only on grafana/grafana)
+    image: grafana/grafana:13.2.4   # switched from grafana-oss (abandoned at 13.0.2); OSS build, enterprise bundle dormant without a licence
     container_name: grafana
     mem_limit: 512m
     restart: unless-stopped
