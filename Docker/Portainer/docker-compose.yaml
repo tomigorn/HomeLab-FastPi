@@ -123,6 +123,7 @@ services:
     mem_limit: 256m
     environment:
       TZ: Europe/Zurich
+      AGENT_SECRET: ${AGENT_SECRET:?set AGENT_SECRET in .env}
     ports:
       # HTTPS, localhost only (SSO-only, 2026-10-19). Recovery when Authentik is
       # down: ssh -L 9443:127.0.0.1:9443 fastpi, then
