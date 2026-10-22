@@ -42,6 +42,13 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN             # freshclam lchowns its .dat files to the clamav user
+      - DAC_READ_SEARCH   # scan files owned by any uid without full root
+      - SETUID            # clamd drops root -> clamav user
+      - SETGID            # ...and initgroups() for it
     labels:
       - autoheal-antivirus=true
     environment:
