@@ -70,7 +70,7 @@ services:
 # metrics endpoint all stayed healthy, so nothing that watched the service itself
 # could see it. See prometheus/rules/public-endpoints.yml.
   blackbox-exporter:
-    image: prom/blackbox-exporter:v0.29.0
+    image: prom/blackbox-exporter:v0.29.1
     container_name: blackbox-exporter
     mem_limit: 128m
     restart: unless-stopped
