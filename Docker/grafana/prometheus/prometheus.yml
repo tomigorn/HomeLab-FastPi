@@ -265,3 +265,32 @@ scrape_configs:
         replacement: json-exporter:7979
       - target_label: instance
         replacement: cup
+
+  # ---------------------------------------------------------------------------
+  # AdGuard DNS functional probe.
+  #
+  # AdGuard is the LAN's DHCP DNS resolver - edge-critical. Until now it was only
+  # watched at container level (ContainerDown), which misses the case where the
+  # container stays up but resolution is broken (wrong upstream, bad filter, empty
+  # answers). This resolves a known wildcard *.holy-grail.ch name against AdGuard
+  # directly (192.168.1.2:53) and fails unless it returns the expected A record.
+  #
+  # Named blackbox-* so BlackboxExporterDown and the Alertmanager inhibition rules
+  # cover it. See prometheus/rules/adguard-dns.yml.
+  # ---------------------------------------------------------------------------
+  - job_name: "blackbox-adguard-dns"
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metrics_path: /probe
+    params:
+      module: [dns_adguard_holy_grail]
+    static_configs:
+      - targets:
+          - 192.168.1.2:53
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: instance
+        replacement: adguard-dns
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

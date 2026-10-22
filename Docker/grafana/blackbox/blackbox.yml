@@ -99,3 +99,21 @@ modules:
     tcp:
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
+
+  # Functional check of AdGuard, the LAN's DHCP DNS resolver (the blackbox-adguard-dns
+  # job queries it directly at 192.168.1.2:53). ContainerDown only catches AdGuard
+  # crashing; this catches the worse case where it stays up but answers wrongly or
+  # emptily. Asserts the wildcard *.holy-grail.ch answer (-> 192.168.1.2, the edge).
+  dns_adguard_holy_grail:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "sso.holy-grail.ch"
+      query_type: "A"
+      valid_rcodes:
+        - NOERROR
+      validate_answer_rrs:
+        fail_if_not_matches_regexp:
+          - 'sso\.holy-grail\.ch\.\s+\d+\s+IN\s+A\s+192\.168\.1\.2'
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false

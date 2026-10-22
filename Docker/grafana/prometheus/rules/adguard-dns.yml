@@ -1,0 +1,21 @@
+# AdGuard is the LAN's DHCP DNS resolver (edge-critical). ContainerDown catches it
+# crashing; this catches the worse, quieter case where it stays up but answers
+# wrongly or emptily - which breaks name resolution for every device on the LAN
+# with no obvious cause. The blackbox-adguard-dns probe asserts the expected
+# wildcard answer; probe_success goes 0 on wrong rcode, wrong/empty answer, or timeout.
+groups:
+  - name: adguard-dns
+    rules:
+      - alert: AdGuardDnsResolutionFailing
+        expr: probe_success{job="blackbox-adguard-dns"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AdGuard DNS is not resolving correctly"
+          description: >-
+            The AdGuard resolver (192.168.1.2:53) has not returned the expected
+            answer for a known *.holy-grail.ch name for 3 minutes. AdGuard may be up
+            but misconfigured, or its upstream may be broken; every LAN device that
+            uses it for DNS is affected. Check `docker logs adguardhome` and the
+            AdGuard query log.
