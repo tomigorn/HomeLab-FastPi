@@ -1,0 +1,11 @@
+# Environment files (contain Azure secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Pre-provided self-signed TLS cert (regenerated locally, never committed)
+certs/
+*.pfx
+*.key
+*.pem
+*.crt

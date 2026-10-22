@@ -8,6 +8,7 @@ services:
   sbb_easyride_taxreport:
     image: tomigorn/sbb-easyride-taxreport:latest
     container_name: sbb-easyride-taxreport
+    user: "65009:65009"
     mem_limit: 512m
     ports:
       - "127.0.0.1:8083:8081"
@@ -28,15 +29,16 @@ services:
       # Microsoft Graph Configuration
       - MicrosoftGraph__BaseUrl=https://graph.microsoft.com/v1.0
       - MicrosoftGraph__Scopes=User.Read Mail.Read Mail.ReadBasic
+      - HOME=/tmp
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     networks:
       - app-network
-    # volumes:
-      # Optional: mount your own PFX at /app/localhost.pfx to use a custom certificate
-      # Uncomment the following if you have a cert file you want to use:
-      # - ./certs/localhost.pfx:./app/localhost.pfx:ro
+    volumes:
+      # Pre-provided self-signed cert so the app can run non-root: the entrypoint only
+      # generates one into root-owned /app, so mounting it ro makes it skip generation.
+      - ./certs/localhost.pfx:/app/localhost.pfx:ro
     # Example for passing the PFX password via Docker secrets (optional):
     # secrets:
     #   - cert_password
