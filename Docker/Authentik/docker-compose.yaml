@@ -41,6 +41,7 @@ services:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
     container_name: authentik-server
     restart: unless-stopped
+    user: "65019:65019"
     command: server
     shm_size: 512mb
     env_file:
@@ -79,6 +80,7 @@ services:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
     container_name: authentik-worker
     restart: unless-stopped
+    user: "65019:65019"
     command: worker
     shm_size: 512mb
     # `user: root` was REMOVED (2026-09-26). Upstream's vanilla compose sets it
