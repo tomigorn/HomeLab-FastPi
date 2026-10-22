@@ -11,6 +11,7 @@ services:
   cup:
     image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
     container_name: Cup
+    user: "65024:65024"
     # cup.json "servers" lists ONLY fastpi. beefy's agent is firewalled from fastpi
     # (:8000 dropped) and tower is down (ZFS/memtest). Cup has no per-server timeout,
     # so each dead entry cost ~3 slow retries and hung every refresh ~9 min. Re-add
@@ -46,6 +47,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Healthcheck REMOVED (2026-09-26). It ran
     #   ["CMD", "wget", "-qO-", "http://localhost:8000/api/v3/json"]
     # but this image is distroless: it contains the cup binary and nothing else -
@@ -72,6 +75,7 @@ services:
   cup-agent-fastpi:
     image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
     container_name: cup-agent-fastpi
+    user: "65025:65025"   # the bridged proxy socket is 0666, so no root needed to read it
     command: -c /config/cup.json serve
     volumes:
       - socket_bridge:/var/run
@@ -80,6 +84,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - cup_agents
 
