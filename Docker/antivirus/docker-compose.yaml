@@ -40,6 +40,12 @@ services:
     build: ./clamav
     image: clamav-local:latest
     container_name: clamav
+    # Non-root, also for the timer's `docker exec clamav /scan.sh`. 1100 = sambashare
+    # (quarantine moves out of the media tree), 65046 = writers of the node-exporter textfile dir.
+    user: "65039:65039"
+    group_add:
+      - "1100"
+      - "65046"
     mem_limit: 2g
     restart: unless-stopped
     security_opt:
@@ -47,10 +53,7 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - CHOWN             # freshclam lchowns its .dat files to the clamav user
-      - DAC_READ_SEARCH   # scan files owned by any uid without full root
-      - SETUID            # clamd drops root -> clamav user
-      - SETGID            # ...and initgroups() for it
+      - DAC_READ_SEARCH   # read files owned by any uid to scan them; writes stay limited to the groups below
     labels:
       - autoheal-antivirus=true
     environment:
