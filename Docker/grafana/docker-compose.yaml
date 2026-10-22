@@ -8,6 +8,10 @@ services:
   prometheus:
     image: prom/prometheus:v3.15.1
     container_name: prometheus
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     mem_limit: 1g
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -36,6 +40,10 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.12.1
     container_name: node-exporter
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     mem_limit: 128m
     restart: unless-stopped
     pid: host
@@ -155,6 +163,10 @@ services:
   grafana:
     image: grafana/grafana:13.2.4   # switched from grafana-oss (abandoned at 13.0.2); OSS build, enterprise bundle dormant without a licence
     container_name: grafana
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     mem_limit: 512m
     restart: unless-stopped
     ports:
@@ -214,6 +226,10 @@ services:
   influxdb:
     image: influxdb:2.9.1   # pinned 2026-10-17 (influxdb:latest is v3 - never use it)
     container_name: influxdb
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     user: "65020:65020"     # dedicated uid; the image default is 1000 (= pi), moved off it
     mem_limit: 1g
     ports:
@@ -239,6 +255,10 @@ services:
   telegraf:
     image: telegraf:1.40.2
     container_name: telegraf
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     mem_limit: 256m
     user: telegraf
     # The docker group membership and the docker.sock mount are GONE (2026-09-26).
