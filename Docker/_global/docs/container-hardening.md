@@ -77,6 +77,8 @@ Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount 
 |---|---|
 | `/etc/docker/daemon.json` | `{"dns":["192.168.1.2"]}` (containers resolve through AdGuard; needs `systemctl restart docker`) |
 | `/var/lib/node-exporter/textfile` | `pi:65046`, mode 2775 |
+| `/etc/modules-load.d/wireguard.conf` | `wireguard` (WireGuard-VPN has no SYS_MODULE, the host loads the module) |
+| `Docker/grafana/alertmanager/secrets/telegram_bot_token` | `65004:pi`, 640 (alertmanager owns it, `oob-alert.sh` reads it as pi) |
 | Traefik secrets (`dynamic/avatar-picker-secret.yml`, `dynamic/languagetool-token.yml`, `secrets/crowdsec_lapi_key`) | `pi:65026`, 640 |
 | Data dirs / volumes | owned by the uid in the map |
 
