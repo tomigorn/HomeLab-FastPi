@@ -11,6 +11,10 @@ services:
   cup:
     image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
     container_name: Cup
+    # cup.json "servers" lists ONLY fastpi. beefy's agent is firewalled from fastpi
+    # (:8000 dropped) and tower is down (ZFS/memtest). Cup has no per-server timeout,
+    # so each dead entry cost ~3 slow retries and hung every refresh ~9 min. Re-add
+    # beefy/tower to cup.json once beefy allows fastpi->:8000 and tower is healthy.
     command: -c /config/cup.json serve
     # docker.sock mount REMOVED (2026-09-26). Even mounted :ro it grants the full
     # Docker API, which is root on the host - the read-only flag stops writes to the
