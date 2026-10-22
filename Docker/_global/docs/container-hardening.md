@@ -26,6 +26,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65007 | stonks | | | |
 | 65008 | backdrop-carousel | | | |
 | 65009 | sbb-easyride-taxreport | | | |
+| 65010 | blackbox-exporter-wan | | | ✅ |
 | 65011–65013 | autoheal-antivirus / -mouse / -nzb | | | |
 | 65014 | virustotal | | | |
 | 65015 | blackbox-exporter | | | |
@@ -57,7 +58,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65010, 65029, 65031, 65051+.
+Free: 65029, 65031, 65051+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |

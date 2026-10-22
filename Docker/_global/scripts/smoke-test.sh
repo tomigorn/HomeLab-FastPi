@@ -77,7 +77,7 @@ check "adguard anon refused (401)" '^40[13]$' "$(http http://192.168.1.2:3000/co
 check "adguard local zone"         '^192\.168\.1\.2$' "$(dig +short @192.168.1.2 sso.holy-grail.ch | head -1)"
 
 echo "== Monitoring"
-running prometheus alertmanager grafana influxdb telegraf node-exporter blackbox-exporter json-exporter
+running prometheus alertmanager grafana influxdb telegraf node-exporter blackbox-exporter blackbox-exporter-wan json-exporter
 check "influxdb"                   'v2\.9\.1.*pass|pass.*v2\.9\.1' "$(curl -s -m 5 http://127.0.0.1:8086/health)"
 check "telegraf write errors (5m)" '^0$' "$(docker logs --since 5m telegraf 2>&1 | grep -c 'E! ')"
 check "grafana db"                 '"ok"' "$(curl -s -m 5 http://127.0.0.1:3001/api/health | grep -o '"database": "[a-z]*"')"
