@@ -19,6 +19,7 @@ services:
   adguardhome:
     image: adguard/adguardhome:latest
     container_name: adguardhome
+    user: "65033:65033"   # owns ./conf and the adguardhome-data volume
     mem_limit: 256m
     restart: always
     network_mode: host
@@ -27,8 +28,7 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE   # bind :53
-      - DAC_OVERRIDE       # write ./conf (dir owned 1000, AdGuard runs as root)
+      - NET_BIND_SERVICE   # bind :53 (host network, so the sysctl route is not available)
     # ports not needed with network_mode: host (container binds directly to host)
     # ports:
     #   - "53:53/tcp"       # DNS
