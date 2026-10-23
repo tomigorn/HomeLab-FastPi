@@ -388,9 +388,21 @@ cd Docker/Authentik
 docker compose exec -T server ak shell < scripts/provision-admin-sso.py | python3 scripts/apply-sso-env.py
 ```
 
-The script is idempotent. Secrets never touch the terminal or git: the script
-emits `ENV <dir>/.env KEY=value` lines and `apply-sso-env.py` writes them into the
-gitignored `.env` files, printing key names only. The AdGuard proxy password is
+The script is idempotent. Secrets never touch the terminal or git: the script emits `ENV <dir>/.env KEY=value` lines (client ids) and `FILE <dir>/secrets/<name> <uid>:<gid> <mode> value` lines (client secrets); `apply-sso-env.py` writes them into the gitignored `.env` / secret files, printing names only.
+
+| Line | Written to | How |
+|---|---|---|
+| `ENV` | `<dir>/.env`, key replaced in place | as the caller, mode kept |
+| `FILE` | `<dir>/secrets/<name>`, bare value, no newline | own uid: directly; other owner: `sudo -n install -o -g -m /dev/stdin <path>` (value on stdin). Refused unless `git check-ignore` says ignored; modes 0400/0440/0600/0640 only |
+
+| Secret | File | Owner, mode |
+|---|---|---|
+| Grafana | `grafana/secrets/grafana_oauth_client_secret` | 65050:65050 0400 |
+| wg-easy | `WireguardVPN/secrets/oidc_client_secret` | 0:0 0400 |
+| Ryot (beefy) | `Ryot/secrets/ryot_oidc_client_secret` | 1001:1001 0400 |
+| Portainer, Seerr (beefy) | still `.env` (`PORTAINER_OAUTH_CLIENT_SECRET`, `SEERR_OIDC_CLIENT_SECRET`): no container reads it, only their configure step | |
+
+Restart the app afterwards (it reads the file at start). Preview without writing: `... | python3 scripts/apply-sso-env.py --dry-run` prints `would set` / `would write <path> (<owner> <mode>)`. The AdGuard proxy password is
 only set when you pass it in (`docker compose exec -T -e ADGUARD_PROXY_PASSWORD server ak shell ...`),
 i.e. when rotating it; otherwise the stored attributes are left untouched. Same for
 port_updater's Basic login: `-e PORT_UPDATER_PROXY_USER -e PORT_UPDATER_PROXY_PASSWORD`
@@ -401,7 +413,8 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 
 - `oidc(name, redirects, ...)` creates the OIDC provider (client id/secret generated once, kept on rerun)
 - `app_for(slug, name, provider, url)` creates the Application and binds it to `homelab-admins`
-- `env(path, KEY=value)` hands a value to `apply-sso-env.py` for the tool's `.env`
+- `env(path, KEY=value)` hands a non-secret value to `apply-sso-env.py` for the tool's `.env`
+- `secret_file(path, "<uid>:<gid>", "0400", value)` hands a secret to it for the tool's secret file
 - for forward auth use `proxy(name, host)` instead of `oidc()`
 
 ### Media groups
@@ -428,7 +441,7 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Requests (`requests`) | forward auth `requests-proxy` | `streaming-requesters` | outer gate for Seerr, stays on |
 | Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-requesters` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
 | Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (beefy), stays on. In `scripts/provision-tracker-sso.py` |
-| Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id/secret go to beefy `Ryot/.env` |
+| Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id goes to beefy `Ryot/.env`, the secret to `Ryot/secrets/ryot_oidc_client_secret` |
 
 Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
 
@@ -440,7 +453,7 @@ cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
 
 Then on beefy `~/Projects/Docker/Seerr/scripts/configure.sh` puts them into Seerr.
 
-Tracker (Ryot on beefy), written into beefy `Ryot/.env`, then on beefy `cd ~/Projects/Docker/Ryot && sudo docker compose up -d`:
+Tracker (Ryot on beefy), written into beefy `Ryot/.env` + `Ryot/secrets/`, then on beefy `cd ~/Projects/Docker/Ryot && sudo docker compose up -d`:
 
 ```bash
 cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \

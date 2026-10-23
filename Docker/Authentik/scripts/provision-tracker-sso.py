@@ -1,5 +1,5 @@
 # Idempotent Authentik setup for the Tracker (Ryot on beefy): forward auth plus Ryot's OIDC login.
-# The client id/secret leave only as "ENV Ryot/.env KEY=value" lines, written on beefy by apply-sso-env.py:
+# The client id leaves as an "ENV Ryot/.env KEY=value" line, the secret as a "FILE Ryot/secrets/..." line, written on beefy by apply-sso-env.py:
 #   cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
 #     && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
 #     | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
@@ -70,7 +70,13 @@ ryot = oidc("tracker-login", ["https://tracker.holy-grail.ch/api/auth"])
 app_for("tracker-login", "Tracker login", "https://tracker.holy-grail.ch", "streaming-users",
         provider=ryot)
 print(f"ENV Ryot/.env SERVER_OIDC_CLIENT_ID={ryot.client_id}")
-print(f"ENV Ryot/.env SERVER_OIDC_CLIENT_SECRET={ryot.client_secret}")
+
+
+def secret_file(path, owner, mode, value):
+    print(f"FILE {path} {owner} {mode} {value}")
+
+
+secret_file("Ryot/secrets/ryot_oidc_client_secret", "1001:1001", "0400", ryot.client_secret)
 
 outpost.save()
 print("OK provisioned")

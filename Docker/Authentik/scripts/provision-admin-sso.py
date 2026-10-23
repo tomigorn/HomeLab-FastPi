@@ -1,8 +1,8 @@
 # Idempotent Authentik setup for homelab admin SSO (spec Docker/Authentik/docs/superpowers/specs/2026-10-18-homelab-admin-sso-design.md).
 # Run: cd Docker/Authentik && docker compose exec -T server ak shell < scripts/provision-admin-sso.py \
 #        | python3 scripts/apply-sso-env.py
-# Secrets leave only as "ENV <path relative to Docker/> KEY=value" lines on stdout, which
-# apply-sso-env.py writes into gitignored .env files.
+# Client ids leave as "ENV <dir>/.env KEY=value", client secrets as "FILE <dir>/secrets/<name> <uid>:<gid> <mode> value"
+# lines on stdout; apply-sso-env.py writes them into the gitignored .env / secret files.
 #
 # Every application created here is bound to the group homelab-admins: in Authentik an
 # application with at least one binding is denied to everyone the bindings don't pass.
@@ -81,6 +81,10 @@ def env(path, **kv):
         print(f"ENV {path} {k}={v}")
 
 
+def secret_file(path, owner, mode, value):
+    print(f"FILE {path} {owner} {mode} {value}")
+
+
 # 1. Traefik dashboard (forward auth; Traefik route in Docker/Traefik/traefik/dynamic/dashboard.yml)
 app_for("traefik-dashboard", "Traefik dashboard",
         proxy("traefik-dashboard-proxy", "https://traefik.holy-grail.ch"),
@@ -92,8 +96,8 @@ app_for("traefik-dashboard", "Traefik dashboard",
 grafana = oidc("grafana", ["https://grafana.holy-grail.ch/login/generic_oauth"],
                ["https://grafana.holy-grail.ch/login"])
 app_for("grafana", "Grafana", grafana, "https://grafana.holy-grail.ch")
-env("grafana/.env", GRAFANA_OAUTH_CLIENT_ID=grafana.client_id,
-    GRAFANA_OAUTH_CLIENT_SECRET=grafana.client_secret)
+env("grafana/.env", GRAFANA_OAUTH_CLIENT_ID=grafana.client_id)
+secret_file("grafana/secrets/grafana_oauth_client_secret", "65050:65050", "0400", grafana.client_secret)
 
 # 3. Portainer (Portainer's own OAuth "Custom" provider, configured via its API; route in
 # Docker/Traefik/traefik/dynamic/portainer.yml). Portainer uses its root URL as redirect.
@@ -135,8 +139,8 @@ wg_easy = oidc("wg-easy", ["https://wg-easy.holy-grail.ch/api/auth/oidc/callback
                            "https://wg-easy.holy-grail.ch/api/auth/oidc/link"],
                mappings=[m for m in oidc_mappings if not m.managed.endswith("scope-email")] + [wg_email])
 app_for("wg-easy", "wg-easy (VPN admin)", wg_easy, "https://wg-easy.holy-grail.ch")
-env("WireguardVPN/.env", WG_EASY_OIDC_CLIENT_ID=wg_easy.client_id,
-    WG_EASY_OIDC_CLIENT_SECRET=wg_easy.client_secret)
+env("WireguardVPN/.env", WG_EASY_OIDC_CLIENT_ID=wg_easy.client_id)
+secret_file("WireguardVPN/secrets/oidc_client_secret", "0:0", "0400", wg_easy.client_secret)
 
 # 6. Home Assistant (HA's own login via the hass-oidc-auth custom component; route in
 # Docker/Traefik/traefik/dynamic/home-assistant.yml, config in
