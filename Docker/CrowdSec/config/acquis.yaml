@@ -13,8 +13,9 @@ labels:
 # enabled (cscli collections list) but has no source feeding it, so its scenarios
 # are loaded and idle - which reads as "SSH is covered" when it is not.
 #
-# Left that way on purpose: SSH is LAN-only (no port forward, no ssh ingress in
-# the tunnel) and had 0 failed attempts on fastpi in the 7 days to 2026-10-09.
+# No WAN port forward to :22 (verified 2026-10-23), but the tunnel route terminal.holy-grail.ch -> ssh://192.168.1.2:22
+# exists. Its sessions arrive from the cloudflared container's address, so sshd scenarios here would ban the tunnel,
+# not the attacker: protect that route with Cloudflare Access instead (backlog). 0 failed attempts in the 7 days to 2026-10-09.
 # fastpi has no rsyslog, so feeding it means installing a syslog daemon to
 # produce an auth.log with no attacks in it. The CrowdSec image has no
 # journalctl, so the journald datasource is not an alternative.
