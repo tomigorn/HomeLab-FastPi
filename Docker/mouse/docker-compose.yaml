@@ -220,7 +220,7 @@ services:
 # qBitTorrent #############################################
 # #########################################################
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
+    image: lscr.io/linuxserver/qbittorrent:5.2.4_v2.0.15-ls480   # pinned: 5.3.0 moves to libtorrent 2.1 (worse seeding on the ratio tracker), owner decides
     container_name: qbittorrent_mouse
     mem_limit: 512m
     security_opt:
