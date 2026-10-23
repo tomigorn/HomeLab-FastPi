@@ -604,3 +604,14 @@ Both scripts are idempotent.
 `sso.holy-grail.ch` is routed by Traefik's file provider
 (`Docker/Traefik/traefik/dynamic/sso.yml`) to `http://authentik-server:9000`,
 on `websecure` with a Cloudflare-resolver TLS certificate.
+
+### Client IP (audit log, reputation policy)
+
+Authentik takes the **leftmost** `X-Forwarded-For` entry, and only from a trusted proxy.
+
+| Setting | Value | Why |
+|---|---|---|
+| `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS` (`.env`) | `127.0.0.0/8,::1/128,172.24.255.3/32` | only Traefik (pinned IP) may set the header; other containers are logged as themselves |
+| Traefik `real-ip@file` | XFF = one real client IP | an internet client can no longer prepend a fake IP (before 2026-10-24 it could: fake audit log, dodge or abuse the reputation lockout) |
+
+Details: [Traefik README, Client IPs](../Traefik/README.md#client-ips). If Traefik's IP ever changes, update both, or every login shows Traefik's IP and the reputation policy lumps all users together.
