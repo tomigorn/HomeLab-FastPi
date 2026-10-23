@@ -157,6 +157,8 @@ scrape_configs:
           - https://stonks.holy-grail.ch/
           - https://traefik.holy-grail.ch/
           - https://adguard.holy-grail.ch/
+          - https://vpn-status-beefy.holy-grail.ch/
+          - https://vpn-status-mouse.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
