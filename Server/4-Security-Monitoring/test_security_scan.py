@@ -35,6 +35,8 @@ from security_scan import (  # noqa: E402
     parse_apt_upgradable,
     parse_trivy,
     image_only_local,
+    dockerfile_bases,
+    parse_local_bases,
     parse_unraid_check,
     scan_all_images,
     unraid_samples,
@@ -852,3 +854,28 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(fns) - bad}/{len(fns)} passed")
     sys.exit(1 if bad else 0)
+
+
+# --- local images: base images from Dockerfiles ----------------------------
+
+def test_dockerfile_bases_plain_and_aliased():
+    text = "FROM golang:1.25-alpine AS build\nRUN x\nFROM alpine:3.20\nCOPY --from=build /a /a\n"
+    assert dockerfile_bases(text) == ["golang:1.25-alpine", "alpine:3.20"]
+
+
+def test_dockerfile_bases_skip_scratch_stage_refs_and_variables():
+    text = "FROM scratch\nFROM base AS build\nFROM --platform=linux/amd64 python:3.13-alpine AS base\nFROM ${IMG}\n"
+    assert dockerfile_bases(text) == ["python:3.13-alpine"]
+
+
+def test_dockerfile_bases_keep_digest_pin_and_dedupe():
+    text = "FROM ghcr.io/linuxserver/mods@sha256:693f AS opencl\nfrom lscr.io/linuxserver/jellyfin:12.2\nFROM lscr.io/linuxserver/jellyfin:12.2\n"
+    assert dockerfile_bases(text) == ["ghcr.io/linuxserver/mods@sha256:693f", "lscr.io/linuxserver/jellyfin:12.2"]
+
+
+def test_parse_local_bases_maps_image_to_bases():
+    out = "## clamav-local:latest\nFROM alpine:latest\n## ryot-go:local\nFROM docker.io/library/python:3.13-alpine\n## orphan:local\n"
+    assert parse_local_bases(out) == {
+        "clamav-local:latest": ["alpine:latest"],
+        "ryot-go:local": ["docker.io/library/python:3.13-alpine"],
+    }

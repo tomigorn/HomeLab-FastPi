@@ -617,6 +617,56 @@ def docker_cmd(host: str) -> str:
     return REMOTE_DOCKER.get(host, "docker")
 
 
+def dockerfile_bases(text: str) -> list[str]:
+    """External base images of a Dockerfile, in order: no scratch, earlier build stages or ARG variables."""
+    stages: set[str] = set()
+    out: list[str] = []
+    for line in text.splitlines():
+        m = re.match(r"\s*FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?", line, re.I)
+        if not m:
+            continue
+        ref, alias = m.group(1), m.group(2)
+        if alias:
+            stages.add(alias.lower())
+        if ref.lower() == "scratch" or ref.lower() in stages or "$" in ref or ref in out:
+            continue
+        out.append(ref)
+    return out
+
+
+def parse_local_bases(text: str) -> dict[str, list[str]]:
+    """`## <image>` headers each followed by that image's Dockerfile text -> {image: bases}; images without a base are left out."""
+    sections: dict[str, list[str]] = {}
+    cur = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            cur = line[3:].strip()
+            sections[cur] = []
+        elif cur is not None:
+            sections[cur].append(line)
+    return {img: b for img, lines in sections.items() if (b := dockerfile_bases("\n".join(lines)))}
+
+
+def _repo(ref: str) -> str:
+    """Repository part of an image reference: no digest, no tag."""
+    ref = ref.split("@", 1)[0]
+    return ref.rsplit(":", 1)[0] if ":" in ref.rsplit("/", 1)[-1] else ref
+
+
+# Compose project dirs of the running containers on a remote host, with the FROM lines of the Dockerfiles in them (one level deep), read once while the host is awake.
+LOCAL_BASES: dict[str, dict[str, list[str]]] = {}
+
+
+def read_local_bases(host: str) -> dict[str, list[str]]:
+    d = docker_cmd(host)
+    cmd = (f"{d} ps --format '{{{{.Image}}}} {{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | sort -u | "
+           "while read i w; do [ -n \"$w\" ] || continue; echo \"## $i\"; cat \"$w\"/Dockerfile \"$w\"/*/Dockerfile 2>/dev/null; done; true")
+    r = ssh(host, cmd, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"local base images on {host}: {r.stderr.strip()[:200]}")
+    return parse_local_bases(r.stdout)
+
+
 def running_images(host: str) -> list[str]:
     if host in REMOTE_SCAN_HOSTS:
         return running_image_digests(host)
@@ -639,7 +689,7 @@ def running_images(host: str) -> list[str]:
 # copy is only accurate if it is the SAME image, so running_image_digests()
 # resolves each running container to its repo digest (repo@sha256:...), and the
 # scan pins the platform because fastpi is arm64 and tower is amd64.
-# beefy joined 2026-10-19: it is up only until about 04:26, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is skipped and counted in security_images_local_only.
+# beefy joined 2026-10-19: it is up only until about 04:26, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is not scanned itself: its Dockerfile base images are (LOCAL_BASES), and it is counted in security_images_local_only only when no base is known.
 REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
 
 
@@ -650,6 +700,7 @@ def running_image_digests(host: str) -> list[str]:
     r = ssh(host, cmd, timeout=120)
     if r.returncode != 0:
         raise RuntimeError(f"docker ps on {host}: {r.stderr.strip()[:200]}")
+    LOCAL_BASES[host] = read_local_bases(host)
     return sorted({line.strip() for line in r.stdout.splitlines() if line.strip()})
 
 
@@ -763,9 +814,19 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     download_trivy_db(host)
     platform = REMOTE_SCAN_HOSTS.get(host)
     src = ["--image-src", "remote", "--platform", platform] if platform else ["--image-src", "docker"]
-    for image in images:
-        if platform and image_only_local(image):
-            local_only.append(image)
+    bases_of = {_repo(k): v for k, v in LOCAL_BASES.get(host, {}).items()}
+    queue = [(i, False) for i in images]
+    seen = set(images)
+    while queue:
+        image, is_base = queue.pop(0)
+        if platform and not is_base and image_only_local(image):
+            bases = bases_of.get(_repo(image), [])
+            for b in bases:
+                if b not in seen:
+                    seen.add(b)
+                    queue.append((b, True))
+            if not bases:
+                local_only.append(image)
             continue
         r = _trivy_run(host, [
             "image", *src, "--scanners", "vuln",
@@ -774,8 +835,14 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
             "--timeout", "10m", image,
         ], attach_proxy=not platform, timeout=1200)
         if r.returncode != 0 or not r.stdout.strip():
-            if platform and image_only_local(image, r.stderr):
-                local_only.append(image)
+            if platform and not is_base and image_only_local(image, r.stderr):
+                bases = bases_of.get(_repo(image), [])
+                for b in bases:
+                    if b not in seen:
+                        seen.add(b)
+                        queue.append((b, True))
+                if not bases:
+                    local_only.append(image)
                 continue
             unscannable += 1
             print(f"  unscannable on {host}: {image} ({r.stderr.strip()[-160:]})", file=sys.stderr)
@@ -790,7 +857,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
         scanned += 1
         fixable = count_fixable(report)
         detail.append((counts.get("CRITICAL", 0), counts.get("HIGH", 0),
-                       fixable.get("CRITICAL", 0), image))
+                       fixable.get("CRITICAL", 0), f"{image} (base of a local image)" if is_base else image))
         for k, v in counts.items():
             totals[k] = totals.get(k, 0) + v
         for k, v in fixable.items():
@@ -805,7 +872,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     if unscannable:
         lines += ["", f"# {unscannable} image(s) could not be scanned - see journalctl -u security-image-scan"]
     if local_only:
-        lines += ["", "# built locally, in no registry, not scanned:"] + [f"#   {i}" for i in local_only]
+        lines += ["", "# built locally, in no registry, no base image known, not scanned:"] + [f"#   {i}" for i in local_only]
     (STATE / f"image-cves-{host}.txt").write_text("\n".join(lines) + "\n")
     return totals, fixables, scanned, unscannable, len(local_only)
 
