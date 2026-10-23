@@ -42,6 +42,8 @@ ICONS=(
   "tracker:ryot"
   "traefik-dashboard:traefik"
   "wg-easy:wireguard"
+  "vpn-status-beefy:gluetun"
+  "vpn-status-mouse:gluetun"
 )
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"

@@ -156,5 +156,26 @@ app_for("claude-mockups", "Claude mockups",
         proxy("claude-mockups-proxy", "https://claude-mockups.holy-grail.ch"),
         "https://claude-mockups.holy-grail.ch")
 
+# 8. VPN status of beefy's Movie-Downloads stack (forward auth; route in
+# Docker/Traefik/traefik/dynamic/vpn-status-beefy.yml). The page has no login of its own.
+app_for("vpn-status-beefy", "VPN status (beefy)",
+        proxy("vpn-status-beefy-proxy", "https://vpn-status-beefy.holy-grail.ch"),
+        "https://vpn-status-beefy.holy-grail.ch")
+
+# 9. VPN status of fastpi's mouse stack, port_updater (forward auth with HTTP Basic injection
+# like AdGuard; route in Docker/Traefik/traefik/dynamic/vpn-status-mouse.yml). port_updater
+# keeps its own Basic login (WEB_USER / secrets/port_updater_web_pass in Docker/mouse), the
+# outpost sends it from group homelab-admins attributes port_updater_username / _password.
+# They are only set when passed in (-e PORT_UPDATER_PROXY_USER -e PORT_UPDATER_PROXY_PASSWORD).
+app_for("vpn-status-mouse", "VPN status (mouse)",
+        proxy("vpn-status-mouse-proxy", "https://vpn-status-mouse.holy-grail.ch", basic_auth_enabled=True,
+              basic_auth_user_attribute="port_updater_username",
+              basic_auth_password_attribute="port_updater_password"),
+        "https://vpn-status-mouse.holy-grail.ch")
+if os.environ.get("PORT_UPDATER_PROXY_USER") and os.environ.get("PORT_UPDATER_PROXY_PASSWORD"):
+    admins.attributes["port_updater_username"] = os.environ["PORT_UPDATER_PROXY_USER"]
+    admins.attributes["port_updater_password"] = os.environ["PORT_UPDATER_PROXY_PASSWORD"]
+    admins.save()
+
 outpost.save()
 print("OK provisioned")

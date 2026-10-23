@@ -37,6 +37,8 @@ APPS = {
     "sabnzbd":           ("Downloads", "Usenet downloader" + BEEFY, None),
     "qbittorrent":       ("Downloads", "Torrent downloader" + BEEFY, None),
     "bazarr":            ("Downloads", "Subtitles" + BEEFY, None),
+    "vpn-status-beefy":  ("Downloads", "Torrent VPN & port (films)" + BEEFY, None),
+    "vpn-status-mouse":  ("Downloads", "Torrent VPN & port (audiobooks)", None),
     "grafana":           ("Homelab", "Dashboards & metrics", None),
     "portainer":         ("Homelab", "Docker management", None),
     "adguard":           ("Homelab", "DNS & ad blocking", None),

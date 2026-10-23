@@ -352,10 +352,10 @@ failure left no trace. Only the passport-error path logs, and it redirects to
 
 ## Admin SSO (homelab-admins)
 
-Seven admin tools sit behind Authentik: Traefik dashboard, Grafana, Portainer,
-AdGuard Home, wg-easy, Home Assistant and Claude mockups. Access to each is an Authentik
+Nine admin tools sit behind Authentik: Traefik dashboard, Grafana, Portainer,
+AdGuard Home, wg-easy, Home Assistant, Claude mockups and the two qBittorrent/VPN status pages. Access to each is an Authentik
 Application group binding to `homelab-admins` (an application with a binding is
-denied to everyone the bindings don't pass). All six hostnames are reachable from
+denied to everyone the bindings don't pass). All nine hostnames are reachable from
 LAN and VPN only, via the `local-networks@file` Traefik middleware. The whole
 setup is config as code in `scripts/provision-admin-sso.py`; the design is in
 `docs/superpowers/specs/2026-10-18-homelab-admin-sso-design.md`.
@@ -378,6 +378,8 @@ the VPN: the Cloudflare SSH tunnel (see `WireguardVPN/README.md`). Machine acces
 | wg-easy | https://wg-easy.holy-grail.ch | native OIDC (custom `email_verified` scope mapping; admin linked by email) | password login disabled (`DISABLE_PASSWORD_AUTH=true`). Shell: set it to `false` in `WireguardVPN/docker-compose.yaml`, `docker compose up -d`, log in at `/login?auto_launch=false`, set it back; lost password: `docker exec -it WireGuard-VPN cli db:admin:reset` |
 | Home Assistant | https://ha.holy-grail.ch | `hass-oidc-auth` 1.2.1 (public client) | none over the web: re-add the `homeassistant` auth provider from the shell + restart (see Home-Assistant README) |
 | Claude mockups | https://claude-mockups.holy-grail.ch | forward auth (`authentik@file`); the answer-inbox POST is same-origin and rides the session cookie | none over the web (basic auth removed 2026-10-19). Shell: read `Claude-Mockups/www/` and `answers/` directly; steps in `Claude-Mockups/README.md` |
+| VPN status (beefy) | https://vpn-status-beefy.holy-grail.ch | forward auth (`authentik@file`), then beefy's wake gate; the page has no login of its own | `ssh -L 8187:127.0.0.1:8087 beefy`, then `http://localhost:8187/` (8087 on beefy's LAN IP is dropped for all but fastpi) |
+| VPN status (mouse) | https://vpn-status-mouse.holy-grail.ch | forward auth; Authentik injects port_updater's own HTTP Basic login (middleware `authentik-basic@file`; `homelab-admins` attributes `port_updater_username` / `port_updater_password`) | `ssh -L 8087:127.0.0.1:8087 fastpi`, then `http://localhost:8087/` with the Basic login (`WEB_USER` + `mouse/secrets/port_updater_web_pass`) |
 
 ### Re-running the provisioning
 
@@ -390,7 +392,10 @@ The script is idempotent. Secrets never touch the terminal or git: the script
 emits `ENV <dir>/.env KEY=value` lines and `apply-sso-env.py` writes them into the
 gitignored `.env` files, printing key names only. The AdGuard proxy password is
 only set when you pass it in (`docker compose exec -T -e ADGUARD_PROXY_PASSWORD server ak shell ...`),
-i.e. when rotating it; otherwise the stored attributes are left untouched.
+i.e. when rotating it; otherwise the stored attributes are left untouched. Same for
+port_updater's Basic login: `-e PORT_UPDATER_PROXY_USER -e PORT_UPDATER_PROXY_PASSWORD`
+(values from `mouse/.env` `WEB_USER` and `mouse/secrets/port_updater_web_pass`), needed again
+whenever that password changes.
 
 To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 
