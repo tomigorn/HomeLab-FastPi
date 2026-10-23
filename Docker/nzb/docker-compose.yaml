@@ -55,10 +55,12 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${ProtonVPN_Private_Key}
+      - WIREGUARD_PRIVATE_KEY_SECRETFILE=/run/secrets/wireguard_private_key
       - SERVER_COUNTRIES=Switzerland
       - TZ=Europe/Zurich
       - WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL=25s
+    secrets:
+      - wireguard_private_key   # root:root 0400, gluetun runs as root
     # expose host ports here because sabnzbd shares gluetun's network namespace
     ports:
       # SABnzbd web UI (host_port:container_port) - localhost only (2026-10-19,
@@ -127,6 +129,13 @@ services:
       - autoheal-nzb=true
     # SABnzbd has no direct network access — all traffic routed through gluetun/ProtonVPN
     network_mode: "service:gluetun"
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+secrets:
+  wireguard_private_key:
+    file: ./secrets/wireguard_private_key
 
 # =========================================================
 # Networks ================================================
