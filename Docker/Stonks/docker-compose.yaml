@@ -18,6 +18,8 @@ services:
     env_file: .env
     volumes:
       - ./data:/data
+      # pydantic-settings reads /app/.env; it holds only the secrets
+      - ./secrets/stonks.env:/app/.env:ro
     networks:
       - traefik_proxy
 
