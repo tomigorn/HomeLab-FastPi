@@ -65,7 +65,10 @@ def main():
                 print("LOGIN_FAIL: no TOTP device offered")
                 return 1
             d = req("POST", {"component": "ak-stage-authenticator-validate", "selected_challenge": dev, "code": totp(b32)})
-        elif comp in ("ak-stage-user-login", "xak-flow-redirect") or d.get("type") == "redirect":
+        elif comp == "ak-stage-user-login":
+            # Asked only when the login stage offers "stay signed in" (remember_me_offset > 0).
+            d = req("POST", {"component": "ak-stage-user-login", "remember_me": True})
+        elif comp == "xak-flow-redirect" or d.get("type") == "redirect":
             print("LOGIN_OK: reached", comp or d.get("type"))
             return 0
         else:
