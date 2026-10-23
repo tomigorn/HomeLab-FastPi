@@ -19,6 +19,12 @@ from security_scan import (  # noqa: E402
     collect_av,
     audit_samples,
     count_failed_logins,
+    classify_source,
+    parse_ssh_logins,
+    integrity_samples,
+    integrity_diff,
+    integrity_targets,
+    hash_file,
     new_findings,
     parse_audit_output,
     parse_chkrootkit,
@@ -504,6 +510,84 @@ def test_failed_logins_syslog_year_rollover():
 
 def test_failed_logins_skips_unparseable_lines():
     assert count_failed_logins("-- No entries --\nsshd Failed password garbage\n", NOW) == 0
+
+
+# --- successful SSH logins and file integrity ---------------------------------
+
+def _ts_for(iso: str) -> float:
+    from datetime import datetime
+    return datetime.fromisoformat(iso).timestamp()
+
+
+def test_classify_source_lan_vpn_tunnel_other():
+    assert classify_source("192.168.1.102") == "lan"
+    assert classify_source("172.24.255.5") == "vpn"
+    assert classify_source("10.8.0.4") == "vpn"
+    assert classify_source("172.20.0.2") == "tunnel"
+    assert classify_source("84.226.182.197") == "other"
+    assert classify_source("172.18.0.9") == "other"
+    assert classify_source("fe80::1") == "other"
+    assert classify_source("not-an-ip") == "other"
+
+
+SSH_OK = """2026-10-23T09:00:00+0200 fastpi sshd-session[1]: Accepted publickey for pi from 192.168.1.102 port 5 ssh2: ED25519 SHA256:abc
+2026-10-23T09:10:00+0200 fastpi sshd-session[2]: Accepted publickey for pi from 192.168.1.102 port 6 ssh2: ED25519 SHA256:abc
+2026-10-23T10:00:00+0200 fastpi sshd-session[3]: Accepted publickey for deploy from 172.20.0.2 port 7 ssh2: ED25519 SHA256:def
+2026-10-23T10:01:00+0200 fastpi sshd-session[4]: Failed password for pi from 192.168.1.5 port 8 ssh2
+2026-10-21T10:01:00+0200 fastpi sshd-session[5]: Accepted publickey for pi from 1.2.3.4 port 8 ssh2: ED25519 SHA256:old
+"""
+SSH_NOW = _ts_for("2026-10-23T12:00:00+02:00")
+
+
+def test_parse_ssh_logins_groups_by_user_and_class():
+    assert parse_ssh_logins(SSH_OK, SSH_NOW) == {
+        ("pi", "lan"): (2, _ts_for("2026-10-23T09:10:00+02:00")),
+        ("deploy", "tunnel"): (1, _ts_for("2026-10-23T10:00:00+02:00")),
+    }
+
+
+def test_parse_ssh_logins_ignores_failures_and_old_lines():
+    assert parse_ssh_logins("\n".join(SSH_OK.splitlines()[3:]), SSH_NOW) == {}
+
+
+def test_parse_ssh_logins_counts_password_logins_too():
+    line = "2026-10-23T11:00:00+0200 fastpi sshd[1]: Accepted password for pi from 8.8.8.8 port 1 ssh2"
+    assert list(parse_ssh_logins(line, SSH_NOW)) == [("pi", "other")]
+
+
+def test_hash_file_is_sha256_hex():
+    import tempfile
+    with tempfile.NamedTemporaryFile() as f:
+        f.write(b"abc")
+        f.flush()
+        assert hash_file(Path(f.name)) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+
+def test_integrity_diff_states():
+    base = {"/a": "1", "/b": "2", "/gone": "3"}
+    cur = {"/a": "1", "/b": "changed", "/new": "4"}
+    assert integrity_diff(base, cur) == {"/a": "ok", "/b": "changed", "/new": "new", "/gone": "missing"}
+
+
+def test_integrity_samples_export_only_a_hash_prefix():
+    cur = {"/a": "f" * 64, "/b": "e" * 64}
+    out = integrity_samples("fastpi", {"/a": "ok", "/b": "changed", "/gone": "missing"}, cur)
+    changed = {l["path"]: v for n, l, v in out if n == "security_integrity_changed"}
+    assert changed == {"/a": 0, "/b": 1, "/gone": 1}
+    info = [l for n, l, v in out if n == "security_integrity_file_info"]
+    assert {"host": "fastpi", "path": "/a", "sha256_prefix": "f" * 12} in info
+    assert not any("f" * 13 in str(l) for _, l, _ in out)
+    assert ("security_integrity_files", {"host": "fastpi"}, 2) in out
+
+
+def test_integrity_targets_expands_globs():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "x").mkdir()
+        (Path(d) / "x" / "k").write_text("1")
+        (Path(d) / "y").write_text("2")
+        got = integrity_targets([f"{d}/*/k", f"{d}/*/nope", f"{d}/y", f"{d}/missing"])
+        assert got == sorted([f"{d}/x/k", f"{d}/y"])
 
 
 # --- audit: rkhunter, chkrootkit, Lynis --------------------------------------

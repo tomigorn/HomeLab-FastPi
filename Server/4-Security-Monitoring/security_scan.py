@@ -26,6 +26,9 @@ staleness alerts in grafana/prometheus/rules/security-posture.yml.
 """
 from __future__ import annotations
 
+import glob
+import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -323,6 +326,79 @@ def count_failed_logins(text: str, now: float, window: int = 86400) -> int:
         if ts is not None and now - window <= ts <= now + 300:
             n += 1
     return n
+
+
+_SSH_ACCEPTED_RE = re.compile(r"sshd.*: Accepted \S+ for (\S+) from (\S+) port ")
+SOURCE_CLASSES = (
+    ("lan", ("192.168.1.0/24",)),
+    ("vpn", ("172.24.255.5/32", "10.8.0.0/24")),   # wg-easy NAT address on traefik_proxy, WireGuard client subnet
+    ("tunnel", ("172.20.0.0/16",)),                # cloudflared's compose network
+)
+
+
+def classify_source(ip: str) -> str:
+    """lan / vpn / tunnel / other for the address sshd saw."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return "other"
+    for name, nets in SOURCE_CLASSES:
+        if any(addr in ipaddress.ip_network(n) for n in nets):
+            return name
+    return "other"
+
+
+def parse_ssh_logins(text: str, now: float, window: int = 86400) -> dict[tuple[str, str], tuple[int, float]]:
+    """Accepted sshd logins within the window: (user, source class) -> (count, newest timestamp)."""
+    out: dict[tuple[str, str], tuple[int, float]] = {}
+    for line in text.splitlines():
+        m = _SSH_ACCEPTED_RE.search(line)
+        if not m:
+            continue
+        ts = _log_timestamp(line, now)
+        if ts is None or not now - window <= ts <= now + 300:
+            continue
+        key = (m[1], classify_source(m[2]))
+        n, last = out.get(key, (0, 0.0))
+        out[key] = (n + 1, max(last, ts))
+    return out
+
+
+INTEGRITY_PATHS = (
+    "/home/*/.ssh/authorized_keys", "/root/.ssh/authorized_keys",
+    "/etc/sudoers", "/etc/sudoers.d/*",
+    "/etc/ssh/sshd_config", "/etc/ssh/sshd_config.d/*",
+)
+
+
+def integrity_targets(patterns=INTEGRITY_PATHS) -> list[str]:
+    return sorted({p for pat in patterns for p in glob.glob(pat) if os.path.isfile(p)})
+
+
+def hash_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def integrity_diff(baseline: dict[str, str], current: dict[str, str]) -> dict[str, str]:
+    """ok / changed / new / missing per path."""
+    out = {}
+    for p in baseline.keys() | current.keys():
+        if p not in current:
+            out[p] = "missing"
+        elif p not in baseline:
+            out[p] = "new"
+        else:
+            out[p] = "ok" if baseline[p] == current[p] else "changed"
+    return out
+
+
+def integrity_samples(host: str, states: dict[str, str], current: dict[str, str]) -> list:
+    out = [("security_integrity_files", {"host": host}, len(current))]
+    for p, st in sorted(states.items()):
+        out.append(("security_integrity_changed", {"host": host, "path": p}, 0 if st == "ok" else 1))
+    for p, h in sorted(current.items()):
+        out.append(("security_integrity_file_info", {"host": host, "path": p, "sha256_prefix": h[:12]}, 1))
+    return out
 
 
 def parse_rkhunter(text: str) -> list[str]:
@@ -956,6 +1032,29 @@ def collect_failed_logins(host: str) -> int:
     return count_failed_logins(r.stdout, time.time())
 
 
+def collect_ssh_logins(host: str = "fastpi") -> list:
+    r = run(["journalctl", "_COMM=sshd", "_COMM=sshd-session", "--since", "-24h",
+             "-o", "short-iso", "--no-pager", "-q"], timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"journalctl: rc={r.returncode} {r.stderr.strip()[:200]}")
+    out = []
+    for (user, cls), (n, last) in sorted(parse_ssh_logins(r.stdout, time.time()).items()):
+        labels = {"host": host, "user": user, "source_class": cls}
+        out.append(("security_ssh_logins", labels, n))
+        out.append(("security_ssh_last_login_timestamp_seconds", labels, last))
+    return out
+
+
+def collect_integrity(host: str = "fastpi") -> list:
+    """Hashes against the baseline in STATE; the first run accepts what it finds (like rkhunter --propupd)."""
+    current = {p: hash_file(Path(p)) for p in integrity_targets()}
+    baseline_file = STATE / f"integrity-baseline-{host}.json"
+    if not baseline_file.exists():
+        write_atomic(baseline_file, json.dumps(current, indent=1, sort_keys=True) + "\n")
+    baseline = json.loads(baseline_file.read_text())
+    return integrity_samples(host, integrity_diff(baseline, current), current)
+
+
 # beefy first: it is only up until about 04:26.
 AUDIT_HOSTS = ("beefy", "fastpi")
 # rc lines are separate so a tool that failed is told apart from one that found something. rkhunter exits 1 when it has warnings.
@@ -1086,6 +1185,11 @@ HELPS = {
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
     "security_images_local_only": "Images on beefy/tower built locally (in no registry), skipped by the registry scan.",
     "security_failed_logins_total": "Failed SSH logins in the last 24 h (log lines: Failed password, Invalid user, authentication failure).",
+    "security_ssh_logins": "Accepted SSH logins in the last 24 h by user and source class (lan, vpn, tunnel, other).",
+    "security_ssh_last_login_timestamp_seconds": "Time of the newest accepted SSH login of that user and source class in the last 24 h.",
+    "security_integrity_changed": "1 if the file differs from, is new to, or is missing from the baseline integrity-baseline-<host>.json.",
+    "security_integrity_files": "Files watched for integrity (authorized_keys, sudoers, sshd_config).",
+    "security_integrity_file_info": "Current SHA-256 prefix (12 hex) of each watched file.",
     "security_rootkit_warnings": "rkhunter/chkrootkit findings NOT in the accepted baseline (audit-accepted-<host>-<tool>.txt).",
     "security_rootkit_findings": "All rkhunter/chkrootkit findings, accepted ones included.",
     "security_lynis_hardening_index": "Lynis hardening index (0-100) from the weekly quick audit.",
@@ -1180,6 +1284,10 @@ def main() -> int:
             def _logins(host=host):
                 return [("security_failed_logins_total", {"host": host}, collect_failed_logins(host))]
             guarded(f"logins-{host}", _logins, host=host)
+
+    if only and "access" in only:
+        guarded("ssh-logins-fastpi", collect_ssh_logins, host="fastpi")
+        guarded("integrity-fastpi", collect_integrity, host="fastpi")
 
     if want("audit"):
         for host in AUDIT_HOSTS:

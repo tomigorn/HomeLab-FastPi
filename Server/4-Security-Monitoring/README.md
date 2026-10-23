@@ -10,6 +10,8 @@ pipeline that already exists (`security_scan.py <group>`):
 | Is the OS patched? | `patches` | `apt list --upgradable`, security updates counted separately | fastpi, beefy | daily 04:05 |
 | Is Unraid patched? | `patches` | `plugin checkall` + `unraidcheck` (json, no Unraid notification) | tower | daily 04:05 |
 | Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:05 |
+| Who logged in over SSH (sshd is key-only, so no failures)? | `access` | accepted logins in the last 24 h by user and source class (lan 192.168.1.0/24, vpn 172.24.255.5 + 10.8.0.0/24, tunnel 172.20.0.0/16 = cloudflared, other); alerts on non-lan or a user other than `pi` | fastpi | every 5 min (`security-access.timer`, root) |
+| Did authorized_keys, sudoers or sshd_config change? | `access` | SHA-256 of `/home/*/.ssh/authorized_keys`, `/root/.ssh/authorized_keys`, `/etc/sudoers`, `/etc/sudoers.d/*`, `/etc/ssh/sshd_config(.d/*)` against a baseline | fastpi | every 5 min |
 | Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error) | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 |
 | Are container images vulnerable? | `images` | Trivy across the images actually running | all three | weekly 04:10 daily |
@@ -21,6 +23,8 @@ Metrics:
 | Metric | Labels |
 |---|---|
 | `security_failed_logins_total` | host |
+| `security_ssh_logins`, `security_ssh_last_login_timestamp_seconds` | host, user, source_class |
+| `security_integrity_changed` (1 = changed, new or missing), `security_integrity_file_info` (12-hex hash prefix), `security_integrity_files` | host, path / + sha256_prefix / host |
 | `security_unraid_os_update`, `security_unraid_plugin_update` | installed, available / plugin |
 | `security_image_updates`, `security_image_update_info` | host, type / host, reference, type |
 | `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
@@ -82,6 +86,14 @@ security updates". The `SecurityScanStale` alert watches the timestamps instead.
 ```bash
 rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl start security-audit.service
 ```
+
+**Accept a changed authorized_keys / sudoers / sshd_config.** `SecurityFileChanged` clears only when the baseline (`/var/lib/security-scan/integrity-baseline-fastpi.json`, written by the first run) is re-accepted after you checked the change:
+
+```bash
+sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json && sudo systemctl start security-access.service
+```
+
+Login alerts (`SshLoginOutsideLan`, `SshLoginUnexpectedUser`) stay up for an hour after the login. The `access` group runs as root in its own 5-minute unit because sudoers and other users' keys are root-only; it is read-only apart from the two state/metric directories. The leftover `deploy` user's key is in the baseline, so a login by it alerts.
 
 **The audit unit is not sandboxed.** It runs the tools via sudo and they must see the real system (PrivateTmp/ProtectHome would hide what chkrootkit looks at).
 
@@ -197,7 +209,7 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 101 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | 109 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
 | `security-image-scan.{service,timer}` | weekly 04:10 daily: images |

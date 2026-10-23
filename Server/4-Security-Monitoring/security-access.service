@@ -1,0 +1,22 @@
+[Unit]
+Description=SSH logins and sshd/sudoers/authorized_keys integrity (fastpi)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+# root: /etc/sudoers and other users' authorized_keys are not readable by pi.
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py access
+TimeoutStartSec=120
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/security-scan /var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
