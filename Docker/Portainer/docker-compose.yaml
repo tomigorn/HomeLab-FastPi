@@ -111,7 +111,7 @@ services:
 # Portainer ###############################################
 # #########################################################
   portainer:
-    image: portainer/portainer-ce:latest
+    image: portainer/portainer-ce:2.45.3   # pinned; keep beefy Portainer-Agent PORTAINER_AGENT_TAG on the same version
     container_name: portainer
     user: "65030:65030"
     group_add:
