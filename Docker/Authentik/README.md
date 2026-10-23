@@ -110,18 +110,22 @@ authentik-worker ──SMTP 587 (STARTTLS)──> Brevo ──> recipient inbox
      *(Manual fallback: if it can't auto-detect, Brevo lists the records to add by
      hand under Cloudflare → DNS → Records.)*
    - **SMTP key:** Brevo → *SMTP & API → SMTP* → copy the **Login** and generate
-     an **SMTP key**; these become `AUTHENTIK_EMAIL__USERNAME` /
-     `AUTHENTIK_EMAIL__PASSWORD`.
+     an **SMTP key**; these become `AUTHENTIK_EMAIL__USERNAME` (`.env`) and
+     `secrets/email_password`.
    - Any equivalent provider (Resend, MailerSend, Scaleway TEM…) works — just
      change `AUTHENTIK_EMAIL__*`.
 
-4. **Secrets** — copy the template and fill it in:
+4. **Config and secrets** — `.env` holds only non-secret config; secrets are files in `secrets/` (compose `secrets:`, read as `POSTGRES_PASSWORD_FILE` and Authentik `file:///run/secrets/…` values):
    ```bash
-   cp .env.example .env
-   #   PG_PASS               openssl rand -base64 36 | tr -d '\n'
-   #   AUTHENTIK_SECRET_KEY  openssl rand -base64 60 | tr -d '\n'
-   #   AUTHENTIK_EMAIL__USERNAME / AUTHENTIK_EMAIL__PASSWORD  (Brevo SMTP key)
+   cp .env.example .env    # fill in AUTHENTIK_EMAIL__USERNAME
+   umask 077; mkdir -p secrets
+   openssl rand -base64 36 | tr -d '\n' > secrets/pg_pass
+   openssl rand -base64 60 | tr -d '\n' > secrets/secret_key
+   printf %s '<Brevo SMTP key>' > secrets/email_password
+   sudo chown 70:65019 secrets/pg_pass && sudo chmod 0440 secrets/pg_pass
+   sudo chown 65019:65019 secrets/secret_key secrets/email_password && sudo chmod 0400 secrets/secret_key secrets/email_password
    ```
+   An unreadable file silently becomes an empty value in Authentik: check `docker logs authentik-server | grep "Failed to read config"` after a change.
 
 5. **Start it:**
    ```bash

@@ -6,7 +6,8 @@
 #   - explicit container_name for Traefik file-provider routing
 #   - authentik_internal + external traefik_proxy networks
 #   - no published host ports (ingress is handled by Traefik)
-# All AUTHENTIK_* / PG_* config (including email) is read from .env via env_file.
+# Non-secret AUTHENTIK_* / PG_* config is read from .env via env_file. Secrets are files in
+# secrets/ (compose secrets, read via POSTGRES_PASSWORD_FILE and Authentik's file:// values).
 services:
 # #########################################################
 # PostgreSQL ##############################################
@@ -33,7 +34,9 @@ services:
     environment:
       POSTGRES_USER: ${PG_USER:-authentik}
       POSTGRES_DB: ${PG_DB:-authentik}
-      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_pass
+    secrets:
+      - pg_pass   # 70:65019 0440, read by postgres and authentik
     volumes:
       # PG18 keeps data under /var/lib/postgresql/18/docker and wants the volume at
       # /var/lib/postgresql. The PG16 volume "database" is kept untouched for rollback.
@@ -61,8 +64,13 @@ services:
       AUTHENTIK_POSTGRESQL__HOST: postgresql
       AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
       AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+      AUTHENTIK_POSTGRESQL__PASSWORD: file:///run/secrets/pg_pass
+      AUTHENTIK_SECRET_KEY: file:///run/secrets/secret_key
+      AUTHENTIK_EMAIL__PASSWORD: file:///run/secrets/email_password
+    secrets:
+      - pg_pass
+      - secret_key
+      - email_password
     volumes:
       - ./data:/data
       - ./custom-templates:/templates
@@ -108,8 +116,13 @@ services:
       AUTHENTIK_POSTGRESQL__HOST: postgresql
       AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
       AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+      AUTHENTIK_POSTGRESQL__PASSWORD: file:///run/secrets/pg_pass
+      AUTHENTIK_SECRET_KEY: file:///run/secrets/secret_key
+      AUTHENTIK_EMAIL__PASSWORD: file:///run/secrets/email_password
+    secrets:
+      - pg_pass
+      - secret_key
+      - email_password
     volumes:
       # /var/run/docker.sock was REMOVED (2026-09-26). The worker ran as root with
       # the Docker socket mounted, which is host root: a compromise of it owned the
@@ -135,6 +148,17 @@ services:
         condition: service_healthy
     networks:
       - authentik_internal
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+secrets:
+  pg_pass:
+    file: ./secrets/pg_pass
+  secret_key:
+    file: ./secrets/secret_key
+  email_password:
+    file: ./secrets/email_password
 
 # =========================================================
 # Networks ================================================

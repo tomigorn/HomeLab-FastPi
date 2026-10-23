@@ -67,14 +67,12 @@ actual delivery. There is **no** self-hosted mail server and **no** inbound mail
    generate an **SMTP key** (this is the password).
 
 ### How Authentik is wired to it
-All config is read from `.env` via `env_file:` in `docker-compose.yaml`. The
-relevant variables:
+Config is read from `.env` via `env_file:` in `docker-compose.yaml`; the SMTP key is the file `secrets/email_password` (`AUTHENTIK_EMAIL__PASSWORD=file:///run/secrets/email_password` in the compose). The relevant variables:
 
 ```ini
 AUTHENTIK_EMAIL__HOST=smtp-relay.brevo.com
 AUTHENTIK_EMAIL__PORT=587
 AUTHENTIK_EMAIL__USERNAME=<Brevo SMTP login>
-AUTHENTIK_EMAIL__PASSWORD=<Brevo SMTP key>
 AUTHENTIK_EMAIL__USE_TLS=true        # STARTTLS on 587
 AUTHENTIK_EMAIL__USE_SSL=false
 AUTHENTIK_EMAIL__TIMEOUT=10
