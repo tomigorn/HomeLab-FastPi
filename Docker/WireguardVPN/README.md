@@ -85,3 +85,9 @@ iptables -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m mu
 which `local-networks@file` allows. `-i wg0` limits it to real WireGuard clients. If the
 wg-easy DB is ever recreated, re-add this hook. Other ports (DNS 53, SSH, AdGuard 3000…) are
 unchanged. Backup of the DB before the change: `~/backups/wg-easy.db.bak-2026-10-19`.
+
+The container's **own** requests (e.g. `docker exec WireGuard-VPN …` to 192.168.1.2) are not from `wg0`, so they still hairpin as 172.24.0.1 and get 403 on LAN-only routes: expected, not a client problem. Test the real client path from the container's netns:
+
+```bash
+docker run --rm --network container:WireGuard-VPN --user 65026:65026 --cap-drop ALL curlimages/curl:8.23.0 -sk -o /dev/null -w '%{http_code} %{redirect_url}\n' --resolve radarr.holy-grail.ch:443:172.24.255.3 https://radarr.holy-grail.ch/   # 302 -> sso
+```
