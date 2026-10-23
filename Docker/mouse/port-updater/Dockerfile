@@ -1,4 +1,4 @@
-FROM alpine:3.19
+FROM alpine:3.24
 # include tzdata so named timezones from TZ work inside the container
 RUN apk add --no-cache curl docker-cli jq tzdata python3
 COPY port-updater.sh /usr/local/bin/port-updater.sh
