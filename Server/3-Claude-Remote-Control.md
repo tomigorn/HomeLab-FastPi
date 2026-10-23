@@ -49,7 +49,7 @@ WorkingDirectory=%h
 
 # Stable, fnm-independent PATH (the /run/user fnm multishell path is per-shell and must NOT be used here)
 Environment=HOME=%h
-Environment=PATH=%h/.local/bin:%h/.local/share/fnm/node-versions/v24.14.1/installation/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=%h/.local/bin:%h/.local/share/fnm/aliases/default/bin:/usr/local/bin:/usr/bin:/bin
 
 ExecStart=%h/.local/bin/claude remote-control --name fastpi --permission-mode auto
 
@@ -80,7 +80,7 @@ WantedBy=default.target
   accumulate memory; this throttles then hard-caps the cgroup so a leak can't OOM the Pi.
 - **Nightly restart timer** (see below) — reclaims memory, refreshes auth, and picks up
   any manually-installed `claude` update once a day.
-- **Pinned PATH** — uses the absolute fnm node path, not the per-shell
+- **Pinned PATH** — uses the fnm `default` alias path (follows `fnm default`), not the per-shell
   `/run/user/.../fnm_multishells` path which doesn't exist outside an interactive shell.
 
 ### Nightly restart timer
