@@ -45,6 +45,25 @@ routers (`dynamic/languagetool.yml` + the gitignored `languagetool-token.yml`)
 and `docker compose up -d` Traefik — that is the step that finally closes the
 `:443` bypass.
 
+## Client IPs
+
+Every backend, `crowdsec@file` and `default-rate-limit` see **one** address in `X-Forwarded-For`: the real client. Set by `real-ip@file` (own local plugin `traefik/plugins-local/src/github.com/tomigorn/realip`, stdlib only, no download), first middleware on `websecure`, `langtool`, `internal`.
+
+| Request arrives from | Client IP used |
+|---|---|
+| `172.24.0.1` (Cloudflare tunnel; also host/container hairpins) | `Cf-Connecting-Ip` (Cloudflare always overwrites it) |
+| anything else (LAN, VPN `172.24.255.5`) | connection address |
+
+| Consumer | How it picks the IP |
+|---|---|
+| Authentik | leftmost XFF, trusts only `172.24.255.3` (see [Authentik README](../Authentik/README.md#client-ip-audit-log-reputation-policy)) |
+| `default-rate-limit` | `sourceCriterion.ipStrategy.depth: 1` (+ `ipv6Subnet: 64`) = one bucket per client; before 2026-10-24 the whole internet shared the `172.24.0.1` bucket |
+| `crowdsec@file` | rightmost XFF from `172.24.0.1` = the same IP |
+| `local-networks@file` | connection address only, headers never count |
+| access log | raw incoming chain (`spoofed, real`); the rightmost entry is the real one |
+
+Why a plugin: Traefik cannot rewrite `X-Forwarded-For` itself, and `forwardedHeaders.trustedIPs` keeps the client-supplied left part. Test (spoof must not show up): `curl -s --resolve sso.holy-grail.ch:443:$(dig +short @1.1.1.1 sso.holy-grail.ch | head -1) -H 'X-Forwarded-For: 203.0.113.77' https://sso.holy-grail.ch/-/health/live/; docker logs --since 1m authentik-server | grep -o '"remote":"[^"]*"' | tail -1`
+
 ## Access log rotation
 
 `logrotate/traefik` rotates `traefik/logs/access.log` (daily or at 100 MB, 14 kept, compressed with `delaycompress` so CrowdSec can finish the old file). `postrotate` sends `USR1` to Traefik, which reopens and recreates the file (no restart); CrowdSec's file tail follows the new file.

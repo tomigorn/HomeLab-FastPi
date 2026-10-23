@@ -1,0 +1,8 @@
+displayName: Real client IP
+type: middleware
+import: github.com/tomigorn/realip
+summary: Replaces X-Forwarded-For and X-Real-Ip with the single real client IP (Cf-Connecting-Ip from a trusted tunnel, else the connection address)
+
+testData:
+  trustedIPs:
+    - 172.24.0.1/32

@@ -20,16 +20,14 @@ entryPoints:
         # Attached HERE, not per-router, so every public route is covered -
         # including any added later. Per-router attachment silently misses new
         # services, which is the failure mode that matters.
+        # real-ip first: it sets X-Forwarded-For to the one real client IP that
+        # crowdsec, default-rate-limit and every backend (Authentik) then see.
+        - real-ip@file
         - crowdsec@file
-    # Every external request arrives via the Cloudflare tunnel, so the packet
-    # source is always the docker bridge gateway (172.24.0.1) and the real client
-    # sits in X-Forwarded-For. Without this, Traefik logged 172.24.0.1 as the
-    # client for ALL outside traffic - which meant default-rate-limit was a single
-    # shared bucket for the entire internet rather than per client, and any
-    # log-based blocking would have banned the tunnel itself.
-    #
-    # Only the gateway is trusted, not a broad range: anything that can reach
-    # Traefik from that address is already inside the host.
+    # Tunnel traffic arrives from the docker gateway (172.24.0.1). Trusting it keeps
+    # Cloudflare's X-Forwarded-For for the access log; real-ip@file then replaces it
+    # with Cf-Connecting-Ip, because the left part of that header is client-supplied.
+    # Only the gateway is trusted: anything reaching Traefik from there is already inside the host.
     forwardedHeaders:
       trustedIPs:
         - "172.24.0.1/32"
@@ -40,6 +38,7 @@ entryPoints:
       # X-Auth-User): PHP/CGI backends would read them as the real header.
       aliasHeadersStrategy: delete
       middlewares:
+        - real-ip@file
         - default-rate-limit@file
   # LanguageTool's own public entrypoint (direct ingress, lang-tool.ddns.net).
   # Separate from websecure so the external 443 forward can point here instead of
@@ -51,6 +50,7 @@ entryPoints:
     http:
       aliasHeadersStrategy: delete
       middlewares:
+        - real-ip@file
         - crowdsec@file
     forwardedHeaders:
       trustedIPs:
@@ -123,3 +123,6 @@ experimental:
   localPlugins:
     crowdsec-bouncer:
       moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+    # Own code (traefik/plugins-local/src/github.com/tomigorn/realip), stdlib only, see dynamic/real-ip.yml.
+    realip:
+      moduleName: github.com/tomigorn/realip

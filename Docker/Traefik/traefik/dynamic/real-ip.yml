@@ -1,0 +1,12 @@
+# Sets X-Forwarded-For and X-Real-Ip to exactly one address, the real client (entrypoint middleware on websecure, langtool, internal):
+#   - from the Cloudflare tunnel (172.24.0.1): Cf-Connecting-Ip, which Cloudflare always overwrites
+#   - from anywhere else (LAN, VPN): the connection address
+# Without it Authentik took the LEFTMOST X-Forwarded-For entry, which an internet client can set to any IP.
+# default-rate-limit buckets on this value (ipStrategy depth 1). local-networks@file is unaffected: ipAllowList checks the connection address.
+http:
+  middlewares:
+    real-ip:
+      plugin:
+        realip:
+          trustedIPs:
+            - 172.24.0.1/32
