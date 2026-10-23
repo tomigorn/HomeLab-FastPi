@@ -74,7 +74,15 @@ Free: 65029, 65031, 65051+.
 - Locally built images (`*-local`, `*:local`): base image tracking and the per-image rebuild routine are in `Docker/Cup/README.md`, Locally built images.
 
 ## Docker socket
-Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount it (ro), non-root via group 991. Their entrypoint is overridden to run haproxy on the shipped template (`BIND_CONFIG: ":2375"`) because the upstream entrypoint writes into a root-owned dir. After an image bump: check `docker logs` and that an allowed endpoint returns 200 and a denied one 403.
+Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount it (ro), non-root via group 991. Their entrypoint is overridden to run haproxy directly (`BIND_CONFIG: ":2375"`) because the upstream entrypoint writes into a root-owned dir. After an image bump: check `docker logs` and that an allowed endpoint returns 200 and a denied one 403.
+
+| Proxy | Network | Allows | Consumers |
+|---|---|---|---|
+| `socket-proxy-ro` | `socket_proxy` | GET containers, images, info, version (POST=0) | telegraf, Cup (via `socket-proxy-unix`) |
+| `socket-proxy-autoheal` | `socket_proxy_heal` | GET container list/inspect, info, version; POST `/containers/{name}/(start\|stop\|restart)` only | 3x autoheal, port-updater |
+
+- `socket-proxy-autoheal` runs its own allow-list (`Docker-Socket-Proxy/autoheal-haproxy.cfg`): in 0.3.0 the template denies every POST before `ALLOW_RESTARTS` is evaluated, so `POST=0` + `ALLOW_RESTARTS=1` returns 403 on restart. Create, exec, kill, update, logs, images, volumes are 403. Re-test after an image bump.
+- `socket_proxy_heal` is created by `Docker/Docker-Socket-Proxy` (like `socket_proxy`), `internal: true`, `external: true` in the other stacks. Bring Docker-Socket-Proxy up first; a new consumer joins `socket_proxy_heal` only if it must restart containers.
 
 ## Host changes (not in git; recreate on rebuild)
 | What | Value |
