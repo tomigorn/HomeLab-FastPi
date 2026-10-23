@@ -11,7 +11,6 @@ tell them apart.
 |---|---|---|---|---|---|
 | DDNS | ❌ | ❌ | | |  |
 | Deprecated | ❌ | ❌ | | |  |
-| HashiCorpVault | ❌ | ❌ | | |  |
 | Jenkins | ❌ | ❌ | | |  |
 | Portainer | ❌ | ❌ | | |  |
 | Traefik | ✅ | ✅ | 3.7.0 | 06.05.2026 | latest |
