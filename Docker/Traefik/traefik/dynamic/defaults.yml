@@ -7,3 +7,8 @@ http:
         # login spinner stays fixed (that was the reason the limit had to be lifted).
         average: 100
         burst: 50
+        # One bucket per real client: the single X-Forwarded-For entry set by real-ip@file. Without it the bucket was RemoteAddr = 172.24.0.1 for the whole internet.
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+            ipv6Subnet: 64
