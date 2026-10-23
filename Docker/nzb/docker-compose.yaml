@@ -21,12 +21,12 @@ services:
       - AUTOHEAL_INTERVAL=3600
       - AUTOHEAL_START_PERIOD=0
       # Talks to socket-proxy-autoheal over TCP instead of mounting the real
-      # socket, which is root on the host. That proxy allows container reads plus
-      # POST (autoheal calls POST /containers/{id}/restart) but denies exec,
-      # images, volumes, networks and everything else.
+      # socket, which is root on the host. That proxy allows container list/inspect plus
+      # start/stop/restart (autoheal calls POST /containers/{id}/restart) but denies create, exec,
+      # images, volumes, networks and everything else. Own network socket_proxy_heal.
       - DOCKER_SOCK=tcp://socket-proxy-autoheal:2375
     networks:
-      - socket_proxy
+      - socket_proxy_heal
     logging:
       driver: "json-file"
       options:
@@ -132,7 +132,7 @@ services:
 # Networks ================================================
 # =========================================================
 networks:
-  socket_proxy:
+  socket_proxy_heal:
     external: true
   nzb_network:
     driver: bridge
