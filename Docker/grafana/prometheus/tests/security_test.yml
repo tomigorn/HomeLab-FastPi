@@ -57,6 +57,83 @@ tests:
               summary: "fastpi: Lynis hardening index fell to 64 (6 points in 7 days)"
               description: "Something weakened the configuration since last week's audit. The warnings are in /var/lib/security-scan/audit-fastpi.txt on fastpi; the full report is /var/log/lynis-report.dat on the host."
 
+  - name: ssh logins outside the lan or by another user
+    interval: 1m
+    input_series:
+      - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="pi",source_class="lan"}'
+        values: '0x120'
+      - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="pi",source_class="vpn"}'
+        values: '600x120'
+      - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="deploy",source_class="lan"}'
+        values: '600x120'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: SshLoginOutsideLan
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, user: pi, source_class: vpn}
+            exp_annotations:
+              summary: "fastpi: SSH login of pi from vpn"
+              description: "Accepted SSH login from outside the LAN (vpn = WireGuard, tunnel = cloudflared, other = unknown address) within the last hour. Source address and key fingerprint: journalctl _COMM=sshd-session | grep Accepted"
+      - eval_time: 30m
+        alertname: SshLoginUnexpectedUser
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, user: deploy, source_class: lan}
+            exp_annotations:
+              summary: "fastpi: SSH login of unexpected user deploy"
+              description: "Only pi is expected to log in over SSH. Look: journalctl _COMM=sshd-session | grep Accepted"
+      - eval_time: 90m
+        alertname: SshLoginOutsideLan
+        exp_alerts: []
+
+  - name: lan logins by pi stay quiet
+    interval: 1m
+    input_series:
+      - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="pi",source_class="lan"}'
+        values: '0x120'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SshLoginOutsideLan
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: SshLoginUnexpectedUser
+        exp_alerts: []
+
+  - name: watched file changed
+    interval: 1m
+    input_series:
+      - series: 'security_integrity_changed{host="fastpi",path="/etc/sudoers"}'
+        values: '0x5 1x10'
+      - series: 'security_integrity_changed{host="fastpi",path="/home/pi/.ssh/authorized_keys"}'
+        values: '0x15'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: SecurityFileChanged
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: SecurityFileChanged
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, path: /etc/sudoers}
+            exp_annotations:
+              summary: "fastpi: /etc/sudoers differs from the baseline"
+              description: "authorized_keys, sudoers or sshd_config changed (or a file appeared or vanished) since the baseline was accepted. If it was you, accept the new state: sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json && sudo systemctl start security-access.service"
+
+  - name: access scan staleness is one hour
+    interval: 1m
+    input_series:
+      - series: 'security_scan_last_success_timestamp_seconds{subject="integrity-fastpi"}'
+        values: '0x200'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: SecurityAccessScanStale
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: SecurityAccessScanStale
+        exp_alerts:
+          - exp_labels: {severity: warning, subject: integrity-fastpi}
+            exp_annotations:
+              summary: "Security scan integrity-fastpi has not succeeded in 1h 20m 0s"
+              description: "The 5-minute security-access.timer is not producing fresh SSH login and integrity figures: systemctl status security-access.service"
+
   - name: staleness thresholds follow each subject's cadence
     interval: 1m
     input_series:

@@ -174,6 +174,50 @@ groups:
             SSH is LAN-only, so the source is inside the LAN or VPN.
             Look: journalctl _COMM=sshd (fastpi), /var/log/auth.log (beefy), /var/log/syslog (tower).
 
+  - name: security-access
+    rules:
+      # Scan every 5 min; the last-login timestamp keeps the alert up for an hour. lan logins (beefy automation, 192.168.1.102) stay quiet.
+      - alert: SshLoginOutsideLan
+        expr: security_ssh_last_login_timestamp_seconds{source_class!="lan"} > time() - 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: SSH login of {{ $labels.user }} from {{ $labels.source_class }}"
+          description: >-
+            Accepted SSH login from outside the LAN (vpn = WireGuard, tunnel = cloudflared, other = unknown address) within the last hour.
+            Source address and key fingerprint: journalctl _COMM=sshd-session | grep Accepted
+
+      - alert: SshLoginUnexpectedUser
+        expr: security_ssh_last_login_timestamp_seconds{user!="pi"} > time() - 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: SSH login of unexpected user {{ $labels.user }}"
+          description: >-
+            Only pi is expected to log in over SSH. Look: journalctl _COMM=sshd-session | grep Accepted
+
+      - alert: SecurityFileChanged
+        expr: security_integrity_changed > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $labels.path }} differs from the baseline"
+          description: >-
+            authorized_keys, sudoers or sshd_config changed (or a file appeared or vanished) since the baseline was accepted.
+            If it was you, accept the new state: sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json && sudo systemctl start security-access.service
+
+      - alert: SecurityAccessScanStale
+        expr: time() - security_scan_last_success_timestamp_seconds{subject=~"(ssh-logins|integrity)-.*"} > 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Security scan {{ $labels.subject }} has not succeeded in {{ $value | humanizeDuration }}"
+          description: "The 5-minute security-access.timer is not producing fresh SSH login and integrity figures: systemctl status security-access.service"
+
   - name: security-audit
     rules:
       # Weekly (security-audit.timer, Sun 04:05), fastpi and beefy. Telegram only, by decision: rootkit checkers are noisy, so only findings outside the accepted baseline count.
@@ -224,9 +268,9 @@ groups:
       # reachable for longer than its normal off-hours.
       - alert: SecurityScanStale
         expr: >-
-          (time() - security_scan_last_success_timestamp_seconds{subject!~"(images|audit|cup)-.*|.*-tower"} > 172800)
+          (time() - security_scan_last_success_timestamp_seconds{subject!~"(images|audit|cup|ssh-logins|integrity)-.*|.*-tower"} > 172800)
           or
-          (time() - security_scan_last_success_timestamp_seconds{subject=~".*-tower",subject!~"(images|audit|cup)-.*"} > 604800)
+          (time() - security_scan_last_success_timestamp_seconds{subject=~".*-tower",subject!~"(images|audit|cup|ssh-logins|integrity)-.*"} > 604800)
           or
           (time() - security_scan_last_success_timestamp_seconds{subject=~"(images|audit|cup)-.*"} > 1209600)
         for: 1h
