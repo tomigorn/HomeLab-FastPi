@@ -174,7 +174,7 @@ services:
       - VPN_TYPE=wireguard
       # Proton WireGuard config "fastpi.mouse" (created 2026-10-24, NAT-PMP on, CH P2P). Its client public key is
       # XPxVUo+9Ia5VpXjSPThQAM9IfZhRJk0SXTizAa5ZYiU= ; Proton's list shows the SERVER key ([Peer] PublicKey), not this one.
-      # Check: sudo cat secrets/wireguard_private_key | wg pubkey (or the python one-liner in README)
+      # Check: sudo cat secrets/wireguard_private_key | wg pubkey
       - WIREGUARD_PRIVATE_KEY_SECRETFILE=/run/secrets/wireguard_private_key
       - SERVER_COUNTRIES=Switzerland
       # MAM's session is ASN-locked. ProtonVPN's Swiss port-forwarding servers sit
