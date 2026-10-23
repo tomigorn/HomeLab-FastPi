@@ -212,7 +212,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
       # Admin SSO via Authentik (Grafana's own OAuth, not forward auth). The
       # OIDC client is provisioned by Authentik/scripts/provision-admin-sso.py,
-      # which also writes the two GRAFANA_OAUTH_* values into .env (the secret then goes to secrets/, see README). Only members
+      # which also writes GRAFANA_OAUTH_CLIENT_ID into .env and the secret into secrets/grafana_oauth_client_secret. Only members
       # of homelab-admins get in, as GrafanaAdmin. Route: Traefik dynamic/grafana.yml.
       - GF_SERVER_ROOT_URL=https://grafana.holy-grail.ch
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true

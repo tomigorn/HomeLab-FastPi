@@ -12,7 +12,7 @@ WireGuard VPN server managed via wg-easy. The management UI is routed through Tr
   then set it back to `true` and `docker compose up -d` again. The admin password is only in wg-easy's database;
   reset it with `docker exec -it WireGuard-VPN cli db:admin:reset`.
   The UI must be opened on exactly this hostname: wg-easy builds the OIDC redirect URI from the Host header.
-- **OIDC client secret:** file `secrets/oidc_client_secret` (root, `0400`), exported by the compose entrypoint (wg-easy has no `*_FILE` option), not a compose env value. `provision-admin-sso.py` writes it to `.env`: move it into that file after a re-provision.
+- **OIDC client secret:** file `secrets/oidc_client_secret` (root, `0400`), exported by the compose entrypoint (wg-easy has no `*_FILE` option), not a compose env value. `provision-admin-sso.py` writes it straight into that file.
 
 ---
 

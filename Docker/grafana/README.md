@@ -127,4 +127,4 @@ Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's ui
 | `../alertmanager/secrets/*` | 65004 | `alertmanager.yml` `*_file` |
 | InfluxDB operator token (`admin's Token`) | 65020, `0600` | not in `secrets/`: the influx CLI config `/etc/influxdb2/influx-configs` in the `influxdb` container (its anonymous volume). Admin work: `docker exec influxdb influx auth list` etc., no `--token` |
 
-`provision-admin-sso.py` still writes `GRAFANA_OAUTH_CLIENT_SECRET` into `.env`; move it into `secrets/grafana_oauth_client_secret` after a re-provision.
+`provision-admin-sso.py` writes the OAuth client id into `.env` and the secret into `secrets/grafana_oauth_client_secret` (Authentik README "Re-running the provisioning").
