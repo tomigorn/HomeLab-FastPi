@@ -336,6 +336,16 @@ expired`, `No session`) write **no log line at all**, which is why the original
 failure left no trace. Only the passport-error path logs, and it redirects to
 `/login?error=...`.
 
+## Login lifetime
+
+| Layer | Value | Set by |
+|---|---|---|
+| Login (stage `default-authentication-login`) | 1 day; 30 days when "stay signed in" is ticked (`session_duration days=1`, `remember_me_offset days=29`) | `scripts/session-ttl.sh apply` (since 2026-10-23; before: until the browser closed) |
+| Forward-auth apps (all proxy providers) | 24 h, renewed silently while the login lives | same script |
+| OIDC apps | access 5 min–1 h, refresh 30 days (provider defaults) | provisioning scripts |
+
+`scripts/session-ttl.sh status|apply|rollback` — `apply` saves the old values to `backups/session-ttl-before.json`, then verifies a real login + MFA with the canary (which now answers "stay signed in") and rolls back on failure.
+
 ## Admin SSO (homelab-admins)
 
 Seven admin tools sit behind Authentik: Traefik dashboard, Grafana, Portainer,
