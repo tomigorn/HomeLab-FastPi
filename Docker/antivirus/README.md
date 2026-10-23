@@ -54,6 +54,8 @@ docker cp /mnt/seagate-red/antivirus-quarantine/<file> virustotal:/tmp/ && docke
 
 Unknown files are uploaded to VirusTotal: not for private files.
 
+API key: file `secrets/vt_api_key` (owner `65014`, mode `0400`, read via `VT_API_KEY_FILE`), not an env variable.
+
 ## Metrics (`clamav.prom`)
 
 | Metric | Labels |

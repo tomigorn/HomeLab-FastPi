@@ -118,7 +118,9 @@ services:
     labels:
       - autoheal-antivirus=true
     environment:
-      - VT_API_KEY=${VT_API_KEY}
+      - VT_API_KEY_FILE=/run/secrets/vt_api_key
+    secrets:
+      - vt_api_key
     volumes:
       - type: bind
         source: /mnt/seagate-red/sabnzbd/config/Downloads
@@ -139,6 +141,13 @@ services:
         max-file: "2"
     networks:
       - antivirus_network
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+secrets:
+  vt_api_key:
+    file: ./secrets/vt_api_key
 
 # =========================================================
 # Networks ================================================

@@ -4,7 +4,14 @@ import sys
 import hashlib
 import vt
 
-API_KEY = os.environ.get("VT_API_KEY", "")
+def read_api_key():
+    path = os.environ.get("VT_API_KEY_FILE")
+    if path:
+        with open(path) as f:
+            return f.read().strip()
+    return os.environ.get("VT_API_KEY", "")
+
+API_KEY = read_api_key()
 
 def sha256(path):
     h = hashlib.sha256()
@@ -49,7 +56,7 @@ def scan_path(client, path):
 
 if __name__ == "__main__":
     if not API_KEY:
-        print("ERROR: VT_API_KEY environment variable not set.")
+        print("ERROR: neither VT_API_KEY_FILE nor VT_API_KEY is set.")
         sys.exit(1)
     if len(sys.argv) < 2:
         print("Usage: scan.py <file_or_directory>")
