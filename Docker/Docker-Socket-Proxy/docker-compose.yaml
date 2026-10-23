@@ -13,11 +13,13 @@
 # publish a port to the host.
 #
 # Two profiles, because the consumers differ:
-#   socket-proxy-ro       strictly read-only  (POST=0) - monitoring, update checks
-#   socket-proxy-autoheal read + POST         - restarting unhealthy containers
+#   socket-proxy-ro       strictly read-only  (POST=0) - monitoring, update checks (network socket_proxy)
+#   socket-proxy-autoheal read + start/stop/restart only - autoheal, port-updater (network socket_proxy_heal)
 #
 # POST=0 is the important one: without it the API cannot create, start, exec into
 # or modify anything, so a compromised consumer can only look.
+# The autoheal proxy cannot use POST=0 + ALLOW_RESTARTS=1: in 0.3.0 the shipped template denies every POST
+# before the ALLOW_* rules are evaluated (measured: restart returns 403). It runs its own allow-list instead.
 services:
 # #########################################################
 # SOCKET PROXY - READ ONLY ################################
@@ -80,49 +82,20 @@ services:
     restart: unless-stopped
     environment:
       BIND_CONFIG: ":2375"   # IPv4; the internal networks have no IPv6
-      CONTAINERS: 1
-      # POST is required: autoheal calls POST /containers/{id}/restart. The proxy
-      # cannot restrict POST to the restart endpoint alone, so this profile is
-      # deliberately separate from the read-only one - only the three autoheal
-      # containers get it, and they are the only ones that need to change state.
-      POST: 1
-      INFO: 1
-      VERSION: 1
-      EXEC: 0            # blocks /exec/* (starting/inspecting exec instances)
-      # CAVEAT, measured: POST /containers/{id}/exec returns 400 (Docker rejecting
-      # an empty body), NOT 403 - so exec CREATION is governed by CONTAINERS+POST,
-      # not by this flag. A compromised autoheal could therefore create an exec in
-      # another container. Accepted because autoheal has no inbound ports and sits
-      # on an internal network with no route to the internet, so reaching it at all
-      # means the host is already compromised. Do not reuse this profile for
-      # anything that is network-reachable.
-      AUTH: 0
-      SECRETS: 0
-      CONFIGS: 0
-      SWARM: 0
-      NODES: 0
-      SERVICES: 0
-      TASKS: 0
-      PLUGINS: 0
-      SYSTEM: 0
-      VOLUMES: 0
-      NETWORKS: 0
-      IMAGES: 0
-      BUILD: 0
-      COMMIT: 0
-      DISTRIBUTION: 0
-      SESSION: 0
+      # The allow-list is autoheal-haproxy.cfg, not the template's switches: GET container list/inspect, info,
+      # version, and POST /containers/{name}/(start|stop|restart). create, exec, kill, update, logs, images, volumes,
+      # networks are 403. Only autoheal (3x) and port-updater, on their own network, can reach it.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./autoheal-haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
-      - socket_proxy
-    # Non-root; the docker group (991) opens the socket. The image entrypoint renders
-    # haproxy.cfg into a root-owned dir, so haproxy runs the shipped template directly:
-    # it expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
+      - socket_proxy_heal
+    # Non-root; the docker group (991) opens the socket. haproxy runs the mounted allow-list directly
+    # and expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
     user: "65048:65048"
     group_add:
       - "991"
-    entrypoint: ["haproxy", "-W", "-db", "-f", "/usr/local/etc/haproxy/haproxy.cfg.template"]
+    entrypoint: ["haproxy", "-W", "-db", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
     read_only: true
     tmpfs:
       - /run:mode=1777,size=1m   # haproxy.pid
@@ -174,6 +147,12 @@ networks:
     # Internal: containers on this network cannot reach the internet. The proxy has
     # no reason to make outbound connections, and neither has anything that talks
     # to it purely for Docker API access.
+    internal: true
+  # Own network for the restart-capable proxy: only autoheal (mouse, nzb, antivirus) and port-updater join it.
+  # External in the other stacks; this project creates it, so bring this project up first.
+  socket_proxy_heal:
+    name: socket_proxy_heal
+    driver: bridge
     internal: true
 
 # =========================================================
