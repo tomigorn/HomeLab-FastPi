@@ -15,8 +15,10 @@ services:
       - PGID=65021
       - TZ=Europe/Zurich
       - SUBDOMAINS=${DUCKDNS_SUBDOMAINS}
-      - TOKEN=${DUCKDNS_TOKEN}
+      - FILE__TOKEN=/run/secrets/duckdns_token
       - UPDATE_IP=ipv4
+    secrets:
+      - duckdns_token
     volumes:
       - ./config:/config
       - ../_global/lsio-init/drop-users-group.sh:/custom-cont-init.d/drop-users-group.sh:ro
@@ -41,11 +43,14 @@ services:
     network_mode: host
     # noip-duc is a single static binary and ignores PUID/PGID, so the uid is set here.
     user: "65022:65022"
+    # noip-duc has no *_FILE option, so the password is read from the secret file at start.
+    entrypoint: ["/bin/sh", "-c", "NOIP_PASSWORD=$$(cat /run/secrets/noip_password) exec /usr/bin/noip-duc"]
     environment:
       - TZ=Europe/Zurich
       - NOIP_USERNAME=${NOIP_USERNAME}
-      - NOIP_PASSWORD=${NOIP_PASSWORD}
       - NOIP_HOSTNAMES=${NOIP_HOSTNAMES}
+    secrets:
+      - noip_password
     volumes:
       - ./noip_config:/config
     restart: unless-stopped
@@ -54,6 +59,15 @@ services:
     cap_drop:
       - ALL
     
+# =========================================================
+# Secrets =================================================
+# =========================================================
+secrets:
+  duckdns_token:
+    file: ./secrets/duckdns_token
+  noip_password:
+    file: ./secrets/noip_password
+
 # =========================================================
 # Networks ================================================
 # =========================================================
