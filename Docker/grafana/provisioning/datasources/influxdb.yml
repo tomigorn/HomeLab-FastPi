@@ -10,7 +10,7 @@ datasources:
       organization: myorg
       defaultBucket: rpi
     secureJsonData:
-      token: ${GRAFANA_INFLUX_TOKEN}
+      token: $__file{/run/secrets/grafana_influx_token}
     isDefault: false
     editable: true
   # The two datasources below were created in the UI (2026-07) pointing at the host
@@ -36,6 +36,6 @@ datasources:
       defaultBucket: rpi
       httpMode: POST
     secureJsonData:
-      token: ${GRAFANA_INFLUX_TOKEN}
+      token: $__file{/run/secrets/grafana_influx_token}
     isDefault: false
     editable: false

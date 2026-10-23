@@ -101,3 +101,18 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | everything else (warning, critical) | `admins` (email + Telegram) |
 
 `AlertmanagerDown` cannot be delivered by the Alertmanager that is down: the cover is the container-exporter Telegram fallback, and for fastpi fully offline an external dead-man's switch (`Docker/_global/docs/healthchecks-deadman-switch.md`, not set up).
+
+## Secrets
+
+Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's uid), mounted via compose `secrets:`, never env values. How-to: `Docker/_global/docs/secrets.md`.
+
+| File | Owner | Read by |
+|---|---|---|
+| `grafana_admin_password` | 65050 | `GF_SECURITY_ADMIN_PASSWORD__FILE` (only on first DB create) |
+| `grafana_oauth_client_secret` | 65050 | `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET__FILE` |
+| `grafana_influx_token` | 65050 | `provisioning/datasources/influxdb.yml` `$__file{}` |
+| `influxdb_admin_password` | 65020 | `DOCKER_INFLUXDB_INIT_PASSWORD_FILE` (only on first setup) |
+| `telegraf_influx_token` | 65040 | `telegraf.conf` `@{docker_secretstore:telegraf_influx_token}` |
+| `../alertmanager/secrets/*` | 65004 | `alertmanager.yml` `*_file` |
+
+`provision-admin-sso.py` still writes `GRAFANA_OAUTH_CLIENT_SECRET` into `.env`; move it into `secrets/grafana_oauth_client_secret` after a re-provision.

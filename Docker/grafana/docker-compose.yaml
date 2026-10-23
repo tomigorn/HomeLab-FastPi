@@ -209,17 +209,16 @@ services:
       - ./provisioning:/etc/grafana/provisioning:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-      - GRAFANA_INFLUX_TOKEN=${GRAFANA_INFLUX_TOKEN}
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
       # Admin SSO via Authentik (Grafana's own OAuth, not forward auth). The
       # OIDC client is provisioned by Authentik/scripts/provision-admin-sso.py,
-      # which also writes the two GRAFANA_OAUTH_* values into .env. Only members
+      # which also writes the two GRAFANA_OAUTH_* values into .env (the secret then goes to secrets/, see README). Only members
       # of homelab-admins get in, as GrafanaAdmin. Route: Traefik dynamic/grafana.yml.
       - GF_SERVER_ROOT_URL=https://grafana.holy-grail.ch
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
       - GF_AUTH_GENERIC_OAUTH_NAME=Holy Grail
       - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${GRAFANA_OAUTH_CLIENT_ID}
-      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET}
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET__FILE=/run/secrets/grafana_oauth_client_secret
       - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email offline_access
       - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://sso.holy-grail.ch/application/o/authorize/
       - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://sso.holy-grail.ch/application/o/token/
@@ -240,9 +239,13 @@ services:
       # `ssh -L 3001:127.0.0.1:3001 fastpi` and log in as admin at
       # http://localhost:3001/login?disableAutoLogin=true; set it back afterwards.
       # Lost password: docker exec grafana grafana cli admin reset-admin-password <pw>
-      # (GRAFANA_ADMIN_PASSWORD in .env only applies when the DB is first created).
+      # (secrets/grafana_admin_password only applies when the DB is first created).
       - GF_AUTH_DISABLE_LOGIN_FORM=true
       - GF_AUTH_BASIC_ENABLED=false
+    secrets:
+      - grafana_admin_password
+      - grafana_oauth_client_secret
+      - grafana_influx_token
     # Pin sso.holy-grail.ch to fastpi's Traefik so the server-side token/userinfo
     # calls don't depend on DNS or a round trip through the Cloudflare tunnel.
     extra_hosts:
@@ -270,7 +273,7 @@ services:
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_PASSWORD_FILE=/run/secrets/influxdb_admin_password
       - DOCKER_INFLUXDB_INIT_ORG=myorg
       - DOCKER_INFLUXDB_INIT_BUCKET=rpi
       # RAM caps (2026-10-20): all data stays on disk, old ranges just load slower.
@@ -278,6 +281,8 @@ services:
       - INFLUXD_STORAGE_CACHE_SNAPSHOT_MEMORY_SIZE=10485760
       - INFLUXD_STORAGE_SERIES_ID_SET_CACHE_SIZE=20
       - INFLUXD_QUERY_MEMORY_BYTES=134217728
+    secrets:
+      - influxdb_admin_password
     restart: unless-stopped
 
 # #########################################################
@@ -297,8 +302,9 @@ services:
     # API can start a privileged container that bind-mounts /. Telegraf only wants
     # container stats, so it now talks to socket-proxy-ro over TCP, which serves
     # read-only endpoints and refuses every POST.
-    environment:
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    # Token via telegraf's docker secret store (telegraf.conf: @{docker_secretstore:telegraf_influx_token}).
+    secrets:
+      - telegraf_influx_token
     networks:
       - default
       - socket_proxy
@@ -308,6 +314,22 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     restart: unless-stopped
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+# Files in secrets/ (gitignored), mode 0400, owned by the uid of the container that reads them.
+secrets:
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password
+  grafana_oauth_client_secret:
+    file: ./secrets/grafana_oauth_client_secret
+  grafana_influx_token:
+    file: ./secrets/grafana_influx_token
+  influxdb_admin_password:
+    file: ./secrets/influxdb_admin_password
+  telegraf_influx_token:
+    file: ./secrets/telegraf_influx_token
 
 # =========================================================
 # Networks ================================================

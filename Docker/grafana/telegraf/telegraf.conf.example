@@ -27,10 +27,12 @@
   docker_label_include = []
   docker_label_exclude = []
 
+[[secretstores.docker]]
+  id = "docker_secretstore"
+
 [[outputs.influxdb_v2]]
   urls = ["http://influxdb:8086"]
-  # Token is injected from the INFLUX_TOKEN env var (set in .env, passed to the
-  # telegraf container by docker-compose). Telegraf expands ${INFLUX_TOKEN} at load.
-  token = "${INFLUX_TOKEN}"
+  # Token comes from the docker secret store (secrets/telegraf_influx_token), not from the env.
+  token = "@{docker_secretstore:telegraf_influx_token}"
   organization = "myorg"
   bucket = "rpi"
