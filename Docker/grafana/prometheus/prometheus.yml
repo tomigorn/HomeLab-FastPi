@@ -242,6 +242,7 @@ scrape_configs:
   # Down is normal - beefy is asleep most of the day - so nothing alerts on
   # probe_success == 0 for this job.
   # ---------------------------------------------------------------------------
+  # Firewall: fastpi's DOCKER-USER guard lets this network reach only beefy :22 and tower :22/:8080; a new direct LAN probe needs a rule in _global/scripts/docker-user-lan-guard.sh.
   - job_name: "blackbox-beefy"
     scrape_interval: 60s
     scrape_timeout: 10s
