@@ -6,7 +6,7 @@ this project is kept as a starting point for a possible future redeploy.
 - Data backup (encrypted vault DB, attachments, keys):
   `~/backups/decommissioned/vaultwarden-data-2026-10-18.tgz` on fastpi (mode 600).
   The live `./data` directory was left in place (gitignored).
-- It had 1 user (tsmil@live.com), no organisations, no 2FA, sign-ups off.
+- It had 1 user, no organisations, no 2FA, sign-ups off.
 - Routing was via Traefik Docker labels (`BITWARDEN_DOMAIN`, Let's Encrypt
   resolver `le`); removing the container removed the route. If a DDNS hostname
   still points here, it can be dropped.
