@@ -115,7 +115,7 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 ## Secrets
 
-Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's uid), mounted via compose `secrets:`, never env values. How-to: `Docker/_global/docs/secrets.md`.
+Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's uid), mounted via compose `secrets:`, never env values. How-to: `Docker/_global/docs/secrets-as-files.md`.
 
 | File | Owner | Read by |
 |---|---|---|
