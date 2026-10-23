@@ -97,6 +97,7 @@ check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:
 echo "== Apps on fastpi"
 running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
 check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
+check "clamav-hostscan timer active" '^active$' "$(systemctl is-active clamav-hostscan.timer)"
 if [[ -f /var/lib/node-exporter/textfile/clamav.prom ]]; then
   check "clamav nightly scan < 2 days" '^yes$' "$(s=$(sed -n 's/^clamav_last_run_timestamp_seconds{.*mode="new"} //p' /var/lib/node-exporter/textfile/clamav.prom); (( $(date +%s) - ${s:-0} < 172800 )) && echo yes || echo "no (${s:-none})")"
 else skip "clamav nightly scan < 2 days" "no clamav.prom yet"; fi

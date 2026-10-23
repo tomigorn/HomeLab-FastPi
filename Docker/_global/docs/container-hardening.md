@@ -47,7 +47,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65034 | homelab-dashboard (repo `~/landingpage`) | | | ✅ |
 | 65035 / 65036 | wg-chores-app / -sqliteweb (repo `~/Documents/development/WG-Chores`) | 65037 | | ✅ |
 | 65038 | languagetool | | | |
-| 65039 | clamav | 1100, 65046 | DAC_READ_SEARCH | |
+| 65039 | clamav (no caps: a non-root uid gets no effective caps, `DAC_READ_SEARCH` was inert) | 1100, 65046 | | |
 | 65040 | telegraf | | | |
 | 65041 / 65042 | mousehole / port_updater | | | |
 | 65043 / 65044 / 65045 | prometheus / node-exporter / json-exporter | | | |
@@ -68,6 +68,7 @@ Free: 65029, 65031, 65051+.
 | gluetun_nzb, gluetun_mouse | NET_ADMIN, NET_RAW, NET_BIND_SERVICE, DAC_OVERRIDE, CHOWN | creates tun + iptables; no non-root mode |
 | samba | NET_BIND_SERVICE, SETUID, SETGID, KILL, CHOWN, FOWNER, DAC_OVERRIDE, SYS_CHROOT | smbd switches to each user; avahi chroots |
 | WireGuard-VPN | NET_ADMIN, NET_RAW | wg interface + iptables |
+| clamav-hostscan | DAC_READ_SEARCH, DAC_OVERRIDE, CHOWN | weekly host scan reads everything (`/:/host:ro`); non-root cannot use DAC_READ_SEARCH. Safe because `network_mode: none`, read-only root fs, writes only state + textfile; the always-on `clamav` no longer mounts the host root |
 | loyalty-cards / loyalty-sync | untouched | stack PARKED |
 
 ## Images
