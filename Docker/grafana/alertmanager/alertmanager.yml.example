@@ -48,6 +48,13 @@ route:
         - integration="telegram"
       receiver: email
 
+    # "Swiss German not found" (prometheus/rules/media-language.yml): one Telegram per title and state. The rule ends the alert 5 days after it starts, inside repeat_interval, and this receiver sends no resolved message.
+    - matchers:
+        - alertname="AudioLanguageNotFound"
+      receiver: telegram-once
+      group_by: ['alertname', 'app', 'title', 'failed']
+      repeat_interval: 168h
+
     # Informational things (container updates) go to Telegram ONLY. They do not
     # deserve an email — a weekly nag by mail is how people learn to filter alerts
     # into the bin, and then miss a real one.
@@ -119,6 +126,19 @@ receivers:
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
         send_resolved: true
+        message: |-
+          <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+  # Like telegram, without the resolved message (alerts that end on their own).
+  - name: telegram-once
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: false
         message: |-
           <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
           {{ range .Alerts }}{{ .Annotations.summary }}

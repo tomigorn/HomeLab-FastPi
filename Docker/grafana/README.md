@@ -88,6 +88,16 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 `blackbox-wan-*` run on `blackbox-exporter-wan` (uid 65010, read-only), which resolves through 1.1.1.1/9.9.9.9 and so goes through Cloudflare and the tunnel. Only hostnames with a public DNS record (radarr & co. have none). `CloudflareTunnelDown` = every Cloudflare probe fails while a LAN probe passes; it also fires when fastpi's internet is down.
 
+## Media language (beefy)
+
+`prometheus/rules/media-language.yml`, test `prometheus/tests/media-language_test.yml`. Source: beefy `Movie-Downloads/scripts/language-missing.py` → `security_scan.py media` (04:20 pull) → `media_language_beefy.prom`.
+
+| Alert | Fires when | Severity |
+|---|---|---|
+| `AudioLanguageNotFound` | a Radarr/Sonarr title tagged `audio-swiss-german` waits 7 days for a Swiss German release (or a grab of it failed later); holds 5 days, so one Telegram per title and `failed` count | info |
+
+The textfile stays on fastpi while beefy sleeps, so the series do not go stale; details in `HomeLab-BeefyServer` `Docker/Movie-Downloads/README.md`, "Swiss German not found alert".
+
 ## Alert routing
 
 `alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`). Check a route: `docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=info`.
@@ -96,6 +106,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 |---|---|
 | `WeeklyUpdateDigest` | `telegram-digest` |
 | `AlertNotificationsFailing{integration="telegram"}` | `email` (a broken Telegram is not reported over Telegram) |
+| `AudioLanguageNotFound` | `telegram-once` (no resolved message; grouped per app, title, failed) |
 | `severity="info"` | `telegram` |
 | `severity="heartbeat"` | `heartbeat` (email, 28 days) |
 | everything else (warning, critical) | `admins` (email + Telegram) |

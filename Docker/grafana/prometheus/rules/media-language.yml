@@ -1,0 +1,21 @@
+# Titles tagged audio-<language> (Swiss German) on beefy that still wait for a release in that language: Radarr movies without a file, Sonarr series with missing episodes, searched and not downloading.
+# beefy writes media-language.prom (Movie-Downloads scripts/language-missing.py, hourly while awake); Server/4-Security-Monitoring/security_scan.py (group media, with av at 04:20) republishes it here as media_language_beefy.prom.
+# The file stays on fastpi while beefy sleeps, so the series never go stale (no last_over_time needed); a missed pull only delays the alert. A missing pull for two days fires SecurityScanStale (subject media-beefy).
+# Once per title and state: notify = since + 7 days (or the newest failed grab, if later); the alert holds for 5 days after notify only, which ends it inside the route's repeat_interval (168h), and its route sends no resolved message (alertmanager.yml, AudioLanguageNotFound). A new failed grab is a new `failed` label, so a new alert.
+# Tests: prometheus/tests/media-language_test.yml
+groups:
+  - name: media-language
+    rules:
+      - alert: AudioLanguageNotFound
+        expr: >-
+          (time() - media_language_missing_since_timestamp_seconds)
+          and (media_language_missing_notify_timestamp_seconds <= time())
+          and (media_language_missing_notify_timestamp_seconds > time() - 432000)
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.language }} not found: {{ $labels.title }}"
+          description: >-
+            {{ $labels.app }}: tagged audio-{{ $labels.language | toLower | reReplaceAll " " "-" }}, monitored, {{ if eq $labels.app "sonarr" }}missing episodes{{ else }}no file{{ end }} for {{ $value | humanizeDuration }};
+            {{ if eq $labels.failed "0" }}the searches so far found no acceptable release ({{ $labels.language }} must be in the release name).{{ else }}{{ $labels.failed }} grab(s) failed or were blocklisted, nothing else acceptable found yet.{{ end }}
+            Check Wanted -> Missing and Interactive Search; Movie-Downloads/scripts/swiss-german-check.py lists every waiting title. Sent once; a failed grab sends it again.
