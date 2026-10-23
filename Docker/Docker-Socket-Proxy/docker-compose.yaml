@@ -148,7 +148,7 @@ networks:
     # no reason to make outbound connections, and neither has anything that talks
     # to it purely for Docker API access.
     internal: true
-  # Own network for the restart-capable proxy: only autoheal (mouse, nzb, antivirus) and port-updater join it.
+  # Own network for the restart-capable proxy: only autoheal (mouse, antivirus) and port-updater join it.
   # External in the other stacks; this project creates it, so bring this project up first.
   socket_proxy_heal:
     name: socket_proxy_heal
