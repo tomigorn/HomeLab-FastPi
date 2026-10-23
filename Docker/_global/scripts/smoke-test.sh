@@ -74,6 +74,9 @@ check "portainer oauth -> sso"     'sso\.holy-grail\.ch/application/o/authorize/
 for a in sonarr requests; do check "$a -> sso"               'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve $a.holy-grail.ch:443:192.168.1.2 https://$a.holy-grail.ch/ | cut -c1-60)"; done
 check "adguard ui -> sso"          'sso\.holy-grail\.ch' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve adguard.holy-grail.ch:443:192.168.1.2 https://adguard.holy-grail.ch/)"
 check "adguard anon refused (401)" '^40[13]$' "$(http http://192.168.1.2:3000/control/status)"
+# qBittorrent/VPN status pages (homelab-admins). port_updater keeps its Basic login, Authentik injects it.
+for a in vpn-status-beefy vpn-status-mouse; do check "$a -> sso"   'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve $a.holy-grail.ch:443:192.168.1.2 https://$a.holy-grail.ch/ | cut -c1-60)"; done
+check "port_updater anon refused (401)" '^401$' "$(http http://127.0.0.1:8087/)"
 check "adguard local zone"         '^192\.168\.1\.2$' "$(dig +short @192.168.1.2 sso.holy-grail.ch | head -1)"
 
 echo "== Monitoring"
