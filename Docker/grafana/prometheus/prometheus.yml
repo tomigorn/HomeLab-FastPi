@@ -42,6 +42,13 @@ scrape_configs:
       - targets:
           - crowdsec:6060
 
+  # cloudflared tunnel metrics over the infra__cloudflare_default network; nothing published on the host.
+  - job_name: "cloudflared"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - cloudflared:20241
+
   # Traefik metrics (per-router/service request counts). Traefik is in a
   # different compose project/network, so scrape it via the host-published
   # internal entrypoint (:8080, LAN-only).

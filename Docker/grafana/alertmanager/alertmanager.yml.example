@@ -169,10 +169,16 @@ inhibit_rules:
   - source_matchers:
       - 'alertname="BlackboxExporterDown"'
     target_matchers:
-      - 'alertname=~"PublicEndpointDown|LanLockedEndpointNotLocked|AllPublicEndpointsDown|AdGuardDnsResolutionFailing|WakeGatedEndpointNotGated|PublicPathDown|CloudflareTunnelDown"'
+      - 'alertname=~"PublicEndpointDown|LanLockedEndpointNotLocked|AllPublicEndpointsDown|AdGuardDnsResolutionFailing|WakeGatedEndpointNotGated|PublicPathDown|CloudflareTunnelDown|CloudflaredTunnelDown"'
 
   # Edge dead (all LAN probes fail) or tunnel dead (all Cloudflare probes fail): one page, not one per route.
   - source_matchers:
-      - 'alertname=~"AllPublicEndpointsDown|CloudflareTunnelDown"'
+      - 'alertname=~"AllPublicEndpointsDown|CloudflareTunnelDown|CloudflaredTunnelDown"'
     target_matchers:
       - 'alertname="PublicPathDown"'
+
+  # cloudflared's own HA-connection alert is the root cause; the outside-in tunnel alert adds nothing.
+  - source_matchers:
+      - 'alertname="CloudflaredTunnelDown"'
+    target_matchers:
+      - 'alertname="CloudflareTunnelDown"'

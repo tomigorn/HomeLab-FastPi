@@ -88,6 +88,10 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 `blackbox-wan-*` run on `blackbox-exporter-wan` (uid 65010, read-only), which resolves through 1.1.1.1/9.9.9.9 and so goes through Cloudflare and the tunnel. Only hostnames with a public DNS record (radarr & co. have none). `CloudflareTunnelDown` = every Cloudflare probe fails while a LAN probe passes; it also fires when fastpi's internet is down.
 
+| Alert | Fires when |
+|---|---|
+| `CloudflaredTunnelDown` | `cloudflared_tunnel_ha_connections < 1` for 5 min (job `cloudflared`, `cloudflared:20241` over the external network `infra__cloudflare_default`, not published on the host); inhibits `CloudflareTunnelDown` and `PublicPathDown`; a dead scrape is `TargetDown` |
+
 ## Media language (beefy)
 
 `prometheus/rules/media-language.yml`, test `prometheus/tests/media-language_test.yml`. Source: beefy `Movie-Downloads/scripts/language-missing.py` → `security_scan.py media` (04:20 pull) → `media_language_beefy.prom`.

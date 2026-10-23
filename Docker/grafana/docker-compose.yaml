@@ -34,6 +34,7 @@ services:
       # CrowdSec's metrics endpoint (crowdsec:6060) is only reachable on its own
       # docker network - nothing is published on the host/LAN.
       - crowdsec
+      - cloudflare
 
 # #########################################################
 # Node Exporter ###########################################
@@ -344,6 +345,10 @@ networks:
   # Defined by CrowdSec. Prometheus joins it to scrape crowdsec:6060.
   crowdsec:
     external: true
+  # Defined by cloudflared (compose project infra__cloudflare). Prometheus joins it to scrape cloudflared:20241.
+  cloudflare:
+    external: true
+    name: infra__cloudflare_default
   # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
   traefik_proxy:
     external: true

@@ -143,3 +143,22 @@ tests:
             exp_annotations:
               summary: "Public path through Cloudflare down: https://audiobookshelf.holy-grail.ch/"
               description: "https://audiobookshelf.holy-grail.ch/ resolved via public DNS failed for 5 minutes (HTTP ; the LAN probe of the same job type says HTTP ). 530/502/1033 = tunnel or cloudflared, 0 = public DNS or connection, 403 on a public route = a Cloudflare block, 200 on a LAN-locked route = local-networks@file leaked."
+
+  - interval: 1m
+    input_series:
+      - series: 'cloudflared_tunnel_ha_connections{job="cloudflared", instance="cloudflared:20241"}'
+        values: '4x5 0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: CloudflaredTunnelDown
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: CloudflaredTunnelDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: cloudflared
+              instance: cloudflared:20241
+            exp_annotations:
+              summary: "cloudflared has no connection to the Cloudflare edge"
+              description: "cloudflared_tunnel_ha_connections has been below 1 for 5 minutes: the tunnel is not connected, so every public route is down. Check: docker logs --since 15m cloudflared. Restarting cloudflared is a tunnel change: owner only."

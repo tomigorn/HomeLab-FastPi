@@ -86,6 +86,19 @@ groups:
             Cloudflare DNS records are broken (or fastpi's internet is down). Check: docker logs --since 15m cloudflared;
             the tunnel's Public Hostnames in the Cloudflare dashboard. Restarting cloudflared is a tunnel change: owner only.
 
+      # cloudflared's own view: HA connections to the Cloudflare edge (usually 4). Fires before/independently of the outside-in probes.
+      # A dead scrape (up == 0) is covered by TargetDown; CloudflareTunnelDown is inhibited while this fires.
+      - alert: CloudflaredTunnelDown
+        expr: cloudflared_tunnel_ha_connections < 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "cloudflared has no connection to the Cloudflare edge"
+          description: >-
+            cloudflared_tunnel_ha_connections has been below 1 for 5 minutes: the tunnel is not connected, so every public route is down.
+            Check: docker logs --since 15m cloudflared. Restarting cloudflared is a tunnel change: owner only.
+
       # Catches the whole edge going at once, which is the plugin-failure
       # signature and is worth a louder, faster alert than a single service.
       - alert: AllPublicEndpointsDown
