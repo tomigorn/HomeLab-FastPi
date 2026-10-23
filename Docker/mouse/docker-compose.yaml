@@ -133,12 +133,12 @@ services:
       - AUTOHEAL_INTERVAL=3600
       - AUTOHEAL_START_PERIOD=0
       # Talks to socket-proxy-autoheal over TCP instead of mounting the real
-      # socket, which is root on the host. That proxy allows container reads plus
-      # POST (autoheal calls POST /containers/{id}/restart) but denies exec,
-      # images, volumes, networks and everything else.
+      # socket, which is root on the host. That proxy allows container list/inspect plus
+      # start/stop/restart (autoheal calls POST /containers/{id}/restart) but denies create, exec,
+      # images, volumes, networks and everything else. Own network socket_proxy_heal.
       - DOCKER_SOCK=tcp://socket-proxy-autoheal:2375
     networks:
-      - socket_proxy
+      - socket_proxy_heal
     logging:
       driver: "json-file"
       options:
@@ -317,7 +317,7 @@ services:
       - "127.0.0.1:${WEB_PORT:-8088}:${WEB_PORT:-8088}"
     # Real docker.sock REMOVED (2026-09-26) - it is root on the host. This script
     # only inspects and restarts/stops a few named containers, so it uses the
-    # docker CLI against socket-proxy-autoheal (containers + POST, no images, no
+    # docker CLI against socket-proxy-autoheal (container inspect + start/stop/restart, no create/exec, no images, no
     # volumes, no networks). The CLI honours DOCKER_HOST.
     volumes:
       - port-updater-data:/data
@@ -329,7 +329,7 @@ services:
     networks:
       mouse_network:
         ipv4_address: 172.32.0.3
-      socket_proxy:
+      socket_proxy_heal:
     depends_on:
       gluetun:
         condition: service_healthy
@@ -358,7 +358,7 @@ services:
 # Networks ================================================
 # =========================================================
 networks:
-  socket_proxy:
+  socket_proxy_heal:
     external: true
   mouse_network:
     driver: bridge
