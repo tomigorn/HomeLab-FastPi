@@ -200,6 +200,11 @@ services:
       # - "43210:43210/udp"
       # mousehole port - localhost only (2026-10-19): ssh -L 5010:127.0.0.1:5010 fastpi
       - "127.0.0.1:5010:5010"
+      # SABnzbd web UI - localhost only (SSO-only): ssh -L 8090:127.0.0.1:8090 fastpi
+      # Internal 8081 because qBittorrent holds 8080 in this namespace (sabnzbd.ini port = 8081).
+      # Through this bind SABnzbd sees the mouse_network gateway (172.32.0.1), so sabnzbd.ini
+      # (not in git) has local_ranges = 172.32.0.0/16, 192.168.1.0/24; without it: 403.
+      - "127.0.0.1:8090:8081"
       # gluetun control server
       # - "8000:8000"
     restart: always
@@ -307,6 +312,50 @@ services:
     restart: always
     labels:
       - autoheal-mouse=true
+
+# #########################################################
+# SABnzbd #################################################
+# #########################################################
+  # Audiobook usenet downloader; moved from Docker/nzb (own gluetun_nzb) into this tunnel 2026-10-24.
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+    # linuxserver non-root mode: s6 and the app run as mouse:sambashare, no root PID1, no capabilities.
+    user: "1101:1100"
+    tmpfs:
+      - /run:uid=1101,gid=1100,exec   # s6 service dir
+    cap_drop:
+      - ALL
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      - TZ=Europe/Zurich
+      - HOST_WHITELIST_ENTRIES=fastpi,fastpi.homelab
+    volumes:
+      - type: bind
+        source: /mnt/seagate-red/sabnzbd/config
+        target: /config
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8081/api?mode=version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: always
+    labels:
+      - autoheal-mouse=true
+    network_mode: "service:gluetun"
 
 # #########################################################
 # Port Updater ############################################

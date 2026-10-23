@@ -46,11 +46,11 @@ is_qbittorrent_available() {
   return 1
 }
 
-# Try to reattach qBittorrent (and mousehole) to gluetun's network namespace
+# Try to reattach qBittorrent (and mousehole, sabnzbd) to gluetun's network namespace
 # by restarting those containers and waiting for the WebUI to come up.
 try_reattach_qbittorrent() {
-  echo "Attempting to reattach qBittorrent/mousehole to gluetun network..."
-  docker restart qbittorrent_mouse mousehole 2>/dev/null || true
+  echo "Attempting to reattach qBittorrent/mousehole/sabnzbd to gluetun network..."
+  docker restart qbittorrent_mouse mousehole sabnzbd 2>/dev/null || true
   sleep 5
   echo "Waiting for qBittorrent after reattach..."
   wait_for_qbittorrent || true
@@ -117,19 +117,19 @@ get_vpn_ip() {
 }
 
 # Stop dependent containers, restart gluetun, then bring everything back up.
-# qbittorrent and mousehole share gluetun's network namespace — simply restarting
+# qbittorrent, mousehole and sabnzbd share gluetun's network namespace — simply restarting
 # gluetun leaves them with a broken network, so we must manage them explicitly.
 restart_stack() {
-  echo "Stopping qbittorrent and mousehole before gluetun restart..."
-  docker stop qbittorrent_mouse mousehole 2>/dev/null || true
+  echo "Stopping qbittorrent, mousehole and sabnzbd before gluetun restart..."
+  docker stop qbittorrent_mouse mousehole sabnzbd 2>/dev/null || true
 
   echo "Restarting gluetun to obtain a new VPN port lease..."
   docker restart gluetun_mouse
 
   wait_for_gluetun || true
 
-  echo "Starting qbittorrent and mousehole..."
-  docker start qbittorrent_mouse mousehole
+  echo "Starting qbittorrent, mousehole and sabnzbd..."
+  docker start qbittorrent_mouse mousehole sabnzbd
 
   wait_for_qbittorrent || true
 
