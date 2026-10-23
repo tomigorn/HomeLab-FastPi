@@ -121,9 +121,10 @@ Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's ui
 |---|---|---|
 | `grafana_admin_password` | 65050 | `GF_SECURITY_ADMIN_PASSWORD__FILE` (only on first DB create) |
 | `grafana_oauth_client_secret` | 65050 | `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET__FILE` |
-| `grafana_influx_token` | 65050 | `provisioning/datasources/influxdb.yml` `$__file{}` |
+| `grafana_influx_token` | 65050 | `provisioning/datasources/influxdb.yml` `$__file{}`. Read-only token `grafana read`: read on buckets `rpi` + `homeassistant` (all the dashboards query). A dashboard on a new bucket needs that bucket added to the token |
 | `influxdb_admin_password` | 65020 | `DOCKER_INFLUXDB_INIT_PASSWORD_FILE` (only on first setup) |
 | `telegraf_influx_token` | 65040 | `telegraf.conf` `@{docker_secretstore:telegraf_influx_token}` |
 | `../alertmanager/secrets/*` | 65004 | `alertmanager.yml` `*_file` |
+| InfluxDB operator token (`admin's Token`) | 65020, `0600` | not in `secrets/`: the influx CLI config `/etc/influxdb2/influx-configs` in the `influxdb` container (its anonymous volume). Admin work: `docker exec influxdb influx auth list` etc., no `--token` |
 
 `provision-admin-sso.py` still writes `GRAFANA_OAUTH_CLIENT_SECRET` into `.env`; move it into `secrets/grafana_oauth_client_secret` after a re-provision.
