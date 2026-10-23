@@ -21,6 +21,12 @@ declare -A oldid
 while read -r name ref id rc; do oldid[$name]="$ref|$(docker inspect -f '{{.Image}}' "$name")|$id|$rc"; done < <(docker compose ps -q | xargs -r docker inspect -f '{{.Name}} {{.Config.Image}} {{.Id}} {{.RestartCount}}' | sed 's|^/||')
 for n in "${!oldid[@]}"; do echo "  before: $n ${oldid[$n]}"; done
 
+# Traefik: the new tag must load the local plugins before it may replace the edge (Traefik README "Updating Traefik").
+if [[ -x scripts/traefik-plugin-test.sh ]]; then
+  t=$(docker compose config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["services"]["traefik"]["image"].rsplit(":",1)[1])')
+  scripts/traefik-plugin-test.sh "$t" || { echo "FAIL $proj: plugin test failed on traefik:$t, nothing changed"; exit 1; }
+fi
+
 # backups
 for b in "$@"; do
   if [[ $b == vol:* ]]; then v=${b#vol:}; docker run --rm -v "$v":/from:ro -v "$bk":/to alpine tar czf "/to/vol-$v.tgz" -C /from . && echo "  backup: volume $v -> $bk"

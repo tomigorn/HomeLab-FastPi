@@ -145,6 +145,7 @@ or just recreates on an already-pulled image), waits 45 s, and requires every
 container to be running (and healthy if it has a healthcheck) with 0 restarts —
 otherwise it re-tags the old image IDs and recreates (automatic rollback).
 `SERVICES="a b"` limits the pull/build to those services (keep gluetun out of it).
+For Traefik it first runs `Traefik/scripts/traefik-plugin-test.sh <new tag>` and stops, unchanged, if the local plugins fail on the new version.
 It does NOT read release notes for you: majors and the stateful apps listed above
 still get the manual treatment.
 
