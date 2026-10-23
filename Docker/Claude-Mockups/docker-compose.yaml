@@ -32,7 +32,7 @@ services:
 # Answer-Inbox ############################################
 # #########################################################
   answer-inbox:
-    image: node:22-alpine
+    image: node:24-alpine
     container_name: claude-mockups-inbox
     mem_limit: 128m
     restart: unless-stopped
