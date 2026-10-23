@@ -322,7 +322,8 @@ services:
       - ALL
     ports:
       # localhost only (2026-10-19, SSO-only: no password login over the network).
-      # Status page: ssh -L 8087:127.0.0.1:8087 fastpi, then http://localhost:8087/
+      # Status page: https://vpn-status-mouse.holy-grail.ch (Traefik over traefik_proxy, Holy Grail injects the basic auth).
+      # ssh -L 8087:127.0.0.1:8087 fastpi, then http://localhost:8087/ still works.
       - "127.0.0.1:${WEB_PORT:-8088}:${WEB_PORT:-8088}"
     # Real docker.sock REMOVED (2026-09-26) - it is root on the host. This script
     # only inspects and restarts/stops a few named containers, so it uses the
@@ -339,6 +340,7 @@ services:
       mouse_network:
         ipv4_address: 172.32.0.3
       socket_proxy_heal:
+      traefik_proxy:
     depends_on:
       gluetun:
         condition: service_healthy
@@ -392,6 +394,8 @@ secrets:
 # =========================================================
 networks:
   socket_proxy_heal:
+    external: true
+  traefik_proxy:
     external: true
   mouse_network:
     driver: bridge
