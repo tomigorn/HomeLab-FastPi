@@ -70,6 +70,9 @@ Free: 65029, 65031, 65051+.
 | WireGuard-VPN | NET_ADMIN, NET_RAW | wg interface + iptables |
 | loyalty-cards / loyalty-sync | untouched | stack PARKED |
 
+## Images
+- Locally built images (`*-local`, `*:local`): base image tracking and the per-image rebuild routine are in `Docker/Cup/README.md`, Locally built images.
+
 ## Docker socket
 Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount it (ro), non-root via group 991. Their entrypoint is overridden to run haproxy on the shipped template (`BIND_CONFIG: ":2375"`) because the upstream entrypoint writes into a root-owned dir. After an image bump: check `docker logs` and that an allowed endpoint returns 200 and a denied one 403.
 
