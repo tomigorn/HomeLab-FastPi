@@ -97,7 +97,7 @@ services:
 # service_healthy possible), so this waits for the fastpi agent and then calls Cup's documented
 # refresh API once. Exits when done; restart "no". A sleeping beefy only makes that refresh slow.
   cup-refresh:
-    image: curlimages/curl:8.10.1
+    image: curlimages/curl:8.23.0
     container_name: cup-refresh
     user: "65023:65023"
     entrypoint: ["/bin/sh", "-c"]
