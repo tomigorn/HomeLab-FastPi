@@ -7,9 +7,8 @@ groups:
   - name: container-updates
     rules:
       - alert: ContainerImageUpdatesAvailable
-        # `for: 30m` with a 15m scrape means two consecutive scrapes must agree, so
-        # a single odd reading mid-refresh cannot page anyone.
-        expr: cup_updates_available > 0
+        # Cup is scraped every 15m but a sample is only current for 5m (staleness), so last_over_time bridges the gap; a bare selector would reset `for:` every cycle and never fire.
+        expr: last_over_time(cup_updates_available[20m]) > 0
         for: 30m
         labels:
           severity: info
@@ -17,15 +16,16 @@ groups:
           summary: "{{ $value }} container image update(s) available"
           description: >-
             Cup reports {{ $value }} image(s) with updates
-            ({{ with query "cup_updates_major" }}{{ . | first | value }}{{ end }} major,
-            {{ with query "cup_updates_minor" }}{{ . | first | value }}{{ end }} minor).
+            ({{ with query "last_over_time(cup_updates_major[20m])" }}{{ . | first | value }}{{ end }} major,
+            {{ with query "last_over_time(cup_updates_minor[20m])" }}{{ . | first | value }}{{ end }} minor).
             Details at https://cup.holy-grail.ch/ . This counts BOTH hosts since
             2026-10-09 (fastpi locally + beefy via its Cup agent), so the dashboard's
             `server` column says which machine to act on. Note Cup watches every image
             present on a host including ones not in use, so check in_use before acting.
 
       - alert: CupNotReporting
-        expr: up{job="cup"} == 0
+        # Same 15m scrape / 5m staleness gap as above.
+        expr: last_over_time(up{job="cup"}[20m]) == 0
         for: 1h
         labels:
           severity: info

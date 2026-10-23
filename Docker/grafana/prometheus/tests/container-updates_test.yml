@@ -1,0 +1,72 @@
+# promtool test rules tests/container-updates_test.yml
+rule_files:
+  - ../rules/container-updates.yml
+evaluation_interval: 1m
+tests:
+  - name: updates alert fires although Cup is only current 5 of every 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'cup_updates_available{job="cup"}'
+        values: '3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _'
+      - series: 'cup_updates_major{job="cup"}'
+        values: '1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _'
+      - series: 'cup_updates_minor{job="cup"}'
+        values: '2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _ 2 2 2 2 2 _ _ _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ContainerImageUpdatesAvailable
+        exp_alerts: []
+      - eval_time: 60m
+        alertname: ContainerImageUpdatesAvailable
+        exp_alerts:
+          - exp_labels: {severity: info, job: cup}
+            exp_annotations:
+              summary: "3 container image update(s) available"
+              description: "Cup reports 3 image(s) with updates (1 major, 2 minor). Details at https://cup.holy-grail.ch/ . This counts BOTH hosts since 2026-10-09 (fastpi locally + beefy via its Cup agent), so the dashboard's `server` column says which machine to act on. Note Cup watches every image present on a host including ones not in use, so check in_use before acting."
+
+  - name: no updates alert when Cup reports zero
+    interval: 1m
+    input_series:
+      - series: 'cup_updates_available{job="cup"}'
+        values: '0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: ContainerImageUpdatesAvailable
+        exp_alerts: []
+
+  - name: updates alert resolves after Cup stops reporting updates
+    interval: 1m
+    input_series:
+      - series: 'cup_updates_available{job="cup"}'
+        values: '3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 3 3 3 3 3 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: ContainerImageUpdatesAvailable
+        exp_alerts: []
+
+  - name: cup not reporting fires after 1h of failed scrapes despite 15m interval
+    interval: 1m
+    input_series:
+      - series: 'up{job="cup"}'
+        values: '0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 _ _ _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CupNotReporting
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: CupNotReporting
+        exp_alerts:
+          - exp_labels: {severity: info, job: cup}
+            exp_annotations:
+              summary: "Cup update check is not being scraped"
+              description: "json-exporter cannot reach Cup, so update notifications have stopped. Silence rather than ignore - absence of update alerts would otherwise look like \"everything is current\"."
+
+  - name: cup healthy does not fire CupNotReporting
+    interval: 1m
+    input_series:
+      - series: 'up{job="cup"}'
+        values: '1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ 1 1 1 1 1 _ _ _ _ _ _ _ _ _ _'
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: CupNotReporting
+        exp_alerts: []

@@ -67,6 +67,8 @@ Job `prometheus` scrapes `localhost:9090`. Rules: `prometheus/rules/prometheus-s
 | `PrometheusTSDBWALCorruptions` | WAL corruption in the last 3 h |
 | `PrometheusNotIngestingSamples` | no samples appended for 10 min |
 | `TargetDown` | `up == 0` for 5 min; excludes `blackbox-*` (`BlackboxExporterDown`; sleeping beefy/tower stay `up`), `alertmanager` (`AlertmanagerDown`), `cup` (`CupNotReporting`) |
+| `ContainerImageUpdatesAvailable` | `last_over_time(cup_updates_available[20m]) > 0` for 30 min; severity info, Telegram only, repeats weekly |
+| `CupNotReporting` | `last_over_time(up{job="cup"}[20m]) == 0` for 1 h; Cup is scraped every 15m but a sample is only current for 5m, so a bare selector would never hold for `for:` |
 
 `prometheus.yml`, `blackbox.yml` and `alertmanager.yml` are single-file bind mounts: an editor that replaces the file leaves the container on the old inode, so after editing them run `docker compose up -d --force-recreate <service>` instead of a HUP/reload.
 
