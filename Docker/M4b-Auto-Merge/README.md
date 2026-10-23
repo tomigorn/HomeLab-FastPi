@@ -101,3 +101,5 @@ rebuild it on a fresh checkout:
   instead of binding an empty directory.
 - beefy is always used, by design. It gets woken if it is asleep and idles back
   off afterwards.
+
+**Rebuild** (`m4b-auto-merge:local`, FROM `python:3.12-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.

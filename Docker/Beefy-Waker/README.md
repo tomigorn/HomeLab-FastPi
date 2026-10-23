@@ -298,3 +298,5 @@ This project only **wakes** beefy. beefy decides when to **sleep itself** via th
 `beefy-idle-watcher` systemd service in the beefy repo
 (`Server/8-Idle-Watcher.md`) — it powers off after sustained inactivity, and the
 WoL here brings it back.
+
+**Rebuild** (`beefy-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.

@@ -85,6 +85,8 @@ docker run --rm --entrypoint sh -v "$PWD/Docker/antivirus:/src:ro" clamav-local:
 
 Changing `scan.sh` needs a rebuild: `docker compose up -d --build clamav`.
 
+**Rebuild** (`clamav-local` FROM `alpine:latest`, `virustotal-local` FROM `python:3.12-alpine`): `docker compose up -d --build --pull clamav virustotal` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
+
 ## Retired: download watcher
 
 Until 2026-10-19 the container ran an inotify watcher on `sabnzbd/.../complete` and `qbittorrent/complete`. Replaced by the nightly `new` scan, which also covers both disks; `inotify-tools` is gone from the image.

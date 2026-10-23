@@ -103,3 +103,5 @@ boot, Tools → Registration → Replace Key if the GUID changed.
   (`/boot/config/*.key`); emhttpd logs `cmdStart: no registration key`. Since
   2026-10-14 tower runs a perpetual **Starter** key (`Starter.key`; OS updates
   until 2027-10-14). Keep exactly one `.key` file in `/boot/config/`.
+
+**Rebuild** (`tower-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.

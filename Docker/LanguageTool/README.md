@@ -78,6 +78,8 @@ in `Raspi/Dockerfile` (`FROM`) and `MacOS/docker-compose.yaml`, then on the Pi
 `docker compose -f Raspi/docker-compose.yaml up -d --build`, then run `test.sh`.
 Tags: <https://hub.docker.com/r/erikvl87/languagetool/tags>. Never `:latest`.
 
+**Rebuild** (`languagetool-local`, FROM the pinned tag): the same `up -d --build` after Cup shows a newer `erikvl87/languagetool` tag; a rebuild of the same tag only helps if the upstream tag was re-pushed (add `--pull`).
+
 The Pi runs a thin local image (`languagetool-local`, see `Raspi/Dockerfile`) as a
 dedicated uid 65038: the upstream image's uid 100 is the host's `messagebus` (D-Bus)
 user. The Dockerfile only chowns the files `lt-entrypoint.sh` and `start.sh` write at
