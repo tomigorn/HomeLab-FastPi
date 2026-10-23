@@ -64,6 +64,26 @@ Every backend, `crowdsec@file` and `default-rate-limit` see **one** address in `
 
 Why a plugin: Traefik cannot rewrite `X-Forwarded-For` itself, and `forwardedHeaders.trustedIPs` keeps the client-supplied left part. Test (spoof must not show up): `curl -s --resolve sso.holy-grail.ch:443:$(dig +short @1.1.1.1 sso.holy-grail.ch | head -1) -H 'X-Forwarded-For: 203.0.113.77' https://sso.holy-grail.ch/-/health/live/; docker logs --since 1m authentik-server | grep -o '"remote":"[^"]*"' | tail -1`
 
+## Updating Traefik
+
+Run before every Traefik bump (the image is pinned in `docker-compose.yaml`):
+
+```bash
+scripts/traefik-plugin-test.sh v3.7.17   # the NEW tag; exit 0 = safe to bump
+```
+
+Throwaway containers on their own network (no host ports, removed afterwards): the given Traefik tag with both local plugins (ro), the repo's `experimental` block + `websecure` middlewares + `real-ip.yml`/`crowdsec.yml` (IPs adapted), `traefik/whoami:v1.11.0` as echo, a mock CrowdSec LAPI (`caddy:2.11.7-alpine`) banning two TEST-NET IPs. The real CrowdSec is never touched.
+
+| Check | Expected |
+|---|---|
+| log | `Plugins loaded` lists `realip` + `crowdsec-bouncer`, no error |
+| Cf-Connecting-Ip from the gateway (v4 + v6) | backend sees that IP (spoofed XFF dropped) |
+| request from another container | its own IP, Cf-Connecting-Ip ignored |
+| banned IPv4/IPv6 | 403 (also proves the key file is read) |
+| clean IPv4/IPv6 | 200 |
+
+`_global/scripts/update-project.sh Traefik pull` runs it with the tag from the compose file and stops before changing anything if it fails. After the bump: `docker logs traefik`, `_global/scripts/smoke-test.sh` (it pins the expected version: update `traefik version` there).
+
 ## Access log rotation
 
 `logrotate/traefik` rotates `traefik/logs/access.log` (daily or at 100 MB, 14 kept, compressed with `delaycompress` so CrowdSec can finish the old file). `postrotate` sends `USR1` to Traefik, which reopens and recreates the file (no restart); CrowdSec's file tail follows the new file.
