@@ -29,12 +29,17 @@ services:
 
     network_mode: host
 
+    # The image only reads ACCOUNT_<user> from the env, so the passwords come from secret files at start.
+    entrypoint: ["/bin/sh", "-c", "export ACCOUNT_mouse=\"$$(cat /run/secrets/samba_account_mouse)\" ACCOUNT_books=\"$$(cat /run/secrets/samba_account_books)\"; exec /container/scripts/entrypoint.sh \"$$@\"", "--"]
+    command: ["runsvdir", "-P", "/container/config/runit"]
+    secrets:
+      - samba_account_mouse
+      - samba_account_books
+
     environment:
       # --- USERS ---
-      ACCOUNT_mouse: ${SAMBA_ACCOUNT_MOUSE}
       UID_mouse: 1101
 
-      ACCOUNT_books: ${SAMBA_ACCOUNT_BOOKS}
       UID_books: 1102
 
       # --- GROUP ---
@@ -167,7 +172,7 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${ProtonVPN_Private_Key}
+      - WIREGUARD_PRIVATE_KEY_SECRETFILE=/run/secrets/wireguard_private_key
       - SERVER_COUNTRIES=Switzerland
       # MAM's session is ASN-locked. ProtonVPN's Swiss port-forwarding servers sit
       # on two ASNs (Proton AG AS209103 and Datacamp AS212238); landing on the
@@ -180,6 +185,8 @@ services:
       - WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL=25s
       - CONTROL_SERVER=on
       - CONTROL_SERVER_ADDRESS=:8000
+    secrets:
+      - wireguard_private_key   # root:root 0400, gluetun runs as root
     # expose host ports here because other containers share gluetun's network namespace
     ports:
       # web UI (host_port:container_port) - use 8085:8080 (8080 already used by Traefik)
@@ -288,13 +295,15 @@ services:
     environment:
       - TZ=Europe/Zurich
       # Mousehole >= 0.5 refuses to start without auth for its web UI (5010 is
-      # published on 127.0.0.1 via gluetun). Password lives in .env.
-      - MOUSEHOLE_AUTH_PASSWORD=${MOUSEHOLE_AUTH_PASSWORD}
+      # published on 127.0.0.1 via gluetun). Password: secrets/mousehole_auth_password.
+      - MOUSEHOLE_AUTH_PASSWORD_FILE=/run/secrets/mousehole_auth_password
       # The UI refuses hosts not listed here ("host not allowed" + Retry).
       # 0.5 keeps its state (incl. the MAM cookie) in /var/lib/mousehole by
       # default - inside the container, lost on every recreate. Point it at the volume.
       - MOUSEHOLE_STATE_DIR_PATH=/srv/mousehole
       - MOUSEHOLE_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.2,fastpi,fastpi.local
+    secrets:
+      - mousehole_auth_password
     restart: always
     labels:
       - autoheal-mouse=true
@@ -338,21 +347,45 @@ services:
     environment:
       - DOCKER_HOST=tcp://socket-proxy-autoheal:2375
       - QBIT_USER=admin
-      - QBIT_PASS=${QBIT_PASS}
+      - QBIT_PASS_FILE=/run/secrets/qbit_pass
       - CHECK_INTERVAL=600
       - SESSION_CHECK_INTERVAL=15
       - ZERO_RETRY_INTERVAL=60
       - ZERO_PORT_LIMIT=3
       - GLUETUN_IP=172.32.0.2
       - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
-      - GLUETUN_AUTH_PASS=${GLUETUN_AUTH_PASS}
+      - GLUETUN_AUTH_PASS_FILE=/run/secrets/gluetun_auth_pass
       - TZ=Europe/Zurich
       - WEB_PORT=${WEB_PORT:-8088}
       - WEB_USER=${WEB_USER}
-      - WEB_PASS=${WEB_PASS}
+      - WEB_PASS_FILE=/run/secrets/port_updater_web_pass
+    secrets:
+      - qbit_pass
+      - gluetun_auth_pass
+      - port_updater_web_pass
     restart: unless-stopped
     labels:
       - autoheal-mouse=true
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+# Files in secrets/ (gitignored), mode 0400, owned by the uid that reads them (root for samba/gluetun).
+secrets:
+  wireguard_private_key:
+    file: ./secrets/wireguard_private_key
+  samba_account_mouse:
+    file: ./secrets/samba_account_mouse
+  samba_account_books:
+    file: ./secrets/samba_account_books
+  mousehole_auth_password:
+    file: ./secrets/mousehole_auth_password
+  qbit_pass:
+    file: ./secrets/qbit_pass
+  gluetun_auth_pass:
+    file: ./secrets/gluetun_auth_pass
+  port_updater_web_pass:
+    file: ./secrets/port_updater_web_pass
 
 # =========================================================
 # Networks ================================================
