@@ -22,7 +22,6 @@ services:
       - AzureAd__Instance=https://login.microsoftonline.com/
       - AzureAd__TenantId=${AZURE_TENANT_ID}
       - AzureAd__ClientId=${AZURE_CLIENT_ID}
-      - AzureAd__ClientSecret=${AZURE_CLIENT_SECRET}
       - AzureAd__ClientSecretExpiration=${AZURE_CLIENT_SECRET_EXPIRATION}
       - AzureAd__CallbackPath=/signin-oidc
       - AzureAd__SignedOutCallbackPath=/signout-callback-oidc
@@ -41,6 +40,8 @@ services:
       # Pre-provided self-signed cert so the app can run non-root: the entrypoint only
       # generates one into root-owned /app, so mounting it ro makes it skip generation.
       - ./certs/localhost.pfx:/app/localhost.pfx:ro
+      # AzureAd:ClientSecret lives in this file (ASP.NET loads appsettings.<Environment>.json), not in the env
+      - ./secrets/appsettings.Production.json:/app/appsettings.Production.json:ro
     # Example for passing the PFX password via Docker secrets (optional):
     # secrets:
     #   - cert_password
