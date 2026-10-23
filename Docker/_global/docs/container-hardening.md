@@ -27,7 +27,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65008 | backdrop-carousel | | | |
 | 65009 | sbb-easyride-taxreport | | | |
 | 65010 | blackbox-exporter-wan | | | ✅ |
-| 65011–65013 | autoheal-antivirus / -mouse / -nzb | | | |
+| 65011–65012 | autoheal-antivirus / -mouse | | | |
 | 65014 | virustotal | | | |
 | 65015 | blackbox-exporter | | | |
 | 65016 | claude-mockups | | NET_BIND_SERVICE | |
@@ -58,14 +58,14 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65029, 65031, 65051+.
+Free: 65013 (was autoheal-nzb), 65029, 65031, 65051+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |
 |---|---|---|
 | duckdns | CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID | image has no non-root mode (tested 2026-10-22: s6 init fails); app runs as 65021 |
 | homeassistant | CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, NET_RAW | official image has no supported non-root mode (bluetooth/dbus, pip into /config) |
-| gluetun_nzb, gluetun_mouse | NET_ADMIN, NET_RAW, NET_BIND_SERVICE, DAC_OVERRIDE, CHOWN | creates tun + iptables; no non-root mode |
+| gluetun_mouse (also carries sabnzbd) | NET_ADMIN, NET_RAW, NET_BIND_SERVICE, DAC_OVERRIDE, CHOWN | creates tun + iptables; no non-root mode |
 | samba | NET_BIND_SERVICE, SETUID, SETGID, KILL, CHOWN, FOWNER, DAC_OVERRIDE, SYS_CHROOT | smbd switches to each user; avahi chroots |
 | WireGuard-VPN | NET_ADMIN, NET_RAW | wg interface + iptables |
 | clamav-hostscan | DAC_READ_SEARCH, DAC_OVERRIDE, CHOWN | weekly host scan reads everything (`/:/host:ro`); non-root cannot use DAC_READ_SEARCH. Safe because `network_mode: none`, read-only root fs, writes only state + textfile; the always-on `clamav` no longer mounts the host root |

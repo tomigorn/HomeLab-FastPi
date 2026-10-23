@@ -68,9 +68,9 @@ Per-container ceilings (sum intentionally exceeds 8 GB — these are caps, not r
 
 | Tier | Limit | Containers (observed MiB) |
 |------|-------|---------------------------|
-| micro | 64m | autoheal-nzb, autoheal-mouse, autoheal-antivirus, duckdns, noip, port_updater |
+| micro | 64m | autoheal-mouse, autoheal-antivirus, duckdns, noip, port_updater |
 | small | 128m | node-exporter, WireGuard-VPN, claude-mockups, claude-mockups-inbox, homelab-dashboard, wg-chores-sqliteweb, loyalty-cards(frontend) |
-| std | 256m | adguardhome, telegraf, Dashy, mousehole, traefik, wg-chores-app, sbb-easyride-taxreport, portainer, cloudflared, samba, backdrop-carousel, digitec_web, digitec_pgweb, loyalty-sync, loyalty-cards-backend, gluetun_nzb, gluetun_mouse |
+| std | 256m | adguardhome, telegraf, Dashy, mousehole, traefik, wg-chores-app, sbb-easyride-taxreport, portainer, cloudflared, samba, backdrop-carousel, digitec_web, digitec_pgweb, loyalty-sync, loyalty-cards-backend, gluetun_mouse |
 | medium | 512m | loyalty-cards-cloudbeaver, stonks, grafana, audiobookshelf, authentik-postgresql, qbittorrent_mouse, bitwarden, digitec_db |
 | heavy | 1g | influxdb, prometheus, sabnzbd, authentik-server, authentik-worker |
 | xheavy | 1536m / 2g | clamav=1536m, jenkins-jdk-21=2g |
@@ -90,8 +90,8 @@ adguard[adguardhome], antivirus[autoheal-antivirus,clamav,virustotal], audiobook
 Authentik[postgresql,server,worker], BackdropCarousel[backdrop-carousel], bitwarden[bitwarden],
 Claude-Mockups[claude-mockups,answer-inbox], cloudflared[cloudflared], Dashy[dashy], DDNS[duckdns,noip],
 grafana[prometheus,node-exporter,grafana,influxdb,telegraf], Jenkins[jenkins], LoyaltyCards[loyalty-cards],
-LoyaltyCards-Sync[loyalty-sync], mouse[samba,autoheal-mouse,gluetun,qbittorrent,mousehole,port-updater],
-nzb[autoheal-nzb,gluetun,sabnzbd], Portainer[portainer], sbb-easyride-taxreport[sbb_easyride_taxreport],
+LoyaltyCards-Sync[loyalty-sync], mouse[samba,autoheal-mouse,gluetun,qbittorrent,mousehole,sabnzbd,port-updater],
+Portainer[portainer], sbb-easyride-taxreport[sbb_easyride_taxreport],
 Stonks[stonks], Traefik[traefik], WireguardVPN[wg-easy], HashiCorpVault[vault — NOT running].
 
 OUTLIERS (outside the standard tree):
