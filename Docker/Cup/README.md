@@ -18,6 +18,21 @@ Cup reads no socket itself (`"socket": "none"`); every host, fastpi included, is
 - Agents are only read when Cup refreshes (container start, Sundays 04:00, the refresh button). A host asleep at that moment is left out until the next refresh: `docker logs Cup` shows `Failed to refresh server`, and `cup_updates_*` count only the hosts that answered.
 - An agent lists only images with a registry digest. Images put on a host with `docker load` have none and are missing from Cup until they are pulled once.
 
+## Locally built images
+
+An image built here (`build:` in compose) has no registry copy, so Cup cannot track it. Its base image is listed in `images.extra` of the agent config (`cup-agent.json` on fastpi, `Docker/Cup-Agent/cup.json` on beefy) instead, so a new base shows up as an update. An `extra` entry must be a versioned tag or already on the host (`alpine:latest` is not accepted if not pulled: the agent crash-loops). On beefy the local images are in `images.exclude`, which stops their "Unauthorized" errors; fastpi's have no digest and never appear.
+
+| Host | Local image | Base (tracked) | Rebuild |
+|---|---|---|---|
+| fastpi | languagetool-local | `erikvl87/languagetool:6.8` | `Docker/LanguageTool/README.md` |
+| fastpi | clamav-local, virustotal-local | `alpine:latest`, `python:3.12-alpine` | `Docker/antivirus/README.md` |
+| fastpi | m4b-auto-merge, beefy-waker, tower-waker, avatar-picker | `python:3.12/3.13-alpine` | their READMEs, `Rebuild` |
+| beefy | jellyfin-local, clamav-local, ryot-go | `lscr.io/linuxserver/jellyfin`, `alpine:latest`, `python:3.13-alpine` | their READMEs, `Rebuild` |
+
+CVEs: the weekly Trivy image scan scans fastpi's local images directly and, for beefy's, the registry copy of each Dockerfile `FROM` (`Server/4-Security-Monitoring/README.md`).
+
+After editing a config: `docker restart cup-agent-fastpi Cup` (fastpi) or `docker restart cup-agent` (beefy).
+
 ## Check
 
 ```bash
