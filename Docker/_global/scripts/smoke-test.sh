@@ -40,11 +40,17 @@ age() { s=$(sed -n "s/^$1 //p" /var/lib/node-exporter/textfile/$2 2>/dev/null | 
 check "community list pulled < 3 h" '^yes$' "$(a=$(age crowdsec_capi_last_pull_timestamp_seconds crowdsec.prom); (( a < 10800 )) && echo yes || echo "no (${a}s)")"
 check "community list > 10k IPs"   '^yes$' "$(n=$(curl -s -m 5 -G --data-urlencode 'query=sum(cs_active_decisions{origin="CAPI"})' http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(int(float(r[0]["value"][1])) if r else 0)'); (( ${n:-0} > 10000 )) && echo yes || echo "no (${n:-?})")"
 check "hub/GeoIP checked < 36 h"   '^yes$' "$(a=$(age crowdsec_autoupdate_last_run_timestamp_seconds crowdsec_autoupdate.prom); (( a < 129600 )) && echo yes || echo "no (${a}s)")"
-# A community-list IP must be refused by Traefik (proves the bouncer syncs CAPI decisions). Via the
+# Community-list IPs (one IPv4, one IPv6) must be refused by Traefik (proves the bouncer syncs CAPI decisions). Via the
 # container IP + Cf-Connecting-Ip (as cloudflared delivers it), so the probe never bans the home IP.
+# Only decisions with > 10 min left: cscli also lists expired ones (negative duration) until they are flushed, and those rightly pass.
 tip=$(docker inspect traefik -f '{{(index .NetworkSettings.Networks "traefik_proxy").IPAddress}}' 2>/dev/null)
-cip=$(docker exec crowdsec cscli decisions list -o json --origin CAPI -l 1 2>/dev/null | python3 -c 'import json,sys; a=json.load(sys.stdin) or []; print(a[0]["decisions"][0]["value"] if a else "")' 2>/dev/null)
-check "community IP blocked (403)"  '^403$' "$([[ -n $tip && -n $cip ]] && curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "home.holy-grail.ch:443:$tip" -H "Cf-Connecting-Ip: $cip" https://home.holy-grail.ch/ || echo "no CAPI IP/traefik ip")"
+cips=$(docker exec crowdsec cscli decisions list -o json --origin CAPI 2>/dev/null | python3 -c '
+import json,re,sys
+def left(d): m=re.fullmatch(r"(?:(\d+)h)?(?:(\d+)m)?(?:[\d.]+s)?", d); return int(m[1] or 0)*60+int(m[2] or 0) if m and d else 0
+ds=[d for a in json.load(sys.stdin) or [] for d in a["decisions"] if d["type"]=="ban" and d["scope"]=="Ip" and left(d["duration"])>10]
+print(*[next((d["value"] for d in ds if (":" in d["value"])==v6), "") for v6 in (False, True)])' 2>/dev/null)
+check "community IPs blocked (403 403)" '^403 403 \[' "$(for c in $cips; do [[ -n $tip ]] && curl -sk -m 10 -o /dev/null -w '%{http_code} ' --resolve "home.holy-grail.ch:443:$tip" -H "Cf-Connecting-Ip: $c" https://home.holy-grail.ch/; done | sed 's/ $//') [${cips:-no CAPI IP}]"
+check "clean IP passes (200)"        '^200$' "$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "home.holy-grail.ch:443:$tip" -H "Cf-Connecting-Ip: 203.0.113.7" https://home.holy-grail.ch/)"   # TEST-NET-3, never on a list
 
 echo "== Authentik (SSO)"
 running authentik-server authentik-worker authentik-postgresql
