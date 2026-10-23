@@ -17,6 +17,7 @@ from security_scan import (  # noqa: E402
     NoData,
     classify_secret_file,
     collect_av,
+    collect_media,
     audit_samples,
     count_failed_logins,
     classify_source,
@@ -447,6 +448,36 @@ def test_av_missing_hook_file_is_skipped_not_no_data():
     collect_av("beefy", lambda what: files[what])
     assert (d / "textfile" / "clamav_beefy.prom").exists()
     assert (d / "textfile" / "clamav_hook_beefy.prom").read_text() == "old\n"
+
+
+MEDIA_PROM = ('# HELP media_language_missing_since_timestamp_seconds x\n# TYPE media_language_missing_since_timestamp_seconds gauge\n'
+              'media_language_missing_since_timestamp_seconds{app="radarr",failed="0",language="Swiss German",title="The Ring Thing (2004)"} 1792753017\n'
+              '# TYPE media_language_missing_last_run_timestamp_seconds gauge\nmedia_language_missing_last_run_timestamp_seconds 1792771822\n')
+
+
+def test_media_republishes_only_media_language_samples():
+    d = _tmp_dirs()
+    assert collect_media("beefy", lambda: MEDIA_PROM + "node_load1 3\nmedia_language_bad{x=\"1\"} nope\n") == []
+    assert (d / "textfile" / "media_language_beefy.prom").read_text() == MEDIA_PROM
+
+
+def test_media_without_waiting_titles_still_publishes_the_run():
+    d = _tmp_dirs()
+    run_only = "# TYPE media_language_missing_last_run_timestamp_seconds gauge\nmedia_language_missing_last_run_timestamp_seconds 1\n"
+    collect_media("beefy", lambda: run_only)
+    assert (d / "textfile" / "media_language_beefy.prom").read_text() == run_only
+
+
+def test_media_missing_or_empty_file_is_no_data_and_keeps_old_file():
+    d = _tmp_dirs()
+    (d / "textfile" / "media_language_beefy.prom").write_text("old\n")
+    for text in (None, "foo 1\n"):
+        try:
+            collect_media("beefy", lambda: text)
+            raise AssertionError("expected NoData")
+        except NoData:
+            pass
+    assert (d / "textfile" / "media_language_beefy.prom").read_text() == "old\n"
 
 
 def test_guarded_no_data_is_neither_error_nor_unreachable():

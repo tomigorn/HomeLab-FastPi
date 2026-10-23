@@ -999,6 +999,22 @@ def collect_av(host: str, fetch) -> list:
             for p, sig in hits[:AV_HIT_LIMIT]]
 
 
+# Movie-Downloads' language-missing.py (titles still waiting for a Swiss German release); alerts: grafana/prometheus/rules/media-language.yml.
+MEDIA_PATHS = {"beefy": "/home/buntu/.local/state/movie-downloads/media-language.prom"}
+
+
+def collect_media(host: str, fetch) -> list:
+    """Republish beefy's media-language.prom as media_language_<host>.prom (only media_language_ samples)."""
+    raw = fetch()
+    if raw is None:
+        raise NoData(f"no media-language.prom on {host} yet")
+    prom = filter_exposition(raw, prefix="media_language_")
+    if not prom:
+        raise NoData(f"media-language.prom on {host} has no media_language_ samples")
+    write_atomic(TEXTFILE / f"media_language_{host}.prom", prom)
+    return []
+
+
 def fetch_file(host: str, path: str) -> str | None:
     """A file's text, locally on fastpi or over ssh; None when it does not exist."""
     if host == "fastpi":
@@ -1320,6 +1336,10 @@ def main() -> int:
             def _av(host=host):
                 return collect_av(host, lambda what: fetch_file(host, AV_PATHS[host][what]))
             guarded(f"av-{host}", _av, host=host)
+
+    if want("media"):
+        for host in MEDIA_PATHS:
+            guarded(f"media-{host}", lambda host=host: collect_media(host, lambda: fetch_file(host, MEDIA_PATHS[host])), host=host)
 
     if want("images"):
         def _scan(host, images):
