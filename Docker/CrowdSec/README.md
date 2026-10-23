@@ -241,6 +241,7 @@ python3 scripts/test_crowdsec_exporter.py
   `docker exec crowdsec cscli decisions delete -i <ip>`.
 - `cscli bouncers delete` prefix-matches (see the Traefik README).
 - Stale `traefik-bouncer@<old ip>` entries (Traefik restarted or got a new IP): `docker exec crowdsec cscli bouncers prune -d 10m --force` removes every bouncer that has not pulled for 10 min; the live one pulls every minute. The exporter and alerts strip `@<ip>`, so nothing else changes.
+- **Rotate the bouncer key:** `docker exec crowdsec cscli bouncers add traefik-bouncer -o raw` into `Traefik/traefik/secrets/crowdsec_lapi_key` (`printf %s`, keep `pi:65026 0640`), `docker restart traefik`, wait for the new `traefik-bouncer` to pull, test a ban, then `cscli bouncers prune -d 2m --force` drops the old key's `@<ip>` children (`bouncers delete` refuses auto-created children). Testing a key with curl from the host creates another `@172.24.0.1` child; prune it too.
 - `cs_papi_last_pull_timestamp` is the Console **Polling** API and is always 0 without
   enrollment. Use `crowdsec_capi_last_pull_timestamp_seconds`.
 
