@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
     # Non-root with zero capabilities. The namespaced sysctl lets it bind :80/:443
     # without NET_BIND_SERVICE. Its secrets in dynamic/ and secrets/ are owner pi,
-    # group 65026, mode 640; letsencrypt/ and logs/ are owned by 65026.
+    # group 65026, mode 640 (secrets/cf_dns_api_token: 65026, 0400); letsencrypt/ and logs/ are owned by 65026.
     user: "65026:65026"
     sysctls:
       net.ipv4.ip_unprivileged_port_start: "0"
@@ -21,7 +21,8 @@ services:
     cap_drop:
       - ALL
     environment:
-    - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+    # lego reads the Cloudflare token from the file (secrets/cf_dns_api_token, 65026, 0400)
+    - CF_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token
     ports:
       - 80:80       # HTTP
       - 443:443     # HTTPS

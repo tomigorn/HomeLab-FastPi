@@ -6,6 +6,15 @@ predictable — the Traefik dashboard allowlist depends on it.
 docker network create --subnet 172.24.0.0/16 traefik_proxy
 ```
 
+## Secrets
+
+Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env values:
+
+| File | Read by |
+|---|---|
+| `cf_dns_api_token` (65026, `0400`) | lego `CF_DNS_API_TOKEN_FILE` (Cloudflare DNS challenge) |
+| `crowdsec_lapi_key` (pi:65026, `0640`) | `dynamic/crowdsec.yml` `crowdsecLapiKeyFile` |
+
 ## Entrypoints
 
 | Name | Port | Who reaches it | Purpose |
