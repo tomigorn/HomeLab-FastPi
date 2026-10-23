@@ -1,0 +1,61 @@
+# VPN status page of beefy's Movie-Downloads stack (movie-vpn-status), behind Authentik SSO.
+#
+# https://vpn-status-beefy.holy-grail.ch/   (LAN/VPN only, no public DNS record)
+#
+# The page has no login of its own (WEB_USER unset), so forwardAuth is the only gate.
+# 8087 is published on beefy's LAN IP; its DOCKER-USER rule drops it for everyone but fastpi.
+# Bound to homelab-admins in Authentik (Docker/Authentik/scripts/provision-admin-sso.py).
+#
+# authentik runs BEFORE the wake gate, like radarr.yml: only a logged-in user can boot beefy.
+http:
+  routers:
+    vpn-status-beefy-outpost:
+      rule: "Host(`vpn-status-beefy.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+    vpn-status-beefy:
+      rule: "Host(`vpn-status-beefy.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: vpn-status-beefy
+      middlewares:
+        - local-networks@file
+        - authentik@file
+        - vpn-status-beefy-wake
+        - vpn-status-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    vpn-status-beefy-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8087"
+        trustForwardHeader: false
+
+    # Shared with vpn-status-mouse.yml. Both pages are self-contained (inline JS/CSS, same-origin /api/*).
+    vpn-status-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: false
+        customFrameOptionsValue: "SAMEORIGIN"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'"
+          Server: ""
+
+  services:
+    vpn-status-beefy:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8087"
+        passHostHeader: true

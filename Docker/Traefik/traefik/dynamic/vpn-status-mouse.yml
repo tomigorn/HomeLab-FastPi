@@ -1,0 +1,37 @@
+# VPN status page of fastpi's mouse stack (port_updater), behind Authentik SSO.
+#
+# https://vpn-status-mouse.holy-grail.ch/   (LAN/VPN only, no public DNS record)
+#
+# port_updater keeps its own HTTP Basic login (it is on traefik_proxy, so every container there
+# can reach it). Like adguard.yml, the outpost injects those credentials (authentik-basic@file;
+# group homelab-admins attributes port_updater_username / port_updater_password), so there is one login only.
+http:
+  routers:
+    vpn-status-mouse-outpost:
+      rule: "Host(`vpn-status-mouse.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+    vpn-status-mouse:
+      rule: "Host(`vpn-status-mouse.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: vpn-status-mouse
+      middlewares:
+        - local-networks@file
+        - authentik-basic@file
+        - vpn-status-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  services:
+    vpn-status-mouse:
+      loadBalancer:
+        servers:
+          - url: "http://port-updater:8087"
+        passHostHeader: true
