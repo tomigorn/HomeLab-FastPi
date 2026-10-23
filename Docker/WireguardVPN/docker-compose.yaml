@@ -14,6 +14,11 @@ services:
     image: ghcr.io/wg-easy/wg-easy:15.4.0
     container_name: WireGuard-VPN
     mem_limit: 256m
+    # wg-easy has no *_FILE option, so the OIDC client secret is read from the secret file at start.
+    entrypoint: ["/bin/sh", "-c", "export OAUTH_OIDC_CLIENT_SECRET=\"$$(cat /run/secrets/oidc_client_secret)\"; exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: ["/usr/bin/dumb-init", "node", "server/index.mjs"]
+    secrets:
+      - oidc_client_secret   # root:root 0400
     environment:
       # v14 ran IPv4-only and the traefik_proxy network has no IPv6.
       - DISABLE_IPV6=true
@@ -26,7 +31,6 @@ services:
       - OAUTH_OIDC_NAME=Holy Grail
       - OAUTH_OIDC_SERVER=https://sso.holy-grail.ch/application/o/wg-easy/
       - OAUTH_OIDC_CLIENT_ID=${WG_EASY_OIDC_CLIENT_ID}
-      - OAUTH_OIDC_CLIENT_SECRET=${WG_EASY_OIDC_CLIENT_SECRET}
       # false: an Authentik login is only accepted for an existing wg-easy user with
       # the same email (linked on first login). true would create new users as ADMIN
       # (wg-easy has no permission system yet).
@@ -78,6 +82,13 @@ services:
         # Traefik middleware local-networks@file allows exactly 172.24.255.5/32.
         ipv4_address: 172.24.255.5
     restart: unless-stopped
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+secrets:
+  oidc_client_secret:
+    file: ./secrets/oidc_client_secret
 
 # =========================================================
 # Networks ================================================
