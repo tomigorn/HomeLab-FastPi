@@ -8,19 +8,21 @@ ClamAV scans on fastpi, plus a VirusTotal helper for a second opinion. `clamav/s
 |---|---|---|
 | `freshclam` (signature updates) | always, 24 checks a day | container `clamav` (entrypoint), healthcheck `pgrep freshclam` |
 | `scan.sh new` | 05:00 daily, catches up after downtime | `clamav-scan.timer` → `clamav-scan.service` → `docker exec clamav /scan.sh new` |
-| `scan.sh all`, `scan.sh <path>…` | by hand | see below |
+| `scan.sh all` of the host root | Sunday 01:30, catches up after downtime | `clamav-hostscan.timer` → `clamav-hostscan.service` → `docker compose run --rm clamav-hostscan` (container without network) |
+| `scan.sh all` of the disks, `scan.sh <path>…` | by hand | see below |
 
-Install / reinstall the units: `Docker/antivirus/install.sh`.
+Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 
 ## Modes
 
 | Command on fastpi | Scans | Infected files |
 |---|---|---|
 | `docker exec clamav /scan.sh new` | files under `/scan/seagate-red` and `/scan/seagate-black` changed since the last good run | moved to quarantine |
-| `docker exec clamav /scan.sh all` | both disks and the host root (`/host`, read-only, one filesystem); takes hours | report only |
-| `docker exec clamav /scan.sh /scan/seagate-red/qbittorrent/downloads/<folder>` | the given files/folders | moved when under `/scan/...`, report only for `/host/...` |
+| `docker exec clamav /scan.sh all` | both disks only (`SCAN_HOST=0`; the container has no `/host`) | report only |
+| `docker compose run --rm clamav-hostscan` (weekly timer) | the host root, one filesystem, as `/host` | report only |
+| `docker exec clamav /scan.sh /scan/seagate-red/qbittorrent/downloads/<folder>` | the given files/folders | moved when under `/scan/...`, report only otherwise |
 
-- Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`, `/etc/x` = `/host/etc/x`.
+- Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`; in `clamav-hostscan` `/etc/x` = `/host/etc/x`.
 - "Changed" = ctime or mtime newer than the marker, so unpacked archives with old mtimes count. First run (no marker): the last 24 h.
 - Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
 - A file deleted between listing and scanning (clamscan `No such file or directory` + `Can't access file`) is not an error: counted in `clamav_files_vanished`. Unreadable files and other failures stay errors.
@@ -29,6 +31,21 @@ Install / reinstall the units: `Docker/antivirus/install.sh`.
 - Files over 2 GiB (most films) are size-skipped by ClamAV itself (`--max-filesize=2047M`, its real limit); counted in `clamav_files_skipped_large`.
 - Logs: `journalctl -u clamav-scan`, last output per mode in `/var/lib/clamav-scan/last-<mode>.log`.
 
+## Two containers, why
+
+| | `clamav` (always on) | `clamav-hostscan` (weekly, exits) |
+|---|---|---|
+| Network | yes (freshclam) | `none` (only `lo`) |
+| Host root | not mounted | `/:/host:ro` |
+| Virus DB | `clamav-db` rw (freshclam) | same volume, read-only |
+| User / caps | 65039, no caps | root, `DAC_READ_SEARCH` (read all) + `DAC_OVERRIDE` + `CHOWN` (state hand-back), read-only root fs, tmpfs `/tmp` |
+| Writes | quarantine, state, textfile | state, textfile only |
+
+- A container with internet egress must not see the whole host (a malicious file or scanner bug could exfiltrate it): the part that reads everything has no network.
+- Root is needed because a non-root uid gets no effective capabilities in Docker (`CapEff` 0), so `DAC_READ_SEARCH` does nothing for 65039. `hostscan.sh` chowns state and `clamav.prom` back to 65039 / `65039:65046`.
+- Same state dir, so one `clamav.prom` with `mode="all"` next to `new` and `path`; no clamd runs on fastpi.
+- Smaller run, e.g. `docker compose run --rm -e SCAN_ROOTS=/host/etc clamav-hostscan` (the compose profile `hostscan` keeps it out of `up`).
+
 ## Results
 
 | Where (host) | What |
@@ -36,7 +53,7 @@ Install / reinstall the units: `Docker/antivirus/install.sh`.
 | `/mnt/seagate-red/antivirus-quarantine/` | quarantined files |
 | `/mnt/seagate-red/antivirus-quarantine/index.txt` | one line per quarantined file: date (UTC) TAB original path TAB signature |
 | `/var/lib/clamav-scan/last-infected.txt` | hits of the last run that found something: path TAB signature |
-| `/var/lib/clamav-scan/` | state: `last-run` marker, `infected-total`, `new.list`, `allow.txt` (restored false positives) |
+| `/var/lib/clamav-scan/` | state (shared by both containers): `last-run` marker, `infected-total`, `new.list`, `allow.txt` (restored false positives) |
 | `/var/lib/node-exporter/textfile/clamav.prom` | metrics for Prometheus |
 
 ## False positive
@@ -76,7 +93,7 @@ API key: file `secrets/vt_api_key` (owner `65014`, mode `0400`, read via `VT_API
 
 ## Settings (env in `docker-compose.yaml`)
 
-`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `SCAN_HOST=0` (`all` without `/host`), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
+`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
 
 ## Tests
 
@@ -85,7 +102,7 @@ Docker/antivirus/tests/test_scan.sh
 docker run --rm --entrypoint sh -v "$PWD/Docker/antivirus:/src:ro" clamav-local:latest /src/tests/test_scan.sh   # busybox
 ```
 
-Changing `scan.sh` needs a rebuild: `docker compose up -d --build clamav`.
+Changing `scan.sh` or `hostscan.sh` needs a rebuild: `docker compose up -d --build clamav` (the hostscan uses the same image).
 
 **Rebuild** (`clamav-local` FROM `alpine:latest`, `virustotal-local` FROM `python:3.12-alpine`): `docker compose up -d --build --pull clamav virustotal` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
 

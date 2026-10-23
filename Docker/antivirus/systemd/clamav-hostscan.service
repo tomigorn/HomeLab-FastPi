@@ -1,0 +1,17 @@
+[Unit]
+Description=ClamAV whole-host scan (container without network)
+Documentation=file:///home/pi/Projects/Docker/antivirus/README.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+SupplementaryGroups=docker
+ExecStart=/usr/bin/docker compose --project-directory /home/pi/Projects/Docker/antivirus run --rm clamav-hostscan
+# Exit 1 = infected files found (report only); the alert reports those, the unit only fails on scan errors.
+SuccessExitStatus=1
+TimeoutStartSec=12h
+NoNewPrivileges=true
+PrivateTmp=true

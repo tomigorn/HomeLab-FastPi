@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly ClamAV whole-host scan
+Documentation=file:///home/pi/Projects/Docker/antivirus/README.md
+
+[Timer]
+OnCalendar=Sun *-*-* 01:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

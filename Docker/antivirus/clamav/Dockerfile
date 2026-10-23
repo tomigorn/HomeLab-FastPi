@@ -12,8 +12,9 @@ RUN deluser clamav 2>/dev/null; delgroup clamav 2>/dev/null; \
 COPY freshclam.conf /etc/clamav/freshclam.conf
 COPY entrypoint.sh /entrypoint.sh
 COPY scan.sh /scan.sh
+COPY hostscan.sh /hostscan.sh
 
-RUN chmod +x /entrypoint.sh /scan.sh && \
+RUN chmod +x /entrypoint.sh /scan.sh /hostscan.sh && \
     chown clamav:clamav /etc/clamav/freshclam.conf
 
 VOLUME /var/lib/clamav
