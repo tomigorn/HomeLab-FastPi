@@ -90,6 +90,9 @@ Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount 
 |---|---|
 | `/etc/docker/daemon.json` | `{"dns":["192.168.1.2"]}` (containers resolve through AdGuard; needs `systemctl restart docker`) |
 | `/var/lib/node-exporter/textfile` | `pi:65046`, mode 2775 |
+| `/etc/ssh/sshd_config.d/20-access.conf` | `AllowUsers pi`, no X11/agent forwarding, `MaxAuthTries 3` (TCP forwarding stays for `ssh -L`); beefy's key into fastpi removed (fastpi → beefy only) |
+| user `deploy` | locked, shell nologin, out of the docker group, key parked as `authorized_keys.disabled-20261024` (Jenkins stopped) |
+| autologin | off: lightdm `autologin-user` commented, tty1 override moved to `/root/disabled-20261024/` |
 | `/etc/sysctl.d/90-hardening.conf` | `kernel.kptr_restrict = 1`, `kernel.dmesg_restrict = 1` (no kernel pointers / dmesg for unprivileged users) |
 | `/etc/modules-load.d/wireguard.conf` | `wireguard` (WireGuard-VPN has no SYS_MODULE, the host loads the module) |
 | `Docker/grafana/alertmanager/secrets/telegram_bot_token` | `65004:pi`, 640 (alertmanager owns it, `oob-alert.sh` reads it as pi) |
