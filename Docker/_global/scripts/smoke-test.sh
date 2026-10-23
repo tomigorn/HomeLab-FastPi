@@ -41,10 +41,10 @@ check "community list pulled < 3 h" '^yes$' "$(a=$(age crowdsec_capi_last_pull_t
 check "community list > 10k IPs"   '^yes$' "$(n=$(curl -s -m 5 -G --data-urlencode 'query=sum(cs_active_decisions{origin="CAPI"})' http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(int(float(r[0]["value"][1])) if r else 0)'); (( ${n:-0} > 10000 )) && echo yes || echo "no (${n:-?})")"
 check "hub/GeoIP checked < 36 h"   '^yes$' "$(a=$(age crowdsec_autoupdate_last_run_timestamp_seconds crowdsec_autoupdate.prom); (( a < 129600 )) && echo yes || echo "no (${a}s)")"
 # A community-list IP must be refused by Traefik (proves the bouncer syncs CAPI decisions). Via the
-# container IP + X-Forwarded-For, so the probe never bans the home IP.
+# container IP + Cf-Connecting-Ip (as cloudflared delivers it), so the probe never bans the home IP.
 tip=$(docker inspect traefik -f '{{(index .NetworkSettings.Networks "traefik_proxy").IPAddress}}' 2>/dev/null)
 cip=$(docker exec crowdsec cscli decisions list -o json --origin CAPI -l 1 2>/dev/null | python3 -c 'import json,sys; a=json.load(sys.stdin) or []; print(a[0]["decisions"][0]["value"] if a else "")' 2>/dev/null)
-check "community IP blocked (403)"  '^403$' "$([[ -n $tip && -n $cip ]] && curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "home.holy-grail.ch:443:$tip" -H "X-Forwarded-For: $cip" https://home.holy-grail.ch/ || echo "no CAPI IP/traefik ip")"
+check "community IP blocked (403)"  '^403$' "$([[ -n $tip && -n $cip ]] && curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "home.holy-grail.ch:443:$tip" -H "Cf-Connecting-Ip: $cip" https://home.holy-grail.ch/ || echo "no CAPI IP/traefik ip")"
 
 echo "== Authentik (SSO)"
 running authentik-server authentik-worker authentik-postgresql
