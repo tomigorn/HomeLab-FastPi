@@ -850,7 +850,7 @@ def test_dockerfile_bases_plain_and_aliased():
 
 
 def test_dockerfile_bases_skip_scratch_stage_refs_and_variables():
-    text = "FROM scratch\nFROM base AS build\nFROM --platform=linux/amd64 python:3.13-alpine AS base\nFROM ${IMG}\n"
+    text = "FROM --platform=linux/amd64 python:3.13-alpine AS base\nFROM base AS build\nFROM scratch\nFROM ${IMG}\n"
     assert dockerfile_bases(text) == ["python:3.13-alpine"]
 
 
