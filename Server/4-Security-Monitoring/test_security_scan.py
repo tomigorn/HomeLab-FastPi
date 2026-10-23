@@ -841,20 +841,6 @@ def test_cup_missing_host_awake_names_the_agent():
 def test_cup_missing_fastpi_has_no_awake_entry():
     assert "agent" in cup_missing_reason("fastpi", {"beefy": False})
 
-if __name__ == "__main__":
-    import traceback
-    fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
-    bad = 0
-    for n, f in fns:
-        try:
-            f()
-        except Exception:  # noqa: BLE001
-            bad += 1
-            print(f"FAIL {n}")
-            traceback.print_exc()
-    print(f"\n{len(fns) - bad}/{len(fns)} passed")
-    sys.exit(1 if bad else 0)
-
 
 # --- local images: base images from Dockerfiles ----------------------------
 
@@ -879,3 +865,18 @@ def test_parse_local_bases_maps_image_to_bases():
         "clamav-local:latest": ["alpine:latest"],
         "ryot-go:local": ["docker.io/library/python:3.13-alpine"],
     }
+
+
+if __name__ == "__main__":
+    import traceback
+    fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
+    bad = 0
+    for n, f in fns:
+        try:
+            f()
+        except Exception:  # noqa: BLE001
+            bad += 1
+            print(f"FAIL {n}")
+            traceback.print_exc()
+    print(f"\n{len(fns) - bad}/{len(fns)} passed")
+    sys.exit(1 if bad else 0)

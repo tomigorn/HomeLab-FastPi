@@ -197,7 +197,7 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 97 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | 101 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
 | `security-image-scan.{service,timer}` | weekly 04:10 daily: images |
