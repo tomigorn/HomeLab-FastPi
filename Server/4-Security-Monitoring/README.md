@@ -13,12 +13,12 @@ pipeline that already exists (`security_scan.py <group>`):
 | Who logged in over SSH (sshd is key-only, so no failures)? | `access` | accepted logins in the last 24 h by user and source class (lan 192.168.1.0/24, vpn 172.24.255.5 + 10.8.0.0/24, tunnel 172.20.0.0/16 = cloudflared, other); alerts on non-lan or a user other than `pi` | fastpi | every 5 min (`security-access.timer`, root) |
 | Did authorized_keys, sudoers or sshd_config change? | `access` | SHA-256 of `/home/*/.ssh/authorized_keys`, `/root/.ssh/authorized_keys`, `/etc/sudoers`, `/etc/sudoers.d/*`, `/etc/ssh/sshd_config(.d/*)` against a baseline | fastpi | every 5 min |
 | Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error) | all three | daily 04:05 |
-| Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 |
+| Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 (fastpi, tower; beefy only if already awake) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
 | Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | hourly :17 (`security-code-scan.timer`) |
 | Are images updated? | - | tiered auto-update with rollback, see [auto-updates.md](auto-updates.md) | fastpi | daily 03:10 (`auto-update.timer`) |
 | Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
-| Tagged titles still without their audio language (not security, same pull) | `media` | beefy's `media-language.prom` (Movie-Downloads `language-missing.py`), republished as `media_language_beefy.prom`; alert `AudioLanguageNotFound` (`grafana/prometheus/rules/media-language.yml`) | beefy | daily 04:20, 05:40, 06:40 (with `av`) |
+| Tagged titles still without their audio language (not security, same pull) | `media` | beefy's `media-language.prom` (Movie-Downloads `language-missing.py`), republished as `media_language_beefy.prom`; alert `AudioLanguageNotFound` (`grafana/prometheus/rules/media-language.yml`) | beefy | daily 04:20 (with `av`) |
 | Everything in one message | - | `WeeklyUpdateDigest` alert (`grafana/prometheus/rules/weekly-digest.yml`) | - | Mon 05:00 local |
 
 Metrics:
@@ -217,9 +217,10 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 124 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | 126 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av |
+| `~/.ssh/config` `beefy-direct`, `tower-direct` (not in git) | same hosts without the WoL `Match` block; scans use them so an asleep host stays asleep. Plain `beefy` (may wake) only inside 04:00–04:30 (`BEEFY_WAKE_WINDOW`) |
 | `security-image-scan.{service,timer}` | daily 04:10: images |
 | `security-code-scan.{service,timer}` | hourly :17: code |
 | `../../Docker/_global/systemd/auto-update.{service,timer}` | daily 03:10: `auto_update.py` (installed by `install.sh`) |

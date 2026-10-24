@@ -1119,6 +1119,15 @@ def test_refresh_sboms_marks_registry_missing_ref_local_not_failed():
     finally:
         security_scan._trivy_mounted, security_scan.SBOM_DIR = saved
 
+def test_ssh_alias_wakes_beefy_only_inside_its_window():
+    import datetime as dt
+    at = lambda h, m: dt.datetime(2026, 10, 24, h, m)
+    assert security_scan.ssh_alias("beefy", at(4, 20)) == "beefy"
+    assert security_scan.ssh_alias("beefy", at(5, 40)) == "beefy-direct"
+    assert security_scan.ssh_alias("beefy", at(3, 59)) == "beefy-direct"
+    assert security_scan.ssh_alias("tower", at(4, 20)) == "tower-direct"
+    assert security_scan.ssh_alias("fastpi", at(5, 40)) == "fastpi"
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

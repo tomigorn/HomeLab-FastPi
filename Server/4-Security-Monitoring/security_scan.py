@@ -26,6 +26,7 @@ staleness alerts in grafana/prometheus/rules/security-posture.yml.
 """
 from __future__ import annotations
 
+import datetime
 import glob
 import hashlib
 import ipaddress
@@ -809,12 +810,21 @@ def publish(subject: str, samples: list, helps: dict) -> None:
 # "tower-direct" is the same box without that hook: asleep simply means
 # unreachable, which guarded() already reports as staleness.
 SSH_ALIAS = {"tower": "tower-direct"}
+# beefy is read in its 04:00-04:30 window, where plain "beefy" may wake it; at any other time (the 05:40/06:40 av pulls) "beefy-direct" leaves it asleep.
+BEEFY_WAKE_WINDOW = ((4, 0), (4, 30))
+
+
+def ssh_alias(host: str, now=None) -> str:
+    if host == "beefy":
+        t = (now or datetime.datetime.now()).timetuple()[3:5]
+        return "beefy" if BEEFY_WAKE_WINDOW[0] <= t < BEEFY_WAKE_WINDOW[1] else "beefy-direct"
+    return SSH_ALIAS.get(host, host)
 
 
 def ssh(host: str, cmd: str, timeout: int = 300) -> subprocess.CompletedProcess:
     return run([
         "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-        "-o", "StrictHostKeyChecking=accept-new", SSH_ALIAS.get(host, host), cmd,
+        "-o", "StrictHostKeyChecking=accept-new", ssh_alias(host), cmd,
     ], timeout=timeout)
 
 
