@@ -90,6 +90,7 @@ Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount 
 |---|---|
 | `/etc/docker/daemon.json` | `dns: ["192.168.1.2"]` (containers resolve through AdGuard), `log-driver: json-file` + `log-opts: {max-size: 10m, max-file: 3}`, `live-restore: true` (needs `systemctl restart docker`; log limits apply only to containers created afterwards). `userland-proxy` stays default `true`: `false` (tried 2026-10-24, reverted) made host requests arrive at Traefik as `172.24.0.1` → LAN-only routes 403, no security gain |
 | `/boot/firmware/cmdline.txt` | `apparmor=1 security=apparmor` appended (2026-10-24, reboot); containers run the `docker-default` profile |
+| `/etc/iptables/rules.v4` | only the DOCKER-USER guard, written by `sudo _global/scripts/docker-user-lan-guard.sh --persist`. Never `netfilter-persistent save`: it freezes Docker's per-bridge rules, which return at boot for deleted bridges and drop traffic to reused container IPs (Cup → agent broke 2026-10-24) |
 | `/var/lib/node-exporter/textfile` | `pi:65046`, mode 2775 |
 | `/etc/ssh/sshd_config.d/20-access.conf` | `AllowUsers pi`, no X11/agent forwarding, `MaxAuthTries 3` (TCP forwarding stays for `ssh -L`); beefy's key into fastpi removed (fastpi → beefy only) |
 | user `deploy` | locked, shell nologin, out of the docker group, key parked as `authorized_keys.disabled-20261024` (Jenkins stopped) |

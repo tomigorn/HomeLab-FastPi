@@ -7,7 +7,7 @@
 # Everything else on 192.168.1.0/24 (router, IoT plugs, any other device, any other container) is blocked. Host-network services (Home Assistant, the wakers) are unaffected: their traffic is host traffic, not forwarded.
 #
 # Idempotent: rebuilds the DOCKER-USER chain from scratch on every run.
-# Persist: replace the `-A DOCKER-USER` lines in /etc/iptables/rules.v4 with `iptables -S DOCKER-USER` (a full `netfilter-persistent save` also freezes Docker's own chains).
+# Persist: `docker-user-lan-guard.sh --persist` writes /etc/iptables/rules.v4 with ONLY the DOCKER-USER chain. Never `netfilter-persistent save`: it freezes Docker's own per-bridge rules, which come back at boot for bridges that no longer exist and silently drop traffic to reused container IPs (Cup → its agent, 2026-10-24).
 set -euo pipefail
 
 IFACE=eth0
@@ -42,3 +42,19 @@ iptables -A DOCKER-USER -j RETURN
 
 echo "DOCKER-USER rules applied:"
 iptables -L DOCKER-USER -n -v --line-numbers
+
+if [ "${1:-}" = --persist ]; then
+  out=/etc/iptables/rules.v4
+  tmp=$(mktemp)
+  { echo "# Written by docker-user-lan-guard.sh --persist: only DOCKER-USER, Docker builds its own chains."
+    echo "*filter"
+    echo ":DOCKER-USER - [0:0]"
+    echo "-A FORWARD -j DOCKER-USER"
+    iptables -S DOCKER-USER | grep '^-A '
+    echo "COMMIT"; } > "$tmp"
+  iptables-restore --test < "$tmp"
+  [ -e "$out" ] && cp -a "$out" "$out.bak-$(date +%Y%m%d-%H%M%S)"
+  install -m 640 "$tmp" "$out"
+  rm -f "$tmp"
+  echo "persisted to $out"
+fi
