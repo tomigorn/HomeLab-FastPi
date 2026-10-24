@@ -6,13 +6,13 @@ tests:
   - name: summary for one hour after a run with changes, nothing for a quiet run
     interval: 1m
     input_series:
-      - series: 'auto_update_result{project="DDNS",tier="auto",ref="lscr.io/linuxserver/duckdns:latest",result="updated",from="aaaaaaaaaaaa",to="bbbbbbbbbbbb"}'
+      - series: 'auto_update_result{host="fastpi",project="DDNS",tier="auto",ref="lscr.io/linuxserver/duckdns:latest",result="updated",from="aaaaaaaaaaaa",to="bbbbbbbbbbbb"}'
         values: '1x200'
-      - series: 'auto_update_result{project="Home-Assistant",tier="notify",ref="ghcr.io/home-assistant/home-assistant:stable",result="available",from="cccccccccccc",to="dddddddddddd",command="update-project.sh /x pull ./config"}'
+      - series: 'auto_update_result{host="fastpi",project="Home-Assistant",tier="notify",ref="ghcr.io/home-assistant/home-assistant:stable",result="available",from="cccccccccccc",to="dddddddddddd",command="update-project.sh /x pull ./config"}'
         values: '1x200'
-      - series: 'auto_update_result{project="Claude-Mockups",tier="auto",ref="caddy:alpine",result="current",from="eeeeeeeeeeee",to="eeeeeeeeeeee"}'
+      - series: 'auto_update_result{host="fastpi",project="Claude-Mockups",tier="auto",ref="caddy:alpine",result="current",from="eeeeeeeeeeee",to="eeeeeeeeeeee"}'
         values: '1x200'
-      - series: 'auto_update_last_run_timestamp_seconds'
+      - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
         values: '0x200'
     alert_rule_test:
       - eval_time: 30m
@@ -20,13 +20,14 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              host: fastpi
             exp_annotations:
-              summary: "Nightly auto-update"
+              summary: "Nightly auto-update fastpi"
               description: |-
                 <b>DDNS</b> lscr.io/linuxserver/duckdns:latest: updated (aaaaaaaaaaaa → bbbbbbbbbbbb)
                 <b>Home-Assistant</b> ghcr.io/home-assistant/home-assistant:stable: available (cccccccccccc → dddddddddddd)
                 <code>update-project.sh /x pull ./config</code>
-                Waiting out the cool-down: 0. Log: journalctl -u auto-update
+                Waiting out the cool-down: 0. Log: journalctl -u auto-update on fastpi
       - eval_time: 61m
         alertname: AutoUpdateNightly
         exp_alerts: []
@@ -34,11 +35,11 @@ tests:
   - name: omitted results get a tail line
     interval: 1m
     input_series:
-      - series: 'auto_update_result{project="DDNS",tier="auto",ref="x:latest",result="rolled_back",from="a",to="b"}'
+      - series: 'auto_update_result{host="fastpi",project="DDNS",tier="auto",ref="x:latest",result="rolled_back",from="a",to="b"}'
         values: '1x60'
-      - series: 'auto_update_omitted'
+      - series: 'auto_update_omitted{host="fastpi"}'
         values: '7x60'
-      - series: 'auto_update_last_run_timestamp_seconds'
+      - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
         values: '0x60'
     alert_rule_test:
       - eval_time: 10m
@@ -46,19 +47,20 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              host: fastpi
             exp_annotations:
-              summary: "Nightly auto-update"
+              summary: "Nightly auto-update fastpi"
               description: |-
                 <b>DDNS</b> x:latest: rolled_back (a → b)
-                … 7 more, see journalctl -u auto-update
-                Waiting out the cool-down: 0. Log: journalctl -u auto-update
+                … 7 more, see journalctl -u auto-update on fastpi
+                Waiting out the cool-down: 0. Log: journalctl -u auto-update on fastpi
 
   - name: quiet run sends nothing
     interval: 1m
     input_series:
-      - series: 'auto_update_result{project="Claude-Mockups",tier="auto",ref="caddy:alpine",result="current",from="e",to="e"}'
+      - series: 'auto_update_result{host="fastpi",project="Claude-Mockups",tier="auto",ref="caddy:alpine",result="current",from="e",to="e"}'
         values: '1x60'
-      - series: 'auto_update_last_run_timestamp_seconds'
+      - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
         values: '0x60'
     alert_rule_test:
       - eval_time: 10m
@@ -68,7 +70,7 @@ tests:
   - name: failed rollback pages
     interval: 1m
     input_series:
-      - series: 'auto_update_result{project="DDNS",tier="auto",ref="x:latest",result="rollback_failed",from="a",to="b"}'
+      - series: 'auto_update_result{host="fastpi",project="DDNS",tier="auto",ref="x:latest",result="rollback_failed",from="a",to="b"}'
         values: '1x10'
     alert_rule_test:
       - eval_time: 2m
@@ -76,6 +78,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: critical
+              host: fastpi
               project: DDNS
               tier: auto
               ref: "x:latest"
@@ -83,15 +86,15 @@ tests:
               from: a
               to: b
             exp_annotations:
-              summary: "DDNS: auto-update rollback failed"
+              summary: "fastpi DDNS: auto-update rollback failed"
               description: |-
                 x:latest (a → b) failed verification and the rollback did not verify.
-                cd /home/pi/Projects/Docker/DDNS && docker compose ps ; journalctl -u auto-update ; backups in ~/backups/pre-update/
+                ssh fastpi: cd ~/Projects/Docker/DDNS && docker compose ps (beefy: sudo docker) ; journalctl -u auto-update ; backups in ~/backups/pre-update/
 
   - name: no run for two days
     interval: 1m
     input_series:
-      - series: 'auto_update_last_run_timestamp_seconds'
+      - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
         values: '0x3100'
     alert_rule_test:
       - eval_time: 47h
@@ -102,6 +105,50 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              host: fastpi
             exp_annotations:
-              summary: "Nightly auto-update has not run for 2d 2h 0m 0s"
-              description: "systemctl status auto-update.timer auto-update.service ; journalctl -u auto-update"
+              summary: "Nightly auto-update on fastpi has not run for 2d 2h 0m 0s"
+              description: "systemctl status auto-update.timer auto-update.service ; journalctl -u auto-update (beefy: its file reaches fastpi with the 04:20 security-av pull)"
+
+  - name: two hosts, one message each, each with only its own results
+    interval: 1m
+    input_series:
+      - series: 'auto_update_result{host="fastpi",project="DDNS",tier="auto",ref="x:latest",result="updated",from="a",to="b"}'
+        values: '1x200'
+      - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
+        values: '0x200'
+      - series: 'auto_update_result{host="beefy",project="Cup-Agent",tier="auto",ref="alpine/socat:latest",result="rolled_back",from="c",to="d"}'
+        values: '1x200'
+      - series: 'auto_update_result{host="beefy",project="Seerr",tier="notify",ref="s:1",result="current",from="e",to="e"}'
+        values: '1x200'
+      - series: 'auto_update_result{host="beefy",project="Ryot",tier="notify",ref="r:1",result="waiting",from="f",to="g"}'
+        values: '1x200'
+      - series: 'auto_update_omitted{host="beefy"}'
+        values: '2x200'
+      # beefy ran 70 min after fastpi; its file exists from then on
+      - series: 'auto_update_last_run_timestamp_seconds{host="beefy"}'
+        values: '_x69 4200x130'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: AutoUpdateNightly
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              host: fastpi
+            exp_annotations:
+              summary: "Nightly auto-update fastpi"
+              description: |-
+                <b>DDNS</b> x:latest: updated (a → b)
+                Waiting out the cool-down: 0. Log: journalctl -u auto-update on fastpi
+      - eval_time: 80m
+        alertname: AutoUpdateNightly
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              host: beefy
+            exp_annotations:
+              summary: "Nightly auto-update beefy"
+              description: |-
+                <b>Cup-Agent</b> alpine/socat:latest: rolled_back (c → d)
+                … 2 more, see journalctl -u auto-update on beefy
+                Waiting out the cool-down: 1. Log: journalctl -u auto-update on beefy
