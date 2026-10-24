@@ -1,5 +1,5 @@
 [Unit]
-Description=Pull ClamAV results from beefy and tower, collect hit lists; pull beefy's language-not-found textfile
+Description=Pull ClamAV results from beefy and tower, collect hit lists; pull beefy's language-not-found and auto-update textfiles
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 After=network-online.target docker.service
 Wants=network-online.target
@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=oneshot
 User=pi
 Group=pi
-ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py av media
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py av media updates
 TimeoutStartSec=300
 Nice=10
 IOSchedulingClass=idle

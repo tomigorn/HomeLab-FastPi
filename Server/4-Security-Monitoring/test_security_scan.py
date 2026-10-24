@@ -18,6 +18,7 @@ from security_scan import (  # noqa: E402
     classify_secret_file,
     collect_av,
     collect_media,
+    collect_updates,
     audit_samples,
     count_failed_logins,
     classify_source,
@@ -1137,6 +1138,35 @@ def test_ssh_alias_wakes_beefy_only_inside_its_window():
     assert security_scan.ssh_alias("beefy", at(3, 59)) == "beefy-direct"
     assert security_scan.ssh_alias("tower", at(4, 20)) == "tower-direct"
     assert security_scan.ssh_alias("fastpi", at(5, 40)) == "fastpi"
+
+UPDATES_PROM = ('# HELP auto_update_result x\n# TYPE auto_update_result gauge\n'
+                'auto_update_result{host="beefy",project="Cup-Agent",tier="auto",ref="alpine/socat:latest",result="updated",from="a",to="b"} 1\n'
+                '# HELP auto_update_omitted y\n# TYPE auto_update_omitted gauge\nauto_update_omitted{host="beefy"} 0\n'
+                '# TYPE auto_update_last_run_timestamp_seconds gauge\nauto_update_last_run_timestamp_seconds{host="beefy"} 1792771822\n')
+
+
+def test_updates_republishes_only_this_hosts_samples_without_help():
+    d = _tmp_dirs()
+    foreign = 'auto_update_result{host="fastpi",project="X",result="updated"} 1\nauto_update_omitted 3\nnode_load1 2\n'
+    assert collect_updates("beefy", lambda: UPDATES_PROM + foreign) == []
+    out = (d / "textfile" / "auto_update_beefy.prom").read_text()
+    assert "# HELP" not in out and 'host="fastpi"' not in out and "auto_update_omitted 3" not in out and "node_load1" not in out
+    assert 'auto_update_result{host="beefy",project="Cup-Agent"' in out
+    assert 'auto_update_omitted{host="beefy"} 0' in out and 'auto_update_last_run_timestamp_seconds{host="beefy"} 1792771822' in out
+    assert out.count("# TYPE auto_update_result gauge") == 1
+
+
+def test_updates_missing_or_foreign_only_file_is_no_data_and_keeps_old_file():
+    d = _tmp_dirs()
+    (d / "textfile" / "auto_update_beefy.prom").write_text("old\n")
+    for text in (None, "auto_update_omitted 1\n", 'auto_update_result{host="fastpi"} 1\n'):
+        try:
+            collect_updates("beefy", lambda: text)
+            raise AssertionError("expected NoData")
+        except NoData:
+            pass
+    assert (d / "textfile" / "auto_update_beefy.prom").read_text() == "old\n"
+
 
 if __name__ == "__main__":
     import traceback

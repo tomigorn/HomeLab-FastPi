@@ -1350,6 +1350,27 @@ def collect_media(host: str, fetch) -> list:
     return []
 
 
+# beefy's nightly image auto-update (Docker/_global/scripts/auto_update.py, the same file as fastpi's); alerts: grafana/prometheus/rules/auto-updates.yml.
+UPDATES_PATHS = {"beefy": "/var/lib/auto-update/textfile/auto_update.prom"}
+
+
+def collect_updates(host: str, fetch) -> list:
+    """Republish a host's auto_update.prom as auto_update_<host>.prom.
+
+    Only samples labelled host="<host>" pass, so they can never collide with fastpi's own auto_update.prom (one duplicate series breaks node-exporter's whole textfile collector). HELP is dropped (auto_update.py writes none): node-exporter rejects a family whose files disagree on HELP.
+    """
+    raw = fetch()
+    if raw is None:
+        raise NoData(f"no auto_update.prom on {host} yet")
+    mine = f'host="{host}"'
+    keep = [ln for ln in filter_exposition(raw, prefix="auto_update_").splitlines()
+            if ln.startswith("# TYPE ") or (not ln.startswith("#") and mine in ln.split("}", 1)[0])]
+    if not any(not ln.startswith("#") for ln in keep):
+        raise NoData(f"auto_update.prom on {host} has no samples for host {host}")
+    write_atomic(TEXTFILE / f"auto_update_{host}.prom", "\n".join(keep) + "\n")
+    return []
+
+
 def fetch_file(host: str, path: str) -> str | None:
     """A file's text, locally on fastpi or over ssh; None when it does not exist."""
     if host == "fastpi":
@@ -1681,6 +1702,10 @@ def main() -> int:
     if want("media"):
         for host in MEDIA_PATHS:
             guarded(f"media-{host}", lambda host=host: collect_media(host, lambda: fetch_file(host, MEDIA_PATHS[host])), host=host)
+
+    if want("updates"):
+        for host in UPDATES_PATHS:
+            guarded(f"updates-{host}", lambda host=host: collect_updates(host, lambda: fetch_file(host, UPDATES_PATHS[host])), host=host)
 
     if only and "code" in only:
         for repo in CODE_REPOS:

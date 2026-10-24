@@ -10,7 +10,8 @@
 | `security-image-scan.timer` → `images` | 04:10 | running digests on fastpi, beefy, tower (registry copy, no pull on tower) | existed; now also diffs findings |
 | `NewFixableImageVulnerability` | on a new finding | one Telegram per batch of fixable CRITICAL/HIGH (image, CVE, package) first seen in 24 h, either scan | **enabled** |
 | `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf` | **enabled** (auto tier) |
-| `AutoUpdateNightly` | hour after the run | one Telegram: updated / rolled back / available (with command) / errors; capped at ~3000 characters (failures first), the rest becomes `… N more, see journalctl -u auto-update` (Telegram limit 4096) | **enabled** |
+| beefy: same script, own `auto-update.conf` | 04:12 | see [beefy](#beefy) | **enabled** (auto tier) |
+| `AutoUpdateNightly` | hour after the run | one Telegram per host (`host` label): updated / rolled back / available (with command) / errors; capped at ~3000 characters (failures first), the rest becomes `… N more, see journalctl -u auto-update` (Telegram limit 4096) | **enabled** |
 | `AutoUpdateRollbackFailed` | at once | email + Telegram; the script also pages via `oob-alert.sh` (bypasses the edge) | **enabled** |
 | unattended-upgrades | daily (apt timers) | Debian + Debian-Security only, no reboot | existed |
 | `crowdsec-autoupdate.timer` | 05:07 | CrowdSec engine patch/minor + hub, own verify/rollback | existed |
@@ -23,7 +24,7 @@
 | `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
 | `edge` | Authentik, Traefik, adguard, cloudflared, WireguardVPN | like notify (machine.md: owner's yes) |
 | `edge-auto` | none yet | like auto, check = canary / DNS / public route; failed rollback → OOB page |
-| not listed | LoyaltyCards*, bitwarden (parked), CrowdSec (own updater), local builds, beefy, tower | untouched |
+| not listed | LoyaltyCards*, bitwarden (parked), CrowdSec (own updater), local builds, tower | untouched |
 
 Only the digest behind the tag written in the repo moves, so the repo stays the truth. Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
 
@@ -87,8 +88,22 @@ sudo install -m 0644 Server/4-Security-Monitoring/apt/52unattended-upgrades-loca
 sudo unattended-upgrade --dry-run --debug 2>&1 | grep -i 'allowed origins'
 ```
 
+## beefy
+
+Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`: verbatim copies in beefy's `Docker/_global/scripts/` (change them here, run the tests, copy). Host differences come from the unit's environment and the script's location. beefy repo README "Image auto-update".
+
+| Item | beefy |
+|---|---|
+| When | 04:12 (inside the 03:55–04:25 wake, after the 04:05 scan); `AUTO_UPDATE_APPLY_BY=04:16`: nothing starts later, the rest is `deferred` to the next night; `AUTO_UPDATE_MAX_APPLY=2` projects a night; `TimeoutStartSec=600` hard stop. No wake of its own |
+| auto | Movie-Downloads flaresolverr, recyclarr, vpn-status; Cup-Agent cup-agent, socket-proxy-unix (pinned tags except socat) |
+| notify | socket proxies + autoheal (docker.sock), gluetun + *arr + qBit + SAB (state; gluetun carries the VPN namespace), Seerr (pinned by digest), Ryot + ryot-db, Portainer-Agent; Jellyfin, clamav, ryot-go are local builds (`local_build`, detected from compose `build:`) |
+| Keep-awake | the unit holds `beefy-keep-awake` while it runs and releases only its own hold |
+| Docker | the unit has the `docker` group; by hand (`buntu`) both scripts fall back to `sudo -n docker` |
+| Result | `/var/lib/auto-update/textfile/auto_update.prom` → `security_scan.py updates` (security-av, 04:20) → `auto_update_beefy.prom` here (only `host="beefy"` samples) → `AutoUpdateNightly{host="beefy"}` |
+| Out-of-band page | none on beefy (no Telegram secret there): `AutoUpdateRollbackFailed` is the page, after the 04:20 pull |
+| Docker Hub | beefy and fastpi share one public IP, so one 100 requests/h budget: the runs are an hour apart |
+
 ## Not covered yet
 
-- beefy auto-updates: beefy's repo needs its own `auto-update.conf` and a run inside its 04:00 window.
 - Local builds (`build --pull` of Avatar-Picker, Stonks, wakers …): base-image CVEs are detected, rebuilds stay manual.
 - Pinned version bumps: Cup + Monday digest, by hand.
