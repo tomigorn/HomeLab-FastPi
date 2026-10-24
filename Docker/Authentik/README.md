@@ -348,6 +348,8 @@ failure left no trace. Only the passport-error path logs, and it redirects to
 | Forward-auth apps (all proxy providers) | 24 h, renewed silently while the login lives | same script |
 | OIDC apps | access 5 min–1 h, refresh 30 days (provider defaults) | provisioning scripts |
 
+`scripts/canary-verify.sh [<app-url> <text>]` — real login + MFA as the canary (a normal user, no groups); with the two arguments it also opens that forward-auth app and expects the text, e.g. `canary-verify.sh https://specs.holy-grail.ch/ "Holy Grail · Machines"`. An admin-only app ends at the authorize page (APP_FAIL), which is the expected result for the canary.
+
 `scripts/session-ttl.sh status|apply|rollback` — `apply` saves the old values to `backups/session-ttl-before.json`, then verifies a real login + MFA with the canary (which now answers "stay signed in") and rolls back on failure.
 
 ## Admin SSO (homelab-admins)
@@ -442,6 +444,7 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-requesters` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
 | Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (beefy), stays on. In `scripts/provision-tracker-sso.py` |
 | Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id goes to beefy `Ryot/.env`, the secret to `Ryot/secrets/ryot_oidc_client_secret` |
+| Machines (`server-specs`) | forward auth `server-specs-proxy` | none: every logged-in user | specs.holy-grail.ch (Server-Specs). In `scripts/provision-specs-sso.py` (`REMOVE = True` takes it out again) |
 
 Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
 

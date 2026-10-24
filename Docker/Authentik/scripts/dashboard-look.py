@@ -47,6 +47,7 @@ APPS = {
     "home-assistant":    ("Homelab", "Smart home", None),
     "cup":               ("Homelab", "Container updates", None),
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
+    "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
     "avatar-picker":     ("Account", "Your profile picture", None),
 }
 
