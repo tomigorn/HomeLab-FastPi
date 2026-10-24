@@ -53,12 +53,13 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65043 / 65044 / 65045 | prometheus / node-exporter / json-exporter | | | |
 | 65047 / 65048 / 65049 / 65051 | socket-proxy-ro / socket-proxy-autoheal / portainer-socket-proxy / socket-proxy-portupdater | 991 (docker) | | ✅ |
 | 65050 | grafana | | | |
+| 65052 | server-specs | | NET_BIND_SERVICE | ✅ |
 | 1101:1100 | sabnzbd, qbittorrent (lsio non-root) | | | |
 | 70 | authentik-postgresql | | | |
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65013 (was autoheal-nzb), 65029, 65031, 65052+.
+Free: 65013 (was autoheal-nzb), 65029, 65031, 65053+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |

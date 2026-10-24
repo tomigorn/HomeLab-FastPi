@@ -38,6 +38,7 @@ tell them apart.
 | landingpage | ❌ | ❌ | | |  |
 | M4b-Merge-Dashboard | ❌ | ❌ | | |  |
 | M4b-Auto-Merge | ❌ | ❌ | | |  |
+| Server-Specs | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 
