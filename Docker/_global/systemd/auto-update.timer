@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly image auto-update
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/auto-updates.md
+
+[Timer]
+# 03:10: done well before 03:45 (the Claude remote restart is ~04:00) and before the 04:10 image scan, which then scans what was just installed. No random delay: the window is the point.
+OnCalendar=*-*-* 03:10:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

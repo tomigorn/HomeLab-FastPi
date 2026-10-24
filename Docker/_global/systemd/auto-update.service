@@ -1,0 +1,22 @@
+[Unit]
+Description=Nightly image auto-update by tier with verification and rollback (Docker/_global/auto-update.conf)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/auto-updates.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+SupplementaryGroups=docker
+StateDirectory=auto-update
+Environment=HOME=/home/pi
+Environment=COOLDOWN_HOURS=24
+ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/_global/scripts/auto_update.py
+# a few projects x (pull + 45 s settle + check), a rollback about as long again
+TimeoutStartSec=2700
+Nice=10
+IOSchedulingClass=idle
+# Writes backups under ~/backups and drives docker, which is root-equivalent anyway: no ProtectHome.
+NoNewPrivileges=true
+PrivateTmp=true
