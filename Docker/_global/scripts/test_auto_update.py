@@ -104,6 +104,31 @@ def test_render_prom_one_series_per_ref_and_valid_labels():
     assert out.endswith("\n")
 
 
+def _rows(n, result="available"):
+    return [{"project": f"P{i}", "tier": "notify", "ref": f"registry.example.com/org/image-{i}:latest", "result": result,
+             "from": "a" * 12, "to": "b" * 12, "command": "x" * 150} for i in range(n)]
+
+
+def test_render_prom_caps_noteworthy_rows_and_counts_omitted():
+    out = render_prom(_rows(80), 1)
+    assert out.count("auto_update_result{") < 80
+    kept = out.count("auto_update_result{")
+    assert f"auto_update_omitted {80 - kept}\n" in out
+
+
+def test_render_prom_keeps_failures_before_the_rest():
+    rows = _rows(80) + [{"project": "Bad", "tier": "auto", "ref": "bad:1", "result": "rolled_back", "from": "a", "to": "b"},
+                        {"project": "Worse", "tier": "auto", "ref": "worse:1", "result": "rollback_failed", "from": "a", "to": "b"}]
+    out = render_prom(rows, 1)
+    assert 'project="Bad"' in out and 'project="Worse"' in out
+
+
+def test_render_prom_never_drops_quiet_rows_and_omits_nothing_when_small():
+    out = render_prom(_rows(3) + _rows(100, "current"), 1)
+    assert out.count('result="current"') == 100
+    assert "auto_update_omitted 0\n" in out
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

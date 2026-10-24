@@ -90,17 +90,43 @@ def _short(d: str) -> str:
     return d.split(":", 1)[-1][:12]
 
 
+QUIET = ("current", "local_build", "waiting")
+PRIORITY = ["rollback_failed", "rolled_back", "error", "major_held", "held_back", "skipped", "updated", "available"]
+SUMMARY_BUDGET = 3000
+
+
+def _rank(r: dict) -> int:
+    return PRIORITY.index(r["result"]) if r["result"] in PRIORITY else len(PRIORITY)
+
+
 def render_prom(results: list[dict], now: float) -> str:
     lines = [
         "# HELP auto_update_result Outcome per image of the last auto-update run (current, waiting, updated, rolled_back, rollback_failed, available, major_held, held_back, skipped, local_build, error).",
         "# TYPE auto_update_result gauge",
     ]
-    for r in results:
+    used, omitted, keep = 0, 0, []
+    for r in sorted(results, key=_rank):
+        if r["result"] in QUIET or r["result"] == "rollback_failed":
+            keep.append(r)
+            continue
+        cost = len(r["project"]) + len(r["ref"]) + len(r["result"]) + len(r.get("command", "")) + 60
+        if used + cost > SUMMARY_BUDGET:
+            omitted += 1
+            continue
+        used += cost
+        keep.append(r)
+    keep_ids = {id(r) for r in keep}
+    for r in (r for r in results if id(r) in keep_ids):
         labels = {"project": r["project"], "tier": r["tier"], "ref": r["ref"], "result": r["result"],
                   "from": _short(r.get("from", "")), "to": _short(r.get("to", ""))}
         if r.get("command"):
             labels["command"] = r["command"]
         lines.append("auto_update_result{" + ",".join(f'{k}="{_esc(v)}"' for k, v in labels.items()) + "} 1")
+    lines += [
+        "# HELP auto_update_omitted Noteworthy results left out of the metrics to keep the Telegram summary under its 4096-character limit.",
+        "# TYPE auto_update_omitted gauge",
+        f"auto_update_omitted {omitted}",
+    ]
     lines += [
         "# HELP auto_update_last_run_timestamp_seconds Unix time the last auto-update run finished.",
         "# TYPE auto_update_last_run_timestamp_seconds gauge",
