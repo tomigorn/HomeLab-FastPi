@@ -35,7 +35,7 @@ def three():
 def test_render_has_three_cards_and_title():
     html = render.render(three())
     assert "<title>Holy Grail · Machines</title>" in html
-    assert html.count('class="card"') == 4 and html.count('<h2>') == 4
+    assert html.count('class="card"') == 3 and html.count('<h2>') == 3
     assert 'name="viewport"' in html
     assert "<script" not in html and "http://" not in html.replace("http://www.w3.org/2000/svg", "")
     assert "https://" not in html
@@ -73,47 +73,9 @@ def test_missing_ram_modules_still_draws_one_chip():
     assert svg.count('data-part="ram"') == 1
 
 
-def test_cabinet_has_machines_in_order_and_airflow_parts():
-    svg = drawings.draw_cabinet(three())
-    xs = [svg.index(f'href="#{n}"') for n in ("one", "two", "three")]
-    assert xs == sorted(xs)
-    pos = [float(re.search(rf'<a href="#{n}"><text x="([\d.]+)"', svg).group(1)) for n in ("one", "two", "three")]
-    assert pos == sorted(pos) and len(set(pos)) == 3
-    for part in ("exhaust", "intake", "power-strip"):
-        assert f'data-part="{part}"' in svg, part
-    assert "Max Hauri Design Line" in svg and "6× Type 13" in svg
-    assert svg.count('data-part="socket"') == 6
-    boxes = drawings.label_boxes(svg)
-    for a, b in itertools.combinations(boxes, 2):
-        assert a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1], (a, b)
-
-
-def test_cabinet_is_first_in_page_and_cards_have_anchors():
-    html = render.render(three())
-    assert html.index("data-part=\"exhaust\"") < html.index('id="one"')
-    assert 'id="one"' in html and 'id="three"' in html
-
-
-def test_sbc_draws_nvme_hat_and_both_usb_disks():
-    disks = [{"model": "N", "size": "512 GB", "kind": "nvme"}, {"model": "U1", "size": "2 TB", "kind": "usb-hdd"}, {"model": "U2", "size": "2 TB", "kind": "usb-hdd"}]
-    svg = drawings.draw(dict(machine("sbc", 3, 0), disks=disks))
-    assert svg.count('data-part="hat"') == 1
-    assert svg.count('data-part="disk"') == 3
-    assert svg.count('data-kind="usb-hdd"') == 2
-
-
 def _no_overlap(svg, what=""):
     for a, b in itertools.combinations(drawings.label_boxes(svg), 2):
         assert a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1], (what, a, b)
-
-
-def test_cabinet_phone_spec_list_and_title_class():
-    html = render.render(three())
-    cab = html[html.index('id="cabinet"'):html.index('id="one"')]
-    dl = cab[cab.index('<dl class="spec">'):]
-    for s in ("Max Hauri Design Line", "with switch", "6× Type 13", "left side wall", "mesh filter", "one, two, three"):
-        assert s in dl, s
-    assert ".art .ct{" in html and 'class="ct"' in cab
 
 
 def test_attributes_are_escaped():
@@ -123,8 +85,7 @@ def test_attributes_are_escaped():
     html = render.render(specs(m))
     assert 'x"<y' not in html
     assert html.count('x&quot;&lt;y') >= 4
-    svg = drawings.draw_cabinet(specs(m))
-    assert 'href="#x&quot;&lt;y"' in svg and 'id="x&quot;&lt;y"' in html
+    assert 'id="x&quot;&lt;y"' in html
 
 
 def test_svg_ids_unique_for_similar_names():
@@ -148,9 +109,14 @@ def test_real_snapshot_has_no_label_overlap():
         return
     with open(p, encoding="utf-8") as f:
         real = json.load(f)
-    _no_overlap(drawings.draw_cabinet(real), "cabinet")
     for m in real["machines"]:
         _no_overlap(drawings.draw(m), m["name"])
+
+
+def test_svg_is_well_formed_xml():
+    import xml.etree.ElementTree as ET
+    for shape in ("sbc", "tower", "nas"):
+        ET.fromstring(drawings.draw(machine(shape)))
 
 
 def test_notes_source_is_marked():

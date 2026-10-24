@@ -24,7 +24,6 @@ dl.spec dd{margin:0;overflow-wrap:anywhere}
 @media (max-width:720px){
 .art .sub{display:none}
 .art .t{font-size:30px}
-.art .ct{font-size:34px}
 dl.spec{display:grid}
 }
 """
@@ -50,13 +49,10 @@ def card(m, uid):
 
 
 def render(specs):
-    cab_dl = "".join(f"<dt>{e(k)}</dt><dd>{e(v)}</dd>" for k, v in drawings.cabinet_rows(specs))
-    cab = ('<section class="card" id="cabinet"><div class="head"><h2>Cabinet</h2><div class="meta">where the machines live, and how the air flows</div></div>'
-           f'{drawings.draw_cabinet(specs)}<dl class="spec">{cab_dl}</dl></section>')
     cards = "".join(card(m, f"m{i}") for i, m in enumerate(specs["machines"]))
     return ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            f'<title>Holy Grail · Machines</title><style>{CSS}</style></head><body><main><h1>Holy Grail · Machines</h1>{cab}{cards}</main></body></html>\n')
+            f'<title>Holy Grail · Machines</title><style>{CSS}</style></head><body><main><h1>Holy Grail · Machines</h1>{cards}</main></body></html>\n')
 
 
 def main():

@@ -8,12 +8,6 @@ X_L, X_R = 30, 970
 TITLE, SUB, LINE = 20, 13, 17
 KIND = {"nvme": "NVME", "ssd": "SSD", "hdd": "HDD", "usb-hdd": "USB HDD"}
 
-CABINET = {
-    "exhaust": "left side wall",
-    "intake": "mesh filter",
-    "power_strip": {"model": "Max Hauri Design Line", "detail": "with switch", "sockets": 6, "socket_type": "Type 13"},
-}
-
 INK, LEAD, SUBC = "#e8f1ff", "#9cc3ff", "#b9d4ff"
 
 
@@ -56,9 +50,7 @@ def frame(uid, h, body, title):
         f'<svg class="art" viewBox="0 0 {W} {h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{esc(title)}" '
         'font-family="ui-monospace, Menlo, Consolas, monospace">'
         f'<defs><pattern id="g1-{uid}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#2f5b9a" stroke-width=".6"/></pattern>'
-        f'<pattern id="g2-{uid}" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#3d6db3" stroke-width="1.1"/></pattern>'
-        f'<pattern id="mesh-{uid}" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 0L6 6M6 0L0 6" stroke="#9cc3ff" stroke-width=".8"/></pattern>'
-        f'<marker id="ar-{uid}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9cc3ff"/></marker></defs>'
+        f'<pattern id="g2-{uid}" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#3d6db3" stroke-width="1.1"/></pattern></defs>'
         f'<rect width="{W}" height="{h}" fill="#173d73"/><rect width="{W}" height="{h}" fill="url(#g1-{uid})"/><rect width="{W}" height="{h}" fill="url(#g2-{uid})"/>'
         f"{body}</svg>"
     )
@@ -289,79 +281,3 @@ def draw(m, uid=None):
     body, cs, h0 = SHAPES[m["shape"]](m)
     h, lab = layout(cs, h0)
     return frame(uid or slug(m["name"]), h, body + lab, f'{m["name"]} drawing')
-
-
-def _sil_sbc(m, cx, bottom):
-    x, y = cx - 100, bottom - 190
-    s = (f'<rect x="{x}" y="{y}" width="200" height="132" rx="8"/><rect x="{cx - 20}" y="{y + 30}" width="34" height="34"/>'
-         f'<rect x="{x + 20}" y="{y + 88}" width="140" height="32" stroke-dasharray="5 4" stroke-width="1.2"/><rect x="{x + 34}" y="{y + 96}" width="100" height="10"/>'
-         f'<rect x="{x + 176}" y="{y + 12}" width="30" height="110"/>')
-    ext = max(sum(1 for d in m["disks"] if d["kind"] != "nvme"), 1)
-    w = (200 - 8 * (ext - 1)) / ext
-    return s + "".join(f'<rect x="{x + k * (w + 8):.1f}" y="{bottom - 48}" width="{w:.1f}" height="44" rx="5"/>' for k in range(ext))
-
-
-def _sil_tower(m, cx, bottom):
-    x, y = cx - 80, bottom - 200
-    return (f'<rect x="{x}" y="{y}" width="160" height="200" rx="5"/><rect x="{x + 14}" y="{y + 14}" width="100" height="110"/>'
-            f'<circle cx="{x + 48}" cy="{y + 52}" r="16"/><rect x="{x + 80}" y="{y + 30}" width="6" height="56"/><rect x="{x + 92}" y="{y + 30}" width="6" height="56"/>'
-            f'<rect x="{x + 118}" y="{y + 130}" width="34" height="18"/><rect x="{x + 118}" y="{y + 154}" width="34" height="18"/>'
-            f'<rect x="{x + 14}" y="{y + 150}" width="80" height="40" rx="2"/>')
-
-
-def _sil_nas(m, cx, bottom):
-    x, y = cx - 65, bottom - 140
-    return (f'<rect x="{x}" y="{y}" width="130" height="140" rx="8"/><rect x="{x + 12}" y="{y + 14}" width="68" height="68"/>'
-            f'<rect x="{x + 28}" y="{y + 30}" width="22" height="22"/>'
-            + "".join(f'<rect x="{x + 90}" y="{y + 14 + 30 * k}" width="30" height="24" rx="2"/>' for k in range(4)))
-
-
-SILHOUETTES = {"sbc": _sil_sbc, "tower": _sil_tower, "nas": _sil_nas}
-
-
-def cabinet_rows(specs):
-    ps = CABINET["power_strip"]
-    return [
-        ("Machines", ", ".join(m["name"] for m in specs["machines"])),
-        ("Exhaust fan", CABINET["exhaust"]),
-        ("Air intake", f'bottom right, {CABINET["intake"]}'),
-        ("Power strip", f'{ps["model"]}, {ps["detail"]}, {ps["sockets"]}× {ps["socket_type"]} sockets'),
-    ]
-
-
-def draw_cabinet(specs):
-    uid = "cab"
-    ms = specs["machines"]
-    n = max(len(ms), 1)
-    centers = [150 + (750 - 150) * (i + 0.5) / n for i in range(len(ms))]
-    ps = CABINET["power_strip"]
-    b = [f'<g stroke="{INK}" fill="none" stroke-width="2">',
-         '<rect x="50" y="56" width="900" height="22" rx="3"/><rect x="60" y="78" width="40" height="244"/><rect x="900" y="78" width="40" height="244"/>',
-         '<rect x="60" y="322" width="880" height="18"/><path d="M110 340l-4 40h24l-4-40M890 340l-4 40h24l-4-40" stroke-width="1.6"/>',
-         '<rect x="100" y="78" width="800" height="244" stroke-dasharray="6 5" stroke-width="1.2"/>',
-         '<circle data-part="exhaust" cx="80" cy="200" r="26"/><circle cx="80" cy="200" r="5"/>'
-         '<path d="M80 195q-14-18 0-30M85 200q18-14 30 0M80 205q14 18 0 30M75 200q-18 14-30 0" stroke-width="1.4"/>',
-         f'<rect data-part="intake" x="740" y="322" width="150" height="18" fill="url(#mesh-{uid})"/>']
-    for m, cx in zip(ms, centers):
-        b.append(SILHOUETTES[m["shape"]](m, round(cx), 312))
-    b.append('<rect data-part="power-strip" x="775" y="288" width="110" height="30" rx="4"/><rect x="779" y="296" width="14" height="14" rx="2"/>')
-    for k in range(ps["sockets"]):
-        sx = 797 + 14.5 * k
-        b.append(f'<rect data-part="socket" x="{sx:.1f}" y="296" width="12" height="14" rx="3" stroke-width="1.2"/>')
-    b.append("</g>")
-    b.append(f'<g stroke="{LEAD}" stroke-width="1.6" fill="none"><path d="M54 200H14" marker-end="url(#ar-{uid})"/>'
-             f'<path d="M757 400V346" marker-end="url(#ar-{uid})"/>'
-             f'<path d="M757 334V326H118V200H110" stroke-dasharray="8 6" marker-end="url(#ar-{uid})"/><path d="M80 226V392H300" stroke-width="1.2"/></g>')
-    t = []
-    for m, cx in zip(ms, centers):
-        t.append(f'<a href="#{esc(m["name"])}">{text(round(cx), 108, m["name"].upper(), TITLE, "middle", cls="ct")}</a>')
-    t.append(text(150, 385, "EXHAUST FAN", TITLE, cls="ct"))
-    t.append(text(150, 410, CABINET["exhaust"], SUB, fill=SUBC, cls="sub"))
-    t.append(text(735, 385, "AIR INTAKE", TITLE, "end", cls="ct"))
-    t.append(text(735, 402, CABINET["intake"], SUB, "end", SUBC, "sub"))
-    t.append(text(728, 194, "POWER", TITLE, cls="ct"))
-    t.append(text(728, 230, "STRIP", TITLE, cls="ct"))
-    for k, ln in enumerate([ps["model"], ps["detail"], f'{ps["sockets"]}× {ps["socket_type"]} sockets']):
-        t.append(text(728, 250 + LINE * k, ln, SUB, fill=SUBC, cls="sub"))
-    b.append(f'<g fill="{INK}">{"".join(t)}</g>')
-    return frame(uid, 430, "".join(b), "Cabinet overview")
