@@ -54,12 +54,12 @@ Every backend, `crowdsec@file` and `default-rate-limit` see **one** address in `
 | `172.24.0.1` (Cloudflare tunnel; also host/container hairpins) | `Cf-Connecting-Ip` (Cloudflare always overwrites it) |
 | anything else (LAN, VPN `172.24.255.5`) | connection address |
 
-Connection address Traefik sees, measured 2026-10-24 with `userland-proxy: false` (Docker masquerades every hairpin that leaves another bridge or the host):
+Connection address Traefik sees, measured 2026-10-24 (`userland-proxy: true`, the default; `false` was tried and reverted because host requests then arrived as `172.24.0.1` and LAN-only routes returned 403 from the host):
 
 | Source | Arrives as |
 |---|---|
 | cloudflared (`infra__cloudflare_default`, tunnel ingress `https://192.168.1.2:443`) | `172.24.0.1` |
-| host processes and host-network containers (`curl https://192.168.1.2`) | `172.24.0.1` (was `192.168.1.2` before `userland-proxy: false`, so LAN-only routes now 403 from the host) |
+| host processes and host-network containers (`curl https://192.168.1.2`) | `192.168.1.2` |
 | containers whose default route is another network (authentik-server, prometheus) | `172.24.0.1` |
 | containers whose default route is `traefik_proxy` (claude-mockups) | their own `172.24.x.y` |
 | LAN clients | their LAN IP |
