@@ -1,3 +1,4 @@
+import copy
 import html
 import json
 import os
@@ -37,7 +38,16 @@ def spec_rows(m):
         rows.append(("NVMe" if d["kind"] == "nvme" else drawings.KIND.get(d["kind"], d["kind"]), f'{d["model"]} · {d["size"]}'))
     if m.get("network"):
         rows.append(("Network", m["network"]))
+    rows += [(p["part"], p["model"]) for p in m.get("parts", [])]
     return rows
+
+
+def merge_parts(specs, parts):
+    out = copy.deepcopy(specs)
+    for m in out["machines"]:
+        if m["name"] in parts:
+            m["parts"] = parts[m["name"]]
+    return out
 
 
 def card(m, uid):
@@ -58,6 +68,10 @@ def render(specs):
 def main():
     with open(os.path.join(HERE, "data", "specs.json"), encoding="utf-8") as f:
         specs = json.load(f)
+    parts_file = os.path.join(HERE, "parts.json")
+    if os.path.exists(parts_file):
+        with open(parts_file, encoding="utf-8") as f:
+            specs = merge_parts(specs, json.load(f))
     out = os.path.join(HERE, "www", "index.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:

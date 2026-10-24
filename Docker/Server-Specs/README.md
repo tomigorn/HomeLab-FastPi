@@ -18,6 +18,7 @@ No restart needed. beefy and tower are read over `beefy-direct` / `tower-direct`
 | File | Purpose |
 |---|---|
 | `collect.py` | reads the hardware into `data/specs.json` (gitignored) |
+| `parts.json` | parts no tool can read (case, cooler, HAT, power), per machine; `at` (fastpi: `cooler`, `hat`, `case`, `power`) puts a label on the drawing, without `at` only the spec list. Edit, then `python3 render.py` |
 | `render.py`, `drawings.py` | builds `www/index.html` (gitignored) with inline SVG |
 | `test_collect.py`, `test_render.py` | `python3 test_*.py` |
 | `docker-compose.yaml`, `Caddyfile` | the static server |

@@ -167,6 +167,19 @@ def common_callouts(m, side_cpu="L"):
             {"side": "R", "title": "BOARD", "sub": board_sub(m)}]
 
 
+def part_callouts(m, anchors):
+    """Hand-listed parts (parts.json) with an `at` this shape knows get a label; the rest only appear in the spec list."""
+    return [{"side": anchors[p["at"]][2], "px": anchors[p["at"]][0], "py": anchors[p["at"]][1], "title": p["part"].upper(), "sub": p["model"]}
+            for p in m.get("parts", []) if p.get("at") in anchors]
+
+
+def has_part(m, at):
+    return any(p.get("at") == at for p in m.get("parts", []))
+
+
+SBC_ANCHORS = {"cooler": (476, 152, "R"), "hat": (584, 248, "R"), "case": (646, 74, "R"), "power": (381, 282, "L")}
+
+
 def draw_tower(m):
     nv = [i for i, d in enumerate(m["disks"]) if d["kind"] == "nvme"]
     bay = [i for i, d in enumerate(m["disks"]) if d["kind"] != "nvme"]
@@ -231,6 +244,10 @@ def draw_sbc(m):
             b.append(disk_box(x, 330, w, 78, m["disks"][i], ' stroke-width="2"'))
             b.append(f'<circle cx="{x + w / 2:.1f}" cy="369" r="{min(26, w / 3):.1f}" stroke-width="1.2"/><circle cx="{x + w / 2:.1f}" cy="369" r="5"/><rect x="{x + 8:.1f}" y="396" width="8" height="4" stroke-width="1.2"/>')
             coords[i] = (round(x + w / 2, 1), 330)
+    if has_part(m, "cooler"):
+        b.append('<circle cx="456" cy="166" r="22" stroke-width="1.2"/><path d="M456 144V188M434 166H478" stroke-width="1"/>')
+    if has_part(m, "case"):
+        b.append('<rect data-part="case" x="328" y="68" width="324" height="222" rx="14" stroke-dasharray="10 6" stroke-width="1.2"/>')
     b.append("</g>")
     cs = common_callouts(m)
     cs[0].update(px=456, py=165)
@@ -239,6 +256,7 @@ def draw_sbc(m):
     if m.get("network"):
         cs.append({"side": "R", "px": 624, "py": 209, "title": "NETWORK", "sub": m["network"]})
     cs += disk_callouts(m["disks"], coords, lambda x: "L" if x < 490 else "R")
+    cs += part_callouts(m, SBC_ANCHORS)
     return "".join(b), cs, 450
 
 

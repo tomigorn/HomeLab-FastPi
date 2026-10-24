@@ -136,6 +136,31 @@ def test_no_forbidden_fields_rendered():
         assert bad not in html
 
 
+PARTS = [{"part": "Cooler", "model": "Example Fan 1", "at": "cooler"},
+         {"part": "NVMe HAT", "model": "Example HAT 2", "at": "hat"},
+         {"part": "Case", "model": "Example Case 3", "at": "case"},
+         {"part": "Power", "model": "Example PSU 4", "at": "power"},
+         {"part": "Sticker", "model": "Example Sticker 5"}]
+
+
+def test_parts_appear_in_spec_list_and_drawing():
+    m = machine("sbc", 2, 0, parts=PARTS)
+    html = render.render(specs(m))
+    dl = html.split('<dl class="spec">', 1)[1]
+    for p in PARTS:
+        assert f"<dt>{p['part']}</dt><dd>{p['model']}</dd>" in dl
+    svg = drawings.draw(m, "m0")
+    for title in ("COOLER", "NVME HAT", "CASE", "POWER"):
+        assert f">{title}<" in svg
+    assert ">STICKER<" not in svg
+    boxes = drawings.label_boxes(svg)
+    assert not any(a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3] for a, b in itertools.combinations(boxes, 2))
+
+
+def test_merge_parts_by_machine_name():
+    s = render.merge_parts(specs(machine("sbc", name="one"), machine("tower", name="two")), {"one": PARTS[:1]})
+    assert s["machines"][0]["parts"] == PARTS[:1] and "parts" not in s["machines"][1]
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
