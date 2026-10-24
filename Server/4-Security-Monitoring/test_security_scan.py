@@ -49,6 +49,15 @@ from security_scan import (  # noqa: E402
     unraid_samples,
     render_metrics,
     triage_findings,
+    parse_env,
+    resolve_vars,
+    compose_images,
+    code_image_refs,
+    fixable_findings,
+    diff_findings,
+    sbom_refresh_order,
+    new_vuln_samples,
+    baseline_new_images,
 )
 
 
@@ -980,6 +989,120 @@ def test_parse_local_bases_maps_image_to_bases():
         "clamav-local:latest": ["alpine:latest"],
         "ryot-go:local": ["docker.io/library/python:3.13-alpine"],
     }
+
+
+# --- code scan: image references from the repo -----------------------------
+
+def test_parse_env_ignores_comments_and_quotes():
+    assert parse_env("# c\nA=1\nB='x y'\nexport C=\"z\"\n\nbad line\n") == {"A": "1", "B": "x y", "C": "z"}
+
+
+def test_resolve_vars_defaults_and_required():
+    env = {"TAG": "v1", "EMPTY": ""}
+    assert resolve_vars("img:${TAG}", env) == "img:v1"
+    assert resolve_vars("${IMG:-ghcr.io/a/b}:${TAG:?set TAG}", env) == "ghcr.io/a/b:v1"
+    assert resolve_vars("x:${EMPTY:-d}", env) == "x:d"
+    assert resolve_vars("x:$TAG", env) == "x:v1"
+    assert resolve_vars("x:${MISSING}", env) is None
+    assert resolve_vars("x:${MISSING:?set it}", env) is None
+
+
+def test_compose_images_skips_built_services_and_comments():
+    text = (
+        "services:\n"
+        "# #### banner\n"
+        "  web:\n"
+        "    image: caddy:${CADDY_TAG}   # pinned\n"
+        "  app:\n"
+        "    build: .\n"
+        "    image: app:local\n"
+        "  db:\n"
+        "    # image: old:1\n"
+        "    image: \"postgres:18-alpine\"\n"
+        "networks:\n"
+        "  default:\n"
+    )
+    assert compose_images(text, {"CADDY_TAG": "2.11-alpine"}) == (["caddy:2.11-alpine", "postgres:18-alpine"], 0)
+
+
+def test_compose_images_counts_unresolved():
+    assert compose_images("services:\n  a:\n    image: x:${NOPE}\n", {}) == ([], 1)
+
+
+def test_code_image_refs_uses_env_then_example_and_dockerfile_bases():
+    files = {
+        "Docker/A/docker-compose.yaml": "services:\n  a:\n    image: a/b:${T}\n",
+        "Docker/A/.env": "T=1.2\n",
+        "Docker/A/.env.example": "T=9.9\n",
+        "Docker/B/docker-compose.yaml": "services:\n  b:\n    image: c:${T}\n",
+        "Docker/B/.env.example": "T=3\n",
+        "Docker/B/Dockerfile": "FROM python:3.13-alpine AS build\nFROM build\n",
+        "Docker/C/docker-compose.yaml": "services:\n  c1:\n    build: ./c\n    image: c-local:latest\n  c2:\n    image: c-local:latest\n",
+        "Docker/C/d/Dockerfile": "FROM c-local:latest\n",
+        "Docker/_Deprecated/X/docker-compose.yaml": "services:\n  x:\n    image: old:1\n",
+        "Docker/docker-compose.yaml": "services:\n  s:\n    image: sample/image:latest\n",
+    }
+    refs, unresolved = code_image_refs(files)
+    assert refs == ["a/b:1.2", "c:3", "python:3.13-alpine"] and unresolved == 0
+
+
+def _report(*vulns):
+    return {"Results": [{"Target": "t", "Vulnerabilities": [
+        {"VulnerabilityID": i, "PkgName": p, "Severity": s, "FixedVersion": f} for i, p, s, f in vulns]}]}
+
+
+def test_fixable_findings_only_critical_high_with_fix():
+    r = _report(("CVE-1", "openssl", "CRITICAL", "3.1"), ("CVE-2", "zlib", "HIGH", ""),
+                ("CVE-3", "curl", "MEDIUM", "8"), ("CVE-4", "glibc", "HIGH", "2.40"))
+    assert fixable_findings(r) == {("CVE-1", "openssl", "CRITICAL"), ("CVE-4", "glibc", "HIGH")}
+
+
+def test_diff_findings_first_run_is_baseline():
+    seen, new = diff_findings(None, {"img|CVE-1|openssl": "CRITICAL"}, now=100)
+    assert new == [] and seen == {"img|CVE-1|openssl": {"severity": "CRITICAL", "first_seen": 0}}
+
+
+def test_diff_findings_new_then_known_and_pruned():
+    seen = {"img|CVE-1|openssl": {"severity": "CRITICAL", "first_seen": 0},
+            "gone|CVE-9|x": {"severity": "HIGH", "first_seen": 0}}
+    seen2, new = diff_findings(seen, {"img|CVE-1|openssl": "CRITICAL", "img|CVE-5|curl": "HIGH"}, now=500)
+    assert new == ["img|CVE-5|curl"]
+    assert seen2 == {"img|CVE-1|openssl": {"severity": "CRITICAL", "first_seen": 0},
+                     "img|CVE-5|curl": {"severity": "HIGH", "first_seen": 500}}
+    assert diff_findings(seen2, {"img|CVE-1|openssl": "CRITICAL", "img|CVE-5|curl": "HIGH"}, now=900)[1] == []
+
+
+def test_diff_findings_keeps_images_not_scanned_this_run():
+    seen = {"down|CVE-1|x": {"severity": "HIGH", "first_seen": 0}}
+    seen2, new = diff_findings(seen, {}, now=5, scanned={"other"})
+    assert seen2 == seen and new == []
+    assert diff_findings(seen, {}, now=5, scanned={"down"})[0] == {}
+
+
+def test_baseline_new_images_accepts_the_backlog_of_an_image_new_to_the_scan():
+    seen = {"old|CVE-1|a": {"severity": "HIGH", "first_seen": 0}}
+    current = {"old|CVE-1|a": "HIGH", "old|CVE-2|b": "HIGH", "fresh|CVE-3|c": "CRITICAL"}
+    out = baseline_new_images(seen, current, known={"old"})
+    assert out == {"old|CVE-1|a": {"severity": "HIGH", "first_seen": 0},
+                   "fresh|CVE-3|c": {"severity": "CRITICAL", "first_seen": 0}}
+    assert diff_findings(out, current, now=7)[1] == ["old|CVE-2|b"]
+    assert baseline_new_images(None, current, known=set()) is None
+
+
+def test_new_vuln_samples_window_and_cap():
+    seen = {f"img|CVE-{i}|p": {"severity": "HIGH", "first_seen": 1000 + i} for i in range(30)}
+    seen["old|CVE-0|q"] = {"severity": "CRITICAL", "first_seen": 0}
+    out = new_vuln_samples("code-fastpi", seen, now=1000 + 86400 + 4, cap=20)
+    total = [s for s in out if s[0] == "security_new_vulns"]
+    info = [s for s in out if s[0] == "security_new_vuln_info"]
+    assert total == [("security_new_vulns", {"scope": "code-fastpi"}, 25)]
+    assert len(info) == 20 and info[0][1] == {"scope": "code-fastpi", "image": "img", "id": "CVE-29", "pkg": "p", "severity": "HIGH"}
+
+
+def test_sbom_refresh_order_missing_first_then_oldest_stale():
+    index = {"a": 0, "b": 100, "c": 90000}
+    assert sbom_refresh_order(["a", "b", "c", "d"], index, now=90000, max_age=86400, budget=2) == ["d", "a"]
+    assert sbom_refresh_order(["c"], index, now=90000, max_age=86400, budget=4) == []
 
 
 if __name__ == "__main__":

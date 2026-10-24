@@ -203,6 +203,163 @@ def count_fixable(report: dict) -> dict[str, int]:
     return counts
 
 
+_ENV_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+_VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?[-?])([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def parse_env(text: str) -> dict[str, str]:
+    out = {}
+    for line in text.splitlines():
+        m = _ENV_RE.match(line)
+        if m and not line.lstrip().startswith("#"):
+            v = m.group(2).strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+                v = v[1:-1]
+            out[m.group(1)] = v
+    return out
+
+
+def resolve_vars(s: str, env: dict[str, str]) -> str | None:
+    """Compose-style ${VAR}, ${VAR:-default}, ${VAR-default}, ${VAR:?msg}, $VAR; None when a value is missing."""
+    missing = False
+
+    def sub(m):
+        nonlocal missing
+        name = m.group(1) or m.group(4)
+        op, arg = m.group(2), m.group(3)
+        val = env.get(name)
+        if op in (":-", "-") and (val is None or (op == ":-" and val == "")):
+            return arg
+        if val is None or (val == "" and op == ":?"):
+            missing = True
+            return ""
+        return val
+    out = _VAR_RE.sub(sub, s)
+    return None if missing else out
+
+
+def compose_images(text: str, env: dict[str, str], built: set | None = None) -> tuple[list[str], int]:
+    """image: refs of a compose file, ${VAR} resolved; services with build: are local and skipped. -> (refs, unresolved)."""
+    services: dict[str, dict] = {}
+    in_services, svc_indent, cur = False, None, None
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent == 0:
+            in_services = line.startswith("services:")
+            cur = None
+            continue
+        if not in_services:
+            continue
+        if svc_indent is None:
+            svc_indent = indent
+        if indent == svc_indent and line.rstrip().endswith(":"):
+            cur = services.setdefault(line.strip()[:-1], {})
+            continue
+        if cur is None or indent <= svc_indent:
+            continue
+        m = re.match(r"\s*(image|build)\s*:\s*(.*)$", line)
+        if m:
+            cur[m.group(1)] = m.group(2).split(" #", 1)[0].strip().strip("'\"")
+    if built is not None:
+        built.update(resolve_vars(v["image"], env) or v["image"] for v in services.values() if "build" in v and v.get("image"))
+    refs, unresolved = [], 0
+    for svc in services.values():
+        if "build" in svc or not svc.get("image"):
+            continue
+        ref = resolve_vars(svc["image"], env)
+        if not ref or ref.endswith(":"):
+            unresolved += 1
+        elif ref not in refs:
+            refs.append(ref)
+    return refs, unresolved
+
+
+CODE_SKIP = ("Docker/_Deprecated/", )
+CODE_SKIP_FILES = ("Docker/docker-compose.yaml", )
+
+
+def code_image_refs(files: dict[str, str]) -> tuple[list[str], int]:
+    """Every registry image a repo refers to: compose image: lines (with the dir's .env, else .env.example) and Dockerfile FROM bases."""
+    refs: set[str] = set()
+    built: set[str] = set()
+    unresolved = 0
+    for path, text in files.items():
+        if path.startswith(CODE_SKIP) or path in CODE_SKIP_FILES:
+            continue
+        d, base = path.rsplit("/", 1) if "/" in path else ("", path)
+        if re.fullmatch(r"(docker-)?compose[\w.-]*\.ya?ml", base):
+            env = parse_env(files.get(f"{d}/.env") or files.get(f"{d}/.env.example") or "")
+            r, u = compose_images(text, env, built)
+            refs.update(r)
+            unresolved += u
+        elif base.startswith("Dockerfile"):
+            refs.update(dockerfile_bases(text))
+    return sorted(refs - built), unresolved
+
+
+def fixable_findings(report: dict) -> set[tuple[str, str, str]]:
+    """(id, package, severity) of the CRITICAL/HIGH vulnerabilities that have an upstream fix."""
+    out = set()
+    for res in report.get("Results") or []:
+        for v in res.get("Vulnerabilities") or []:
+            sev = (v.get("Severity") or "").upper()
+            if sev in ("CRITICAL", "HIGH") and v.get("FixedVersion"):
+                out.add((v.get("VulnerabilityID", "?"), v.get("PkgName", "?"), sev))
+    return out
+
+
+def diff_findings(seen: dict | None, current: dict[str, str], now: float, scanned: set | None = None) -> tuple[dict, list[str]]:
+    """current {image|id|pkg: severity} against the seen state -> (new state, keys new this run).
+
+    No state yet = first run: everything becomes the accepted baseline (first_seen 0), so installing this does not page the whole backlog. Keys no longer present are dropped, unless their image was not scanned this run (`scanned`): a failed scan must not make old findings look new next time.
+    """
+    if seen is None:
+        return {k: {"severity": v, "first_seen": 0} for k, v in current.items()}, []
+    out = {k: v for k, v in seen.items() if scanned is not None and k.rsplit("|", 2)[0] not in scanned}
+    new = []
+    for k, sev in current.items():
+        if k in seen:
+            out[k] = seen[k]
+        else:
+            out[k] = {"severity": sev, "first_seen": now}
+            new.append(k)
+    return out, sorted(new)
+
+
+def baseline_new_images(seen: dict | None, current: dict[str, str], known: set) -> dict | None:
+    """Findings of an image the scan has never seen (a first SBOM, a ref new to the repo) join the baseline: its backlog is in the reports and CriticalImageVulnerabilities, not "new"."""
+    if seen is None:
+        return None
+    out = dict(seen)
+    for k, sev in current.items():
+        if k.rsplit("|", 2)[0] not in known and k not in out:
+            out[k] = {"severity": sev, "first_seen": 0}
+    return out
+
+
+NEW_VULN_WINDOW = 86400
+
+
+def new_vuln_samples(scope: str, seen: dict, now: float, cap: int = 20) -> list:
+    """Findings first seen in the last 24 h: a count, and up to `cap` info series (newest first) for the alert to quote."""
+    fresh = sorted(((v["first_seen"], k, v["severity"]) for k, v in seen.items()
+                    if v["first_seen"] and now - v["first_seen"] < NEW_VULN_WINDOW), reverse=True)
+    out = [("security_new_vulns", {"scope": scope}, len(fresh))]
+    for _, k, sev in fresh[:cap]:
+        image, vid, pkg = k.rsplit("|", 2)
+        out.append(("security_new_vuln_info", {"scope": scope, "image": image, "id": vid, "pkg": pkg, "severity": sev}, 1))
+    return out
+
+
+def sbom_refresh_order(refs: list[str], made: dict[str, float], now: float, max_age: float, budget: int) -> list[str]:
+    """Which SBOMs to (re)build this run: missing ones first, then the oldest stale ones, at most `budget` (registry pulls are rate-limited)."""
+    missing = [r for r in refs if r not in made]
+    stale = sorted((made[r], r) for r in refs if r in made and now - made[r] >= max_age)
+    return (missing + [r for _, r in stale])[:budget]
+
+
 def render_metrics(samples: list[tuple[str, dict[str, str], float]], helps: dict[str, str]) -> str:
     """Render Prometheus text format.
 
@@ -866,6 +1023,11 @@ def scan_all_images(hosts, lister, scan) -> None:
         scan(h, lists[h])
 
 
+# host -> {image|id|pkg: severity} of the last nightly scan, diffed into security_new_vulns{scope=host}.
+IMAGE_FINDINGS: dict[str, dict[str, str]] = {}
+SCANNED: dict[str, set] = {}
+
+
 def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[str, int], int, int, int]:
     """Trivy CVE counts across the images actually in use on a host.
 
@@ -932,6 +1094,9 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
             continue
         scanned += 1
         fixable = count_fixable(report)
+        SCANNED.setdefault(host, set()).add(image)
+        for vid, pkg, sev in fixable_findings(report):
+            IMAGE_FINDINGS.setdefault(host, {})[f"{image}|{vid}|{pkg}"] = sev
         detail.append((counts.get("CRITICAL", 0), counts.get("HIGH", 0),
                        fixable.get("CRITICAL", 0), f"{image} (base of a local image)" if is_base else image))
         for k, v in counts.items():
@@ -951,6 +1116,160 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
         lines += ["", "# built locally, in no registry, no base image known, not scanned:"] + [f"#   {i}" for i in local_only]
     (STATE / f"image-cves-{host}.txt").write_text("\n".join(lines) + "\n")
     return totals, fixables, scanned, unscannable, len(local_only)
+
+
+# ---- hourly code scan: images the repos refer to, matched against a fresh DB via cached SBOMs
+
+CODE_REPOS = {"fastpi": "linux/arm64", "beefy": "linux/amd64"}
+SBOM_DIR = STATE / "sbom"
+SBOM_MAX_AGE = 86400
+# Docker Hub allows 100 manifest requests an hour and answers bursts with 429; the nightly scan and Cup need it too.
+SBOM_BUDGET_HUB = int(os.environ.get("SECSCAN_SBOM_BUDGET_HUB", "4"))
+SBOM_BUDGET_OTHER = int(os.environ.get("SECSCAN_SBOM_BUDGET_OTHER", "12"))
+
+
+def is_docker_hub(ref: str) -> bool:
+    first = ref.split("/", 1)[0]
+    return "/" not in ref or first == "docker.io" or not ("." in first or ":" in first or first == "localhost")
+
+
+def code_files(repo: str) -> dict[str, str]:
+    """Compose files, Dockerfiles and env files: fastpi's working tree (with its .env), beefy's published mirror (.env.example only)."""
+    want = lambda p: (b := p.rsplit("/", 1)[-1]).startswith("Dockerfile") or b == ".env.example" or re.fullmatch(r"(docker-)?compose[\w.-]*\.ya?ml", b)  # noqa: E731
+    files: dict[str, str] = {}
+    if repo == "fastpi":
+        root = Path("/home/pi/Projects")
+        r = run(["git", "-C", str(root), "ls-files"], timeout=60)
+        for p in filter(want, r.stdout.split()):
+            try:
+                files[p] = (root / p).read_text(errors="replace")
+                env = (root / p).with_name(".env")
+                if p.endswith(".env.example") and env.exists():
+                    files[p[:-len(".example")]] = env.read_text(errors="replace")
+            except OSError:
+                continue
+        return files
+    d = fetch_mirror(repo, REPOS[repo])
+    r = run(["git", "-C", str(d), "ls-tree", "-r", "--name-only", "HEAD"], timeout=60)
+    for p in filter(want, r.stdout.split()):
+        files[p] = run(["git", "-C", str(d), "show", f"HEAD:{p}"], timeout=60).stdout
+    return files
+
+
+def _sbom_name(platform: str, ref: str) -> str:
+    return hashlib.sha256(f"{platform}|{ref}".encode()).hexdigest()[:24]
+
+
+def _trivy_mounted(args: list[str], *, entrypoint: str | None = None, timeout: int = 1800):
+    cmd = ["docker", "run", "--rm", "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
+           "-v", f"{SBOM_DIR}:/sbom"]
+    if entrypoint:
+        cmd += ["--entrypoint", entrypoint]
+    return run(cmd + ["aquasec/trivy:latest", *args], timeout=timeout)
+
+
+def refresh_sboms(platform: str, refs: list[str], index: dict) -> None:
+    """Build missing/stale CycloneDX SBOMs from the registry, within the per-run budget. index[key] = {made, ok, ref, platform}."""
+    now = time.time()
+    made = {r: index[f"{platform}|{r}"]["made"] for r in refs if f"{platform}|{r}" in index}
+    hub = [r for r in refs if is_docker_hub(r)]
+    other = [r for r in refs if not is_docker_hub(r)]
+    todo = sbom_refresh_order(hub, made, now, SBOM_MAX_AGE, SBOM_BUDGET_HUB) + \
+        sbom_refresh_order(other, made, now, SBOM_MAX_AGE, SBOM_BUDGET_OTHER)
+    for ref in todo:
+        name = _sbom_name(platform, ref)
+        r = _trivy_mounted(["image", "--image-src", "remote", "--platform", platform,
+                            "--skip-db-update", "--skip-java-db-update", "--quiet",
+                            "--format", "cyclonedx", "--output", f"/sbom/{name}.cdx.json", "--timeout", "10m", ref])
+        ok = r.returncode == 0 and (SBOM_DIR / f"{name}.cdx.json").exists()
+        if not ok:
+            print(f"  sbom failed {platform} {ref}: {r.stderr.strip()[-160:]}", file=sys.stderr)
+        prev = index.get(f"{platform}|{ref}", {})
+        index[f"{platform}|{ref}"] = {"made": time.time(), "ok": ok or prev.get("ok", False), "ref": ref, "platform": platform}
+
+
+def match_sboms(names: list[str]) -> dict[str, dict]:
+    """One Trivy container matches every SBOM against the local DB (no registry): name -> report."""
+    out_dir = SBOM_DIR / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    script = ("for n in " + " ".join(names) + "; do trivy sbom --skip-db-update --skip-java-db-update --quiet "
+              "--scanners vuln --format json --output /sbom/out/$n.json /sbom/$n.cdx.json || echo FAIL $n >&2; done")
+    r = _trivy_mounted(["-c", script], entrypoint="sh", timeout=3600)
+    if r.stderr.strip():
+        print(f"  sbom match: {r.stderr.strip()[-300:]}", file=sys.stderr)
+    reports = {}
+    for n in names:
+        try:
+            reports[n] = json.loads((out_dir / f"{n}.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+    return reports
+
+
+def _load_json(path: Path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def findings_samples(scope: str, current: dict[str, str], scanned: set) -> list:
+    """Diff against vulns-seen-<scope>.json, persist, and return the new-vulnerability samples."""
+    path = STATE / f"vulns-seen-{scope}.json"
+    state = _load_json(path)
+    known = set(state["images"]) if state else set()
+    prev = baseline_new_images(state["findings"] if state else None, current, known)
+    seen, new = diff_findings(prev, current, time.time(), scanned)
+    write_atomic(path, json.dumps({"images": sorted(known | scanned), "findings": seen}, indent=1, sort_keys=True))
+    for k in new:
+        print(f"  NEW {scope}: {k} ({current[k]})", file=sys.stderr)
+    return new_vuln_samples(scope, seen, time.time())
+
+
+def resource_floor() -> str:
+    with open("/proc/meminfo") as fh:
+        avail = next(int(l.split()[1]) // 1024 for l in fh if l.startswith("MemAvailable:"))
+    disk = shutil.disk_usage(str(STATE)).free // 2**30
+    return f"{avail} MB available, {disk} GB free" if avail < 1200 or disk < 20 else ""
+
+
+def collect_code(repo: str) -> list:
+    if floor := resource_floor():
+        raise NoData(f"resource floor: {floor}")
+    platform = CODE_REPOS[repo]
+    refs, unresolved = code_image_refs(code_files(repo))
+    SBOM_DIR.mkdir(parents=True, exist_ok=True)
+    index = _load_json(SBOM_DIR / "index.json") or {}
+    download_trivy_db("fastpi")
+    refresh_sboms(platform, refs, index)
+    write_atomic(SBOM_DIR / "index.json", json.dumps(index, indent=1, sort_keys=True))
+    names = {_sbom_name(platform, r): r for r in refs if index.get(f"{platform}|{r}", {}).get("ok")}
+    reports = match_sboms(sorted(names))
+    current: dict[str, str] = {}
+    sev = {"CRITICAL": 0, "HIGH": 0}
+    lines = [f"# Fixable CRITICAL/HIGH in images the {repo} repo refers to (SBOM {platform}), worst first.", "# critical  high  image", ""]
+    rows = []
+    for n, rep in reports.items():
+        f = fixable_findings(rep)
+        c = sum(1 for x in f if x[2] == "CRITICAL")
+        h = len(f) - c
+        sev["CRITICAL"] += c
+        sev["HIGH"] += h
+        rows.append((c, h, names[n]))
+        for vid, pkg, s in f:
+            current[f"{names[n]}|{vid}|{pkg}"] = s
+    rows.sort(reverse=True)
+    lines += [f"{c:>8}  {h:>4}  {img}" for c, h, img in rows]
+    missing = sorted(set(refs) - {names[n] for n in reports})
+    if missing:
+        lines += ["", "# no SBOM yet (a few are built per hour) or not in a registry (retried after 24 h):"] + [f"#   {m}" for m in missing]
+    (STATE / f"code-cves-{repo}.txt").write_text("\n".join(lines) + "\n")
+    scope = f"code-{repo}"
+    out = [("security_code_images", {"scope": scope}, len(refs)),
+           ("security_code_images_scanned", {"scope": scope}, len(reports)),
+           ("security_code_images_unresolved", {"scope": scope}, unresolved)]
+    out += [("security_code_vulnerabilities_fixable", {"scope": scope, "severity": k}, v) for k, v in sorted(sev.items())]
+    return out + findings_samples(scope, current, {names[n] for n in reports})
 
 
 class NoData(Exception):
@@ -1214,6 +1533,12 @@ HELPS = {
     "security_unraid_plugin_update": "1 if a newer version of this Unraid plugin is available on tower.",
     "security_image_updates": "Images with an update according to Cup, per host and update type.",
     "security_image_update_info": "One series per image with an update according to Cup (host, reference, type).",
+    "security_code_images": "Registry images the repo refers to (compose image:, Dockerfile FROM; local builds excluded).",
+    "security_code_images_scanned": "Of those, images with an SBOM matched against the current Trivy DB.",
+    "security_code_images_unresolved": "image: lines whose ${VAR} could not be resolved from .env/.env.example.",
+    "security_code_vulnerabilities_fixable": "Fixable CVEs across the images the repo refers to, by severity (CRITICAL/HIGH).",
+    "security_new_vulns": "Fixable CRITICAL/HIGH findings (image, CVE, package) first seen in the last 24 h; scope = host (running images) or code-<repo>.",
+    "security_new_vuln_info": "One series per finding first seen in the last 24 h (newest 20).",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
 }
 
@@ -1341,6 +1666,10 @@ def main() -> int:
         for host in MEDIA_PATHS:
             guarded(f"media-{host}", lambda host=host: collect_media(host, lambda: fetch_file(host, MEDIA_PATHS[host])), host=host)
 
+    if only and "code" in only:
+        for repo in CODE_REPOS:
+            guarded(f"code-{repo}", lambda repo=repo: collect_code(repo))
+
     if want("images"):
         def _scan(host, images):
             def _img():
@@ -1354,7 +1683,7 @@ def main() -> int:
                 out.append(("security_images_scanned", {"host": host}, scanned))
                 out.append(("security_images_unscannable", {"host": host}, bad))
                 out.append(("security_images_local_only", {"host": host}, local))
-                return out
+                return out + findings_samples(host, IMAGE_FINDINGS.get(host, {}), SCANNED.get(host, set()))
             guarded(f"images-{host}", _img, host=host)
         scan_all_images(("fastpi", "beefy", "tower"), running_images, _scan)
 
