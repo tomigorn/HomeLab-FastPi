@@ -170,10 +170,9 @@ def ram_sticks(modules, x0, y0, h, pitch=16, w=10):
 
 
 def common_callouts(m, side_cpu="L"):
-    cs = [{"side": side_cpu, "title": "CPU", "sub": cpu_sub(m["cpu"])},
-          {"side": "R", "title": "RAM", "sub": ram_sub(m["ram"])},
-          {"side": "R", "title": "BOARD", "sub": board_sub(m)}]
-    return cs
+    return [{"side": side_cpu, "title": "CPU", "sub": cpu_sub(m["cpu"])},
+            {"side": "R", "title": "RAM", "sub": ram_sub(m["ram"])},
+            {"side": "R", "title": "BOARD", "sub": board_sub(m)}]
 
 
 def draw_tower(m):
@@ -281,31 +280,53 @@ def draw_nas(m):
     return "".join(b), cs, 440
 
 
-def draw(m):
-    body, cs, h0 = {"sbc": draw_sbc, "tower": draw_tower, "nas": draw_nas}[m["shape"]](m)
+SHAPES = {"sbc": draw_sbc, "tower": draw_tower, "nas": draw_nas}
+
+
+def draw(m, uid=None):
+    if m["shape"] not in SHAPES:
+        raise ValueError(f'unknown shape {m["shape"]!r} for machine {m["name"]!r}')
+    body, cs, h0 = SHAPES[m["shape"]](m)
     h, lab = layout(cs, h0)
-    return frame(slug(m["name"]), h, body + lab, f'{m["name"]} drawing')
+    return frame(uid or slug(m["name"]), h, body + lab, f'{m["name"]} drawing')
 
 
-def _silhouette(m, cx, bottom):
-    sh, nd = m["shape"], len(m["disks"])
-    if sh == "sbc":
-        x, y = cx - 100, bottom - 190
-        s = (f'<rect x="{x}" y="{y}" width="200" height="132" rx="8"/><rect x="{cx - 20}" y="{y + 30}" width="34" height="34"/>'
-             f'<rect x="{x + 20}" y="{y + 88}" width="140" height="32" stroke-dasharray="5 4" stroke-width="1.2"/><rect x="{x + 34}" y="{y + 96}" width="100" height="10"/>'
-             f'<rect x="{x + 176}" y="{y + 12}" width="30" height="110"/>')
-        ext = max(sum(1 for d in m["disks"] if d["kind"] != "nvme"), 1)
-        w = (200 - 8 * (ext - 1)) / ext
-        s += "".join(f'<rect x="{x + k * (w + 8):.1f}" y="{bottom - 48}" width="{w:.1f}" height="44" rx="5"/>' for k in range(ext))
-        return s
-    if sh == "tower":
-        x, y = cx - 80, bottom - 200
-        return (f'<rect x="{x}" y="{y}" width="160" height="200" rx="5"/><rect x="{x + 14}" y="{y + 14}" width="100" height="110"/>'
-                f'<circle cx="{x + 48}" cy="{y + 52}" r="16"/><rect x="{x + 80}" y="{y + 30}" width="6" height="56"/><rect x="{x + 92}" y="{y + 30}" width="6" height="56"/>'
-                f'<rect x="{x + 118}" y="{y + 130}" width="34" height="18"/><rect x="{x + 118}" y="{y + 154}" width="34" height="18"/><rect x="{x + 14}" y="{y + 150}" width="80" height="40" rx="2"/>')
+def _sil_sbc(m, cx, bottom):
+    x, y = cx - 100, bottom - 190
+    s = (f'<rect x="{x}" y="{y}" width="200" height="132" rx="8"/><rect x="{cx - 20}" y="{y + 30}" width="34" height="34"/>'
+         f'<rect x="{x + 20}" y="{y + 88}" width="140" height="32" stroke-dasharray="5 4" stroke-width="1.2"/><rect x="{x + 34}" y="{y + 96}" width="100" height="10"/>'
+         f'<rect x="{x + 176}" y="{y + 12}" width="30" height="110"/>')
+    ext = max(sum(1 for d in m["disks"] if d["kind"] != "nvme"), 1)
+    w = (200 - 8 * (ext - 1)) / ext
+    return s + "".join(f'<rect x="{x + k * (w + 8):.1f}" y="{bottom - 48}" width="{w:.1f}" height="44" rx="5"/>' for k in range(ext))
+
+
+def _sil_tower(m, cx, bottom):
+    x, y = cx - 80, bottom - 200
+    return (f'<rect x="{x}" y="{y}" width="160" height="200" rx="5"/><rect x="{x + 14}" y="{y + 14}" width="100" height="110"/>'
+            f'<circle cx="{x + 48}" cy="{y + 52}" r="16"/><rect x="{x + 80}" y="{y + 30}" width="6" height="56"/><rect x="{x + 92}" y="{y + 30}" width="6" height="56"/>'
+            f'<rect x="{x + 118}" y="{y + 130}" width="34" height="18"/><rect x="{x + 118}" y="{y + 154}" width="34" height="18"/>'
+            f'<rect x="{x + 14}" y="{y + 150}" width="80" height="40" rx="2"/>')
+
+
+def _sil_nas(m, cx, bottom):
     x, y = cx - 65, bottom - 140
-    return (f'<rect x="{x}" y="{y}" width="130" height="140" rx="8"/><rect x="{x + 12}" y="{y + 14}" width="68" height="68"/><rect x="{x + 28}" y="{y + 30}" width="22" height="22"/>'
+    return (f'<rect x="{x}" y="{y}" width="130" height="140" rx="8"/><rect x="{x + 12}" y="{y + 14}" width="68" height="68"/>'
+            f'<rect x="{x + 28}" y="{y + 30}" width="22" height="22"/>'
             + "".join(f'<rect x="{x + 90}" y="{y + 14 + 30 * k}" width="30" height="24" rx="2"/>' for k in range(4)))
+
+
+SILHOUETTES = {"sbc": _sil_sbc, "tower": _sil_tower, "nas": _sil_nas}
+
+
+def cabinet_rows(specs):
+    ps = CABINET["power_strip"]
+    return [
+        ("Machines", ", ".join(m["name"] for m in specs["machines"])),
+        ("Exhaust fan", CABINET["exhaust"]),
+        ("Air intake", f'bottom right, {CABINET["intake"]}'),
+        ("Power strip", f'{ps["model"]}, {ps["detail"]}, {ps["sockets"]}× {ps["socket_type"]} sockets'),
+    ]
 
 
 def draw_cabinet(specs):
@@ -322,24 +343,25 @@ def draw_cabinet(specs):
          '<path d="M80 195q-14-18 0-30M85 200q18-14 30 0M80 205q14 18 0 30M75 200q-18 14-30 0" stroke-width="1.4"/>',
          f'<rect data-part="intake" x="740" y="322" width="150" height="18" fill="url(#mesh-{uid})"/>']
     for m, cx in zip(ms, centers):
-        b.append(_silhouette(m, round(cx), 312))
+        b.append(SILHOUETTES[m["shape"]](m, round(cx), 312))
     b.append('<rect data-part="power-strip" x="775" y="288" width="110" height="30" rx="4"/><rect x="779" y="296" width="14" height="14" rx="2"/>')
     for k in range(ps["sockets"]):
         sx = 797 + 14.5 * k
         b.append(f'<rect data-part="socket" x="{sx:.1f}" y="296" width="12" height="14" rx="3" stroke-width="1.2"/>')
     b.append("</g>")
-    b.append(f'<g stroke="{LEAD}" stroke-width="1.6" fill="none"><path d="M60 200H14" marker-end="url(#ar-{uid})"/>'
+    b.append(f'<g stroke="{LEAD}" stroke-width="1.6" fill="none"><path d="M54 200H14" marker-end="url(#ar-{uid})"/>'
              f'<path d="M757 400V346" marker-end="url(#ar-{uid})"/>'
-             f'<path d="M757 334V326H118V200H102" stroke-dasharray="8 6" marker-end="url(#ar-{uid})"/><path d="M80 226V392H300" stroke-width="1.2"/></g>')
+             f'<path d="M757 334V326H118V200H110" stroke-dasharray="8 6" marker-end="url(#ar-{uid})"/><path d="M80 226V392H300" stroke-width="1.2"/></g>')
     t = []
     for m, cx in zip(ms, centers):
-        t.append(f'<a href="#{esc(m["name"])}">{text(round(cx), 108, m["name"].upper(), TITLE, "middle", cls="t")}</a>')
-    t.append(text(150, 385, "EXHAUST FAN", TITLE, cls="t"))
+        t.append(f'<a href="#{esc(m["name"])}">{text(round(cx), 108, m["name"].upper(), TITLE, "middle", cls="ct")}</a>')
+    t.append(text(150, 385, "EXHAUST FAN", TITLE, cls="ct"))
     t.append(text(150, 410, CABINET["exhaust"], SUB, fill=SUBC, cls="sub"))
-    t.append(text(735, 385, "AIR INTAKE", TITLE, "end", cls="t"))
+    t.append(text(735, 385, "AIR INTAKE", TITLE, "end", cls="ct"))
     t.append(text(735, 402, CABINET["intake"], SUB, "end", SUBC, "sub"))
-    t.append(text(728, 226, "POWER STRIP", TITLE, cls="t"))
+    t.append(text(728, 194, "POWER", TITLE, cls="ct"))
+    t.append(text(728, 230, "STRIP", TITLE, cls="ct"))
     for k, ln in enumerate([ps["model"], ps["detail"], f'{ps["sockets"]}× {ps["socket_type"]} sockets']):
-        t.append(text(728, 244 + LINE * k, ln, SUB, fill=SUBC, cls="sub"))
+        t.append(text(728, 250 + LINE * k, ln, SUB, fill=SUBC, cls="sub"))
     b.append(f'<g fill="{INK}">{"".join(t)}</g>')
     return frame(uid, 430, "".join(b), "Cabinet overview")

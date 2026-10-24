@@ -1,8 +1,6 @@
 import html
 import json
 import os
-import re
-import sys
 
 import drawings
 
@@ -26,6 +24,7 @@ dl.spec dd{margin:0;overflow-wrap:anywhere}
 @media (max-width:720px){
 .art .sub{display:none}
 .art .t{font-size:30px}
+.art .ct{font-size:34px}
 dl.spec{display:grid}
 }
 """
@@ -42,18 +41,19 @@ def spec_rows(m):
     return rows
 
 
-def card(m):
+def card(m, uid):
     notes = " (from notes)" if m.get("source") == "notes" else ""
     meta = f'{e(m["role"])} · {e(m["os"])} · as of {e(m["collected"])}{notes}'
     dl = "".join(f"<dt>{e(k)}</dt><dd>{e(v)}</dd>" for k, v in spec_rows(m))
     return (f'<section class="card" id="{e(m["name"])}"><div class="head"><h2>{e(m["name"])}</h2><div class="meta">{meta}</div></div>'
-            f'{drawings.draw(m)}<dl class="spec">{dl}</dl></section>')
+            f'{drawings.draw(m, uid)}<dl class="spec">{dl}</dl></section>')
 
 
 def render(specs):
+    cab_dl = "".join(f"<dt>{e(k)}</dt><dd>{e(v)}</dd>" for k, v in drawings.cabinet_rows(specs))
     cab = ('<section class="card" id="cabinet"><div class="head"><h2>Cabinet</h2><div class="meta">where the machines live, and how the air flows</div></div>'
-           f'{drawings.draw_cabinet(specs)}</section>')
-    cards = "".join(card(m) for m in specs["machines"])
+           f'{drawings.draw_cabinet(specs)}<dl class="spec">{cab_dl}</dl></section>')
+    cards = "".join(card(m, f"m{i}") for i, m in enumerate(specs["machines"]))
     return ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>Holy Grail · Machines</title><style>{CSS}</style></head><body><main><h1>Holy Grail · Machines</h1>{cab}{cards}</main></body></html>\n')
