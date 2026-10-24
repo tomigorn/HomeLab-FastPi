@@ -1,0 +1,9 @@
+[Unit]
+Description=Clear Authentik's cached app lists when group memberships change
+Documentation=file:///home/pi/Projects/Docker/Authentik/README.md
+After=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+ExecStart=/home/pi/Projects/Docker/Authentik/scripts/app-cache-on-group-change.sh

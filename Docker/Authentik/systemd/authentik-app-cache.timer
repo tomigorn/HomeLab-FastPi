@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Authentik group memberships every minute
+Documentation=file:///home/pi/Projects/Docker/Authentik/README.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
