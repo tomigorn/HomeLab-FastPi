@@ -31,6 +31,8 @@ echo '###sysfs_name'; cat /sys/class/dmi/id/board_name 2>/dev/null
 echo '###dt'; tr -d '\0' < /proc/device-tree/model 2>/dev/null; echo
 echo '###gpu'; lspci 2>/dev/null | grep -i vga
 echo '###speed'; i=$(ip route show default | awk '{print $5; exit}'); cat /sys/class/net/$i/speed 2>/dev/null
+echo '###end'
+exit 0
 """
 
 
@@ -78,7 +80,7 @@ def parse_lsblk(text, min_bytes=0):
     for d in json.loads(text)["blockdevices"]:
         name = d["name"]
         size = int(d["size"])
-        if name.startswith(("loop", "zram")) or size < min_bytes:
+        if name.startswith(("loop", "zram", "mmcblk")) or size < min_bytes:
             continue
         rota = d.get("rota")
         spinning = rota in (True, 1, "1")
@@ -96,7 +98,10 @@ def parse_lsblk(text, min_bytes=0):
 
 def parse_dmidecode_memory(text):
     modules = []
-    for block in text.split("Memory Device")[1:]:
+    parts = re.split(r"Handle [^\n]*DMI type (\d+)[^\n]*\n", text)
+    for kind, block in zip(parts[1::2], parts[2::2]):
+        if kind != "17":
+            continue
         m = re.search(r"Size:\s*(\d+)\s*(MB|GB)", block)
         if not m:
             continue
@@ -106,15 +111,29 @@ def parse_dmidecode_memory(text):
     return modules
 
 
+PLACEHOLDERS = {"to be filled by o.e.m.", "default string", "not applicable", "system product name", "system manufacturer", "none", "unknown"}
+
+
+def clean_dmi(value):
+    v = (value or "").strip()
+    return "" if v.lower() in PLACEHOLDERS else v
+
+
 def parse_board(dmi, sysfs_vendor, sysfs_name, dt_model):
     if dt_model and dt_model.strip("\x00 \n"):
         return dt_model.strip("\x00 \n")
     lines = [l.strip() for l in (dmi or "").splitlines() if l.strip()]
-    if len(lines) >= 2:
+    if len(lines) >= 2 and all(clean_dmi(l) for l in lines[:2]):
         return " ".join(lines[:2])
-    parts = [(sysfs_vendor or "").strip(), (sysfs_name or "").strip()]
-    joined = " ".join(p for p in parts if p)
+    joined = " ".join(p for p in (clean_dmi(sysfs_vendor), clean_dmi(sysfs_name)) if p)
     return joined or "Unknown board"
+
+
+def fmt_speed(s):
+    if not s or not s.strip().isdigit() or int(s) <= 0:
+        return None
+    n = int(s)
+    return f"{n / 1000:g} Gbit/s" if n >= 1000 else f"{n} Mbit/s"
 
 
 def merge(previous, fresh):
@@ -140,12 +159,12 @@ def sections(text):
 
 def build_machine(name, role, shape, text, today):
     s = sections(text)
+    if not all(k in s for k in ("lscpu", "free", "lsblk", "end")):
+        return None
     cpu = parse_lscpu(s["lscpu"])
     modules = parse_dmidecode_memory(s.get("memory", ""))
     ram_total = total_ram_gb(modules, parse_free_gb(s["free"]))
     gpu = re.sub(r"^\S+\s+VGA compatible controller:\s*", "", s.get("gpu", "").splitlines()[0]) if s.get("gpu") else None
-    speed = s.get("speed", "").strip()
-    network = f"{int(speed) // 1000 if int(speed) >= 1000 else int(speed)} {'Gbit/s' if int(speed) >= 1000 else 'Mbit/s'}" if speed.lstrip("-").isdigit() and int(speed) > 0 else None
     return {
         "name": name,
         "role": role,
@@ -157,7 +176,7 @@ def build_machine(name, role, shape, text, today):
         "ram": {"total_gb": ram_total, "modules": modules},
         "graphics": gpu,
         "disks": parse_lsblk(s["lsblk"], TOWER_MIN_BYTES if shape == "nas" else 0),
-        "network": network,
+        "network": fmt_speed(s.get("speed", "").strip()),
         "source": "live",
     }
 
@@ -188,7 +207,17 @@ def run_host(alias):
         r = subprocess.run(cmd, input=REMOTE, capture_output=True, text=True, timeout=60)
     except (subprocess.TimeoutExpired, OSError):
         return None
-    return r.stdout if r.returncode == 0 and "###lscpu" in r.stdout else None
+    return r.stdout if r.returncode == 0 else None
+
+
+def load_previous(path):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return {"machines": []}
+    except (ValueError, OSError):
+        print(f"warning: {path.name} unreadable, starting empty", file=sys.stderr)
+        return {"machines": []}
 
 
 def collect(today):
@@ -204,7 +233,7 @@ def collect(today):
 
 def main():
     today = datetime.date.today().isoformat()
-    previous = json.loads(OUT.read_text()) if OUT.exists() else {"machines": []}
+    previous = load_previous(OUT)
     fresh = collect(today)
     have_tower = any(m["name"] == "tower" for m in previous["machines"])
     if fresh["tower"] is None and not have_tower:

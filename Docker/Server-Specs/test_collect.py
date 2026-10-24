@@ -3,6 +3,8 @@ import sys
 
 from collect import (
     FORBIDDEN_KEYS,
+    build_machine,
+    fmt_speed,
     merge,
     parse_board,
     parse_dmidecode_memory,
@@ -121,6 +123,99 @@ def test_parse_board_unknown():
     assert parse_board(None, None, None, None) == "Unknown board"
 
 
+FIXTURE = """###osrel
+Example OS 1.0
+###lscpu
+""" + LSCPU + """###free
+""" + FREE + """###lsblk
+""" + LSBLK + """
+###memory
+###dmi
+###sysfs_vendor
+Vendor
+###sysfs_name
+Name
+###dt
+###speed
+###end
+"""
+
+
+def strip_sections(text, *names):
+    out, skip = [], False
+    for line in text.splitlines():
+        if line.startswith("###"):
+            skip = line[3:] in names
+        if not skip:
+            out.append(line)
+    return "\n".join(out) + "\n"
+
+
+def test_build_machine_full_fixture():
+    m = build_machine("beefy", "media server", "tower", FIXTURE, "2026-10-24")
+    assert m == {
+        "name": "beefy",
+        "role": "media server",
+        "shape": "tower",
+        "collected": "2026-10-24",
+        "os": "Example OS 1.0",
+        "model": "Vendor Name",
+        "cpu": {"model": "Example CPU 9000", "cores": 6, "threads": 12, "max_ghz": 2.4},
+        "ram": {"total_gb": 16, "modules": []},
+        "graphics": None,
+        "disks": [
+            {"model": "ACME NVMe 512", "size": "512 GB", "kind": "nvme"},
+            {"model": "ACME HDD 8TB", "size": "8 TB", "kind": "hdd"},
+            {"model": "ACME SSD 1TB", "size": "1 TB", "kind": "ssd"},
+            {"model": "ACME Ext 4TB", "size": "4 TB", "kind": "usb-hdd"},
+            {"model": "ACME Flash", "size": "32 GB", "kind": "ssd"},
+        ],
+        "network": None,
+        "source": "live",
+    }
+
+
+def test_missing_speed_still_live_machine():
+    m = build_machine("beefy", "x", "tower", strip_sections(FIXTURE, "speed"), "2026-10-24")
+    assert m is not None and m["network"] is None
+
+
+def test_partial_output_gives_none():
+    assert build_machine("beefy", "x", "tower", strip_sections(FIXTURE, "lsblk"), "d") is None
+    assert build_machine("beefy", "x", "tower", strip_sections(FIXTURE, "end"), "d") is None
+    assert build_machine("beefy", "x", "tower", "", "d") is None
+
+
+def test_fmt_speed():
+    assert fmt_speed("2500") == "2.5 Gbit/s"
+    assert fmt_speed("1000") == "1 Gbit/s"
+    assert fmt_speed("10000") == "10 Gbit/s"
+    assert fmt_speed("100") == "100 Mbit/s"
+    assert fmt_speed("-1") is None
+    assert fmt_speed("") is None
+    assert fmt_speed(None) is None
+
+
+def test_parse_board_ignores_placeholders():
+    assert parse_board("To Be Filled By O.E.M.\nTo Be Filled By O.E.M.\n", "Vendor", "Name", None) == "Vendor Name"
+    assert parse_board("Default string\nDefault string", None, "Name", None) == "Name"
+    assert parse_board("ACME\nSystem Product Name", "Vendor", "Name", None) == "Vendor Name"
+    assert parse_board("Not Applicable\nNot Applicable", None, None, None) == "Unknown board"
+
+
+def test_parse_lsblk_skips_mmcblk():
+    text = json.dumps({"blockdevices": [{"name": "mmcblk0", "size": 32000000000, "model": None, "tran": None, "rota": False}]})
+    assert parse_lsblk(text) == []
+
+
+def test_dmidecode_ignores_other_handle_types():
+    text = DMI_MEM + """Handle 0x0020, DMI type 20, 35 bytes
+Memory Device Mapped Address
+\tSize: 8 GB
+"""
+    assert len(parse_dmidecode_memory(text)) == 2
+
+
 def machine(name, collected):
     return {"name": name, "collected": collected, "source": "live"}
 
@@ -141,12 +236,24 @@ def test_merge_orders_hosts():
 
 
 def test_output_has_no_forbidden_keys():
-    for key in ("serial", "mac", "ip", "bios"):
-        assert key in FORBIDDEN_KEYS
     from collect import notes_tower
-    text = json.dumps(notes_tower("2026-10-24")).lower()
-    for key in FORBIDDEN_KEYS:
-        assert f'"{key}"' not in text
+    for m in (build_machine("beefy", "x", "tower", FIXTURE, "2026-10-24"), notes_tower("2026-10-24")):
+        text = json.dumps(m).lower()
+        for key in FORBIDDEN_KEYS:
+            assert f'"{key}"' not in text
+
+
+def test_corrupt_snapshot_is_treated_as_empty(tmp_path=None):
+    import tempfile
+    from pathlib import Path
+    from collect import load_previous
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "specs.json"
+        p.write_text("{not json")
+        assert load_previous(p) == {"machines": []}
+        p.write_text('{"machines": [{"name": "beefy"}]}')
+        assert load_previous(p)["machines"][0]["name"] == "beefy"
+        assert load_previous(Path(d) / "missing.json") == {"machines": []}
 
 
 if __name__ == "__main__":
