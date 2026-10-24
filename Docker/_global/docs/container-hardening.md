@@ -88,7 +88,8 @@ Only `socket-proxy-ro`, `socket-proxy-autoheal`, `portainer-socket-proxy` mount 
 ## Host changes (not in git; recreate on rebuild)
 | What | Value |
 |---|---|
-| `/etc/docker/daemon.json` | `{"dns":["192.168.1.2"]}` (containers resolve through AdGuard; needs `systemctl restart docker`) |
+| `/etc/docker/daemon.json` | `dns: ["192.168.1.2"]` (containers resolve through AdGuard), `log-driver: json-file` + `log-opts: {max-size: 10m, max-file: 3}`, `live-restore: true`, `userland-proxy: false` (2026-10-24; needs `systemctl restart docker`; log limits apply only to containers created afterwards) |
+| `/boot/firmware/cmdline.txt` | `apparmor=1 security=apparmor` appended (2026-10-24, reboot); containers run the `docker-default` profile |
 | `/var/lib/node-exporter/textfile` | `pi:65046`, mode 2775 |
 | `/etc/ssh/sshd_config.d/20-access.conf` | `AllowUsers pi`, no X11/agent forwarding, `MaxAuthTries 3` (TCP forwarding stays for `ssh -L`); beefy's key into fastpi removed (fastpi → beefy only) |
 | user `deploy` | locked, shell nologin, out of the docker group, key parked as `authorized_keys.disabled-20261024` (Jenkins stopped) |
