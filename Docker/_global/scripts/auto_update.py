@@ -11,24 +11,34 @@ A rollback that does not verify pages out of band (oob-alert.sh), past the edge 
 Never crosses a major version: when the image's org.opencontainers.image.version major changes, the old image is re-tagged and the update is reported instead.
 Only the digest behind the tag written in the repo moves; pinned version bumps stay with Cup + the weekly digest.
 
+The same file runs on fastpi and beefy; host differences come from the environment (systemd unit) and the script's own location.
+
 Usage: auto_update.py [--dry-run] [project ...]
-Env: COOLDOWN_HOURS (24), TEST_FORCE_FAIL=1 (first functional check fails: rollback drill)
+Env: COOLDOWN_HOURS (24), TEST_FORCE_FAIL=1 (first functional check fails: rollback drill),
+     AUTO_UPDATE_HOST (host label, default the short hostname), AUTO_UPDATE_APPLY_BY (HH:MM local: no registry check or update starts later, the rest is "deferred"),
+     AUTO_UPDATE_MAX_APPLY (projects updated per run, default no limit), AUTO_UPDATE_CONF / _STATE / _TEXTFILE (paths)
 """
 import fcntl
 import json
 import os
+import platform
 import shutil
+import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-REPO = Path("/home/pi/Projects")
+REPO = Path(__file__).resolve().parents[3]
 DOCKER = REPO / "Docker"
 SCRIPTS = DOCKER / "_global" / "scripts"
 CONF = Path(os.environ.get("AUTO_UPDATE_CONF", DOCKER / "_global" / "auto-update.conf"))
 STATE = Path(os.environ.get("AUTO_UPDATE_STATE", "/var/lib/auto-update"))
 TEXTFILE = Path(os.environ.get("AUTO_UPDATE_TEXTFILE", "/var/lib/node-exporter/textfile"))
+HOST = os.environ.get("AUTO_UPDATE_HOST") or socket.gethostname().split(".")[0]
+ARCH = {"aarch64": "arm64", "x86_64": "amd64"}.get(platform.machine(), platform.machine())
+APPLY_BY = os.environ.get("AUTO_UPDATE_APPLY_BY", "")
+MAX_APPLY = int(os.environ.get("AUTO_UPDATE_MAX_APPLY", "0") or 0)
 TIERS = ("auto", "notify", "edge", "edge-auto")
 APPLYING = ("auto", "edge-auto")
 MIN_AVAILABLE_MB = 1200
@@ -76,6 +86,26 @@ def crosses_major(old: str, new: str) -> bool:
     return bool(a and b and a != b)
 
 
+def past_deadline(hhmm: str, now: time.struct_time) -> bool:
+    """True for two hours from HH:MM, so a run by hand at another time of day is not cut short."""
+    if not hhmm:
+        return False
+    h, m = (int(x) for x in hhmm.split(":"))
+    return (h, m) <= (now.tm_hour, now.tm_min) < (h + 2, 0)
+
+
+def build_refs(config: dict) -> set[str]:
+    """Images the project builds itself: never looked up in a registry (with containerd's image store they have RepoDigests too)."""
+    return {s["image"] for s in (config.get("services") or {}).values() if "build" in s and s.get("image")}
+
+
+def pick_digest(manifest: dict, running: list[str], arch: str) -> str:
+    plat = [x["digest"] for x in manifest.get("manifests") or []
+            if (x.get("platform") or {}).get("os") == "linux" and (x.get("platform") or {}).get("architecture") == arch]
+    hit = [d for d in plat if any(x.endswith("@" + d) for x in running)]
+    return hit[0] if hit else manifest.get("digest", "")
+
+
 def update_command(row: dict) -> str:
     svc = f"SERVICES='{' '.join(row['services'])}' " if row["services"] else ""
     tail = "".join(f" {b}" for b in row["backups"])
@@ -91,7 +121,7 @@ def _short(d: str) -> str:
 
 
 QUIET = ("current", "local_build", "waiting")
-PRIORITY = ["rollback_failed", "rolled_back", "error", "major_held", "held_back", "skipped", "updated", "available"]
+PRIORITY = ["rollback_failed", "rolled_back", "error", "major_held", "held_back", "skipped", "updated", "available", "deferred"]
 SUMMARY_BUDGET = 3000
 
 
@@ -99,11 +129,13 @@ def _rank(r: dict) -> int:
     return PRIORITY.index(r["result"]) if r["result"] in PRIORITY else len(PRIORITY)
 
 
-def render_prom(results: list[dict], now: float) -> str:
-    lines = [
-        "# HELP auto_update_result Outcome per image of the last auto-update run (current, waiting, updated, rolled_back, rollback_failed, available, major_held, held_back, skipped, local_build, error).",
-        "# TYPE auto_update_result gauge",
-    ]
+def render_prom(results: list[dict], now: float, host: str = HOST) -> str:
+    """auto_update_result (one per image, result = current|waiting|updated|rolled_back|rollback_failed|available|major_held|held_back|skipped|deferred|local_build|error), auto_update_omitted (noteworthy results left out to keep the Telegram summary under 4096 characters), auto_update_last_run_timestamp_seconds.
+
+    No HELP lines: fastpi republishes beefy's file next to its own, and node-exporter drops a family whose files disagree on HELP (one with, one without, or two versions).
+    """
+    h = f'host="{_esc(host)}"'
+    lines = ["# TYPE auto_update_result gauge"]
     used, omitted, keep = 0, 0, []
     for r in sorted(results, key=_rank):
         if r["result"] in QUIET or r["result"] == "rollback_failed":
@@ -117,27 +149,38 @@ def render_prom(results: list[dict], now: float) -> str:
         keep.append(r)
     keep_ids = {id(r) for r in keep}
     for r in (r for r in results if id(r) in keep_ids):
-        labels = {"project": r["project"], "tier": r["tier"], "ref": r["ref"], "result": r["result"],
+        labels = {"host": host, "project": r["project"], "tier": r["tier"], "ref": r["ref"], "result": r["result"],
                   "from": _short(r.get("from", "")), "to": _short(r.get("to", ""))}
         if r.get("command"):
             labels["command"] = r["command"]
         lines.append("auto_update_result{" + ",".join(f'{k}="{_esc(v)}"' for k, v in labels.items()) + "} 1")
     lines += [
-        "# HELP auto_update_omitted Noteworthy results left out of the metrics to keep the Telegram summary under its 4096-character limit.",
         "# TYPE auto_update_omitted gauge",
-        f"auto_update_omitted {omitted}",
+        f"auto_update_omitted{{{h}}} {omitted}",
     ]
     lines += [
-        "# HELP auto_update_last_run_timestamp_seconds Unix time the last auto-update run finished.",
         "# TYPE auto_update_last_run_timestamp_seconds gauge",
-        f"auto_update_last_run_timestamp_seconds {int(now)}",
+        f"auto_update_last_run_timestamp_seconds{{{h}}} {int(now)}",
     ]
     return "\n".join(lines) + "\n"
 
 
 # ---------------------------------------------------------------- I/O
 
+_docker: list[str] = []
+
+
+def docker_cmd() -> list[str]:
+    """docker, or sudo -n docker for a user outside the docker group (beefy's buntu by hand; its service gets the group)."""
+    if not _docker:
+        ok = subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+        _docker.extend(["docker"] if ok else ["sudo", "-n", "docker"])
+    return _docker
+
+
 def sh(cmd: list[str], timeout: int = 600, **kw) -> subprocess.CompletedProcess:
+    if cmd[0] == "docker":
+        cmd = docker_cmd() + cmd[1:]
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
 
 
@@ -164,6 +207,12 @@ def project_images(row: dict) -> dict[str, str]:
     return out
 
 
+def local_builds(row: dict) -> set[str]:
+    d = DOCKER / row["project"]
+    r = sh(["docker", "compose", "--project-directory", str(d), "config", "--format", "json"], cwd=d)
+    return build_refs(json.loads(r.stdout)) if r.returncode == 0 else set()
+
+
 def repo_digests(image_id: str) -> list[str]:
     r = sh(["docker", "image", "inspect", "-f", "{{json .RepoDigests}}", image_id])
     return json.loads(r.stdout or "[]") or []
@@ -180,11 +229,7 @@ def remote_digest(ref: str, running: list[str]) -> str:
     if r.returncode != 0:
         log(f"  {ref}: registry: {r.stderr.strip()[-160:]}")
         return ""
-    m = json.loads(r.stdout)
-    plat = [x["digest"] for x in m.get("manifests") or []
-            if (x.get("platform") or {}).get("os") == "linux" and (x.get("platform") or {}).get("architecture") == "arm64"]
-    hit = [d for d in plat if any(x.endswith("@" + d) for x in running)]
-    return hit[0] if hit else m.get("digest", "")
+    return pick_digest(json.loads(r.stdout), running, ARCH)
 
 
 def image_version(image: str) -> str:
@@ -194,7 +239,11 @@ def image_version(image: str) -> str:
 
 
 def oob(msg: str) -> None:
-    sh([str(SCRIPTS / "oob-alert.sh"), msg], timeout=60)
+    script = SCRIPTS / "oob-alert.sh"
+    if not script.exists():
+        log("  no oob-alert.sh on this host: the AutoUpdateRollbackFailed alert is the page")
+        return
+    sh([str(script), msg], timeout=60)
 
 
 def apply(row: dict, refs: list[str], images: dict[str, str]) -> dict[str, str]:
@@ -249,19 +298,23 @@ def main(argv: list[str]) -> int:
     state_path = STATE / "state.json"
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     rows = [r for r in parse_conf(CONF.read_text()) if not only or r["project"] in only]
-    results = []
+    results, applied = [], 0
     for row in rows:
         log(f"== {row['project']} ({row['tier']})")
+        if past_deadline(APPLY_BY, time.localtime()):
+            log(f"  deferred: past {APPLY_BY}")
+            results.append({"project": row["project"], "tier": row["tier"], "ref": "-", "result": "deferred"})
+            continue
         try:
             images = project_images(row)
         except Exception as e:  # noqa: BLE001
             log(f"  cannot list containers: {e}")
             results.append({**row, "ref": "-", "result": "error"})
             continue
-        todo = []
+        todo, built = [], local_builds(row)
         for ref, img in sorted(images.items()):
             key = f"{row['project']}|{ref}"
-            running = repo_digests(img)
+            running = [] if ref in built else repo_digests(img)
             if not running:
                 log(f"  {ref}: local build, skipped (its base images are in the CVE scan)")
                 results.append({"project": row["project"], "tier": row["tier"], "ref": ref, "result": "local_build"})
@@ -279,6 +332,13 @@ def main(argv: list[str]) -> int:
                 todo.append(ref)
         if not todo or dry:
             continue
+        late = past_deadline(APPLY_BY, time.localtime()) or (MAX_APPLY and applied >= MAX_APPLY)
+        if late:
+            log(f"  deferred to the next run (deadline {APPLY_BY or '-'}, {applied}/{MAX_APPLY or '-'} applied)")
+            for r in results:
+                if r["project"] == row["project"] and r["ref"] in todo:
+                    r["result"] = "deferred"
+            continue
         floor = resources_ok()
         if floor:
             log(f"  skipped: {floor}")
@@ -286,6 +346,7 @@ def main(argv: list[str]) -> int:
                 if r["project"] == row["project"] and r["ref"] in todo:
                     r["result"] = "skipped"
             continue
+        applied += 1
         outcome = apply(row, todo, images)
         for r in results:
             if r["project"] == row["project"] and r["ref"] in outcome:
@@ -304,6 +365,7 @@ def main(argv: list[str]) -> int:
     tmp = state_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=1, sort_keys=True))
     os.replace(tmp, state_path)
+    TEXTFILE.mkdir(parents=True, exist_ok=True)
     prom = TEXTFILE / "auto_update.prom"
     tmp = TEXTFILE / ".auto_update.prom.tmp"
     tmp.write_text(render_prom(results, time.time()))

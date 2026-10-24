@@ -144,7 +144,7 @@ volumes into `~/backups/pre-update/<date>/<project>/`, pulls (or `build --pull`s
 or just recreates on an already-pulled image), waits 45 s, and requires every
 container to be running (and healthy if it has a healthcheck) with 0 restarts —
 otherwise it re-tags the old image IDs and recreates (automatic rollback).
-`SERVICES="a b"` limits the pull/build to those services (keep gluetun out of it).
+`SERVICES="a b"` limits the pull/build and the recreate (`--no-deps`) to those services, a forced-drill rollback too; the verify still covers every container of the project (keep gluetun out of it).
 For Traefik it first runs `Traefik/scripts/traefik-plugin-test.sh <new tag>` and stops, unchanged, if the local plugins fail on the new version.
 `CHECK='<shell command>'` adds a functional check after the container checks (retried 6 × 10 s); `TEST_FORCE_FAIL=1` forces the rollback (drill). The rollback recreates only the changed or down services and is verified itself: exit 0 ok, 1 rolled back, 3 rollback did not verify.
 It does NOT read release notes for you: majors and the stateful apps listed above
