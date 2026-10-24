@@ -49,6 +49,13 @@ route:
       group_wait: 0s
       repeat_interval: 168h
 
+    # New fixable CVE findings (prometheus/rules/security-posture.yml): one message per batch, nothing when they age out after 24 h.
+    - matchers:
+        - alertname="NewFixableImageVulnerability"
+      receiver: telegram-once
+      group_by: ['alertname']
+      repeat_interval: 168h
+
     # A failing Telegram must not be reported over Telegram: email only. Above the info route, which would send it to Telegram.
     - matchers:
         - alertname="AlertNotificationsFailing"

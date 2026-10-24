@@ -146,6 +146,18 @@ groups:
             /var/lib/security-scan/image-cves-{{ $labels.host }}.txt on fastpi.
             Cross-check Cup at https://cup.holy-grail.ch/ for a newer tag.
 
+      # Per finding, not per count: fires for each fixable CRITICAL/HIGH (image, CVE, package) first seen in the last 24 h, from the hourly code scan (scope code-<repo>) or the nightly running-image scan (scope = host). Images new to the scan are baselined, so this is "a new CVE in something we already run", not the backlog. Routed to telegram-once grouped by alertname: one message per batch of new findings, none when they age out.
+      - alert: NewFixableImageVulnerability
+        expr: security_new_vuln_info == 1
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.scope }}: new fixable {{ $labels.severity }} {{ $labels.id }} in {{ $labels.image }} ({{ $labels.pkg }})"
+          description: >-
+            Update the image (Cup: https://cup.holy-grail.ch/). All findings:
+            /var/lib/security-scan/code-cves-<repo>.txt or image-cves-<host>.txt on fastpi.
+
       - alert: ImagesUnscannable
         expr: security_images_unscannable > 0
         for: 1d

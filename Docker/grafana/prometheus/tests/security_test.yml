@@ -209,3 +209,20 @@ tests:
             exp_annotations:
               summary: "fastpi: 3 NEW fixable critical CVE(s) since yesterday"
               description: "The count of FIXABLE critical CVEs in images running on fastpi rose by 3 since the last daily scan - a new critical disclosure or a new image. Act today: update the affected image(s). Worst first: /var/lib/security-scan/image-cves-fastpi.txt on fastpi. Cross-check Cup at https://cup.holy-grail.ch/ for a newer tag."
+
+  - name: a new fixable finding pages once per series, nothing without one
+    interval: 1h
+    input_series:
+      - series: 'security_new_vuln_info{scope="code-fastpi",image="caddy:alpine",id="CVE-2026-1",pkg="openssl",severity="CRITICAL"}'
+        values: '1 1 _ _'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: NewFixableImageVulnerability
+        exp_alerts:
+          - exp_labels: {severity: info, scope: code-fastpi, image: "caddy:alpine", id: CVE-2026-1, pkg: openssl}
+            exp_annotations:
+              summary: "code-fastpi: new fixable CRITICAL CVE-2026-1 in caddy:alpine (openssl)"
+              description: "Update the image (Cup: https://cup.holy-grail.ch/). All findings: /var/lib/security-scan/code-cves-<repo>.txt or image-cves-<host>.txt on fastpi."
+      - eval_time: 3h
+        alertname: NewFixableImageVulnerability
+        exp_alerts: []
