@@ -101,7 +101,7 @@ check "containers expected but down" '^0$' "$(curl -s -m 5 -G --data-urlencode '
 check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]}; w={"ContainerDown","ContainerCrashLooping","ContainerUnhealthy","ContainerExporterStale","HostRebooted","HostRebootedUnclean"}; print("ok" if w<=n else "missing " + " ".join(sorted(w-n)))')"
 
 echo "== Apps on fastpi"
-running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
 check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
 check "clamav-hostscan timer active" '^active$' "$(systemctl is-active clamav-hostscan.timer)"
 if [[ -f /var/lib/node-exporter/textfile/clamav.prom ]]; then
@@ -125,6 +125,7 @@ check "home assistant sso-only"     '^auth_oidc$' "$(curl -s -m 5 http://192.168
 check "m4b dashboard"              '^200$' "$(http http://192.168.1.2:8099/)"
 check "stonks"                     '^(200|30[23])$' "$(http https://stonks.holy-grail.ch/)"
 check "claude-mockups -> sso"      '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 https://claude-mockups.holy-grail.ch/ | cut -c1-60)"
+check "server-specs -> sso"       '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve specs.holy-grail.ch:443:192.168.1.2 https://specs.holy-grail.ch/ | cut -c1-60)"
 check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 -X POST --data '{}' https://claude-mockups.holy-grail.ch/_inbox/submit | cut -c1-40)"
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
 check "tower waker v1.2.0"         '1\.2\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
