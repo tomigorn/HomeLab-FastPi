@@ -15,7 +15,8 @@ groups:
           description: |-
             {{ range query `auto_update_result{result!~"current|local_build|waiting"}` | sortByLabel "project" }}<b>{{ .Labels.project }}</b> {{ .Labels.ref }}: {{ .Labels.result }} ({{ .Labels.from }} → {{ .Labels.to }}){{ with .Labels.command }}
             <code>{{ . }}</code>{{ end }}
-            {{ end }}Waiting out the cool-down: {{ with query `count(auto_update_result{result="waiting"})` }}{{ . | first | value }}{{ else }}0{{ end }}. Log: journalctl -u auto-update
+            {{ end }}{{ with query `auto_update_omitted` }}{{ if gt (. | first | value) 0.0 }}… {{ . | first | value | printf "%.0f" }} more, see journalctl -u auto-update
+            {{ end }}{{ end }}Waiting out the cool-down: {{ with query `count(auto_update_result{result="waiting"})` }}{{ . | first | value }}{{ else }}0{{ end }}. Log: journalctl -u auto-update
 
       # The update failed its checks AND the rollback did not verify: something is down now. The script has also paged out of band (oob-alert.sh).
       - alert: AutoUpdateRollbackFailed
