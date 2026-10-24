@@ -24,7 +24,7 @@ Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 
 - Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`; in `clamav-hostscan` `/etc/x` = `/host/etc/x`.
 - "Changed" = ctime or mtime newer than the marker, so unpacked archives with old mtimes count. First run (no marker): the last 24 h.
-- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
+- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, qBittorrent's own `*/qBittorrent/logs/*` (written 0600, unreadable to the scanner), `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
 - A file deleted between listing and scanning (clamscan `No such file or directory` + `Can't access file`) is not an error: counted in `clamav_files_vanished`. Unreadable files and other failures stay errors.
 - Exit codes: `0` clean, `1` infected, `2` errors. On errors `new` keeps its marker, so the next run retries the same files.
 - The quarantine folder must exist: when seagate-red is not mounted every run fails with exit 2 instead of scanning an empty mountpoint.
