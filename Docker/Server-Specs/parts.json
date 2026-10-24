@@ -1,8 +1,8 @@
 {
   "fastpi": [
-    {"part": "Cooler", "model": "Raspberry Pi Active Cooler (fan + heatsink)", "at": "cooler"},
-    {"part": "NVMe HAT", "model": "Geekworm X1001 PCIe to M.2 shield", "at": "hat"},
-    {"part": "Case", "model": "DIYzone 3-layer open acrylic case", "at": "case"},
-    {"part": "Power", "model": "Raspberry Pi 27 W USB-C (5.1 V / 5 A)", "at": "power"}
+    {"part": "Cooler", "make": "Raspberry Pi", "model": "Active Cooler (fan + heatsink)", "at": "cooler"},
+    {"part": "NVMe HAT", "make": "Geekworm", "model": "X1001 PCIe to M.2 NVMe shield", "at": "hat"},
+    {"part": "Case", "make": "DIYzone", "model": "3-layer open acrylic case", "at": "case"},
+    {"part": "Power", "make": "Raspberry Pi", "model": "27 W USB-C power supply (5.1 V / 5 A)", "at": "power"}
   ]
 }

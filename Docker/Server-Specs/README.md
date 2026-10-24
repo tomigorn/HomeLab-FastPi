@@ -11,14 +11,14 @@ Blueprint page of fastpi, beefy and tower (hardware only: no serials, MACs, IPs 
 cd ~/Projects/Docker/Server-Specs && python3 collect.py && python3 render.py
 ```
 
-No restart needed. beefy and tower are read over `beefy-direct` / `tower-direct` (never woken); an asleep host keeps its previous entry and date.
+Every part shows make + model, plus speed where it applies (`Make Model · speed · size`); an unreadable make shows `unknown`. No restart needed. beefy and tower are read over `beefy-direct` / `tower-direct` (never woken); an asleep host keeps its previous entry and date.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `collect.py` | reads the hardware into `data/specs.json` (gitignored) |
-| `parts.json` | parts no tool can read (case, cooler, HAT, power), per machine; `at` (fastpi: `cooler`, `hat`, `case`, `power`) puts a label on the drawing, without `at` only the spec list. Edit, then `python3 render.py` |
+| `collect.py` | reads the hardware into `data/specs.json` (gitignored); tower is seeded from notes in `notes_tower` (make, model, speeds) while asleep |
+| `parts.json` | parts no tool can read (case, cooler, HAT, power), per machine, each `{part, make, model, at}`; `at` (fastpi: `cooler`, `hat`, `case`, `power`) puts a label on the drawing, without `at` only the spec list. Edit, then `python3 render.py` |
 | `render.py`, `drawings.py` | builds `www/index.html` (gitignored) with inline SVG |
 | `test_collect.py`, `test_render.py` | `python3 test_*.py` |
 | `docker-compose.yaml`, `Caddyfile` | the static server |

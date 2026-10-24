@@ -31,14 +31,13 @@ dl.spec{display:grid}
 
 
 def spec_rows(m):
-    c = m["cpu"]
-    ram = drawings.ram_sub(m["ram"])
-    rows = [("CPU", drawings.cpu_sub(c)), ("RAM", ram), ("Board", drawings.board_sub(m))]
+    m = drawings.normalize(m)
+    rows = [("CPU", drawings.cpu_sub(m["cpu"])), ("RAM", drawings.ram_sub(m["ram"])), ("Board", drawings.board_sub(m))]
     for d in m["disks"]:
-        rows.append(("NVMe" if d["kind"] == "nvme" else drawings.KIND.get(d["kind"], d["kind"]), f'{d["model"]} · {d["size"]}'))
+        rows.append(("NVMe" if d["kind"] == "nvme" else drawings.KIND.get(d["kind"], d["kind"]), drawings.disk_sub(d)))
     if m.get("network"):
-        rows.append(("Network", m["network"]))
-    rows += [(p["part"], p["model"]) for p in m.get("parts", [])]
+        rows.append(("Network", drawings.net_sub(m["network"])))
+    rows += [(p["part"], drawings.part_sub(p)) for p in m.get("parts", [])]
     return rows
 
 

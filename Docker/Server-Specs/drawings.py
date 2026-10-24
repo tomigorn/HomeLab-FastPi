@@ -15,7 +15,7 @@ def esc(s):
     return html.escape(str(s))
 
 
-def wrap(text, width=33, maxlines=3):
+def wrap(text, width=33, maxlines=4):
     lines = textwrap.wrap(text, width, break_long_words=True) or [""]
     if len(lines) > maxlines:
         lines = lines[:maxlines]
@@ -91,64 +91,84 @@ def layout(callouts, h_min):
             return h, f'<g stroke="{LEAD}" stroke-width="1.2" fill="none">{"".join(leaders)}</g><g fill="{INK}">{"".join(texts)}</g>'
 
 
-def clean_cpu(model):
-    s = re.sub(r"\((R|TM)\)", "", model)
-    s = re.sub(r"@.*$", "", s)
-    s = re.sub(r"\b\d+(st|nd|rd|th) Gen\b", "", s)
-    s = re.sub(r"\bCPU\b", "", s)
-    return re.sub(r"\s+", " ", s).strip()
+def unk(v):
+    return (v or "").strip() or "unknown"
 
 
-def clean_board(model):
-    s = re.sub(r"\bCo\.?,?\s*Ltd\.?", "", model)
-    s = re.sub(r"\b(Technology|Corporation|Inc)\b\.?,?", "", s)
-    return re.sub(r"\s+", " ", s).strip(" ,.")
+def make_model(make, model):
+    return f"{unk(make)} {model or ''}".strip()
 
 
-def short_gpu(g):
-    m = re.search(r"\[(.+?)\]", g)
-    name = m.group(1) if m else re.sub(r"\(rev [^)]*\)", "", g).strip()
-    for v in ("Intel", "AMD", "NVIDIA"):
-        if v in g and v not in name:
-            name = f"{v} {name}"
-            break
-    return name
+def normalize(m):
+    m = dict(m)
+    if "board" not in m:
+        m["board"] = {"make": "unknown", "model": m.get("model", "")}
+    if isinstance(m.get("graphics"), str):
+        m["graphics"] = {"make": "unknown", "model": m["graphics"]}
+    if isinstance(m.get("network"), str):
+        m["network"] = {"make": "unknown", "model": "", "speed": m["network"]}
+    return m
+
+
+def ghz(c):
+    base, top = c.get("base_ghz"), c.get("max_ghz")
+    if base and top and base != top:
+        return f"{base:g}–{top:g} GHz"
+    v = top or base
+    return f"{v:g} GHz" if v else None
+
+
+def join(*parts):
+    return " · ".join(p for p in parts if p)
 
 
 def cpu_sub(c):
-    s = f'{clean_cpu(c["model"])} · {c["cores"]}C/{c["threads"]}T'
-    return s + (f' · up to {c["max_ghz"]} GHz' if c.get("max_ghz") else "")
+    return join(make_model(c.get("make"), c.get("model")), f'{c["cores"]}C/{c["threads"]}T', ghz(c))
 
 
 def ram_sub(r):
-    mods = r.get("modules") or []
-    if not mods:
-        return f'{r["total_gb"]} GB'
-    sizes = {(m["size_gb"], m.get("type", "")) for m in mods}
-    if len(sizes) == 1:
-        size, typ = next(iter(sizes))
-        s = f'{len(mods)} × {size} GB {typ}'.strip()
-    else:
-        s = " + ".join(str(m["size_gb"]) for m in mods) + " GB " + (mods[0].get("type") or "")
-        s = s.strip()
-    return s + (f' · {r["total_gb"]} GB' if len(mods) > 1 else "")
+    groups = {}
+    for mod in r.get("modules") or []:
+        k = (mod.get("make"), mod.get("part") or "", mod.get("type") or "", mod.get("speed_mts"))
+        groups.setdefault(k, []).append(mod["size_gb"])
+    if not groups:
+        return join("unknown", f'{r["total_gb"]} GB')
+    out = []
+    for (make, part, typ, speed), sizes in groups.items():
+        kind = f"{typ}-{speed}" if typ and speed else typ
+        name = make_model(make, "" if part == typ else part)
+        out.append(join((f"{len(sizes)}× " if len(sizes) > 1 else "") + name, kind, f"{sum(sizes)} GB"))
+    return " + ".join(out)
+
+
+def disk_sub(d, each=False):
+    s = join(make_model(d.get("make"), d["model"]), d.get("link"), f'{d["rpm"]} rpm' if d.get("rpm") else None, d["size"])
+    return s + (" each" if each else "")
+
+
+def net_sub(n):
+    return join(make_model(n.get("make"), n.get("model")), n.get("speed"))
 
 
 def board_sub(m):
-    s = clean_board(m["model"])
-    return s + (f' · {short_gpu(m["graphics"])}' if m.get("graphics") else "")
+    g = m.get("graphics")
+    return join(make_model(m["board"].get("make"), m["board"].get("model")), make_model(g.get("make"), g.get("model")) if g else None)
+
+
+def part_sub(p):
+    return make_model(p.get("make"), p["model"])
 
 
 def disk_callouts(disks, coords, side_of):
     groups = {}
     for i, d in enumerate(disks):
-        groups.setdefault((d["kind"], d["model"], d["size"]), []).append(i)
+        groups.setdefault((d["kind"], d.get("make"), d["model"], d["size"], d.get("link"), d.get("rpm")), []).append(i)
     out = []
-    for (kind, model, size), idx in groups.items():
+    for (kind, *_), idx in groups.items():
         n = len(idx)
         px, py = coords[idx[0]]
         out.append({"side": side_of(px), "px": px, "py": py, "title": KIND.get(kind, kind.upper()) + (f" ×{n}" if n > 1 else ""),
-                    "sub": f"{model} · {size}" + (" each" if n > 1 else "")})
+                    "sub": disk_sub(disks[idx[0]], each=n > 1)})
     return out
 
 
@@ -169,7 +189,7 @@ def common_callouts(m, side_cpu="L"):
 
 def part_callouts(m, anchors):
     """Hand-listed parts (parts.json) with an `at` this shape knows get a label; the rest only appear in the spec list."""
-    return [{"side": anchors[p["at"]][2], "px": anchors[p["at"]][0], "py": anchors[p["at"]][1], "title": p["part"].upper(), "sub": p["model"]}
+    return [{"side": anchors[p["at"]][2], "px": anchors[p["at"]][0], "py": anchors[p["at"]][1], "title": p["part"].upper(), "sub": part_sub(p)}
             for p in m.get("parts", []) if p.get("at") in anchors]
 
 
@@ -206,7 +226,7 @@ def draw_tower(m):
     cs[1].update(px=505, py=150)
     cs[2].update(px=470, py=110)
     if m.get("network"):
-        cs.append({"side": "L", "px": 369, "py": 140, "title": "NETWORK", "sub": m["network"]})
+        cs.append({"side": "L", "px": 369, "py": 140, "title": "NETWORK", "sub": net_sub(m["network"])})
     cs.append({"side": "L", "px": 420, "py": 410, "title": "PSU", "sub": None})
     cs += disk_callouts(m["disks"], coords, lambda x: "L" if x < 480 else "R")
     return "".join(b), cs, 520
@@ -254,7 +274,7 @@ def draw_sbc(m):
     cs[1].update(px=515, py=158)
     cs[2].update(side="L", px=352, py=92, title="BOARD")
     if m.get("network"):
-        cs.append({"side": "R", "px": 624, "py": 209, "title": "NETWORK", "sub": m["network"]})
+        cs.append({"side": "R", "px": 624, "py": 209, "title": "NETWORK", "sub": net_sub(m["network"])})
     cs += disk_callouts(m["disks"], coords, lambda x: "L" if x < 490 else "R")
     cs += part_callouts(m, SBC_ANCHORS)
     return "".join(b), cs, 450
@@ -285,7 +305,7 @@ def draw_nas(m):
     cs[1].update(px=484, py=140)
     cs[2].update(side="L", px=370, py=255)
     if m.get("network"):
-        cs.append({"side": "L", "px": 356, "py": 130, "title": "NETWORK", "sub": m["network"]})
+        cs.append({"side": "L", "px": 356, "py": 130, "title": "NETWORK", "sub": net_sub(m["network"])})
     cs += disk_callouts(m["disks"], coords, lambda x: "R")
     return "".join(b), cs, 440
 
@@ -296,6 +316,7 @@ SHAPES = {"sbc": draw_sbc, "tower": draw_tower, "nas": draw_nas}
 def draw(m, uid=None):
     if m["shape"] not in SHAPES:
         raise ValueError(f'unknown shape {m["shape"]!r} for machine {m["name"]!r}')
+    m = normalize(m)
     body, cs, h0 = SHAPES[m["shape"]](m)
     h, lab = layout(cs, h0)
     return frame(uid or slug(m["name"]), h, body + lab, f'{m["name"]} drawing')
