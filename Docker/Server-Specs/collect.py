@@ -62,6 +62,10 @@ def parse_free_gb(text):
     raise ValueError("no Mem line")
 
 
+def total_ram_gb(modules, free_gb):
+    return sum(m["size_gb"] for m in modules) or free_gb
+
+
 def human_size(n):
     if n >= 10**12:
         t = round(n / 10**12, 1)
@@ -137,7 +141,8 @@ def sections(text):
 def build_machine(name, role, shape, text, today):
     s = sections(text)
     cpu = parse_lscpu(s["lscpu"])
-    ram_total = parse_free_gb(s["free"])
+    modules = parse_dmidecode_memory(s.get("memory", ""))
+    ram_total = total_ram_gb(modules, parse_free_gb(s["free"]))
     gpu = re.sub(r"^\S+\s+VGA compatible controller:\s*", "", s.get("gpu", "").splitlines()[0]) if s.get("gpu") else None
     speed = s.get("speed", "").strip()
     network = f"{int(speed) // 1000 if int(speed) >= 1000 else int(speed)} {'Gbit/s' if int(speed) >= 1000 else 'Mbit/s'}" if speed.lstrip("-").isdigit() and int(speed) > 0 else None
@@ -149,7 +154,7 @@ def build_machine(name, role, shape, text, today):
         "os": s.get("osrel", "").strip() or "Linux",
         "model": parse_board(s.get("dmi"), s.get("sysfs_vendor"), s.get("sysfs_name"), s.get("dt")),
         "cpu": cpu,
-        "ram": {"total_gb": ram_total, "modules": parse_dmidecode_memory(s.get("memory", ""))},
+        "ram": {"total_gb": ram_total, "modules": modules},
         "graphics": gpu,
         "disks": parse_lsblk(s["lsblk"], TOWER_MIN_BYTES if shape == "nas" else 0),
         "network": network,

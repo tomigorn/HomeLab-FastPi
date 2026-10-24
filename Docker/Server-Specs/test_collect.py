@@ -9,6 +9,7 @@ from collect import (
     parse_free_gb,
     parse_lscpu,
     parse_lsblk,
+    total_ram_gb,
 )
 
 LSCPU = """Architecture:                         x86_64
@@ -96,6 +97,11 @@ def test_parse_dmidecode_memory_skips_empty_slots():
         {"size_gb": 8, "type": "DDR4"},
         {"size_gb": 8, "type": "DDR4"},
     ]
+
+
+def test_total_ram_prefers_module_sum():
+    assert total_ram_gb([{"size_gb": 32, "type": "DDR4"}, {"size_gb": 32, "type": "DDR4"}], 61) == 64
+    assert total_ram_gb([], 8) == 8
 
 
 def test_parse_board_from_dmidecode():
