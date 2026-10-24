@@ -5,6 +5,8 @@
 # (bind dirs or "vol:<name>"), update, wait, verify every container of the
 # project is running (and healthy if it has a healthcheck) with no crash loop;
 # on failure re-tag the old images and recreate (automatic rollback).
+# Env: SERVICES (pull/build only these), WAIT (45), CHECK (functional check, a shell command; retried CHECK_TRIES=6 times 10 s apart),
+#      TEST_FORCE_FAIL=1 (the verify fails: rollback drill). Exit 0 ok, 1 rolled back, 3 rollback did not verify.
 set -uo pipefail
 dir=$1; mode=$2; shift 2
 cd "$dir" || { echo "FAIL $dir: no such dir"; exit 2; }
@@ -41,7 +43,7 @@ esac
 docker compose up -d --remove-orphans 2>&1 | grep -E 'Recreat|Creat|Error|error' | head -8
 
 sleep "${WAIT:-45}"
-ok=1
+ok=1; svcs=""
 for n in "${!oldid[@]}"; do
   IFS='|' read -r _ oldimg oldcid oldrc <<< "${oldid[$n]}"
   info=$(docker inspect -f '{{.State.Status}}|{{if index .State "Health"}}{{(index .State "Health").Status}}{{else}}nohc{{end}}|{{.Image}}|{{.Id}}|{{.RestartCount}}' "$n" 2>/dev/null || echo "missing|-|-|-|0")
@@ -53,12 +55,29 @@ for n in "${!oldid[@]}"; do
   if [[ "$newcid" == "$oldcid" ]]; then crashloop=$(( newrc > oldrc )); else crashloop=$(( newrc >= 2 )); fi
   upd=$( [[ "$newimg" == "$oldimg" ]] && echo unchanged || echo UPDATED )
   echo "  after : $n $status $health rc=$oldrc->$newrc  image $upd"
+  [[ $upd == UPDATED || $status != running ]] && svcs+=" $(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$n" 2>/dev/null)"
   [[ $status == running && ( $health == healthy || $health == nohc || $health == starting ) && $crashloop -eq 0 ]] || ok=0
 done
+if (( ok )) && [[ -n ${CHECK:-} ]]; then
+  for i in $(seq 1 "${CHECK_TRIES:-6}"); do bash -c "$CHECK" >/dev/null 2>&1 && break; (( i < ${CHECK_TRIES:-6} )) && sleep 10; done \
+    && echo "  check : OK ($CHECK)" || { echo "  check : FAIL ($CHECK)"; ok=0; }
+fi
+[[ ${TEST_FORCE_FAIL:-0} == 1 ]] && { echo "  check : FAIL (forced by TEST_FORCE_FAIL)"; ok=0; }
 if (( ok )); then echo "OK $proj"; exit 0; fi
 
-echo "ROLLBACK $proj"
+echo "ROLLBACK $proj${svcs:+ (only:$svcs)}"
 for n in "${!oldid[@]}"; do IFS='|' read -r ref iid _ _ <<< "${oldid[$n]}"; docker tag "$iid" "$ref" 2>/dev/null; done
-docker compose up -d --force-recreate 2>&1 | tail -3; sleep 20
+# only what changed or is down; nothing changed (a forced drill) = the whole project
+docker compose up -d --force-recreate $svcs 2>&1 | tail -3; sleep 20
 docker compose ps --format '{{.Name}} {{.Status}}'
-exit 1
+back=1
+for n in "${!oldid[@]}"; do
+  IFS='|' read -r _ oldimg _ _ <<< "${oldid[$n]}"
+  [[ $(docker inspect -f '{{.State.Status}} {{.Image}}' "$n" 2>/dev/null) == "running $oldimg" ]] || { echo "  rollback: $n not running on its old image"; back=0; }
+done
+if (( back )) && [[ -n ${CHECK:-} ]]; then
+  for i in $(seq 1 "${CHECK_TRIES:-6}"); do bash -c "$CHECK" >/dev/null 2>&1 && break; (( i < ${CHECK_TRIES:-6} )) && sleep 10; done || { echo "  rollback: check still failing"; back=0; }
+fi
+(( back )) && { echo "ROLLED BACK $proj"; exit 1; }
+echo "ROLLBACK FAILED $proj"
+exit 3
