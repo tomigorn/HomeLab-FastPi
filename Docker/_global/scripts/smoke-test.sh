@@ -189,7 +189,7 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   check "portainer agent"          'portainer/agent:2\.45\.3 Up' "$(grep portainer <<<"$r")"
   for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
   for s in ryot ryot-db ryot-go; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
-  check "ryot version"             'ryot:v10\.5\.3 ' "$(grep '^ryot ' <<<"$r")"
+  check "ryot version"             'ryot:v10\.5\.4 ' "$(grep '^ryot ' <<<"$r")"
   check "ryot backup < 2 days"     '^ryotbackup=yes$' "$(grep ryotbackup= <<<"$r")"
 else skip "beefy" "asleep - not woken"; fi
 
