@@ -146,10 +146,15 @@ container to be running (and healthy if it has a healthcheck) with 0 restarts â€
 otherwise it re-tags the old image IDs and recreates (automatic rollback).
 `SERVICES="a b"` limits the pull/build to those services (keep gluetun out of it).
 For Traefik it first runs `Traefik/scripts/traefik-plugin-test.sh <new tag>` and stops, unchanged, if the local plugins fail on the new version.
+`CHECK='<shell command>'` adds a functional check after the container checks (retried 6 Ã— 10 s); `TEST_FORCE_FAIL=1` forces the rollback (drill). The rollback recreates only the changed or down services and is verified itself: exit 0 ok, 1 rolled back, 3 rollback did not verify.
 It does NOT read release notes for you: majors and the stateful apps listed above
 still get the manual treatment.
 
 ---
+
+## Automatically updated: tiered nightly run
+
+`scripts/auto_update.py` (daily 03:10, `auto-update.timer`) moves the digest behind the tags in the repo for the `auto` stacks in `auto-update.conf` (24 h cool-down, `CHECK` per stack, rollback) and reports the rest with the command. Tiers, switches, risks: `Server/4-Security-Monitoring/auto-updates.md`.
 
 ## Automatically updated: CrowdSec
 
