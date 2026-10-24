@@ -1,0 +1,5 @@
+# Static server for www/. Login, TLS, rate limit and headers are handled by Traefik.
+:80 {
+	root * /srv
+	file_server
+}
