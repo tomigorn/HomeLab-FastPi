@@ -1182,10 +1182,13 @@ def refresh_sboms(platform: str, refs: list[str], index: dict) -> None:
                             "--skip-db-update", "--skip-java-db-update", "--quiet",
                             "--format", "cyclonedx", "--output", f"/sbom/{name}.cdx.json", "--timeout", "10m", ref])
         ok = r.returncode == 0 and (SBOM_DIR / f"{name}.cdx.json").exists()
-        if not ok:
+        local = not ok and bool(_REGISTRY_MISSING_RE.search(r.stderr))
+        if local:
+            print(f"  local-only {platform} {ref}: not in any registry, skipped", file=sys.stderr)
+        elif not ok:
             print(f"  sbom failed {platform} {ref}: {r.stderr.strip()[-160:]}", file=sys.stderr)
         prev = index.get(f"{platform}|{ref}", {})
-        index[f"{platform}|{ref}"] = {"made": time.time(), "ok": ok or prev.get("ok", False), "ref": ref, "platform": platform}
+        index[f"{platform}|{ref}"] = {"made": time.time(), "ok": ok or prev.get("ok", False), "local": local, "ref": ref, "platform": platform}
 
 
 def match_sboms(names: list[str]) -> dict[str, dict]:

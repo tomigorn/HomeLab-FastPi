@@ -1105,6 +1105,20 @@ def test_sbom_refresh_order_missing_first_then_oldest_stale():
     assert sbom_refresh_order(["c"], index, now=90000, max_age=86400, budget=4) == []
 
 
+def test_refresh_sboms_marks_registry_missing_ref_local_not_failed():
+    import contextlib, io, subprocess, tempfile
+    saved = (security_scan._trivy_mounted, security_scan.SBOM_DIR)
+    try:
+        security_scan.SBOM_DIR = Path(tempfile.mkdtemp())
+        security_scan._trivy_mounted = lambda *a, **k: subprocess.CompletedProcess(a, 1, "", "UNAUTHORIZED: authentication required")
+        index, err = {}, io.StringIO()
+        with contextlib.redirect_stderr(err):
+            security_scan.refresh_sboms("linux/arm64", ["stonks:latest"], index)
+        assert index["linux/arm64|stonks:latest"]["local"] is True
+        assert "sbom failed" not in err.getvalue() and "local-only" in err.getvalue()
+    finally:
+        security_scan._trivy_mounted, security_scan.SBOM_DIR = saved
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
