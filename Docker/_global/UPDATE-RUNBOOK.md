@@ -139,9 +139,7 @@ CVE round, 20 projects, 1 automatic rollback):
 _global/scripts/update-project.sh <compose-dir> pull|build|recreate [backup paths...]
 ```
 
-It snapshots the running image IDs, tars the given bind dirs / `vol:<name>`
-volumes into `~/backups/pre-update/<date>/<project>/`, pulls (or `build --pull`s,
-or just recreates on an already-pulled image), waits 45 s, and requires every
+It snapshots the running image IDs, pulls (or `build --pull`s, or just recreates on an already-pulled image), then, only when backup paths are given, stops the services and tars the given bind dirs / `vol:<name>` volumes cold into `~/backups/pre-update/<date>/<project>/` (a live Postgres/SQLite/InfluxDB copy can be torn), starts them on the new image, waits 45 s, and requires every
 container to be running (and healthy if it has a healthcheck) with 0 restarts —
 otherwise it re-tags the old image IDs and recreates (automatic rollback).
 `SERVICES="a b"` limits the pull/build and the recreate (`--no-deps`) to those services, a forced-drill rollback too; the verify still covers every container of the project (keep gluetun out of it).
