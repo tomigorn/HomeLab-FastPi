@@ -30,6 +30,22 @@ def totp(b32, at=None):
     return "%06d" % (val % 1000000)
 
 
+def open_app(opener, url, expect):
+    """With the logged-in session, follow a forward-auth app through the outpost and look for `expect` on the page."""
+    try:
+        with opener.open(urllib.request.Request(url), timeout=30) as resp:
+            body = resp.read().decode(errors="replace")
+            final = resp.geturl()
+    except Exception as e:  # noqa: BLE001
+        print(f"APP_FAIL: {url}: {e}")
+        return 1
+    if expect in body:
+        print(f"APP_OK: {final} contains {expect!r}")
+        return 0
+    print(f"APP_FAIL: {final} lacks {expect!r}")
+    return 1
+
+
 def main():
     user, pw, b32 = load_creds()
     jar = http.cookiejar.CookieJar()
@@ -70,7 +86,7 @@ def main():
             d = req("POST", {"component": "ak-stage-user-login", "remember_me": True})
         elif comp == "xak-flow-redirect" or d.get("type") == "redirect":
             print("LOGIN_OK: reached", comp or d.get("type"))
-            return 0
+            return open_app(opener, *sys.argv[1:3]) if len(sys.argv) > 2 else 0
         else:
             print("LOGIN_FAIL: unexpected stage", comp)
             return 1
