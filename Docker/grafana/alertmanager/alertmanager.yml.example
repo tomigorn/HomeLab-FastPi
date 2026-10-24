@@ -42,6 +42,13 @@ route:
       group_wait: 0s
       repeat_interval: 168h
 
+    # Nightly auto-update summary (prometheus/rules/auto-updates.yml): fires for the hour after the 03:10 run, same no-resolved receiver.
+    - matchers:
+        - alertname="AutoUpdateNightly"
+      receiver: telegram-digest
+      group_wait: 0s
+      repeat_interval: 168h
+
     # A failing Telegram must not be reported over Telegram: email only. Above the info route, which would send it to Telegram.
     - matchers:
         - alertname="AlertNotificationsFailing"

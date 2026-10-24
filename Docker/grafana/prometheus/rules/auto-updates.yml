@@ -1,0 +1,39 @@
+# Nightly image auto-update (Docker/_global/scripts/auto_update.py, 03:10). Doc: Server/4-Security-Monitoring/auto-updates.md. Tests: tests/auto-updates_test.yml
+groups:
+  - name: auto-updates
+    rules:
+      # One Telegram per night when anything happened; fires for the first hour after the run, routed to telegram-digest (no resolved message), so each night is a new message.
+      - alert: AutoUpdateNightly
+        expr: |-
+          count(auto_update_result{result!~"current|local_build|waiting"}) > 0
+            and on() (time() - auto_update_last_run_timestamp_seconds < 3600)
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Nightly auto-update"
+          description: |-
+            {{ range query `auto_update_result{result!~"current|local_build|waiting"}` | sortByLabel "project" }}<b>{{ .Labels.project }}</b> {{ .Labels.ref }}: {{ .Labels.result }} ({{ .Labels.from }} → {{ .Labels.to }}){{ with .Labels.command }}
+            <code>{{ . }}</code>{{ end }}
+            {{ end }}Waiting out the cool-down: {{ with query `count(auto_update_result{result="waiting"})` }}{{ . | first | value }}{{ else }}0{{ end }}. Log: journalctl -u auto-update
+
+      # The update failed its checks AND the rollback did not verify: something is down now. The script has also paged out of band (oob-alert.sh).
+      - alert: AutoUpdateRollbackFailed
+        expr: auto_update_result{result="rollback_failed"} == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.project }}: auto-update rollback failed"
+          description: |-
+            {{ $labels.ref }} ({{ $labels.from }} → {{ $labels.to }}) failed verification and the rollback did not verify.
+            cd /home/pi/Projects/Docker/{{ $labels.project }} && docker compose ps ; journalctl -u auto-update ; backups in ~/backups/pre-update/
+
+      - alert: AutoUpdateNotRunning
+        expr: time() - auto_update_last_run_timestamp_seconds > 2 * 86400
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Nightly auto-update has not run for {{ $value | humanizeDuration }}"
+          description: "systemctl status auto-update.timer auto-update.service ; journalctl -u auto-update"
