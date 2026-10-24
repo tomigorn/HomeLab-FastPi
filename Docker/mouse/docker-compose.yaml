@@ -379,7 +379,7 @@ services:
       - "127.0.0.1:${WEB_PORT:-8088}:${WEB_PORT:-8088}"
     # Real docker.sock REMOVED (2026-09-26) - it is root on the host. This script
     # only inspects and restarts/stops a few named containers, so it uses the
-    # docker CLI against socket-proxy-autoheal (container inspect + start/stop/restart, no create/exec, no images, no
+    # docker CLI against socket-proxy-portupdater (start/stop/restart of its four containers only, inspect of gluetun_mouse, no create/exec, no images, no
     # volumes, no networks). The CLI honours DOCKER_HOST.
     volumes:
       - port-updater-data:/data
@@ -391,7 +391,7 @@ services:
     networks:
       mouse_network:
         ipv4_address: 172.32.0.3
-      socket_proxy_heal:
+      socket_proxy_portupdater:
       traefik_proxy:
     depends_on:
       gluetun:
@@ -399,7 +399,7 @@ services:
       qbittorrent:
         condition: service_started
     environment:
-      - DOCKER_HOST=tcp://socket-proxy-autoheal:2375
+      - DOCKER_HOST=tcp://socket-proxy-portupdater:2375
       - QBIT_USER=admin
       - QBIT_PASS_FILE=/run/secrets/qbit_pass
       - CHECK_INTERVAL=600
@@ -446,6 +446,8 @@ secrets:
 # =========================================================
 networks:
   socket_proxy_heal:
+    external: true
+  socket_proxy_portupdater:
     external: true
   traefik_proxy:
     external: true
