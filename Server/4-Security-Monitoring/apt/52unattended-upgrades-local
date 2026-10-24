@@ -1,0 +1,8 @@
+// Prepared, not installed. Adds the Raspberry Pi Foundation archive (kernel, firmware, raspi tools) to the Debian + Debian-Security origins of 50unattended-upgrades.
+// Docker, HashiCorp, OpenTofu, CISOfy stay manual: a docker-ce upgrade restarts the daemon. No automatic reboot: fastpi must never reboot unattended; a new kernel waits for the next attended reboot.
+// Install: see Server/4-Security-Monitoring/auto-updates.md "OS packages".
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Raspberry Pi Foundation,codename=${distro_codename},label=Raspberry Pi Foundation";
+};
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
