@@ -953,6 +953,8 @@ def running_image_digests(host: str) -> list[str]:
 # new socket consumer - the socket-hardening work cut that list down to Portainer
 # on purpose, and a `:ro` socket mount would not have helped anyway, since it
 # protects the socket FILE and not the root-equivalent API behind it.
+# multi-arch index digest; update: see README, Trivy pin
+TRIVY_IMAGE = "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
 TRIVY_HOSTS = {
     "fastpi": {
         "network": "socket_proxy",
@@ -967,12 +969,12 @@ def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str]:
     if host in REMOTE_SCAN_HOSTS:   # runs on fastpi, needs the internet, no socket
         return ["docker", "run", "--rm",
                 "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
-                "aquasec/trivy:latest", *args]
+                TRIVY_IMAGE, *args]
     cfg = TRIVY_HOSTS[host]
     net = ["--network", cfg["network"], "-e", f"DOCKER_HOST={cfg['docker_host']}"] if attach_proxy else []
     return ["docker", "run", "--rm", *net,
             "-v", f"{cfg['cache']}:/root/.cache/trivy",
-            "aquasec/trivy:latest", *args]
+            TRIVY_IMAGE, *args]
 
 
 def _trivy_run(host: str, args: list[str], *, attach_proxy: bool, timeout: int):
@@ -1175,7 +1177,7 @@ def _trivy_mounted(args: list[str], *, entrypoint: str | None = None, timeout: i
            "-v", f"{SBOM_DIR}:/sbom"]
     if entrypoint:
         cmd += ["--entrypoint", entrypoint]
-    return run(cmd + ["aquasec/trivy:latest", *args], timeout=timeout)
+    return run(cmd + [TRIVY_IMAGE, *args], timeout=timeout)
 
 
 def refresh_sboms(platform: str, refs: list[str], index: dict) -> None:
@@ -1251,6 +1253,7 @@ def collect_code(repo: str) -> list:
         raise NoData(f"resource floor: {floor}")
     platform = CODE_REPOS[repo]
     refs, unresolved = code_image_refs(code_files(repo))
+    refs = sorted({*refs, TRIVY_IMAGE})
     SBOM_DIR.mkdir(parents=True, exist_ok=True)
     index = _load_json(SBOM_DIR / "index.json") or {}
     download_trivy_db("fastpi")

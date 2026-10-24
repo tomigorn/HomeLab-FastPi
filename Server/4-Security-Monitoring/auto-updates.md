@@ -10,7 +10,7 @@
 | `security-image-scan.timer` → `images` | 04:10 | running digests on fastpi, beefy, tower (registry copy, no pull on tower) | existed; now also diffs findings |
 | `NewFixableImageVulnerability` | on a new finding | one Telegram per batch of fixable CRITICAL/HIGH (image, CVE, package) first seen in 24 h, either scan | **enabled** |
 | `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf` | **enabled** (auto tier) |
-| `AutoUpdateNightly` | hour after the run | one Telegram: updated / rolled back / available (with command) / errors | **enabled** |
+| `AutoUpdateNightly` | hour after the run | one Telegram: updated / rolled back / available (with command) / errors; capped at ~3000 characters (failures first), the rest becomes `… N more, see journalctl -u auto-update` (Telegram limit 4096) | **enabled** |
 | `AutoUpdateRollbackFailed` | at once | email + Telegram; the script also pages via `oob-alert.sh` (bypasses the edge) | **enabled** |
 | unattended-upgrades | daily (apt timers) | Debian + Debian-Security only, no reboot | existed |
 | `crowdsec-autoupdate.timer` | 05:07 | CrowdSec engine patch/minor + hub, own verify/rollback | existed |
@@ -46,7 +46,7 @@ Only the digest behind the tag written in the repo moves, so the repo stays the 
 | Breaking change in a new image | stateless stacks only; functional check; automatic rollback; never across a major (OCI version label) | an image without a version label can still jump a major under `:latest` |
 | One-way DB migration | stateful stacks are `notify`; the command backs up first | the human still has to read the release notes |
 | Compromised tag / registry account (supply chain) | 24 h cool-down (a hijacked tag is often noticed and replaced within hours to days); digest recorded per night (old → new in the summary); hourly CVE scan of the new digest | no signature/provenance check (cosign) yet; the cool-down is a delay, not a proof |
-| Tooling itself (`aquasec/trivy:latest`) | runs without socket access in the remote mode | pin Trivy by digest (next step) |
+| Tooling itself (Trivy) | pinned by tag + multi-arch digest in `TRIVY_IMAGE` (`security_scan.py`); runs without socket access in the remote mode; the hourly code scan SBOM-scans the pinned image itself, so a fixable CVE in it raises `NewFixableImageVulnerability` | newer releases are not announced (Cup only sees running containers): bump by hand, steps in the Security README |
 | Edge break locks you out | edge stays notify; `edge-auto` pages over `oob-alert.sh` (direct Telegram, DoH) | the owner decides per stack |
 | Exploit faster than the cool-down | `notify` + hourly detection tell you within an hour of the DB update; apply by hand | `COOLDOWN_HOURS` is a trade-off you set |
 

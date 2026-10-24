@@ -1029,6 +1029,16 @@ def test_compose_images_counts_unresolved():
     assert compose_images("services:\n  a:\n    image: x:${NOPE}\n", {}) == ([], 1)
 
 
+def test_trivy_image_is_pinned_by_digest_everywhere():
+    import re
+    assert re.fullmatch(r"aquasec/trivy:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}", security_scan.TRIVY_IMAGE)
+    for host in security_scan.TRIVY_HOSTS:
+        assert security_scan.TRIVY_IMAGE in security_scan._trivy_cmd(host, ["x"], attach_proxy=False)
+    assert security_scan.TRIVY_IMAGE in security_scan._trivy_cmd("beefy", ["x"], attach_proxy=False)
+    assert ":latest" not in " ".join(security_scan._trivy_cmd("fastpi", ["x"], attach_proxy=True))
+    assert "aquasec/trivy:latest" not in Path(security_scan.__file__).read_text()
+
+
 def test_code_image_refs_uses_env_then_example_and_dockerfile_bases():
     files = {
         "Docker/A/docker-compose.yaml": "services:\n  a:\n    image: a/b:${T}\n",

@@ -140,6 +140,10 @@ behind it.
   debugging is genuinely committable while the original is safe, which is why
   both the hook and the scan peel backup suffixes before testing a filename.
 
+## Trivy pin
+
+Trivy runs as `TRIVY_IMAGE` in `security_scan.py` (tag + multi-arch index digest, never `:latest`). The hourly code scan also SBOM-scans that image, so a fixable CVE in it alerts like any other image. A new release is not announced: check `docker buildx imagetools inspect aquasec/trivy:<new>` and replace the one constant with `aquasec/trivy:<new>@sha256:<Digest of the index>`, then `python3 test_security_scan.py` and `sudo systemctl start security-code-scan.service`.
+
 ## Known gaps
 
 - **beefy's working-tree hygiene is not checked.** The filename check runs only
