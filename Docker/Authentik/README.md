@@ -65,7 +65,7 @@ that bypasses this IdP (see the Nextcloud project docs).
 ## Stack
 
 - `authentik-postgresql` — PostgreSQL 16 (data in the `database` named volume)
-- `authentik-server` — web UI + API (joined to `traefik_proxy` for ingress)
+- `authentik-server` — web UI + API (ingress over `traefik_authentik`, shared only with Traefik; other apps cannot reach :9000)
 - `authentik-worker` — background tasks, including sending email
 
 No Redis (current Authentik does not require it). All `AUTHENTIK_*` / `PG_*`
@@ -616,7 +616,7 @@ Authentik takes the **leftmost** `X-Forwarded-For` entry, and only from a truste
 
 | Setting | Value | Why |
 |---|---|---|
-| `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS` (`.env`) | `127.0.0.0/8,::1/128,172.24.255.3/32` | only Traefik (pinned IP) may set the header; other containers are logged as themselves |
+| `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS` (`.env`) | `127.0.0.0/8,::1/128,10.24.15.3/32` | only Traefik (pinned on `traefik_authentik`) may set the header; other containers are logged as themselves |
 | Traefik `real-ip@file` | XFF = one real client IP | an internet client can no longer prepend a fake IP (before 2026-10-24 it could: fake audit log, dodge or abuse the reputation lockout) |
 
 Details: [Traefik README, Client IPs](../Traefik/README.md#client-ips). If Traefik's IP ever changes, update both, or every login shows Traefik's IP and the reputation policy lumps all users together.
