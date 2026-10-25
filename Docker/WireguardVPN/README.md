@@ -78,7 +78,7 @@ traffic, so `local-networks@file` refused it (Forbidden). Fix: the interface **P
 (stored in wg-easy's DB, `hooks_table`, Admin → Hooks in the UI) gets one extra rule:
 
 ```
-iptables -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 10.24.5.3;
+iptables-nft -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 10.24.5.3;
 ```
 
 (and the matching `-D` in PostDown). Packets then go container-to-container to Traefik
@@ -86,6 +86,8 @@ iptables -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m mu
 which `local-networks@file` allows. `-i wg0` limits it to real WireGuard clients. If the
 wg-easy DB is ever recreated, re-add this hook. Other ports (DNS 53, SSH, AdGuard 3000…) are
 unchanged. Backup of the DB before the change: `~/backups/wg-easy.db.bak-2026-10-19`.
+
+**All hook commands use `iptables-nft`** (since 2026-10-25, Trixie): kernel 6.18 has no legacy `ip_tables` module, and wg-easy's plain `iptables` is the legacy backend, so `wg-quick up` failed and the container restart-looped. Backup before the switch: `wg-easy-v15/wg-easy.db.bak-pre-nft-2026-10-25`.
 
 Since 2026-10-25 wg-easy's only network is `traefik_wg` (Traefik + wg-easy only): VPN peers no longer reach other containers directly. The container's **own** requests to 192.168.1.2:80/443 are DNAT'd host ports, which DOCKER-USER drops for 10.24.5.5, so its OIDC calls use `extra_hosts` `sso.holy-grail.ch:10.24.5.3`. Test the real client path from the container's netns:
 
