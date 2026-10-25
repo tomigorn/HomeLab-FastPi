@@ -1,0 +1,44 @@
+http:
+  routers:
+    # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
+    wiki-outpost:
+      rule: "Host(`wiki.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    wiki:
+      rule: "Host(`wiki.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: wiki
+      middlewares:
+        - authentik@file
+        - default-rate-limit@file
+        - wiki-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # NOTE: authentication is Authentik forward auth (authentik@file); any logged-in user, no group binding.
+    wiki-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        contentSecurityPolicy: "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    wiki:
+      loadBalancer:
+        servers:
+          - url: "http://wiki:80"
+        passHostHeader: true
