@@ -54,6 +54,17 @@ routers (`dynamic/languagetool.yml` + the gitignored `languagetool-token.yml`)
 and `docker compose up -d` Traefik — that is the step that finally closes the
 `:443` bypass.
 
+## Routes to beefy
+
+Forward auth first (`authentik@file`), then the wake gate `http://192.168.1.2:9001/gate?port=<backend port>`, so only a signed-in user wakes beefy (exception: Jellyfin apps, see `jellyfin.yml`). Traefik (`172.24.255.3`) may reach every beefy port (`_global/scripts/docker-user-lan-guard.sh`).
+
+| Host | Backend | Reach | Group |
+|---|---|---|---|
+| `jellyfin`, `requests`, `tracker` | `:8096`, `:5055`, `:8010`/`:8011` | public | streaming groups (Authentik README) |
+| `radarr`, `sonarr`, `prowlarr`, `bazarr`, `qbittorrent`, `sabnzbd` | `:7878`, `:8989`, `:9696`, `:6767`, `:8080`, `:8081` | LAN + VPN | `streaming-admins` |
+| `vpn-status-beefy` | `:8087` | LAN + VPN | `homelab-admins` |
+| `dt` (Dependency-Track, `dt.yml`) | `:8090` | public | `homelab-admins`, then DT's own Holy Grail login |
+
 ## Client IPs
 
 Every backend, `crowdsec@file` and `default-rate-limit` see **one** address in `X-Forwarded-For`: the real client. Set by `real-ip@file` (own local plugin `traefik/plugins-local/src/github.com/tomigorn/realip`, stdlib only, no download), first middleware on `websecure`, `langtool`, `internal`.

@@ -1,0 +1,55 @@
+# Dependency-Track (CVE dashboard) on beefy, behind Authentik SSO (app dt, group homelab-admins).
+#
+# https://dt.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Two gates like Tracker: forward auth (outer), then DT's own "Sign in with Holy Grail" (OIDC app dt-login), silent on the existing session.
+# Wake: authentik before dt-wake, so only a signed-in admin boots beefy. The SBOM uploader talks to 192.168.1.102:8090 directly, not via this route.
+http:
+  routers:
+    # The outpost callback path. NO middlewares and a higher priority so it wins over the catch-all router below.
+    dt-outpost:
+      rule: "Host(`dt.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    dt:
+      rule: "Host(`dt.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: dt
+      middlewares:
+        - authentik@file
+        - dt-wake
+        - default-rate-limit@file
+        - dt-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # ?port=8090 waits for DT's nginx; the apiserver is ready ~15 s later (UI shows a short API error, reload).
+    dt-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8090"
+        trustForwardHeader: false
+
+    dt-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    dt:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8090"
+        passHostHeader: true
