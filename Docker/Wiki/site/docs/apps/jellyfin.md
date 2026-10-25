@@ -26,7 +26,7 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
     | Samsung TV (Tizen) | Samsung Smart TV App Store, or [install it yourself](#samsung-tv-install-the-app-yourself) |
     | Roku | Roku Channel Store |
 
-2. Server address: `https://jellyfin.holy-grail.ch`
+2. Server address: `https://jellyfin.holy-grail.ch` (**not** `sso.holy-grail.ch`: that is only the login page, the app finds no server there)
 3. In the app choose **Quick Connect**. It shows a **6-character code**.
 4. On your phone or computer, open Jellyfin in the browser (signed in) → your profile menu → **Quick Connect** → enter the code → **Authorize**.
 5. The TV app is now signed in.
