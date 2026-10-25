@@ -36,9 +36,9 @@ services:
       - crowdsec_data:/var/lib/crowdsec/data
     networks:
       - crowdsec
-      # Traefik's bouncer plugin queries the Local API over HTTP, and Traefik
-      # lives on traefik_proxy.
-      - traefik_proxy
+      # Traefik's bouncer plugin queries the Local API over HTTP; this network
+      # is shared only with Traefik (H-2), so other apps cannot reach the LAPI.
+      - traefik_crowdsec
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -52,8 +52,8 @@ networks:
   crowdsec:
     name: crowdsec
     driver: bridge
-  traefik_proxy:
-    external: true
+  traefik_crowdsec:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
 
 # =========================================================
 # Volumes =================================================
