@@ -11,7 +11,7 @@
 set -euo pipefail
 
 TRAEFIK=172.24.255.3/32     # Traefik (pinned) — proxies the host-network services
-VPN_NAT=172.24.255.5/32     # wg-easy SNAT source — the owner's remote devices
+VPN_NAT=10.24.5.5/32        # wg-easy SNAT source on traefik_wg — the owner's remote devices
 CLOUDFLARED=172.20.0.0/16   # infra__cloudflare_default — tunnel route terminal.holy-grail.ch → ssh://192.168.1.2:22
 
 DNS=53
