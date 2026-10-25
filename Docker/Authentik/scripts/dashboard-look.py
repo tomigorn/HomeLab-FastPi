@@ -49,6 +49,7 @@ APPS = {
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
     "avatar-picker":     ("Account", "Your profile picture", None),
+    "wiki":              ("Account", "How to use everything", "fa://fa-book"),
 }
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
