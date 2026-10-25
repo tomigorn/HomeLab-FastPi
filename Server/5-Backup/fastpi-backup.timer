@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly fastpi backup inside beefy's maintenance window
+Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
+
+[Timer]
+# 04:06 after beefy's wake (03:55) and before the 04:20 pull and ~04:26 idle-off; never wakes beefy. Persistent=false: a missed night is not run later.
+OnCalendar=*-*-* 04:06:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target
