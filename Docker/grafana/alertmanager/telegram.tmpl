@@ -11,16 +11,16 @@
 {{ .Annotations.summary }}
 {{ end }}{{ end }}
 {{- if eq .Status "firing" }}{{ if .CommonAnnotations.description }}
-<blockquote expandable>💡 {{ .CommonAnnotations.description }}</blockquote>
+<blockquote expandable>💡 {{ .CommonAnnotations.description | safeHtml }}</blockquote>
 {{- else }}{{ range .Alerts }}{{ if .Annotations.description }}
 <blockquote expandable><b>{{ .Annotations.summary }}</b>
-{{ .Annotations.description }}</blockquote>
+{{ .Annotations.description | safeHtml }}</blockquote>
 {{- end }}{{ end }}{{ end }}{{ end }}
 {{- end }}
 
 {{ define "tg.digest" -}}
 {{ if eq .CommonLabels.alertname "AutoUpdateNightly" }}📦{{ else }}📋{{ end }} <b>{{ .CommonAnnotations.summary }}</b>
 {{ range .Alerts }}
-{{ .Annotations.description }}
+{{ .Annotations.description | safeHtml }}
 {{ end }}
 {{- end }}
