@@ -3,7 +3,7 @@
 #
 # Containers must still reach the internet, the host's own published ports (those hit INPUT, not FORWARD, so they are never matched here) and the two trusted homelab servers, but only the containers that need them, by source and port:
 #   Traefik → beefy/tower (all ports: it proxies them), grafana stack → beefy :22, tower :22/:8080 (blackbox), m4b → beefy :22, Cup → beefy :8000, Portainer → beefy :9001.
-#   VPN clients (wg-easy NAT) → whole LAN, but on beefy only :22 (ssh), :8096 (Jellyfin apps) and ping: beefy's admin backends trust 192.168.1.2 and have no login of their own, so they stay behind Traefik + Authentik.
+#   VPN clients (wg-easy NAT) → no host-published port reached by DNAT (m4b :8099, Cup :8000; only SSH/DNS/web on the host, see host-input-guard.sh) → whole LAN, but on beefy only :22 (ssh), :8096 (Jellyfin apps) and ping: beefy's admin backends trust 192.168.1.2 and have no login of their own, so they stay behind Traefik + Authentik.
 # Everything else on 192.168.1.0/24 (router, IoT plugs, any other device, any other container) is blocked. Host-network services (Home Assistant, the wakers) are host traffic, not forwarded: host-output-guard.sh limits that towards beefy.
 #
 # Idempotent: rebuilds the DOCKER-USER chain from scratch on every run.
@@ -26,6 +26,7 @@ iptables -C FORWARD -j DOCKER-USER 2>/dev/null || iptables -I FORWARD -j DOCKER-
 
 iptables -F DOCKER-USER
 iptables -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+iptables -A DOCKER-USER -s "$VPN_NAT" -m conntrack --ctstate DNAT -j DROP
 iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$BEEFY" -p tcp -m multiport --dports 22,8096 -j RETURN
 iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$BEEFY" -p icmp -j RETURN
 iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$BEEFY" -j DROP

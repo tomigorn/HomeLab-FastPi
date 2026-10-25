@@ -4,6 +4,7 @@ WireGuard VPN server managed via wg-easy. The management UI is routed through Tr
 
 - **VPN port:** `51820/udp` — public, reachable via DuckDNS (`hermes-vpn.duckdns.org`)
 - **Management UI:** `https://wg-easy.holy-grail.ch` — LAN/VPN only, behind Traefik IPAllowList (`local-networks@file`)
+- **What peers reach:** on fastpi only SSH, DNS and the web apps (80/443 via Traefik + SSO) and ping (`_global/scripts/host-input-guard.sh`, `docker-user-lan-guard.sh`); the LAN as before (beefy only 22/8096). Ask the owner before opening more.
 - **Login:** Authentik OIDC (application `wg-easy`, group `homelab-admins`); the login page jumps straight to Authentik.
   The Authentik login is linked to the wg-easy `admin` user by its email address (auto-register is off).
   **SSO only:** `DISABLE_PASSWORD_AUTH=true`, so the password login (`/api/auth/password`, `Authorization: Basic`) returns 403.
