@@ -2,13 +2,14 @@
 # Out-of-band alert: Telegram directly, independent of the edge.
 # DNS is resolved over DoH so this still works when AdGuard (the LAN DNS) is down,
 # and the request never touches Traefik/the tunnel (outbound to api.telegram.org).
+# The message is Telegram HTML: first line "<emoji> <b>Title</b>", then a blank line and "• " bullets; escape <, > and & in dynamic text.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$here/../secrets/oob-alert.env"
 
-msg="${1:?usage: oob-alert.sh <message>}"
+msg="${1:?usage: oob-alert.sh <html message>}"
 token="$(cat "$TOKEN_FILE")"
 
 curl -sS --fail --max-time 20 \

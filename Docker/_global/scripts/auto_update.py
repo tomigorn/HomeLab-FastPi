@@ -19,6 +19,7 @@ Env: COOLDOWN_HOURS (24), TEST_FORCE_FAIL=1 (first functional check fails: rollb
      AUTO_UPDATE_MAX_APPLY (projects updated per run, default no limit), AUTO_UPDATE_CONF / _STATE / _TEXTFILE (paths)
 """
 import fcntl
+import html
 import json
 import os
 import platform
@@ -238,6 +239,13 @@ def image_version(image: str) -> str:
     return "" if v == "<no value>" else v
 
 
+def rollback_failed_message(project: str, directory) -> str:
+    return (f"🔴 <b>Auto-update: {html.escape(project)} is down</b>\n\n"
+            "• Update failed verification\n"
+            "• Rollback did not verify either\n"
+            f"<blockquote expandable>💡 Check: <code>cd {html.escape(str(directory))} && docker compose ps</code></blockquote>")
+
+
 def oob(msg: str) -> None:
     script = SCRIPTS / "oob-alert.sh"
     if not script.exists():
@@ -278,9 +286,8 @@ def apply(row: dict, refs: list[str], images: dict[str, str]) -> dict[str, str]:
         log("  | " + line)
     res = {0: "updated", 1: "rolled_back"}.get(r.returncode, "rollback_failed")
     if res == "rollback_failed":
-        msg = f"auto-update: {row['project']} failed verification AND its rollback did not verify. Check now: cd {d} && docker compose ps"
-        log("  " + msg)
-        oob(msg)
+        log(f"  {row['project']} failed verification AND its rollback did not verify. Check now: cd {d} && docker compose ps")
+        oob(rollback_failed_message(row["project"], d))
     return {ref: (res if v == "pending" else v) for ref, v in out.items()}
 
 
