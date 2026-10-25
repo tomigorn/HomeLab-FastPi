@@ -11,7 +11,7 @@ services:
     # Migrated from v14's wg0.json, so all client keys/addresses are unchanged.
     # Rollback: image wg-easy:rollback-v14 (kept locally) + the untouched ./wg-easy
     # dir + the v14 compose in ~/backups/pre-update/2026-10-17-majors/.
-    image: ghcr.io/wg-easy/wg-easy:15.4.0
+    image: ghcr.io/wg-easy/wg-easy:15.5.0
     container_name: WireGuard-VPN
     mem_limit: 256m
     # wg-easy has no *_FILE option, so the OIDC client secret is read from the secret file at start.

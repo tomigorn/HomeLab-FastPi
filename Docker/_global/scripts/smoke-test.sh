@@ -164,7 +164,7 @@ check "cup api (172.24.0.1:8000)"  '"images"' "$(curl -s -m 10 http://172.24.0.1
 for p in 3002 5000 5432 5010 8000 8083 8084 8085 8087 8088 8089 8090 8978; do check "port $p not on LAN"          '^000$' "$(http http://192.168.1.2:$p/)"; done
 
 echo "== wg-easy (v15)"
-check "wg-easy version"            '15\.4\.0' "$(docker inspect -f '{{.Config.Image}}' WireGuard-VPN)"
+check "wg-easy version"            '15\.5\.0' "$(docker inspect -f '{{.Config.Image}}' WireGuard-VPN)"
 check "wireguard listening"        '51820' "$(docker exec WireGuard-VPN wg show wg0 listen-port)"
 check "wireguard peers"            '^3$' "$(docker exec WireGuard-VPN wg show wg0 peers | wc -l)"
 check "wg-easy UI (LAN https)"     '^200$' "$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve wg-easy.holy-grail.ch:443:192.168.1.2 'https://wg-easy.holy-grail.ch/login?auto_launch=false')"
