@@ -48,7 +48,7 @@ APPS = {
     "cup":               ("Homelab", "Container updates", None),
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
-    "dt":                ("Homelab", "Vulnerabilities across all images" + BEEFY, "fa://fa-shield-halved"),
+    "dt":                ("Homelab", "CVE overview" + BEEFY, None),
     "avatar-picker":     ("Account", "Your profile picture", None),
     "wiki":              ("Account", "How to use everything", "fa://fa-book"),
 }
