@@ -52,3 +52,23 @@ Old and rare titles are moved to a more tolerant quality profile automatically.
 
 ## What happens after a request
 Your request is searched for, downloaded and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
+
+## The indexer bar at the top
+A thin bar at the top of every Requests page shows how much of the search services (indexers) is used up. **more** opens the full list; click **Indexers** to make the bar smaller.
+
+| You see | Means |
+|---|---|
+| `8/100 searches` | searches used / allowed in the current window |
+| `0/5 downloads` | downloads used / allowed |
+| green · amber · red | under 70 % · 70–95 % · 95 % or used up |
+| `used up, resets 14:32` | that indexer pauses until then |
+| `∞` (under **more**) | no limit, only the count of the last 24 hours |
+| Subscriptions | days left until a paid service ends; amber 14 days or less, red 3 days or less; `lifetime` never ends |
+| `usage unavailable` | the numbers can't be read right now; requests still work |
+
+- **Used up:** your request may wait until the indexer resets. The other indexers keep searching.
+- **When it resets:** "last 24 h" indexers when their oldest counted search is 24 hours old; "per day" indexers at midnight.
+- Searches made by hand on the indexer websites are not counted.
+
+!!! note "Admin: limits and renewal dates"
+    Both live in `indexer-bar/limits.toml` in the Seerr project on the media server. After a renewal change the `expires` date (or set `lifetime = true`); the bar picks it up within a minute.
