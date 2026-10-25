@@ -20,14 +20,14 @@ services:
     secrets:
       - pb_admin_password
     networks:
-      - traefik_proxy
+      - traefik_loyalty_sync   # shared only with Traefik (H-2)
 
 # #########################################################
 # Networks ################################################
 # #########################################################
 networks:
-  traefik_proxy:
-    external: true
+  traefik_loyalty_sync:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
 
 # #########################################################
 # Secrets #################################################
