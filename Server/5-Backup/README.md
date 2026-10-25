@@ -17,6 +17,7 @@ restic, encrypted, deduplicated. `backup.sh` runs as root via `fastpi-backup.tim
 - `/home/pi/Projects` (compose, `.env`, `secrets/`, Traefik acme + dynamic config, HA config), landingpage, Unraid repo, `~/.ssh`, `~/.claude` rules + skills + memory
 - `/etc`: ssh, sudoers.d, sysctl.d, iptables, docker, systemd/system, fstab, cron.d, hosts
 - `/var/lib/security-scan` (no trivy cache), CrowdSec config, AdGuard data (no querylog), Portainer data
+- Audiobook downloaders on the Seagate disk: `/mnt/seagate-red/qbittorrent/config` (torrent list + resume data, settings) and `/mnt/seagate-red/sabnzbd/config` (no unfinished `Downloads/`, no logs), since 2026-10-25
 - Not backed up: InfluxDB and Prometheus data (3.5 GB + 1.6 GB, metrics only), media, downloads, images, `~/backups`, LoyaltyCards volumes
 
 Size 2026-10-25: 1.1 GiB read, 585 MiB in the repo. Nightly growth is mostly the HA recorder DB.

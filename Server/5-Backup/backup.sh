@@ -96,6 +96,9 @@ EXCL+=(
     --exclude '/var/lib/security-scan/trivy-cache'
     --exclude '/var/lib/security-scan/sbom'
     --exclude '/var/lib/security-scan/mirrors'
+    --exclude '/mnt/seagate-red/sabnzbd/config/Downloads'
+    --exclude '/mnt/seagate-red/sabnzbd/config/logs'
+    --exclude '/mnt/seagate-red/qbittorrent/config/qBittorrent/logs'
 )
 PATHS=(
     "$STAGE"
@@ -104,6 +107,7 @@ PATHS=(
     /home/pi/.claude/skills /home/pi/.claude/projects/-home-pi/memory
     /etc/ssh /etc/sudoers.d /etc/sysctl.d /etc/iptables /etc/docker /etc/systemd/system /etc/fstab /etc/cron.d /etc/hosts
     /var/lib/security-scan
+    /mnt/seagate-red/qbittorrent/config /mnt/seagate-red/sabnzbd/config
     "$V/crowdsec_crowdsec_config/_data" "$V/adguard_adguardhome-data/_data" "$V/docker_portainer_data/_data"
 )
 EXISTING=(); for p in "${PATHS[@]}"; do [ -e "$p" ] && EXISTING+=("$p"); done
