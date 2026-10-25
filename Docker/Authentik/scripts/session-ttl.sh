@@ -49,7 +49,7 @@ PY
     else
       echo "VERIFY FAILED - rolling back"
       "$0" rollback
-      bash "$OOB" "⚠️ Authentik session-ttl apply FAILED verification - rolled back automatically." || true
+      bash "$OOB" $'🟠 <b>Authentik session-ttl apply failed</b>\n\n• Verification failed\n• Rolled back automatically' || true
       exit 1
     fi
     ;;

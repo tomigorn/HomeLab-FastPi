@@ -17,7 +17,7 @@ if bash "$SCR/canary-verify.sh"; then
 else
   echo "VERIFY FAILED — legitimate login broke. Rolling back immediately ..."
   bash "$SCR/lockout-bind.sh" rollback
-  bash "$OOB" "⚠️ Authentik lockout apply FAILED verification (login broke) — rolled back automatically. SSO should be back to normal; please check." || true
+  bash "$OOB" $'🟠 <b>Authentik lockout apply failed</b>\n\n• Verification failed: login broke\n• Rolled back automatically, SSO should be back to normal\n• Please check' || true
   echo "ROLLED_BACK and paged. Lockout NOT active."
   exit 1
 fi
