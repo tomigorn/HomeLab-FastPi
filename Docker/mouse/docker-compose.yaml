@@ -63,7 +63,7 @@ services:
       # --- SHARE ---
       SAMBA_VOLUME_CONFIG_mouse: |
         [mouse]
-        path = /mnt/seagate-red
+        path = /srv/downloads
         browseable = yes
         read only = no
         writable = yes
@@ -74,6 +74,7 @@ services:
         inherit permissions = yes
         oplocks = no
         level2 oplocks = no
+        wide links = no
 
       SAMBA_VOLUME_CONFIG_admin_books: |
         [admin_books]
@@ -88,6 +89,7 @@ services:
         inherit permissions = yes
         oplocks = no
         level2 oplocks = no
+        wide links = no
 
       SAMBA_VOLUME_CONFIG_books: |
         [books]
@@ -102,16 +104,23 @@ services:
         inherit permissions = yes
         oplocks = no
         level2 oplocks = no
+        wide links = no
 
     volumes:
+      # only the download folders and the library: the qBittorrent/SABnzbd config dirs are never mounted here
       - type: bind
-        source: /mnt/seagate-red
-        target: /mnt/seagate-red
+        source: /mnt/seagate-red/qbittorrent/downloads
+        target: /srv/downloads/torrents
         bind:
           create_host_path: false
       - type: bind
-        source: /mnt/seagate-black
-        target: /mnt/seagate-black
+        source: /mnt/seagate-red/sabnzbd/config/Downloads
+        target: /srv/downloads/usenet
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-black/library
+        target: /mnt/seagate-black/library
         bind:
           create_host_path: false
     logging:
