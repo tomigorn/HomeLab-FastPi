@@ -104,7 +104,7 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 ## Alert routing
 
-`alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`). Check a route: `docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=info`.
+`alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`). Telegram layout: `alertmanager/telegram.tmpl` (icon by severity, one line per alert, explanation once in a collapsed quote). Check a route: `docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=info`.
 
 | Match | Receiver |
 |---|---|
