@@ -16,6 +16,19 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Admin UI and superuser/admin login API: LAN + VPN only (owner 2026-10-25: unpublish the admin page; the app's sync API stays public).
+    loyalty-sync-admin:
+      rule: "Host(`loyalty-sync.holy-grail.ch`) && (PathPrefix(`/_/`) || PathPrefix(`/api/collections/_superusers/`) || PathPrefix(`/api/admins`))"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: loyalty-sync
+      middlewares:
+        - local-networks@file
+        - default-rate-limit@file
+        - loyalty-sync-secure-headers
+      tls:
+        certResolver: cloudflare
+
   middlewares:
     loyalty-sync-secure-headers:
       headers:
