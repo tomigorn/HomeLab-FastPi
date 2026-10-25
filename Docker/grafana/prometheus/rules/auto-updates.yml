@@ -13,10 +13,11 @@ groups:
         annotations:
           summary: "Nightly auto-update {{ $labels.host }}"
           description: |-
-            {{ $h := $labels.host }}{{ range printf "auto_update_result{host=%q,result!~%q}" $h "current|local_build|waiting" | query | sortByLabel "project" }}<b>{{ .Labels.project }}</b> {{ .Labels.ref }}: {{ .Labels.result }} ({{ .Labels.from }} → {{ .Labels.to }}){{ with .Labels.command }}
-            <code>{{ . }}</code>{{ end }}
-            {{ end }}{{ with printf "auto_update_omitted{host=%q}" $h | query }}{{ if gt (. | first | value) 0.0 }}… {{ . | first | value | printf "%.0f" }} more, see journalctl -u auto-update on {{ $h }}
-            {{ end }}{{ end }}Waiting out the cool-down: {{ with printf "count(auto_update_result{host=%q,result=\"waiting\"})" $h | query }}{{ . | first | value }}{{ else }}0{{ end }}. Log: journalctl -u auto-update on {{ $h }}
+            {{ $h := $labels.host }}{{ range printf "auto_update_result{host=%q,result!~%q}" $h "current|local_build|waiting" | query | sortByLabel "project" }}• {{ if eq .Labels.result "updated" }}✅{{ else if eq .Labels.result "available" }}📦{{ else if eq .Labels.result "rolled_back" }}↩️{{ else if eq .Labels.result "rollback_failed" }}🔴{{ else if eq .Labels.result "error" }}❌{{ else if eq .Labels.result "major_held" }}✋{{ else if eq .Labels.result "held_back" }}⏸️{{ else if eq .Labels.result "skipped" }}⏭️{{ else }}⏳{{ end }} <b>{{ .Labels.project }}</b> · {{ .Labels.result }} · {{ .Labels.ref | html }} ({{ .Labels.from }} → {{ .Labels.to }}){{ with .Labels.command }}
+            <code>{{ . | html }}</code>{{ end }}
+            {{ end }}{{ with printf "auto_update_omitted{host=%q}" $h | query }}{{ if gt (. | first | value) 0.0 }}• … {{ . | first | value | printf "%.0f" }} more
+            {{ end }}{{ end }}• ⏳ {{ with printf "count(auto_update_result{host=%q,result=\"waiting\"})" $h | query }}{{ . | first | value }}{{ else }}0{{ end }} waiting out the cool-down
+            <blockquote expandable>Log: <code>journalctl -u auto-update</code> on {{ $h }}</blockquote>
 
       # The update failed its checks AND the rollback did not verify: something is down now. On fastpi the script has also paged out of band (oob-alert.sh); beefy has no such path, this alert is its page.
       - alert: AutoUpdateRollbackFailed
@@ -27,8 +28,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }} {{ $labels.project }}: auto-update rollback failed"
           description: |-
-            {{ $labels.ref }} ({{ $labels.from }} → {{ $labels.to }}) failed verification and the rollback did not verify.
-            ssh {{ $labels.host }}: cd ~/Projects/Docker/{{ $labels.project }} && docker compose ps (beefy: sudo docker) ; journalctl -u auto-update ; backups in ~/backups/pre-update/
+            Failed verification, rollback did not verify: {{ $labels.ref | html }} ({{ $labels.from }} → {{ $labels.to }}). Check: <code>cd ~/Projects/Docker/{{ $labels.project }} && docker compose ps</code> on {{ $labels.host }} (beefy: sudo docker). Log: <code>journalctl -u auto-update</code>, backups in ~/backups/pre-update/
 
       - alert: AutoUpdateNotRunning
         expr: time() - auto_update_last_run_timestamp_seconds > 2 * 86400
@@ -37,4 +37,4 @@ groups:
           severity: info
         annotations:
           summary: "Nightly auto-update on {{ $labels.host }} has not run for {{ $value | humanizeDuration }}"
-          description: "systemctl status auto-update.timer auto-update.service ; journalctl -u auto-update (beefy: its file reaches fastpi with the 04:20 security-av pull)"
+          description: "Check <code>systemctl status auto-update.timer</code> and <code>journalctl -u auto-update</code> (beefy: its file reaches fastpi with the 04:20 security-av pull)"

@@ -64,14 +64,34 @@ tests:
             exp_annotations:
               summary: "Weekly update digest"
               description: |-
-                <b>Apt</b> (all / security): beefy 0 / 0, fastpi 5 / 1
-                <b>Images</b> (Cup): beefy 1, fastpi 2
-                beefy: lscr.io/linuxserver/radarr:6.4.4 (digest)
-                fastpi: caddy:2.10-alpine (minor)
-                <b>Fixable critical CVEs</b>: beefy 0, fastpi 3
-                <b>Unraid</b>: OS 7.3.2 → 7.3.3; plugins: fix.common.problems
-                <b>CrowdSec</b>: engine v1.8.1 (current); bouncer plugin current
-                <b>Antivirus</b> (last new-files scan, infected): fastpi 1h 0m 0s ago, 0 infected
-                <b>Rootkit</b> (new findings): beefy/chkrootkit 0
-                <b>Lynis</b>: fastpi 64
+                <b>Apt</b> (all / security)
+                • beefy: 0 / 0
+                • fastpi: 5 / 1
+
+                <b>Images</b> (Cup)
+                • beefy: 1
+                • fastpi: 2
+                • beefy: lscr.io/linuxserver/radarr:6.4.4 (digest)
+                • fastpi: caddy:2.10-alpine (minor)
+
+                <b>Fixable critical CVEs</b>
+                • beefy: 0
+                • fastpi: 3
+
+                <b>Unraid</b>
+                • OS 7.3.2 → 7.3.3
+                • plugins: fix.common.problems
+
+                <b>CrowdSec</b>
+                • engine v1.8.1 (current)
+                • bouncer plugin current
+
+                <b>Antivirus</b> (last new-files scan)
+                • fastpi: 1h 0m 0s ago, 0 infected
+
+                <b>Rootkit</b> (new findings)
+                • beefy/chkrootkit: 0
+
+                <b>Lynis</b>
+                • fastpi: 64
 

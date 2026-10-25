@@ -48,11 +48,28 @@ tests:
             exp_annotations:
               summary: "Weekly update digest"
               description: |-
-                <b>Apt</b> (all / security): no data
-                <b>Images</b> (Cup): no data
-                <b>Fixable critical CVEs</b>: no data
-                <b>Unraid</b>: no data; plugins: none
-                <b>CrowdSec</b>: no data; bouncer plugin no data
-                <b>Antivirus</b> (last new-files scan, infected): no data
-                <b>Rootkit</b> (new findings): no data
-                <b>Lynis</b>: no data
+                <b>Apt</b> (all / security)
+                • no data
+
+                <b>Images</b> (Cup)
+                • no data
+
+                <b>Fixable critical CVEs</b>
+                • no data
+
+                <b>Unraid</b>
+                • no data
+                • plugins: none
+
+                <b>CrowdSec</b>
+                • no data
+                • bouncer plugin no data
+
+                <b>Antivirus</b> (last new-files scan)
+                • no data
+
+                <b>Rootkit</b> (new findings)
+                • no data
+
+                <b>Lynis</b>
+                • no data

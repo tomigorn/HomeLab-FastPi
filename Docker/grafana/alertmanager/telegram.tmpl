@@ -19,7 +19,7 @@
 {{- end }}
 
 {{ define "tg.digest" -}}
-📋 <b>{{ .CommonAnnotations.summary }}</b>
+{{ if eq .CommonLabels.alertname "AutoUpdateNightly" }}📦{{ else }}📋{{ end }} <b>{{ .CommonAnnotations.summary }}</b>
 {{ range .Alerts }}
 {{ .Annotations.description }}
 {{ end }}

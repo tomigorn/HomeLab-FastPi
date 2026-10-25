@@ -24,10 +24,11 @@ tests:
             exp_annotations:
               summary: "Nightly auto-update fastpi"
               description: |-
-                <b>DDNS</b> lscr.io/linuxserver/duckdns:latest: updated (aaaaaaaaaaaa → bbbbbbbbbbbb)
-                <b>Home-Assistant</b> ghcr.io/home-assistant/home-assistant:stable: available (cccccccccccc → dddddddddddd)
+                • ✅ <b>DDNS</b> · updated · lscr.io/linuxserver/duckdns:latest (aaaaaaaaaaaa → bbbbbbbbbbbb)
+                • 📦 <b>Home-Assistant</b> · available · ghcr.io/home-assistant/home-assistant:stable (cccccccccccc → dddddddddddd)
                 <code>update-project.sh /x pull ./config</code>
-                Waiting out the cool-down: 0. Log: journalctl -u auto-update on fastpi
+                • ⏳ 0 waiting out the cool-down
+                <blockquote expandable>Log: <code>journalctl -u auto-update</code> on fastpi</blockquote>
       - eval_time: 61m
         alertname: AutoUpdateNightly
         exp_alerts: []
@@ -51,9 +52,10 @@ tests:
             exp_annotations:
               summary: "Nightly auto-update fastpi"
               description: |-
-                <b>DDNS</b> x:latest: rolled_back (a → b)
-                … 7 more, see journalctl -u auto-update on fastpi
-                Waiting out the cool-down: 0. Log: journalctl -u auto-update on fastpi
+                • ↩️ <b>DDNS</b> · rolled_back · x:latest (a → b)
+                • … 7 more
+                • ⏳ 0 waiting out the cool-down
+                <blockquote expandable>Log: <code>journalctl -u auto-update</code> on fastpi</blockquote>
 
   - name: quiet run sends nothing
     interval: 1m
@@ -88,8 +90,7 @@ tests:
             exp_annotations:
               summary: "fastpi DDNS: auto-update rollback failed"
               description: |-
-                x:latest (a → b) failed verification and the rollback did not verify.
-                ssh fastpi: cd ~/Projects/Docker/DDNS && docker compose ps (beefy: sudo docker) ; journalctl -u auto-update ; backups in ~/backups/pre-update/
+                Failed verification, rollback did not verify: x:latest (a → b). Check: <code>cd ~/Projects/Docker/DDNS && docker compose ps</code> on fastpi (beefy: sudo docker). Log: <code>journalctl -u auto-update</code>, backups in ~/backups/pre-update/
 
   - name: no run for two days
     interval: 1m
@@ -108,7 +109,7 @@ tests:
               host: fastpi
             exp_annotations:
               summary: "Nightly auto-update on fastpi has not run for 2d 2h 0m 0s"
-              description: "systemctl status auto-update.timer auto-update.service ; journalctl -u auto-update (beefy: its file reaches fastpi with the 04:20 security-av pull)"
+              description: "Check <code>systemctl status auto-update.timer</code> and <code>journalctl -u auto-update</code> (beefy: its file reaches fastpi with the 04:20 security-av pull)"
 
   - name: two hosts, one message each, each with only its own results
     interval: 1m
@@ -138,8 +139,9 @@ tests:
             exp_annotations:
               summary: "Nightly auto-update fastpi"
               description: |-
-                <b>DDNS</b> x:latest: updated (a → b)
-                Waiting out the cool-down: 0. Log: journalctl -u auto-update on fastpi
+                • ✅ <b>DDNS</b> · updated · x:latest (a → b)
+                • ⏳ 0 waiting out the cool-down
+                <blockquote expandable>Log: <code>journalctl -u auto-update</code> on fastpi</blockquote>
       - eval_time: 80m
         alertname: AutoUpdateNightly
         exp_alerts:
@@ -149,6 +151,7 @@ tests:
             exp_annotations:
               summary: "Nightly auto-update beefy"
               description: |-
-                <b>Cup-Agent</b> alpine/socat:latest: rolled_back (c → d)
-                … 2 more, see journalctl -u auto-update on beefy
-                Waiting out the cool-down: 1. Log: journalctl -u auto-update on beefy
+                • ↩️ <b>Cup-Agent</b> · rolled_back · alpine/socat:latest (c → d)
+                • … 2 more
+                • ⏳ 1 waiting out the cool-down
+                <blockquote expandable>Log: <code>journalctl -u auto-update</code> on beefy</blockquote>
