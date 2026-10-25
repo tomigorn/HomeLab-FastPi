@@ -11,11 +11,11 @@ services:
     mem_limit: 128m
     restart: unless-stopped
     networks:
-      - traefik_proxy
+      - traefik_loyalty_cards   # shared only with Traefik (H-2)
 
 # #########################################################
 # Networks ################################################
 # #########################################################
 networks:
-  traefik_proxy:
-    external: true
+  traefik_loyalty_cards:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
