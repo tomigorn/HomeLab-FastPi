@@ -20,6 +20,23 @@ Jellyfin starts with the **original language**, unless you've set a preferred au
 !!! tip "Set your subtitle language once"
     Jellyfin web or phone app: profile → **Settings** → **Subtitles** → **Preferred subtitle language**. Without it, subtitles only appear for forced parts.
 
+## Subtitles automatically when the audio isn't your language
+
+Set this once and Jellyfin turns on subtitles by itself whenever the film plays in another language:
+
+1. Open Jellyfin in the browser → your **profile icon** (top right) → **Settings** → **Subtitles**.
+2. **Preferred subtitle language:** your language, e.g. *English*.
+3. **Subtitle mode:** **Smart**.
+4. **Save**.
+
+| The film plays in… | You get |
+|---|---|
+| another language (e.g. the Spanish original) | subtitles in your language |
+| your language | no subtitles (only short foreign-language parts, if the file has them) |
+
+!!! info
+    This is saved in your profile, so it works on your TV and phone apps too. Jellyfin allows one subtitle language. Set **Playback → Preferred audio language** the same way if you want a dub in your language whenever one exists.
+
 ## Switching audio or subtitles
 
 | Where | Audio | Subtitles |
