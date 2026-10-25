@@ -1,0 +1,44 @@
+# WG-Chores (flatmates' chore app) on its old URL wg-aemtli.ddns.net: direct ingress, WAN 443 -> fastpi:8443 = langtool entrypoint (real-ip + crowdsec there).
+# Outside Holy Grail on purpose (owner 2026-10-25: flatmates use it without a login; the app has its own household code). Cert: Let's Encrypt HTTP challenge (le), as lang-tool.ddns.net.
+# Never route wg-chores-sqliteweb (raw DB editor, no auth; 127.0.0.1:8088 only).
+http:
+  routers:
+    wg-chores:
+      rule: "Host(`wg-aemtli.ddns.net`)"
+      entryPoints: ["langtool"]
+      priority: 1
+      service: wg-chores
+      middlewares:
+        - default-rate-limit@file
+        - wg-chores-secure-headers
+      tls:
+        certResolver: le
+
+  middlewares:
+    wg-chores-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          # Blazor Server: inline bootstrap script + wasm-unsafe-eval, circuit over wss
+          Content-Security-Policy: >-
+            default-src 'self';
+            script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';
+            style-src 'self' 'unsafe-inline';
+            img-src 'self' data:;
+            font-src 'self';
+            connect-src 'self' wss://wg-aemtli.ddns.net;
+            frame-ancestors 'none'
+          Server: ""
+
+  services:
+    wg-chores:
+      loadBalancer:
+        servers:
+          - url: "http://wg-chores-app:8080"
+        passHostHeader: true

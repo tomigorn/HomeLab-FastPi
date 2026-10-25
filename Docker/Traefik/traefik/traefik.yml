@@ -40,9 +40,9 @@ entryPoints:
       middlewares:
         - real-ip@file
         - default-rate-limit@file
-  # LanguageTool's own public entrypoint (direct ingress, lang-tool.ddns.net).
+  # Public direct-ingress entrypoint: LanguageTool (lang-tool.ddns.net) and WG-Chores (wg-aemtli.ddns.net).
   # Separate from websecure so the external 443 forward can point here instead of
-  # the shared entrypoint: a spoofed Host on :8443 then matches only the LT
+  # the shared entrypoint: a spoofed Host on :8443 then matches only these
   # routers, closing the home-IP:443 bypass of every holy-grail.ch service.
   # Mirrors websecure (crowdsec, forwarded-header trust) so LT's posture is kept.
   langtool:

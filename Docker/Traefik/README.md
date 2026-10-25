@@ -22,14 +22,23 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 | `web` | 80 | public | HTTP→HTTPS redirect + ACME HTTP challenge |
 | `websecure` | 443 | public (Cloudflare tunnel) | every `holy-grail.ch` service |
 | `internal` | 8080 (not published) | Prometheus only, over the internal `traefik_metrics` network | `/metrics` |
-| `langtool` | 8443 | public (direct forward) | LanguageTool only (`lang-tool.ddns.net`) |
+| `langtool` | 8443 | public (direct forward) | the two ddns services below |
+
+| Service | Host | Entrypoint | Login |
+|---|---|---|---|
+| LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
+| WG-Chores | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | outside SSO, owner's choice, app's household code; never route `wg-chores-sqliteweb` |
+
+## Networks (H-2, 2026-10-25)
+
+Public apps and crown jewels have their own network, shared only with Traefik (`traefik_<app>`, defined in `docker-compose.yaml`, Traefik `.3` on each). Traefik's default route and published ports stay on `traefik_proxy` (`gw_priority`, 172.24.255.3). Pinned: Authentik trusts `10.24.15.3`, Portainer `10.24.7.7`, VPN NAT `10.24.5.5`. Full list: `../_global/docs/container-hardening.md`. Other apps are still on `traefik_proxy`.
 
 `langtool` exists so the external `:443` forward can point at it instead of the
 shared `websecure` entrypoint. `lang-tool.ddns.net` is a direct-ingress service
 (not behind Cloudflare), so forwarding external `443 → 192.168.1.2:443` let
 anyone hit the home IP with a spoofed `Host:` and reach every `holy-grail.ch`
 service, bypassing Cloudflare and exposing the origin. On `:8443` only the
-LanguageTool routers are bound, so a spoofed host there returns 404.
+LanguageTool and WG-Chores routers are bound, so a spoofed host there returns 404.
 
 **Router change the owner must make (Zyxel), to close the bypass:**
 1. Open the Zyxel admin page, go to the NAT / Port-Forward (virtual-server) list.

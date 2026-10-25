@@ -1,7 +1,7 @@
 http:
   routers:
     # LanguageTool is served ONLY on lang-tool.ddns.net (direct ingress + Let's
-    # Encrypt HTTP challenge, same as wg-aemtli). Access is exclusively via
+    # Encrypt HTTP challenge, same as wg-aemtli.ddns.net in wg-chores.yml). Access is exclusively via
     # per-person secret-token URLs (gitignored languagetool-token.yml). There is
     # intentionally NO basic-auth / bare door: a request without a valid token
     # path matches no router and returns 404. The languagetool.holy-grail.ch
