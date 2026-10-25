@@ -10,7 +10,7 @@ Docker management UI (Portainer CE) for fastpi and, via the Portainer agent, bee
 - **Login:** native OAuth (Authentik "Holy Grail"). The password login is blocked at
   Traefik (`portainer-password-login-block`, see `../Traefik/traefik/dynamic/portainer.yml`)
   and the HTTPS port is bound to `127.0.0.1:9443`.
-- **beefy:** Portainer dials the agent on `beefy:9001` outbound. fastpi's container LAN guard (`_global/scripts/docker-user-lan-guard.sh`) lets only Portainer's pinned `172.24.255.7` reach it; beefy's firewall only accepts 9001 from fastpi (192.168.1.2). Both sides share `AGENT_SECRET` (`.env` here and in beefy's `Docker/Portainer-Agent/.env`).
+- **beefy:** Portainer dials the agent on `beefy:9001` outbound. fastpi's container LAN guard (`_global/scripts/docker-user-lan-guard.sh`) lets only Portainer's pinned `10.24.7.7` (network `traefik_portainer`, shared only with Traefik) reach it; beefy's firewall only accepts 9001 from fastpi (192.168.1.2). Both sides share `AGENT_SECRET` (`.env` here and in beefy's `Docker/Portainer-Agent/.env`).
 
 ## Docker socket: through a filtered proxy, not a raw mount
 

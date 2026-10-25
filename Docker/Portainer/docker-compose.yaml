@@ -143,9 +143,9 @@ services:
     depends_on:
       - socket-proxy-unix
     networks:
-      traefik_proxy:      # inbound (Traefik) and outbound (beefy agent :9001)
+      traefik_portainer:  # inbound (shared only with Traefik, H-2) and outbound (beefy agent :9001)
         # Pinned: the host's DOCKER-USER guard lets only this address reach beefy:9001.
-        ipv4_address: 172.24.255.7
+        ipv4_address: 10.24.7.7
       portainer_socket: {}  # Docker API via the proxy
 # =========================================================
 # Volumes =================================================
@@ -158,8 +158,8 @@ volumes:
 # Networks ================================================
 # =========================================================
 networks:
-  traefik_proxy:
-    external: true
+  traefik_portainer:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
   # Portainer <-> its socket proxy only. internal: no route to the internet.
   portainer_socket:
     name: portainer_socket
