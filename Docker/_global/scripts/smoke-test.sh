@@ -24,6 +24,8 @@ check "traefik version"            '^3\.7\.16$' "$(docker exec traefik traefik v
 check "public site (home)"         '^200$' "$(http https://home.holy-grail.ch/)"
 check "scanner filter (/.env)"     '^403$' "$(http https://cloud.holy-grail.ch/.env)"
 running cloudflared crowdsec
+check "cloudflared in host-guard ssh range" '^172\.20\.' "$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cloudflared)"
+check "host-guard rules.v4 persisted" '^1$' "$(grep -c '^-A INPUT -i br-+ -j HOST-GUARD$' /etc/iptables/rules.v4 2>/dev/null || sudo -n grep -c '^-A INPUT -i br-+ -j HOST-GUARD$' /etc/iptables/rules.v4)"
 check "bouncer fails open"          '^stream -1$' "$(awk '/crowdsecMode:/{m=$2} /updateMaxFailure:/{f=$2} END{print m, f}' /home/pi/Projects/Docker/Traefik/traefik/dynamic/crowdsec.yml)"
 check "crowdsec exporter < 15 min"  '^yes$' "$(s=$(sed -n 's/^crowdsec_exporter_last_success_timestamp_seconds //p' /var/lib/node-exporter/textfile/crowdsec_status.prom 2>/dev/null); (( $(date +%s) - ${s:-0} < 900 )) && echo yes || echo no)"
 check "crowdsec version"           '^v1\.' "$(docker exec crowdsec cscli version 2>&1 | awk '/version:/{print $2}')"
