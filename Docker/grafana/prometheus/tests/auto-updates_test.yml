@@ -90,7 +90,7 @@ tests:
             exp_annotations:
               summary: "fastpi DDNS: auto-update rollback failed"
               description: |-
-                Failed verification, rollback did not verify: x:latest (a → b). Check: <code>cd ~/Projects/Docker/DDNS && docker compose ps</code> on fastpi (beefy: sudo docker). Log: <code>journalctl -u auto-update</code>, backups in ~/backups/pre-update/
+                Failed verification, rollback did not verify: x:latest (a → b). Check: <code>cd ~/Projects/Docker/DDNS &amp;&amp; docker compose ps</code> on fastpi (beefy: sudo docker). Log: <code>journalctl -u auto-update</code>, backups in ~/backups/pre-update/
 
   - name: no run for two days
     interval: 1m

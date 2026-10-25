@@ -39,7 +39,7 @@ groups:
           description: >-
             CrowdSec is up but the Traefik plugin stopped syncing, so bans are not
             enforced. `docker exec crowdsec cscli bouncers list`, and
-            `docker logs traefik --since 15m 2>&1 | grep -i crowdsec`. Remember
+            <code>docker logs traefik --since 15m 2&gt;&amp;1 | grep -i crowdsec</code>. Remember
             `cscli bouncers delete` prefix-matches (see Traefik README).
 
       - alert: CrowdSecCommunityBlocklistStale

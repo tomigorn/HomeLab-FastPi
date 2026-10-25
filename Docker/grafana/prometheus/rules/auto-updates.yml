@@ -28,7 +28,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }} {{ $labels.project }}: auto-update rollback failed"
           description: |-
-            Failed verification, rollback did not verify: {{ $labels.ref | html }} ({{ $labels.from }} → {{ $labels.to }}). Check: <code>cd ~/Projects/Docker/{{ $labels.project }} && docker compose ps</code> on {{ $labels.host }} (beefy: sudo docker). Log: <code>journalctl -u auto-update</code>, backups in ~/backups/pre-update/
+            Failed verification, rollback did not verify: {{ $labels.ref | html }} ({{ $labels.from }} → {{ $labels.to }}). Check: <code>cd ~/Projects/Docker/{{ $labels.project }} &amp;&amp; docker compose ps</code> on {{ $labels.host }} (beefy: sudo docker). Log: <code>journalctl -u auto-update</code>, backups in ~/backups/pre-update/
 
       - alert: AutoUpdateNotRunning
         expr: time() - auto_update_last_run_timestamp_seconds > 2 * 86400
