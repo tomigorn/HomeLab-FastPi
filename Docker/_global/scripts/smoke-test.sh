@@ -62,8 +62,9 @@ check "login page"                 '^200$' "$(http https://sso.holy-grail.ch/if/
 check "OIDC discovery (Nextcloud)" '^200$' "$(http https://sso.holy-grail.ch/application/o/nextcloud/.well-known/openid-configuration)"
 check "forward-auth (cup -> sso)"  'sso\.holy-grail\.ch' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' https://cup.holy-grail.ch/)"
 check "traefik dashboard -> sso"   'sso\.holy-grail\.ch' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve traefik.holy-grail.ch:443:192.168.1.2 https://traefik.holy-grail.ch/dashboard/)"
-# SSO only: the old basicAuth router on :8080 is gone, nothing serves /dashboard/ there.
-check "traefik no basicAuth (404)" '^404$' "$(http -H 'Host: fastpi.homelab' http://192.168.1.2:8080/dashboard/)"
+# :8080 (metrics entrypoint) is not published: only Prometheus reaches it over traefik_metrics.
+check "traefik :8080 not on LAN"   '^000$' "$(http http://192.168.1.2:8080/metrics)"
+check "traefik metrics (prometheus)" 'traefik_entrypoint_requests_total' "$(docker exec prometheus wget -qO- -T 5 http://traefik:8080/metrics 2>/dev/null | grep -m1 -o traefik_entrypoint_requests_total)"
 # Grafana does its own OIDC: /login -> /login/generic_oauth -> Authentik authorize.
 check "grafana login -> sso"       'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -L --max-redirs 1 -o /dev/null -w '%{redirect_url}' --resolve grafana.holy-grail.ch:443:192.168.1.2 https://grafana.holy-grail.ch/login)"
 # SSO only: the form client is unregistered, so POST /login is refused (400 notConfigured).

@@ -14,7 +14,7 @@ VPN_NAT=172.24.255.5/32     # wg-easy SNAT source — the owner's remote devices
 CLOUDFLARED=172.20.0.0/16   # infra__cloudflare_default — tunnel route terminal.holy-grail.ch → ssh://192.168.1.2:22
 
 DNS=53
-TRAEFIK_EP=80,443,8080,8443                     # Traefik's published entrypoints (docker-proxy hairpin from traefik_proxy)
+TRAEFIK_EP=80,443,8443                          # Traefik's published entrypoints (docker-proxy hairpin from traefik_proxy)
 TRAEFIK_BACKENDS=3000,8123,9001,9002            # AdGuard admin, Home Assistant, beefy/tower wakers (host network)
 VPN_TCP=22,139,445,8099,8123,18555              # ssh, samba, m4b dashboard, HA app, go2rtc WebRTC
 VPN_UDP=18555
