@@ -101,6 +101,7 @@ Only `socket-proxy-ro`, `socket-proxy-autoheal`, `socket-proxy-portupdater`, `po
 | `~pi/.ssh/authorized_keys` (2026-10-25) | every key: `from="192.168.1.0/24,172.24.0.0/16,172.20.0.0/16,fe80::/10",no-agent-forwarding,no-X11-forwarding` (LAN, VPN NAT on traefik_proxy, cloudflared terminal route, LAN link-local); port forwarding kept for `ssh -L`. New key: same prefix |
 | user `deploy` | locked, shell nologin, out of the docker group, key parked as `authorized_keys.disabled-20261024` (Jenkins stopped) |
 | autologin | off: lightdm `autologin-user` commented, tty1 override moved to `/root/disabled-20261024/` |
+| host OUTPUT guard (2026-10-25) | `sudo _global/scripts/host-output-guard.sh --persist`: from the host (incl. host-network containers) to beefy only ssh 22, ICMP and the Beefy-Waker uid 65005 (gate probes); rest dropped + logged (`host-out-guard drop:`, with UID). Traefik → beefy is FORWARD, unaffected. Beefy-Waker uid changes → update `WAKER_UID` |
 | `/etc/sysctl.d/90-hardening.conf` | `kernel.kptr_restrict = 1`, `kernel.dmesg_restrict = 1` (no kernel pointers / dmesg for unprivileged users), `net.ipv4.conf.{all,default}.send_redirects = 0`, `net.ipv4.conf.all.log_martians = 1`; `net.ipv4.conf.{all,default}.rp_filter = 2` (loose: strict breaks Docker/WireGuard asymmetric paths), `kernel.sysrq = 0` |
 | unused services | `cups-browsed`, `ModemManager` disabled (2026-10-24; no printer, no modem) |
 | `/etc/modules-load.d/wireguard.conf` | `wireguard` (WireGuard-VPN has no SYS_MODULE, the host loads the module) |

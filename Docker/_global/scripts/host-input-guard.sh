@@ -2,7 +2,7 @@
 # host-input-guard.sh — limit what containers and VPN peers may reach on the host itself.
 #
 # Traffic that enters from a Docker bridge (docker0, br-*) and is addressed to the host hits INPUT: DNS to AdGuard, Traefik → host-network services, docker-proxy hairpins (VPN peers → 192.168.1.2:443), cloudflared → sshd. Without this guard every container and VPN peer reaches every host listener (sshd, samba, AdGuard admin, HA, go2rtc, wakers).
-# Only the flows below are allowed from bridges, by source and port; everything else from a bridge is dropped. LAN (eth0) and loopback are not matched, and OUTPUT is untouched.
+# Only the flows below are allowed from bridges, by source and port; everything else from a bridge is dropped. LAN (eth0) and loopback are not matched; OUTPUT to beefy is host-output-guard.sh.
 # IPv6: no Docker network has IPv6; bridges get established + ICMPv6 only, eth0 accepts NEW only from link-local/ULA (no exposure if the ISP ever enables global IPv6).
 #
 # Idempotent: rebuilds HOST-GUARD / HOST-GUARD6 and their INPUT hooks on every run. The hooks never reference Docker's chains, so rules.v4/v6 restore at boot before Docker starts.

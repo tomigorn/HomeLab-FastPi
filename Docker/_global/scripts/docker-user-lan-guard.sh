@@ -4,7 +4,7 @@
 # Containers must still reach the internet, the host's own published ports (those hit INPUT, not FORWARD, so they are never matched here) and the two trusted homelab servers, but only the containers that need them, by source and port:
 #   Traefik → beefy/tower (all ports: it proxies them), grafana stack → beefy :22, tower :22/:8080 (blackbox), m4b → beefy :22, Cup → beefy :8000, Portainer → beefy :9001.
 #   VPN clients (wg-easy NAT) → whole LAN, but on beefy only :22 (ssh), :8096 (Jellyfin apps) and ping: beefy's admin backends trust 192.168.1.2 and have no login of their own, so they stay behind Traefik + Authentik.
-# Everything else on 192.168.1.0/24 (router, IoT plugs, any other device, any other container) is blocked. Host-network services (Home Assistant, the wakers) are unaffected: their traffic is host traffic, not forwarded.
+# Everything else on 192.168.1.0/24 (router, IoT plugs, any other device, any other container) is blocked. Host-network services (Home Assistant, the wakers) are host traffic, not forwarded: host-output-guard.sh limits that towards beefy.
 #
 # Idempotent: rebuilds the DOCKER-USER chain from scratch on every run.
 # Persist: `docker-user-lan-guard.sh --persist` (calls iptables-persist.sh) writes /etc/iptables/rules.v4/v6 with ONLY our own chains (DOCKER-USER, HOST-GUARD). Never `netfilter-persistent save`: it freezes Docker's own per-bridge rules, which come back at boot for bridges that no longer exist and silently drop traffic to reused container IPs (Cup → its agent, 2026-10-24).

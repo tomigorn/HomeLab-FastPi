@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # iptables-persist.sh — write /etc/iptables/rules.v4/v6 with ONLY our own chains (DOCKER-USER, HOST-GUARD, HOST-GUARD6) and their hooks, from the live rules.
-# Called by docker-user-lan-guard.sh --persist and host-input-guard.sh --persist. Never `netfilter-persistent save`: it freezes Docker's per-bridge rules, which come back at boot for bridges that no longer exist (Cup → agent broke 2026-10-24).
+# Called by the --persist of docker-user-lan-guard.sh, host-input-guard.sh and host-output-guard.sh. Never `netfilter-persistent save`: it freezes Docker's per-bridge rules, which come back at boot for bridges that no longer exist (Cup → agent broke 2026-10-24).
 # Each file is tested with --test and must restore into an empty netns before it replaces the old one.
 set -euo pipefail
 
@@ -18,7 +18,7 @@ write() { # tool out chains...
   { echo "# Written by _global/scripts/iptables-persist.sh: only our own chains, Docker builds its own."
     echo "*filter"
     for c in "$@"; do
-      case $c in DOCKER-USER) chain "$tool" "$c" FORWARD ;; *) chain "$tool" "$c" INPUT ;; esac
+      case $c in DOCKER-USER) chain "$tool" "$c" FORWARD ;; HOST-OUT-GUARD) chain "$tool" "$c" OUTPUT ;; *) chain "$tool" "$c" INPUT ;; esac
     done
     echo "COMMIT"; } > "$tmp"
   "$tool-restore" --test < "$tmp"
@@ -32,5 +32,5 @@ write() { # tool out chains...
   echo "persisted to $out"
 }
 
-write iptables /etc/iptables/rules.v4 DOCKER-USER HOST-GUARD
+write iptables /etc/iptables/rules.v4 DOCKER-USER HOST-GUARD HOST-OUT-GUARD
 write ip6tables /etc/iptables/rules.v6 HOST-GUARD6
