@@ -98,7 +98,7 @@ Only `socket-proxy-ro`, `socket-proxy-autoheal`, `socket-proxy-portupdater`, `po
 | `/etc/ssh/sshd_config.d/20-access.conf` | `AllowUsers pi`, no X11/agent forwarding, `MaxAuthTries 3` (TCP forwarding stays for `ssh -L`); beefy's key into fastpi removed (fastpi → beefy only) |
 | user `deploy` | locked, shell nologin, out of the docker group, key parked as `authorized_keys.disabled-20261024` (Jenkins stopped) |
 | autologin | off: lightdm `autologin-user` commented, tty1 override moved to `/root/disabled-20261024/` |
-| `/etc/sysctl.d/90-hardening.conf` | `kernel.kptr_restrict = 1`, `kernel.dmesg_restrict = 1` (no kernel pointers / dmesg for unprivileged users), `net.ipv4.conf.{all,default}.send_redirects = 0`, `net.ipv4.conf.all.log_martians = 1` |
+| `/etc/sysctl.d/90-hardening.conf` | `kernel.kptr_restrict = 1`, `kernel.dmesg_restrict = 1` (no kernel pointers / dmesg for unprivileged users), `net.ipv4.conf.{all,default}.send_redirects = 0`, `net.ipv4.conf.all.log_martians = 1`; `net.ipv4.conf.{all,default}.rp_filter = 2` (loose: strict breaks Docker/WireGuard asymmetric paths), `kernel.sysrq = 0` |
 | unused services | `cups-browsed`, `ModemManager` disabled (2026-10-24; no printer, no modem) |
 | `/etc/modules-load.d/wireguard.conf` | `wireguard` (WireGuard-VPN has no SYS_MODULE, the host loads the module) |
 | `Docker/grafana/alertmanager/secrets/telegram_bot_token` | `65004:pi`, 640 (alertmanager owns it, `oob-alert.sh` reads it as pi) |
