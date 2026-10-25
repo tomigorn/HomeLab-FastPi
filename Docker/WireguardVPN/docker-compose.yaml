@@ -62,25 +62,25 @@ services:
     # Discovery/token/userinfo calls to Authentik go straight to Traefik on this host
     # (valid public cert) instead of out through the Cloudflare tunnel; the container's
     # resolver may otherwise not see AdGuard's local *.holy-grail.ch answer.
+    # Traefik's address on traefik_wg: 192.168.1.2:443 from here is a DNAT'd host port, which DOCKER-USER drops for the VPN source.
     extra_hosts:
-      - "sso.holy-grail.ch:192.168.1.2"
+      - "sso.holy-grail.ch:10.24.5.3"
     sysctls:
       net.ipv4.conf.all.src_valid_mark: '1'
       net.ipv4.ip_forward: '1'
     # depends_on:
     #   - adguard
-    # NOTE: traefik_proxy is required for the wg-easy UI to be reachable via Traefik
-    # (https://wg-easy.holy-grail.ch). A side effect is that the container's
-    # default gateway becomes the traefik_proxy bridge, meaning all VPN client traffic
-    # exits through that network. If traefik_proxy is removed, VPN routing breaks.
+    # NOTE: traefik_wg (shared only with Traefik, H-2/M-8) carries the UI for Traefik
+    # (https://wg-easy.holy-grail.ch) and is the container's only network, so all VPN
+    # client traffic exits through it (NAT source 10.24.5.5). Removing it breaks VPN routing.
     #
     # If the UI becomes unreachable (e.g. AdGuard DNS is down), use the Cloudflare
     # SSH tunnel as a break-glass — see README.md.
     networks:
-      traefik_proxy:
-        # Pinned: VPN clients reach Traefik NATed to this address, and the shared
-        # Traefik middleware local-networks@file allows exactly 172.24.255.5/32.
-        ipv4_address: 172.24.255.5
+      traefik_wg:
+        # Pinned: VPN clients reach Traefik (10.24.5.3) NATed to this address; local-networks@file,
+        # HOST-GUARD, DOCKER-USER and authorized_keys from= name exactly 10.24.5.5.
+        ipv4_address: 10.24.5.5
     restart: unless-stopped
 
 # =========================================================
@@ -94,8 +94,8 @@ secrets:
 # Networks ================================================
 # =========================================================
 networks:
-  traefik_proxy:
-    external: true
+  traefik_wg:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
 
 # =========================================================
 # Volumes =================================================

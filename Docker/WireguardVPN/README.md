@@ -78,17 +78,17 @@ traffic, so `local-networks@file` refused it (Forbidden). Fix: the interface **P
 (stored in wg-easy's DB, `hooks_table`, Admin → Hooks in the UI) gets one extra rule:
 
 ```
-iptables -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 172.24.255.3;
+iptables -t nat -A PREROUTING -i wg0 -s {{ipv4Cidr}} -d 192.168.1.2 -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 10.24.5.3;
 ```
 
 (and the matching `-D` in PostDown). Packets then go container-to-container to Traefik
-(IP pinned in Docker/Traefik/docker-compose.yaml) and are masqueraded to **172.24.255.5**,
+(IP pinned on `traefik_wg` in Docker/Traefik/docker-compose.yaml) and are masqueraded to **10.24.5.5**,
 which `local-networks@file` allows. `-i wg0` limits it to real WireGuard clients. If the
 wg-easy DB is ever recreated, re-add this hook. Other ports (DNS 53, SSH, AdGuard 3000…) are
 unchanged. Backup of the DB before the change: `~/backups/wg-easy.db.bak-2026-10-19`.
 
-The container's **own** requests (e.g. `docker exec WireGuard-VPN …` to 192.168.1.2) are not from `wg0`, so they still hairpin as 172.24.0.1 and get 403 on LAN-only routes: expected, not a client problem. Test the real client path from the container's netns:
+Since 2026-10-25 wg-easy's only network is `traefik_wg` (Traefik + wg-easy only): VPN peers no longer reach other containers directly. The container's **own** requests to 192.168.1.2:80/443 are DNAT'd host ports, which DOCKER-USER drops for 10.24.5.5, so its OIDC calls use `extra_hosts` `sso.holy-grail.ch:10.24.5.3`. Test the real client path from the container's netns:
 
 ```bash
-docker run --rm --network container:WireGuard-VPN --user 65026:65026 --cap-drop ALL curlimages/curl:8.23.0 -sk -o /dev/null -w '%{http_code} %{redirect_url}\n' --resolve radarr.holy-grail.ch:443:172.24.255.3 https://radarr.holy-grail.ch/   # 302 -> sso
+docker run --rm --network container:WireGuard-VPN --user 65026:65026 --cap-drop ALL curlimages/curl:8.23.0 -sk -o /dev/null -w '%{http_code} %{redirect_url}\n' --resolve radarr.holy-grail.ch:443:10.24.5.3 https://radarr.holy-grail.ch/   # 302 -> sso
 ```
