@@ -35,6 +35,8 @@ services:
       # docker network - nothing is published on the host/LAN.
       - crowdsec
       - cloudflare
+      # Defined by Traefik (internal). Prometheus scrapes traefik:8080/metrics.
+      - traefik_metrics
 
 # #########################################################
 # Node Exporter ###########################################
@@ -349,6 +351,9 @@ networks:
   cloudflare:
     external: true
     name: infra__cloudflare_default
+  # Defined by Traefik, internal: only Traefik + Prometheus (metrics scrape).
+  traefik_metrics:
+    external: true
   # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
   traefik_proxy:
     external: true

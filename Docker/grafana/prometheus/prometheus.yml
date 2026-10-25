@@ -49,13 +49,11 @@ scrape_configs:
       - targets:
           - cloudflared:20241
 
-  # Traefik metrics (per-router/service request counts). Traefik is in a
-  # different compose project/network, so scrape it via the host-published
-  # internal entrypoint (:8080, LAN-only).
+  # Traefik metrics (per-router/service request counts) over the internal traefik_metrics network; :8080 is not published on the host.
   - job_name: "traefik"
     static_configs:
       - targets:
-          - "192.168.1.2:8080"
+          - "traefik:8080"
 
   # ---------------------------------------------------------------------------
   # Public endpoint probes (blackbox).

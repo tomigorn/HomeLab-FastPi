@@ -127,7 +127,7 @@ tests:
     input_series:
       - series: 'up{job="raspberry-pi",instance="node-exporter:9100"}'
         values: '1x3 0x20'
-      - series: 'up{job="traefik",instance="192.168.1.2:8080"}'
+      - series: 'up{job="traefik",instance="traefik:8080"}'
         values: '1x23'
       - series: 'up{job="blackbox-beefy",instance="beefy"}'
         values: '0x23'
