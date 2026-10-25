@@ -36,3 +36,11 @@ groups:
             receiving this, the alerting chain is broken and real alerts would not
             reach you either - check `docker logs alertmanager | grep -i notify` and
             whether Brevo has deactivated the SMTP key.
+
+      - alert: DeadMansSwitch
+        # Always firing; Alertmanager pings healthchecks.io with it every 5 min (receiver healthchecks). When the pings stop (fastpi down, no internet, Prometheus or Alertmanager hung), healthchecks.io alerts from outside.
+        expr: vector(1)
+        labels:
+          severity: deadman
+        annotations:
+          summary: "Dead man's switch - fastpi alerting chain is alive"

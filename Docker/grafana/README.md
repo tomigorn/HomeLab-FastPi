@@ -108,6 +108,7 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 | Match | Receiver |
 |---|---|
+| `DeadMansSwitch` (`severity="deadman"`, always firing) | `healthchecks`: webhook to healthchecks.io every 5 min (URL in `alertmanager/secrets/healthchecks_url`); healthchecks.io alerts by Telegram + email after 15 min without a ping |
 | `WeeklyUpdateDigest` | `telegram-digest` |
 | `AlertNotificationsFailing{integration="telegram"}` | `email` (a broken Telegram is not reported over Telegram) |
 | `AudioLanguageNotFound` | `telegram-once` (no resolved message; grouped per app, title, failed) |

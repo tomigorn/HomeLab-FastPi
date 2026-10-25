@@ -1,0 +1,23 @@
+rule_files:
+  - ../rules/heartbeat.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    alert_rule_test:
+      - alertname: AlertingHeartbeat
+        eval_time: 1m
+        exp_alerts:
+          - exp_labels:
+              severity: heartbeat
+            exp_annotations:
+              summary: "Alerting pipeline heartbeat - everything is fine"
+              description: "This is the monthly proof that Prometheus, Alertmanager and the Brevo SMTP credential are all still working. Nothing is wrong. If you ever stop receiving this, the alerting chain is broken and real alerts would not reach you either - check `docker logs alertmanager | grep -i notify` and whether Brevo has deactivated the SMTP key."
+      - alertname: DeadMansSwitch
+        eval_time: 1m
+        exp_alerts:
+          - exp_labels:
+              severity: deadman
+            exp_annotations:
+              summary: "Dead man's switch - fastpi alerting chain is alive"

@@ -38,6 +38,13 @@ route:
   group_interval: 5m
   repeat_interval: 12h
   routes:
+    # Dead man's switch (prometheus/rules/heartbeat.yml): always firing, pinged to healthchecks.io every 5 min. healthchecks.io alerts (Telegram + email) when the pings stop.
+    - matchers:
+        - severity="deadman"
+      receiver: healthchecks
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 5m
     # Weekly digest (prometheus/rules/weekly-digest.yml): fires Monday 05:00 for one hour. No resolved message, which would repeat the whole digest an hour later.
     - matchers:
         - alertname="WeeklyUpdateDigest"
@@ -118,6 +125,11 @@ receivers:
         message: '{{ template "tg.message" . }}'
 
   # Email only — see the route comment above for why Telegram is excluded.
+  - name: healthchecks
+    webhook_configs:
+      - url_file: /secrets/healthchecks_url
+        send_resolved: false
+
   - name: heartbeat
     email_configs:
       - to: 'alerts@example.com'
