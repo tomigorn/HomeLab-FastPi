@@ -1,0 +1,12 @@
+# Nightly restic backup of fastpi to beefy (Server/5-Backup). Metrics: backup.prom in the node-exporter textfile dir. Tests: tests/backup_test.yml
+groups:
+  - name: backup
+    rules:
+      - alert: BackupStale
+        expr: time() - backup_last_success_timestamp_seconds > 36 * 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No successful fastpi backup for {{ $value | humanizeDuration }}"
+          description: "journalctl -u fastpi-backup on fastpi. Status 2 = beefy was asleep at 04:06 (it is never woken for this), 0 = failed. Restore steps: Server/5-Backup/README.md"

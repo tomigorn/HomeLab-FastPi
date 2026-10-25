@@ -1,0 +1,21 @@
+# promtool test rules tests/backup_test.yml
+rule_files:
+  - ../rules/backup.yml
+evaluation_interval: 1m
+tests:
+  - name: fresh backup is quiet, stale one fires after 36 h
+    interval: 1h
+    input_series:
+      - series: 'backup_last_success_timestamp_seconds{instance="node-exporter:9100"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 36h
+        alertname: BackupStale
+        exp_alerts: []
+      - eval_time: 38h
+        alertname: BackupStale
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "No successful fastpi backup for 1d 14h 0m 0s"
+              description: "journalctl -u fastpi-backup on fastpi. Status 2 = beefy was asleep at 04:06 (it is never woken for this), 0 = failed. Restore steps: Server/5-Backup/README.md"
