@@ -125,11 +125,14 @@ def watchdog(state: dict, now: float, ok: dict[str, bool]) -> str | None:
                 down.append(f"{svc} (since {time.strftime('%H:%M', time.localtime(t))})")
     msg = []
     if down:
-        msg.append("<b>[FIRING] MonitoringDown</b>\nfastpi: " + ", ".join(down) + " not answering for 10+ min. "
-                   "No Prometheus alert can be sent until it is back. "
-                   "Check: docker ps -a | grep -E 'prometheus|alertmanager'; docker logs --tail 50 prometheus")
+        items = "\n".join(f"• {d}" for d in down)
+        msg.append("🔴 <b>MonitoringDown</b>\n\nNot answering for 10+ min on fastpi:\n" + items +
+                   "\n• No Prometheus alert can be sent until it is back"
+                   "\n<blockquote expandable>💡 Check: <code>docker ps -a | grep -E 'prometheus|alertmanager'</code>"
+                   "\n<code>docker logs --tail 50 prometheus</code></blockquote>")
     if back:
-        msg.append("<b>[RESOLVED] MonitoringDown</b>\nfastpi: " + ", ".join(back) + " back up.")
+        items = "\n".join(f"• {d}" for d in back)
+        msg.append("✅ <b>MonitoringDown</b> · resolved\n\nBack up on fastpi:\n" + items)
     return "\n\n".join(msg) or None
 
 

@@ -79,9 +79,13 @@ class Watchdog(unittest.TestCase):
         self.assertIsNone(ex.watchdog(s, NOW, {"prometheus": False, "alertmanager": True}))
         self.assertIsNone(ex.watchdog(s, NOW + 540, {"prometheus": False, "alertmanager": True}))
         msg = ex.watchdog(s, NOW + 600, {"prometheus": False, "alertmanager": True})
-        self.assertIn("prometheus", msg)
+        self.assertTrue(msg.startswith("🔴 <b>MonitoringDown</b>\n\n"))
+        self.assertIn("• prometheus (since", msg)
+        self.assertIn("<blockquote expandable>", msg)
         self.assertIsNone(ex.watchdog(s, NOW + 660, {"prometheus": False, "alertmanager": True}))
-        self.assertIn("back", ex.watchdog(s, NOW + 900, {"prometheus": True, "alertmanager": True}))
+        back = ex.watchdog(s, NOW + 900, {"prometheus": True, "alertmanager": True})
+        self.assertTrue(back.startswith("✅ <b>MonitoringDown</b> · resolved\n\n"))
+        self.assertIn("• prometheus", back)
         self.assertIsNone(ex.watchdog(s, NOW + 960, {"prometheus": True, "alertmanager": True}))
 
     def test_short_blip_sends_nothing(self):
