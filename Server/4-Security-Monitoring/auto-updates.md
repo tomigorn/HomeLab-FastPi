@@ -23,7 +23,7 @@
 | `auto` | Claude-Mockups, M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
 | `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
 | `edge` | Authentik, Traefik, adguard, cloudflared, WireguardVPN | like notify (machine.md: owner's yes) |
-| `edge-auto` | none yet | like auto, check = canary / DNS / public route; failed rollback → OOB page |
+| `edge-auto` | cloudflared, adguard (owner 2026-10-25) | like auto, check = canary / DNS / public route; failed rollback → OOB page |
 | not listed | LoyaltyCards*, bitwarden (parked), CrowdSec (own updater), local builds, tower | untouched |
 
 Only the digest behind the tag written in the repo moves, so the repo stays the truth. Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
@@ -78,7 +78,7 @@ A tag in the code is not a version: `:latest` / `:stable` resolve to whatever th
 
 | Host | Now | Recommendation |
 |---|---|---|
-| fastpi (Debian 12, oldstable → LTS) | unattended-upgrades on, Debian + Debian-Security, no reboot | add the Raspberry Pi archive (prepared, not installed); keep Docker/HashiCorp/OpenTofu manual; plan the Debian 13 upgrade attended |
+| fastpi (Debian 12, oldstable → LTS) | unattended-upgrades on, Debian + Debian-Security + Raspberry Pi archive (installed 2026-10-25, `/etc/apt/apt.conf.d/52unattended-upgrades-local`), no reboot | a new kernel/firmware waits for the next attended reboot; keep Docker/HashiCorp/OpenTofu manual; plan the Debian 13 upgrade attended |
 | beefy | unattended-upgrades installed (Debian/Ubuntu defaults) | review in the beefy repo |
 
 Install the prepared file (attended, does not run apt):
