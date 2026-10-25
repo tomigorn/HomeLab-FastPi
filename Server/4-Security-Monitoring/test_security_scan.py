@@ -1342,6 +1342,13 @@ def test_dt_plan_digest_the_registry_refused_uses_the_base_image():
     assert plan[0][2] == "clamav-local@sha256:cc"
 
 
+def test_parse_os_dump_splits_files_and_drops_missing_ones():
+    from security_scan import parse_os_dump
+    text = "=== /etc/os-release\nID=ubuntu\n=== /etc/lsb-release\nDISTRIB_ID=Ubuntu\n=== /etc/missing\n=== /var/lib/dpkg/status\nPackage: a\n\nPackage: b\n"
+    assert parse_os_dump(text) == {"etc/os-release": "ID=ubuntu\n", "etc/lsb-release": "DISTRIB_ID=Ubuntu\n",
+                                   "var/lib/dpkg/status": "Package: a\n\nPackage: b\n"}
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

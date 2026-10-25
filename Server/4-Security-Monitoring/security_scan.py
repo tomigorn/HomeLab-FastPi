@@ -1711,7 +1711,8 @@ class DtClient:
         for p in projects:
             if p["name"] == name and not p.get("version"):
                 return p["uuid"]
-        return self._call("PUT", "/v1/project", {"name": name, "classifier": "PLATFORM", "description": f"Images and OS of {name}, uploaded by security_scan.py dt"})["uuid"]
+        return self._call("PUT", "/v1/project", {"name": name, "classifier": "PLATFORM", "collectionLogic": "AGGREGATE_DIRECT_CHILDREN",
+                                                  "description": f"Images and OS of {name}, uploaded by security_scan.py dt"})["uuid"]
 
     def upload(self, payload: dict) -> None:
         self._call("PUT", "/v1/bom", payload, timeout=300)
@@ -1782,30 +1783,40 @@ def dt_image_sbom(host: str, key: str, src: str) -> bytes | None:
     return bom
 
 
+def parse_os_dump(text: str) -> dict[str, str]:
+    """`=== /path` headers each followed by that file -> {relative path: text}; files that came back empty (absent) are left out."""
+    files, cur = {}, None
+    for line in text.splitlines(keepends=True):
+        if line.startswith("=== /"):
+            cur = line[5:].strip()
+            files[cur] = ""
+        elif cur:
+            files[cur] += line
+    return {k: v for k, v in files.items() if v}
+
+
+# Trivy detects Debian by debian_version and Ubuntu by lsb-release (Ubuntu also has a debian_version, "forky/sid").
+DT_OS_FILES = ("etc/os-release", "etc/lsb-release", "etc/debian_version", "var/lib/dpkg/status")
+
+
 def dt_os_entry(host: str):
-    """(project, version, key, builder) for the host OS: Trivy rootfs over a tree of os-release, debian_version and the dpkg status."""
-    files = ("etc/os-release", "etc/debian_version", "var/lib/dpkg/status")
-    if host == "fastpi":
-        texts = {f: Path("/" + f).read_text(errors="replace") for f in files}
-    else:
-        r = ssh(host, "for f in " + " ".join("/" + f for f in files) + "; do echo \"=== $f\"; cat \"$f\"; done", timeout=120)
-        if r.returncode != 0:
-            raise RuntimeError(f"os files on {host}: {r.stderr.strip()[:200]}")
-        texts, cur = {}, None
-        for line in r.stdout.splitlines(keepends=True):
-            if line.startswith("=== /"):
-                cur = line[5:].strip()
-                texts[cur] = ""
-            elif cur:
-                texts[cur] += line
+    """(project, version, key, builder) for the host OS: Trivy rootfs over a tree of os-release, lsb-release, debian_version and the dpkg status."""
+    cmd = "for f in " + " ".join("/" + f for f in DT_OS_FILES) + "; do echo \"=== $f\"; cat \"$f\" 2>/dev/null; done; true"
+    r = run(["sh", "-c", cmd], timeout=120) if host == "fastpi" else ssh(host, cmd, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"os files on {host}: {r.stderr.strip()[:200]}")
+    texts = parse_os_dump(r.stdout)
+    if "etc/os-release" not in texts or "var/lib/dpkg/status" not in texts:
+        raise RuntimeError(f"os files on {host}: no os-release or dpkg status")
     name, version = dt_os_project(host, texts["etc/os-release"])
-    key = hashlib.sha256("".join(texts[f] for f in files).encode()).hexdigest()[:24]
+    key = hashlib.sha256("".join(f"{f}\0{texts[f]}" for f in sorted(texts)).encode()).hexdigest()[:24]
 
     def build():
         tree = STATE / "dt-os" / host
-        for f in files:
+        shutil.rmtree(tree, ignore_errors=True)
+        for f, text in texts.items():
             (tree / f).parent.mkdir(parents=True, exist_ok=True)
-            (tree / f).write_text(texts[f])
+            (tree / f).write_text(text)
         return _trivy_sbom(["rootfs", "/rootfs"], rootfs=tree)[0]
     return name, version, key, build
 
