@@ -204,7 +204,7 @@ services:
       # web UI (host_port:container_port) - use 8085:8080 (8080 already used by Traefik)
       # localhost only (2026-10-19, SSO-only): qBittorrent's password form must not be
       # reachable over the network. Use ssh -L 8085:127.0.0.1:8085 fastpi.
-      # port_updater talks to it inside mouse_network (172.32.0.2:8080), not via this port.
+      # port_updater talks to it inside mouse_network (10.24.32.2:8080), not via this port.
       - "127.0.0.1:8085:8080"
       # # torrent listening port (TCP/UDP)
       # # unfortunately we can't choose the port. ProtonVPN assigns a random port on each connection, so we need to expose the default torrent port and let the port updater container handle the dynamic forwarding.
@@ -214,8 +214,8 @@ services:
       - "127.0.0.1:5010:5010"
       # SABnzbd web UI - localhost only (SSO-only): ssh -L 8090:127.0.0.1:8090 fastpi
       # Internal 8081 because qBittorrent holds 8080 in this namespace (sabnzbd.ini port = 8081).
-      # Through this bind SABnzbd sees the mouse_network gateway (172.32.0.1), so sabnzbd.ini
-      # (not in git) has local_ranges = 172.32.0.0/16, 192.168.1.0/24; without it: 403.
+      # Through this bind SABnzbd sees the mouse_network gateway (10.24.32.1), so sabnzbd.ini
+      # (not in git) has local_ranges = 10.24.32.0/24, 192.168.1.0/24; without it: 403.
       - "127.0.0.1:8090:8081"
       # gluetun control server
       # - "8000:8000"
@@ -238,7 +238,7 @@ services:
         max-file: "3"
     networks:
       mouse_network:
-        ipv4_address: 172.32.0.2
+        ipv4_address: 10.24.32.2
 
 # #########################################################
 # qBitTorrent #############################################
@@ -399,7 +399,7 @@ services:
         max-file: "2"
     networks:
       mouse_network:
-        ipv4_address: 172.32.0.3
+        ipv4_address: 10.24.32.3
       socket_proxy_portupdater:
       traefik_proxy:
     depends_on:
@@ -415,7 +415,7 @@ services:
       - SESSION_CHECK_INTERVAL=15
       - ZERO_RETRY_INTERVAL=60
       - ZERO_PORT_LIMIT=3
-      - GLUETUN_IP=172.32.0.2
+      - GLUETUN_IP=10.24.32.2
       - GLUETUN_AUTH_USER=${GLUETUN_AUTH_USER}
       - GLUETUN_AUTH_PASS_FILE=/run/secrets/gluetun_auth_pass
       - TZ=Europe/Zurich
@@ -464,8 +464,8 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.32.0.0/16
-          gateway: 172.32.0.1
+        - subnet: 10.24.32.0/24
+          gateway: 10.24.32.1
 
 # =========================================================
 # Volumes =================================================

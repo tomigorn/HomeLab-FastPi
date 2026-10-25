@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-GLUETUN_IP="${GLUETUN_IP:-172.32.0.2}"
+GLUETUN_IP="${GLUETUN_IP:-10.24.32.2}"
 
 # --- Helper functions ---
 
