@@ -44,45 +44,85 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
     Opening an app also wakes a sleeping server. Wait a minute and try again.
 
 ## Samsung TV: install the app yourself
-Use this when Jellyfin is **not in the Samsung app store** on your TV, or the store app says the **server version is not supported**. Samsung TVs from 2017 on (Tizen 3 or newer) work.
+Use this when Jellyfin is **not in the Samsung app store** on your TV, or the store app says the **server version is not supported**. Tested on a 2021 Samsung TV (Tizen 6.0) with the app version 12.2. A reinstall takes about 15 minutes.
 
-You need a computer (Windows, Mac or Linux) with **[Docker](https://docs.docker.com/get-started/get-docker/)** installed, on the **same Wi-Fi/network** as the TV. Samsung apps are `.wgt` files, not `.apk` (that is Android).
+| | |
+|---|---|
+| You need | a laptop/PC on the **same home Wi-Fi** as the TV, only for installing and updating (not for watching) |
+| Samsung account | not needed (only TVs from 2023 on need one) |
+| App files | `.wgt`, not `.apk` (that is Android) |
 
-### 1. Find the TV's IP address
-TV: **Settings → General → Network → Network Status → IP Settings**. Write down the **IP address**, e.g. `192.168.1.50`.
+### 1. Note two IP addresses
+- **TV:** Settings → General → Network → Network Status → **IP Settings**.
+- **Laptop:** Windows: open *Command Prompt*, type `ipconfig`, read the **IPv4 address**. Mac: System Settings → Network → Wi-Fi → Details.
+
+Turn **off any VPN** on the laptop during the install.
 
 ### 2. Turn on Developer Mode on the TV
-1. Open **Apps** on the TV.
-2. Press **1 2 3 4 5** on the remote, one after the other. A *Developer Mode* window opens.
-3. Switch **Developer mode** to **On**.
-4. Enter your **computer's** IP address (not the TV's) and press **OK**.
-5. Restart the TV: hold the **power** button until it switches off and on again.
+1. On the TV, open the **Apps** page.
+2. Type **1 2 3 4 5**. The TV remote's on-screen number pad (123 button) often does **not** work. What works: the **SmartThings** app on your phone → your TV → Remote → **number keypad**, or a USB keyboard.
+3. In the *Developer Mode* window switch it **On**, enter the **laptop's** IP as *Host PC IP*, press **OK**.
+4. Restart the TV fully: **hold the power button about 3 seconds**.
 
-!!! tip "No window after 1 2 3 4 5?"
-    Some remotes have no number keys: use the on-screen number pad (**123** button). On newer TVs, look under **Settings → General → System Manager**.
+The Apps page now says **Apps (DEVELOP MODE)**.
 
-### 3. Install Jellyfin from the computer
-Open a terminal (Windows: *PowerShell*) and run, with **your TV's** IP:
+### 3. Install Jellyfin
+=== "Windows: Apps2Samsung (easiest)"
 
-```bash
-docker run --rm ghcr.io/georift/install-jellyfin-tizen 192.168.1.50
-```
+    1. Open [github.com/Apps2Samsung/Apps2Samsung/releases/latest](https://github.com/Apps2Samsung/Apps2Samsung/releases/latest) (no GitHub account needed). Download only from there or [apps2samsung.com](https://apps2samsung.com), never from other sites.
+    2. Under **Assets** download `Apps2Samsung-…-win-x64.msi`.
+    3. Open it. At *Windows protected your PC* click **More info → Run anyway**, then **Yes**. It installs silently without a window; then start **Apps2Samsung** from the Start menu. (Doesn't appear? Use the `win-x64.zip`: *Extract All*, run the program in the folder.)
+    4. In Apps2Samsung: **App:** `Jellyfin - <date>` (the standard build, see the table below) · **Version:** **12.2** (our server) · **Select TV:** pick it or type its IP.
+    5. Click **Download and install** and wait 1–2 minutes.
 
-If the TV asks to **allow the connection**, accept it. When the command ends with *Installed*, Jellyfin is in the TV's app list.
+=== "Mac / Linux: one command with Docker"
 
-!!! warning "App says the version doesn't match?"
-    Install the build made for our server version explicitly:
+    With [Docker](https://docs.docker.com/get-started/get-docker/) installed, open a terminal and run, with **your TV's** IP:
+
+    ```bash
+    docker run --rm ghcr.io/georift/install-jellyfin-tizen 192.168.1.50
+    ```
+
+    If the TV asks to **allow the connection**, accept it. If the app later says the version doesn't match, install the build for our server explicitly:
+
     ```bash
     docker run --rm ghcr.io/georift/install-jellyfin-tizen 192.168.1.50 Jellyfin-12.z
     ```
 
-### 4. Sign in
-Open Jellyfin on the TV, enter `https://jellyfin.holy-grail.ch` and sign in with **Quick Connect** (steps above).
+### 4. First start
+1. Find **Jellyfin** under Apps. To put it on the home row: highlight it, **hold Enter**, **Move**.
+2. Server address: `https://jellyfin.holy-grail.ch` (the TV doesn't find it by itself).
+3. Sign in with **Quick Connect** (steps above), then play a film to test.
 
-!!! info "No automatic updates"
-    An app installed this way never updates itself. When the server moves to a new main version we announce it here; then repeat step 3.
+### Which build to pick
+Apps2Samsung lists several Jellyfin builds:
 
-Builds: [jellyfin-tizen-builds](https://github.com/jeppevinkel/jellyfin-tizen-builds) · installer: [install-jellyfin-tizen](https://github.com/Georift/install-jellyfin-tizen). Both are community projects, not made by Samsung.
+| Entry | What it is | Use it when |
+|---|---|---|
+| `Jellyfin - <date>` | standard app, newest build | **default**, matches our 12.x server |
+| `Jellyfin - AVPlay` | uses Samsung's built-in video player | a film stutters, has no sound or won't start |
+| `… 10.10z …`, `Legacy`, `+ Bonfire` | old servers / old TVs / modified build | not for us |
+
+### Reinstall or update
+Needed when a Samsung software update removed the app, or when our server moves to a new main version (announced here).
+
+1. The Apps page still shows **Apps (DEVELOP MODE)**? If not, repeat step 2.
+2. The laptop's IP still the same? If not, enter the new one in Developer Mode and restart the TV.
+3. Laptop on home Wi-Fi, VPN off: install again (step 3), same build, version matching our server.
+
+Your watch progress and favourites live on the server, so a reinstall loses nothing. Turning off automatic TV updates (Settings → Support → Software Update) lowers the chance that the app gets removed.
+
+### Troubleshooting
+| Problem | Fix |
+|---|---|
+| Typing 1 2 3 4 5 does nothing | SmartThings phone keypad or a USB keyboard, not the TV's on-screen pad |
+| Installer can't find the TV | laptop IP in Developer Mode current? VPN off? same Wi-Fi? Restart the TV (hold power 3 s) |
+| *Author certificate not match* | delete the old Jellyfin app on the TV (highlight, hold Enter, **Delete**), install again |
+| App can't connect | address exactly `https://jellyfin.holy-grail.ch`, not the login page `sso.holy-grail.ch`; a sleeping server needs about a minute, try again |
+| Film stutters or buffers | in the TV app: Settings → Playback → lower the **maximum streaming bitrate** (e.g. 20 Mbit/s) |
+| No sound or film won't start | install the `Jellyfin - AVPlay` build over the standard one |
+
+Tools: [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) · [jellyfin-tizen-builds](https://github.com/jeppevinkel/jellyfin-tizen-builds) · [install-jellyfin-tizen](https://github.com/Georift/install-jellyfin-tizen). Community projects, not made by Samsung.
 
 ## Rating and tracking
 - **Heart** = favourite, and you can mark things **played**. The TV and phone apps have no star ratings.
