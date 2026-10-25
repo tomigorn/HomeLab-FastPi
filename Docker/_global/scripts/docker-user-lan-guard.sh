@@ -19,7 +19,7 @@ TRAEFIK=172.24.255.3/32   # Traefik (pinned) — proxies the media + nextcloud r
 MONITORING=192.168.208.0/20  # grafana stack — blackbox probes beefy :22, tower :22/:8080
 M4B=192.168.64.0/20       # m4b-auto-merge — ssh to beefy, which transcodes
 CUP=172.31.0.0/16         # Cup server (cup_cup_agents) — reads the beefy agent
-PORTAINER=172.24.255.7/32 # Portainer (pinned) — manages beefy through its agent
+PORTAINER=10.24.7.7/32    # Portainer (pinned on traefik_portainer) — manages beefy through its agent
 
 iptables -N DOCKER-USER 2>/dev/null || true
 iptables -C FORWARD -j DOCKER-USER 2>/dev/null || iptables -I FORWARD -j DOCKER-USER
