@@ -152,6 +152,10 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   check "tracker integrations LAN reach ryot" '^202$' "$(http -k -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/_i/smoke)"
 else skip "tracker integrations LAN reach ryot" "beefy asleep - not woken"; fi
 
+echo "== Dependency-Track (beefy, homelab-admins)"
+check "dt -> sso"                  'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve dt.holy-grail.ch:443:192.168.1.2 https://dt.holy-grail.ch/ | cut -c1-60)"
+check "dt OIDC discovery"          '^200$' "$(http https://sso.holy-grail.ch/application/o/dt-login/.well-known/openid-configuration)"
+
 echo "== VPN downloaders (gluetun pinned v3.41.3)"
 running gluetun_mouse qbittorrent_mouse mousehole samba port_updater sabnzbd
 check "gluetun_mouse version"      'v3\.41\.3' "$(docker inspect -f '{{.Config.Image}}' gluetun_mouse)"
