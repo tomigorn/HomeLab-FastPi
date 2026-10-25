@@ -21,7 +21,7 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 |------|------|----------------|---------|
 | `web` | 80 | public | HTTP→HTTPS redirect + ACME HTTP challenge |
 | `websecure` | 443 | public (Cloudflare tunnel) | every `holy-grail.ch` service |
-| `internal` | 8080 | LAN/VPN | dashboard only (IP-allowlisted) |
+| `internal` | 8080 (not published) | Prometheus only, over the internal `traefik_metrics` network | `/metrics` |
 | `langtool` | 8443 | public (direct forward) | LanguageTool only (`lang-tool.ddns.net`) |
 
 `langtool` exists so the external `:443` forward can point at it instead of the

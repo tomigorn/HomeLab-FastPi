@@ -11,12 +11,6 @@ http:
       tls:
         certResolver: cloudflare
 
-    # LAN — http://home.fastpi.homelab (internal entrypoint, IP-restricted).
-    homelab-dashboard-internal:
-      rule: "Host(`home.fastpi.homelab`)"
-      entryPoints: ["internal"]
-      service: homelab-dashboard
-
   middlewares:
     homelab-dashboard-secure-headers:
       headers:

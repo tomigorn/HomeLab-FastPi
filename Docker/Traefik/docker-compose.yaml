@@ -26,7 +26,6 @@ services:
     ports:
       - 80:80       # HTTP
       - 443:443     # HTTPS
-      - 8080:8080   # Internal — dashboard only, restricted by IPAllowList
       - 8443:8443   # LanguageTool — external 443 forward points here (lang-tool.ddns.net)
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -48,6 +47,8 @@ services:
         # Cloudflare tunnel). Top of the subnet on purpose: after a reboot Docker hands out
         # addresses from the bottom, and 172.24.0.3 was once taken by authentik-server first.
         ipv4_address: 172.24.255.3
+      # Prometheus scrapes traefik:8080/metrics here; :8080 is not published on the host.
+      traefik_metrics:
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -76,6 +77,10 @@ services:
 networks:
   traefik_proxy:
     external: true
+  # Only Traefik and Prometheus; internal = no route out, no gateway.
+  traefik_metrics:
+    name: traefik_metrics
+    internal: true
 
 # =========================================================
 # Volumes =================================================
