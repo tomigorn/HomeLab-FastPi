@@ -1168,6 +1168,38 @@ def test_updates_missing_or_foreign_only_file_is_no_data_and_keeps_old_file():
     assert (d / "textfile" / "auto_update_beefy.prom").read_text() == "old\n"
 
 
+# --- Cup snapshots -----------------------------------------------------------
+
+CUP_FULL = {"last_updated": "2026-10-25T09:38:45Z", "images": [
+    {"server": None, "reference": "caddy:2.10", "in_use": True,
+     "result": {"has_update": True, "info": {"type": "version", "version_update_type": "minor",
+                                             "current_version": "2.10", "new_version": "2.11"}}},
+    {"server": "beefy", "reference": "x:1", "in_use": False, "result": {"has_update": False, "info": None}},
+]}
+
+
+def test_cup_snapshot_rows_per_host_with_taken_at():
+    from security_scan import cup_snapshots
+    s = cup_snapshots(CUP_FULL)
+    assert s["fastpi"]["taken_at"] == "2026-10-25T09:38:45Z"
+    assert s["fastpi"]["images"] == [{"reference": "caddy:2.10", "in_use": True, "has_update": True, "type": "minor",
+                                      "current": "2.10", "latest": "2.11"}]
+    assert s["beefy"]["images"][0]["has_update"] is False and s["beefy"]["images"][0]["type"] == ""
+
+
+def test_cup_snapshot_kept_when_host_missing_replaced_when_present():
+    from security_scan import store_cup_snapshots
+    d = _tmp_dirs()
+    store_cup_snapshots(CUP_FULL)
+    old = (d / "state" / "cup-snapshot-beefy.json").read_text()
+    newer = {"last_updated": "2026-10-26T09:00:00Z", "images": [CUP_FULL["images"][0]]}
+    present = store_cup_snapshots(newer)
+    assert present == {"fastpi"}
+    assert (d / "state" / "cup-snapshot-beefy.json").read_text() == old
+    import json
+    assert json.loads((d / "state" / "cup-snapshot-fastpi.json").read_text())["taken_at"] == "2026-10-26T09:00:00Z"
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

@@ -311,6 +311,27 @@ def fixable_findings(report: dict) -> set[tuple[str, str, str]]:
     return out
 
 
+def cup_snapshots(data: dict) -> dict[str, dict]:
+    """Cup's JSON -> {host: {taken_at, images: [...]}}, every monitored image of the host, with or without update."""
+    taken = data.get("last_updated") or ""
+    out: dict[str, dict] = {}
+    for img in data.get("images") or []:
+        host = img.get("server") or "fastpi"
+        res = img.get("result") or {}
+        det = res.get("info") or {}
+        update = res.get("has_update")
+        kind = det.get("version_update_type") if det.get("type") == "version" else det.get("type")
+        out.setdefault(host, {"taken_at": taken, "images": []})["images"].append({
+            "reference": img.get("reference", "?"),
+            "in_use": bool(img.get("in_use")),
+            "has_update": update,
+            "type": (kind or "unknown") if update else "",
+            "current": det.get("current_version") or "",
+            "latest": det.get("new_version") or det.get("new_tag") or "",
+        })
+    return out
+
+
 def diff_findings(seen: dict | None, current: dict[str, str], now: float, scanned: set | None = None) -> tuple[dict, list[str]]:
     """current {image|id|pkg: severity} against the seen state -> (new state, keys new this run).
 
@@ -785,6 +806,15 @@ def check_hygiene(repo_dir: Path) -> dict[str, int]:
     else:
         (STATE / "hygiene-problems.txt").write_text("")
     return verdicts
+
+
+def store_cup_snapshots(data: dict) -> set[str]:
+    """Keep the latest Cup snapshot per host; a host Cup dropped (offline) keeps its old file. Returns the hosts present now."""
+    snaps = cup_snapshots(data)
+    for host, snap in snaps.items():
+        write_atomic(STATE / f"cup-snapshot-{host}.json", json.dumps(snap, indent=1, sort_keys=True))
+    write_atomic(STATE / "cup-present.json", json.dumps({"present": sorted(snaps), "checked_at": time.time()}))
+    return set(snaps)
 
 
 def _prom_name(subject: str) -> str:
@@ -1679,6 +1709,7 @@ def main() -> int:
                     # one attempt per run: a failed refresh is not retried for every host
                     try:
                         data, awake_map = read_cup()
+                        store_cup_snapshots(data)
                         cup.update(zip(("hosts", "info"), parse_cup(data)), awake=awake_map)
                     except Exception as e:  # noqa: BLE001
                         cup["error"] = e
