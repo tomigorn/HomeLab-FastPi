@@ -510,7 +510,7 @@ def count_failed_logins(text: str, now: float, window: int = 86400) -> int:
 _SSH_ACCEPTED_RE = re.compile(r"sshd.*: Accepted \S+ for (\S+) from (\S+) port ")
 SOURCE_CLASSES = (
     ("lan", ("192.168.1.0/24",)),
-    ("vpn", ("172.24.255.5/32", "10.8.0.0/24")),   # wg-easy NAT address on traefik_proxy, WireGuard client subnet
+    ("vpn", ("10.24.5.5/32", "10.8.0.0/24")),   # wg-easy NAT address on traefik_wg, WireGuard client subnet
     ("tunnel", ("172.20.0.0/16",)),                # cloudflared's compose network
 )
 

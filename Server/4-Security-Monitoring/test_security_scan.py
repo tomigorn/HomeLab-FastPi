@@ -562,7 +562,8 @@ def _ts_for(iso: str) -> float:
 
 def test_classify_source_lan_vpn_tunnel_other():
     assert classify_source("192.168.1.102") == "lan"
-    assert classify_source("172.24.255.5") == "vpn"
+    assert classify_source("10.24.5.5") == "vpn"
+    assert classify_source("172.24.255.5") == "other"
     assert classify_source("10.8.0.4") == "vpn"
     assert classify_source("172.20.0.2") == "tunnel"
     assert classify_source("84.226.182.197") == "other"
