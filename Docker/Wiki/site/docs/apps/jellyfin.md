@@ -4,10 +4,18 @@
 
 **Server version:** Jellyfin **12.2** (October 2026). TV and phone apps must be made for version **12**: an older app (10.x) can't connect.
 
-## In the browser
+## On the laptop/PC in the browser
 1. Open the address.
 2. Press **Sign In with Holy Grail**. There is no password field in Jellyfin itself: your Holy Grail account is the only login.
 3. Pick something and press play.
+
+!!! tip "Hardware acceleration: leave it ON"
+    With it on, your graphics chip decodes the video: smoother playback, less battery and fan, and the server more often streams the original file instead of converting it. It is on by default; turn it **off only if** videos stay black, show green blocks or stutter, then restart the browser.
+
+    | Browser | Where |
+    |---|---|
+    | Chrome, Brave, Edge | **Settings → System → Use graphics acceleration when available** (older versions: *hardware acceleration*) → **Relaunch** |
+    | Firefox | **Settings → General → Performance** → untick *Use recommended performance settings* → **Use hardware acceleration when available** → restart Firefox |
 
 !!! info "The media server sleeps"
     To save power the media server sleeps when nobody uses it. If it is asleep, your browser shows an **"asleep, sign in to start"** page instead. Log in with Holy Grail and a waiting page starts the server and sends you on to Jellyfin when it's ready, after about a minute. Just wait on the page.
