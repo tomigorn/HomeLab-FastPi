@@ -16,6 +16,7 @@
     |---|---|
     | Chrome, Brave, Edge | **Settings → System → Use graphics acceleration when available** (older versions: *hardware acceleration*) → **Relaunch** |
     | Firefox | **Settings → General → Performance** → untick *Use recommended performance settings* → **Use hardware acceleration when available** → restart Firefox |
+    | Safari (Mac, iPhone, iPad) | **nothing to do**: always on, Safari has no switch for it |
 
 !!! info "The media server sleeps"
     To save power the media server sleeps when nobody uses it. If it is asleep, your browser shows an **"asleep, sign in to start"** page instead. Log in with Holy Grail and a waiting page starts the server and sends you on to Jellyfin when it's ready, after about a minute. Just wait on the page.
