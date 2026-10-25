@@ -26,6 +26,9 @@ global:
   smtp_auth_password_file: /secrets/smtp_password
   smtp_require_tls: true
 
+templates:
+  - /etc/alertmanager/telegram.tmpl
+
 route:
   receiver: admins
   # Group by alert name so "all endpoints down" arrives as ONE message rather than
@@ -112,11 +115,7 @@ receivers:
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
         send_resolved: true
-        message: |-
-          <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
-          {{ range .Alerts }}{{ .Annotations.summary }}
-          {{ .Annotations.description }}
-          {{ end }}
+        message: '{{ template "tg.message" . }}'
 
   # Email only — see the route comment above for why Telegram is excluded.
   - name: heartbeat
@@ -140,11 +139,7 @@ receivers:
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
         send_resolved: true
-        message: |-
-          <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
-          {{ range .Alerts }}{{ .Annotations.summary }}
-          {{ .Annotations.description }}
-          {{ end }}
+        message: '{{ template "tg.message" . }}'
 
   # Like telegram, without the resolved message (alerts that end on their own).
   - name: telegram-once
@@ -153,11 +148,7 @@ receivers:
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
         send_resolved: false
-        message: |-
-          <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
-          {{ range .Alerts }}{{ .Annotations.summary }}
-          {{ .Annotations.description }}
-          {{ end }}
+        message: '{{ template "tg.message" . }}'
 
   - name: telegram-digest
     telegram_configs:
@@ -165,9 +156,7 @@ receivers:
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
         send_resolved: false
-        message: |-
-          <b>{{ .CommonAnnotations.summary }}</b>
-          {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+        message: '{{ template "tg.digest" . }}'
 
 # Stop a whole-edge outage from paging twice. group_by collapses same-alertname
 # fan-out, but the aggregate and per-endpoint alerts have DIFFERENT alertnames, so

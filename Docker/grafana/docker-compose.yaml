@@ -140,6 +140,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/telegram.tmpl:/etc/alertmanager/telegram.tmpl:ro
       - ./alertmanager/secrets:/secrets:ro
       - alertmanager_data:/alertmanager
     command:

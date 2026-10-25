@@ -1,0 +1,26 @@
+{{ define "tg.icon" -}}
+{{ if eq .Status "resolved" }}✅{{ else if eq .CommonLabels.severity "critical" }}🔴{{ else if eq .CommonLabels.severity "warning" }}🟠{{ else }}🔵{{ end }}
+{{- end }}
+
+{{/* One header, one line per alert, the shared explanation once and collapsed. */}}
+{{ define "tg.message" -}}
+{{ template "tg.icon" . }} <b>{{ .CommonLabels.alertname }}</b>{{ if eq .Status "resolved" }} · resolved{{ end }}{{ if gt (len .Alerts) 1 }} · {{ len .Alerts }}×{{ end }}
+{{ if gt (len .Alerts) 1 }}
+{{ range .Alerts }}• {{ .Annotations.summary }}
+{{ end }}{{ else }}{{ range .Alerts }}
+{{ .Annotations.summary }}
+{{ end }}{{ end }}
+{{- if eq .Status "firing" }}{{ if .CommonAnnotations.description }}
+<blockquote expandable>💡 {{ .CommonAnnotations.description }}</blockquote>
+{{- else }}{{ range .Alerts }}{{ if .Annotations.description }}
+<blockquote expandable><b>{{ .Annotations.summary }}</b>
+{{ .Annotations.description }}</blockquote>
+{{- end }}{{ end }}{{ end }}{{ end }}
+{{- end }}
+
+{{ define "tg.digest" -}}
+📋 <b>{{ .CommonAnnotations.summary }}</b>
+{{ range .Alerts }}
+{{ .Annotations.description }}
+{{ end }}
+{{- end }}
