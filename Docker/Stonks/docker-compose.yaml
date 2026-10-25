@@ -21,14 +21,14 @@ services:
       # pydantic-settings reads /app/.env; it holds only the secrets
       - ./secrets/stonks.env:/app/.env:ro
     networks:
-      - traefik_proxy
+      - traefik_stonks   # shared only with Traefik (H-2)
 
 # =========================================================
 # Networks ================================================
 # =========================================================
 networks:
-  traefik_proxy:
-    external: true
+  traefik_stonks:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
 
 # =========================================================
 # Volumes =================================================
