@@ -42,13 +42,32 @@ services:
       - ./traefik/plugins-local:/plugins-local:ro
     networks:
       traefik_proxy:
-        # Pinned: wg-easy DNATs VPN clients' web traffic for 192.168.1.2 straight to this
-        # address (so it arrives as 172.24.255.5 = VPN, not via docker-proxy as 172.24.0.1 =
-        # Cloudflare tunnel). Top of the subnet on purpose: after a reboot Docker hands out
-        # addresses from the bottom, and 172.24.0.3 was once taken by authentik-server first.
+        # Pinned: DOCKER-USER/HOST-GUARD allow this source (beefy/tower, host-network backends).
+        # Top of the subnet on purpose: after a reboot Docker hands out addresses from the bottom.
         ipv4_address: 172.24.255.3
+        # Default route + published ports stay here: the DOCKER-USER/HOST-GUARD rules and every trust list name 172.24.255.3.
+        gw_priority: 100
       # Prometheus scrapes traefik:8080/metrics here; :8080 is not published on the host.
       traefik_metrics:
+      # One network per sensitive or public backend, shared only with Traefik (H-2). Traefik is .3 on each.
+      traefik_authentik:
+        ipv4_address: 10.24.15.3   # in Authentik's TRUSTED_PROXY_CIDRS
+      traefik_crowdsec:
+        ipv4_address: 10.24.11.3
+      traefik_portainer:
+        ipv4_address: 10.24.7.3
+      traefik_wg:
+        ipv4_address: 10.24.5.3    # wg-easy DNATs VPN web traffic for 192.168.1.2:80/443 here
+      traefik_loyalty_cards:
+        ipv4_address: 10.24.20.3
+      traefik_loyalty_sync:
+        ipv4_address: 10.24.21.3
+      traefik_home:
+        ipv4_address: 10.24.22.3
+      traefik_stonks:
+        ipv4_address: 10.24.23.3
+      traefik_wg_chores:
+        ipv4_address: 10.24.24.3
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -81,6 +100,63 @@ networks:
   traefik_metrics:
     name: traefik_metrics
     internal: true
+  # Per-app networks (H-2): Traefik + one app each, so a compromised app cannot reach the others.
+  # internal = no gateway; the app keeps its egress on its own project network.
+  # Not internal where that is the app's only network and it needs egress or a published port.
+  traefik_authentik:
+    name: traefik_authentik
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.24.15.0/28
+  traefik_crowdsec:
+    name: traefik_crowdsec
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.24.11.0/28
+  # Portainer egress to the beefy agent (pinned 10.24.7.7, DOCKER-USER) + 127.0.0.1:9443
+  traefik_portainer:
+    name: traefik_portainer
+    ipam:
+      config:
+        - subnet: 10.24.7.0/28
+  # wg-easy: VPN NAT source 10.24.5.5 (local-networks, HOST-GUARD, DOCKER-USER)
+  traefik_wg:
+    name: traefik_wg
+    ipam:
+      config:
+        - subnet: 10.24.5.0/28
+  traefik_loyalty_cards:
+    name: traefik_loyalty_cards
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.24.20.0/28
+  traefik_loyalty_sync:
+    name: traefik_loyalty_sync
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.24.21.0/28
+  traefik_home:
+    name: traefik_home
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.24.22.0/28
+  # stonks fetches quotes from the internet
+  traefik_stonks:
+    name: traefik_stonks
+    ipam:
+      config:
+        - subnet: 10.24.23.0/28
+  # wg-chores-app: 127.0.0.1:8084 needs a gateway network
+  traefik_wg_chores:
+    name: traefik_wg_chores
+    ipam:
+      config:
+        - subnet: 10.24.24.0/28
 
 # =========================================================
 # Volumes =================================================

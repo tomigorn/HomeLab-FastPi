@@ -52,7 +52,7 @@ Every backend, `crowdsec@file` and `default-rate-limit` see **one** address in `
 | Request arrives from | Client IP used |
 |---|---|
 | `172.24.0.1` (Cloudflare tunnel; also host/container hairpins) | `Cf-Connecting-Ip` (Cloudflare always overwrites it) |
-| anything else (LAN, VPN `172.24.255.5`) | connection address |
+| anything else (LAN, VPN `10.24.5.5`) | connection address |
 
 Connection address Traefik sees, measured 2026-10-24 (`userland-proxy: true`, the default; `false` was tried and reverted because host requests then arrived as `172.24.0.1` and LAN-only routes returned 403 from the host):
 
@@ -63,11 +63,11 @@ Connection address Traefik sees, measured 2026-10-24 (`userland-proxy: true`, th
 | containers whose default route is another network (authentik-server, prometheus) | `172.24.0.1` |
 | containers whose default route is `traefik_proxy` (claude-mockups) | their own `172.24.x.y` |
 | LAN clients | their LAN IP |
-| VPN clients (wg-easy DNAT) | `172.24.255.5` |
+| VPN clients (wg-easy DNAT to `10.24.5.3` on `traefik_wg`) | `10.24.5.5` |
 
 | Consumer | How it picks the IP |
 |---|---|
-| Authentik | leftmost XFF, trusts only `172.24.255.3` (see [Authentik README](../Authentik/README.md#client-ip-audit-log-reputation-policy)) |
+| Authentik | leftmost XFF, trusts only `10.24.15.3` (Traefik on `traefik_authentik`, see [Authentik README](../Authentik/README.md#client-ip-audit-log-reputation-policy)) |
 | `default-rate-limit` | `sourceCriterion.ipStrategy.depth: 1` (+ `ipv6Subnet: 64`) = one bucket per client; before 2026-10-24 the whole internet shared the `172.24.0.1` bucket |
 | `crowdsec@file` | rightmost XFF from `172.24.0.1` = the same IP |
 | `local-networks@file` | connection address only, headers never count |

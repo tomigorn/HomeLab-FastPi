@@ -18,7 +18,7 @@
 # go through Traefik). Lost password: stop the container, then
 #   docker run --rm -v docker_portainer_data:/data portainer/helper-reset-password
 #
-# Backend is Portainer's plain-HTTP port 9000, only reachable inside traefik_proxy.
+# Backend is Portainer's plain-HTTP port 9000, only reachable inside traefik_portainer (Traefik + Portainer only).
 http:
   routers:
     portainer:

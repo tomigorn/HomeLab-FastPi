@@ -111,7 +111,7 @@ http:
         # TEMPORARY 2026-10-21: LAN/VPN-only while PHP2Shell (CVE-2026-109618/
         # 109619) is unpatched in nextcloud:stable-apache (ships PHP 8.5.11 < fixed
         # 8.5.12). local-networks@file first = internet (tunnel source 172.24.0.1)
-        # gets 403 before reaching PHP; LAN and WireGuard (172.24.255.5) still pass.
+        # gets 403 before reaching PHP; LAN and WireGuard (10.24.5.5) still pass.
         # REMOVE this one line once a patched nextcloud image is pulled.
         - local-networks@file
         - nextcloud-ratelimit

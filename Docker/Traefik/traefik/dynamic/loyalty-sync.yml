@@ -2,7 +2,7 @@
 # DEPLOY STEP (do on your cadence): copy this file to
 #   /home/pi/Projects/Docker/Traefik/traefik/dynamic/loyalty-sync.yml
 # Mirrors the loyalty-cards.yml pattern. The PWA reaches Pocketbase over the
-# traefik_proxy network at http://loyalty-sync:8090.
+# traefik_loyalty_sync network at http://loyalty-sync:8090.
 http:
   routers:
     loyalty-sync:
