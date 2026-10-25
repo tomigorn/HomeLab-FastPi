@@ -78,7 +78,7 @@ A tag in the code is not a version: `:latest` / `:stable` resolve to whatever th
 
 | Host | Now | Recommendation |
 |---|---|---|
-| fastpi (Debian 12, oldstable → LTS) | unattended-upgrades on, Debian + Debian-Security + Raspberry Pi archive (installed 2026-10-25, `/etc/apt/apt.conf.d/52unattended-upgrades-local`), no reboot | a new kernel/firmware waits for the next attended reboot; keep Docker/HashiCorp/OpenTofu manual; plan the Debian 13 upgrade attended |
+| fastpi (Debian 13 trixie, since 2026-10-25) | unattended-upgrades on, Debian + Debian-Security + Raspberry Pi archive (installed 2026-10-25, `/etc/apt/apt.conf.d/52unattended-upgrades-local`), no reboot | a new kernel/firmware waits for the next attended reboot; keep Docker/HashiCorp/OpenTofu manual |
 | beefy | unattended-upgrades installed (Debian/Ubuntu defaults) | review in the beefy repo |
 
 Install the prepared file (attended, does not run apt):
