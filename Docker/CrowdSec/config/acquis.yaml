@@ -20,5 +20,7 @@ labels:
 # produce an auth.log with no attacks in it. The CrowdSec image has no
 # journalctl, so the journald datasource is not an alternative.
 #
+# Re-checked 2026-10-25 (L-7): still no auth.log and no journalctl in the image; crowdsecurity/whitelists (private ranges) is active, so LAN/VPN/tunnel-origin logins could never be banned and an SSH source would detect nothing today.
+#
 # If SSH is ever exposed, the three-step fix is in
 # Server/4-Security-Monitoring/README.md under "SSH / CrowdSec".
