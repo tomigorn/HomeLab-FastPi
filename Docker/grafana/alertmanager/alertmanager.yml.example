@@ -38,13 +38,14 @@ route:
   group_interval: 5m
   repeat_interval: 12h
   routes:
-    # Dead man's switch (prometheus/rules/heartbeat.yml): always firing, pinged to healthchecks.io every 5 min. healthchecks.io alerts (Telegram + email) when the pings stop.
+    # Dead man's switch (prometheus/rules/heartbeat.yml): always firing, pinged to healthchecks.io every 4-5 min. healthchecks.io alerts (Telegram + email) when the pings stop.
     - matchers:
         - severity="deadman"
       receiver: healthchecks
       group_wait: 0s
       group_interval: 1m
-      repeat_interval: 5m
+      # repeat fires on the next group_interval tick after it elapses, so 4m keeps every ping under healthchecks' 5 min period
+      repeat_interval: 4m
     # Weekly digest (prometheus/rules/weekly-digest.yml): fires Monday 05:00 for one hour. No resolved message, which would repeat the whole digest an hour later.
     - matchers:
         - alertname="WeeklyUpdateDigest"
