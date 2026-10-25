@@ -1,0 +1,24 @@
+[Unit]
+Description=Upload SBOMs of running images and host OS (fastpi, beefy) to Dependency-Track on beefy
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+# Own Trivy cache (trivy-cache-dt), so it may overlap the image and code scans; skips quietly when DT (beefy) is asleep.
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py dt
+TimeoutStartSec=3600
+Nice=19
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/security-scan /var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true

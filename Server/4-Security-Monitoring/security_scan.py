@@ -1573,6 +1573,243 @@ def read_cup() -> tuple[dict, dict[str, bool]]:
     return json.loads(_http_get(f"{CUP_URL}/api/v3/json", 60)), awake_map
 
 
+# ---- Dependency-Track feed (group dt): SBOMs of the running images and of the host OS -> DT on beefy (HomeLab-BeefyServer Docker/Dependency-Track)
+DT_URL = os.environ.get("SECSCAN_DT_URL", "http://192.168.1.102:8090")
+DT_KEY = Path(os.environ.get("SECSCAN_DT_KEY", "/var/lib/security-scan/secrets/dt-api-key"))
+# None = images from the local Docker (socket proxy); a platform = SBOM from the registry copy of the running digest, built on fastpi.
+DT_HOSTS = {"fastpi": None, "beefy": "linux/amd64"}
+# Own layer cache: Trivy's cache is a single-writer bolt DB, and an SBOM needs no vulnerability DB.
+DT_TRIVY_CACHE = "/var/lib/security-scan/trivy-cache-dt"
+_IMAGE_ID_RE = re.compile(r"(sha256:)?[0-9a-f]{12,64}")
+
+
+def dt_project(host: str, ref: str) -> tuple[str, str]:
+    """Image reference -> DT project (host/repository without registry, tag; digest-only refs get sha256:<12 hex>)."""
+    base, _, digest = ref.partition("@")
+    repo = _repo(base)
+    tag = base[len(repo) + 1:] if len(base) > len(repo) else ""
+    parts = repo.split("/")
+    if len(parts) > 1 and ("." in parts[0] or ":" in parts[0] or parts[0] == "localhost"):
+        parts = parts[1:]
+    if parts[0] == "library" and len(parts) > 1:
+        parts = parts[1:]
+    version = tag or (digest[:19] if digest else "latest")
+    return f"{host}/{'/'.join(parts)}", version
+
+
+def parse_image_lines(text: str) -> list[dict]:
+    """`ref|repo digest|image id` lines (one per running image) -> dicts."""
+    out = []
+    for line in text.splitlines():
+        if line.strip():
+            ref, digest, iid = (line.strip().split("|") + ["", ""])[:3]
+            out.append({"ref": ref, "digest": digest, "id": iid})
+    return out
+
+
+def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: set = frozenset()) -> tuple[list[tuple[str, str, str, str]], list[str]]:
+    """Running images -> [(project, version, cache key, Trivy source)] and the images that cannot be scanned (local build, no base known).
+
+    local: repo digests the registry refused (built on the host; a digest alone does not tell).
+    """
+    plan, skipped, seen = [], [], set()
+    bases_of = {_repo(k): v for k, v in bases.items()}
+    for img in images:
+        ref, digest = img["ref"], img["digest"]
+        named = digest if _IMAGE_ID_RE.fullmatch(ref) and digest else ref
+        name, version = dt_project(host, named)
+        if DT_HOSTS.get(host) is None:
+            key, src = img["id"], ref
+        elif digest and digest not in local:
+            key = src = digest
+        elif b := bases_of.get(_repo(ref)):
+            version, key, src = f"{version} (base {b[-1]})", f"base:{b[-1]}", b[-1]
+        else:
+            skipped.append(ref)
+            continue
+        if (name, version) not in seen:
+            seen.add((name, version))
+            plan.append((name, version, key, src))
+    return plan, skipped
+
+
+def dt_os_project(host: str, os_release: str) -> tuple[str, str]:
+    env = parse_env(os_release)
+    return f"{host}/os", f"{env.get('ID', 'linux').strip(chr(34))} {env.get('VERSION_ID', '').strip(chr(34))}".strip()
+
+
+def dt_stale(projects: list[dict], keep: set, hosts: set) -> list[dict]:
+    """Projects under host/ that the host no longer runs (removed image, older tag); the host parent projects stay."""
+    return [p for p in projects if "/" in p["name"] and p["name"].split("/", 1)[0] in hosts
+            and (p["name"], p.get("version")) not in keep]
+
+
+def dt_bom_payload(name: str, version: str, parent_uuid: str, bom: bytes) -> dict:
+    import base64
+    return {"projectName": name, "projectVersion": version, "parentUUID": parent_uuid,
+            "autoCreate": True, "isLatest": True, "bom": base64.b64encode(bom).decode()}
+
+
+def collect_dt(host: str, dt, plan: list, build_sbom, os_entry) -> list:
+    """Upload what changed since the last upload (or vanished from DT), delete projects of images the host no longer runs."""
+    path = STATE / "dt-index.json"
+    index = _load_json(path) or {}
+    projects = dt.projects()
+    existing = {(p["name"], p.get("version")) for p in projects}
+    parent = dt.ensure_parent(host, projects)
+    entries = [(n, v, k, (lambda src=src, k=k: build_sbom(k, src))) for n, v, k, src in plan]
+    if os_entry:
+        entries.append(os_entry)
+    keep, uploaded, failed = set(), 0, 0
+    for name, version, key, build in entries:
+        keep.add((name, version))
+        if index.get(f"{name}|{version}") == key and (name, version) in existing:
+            continue
+        bom = build()
+        if bom is None:
+            failed += 1
+            continue
+        dt.upload(dt_bom_payload(name, version, parent, bom))
+        index[f"{name}|{version}"] = key
+        uploaded += 1
+        write_atomic(path, json.dumps(index, indent=1, sort_keys=True))
+    stale = dt_stale(projects, keep, {host})
+    for p in stale:
+        dt.delete(p["uuid"])
+        index.pop(f"{p['name']}|{p.get('version')}", None)
+    write_atomic(path, json.dumps(index, indent=1, sort_keys=True))
+    return [("security_dt_projects", {"host": host}, len(keep)),
+            ("security_dt_uploads", {"host": host}, uploaded),
+            ("security_dt_sbom_failed", {"host": host}, failed),
+            ("security_dt_stale_deleted", {"host": host}, len(stale))]
+
+
+class DtClient:
+    def __init__(self, url: str, key: str):
+        self.url, self.key = url.rstrip("/"), key
+
+    def _call(self, method: str, path: str, body=None, timeout: int = 120):
+        import urllib.request
+        req = urllib.request.Request(f"{self.url}/api{path}", method=method,
+                                     data=None if body is None else json.dumps(body).encode(),
+                                     headers={"X-Api-Key": self.key, "Content-Type": "application/json", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            text = r.read().decode()
+            return json.loads(text) if text.strip() else None
+
+    def projects(self) -> list[dict]:
+        out, page = [], 1
+        while True:
+            batch = self._call("GET", f"/v1/project?pageSize=500&pageNumber={page}&excludeInactive=false") or []
+            out += batch
+            if len(batch) < 500:
+                return out
+            page += 1
+
+    def ensure_parent(self, name: str, projects: list[dict]) -> str:
+        """uuid of the host's parent project (name only, no version), created on first use."""
+        for p in projects:
+            if p["name"] == name and not p.get("version"):
+                return p["uuid"]
+        return self._call("PUT", "/v1/project", {"name": name, "classifier": "PLATFORM", "description": f"Images and OS of {name}, uploaded by security_scan.py dt"})["uuid"]
+
+    def upload(self, payload: dict) -> None:
+        self._call("PUT", "/v1/bom", payload, timeout=300)
+
+    def delete(self, uuid: str) -> None:
+        self._call("DELETE", f"/v1/project/{uuid}")
+
+
+def dt_reachable() -> bool:
+    """A TCP probe of DT's port: beefy asleep reads as unreachable, and nothing here wakes it."""
+    import socket
+    import urllib.parse
+    u = urllib.parse.urlparse(DT_URL)
+    try:
+        with socket.create_connection((u.hostname, u.port or 80), timeout=3):
+            return True
+    except OSError:
+        return False
+
+
+def dt_images(host: str) -> tuple[list[dict], dict[str, list[str]]]:
+    d = docker_cmd(host)
+    cmd = (f"{d} ps --format '{{{{.Image}}}}' | sort -u | while read -r i; do "
+           f"echo \"$i|$({d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{end}}}}|{{{{.Id}}}}' \"$i\")\"; done")
+    r = run(["sh", "-c", cmd], timeout=120) if host == "fastpi" else ssh(host, cmd, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"image list on {host}: {r.stderr.strip()[:200]}")
+    bases = read_local_bases(host) if DT_HOSTS.get(host) else {}
+    return parse_image_lines(r.stdout), bases
+
+
+def _trivy_sbom_cmd(args: list[str], *, socket_proxy: bool = False, rootfs: Path | None = None) -> list[str]:
+    cmd = ["docker", "run", "--rm"]
+    if socket_proxy:
+        cmd += ["--network", TRIVY_HOSTS["fastpi"]["network"], "-e", f"DOCKER_HOST={TRIVY_HOSTS['fastpi']['docker_host']}"]
+    # the Java DB (jar identification, 1.5 GB) is the image scan's copy, read-only
+    cmd += ["-v", f"{DT_TRIVY_CACHE}:/root/.cache/trivy",
+            "-v", f"{TRIVY_HOSTS['fastpi']['cache']}/java-db:/root/.cache/trivy/java-db:ro"]
+    if rootfs:
+        cmd += ["-v", f"{rootfs}:/rootfs:ro"]
+    return cmd + [TRIVY_IMAGE, args[0], "--format", "cyclonedx", "--quiet", "--skip-db-update",
+                  "--skip-java-db-update", "--timeout", "15m", *args[1:]]
+
+
+def _trivy_sbom(args: list[str], *, socket_proxy: bool = False, rootfs: Path | None = None) -> tuple[bytes | None, str]:
+    r = run(_trivy_sbom_cmd(args, socket_proxy=socket_proxy, rootfs=rootfs), timeout=1800)
+    if r.returncode != 0 or not r.stdout.strip().startswith("{"):
+        print(f"  dt sbom failed {args[-1]}: {r.stderr.strip()[-200:]}", file=sys.stderr)
+        return None, r.stderr
+    return r.stdout.encode(), ""
+
+
+def dt_image_sbom(host: str, key: str, src: str) -> bytes | None:
+    """CycloneDX SBOM of one image, cached by key (image id or digest: the same key is the same content)."""
+    cache = STATE / "sbom-dt"
+    cache.mkdir(parents=True, exist_ok=True)
+    f = cache / f"{hashlib.sha256(f'{host}|{key}'.encode()).hexdigest()[:24]}.cdx.json"
+    if f.exists() and not key.startswith("base:"):
+        return f.read_bytes()
+    platform = DT_HOSTS.get(host)
+    args = ["image", "--image-src", "remote", "--platform", platform, src] if platform else ["image", "--image-src", "docker", src]
+    bom, err = _trivy_sbom(args, socket_proxy=platform is None)
+    if bom:
+        write_atomic(f, bom.decode())
+    elif platform and "@sha256:" in key and _REGISTRY_MISSING_RE.search(err):
+        known = set(_load_json(STATE / "dt-local.json") or [])
+        write_atomic(STATE / "dt-local.json", json.dumps(sorted(known | {key}), indent=1))
+    return bom
+
+
+def dt_os_entry(host: str):
+    """(project, version, key, builder) for the host OS: Trivy rootfs over a tree of os-release, debian_version and the dpkg status."""
+    files = ("etc/os-release", "etc/debian_version", "var/lib/dpkg/status")
+    if host == "fastpi":
+        texts = {f: Path("/" + f).read_text(errors="replace") for f in files}
+    else:
+        r = ssh(host, "for f in " + " ".join("/" + f for f in files) + "; do echo \"=== $f\"; cat \"$f\"; done", timeout=120)
+        if r.returncode != 0:
+            raise RuntimeError(f"os files on {host}: {r.stderr.strip()[:200]}")
+        texts, cur = {}, None
+        for line in r.stdout.splitlines(keepends=True):
+            if line.startswith("=== /"):
+                cur = line[5:].strip()
+                texts[cur] = ""
+            elif cur:
+                texts[cur] += line
+    name, version = dt_os_project(host, texts["etc/os-release"])
+    key = hashlib.sha256("".join(texts[f] for f in files).encode()).hexdigest()[:24]
+
+    def build():
+        tree = STATE / "dt-os" / host
+        for f in files:
+            (tree / f).parent.mkdir(parents=True, exist_ok=True)
+            (tree / f).write_text(texts[f])
+        return _trivy_sbom(["rootfs", "/rootfs"], rootfs=tree)[0]
+    return name, version, key, build
+
+
 HELPS = {
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
@@ -1607,6 +1844,10 @@ HELPS = {
     "security_new_vulns": "Fixable CRITICAL/HIGH findings (image, CVE, package) first seen in the last 24 h; scope = host (running images) or code-<repo>.",
     "security_new_vuln_info": "One series per finding first seen in the last 24 h (newest 20).",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
+    "security_dt_projects": "Dependency-Track projects of the host (running images + OS) after the last upload run.",
+    "security_dt_uploads": "SBOMs uploaded to Dependency-Track in the last run (new or changed images).",
+    "security_dt_sbom_failed": "Images whose SBOM could not be built in the last run (retried next run).",
+    "security_dt_stale_deleted": "Dependency-Track projects deleted in the last run (image no longer running).",
 }
 
 
@@ -1741,6 +1982,24 @@ def main() -> int:
     if only and "code" in only:
         for repo in CODE_REPOS:
             guarded(f"code-{repo}", lambda repo=repo: collect_code(repo))
+
+    if only and "dt" in only:
+        dt = DtClient(DT_URL, DT_KEY.read_text().strip()) if DT_KEY.exists() else None
+        up = dt is not None and dt_reachable()
+        for host in DT_HOSTS:
+            def _dt(host=host):
+                if dt is None:
+                    raise RuntimeError(f"no API key at {DT_KEY}")
+                if not up:
+                    raise NoData(f"Dependency-Track at {DT_URL} not reachable (beefy asleep), skipped")
+                if floor := resource_floor():
+                    raise NoData(f"resource floor: {floor}")
+                images, bases = dt_images(host)
+                plan, skipped = dt_plan(host, images, bases, set(_load_json(STATE / "dt-local.json") or []))
+                for ref in skipped:
+                    print(f"  dt {host}: {ref} built locally, no base image known, skipped", file=sys.stderr)
+                return collect_dt(host, dt, plan, lambda k, src: dt_image_sbom(host, k, src), dt_os_entry(host))
+            guarded(f"dt-{host}", _dt, host=host)
 
     if want("images"):
         def _scan(host, images):

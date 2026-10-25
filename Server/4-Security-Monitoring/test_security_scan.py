@@ -1201,6 +1201,147 @@ def test_cup_snapshot_kept_when_host_missing_replaced_when_present():
     assert json.loads((d / "state" / "cup-snapshot-fastpi.json").read_text())["taken_at"] == "2026-10-26T09:00:00Z"
 
 
+# --- Dependency-Track feed ------------------------------------------------------
+
+def test_dt_project_name_is_host_and_repo_version_is_tag():
+    from security_scan import dt_project
+    assert dt_project("fastpi", "traefik:v3.7.16") == ("fastpi/traefik", "v3.7.16")
+    assert dt_project("beefy", "docker.io/library/postgres:18.6-alpine") == ("beefy/postgres", "18.6-alpine")
+    assert dt_project("fastpi", "ghcr.io/goauthentik/server:2026.8.1") == ("fastpi/goauthentik/server", "2026.8.1")
+    assert dt_project("fastpi", "aquasec/trivy:0.75.0@sha256:" + "a" * 64) == ("fastpi/aquasec/trivy", "0.75.0")
+    assert dt_project("beefy", "lscr.io/linuxserver/qbittorrent@sha256:0123456789abcdef" + "0" * 48) == ("beefy/linuxserver/qbittorrent", "sha256:0123456789ab")
+    assert dt_project("fastpi", "localhost:5000/x:1") == ("fastpi/x", "1")
+    assert dt_project("fastpi", "beefy-waker") == ("fastpi/beefy-waker", "latest")
+
+
+def test_parse_image_lines_ref_digest_id():
+    from security_scan import parse_image_lines
+    text = "traefik:v3|traefik@sha256:aa|sha256:11\nwaker:local||sha256:22\n\n"
+    assert parse_image_lines(text) == [
+        {"ref": "traefik:v3", "digest": "traefik@sha256:aa", "id": "sha256:11"},
+        {"ref": "waker:local", "digest": "", "id": "sha256:22"},
+    ]
+
+
+def test_dt_plan_local_host_keys_by_image_id():
+    from security_scan import dt_plan
+    imgs = [{"ref": "traefik:v3", "digest": "traefik@sha256:aa", "id": "sha256:11"},
+            {"ref": "waker:local", "digest": "", "id": "sha256:22"}]
+    plan, skipped = dt_plan("fastpi", imgs, {})
+    assert plan == [("fastpi/traefik", "v3", "sha256:11", "traefik:v3"),
+                    ("fastpi/waker", "local", "sha256:22", "waker:local")]
+    assert skipped == []
+
+
+def test_dt_plan_remote_host_keys_by_digest_and_falls_back_to_base_image():
+    from security_scan import dt_plan
+    imgs = [{"ref": "postgres:18", "digest": "postgres@sha256:aa", "id": "sha256:11"},
+            {"ref": "jellyfin-local:latest", "digest": "", "id": "sha256:22"},
+            {"ref": "mystery:1", "digest": "", "id": "sha256:33"},
+            {"ref": "0123456789ab", "digest": "x/y@sha256:bb", "id": "sha256:44"}]
+    plan, skipped = dt_plan("beefy", imgs, {"jellyfin-local": ["build:1", "jellyfin/jellyfin:10.11.2"]})
+    assert plan == [
+        ("beefy/postgres", "18", "postgres@sha256:aa", "postgres@sha256:aa"),
+        ("beefy/jellyfin-local", "latest (base jellyfin/jellyfin:10.11.2)", "base:jellyfin/jellyfin:10.11.2", "jellyfin/jellyfin:10.11.2"),
+        ("beefy/x/y", "sha256:bb", "x/y@sha256:bb", "x/y@sha256:bb"),
+    ]
+    assert skipped == ["mystery:1"]
+
+
+def test_dt_os_project_from_os_release():
+    from security_scan import dt_os_project
+    assert dt_os_project("beefy", 'PRETTY_NAME="Ubuntu"\nID=ubuntu\nVERSION_ID="26.04"\n') == ("beefy/os", "ubuntu 26.04")
+
+
+def test_dt_stale_only_projects_of_the_given_hosts_not_kept():
+    from security_scan import dt_stale
+    projects = [{"name": "fastpi", "version": None, "uuid": "p"},
+                {"name": "fastpi/traefik", "version": "v3", "uuid": "a"},
+                {"name": "fastpi/traefik", "version": "v2", "uuid": "b"},
+                {"name": "beefy/postgres", "version": "17", "uuid": "c"},
+                {"name": "other", "version": "1", "uuid": "d"}]
+    assert [p["uuid"] for p in dt_stale(projects, {("fastpi/traefik", "v3")}, {"fastpi"})] == ["b"]
+
+
+def test_dt_bom_payload_base64_with_parent_and_autocreate():
+    import base64
+    from security_scan import dt_bom_payload
+    p = dt_bom_payload("fastpi/traefik", "v3", "parent-uuid", b'{"bomFormat":"CycloneDX"}')
+    assert p["projectName"] == "fastpi/traefik" and p["projectVersion"] == "v3" and p["parentUUID"] == "parent-uuid"
+    assert p["autoCreate"] is True and p["isLatest"] is True
+    assert base64.b64decode(p["bom"]) == b'{"bomFormat":"CycloneDX"}'
+
+
+class FakeDt:
+    def __init__(self, projects):
+        self.list, self.uploads, self.deleted, self.parents = projects, [], [], []
+
+    def projects(self):
+        return self.list
+
+    def ensure_parent(self, name, projects):
+        self.parents.append(name)
+        return "parent-uuid"
+
+    def upload(self, payload):
+        assert payload["parentUUID"] == "parent-uuid"
+        self.uploads.append((payload["projectName"], payload["projectVersion"]))
+
+    def delete(self, uuid):
+        self.deleted.append(uuid)
+
+
+def test_collect_dt_uploads_changed_skips_unchanged_and_deletes_stale():
+    import json
+    from security_scan import collect_dt
+    d = _tmp_dirs()
+    (d / "state" / "dt-index.json").write_text(json.dumps({"fastpi/a|1": "k1", "fastpi/b|1": "old"}))
+    dt = FakeDt([{"name": "fastpi/a", "version": "1", "uuid": "ua"}, {"name": "fastpi/b", "version": "1", "uuid": "ub"},
+                 {"name": "fastpi/gone", "version": "1", "uuid": "ug"}, {"name": "beefy/x", "version": "1", "uuid": "ux"}])
+    plan = [("fastpi/a", "1", "k1", "a:1"), ("fastpi/b", "1", "k2", "b:1"), ("fastpi/c", "1", "k3", "c:1"), ("fastpi/bad", "1", "k4", "bad:1")]
+    built = []
+
+    def sbom(key, src):
+        built.append(src)
+        return None if src == "bad:1" else b"{}"
+    samples = collect_dt("fastpi", dt, plan, sbom, ("fastpi/os", "debian 12", "os-k", lambda: b"{}"))
+    assert built == ["b:1", "c:1", "bad:1"]
+    assert dt.uploads == [("fastpi/b", "1"), ("fastpi/c", "1"), ("fastpi/os", "debian 12")]
+    assert dt.deleted == ["ug"] and dt.parents == ["fastpi"]
+    assert ("security_dt_projects", {"host": "fastpi"}, 5) in samples
+    assert ("security_dt_sbom_failed", {"host": "fastpi"}, 1) in samples
+    idx = json.loads((d / "state" / "dt-index.json").read_text())
+    assert idx["fastpi/b|1"] == "k2" and idx["fastpi/os|debian 12"] == "os-k" and "fastpi/bad|1" not in idx
+
+
+def test_collect_dt_reuploads_when_project_vanished_from_dt():
+    import json
+    from security_scan import collect_dt
+    d = _tmp_dirs()
+    (d / "state" / "dt-index.json").write_text(json.dumps({"fastpi/a|1": "k1"}))
+    dt = FakeDt([])
+    collect_dt("fastpi", dt, [("fastpi/a", "1", "k1", "a:1")], lambda k, s: b"{}", None)
+    assert dt.uploads == [("fastpi/a", "1")]
+
+
+def test_trivy_sbom_cmd_own_cache_and_read_only_java_db_of_the_image_scan():
+    from security_scan import _trivy_sbom_cmd
+    cmd = _trivy_sbom_cmd(["image", "--image-src", "docker", "x:1"], socket_proxy=True)
+    joined = " ".join(cmd)
+    assert "/var/lib/security-scan/trivy-cache-dt:/root/.cache/trivy " in joined
+    assert "/var/lib/security-scan/trivy-cache/java-db:/root/.cache/trivy/java-db:ro" in joined
+    assert "--skip-java-db-update" in cmd and "--skip-db-update" in cmd and cmd[-1] == "x:1"
+    assert "--network" in cmd and "--network" not in _trivy_sbom_cmd(["rootfs", "/rootfs"], rootfs=Path("/t"))
+
+def test_dt_plan_digest_the_registry_refused_uses_the_base_image():
+    from security_scan import dt_plan
+    imgs = [{"ref": "clamav-local:latest", "digest": "clamav-local@sha256:cc", "id": "sha256:55"}]
+    plan, _ = dt_plan("beefy", imgs, {"clamav-local": ["alpine:3.22"]}, local={"clamav-local@sha256:cc"})
+    assert plan == [("beefy/clamav-local", "latest (base alpine:3.22)", "base:alpine:3.22", "alpine:3.22")]
+    plan, _ = dt_plan("beefy", imgs, {"clamav-local": ["alpine:3.22"]})
+    assert plan[0][2] == "clamav-local@sha256:cc"
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

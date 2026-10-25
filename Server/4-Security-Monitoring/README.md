@@ -16,6 +16,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 (fastpi, tower; beefy only if already awake) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
 | Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | hourly :17 (`security-code-scan.timer`) |
+| One CVE dashboard over everything that runs? | `dt` | CycloneDX SBOM per running image (fastpi: local Docker; beefy: registry copy of the running digest, built on fastpi; local beefy builds via their Dockerfile base) + one OS SBOM per host (Trivy `rootfs` over os-release, debian_version, dpkg status) uploaded to Dependency-Track on beefy, see "Dependency-Track" | fastpi, beefy (tower: Unraid/Slackware, no Trivy OS support) | daily 04:02 (`security-dt.timer`), only if DT answers |
 | Are images updated? | `updates` (beefy's result) | tiered auto-update with rollback, see [auto-updates.md](auto-updates.md); beefy's `auto_update.prom` republished as `auto_update_beefy.prom` | fastpi, beefy | daily 03:10 fastpi, 04:12 beefy (`auto-update.timer`); pull 04:20 (with `av`) |
 | Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
 | Tagged titles still without their audio language (not security, same pull) | `media` | beefy's `media-language.prom` (Movie-Downloads `language-missing.py`), republished as `media_language_beefy.prom`; alert `AudioLanguageNotFound` (`grafana/prometheus/rules/media-language.yml`) | beefy | daily 04:20 (with `av`) |
@@ -36,6 +37,7 @@ Metrics:
 | `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
 | `security_new_vulns`, `security_new_vuln_info` (first seen < 24 h, newest 20) | scope (host or `code-<repo>`) / + image, id, pkg, severity |
 | `auto_update_result`, `auto_update_omitted`, `auto_update_last_run_timestamp_seconds` (no HELP lines: two hosts' files share the families) | host, project, tier, ref, result, from, to, command / host |
+| `security_dt_projects`, `security_dt_uploads`, `security_dt_sbom_failed`, `security_dt_stale_deleted` | host |
 | `media_language_missing_since_timestamp_seconds`, `…_notify_timestamp_seconds` (republished from beefy) | app, title, language, failed |
 
 Everything lands as Prometheus metrics via node-exporter's textfile collector
@@ -44,6 +46,20 @@ and `weekly-digest.yml` → Alertmanager → email + Telegram (severity info = T
 only). Dashboard: **Grafana > fastpi > Updates & security**,
 https://grafana.holy-grail.ch/d/updates-security. There is no second notifier and no
 second place the Telegram token lives.
+
+## Dependency-Track
+
+DT itself: `HomeLab-BeefyServer` `Docker/Dependency-Track/README.md` (beefy `192.168.1.102:8090`, UI + `/api`).
+
+| | |
+|---|---|
+| Project | `<host>/<repository without registry>`, version = tag (digest-only refs: `sha256:<12 hex>`, local beefy builds: `<tag> (base <image>)`), child of the parent project `<host>`; OS: `<host>/os`, version `<id> <version_id>` |
+| Upload | `PUT /api/v1/bom` (autoCreate, isLatest), only when the image id/digest (OS: dpkg status hash) changed or the project is missing in DT; `dt-index.json` |
+| SBOM cache | `/var/lib/security-scan/sbom-dt/` by image id/digest (same key = same content); own Trivy cache `trivy-cache-dt` (no vuln DB needed; Java DB = the image scan's copy, mounted read-only) |
+| Stale | projects under `<host>/` that the host no longer runs are **deleted** (not deactivated: DT data is derived, the next upload recreates it; inactive projects would pile up one per old tag). Only for a host whose image list was read this run |
+| Asleep | TCP probe of DT first; closed = NoData, beefy is never woken (`DT_URL`, env `SECSCAN_DT_URL`) |
+| Key | `/var/lib/security-scan/secrets/dt-api-key` (pi 0600), team `fastpi-scanner` |
+| Firewall | HOST-OUT-GUARD must let uid `pi` reach `192.168.1.102:8090` (`Docker/_global/scripts/host-output-guard.sh`) |
 
 ## Install
 
@@ -221,12 +237,13 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 129 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | 141 tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av, media, updates |
 | `~/.ssh/config` `beefy-direct`, `tower-direct` (not in git) | same hosts without the WoL `Match` block; scans use them so an asleep host stays asleep. Plain `beefy` (may wake) only inside 04:00–04:30 (`BEEFY_WAKE_WINDOW`) |
 | `security-image-scan.{service,timer}` | daily 04:10: images |
 | `security-code-scan.{service,timer}` | hourly :17: code |
+| `security-dt.{service,timer}` | daily 04:02: dt |
 | `../../Docker/_global/systemd/auto-update.{service,timer}` | daily 03:10: `auto_update.py` (installed by `install.sh`) |
 | `auto-updates.md` | auto-update tiers, switches, risks, costs |
 | `apt/52unattended-upgrades-local` | prepared unattended-upgrades addition |

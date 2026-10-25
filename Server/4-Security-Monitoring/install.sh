@@ -11,6 +11,9 @@ echo "==> state and metric directories"
 sudo install -d -o pi -g pi -m 0755 /var/lib/security-scan
 # node-exporter reads this directory; the scan writes to it as the pi user.
 sudo install -d -o pi -g pi -m 0755 /var/lib/node-exporter/textfile
+# Dependency-Track feed: own Trivy cache, API key (team fastpi-scanner, README "Dependency-Track") in secrets/
+sudo install -d -o pi -g pi -m 0755 /var/lib/security-scan/trivy-cache-dt
+sudo install -d -o pi -g pi -m 0700 /var/lib/security-scan/secrets
 
 echo "==> gitleaks binary"
 if ! command -v gitleaks >/dev/null 2>&1; then
@@ -47,10 +50,11 @@ sudo install -m 0644 "$HERE"/security-scan.service "$HERE"/security-scan.timer \
                      "$HERE"/security-audit.service "$HERE"/security-audit.timer \
                      "$HERE"/security-access.service "$HERE"/security-access.timer \
                      "$HERE"/security-code-scan.service "$HERE"/security-code-scan.timer \
+                     "$HERE"/security-dt.service "$HERE"/security-dt.timer \
                      "$REPO"/Docker/_global/systemd/auto-update.service "$REPO"/Docker/_global/systemd/auto-update.timer \
                      /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-audit.timer security-access.timer security-code-scan.timer auto-update.timer
+sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-audit.timer security-access.timer security-code-scan.timer security-dt.timer auto-update.timer
 
 echo "==> node-exporter must expose the textfile collector"
 if ! docker inspect node-exporter --format '{{join .Args " "}}' 2>/dev/null | grep -q 'collector.textfile.directory'; then

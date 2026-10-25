@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Dependency-Track upload while beefy is up
+
+[Timer]
+# Daily 04:02: beefy is up from 03:55 to about 04:26 anyway; the run never wakes it (TCP probe of DT first, skip when closed). Only new image digests need an SBOM, so a normal run takes a minute or two.
+OnCalendar=*-*-* 04:02:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target
