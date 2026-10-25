@@ -13,10 +13,12 @@ services:
     restart: unless-stopped
     environment:
       - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL}
-      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD}
+      - PB_ADMIN_PASSWORD_FILE=/run/secrets/pb_admin_password
       - PB_PUBLIC_URL=${PB_PUBLIC_URL}
     volumes:
       - pb_data:/pb/pb_data
+    secrets:
+      - pb_admin_password
     networks:
       - traefik_proxy
 
@@ -26,6 +28,13 @@ services:
 networks:
   traefik_proxy:
     external: true
+
+# #########################################################
+# Secrets #################################################
+# #########################################################
+secrets:
+  pb_admin_password:
+    file: ./secrets/pb_admin_password
 
 # #########################################################
 # Volumes #################################################

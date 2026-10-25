@@ -28,7 +28,7 @@ restrict this. In the Pocketbase admin UI → `users` collection → "Options", 
    ```
 5. **Verify:** `curl -s -o /dev/null -w '%{http_code}\n' https://loyalty-sync.holy-grail.ch/api/health` → `200`.
 6. **Admin once:** log into `https://loyalty-sync.holy-grail.ch/_/` with the
-   `PB_ADMIN_EMAIL`/`PB_ADMIN_PASSWORD` from `.env`, confirm the `cards` collection exists,
+   `PB_ADMIN_EMAIL` from `.env` and the password from `secrets/pb_admin_password`, confirm the `cards` collection exists,
    set the open-signup decision above, and (optionally) configure the **Google OAuth2**
    provider — set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env` and the provider in the
    admin UI; redirect URL `https://loyalty-sync.holy-grail.ch/api/oauth2-redirect`.

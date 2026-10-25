@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -47,7 +48,7 @@ func main() {
 
 func ensureSuperuser(app core.App) {
 	email := os.Getenv("PB_ADMIN_EMAIL")
-	password := os.Getenv("PB_ADMIN_PASSWORD")
+	password := envOrFile("PB_ADMIN_PASSWORD")
 	if email == "" || password == "" {
 		return
 	}
@@ -64,4 +65,16 @@ func ensureSuperuser(app core.App) {
 	if err := app.Save(rec); err != nil {
 		log.Printf("ensureSuperuser: %v", err)
 	}
+}
+
+func envOrFile(name string) string {
+	if path := os.Getenv(name + "_FILE"); path != "" {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			log.Printf("%s_FILE: %v", name, err)
+			return ""
+		}
+		return strings.TrimSpace(string(b))
+	}
+	return os.Getenv(name)
 }

@@ -11,12 +11,12 @@ Self-hosted [PocketBase](https://pocketbase.io/) v0.39.1 backend for the Loyalty
 
 ## Bootstrap
 
-The superuser is auto-created on first boot from environment variables:
+The superuser is auto-created on first boot from these variables:
 
 | Variable | Description |
 |---|---|
 | `PB_ADMIN_EMAIL` | Admin (superuser) email |
-| `PB_ADMIN_PASSWORD` | Admin (superuser) password |
+| `PB_ADMIN_PASSWORD_FILE` | Path to the admin password file; compose mounts `secrets/pb_admin_password` (owner 10001, 0400) |
 | `PB_PUBLIC_URL` | Public HTTPS URL, e.g. `https://loyalty-sync.holy-grail.ch` |
 
 Copy `.env.example` to `.env` and fill in the values. The `.env` file is gitignored.
