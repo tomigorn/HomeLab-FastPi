@@ -115,7 +115,7 @@ tests:
           - exp_labels: {severity: warning, host: fastpi, path: /etc/sudoers}
             exp_annotations:
               summary: "fastpi: /etc/sudoers differs from the baseline"
-              description: "authorized_keys, sudoers or sshd_config changed (or a file appeared or vanished) since the baseline was accepted. If it was you, accept the new state: sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json && sudo systemctl start security-access.service"
+              description: "authorized_keys, sudoers or sshd_config changed since the baseline. If it was you, accept it: <code>sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json &amp;&amp; sudo systemctl start security-access.service</code>"
 
   - name: access scan staleness is one hour
     interval: 1m
@@ -152,7 +152,7 @@ tests:
           - exp_labels: {severity: warning, subject: logins-beefy}
             exp_annotations:
               summary: "Security scan logins-beefy has not succeeded in 3d 0h 0m 0s"
-              description: "Thresholds differ by subject because the cadences do: the daily secrets/patches scan is stale after 48h (two missed runs, which tolerates one night of beefy staying asleep), tower's daily subjects after 7 days (tower is often off for days), and the weekly image and audit scans and Cup (refreshed weekly) after 14 days. Figures for this subject are still being served from the last success, so the dashboard looks populated."
+              description: "Stale after 48h (daily scans), 7d (tower), 14d (weekly image, audit and Cup scans). Old figures are still served, so the dashboard looks fine."
 
   - name: unraid OS and plugin updates
     interval: 1m
@@ -208,7 +208,7 @@ tests:
           - exp_labels: {severity: warning, host: fastpi}
             exp_annotations:
               summary: "fastpi: 3 NEW fixable critical CVE(s) since yesterday"
-              description: "The count of FIXABLE critical CVEs in images running on fastpi rose by 3 since the last daily scan - a new critical disclosure or a new image. Act today: update the affected image(s). Worst first: /var/lib/security-scan/image-cves-fastpi.txt on fastpi. Cross-check Cup at https://cup.holy-grail.ch/ for a newer tag."
+              description: "Count rose by 3 since the last daily scan (new disclosure or new image). Update the affected image today. Worst first: <code>/var/lib/security-scan/image-cves-fastpi.txt</code> on fastpi; newer tag in Cup: https://cup.holy-grail.ch/."
 
   - name: a new fixable finding pages once per series, nothing without one
     interval: 1h
@@ -222,7 +222,7 @@ tests:
           - exp_labels: {severity: info, scope: code-fastpi, image: "caddy:alpine", id: CVE-2026-1, pkg: openssl}
             exp_annotations:
               summary: "code-fastpi: new fixable CRITICAL CVE-2026-1 in caddy:alpine (openssl)"
-              description: "Update the image (Cup: https://cup.holy-grail.ch/). All findings: /var/lib/security-scan/code-cves-<repo>.txt or image-cves-<host>.txt on fastpi."
+              description: "Update the image (Cup: https://cup.holy-grail.ch/). All findings: <code>/var/lib/security-scan/code-cves-&lt;repo&gt;.txt</code> or <code>image-cves-&lt;host&gt;.txt</code> on fastpi."
       - eval_time: 3h
         alertname: NewFixableImageVulnerability
         exp_alerts: []

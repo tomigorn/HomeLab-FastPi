@@ -22,12 +22,7 @@ groups:
         annotations:
           summary: "{{ $value }} secret(s) found in the PUBLIC {{ $labels.repo }} repo history"
           description: >-
-            gitleaks found secrets in the published history of
-            github.com/tomigorn/HomeLab-{{ $labels.repo }}, which is public.
-            Assume disclosed and ROTATE - do not just rewrite history, which
-            does not recall anything already fetched or cached. Per-rule counts
-            are in security_repo_leaks; redacted details are in
-            /var/lib/security-scan/gitleaks-{{ $labels.repo }}.json on fastpi.
+            Secrets in the published history of github.com/tomigorn/HomeLab-{{ $labels.repo }}. Assume disclosed and rotate; rewriting history recalls nothing. Details: <code>/var/lib/security-scan/gitleaks-{{ $labels.repo }}.json</code> on fastpi.
 
       # A real secret file tracked in git. Distinct from the above because
       # gitleaks matches on content and this matches on filename: an .env whose
@@ -40,11 +35,7 @@ groups:
         annotations:
           summary: "{{ $value }} secret file(s) tracked in git on {{ $labels.host }}"
           description: >-
-            A file matching a secret-bearing name is tracked by git. Note that
-            adding it to .gitignore does NOT help - gitignore has no effect on
-            already-tracked files, which is the usual reason this persists after
-            someone thinks they fixed it. Use `git rm --cached`, then rotate.
-            Paths are listed in /var/lib/security-scan/hygiene-problems.txt.
+            A secret-named file is tracked by git; .gitignore does not help. Run <code>git rm --cached</code>, then rotate. List: <code>/var/lib/security-scan/hygiene-problems.txt</code>.
 
       # Not yet public, but one `git add -A` away. Worth catching while it is
       # still cheap - the fix is a .gitignore line rather than a rotation.
@@ -56,10 +47,7 @@ groups:
         annotations:
           summary: "{{ $value }} unignored secret file(s) on {{ $labels.host }}"
           description: >-
-            These are neither tracked nor ignored, so `git add -A` would commit
-            them to a public repo. Most often a .env copied aside while
-            debugging - .gitignore entries for `.env` do not match `.env.bak`.
-            Paths: /var/lib/security-scan/hygiene-problems.txt on fastpi.
+            Neither tracked nor ignored, so <code>git add -A</code> would commit it to a public repo. Add a .gitignore line (an <code>.env</code> entry does not match <code>.env.bak</code>). List: <code>/var/lib/security-scan/hygiene-problems.txt</code> on fastpi.
 
   - name: security-patches
     rules:
@@ -75,11 +63,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} security update(s) pending for 3+ days"
           description: >-
-            Pending security updates have not cleared on their own, so either
-            unattended-upgrades is not enabled here or it is failing. Check
-            `systemctl status unattended-upgrades` and
-            /var/log/unattended-upgrades/. Total pending (including
-            non-security) is in security_pending_updates{type="all"}.
+            Not clearing on its own: unattended-upgrades is off or failing. Check <code>systemctl status unattended-upgrades</code> and /var/log/unattended-upgrades/.
 
       # tower (Unraid) has no apt; its OS and plugins are checked daily by the patches group when tower is awake.
       - alert: UnraidUpdateAvailable
@@ -112,12 +96,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} FIXABLE critical CVE(s) in running images"
           description: >-
-            Trivy found CRITICAL vulnerabilities in images currently in use on
-            {{ $labels.host }}. Usually fixed by pulling a newer tag - compare
-            against Cup at https://cup.holy-grail.ch/ , which lists what has an
-            update available. Which images, worst first:
-            /var/lib/security-scan/image-cves-{{ $labels.host }}.txt on fastpi.
-            HIGH counts are in the same metric family.
+            Critical CVEs in running images on {{ $labels.host }}, usually fixed by a newer tag (Cup: https://cup.holy-grail.ch/). Worst first: <code>/var/lib/security-scan/image-cves-{{ $labels.host }}.txt</code> on fastpi.
 
       # The standing count above is a quiet weekly info line. THIS one is the
       # page: it fires when the number of fixable criticals on a host GOES UP,
@@ -139,12 +118,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} NEW fixable critical CVE(s) since yesterday"
           description: >-
-            The count of FIXABLE critical CVEs in images running on
-            {{ $labels.host }} rose by {{ $value }} since the last daily scan -
-            a new critical disclosure or a new image. Act today: update the
-            affected image(s). Worst first:
-            /var/lib/security-scan/image-cves-{{ $labels.host }}.txt on fastpi.
-            Cross-check Cup at https://cup.holy-grail.ch/ for a newer tag.
+            Count rose by {{ $value }} since the last daily scan (new disclosure or new image). Update the affected image today. Worst first: <code>/var/lib/security-scan/image-cves-{{ $labels.host }}.txt</code> on fastpi; newer tag in Cup: https://cup.holy-grail.ch/.
 
       # Per finding, not per count: fires for each fixable CRITICAL/HIGH (image, CVE, package) first seen in the last 24 h, from the hourly code scan (scope code-<repo>) or the nightly running-image scan (scope = host). Images new to the scan are baselined, so this is "a new CVE in something we already run", not the backlog. Routed to telegram-once grouped by alertname: one message per batch of new findings, none when they age out.
       - alert: NewFixableImageVulnerability
@@ -155,8 +129,7 @@ groups:
         annotations:
           summary: "{{ $labels.scope }}: new fixable {{ $labels.severity }} {{ $labels.id }} in {{ $labels.image }} ({{ $labels.pkg }})"
           description: >-
-            Update the image (Cup: https://cup.holy-grail.ch/). All findings:
-            /var/lib/security-scan/code-cves-<repo>.txt or image-cves-<host>.txt on fastpi.
+            Update the image (Cup: https://cup.holy-grail.ch/). All findings: <code>/var/lib/security-scan/code-cves-&lt;repo&gt;.txt</code> or <code>image-cves-&lt;host&gt;.txt</code> on fastpi.
 
       - alert: ImagesUnscannable
         expr: security_images_unscannable > 0
@@ -166,10 +139,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} image(s) could not be scanned"
           description: >-
-            Trivy could not scan these images, normally because they were built
-            locally and the scan reads images through the read-only Docker socket
-            proxy. They are reported rather than skipped so the CVE totals are
-            not quietly understating coverage.
+            Locally built images cannot be read through the Docker socket proxy; listed so CVE totals do not understate coverage.
 
   - name: security-logins
     rules:
@@ -218,8 +188,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: {{ $labels.path }} differs from the baseline"
           description: >-
-            authorized_keys, sudoers or sshd_config changed (or a file appeared or vanished) since the baseline was accepted.
-            If it was you, accept the new state: sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json && sudo systemctl start security-access.service
+            authorized_keys, sudoers or sshd_config changed since the baseline. If it was you, accept it: <code>sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json &amp;&amp; sudo systemctl start security-access.service</code>
 
       - alert: SecurityAccessScanStale
         expr: time() - security_scan_last_success_timestamp_seconds{subject=~"(ssh-logins|integrity)-.*"} > 3600
@@ -270,11 +239,7 @@ groups:
         annotations:
           summary: "Security scan subject {{ $labels.subject }} is failing"
           description: >-
-            This subject has errored rather than merely being unreachable
-            (security_scan_host_unreachable covers beefy being powered off).
-            Its previously collected values are still being served and are now
-            going stale. Run `systemctl start security-scan.service` on fastpi
-            and read `journalctl -u security-scan -n 50`.
+            Errored (not merely unreachable); old values are still served and going stale. Run <code>systemctl start security-scan.service</code> on fastpi, then <code>journalctl -u security-scan -n 50</code>.
 
       # Catches both a silently dead timer and a host that stopped being
       # reachable for longer than its normal off-hours.
@@ -291,12 +256,7 @@ groups:
         annotations:
           summary: "Security scan {{ $labels.subject }} has not succeeded in {{ $value | humanizeDuration }}"
           description: >-
-            Thresholds differ by subject because the cadences do: the daily
-            secrets/patches scan is stale after 48h (two missed runs, which
-            tolerates one night of beefy staying asleep), tower's daily subjects
-            after 7 days (tower is often off for days), and the weekly image and
-            audit scans and Cup (refreshed weekly) after 14 days. Figures for this subject are still being served
-            from the last success, so the dashboard looks populated.
+            Stale after 48h (daily scans), 7d (tower), 14d (weekly image, audit and Cup scans). Old figures are still served, so the dashboard looks fine.
 
       # Guards the transport itself. A malformed .prom file makes node-exporter
       # discard the WHOLE file, so a formatting slip silently removes every
@@ -310,8 +270,4 @@ groups:
         annotations:
           summary: "node-exporter cannot read a textfile metric file"
           description: >-
-            One of the .prom files in /var/lib/node-exporter/textfile is
-            unreadable or malformed, so node-exporter has dropped all metrics in
-            it. Every security_* alert that depends on that file has stopped
-            evaluating. Check `ls -l` there and
-            `docker logs node-exporter | tail`.
+            A malformed .prom file in /var/lib/node-exporter/textfile makes node-exporter drop all its metrics, so dependent security_* alerts stop evaluating. Check <code>ls -l</code> there and <code>docker logs node-exporter | tail</code>.
