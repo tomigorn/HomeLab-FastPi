@@ -385,6 +385,19 @@ the VPN: the Cloudflare SSH tunnel (see `WireguardVPN/README.md`). Machine acces
 | VPN status (beefy) | https://vpn-status-beefy.holy-grail.ch | forward auth (`authentik@file`), then beefy's wake gate; the page has no login of its own | `ssh -L 8187:127.0.0.1:8087 beefy`, then `http://localhost:8187/` (8087 on beefy's LAN IP is dropped for all but fastpi) |
 | VPN status (mouse) | https://vpn-status-mouse.holy-grail.ch | forward auth; Authentik injects port_updater's own HTTP Basic login (middleware `authentik-basic@file`; `homelab-admins` attributes `port_updater_username` / `port_updater_password`) | `ssh -L 8087:127.0.0.1:8087 fastpi`, then `http://localhost:8087/` with the Basic login (`WEB_USER` + `mouse/secrets/port_updater_web_pass`) |
 
+**Dependency-Track (beefy)** is the one admin tool on the internet (Cloudflare tunnel), in its own script `scripts/provision-dt-sso.py`:
+
+| App (slug) | Provider | Group | Notes |
+|---|---|---|---|
+| Dependency-Track (`dt`) | forward auth `dt-proxy` | `homelab-admins` | https://dt.holy-grail.ch, outer gate (Traefik `dynamic/dt.yml`), then beefy's wake gate |
+| Dependency-Track login (`dt-login`, hidden) | OIDC `dt-login`, public (PKCE), scopes openid/email/profile | `homelab-admins` | DT's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/dt-login/`, redirect `/static/oidc-callback.html`; client id → beefy `Dependency-Track/.env`. Break-glass: DT's local `admin` (only reachable after the forward auth) |
+
+```bash
+cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
+  && docker compose exec -T server ak shell < scripts/provision-dt-sso.py 2>/dev/null \
+  | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
+```
+
 ### Re-running the provisioning
 
 ```bash

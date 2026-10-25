@@ -48,13 +48,14 @@ APPS = {
     "cup":               ("Homelab", "Container updates", None),
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
+    "dt":                ("Homelab", "Vulnerabilities across all images" + BEEFY, "fa://fa-shield-halved"),
     "avatar-picker":     ("Account", "Your profile picture", None),
     "wiki":              ("Account", "How to use everything", "fa://fa-book"),
 }
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
 # launch URLs and bindings are untouched, so the wake-on-sign-in flows keep working.
-HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login", "tracker-login"]
+HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login", "tracker-login", "dt-login"]
 
 # Brand custom CSS. authentik adopts it into EVERY component's shadow root (login and
 # recovery flows included), so every rule is scoped to the library page's own parts
