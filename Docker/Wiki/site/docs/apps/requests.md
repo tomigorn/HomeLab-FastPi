@@ -54,7 +54,7 @@ You don't need to choose anything: the server picks the best version automatical
 A film that is already there is replaced by a better version until it has the original language with English (for English films: with German); after that it stays. German-only dubs are never downloaded.
 
 !!! note "Languages come from the release name"
-    The server only knows the languages written in a release's name (e.g. *German.DL* = German + original). A release that only says *MULTi* counts as original only until it has been downloaded.
+    The server mainly knows the languages written in a release's name (e.g. *German.DL* = German + original). For a release that only says *MULTi*, it also reads the release's info file (NFO) where the indexer offers it; without one, it counts as original only until it has been downloaded.
 
 ## Advanced options
 In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default.
