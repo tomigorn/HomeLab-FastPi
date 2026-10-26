@@ -140,7 +140,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ./alertmanager/telegram.tmpl:/etc/alertmanager/telegram.tmpl:ro
+      # a directory, not the single file: an editor that replaces the file would leave the container on the old inode
+      - ./alertmanager/templates:/etc/alertmanager/templates:ro
       - ./alertmanager/secrets:/secrets:ro
       - alertmanager_data:/alertmanager
     command:

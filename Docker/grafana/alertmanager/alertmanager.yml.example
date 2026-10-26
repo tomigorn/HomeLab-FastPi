@@ -27,7 +27,7 @@ global:
   smtp_require_tls: true
 
 templates:
-  - /etc/alertmanager/telegram.tmpl
+  - /etc/alertmanager/templates/*.tmpl
 
 route:
   receiver: admins
