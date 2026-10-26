@@ -1,0 +1,711 @@
+{
+  "uid": "usage-per-user",
+  "title": "Usage per user",
+  "tags": [
+    "usage",
+    "seerr",
+    "jellyfin",
+    "audiobookshelf"
+  ],
+  "timezone": "Europe/Zurich",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Requests (Seerr)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Requests per day",
+      "description": "Requests created per day and user; follows the time range.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "barAlignment": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"seerr_request\" and r._field == \"count\") |> group(columns: [\"user\"]) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, location: location) |> keep(columns: [\"_time\", \"_value\", \"user\"])"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Requests in selected range",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "movie"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Films"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tv"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Series"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Total"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "user",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"seerr_request\" and r._field == \"count\") |> group(columns: [\"user\", \"media_type\"]) |> sum() |> pivot(rowKey: [\"user\"], columnKey: [\"media_type\"], valueColumn: \"_value\") |> group() |> map(fn: (r) => ({r with total: (if exists r.movie then r.movie else 0) + (if exists r.tv then r.tv else 0)})) |> sort(columns: [\"total\"], desc: true)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Requests all time",
+      "description": "Includes requests since deleted in Seerr (the history is kept in InfluxDB).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "movie"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Films"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tv"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Series"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Total"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "user",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: 2020-01-01T00:00:00Z, stop: now()) |> filter(fn: (r) => r._measurement == \"seerr_request\" and r._field == \"count\") |> group(columns: [\"user\", \"media_type\"]) |> sum() |> pivot(rowKey: [\"user\"], columnKey: [\"media_type\"], valueColumn: \"_value\") |> group() |> map(fn: (r) => ({r with total: (if exists r.movie then r.movie else 0) + (if exists r.tv then r.tv else 0)})) |> sort(columns: [\"total\"], desc: true)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Streaming (Jellyfin)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Watch time per day (hours)",
+      "description": "Playback time per day, user and type (film / episode); follows the time range.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "barAlignment": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"jellyfin_play\" and r._field == \"seconds\") |> group(columns: [\"user\", \"kind\"]) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, location: location) |> map(fn: (r) => ({r with _value: float(v: r._value) / 3600.0})) |> keep(columns: [\"_time\", \"_value\", \"user\", \"kind\"])"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Streaming in selected range",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kind"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Type"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plays"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Plays"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Watch time"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "user",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"jellyfin_play\") |> group(columns: [\"user\", \"kind\", \"_field\"]) |> sum() |> pivot(rowKey: [\"user\", \"kind\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> group() |> keep(columns: [\"user\", \"kind\", \"plays\", \"seconds\"]) |> sort(columns: [\"user\", \"kind\"])"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Streaming all time",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kind"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Type"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plays"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Plays"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Watch time"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "user",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: 2020-01-01T00:00:00Z, stop: now()) |> filter(fn: (r) => r._measurement == \"jellyfin_play\") |> group(columns: [\"user\", \"kind\", \"_field\"]) |> sum() |> pivot(rowKey: [\"user\", \"kind\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> group() |> keep(columns: [\"user\", \"kind\", \"plays\", \"seconds\"]) |> sort(columns: [\"user\", \"kind\"])"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Listening (Audiobookshelf)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Listening per day (hours)",
+      "description": "Listening time per day and user; follows the time range.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "barAlignment": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"usage\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"abs_listen\" and r._field == \"seconds\") |> group(columns: [\"user\"]) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, location: location) |> map(fn: (r) => ({r with _value: float(v: r._value) / 3600.0})) |> keep(columns: [\"_time\", \"_value\", \"user\"])"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Listening in selected range",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 21
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sessions"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sessions"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Listening time"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "user",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "from(bucket: \"usage\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"abs_listen\") |> group(columns: [\"user\", \"_field\"]) |> sum() |> pivot(rowKey: [\"user\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> group() |> keep(columns: [\"user\", \"sessions\", \"seconds\"]) |> sort(columns: [\"seconds\"], desc: true)"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Listening all time",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 21
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sessions"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sessions"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Listening time"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "user",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb_fastpi"
+          },
+          "query": "from(bucket: \"usage\") |> range(start: 2020-01-01T00:00:00Z, stop: now()) |> filter(fn: (r) => r._measurement == \"abs_listen\") |> group(columns: [\"user\", \"_field\"]) |> sum() |> pivot(rowKey: [\"user\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> group() |> keep(columns: [\"user\", \"sessions\", \"seconds\"]) |> sort(columns: [\"seconds\"], desc: true)"
+        }
+      ]
+    }
+  ]
+}
