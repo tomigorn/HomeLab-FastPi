@@ -612,6 +612,30 @@ def test_av_hits_beefy_reads_the_hook_log_next_to_the_hook_metrics():
     assert security_scan.AV_PATHS["beefy"]["hits"] == "/var/lib/clamav-scan/textfile/clamav-hits.tsv"
 
 
+# tower's scanner (HomeLab-Unraid-Tower boot/config/scripts/stacks/clamav/up.sh): STATE=/mnt/data/system/clamav/state, BASE=/mnt/data/appdata/clamav with textfile/ and quarantine/.
+TOWER_UP_SH = Path.home() / "HomeLab-Unraid-Tower/boot/config/scripts/stacks/clamav/up.sh"
+
+
+def test_av_tower_paths_are_where_up_sh_puts_them():
+    assert security_scan.AV_PATHS["tower"] == {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
+                                               "infected": "/mnt/data/system/clamav/state/last-infected.txt",
+                                               "index": "/mnt/data/appdata/clamav/quarantine/index.txt"}
+
+
+def test_av_tower_paths_match_the_tower_repo_when_it_is_cloned():
+    if not TOWER_UP_SH.exists():
+        return
+    import re
+    up = TOWER_UP_SH.read_text()
+    var = {k: re.search(rf'^{k}="([^"]+)"', up, re.M).group(1) for k in ("BASE", "STATE")}
+    assert '-v "${STATE}:/state"' in up and '-v "${BASE}/textfile:/textfile"' in up
+    assert "-e QUARANTINE=/scan/appdata/clamav/quarantine" in up and "-v /mnt/data/appdata:/scan/appdata" in up
+    paths = security_scan.AV_PATHS["tower"]
+    assert paths["infected"] == var["STATE"] + "/last-infected.txt"
+    assert paths["prom"] == var["BASE"] + "/textfile/clamav.prom"
+    assert paths["index"] == "/mnt/data/appdata/clamav/quarantine/index.txt"
+
+
 def test_ssh_alias_never_wakes_when_asked_not_to():
     import datetime
     at = datetime.datetime(2026, 10, 27, 4, 20)

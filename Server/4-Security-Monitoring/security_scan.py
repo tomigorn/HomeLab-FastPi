@@ -1366,7 +1366,7 @@ AV_PATHS = {
               # the SSD branch, not the /srv/video union (same file): reading it never spins up the HDD
               "index": "/srv/.disks/ssd-hot/quarantine/index.txt"},
     "tower": {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
-              "infected": "/mnt/data/appdata/clamav/state/last-infected.txt",
+              "infected": "/mnt/data/system/clamav/state/last-infected.txt",   # STATE in tower up.sh, outside the scan roots
               "index": "/mnt/data/appdata/clamav/quarantine/index.txt"},
 }
 # index.txt lines older than this were there before MalwareQuarantined existed (the EICAR tests of 2026-10-26): baseline, no alert.
