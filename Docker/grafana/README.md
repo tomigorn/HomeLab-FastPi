@@ -4,13 +4,15 @@ Monitoring stack: Grafana, Prometheus, Alertmanager, InfluxDB, Telegraf, exporte
 
 ## Dashboards
 
-Provisioned from `provisioning/dashboards/*.json` into folder `fastpi`; edits to a file load within 30 s.
+Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits to a file load within 30 s.
 
 | Dashboard | uid | Shows |
 |---|---|---|
 | CrowdSec | `crowdsec-overview` | bans, attacks, bouncer and hub health (`Docker/CrowdSec/README.md`) |
 | Updates & security | `updates-security` | OS/image updates, CVEs, ClamAV, rootkit/Lynis, CrowdSec versions, firing security alerts (`Server/4-Security-Monitoring/README.md`) |
 | fastpi — RAM, containers & electricity | `fastpi-resources` | per-container RAM, plug power (InfluxDB) |
+| fastpi — system (CPU, RAM, disk) | `rYdddlPWk` | node-exporter full view (Prometheus) |
+| fastpi — Pi hardware (temperature, throttling) | `sF7d-FHZz` | Pi telemetry (InfluxDB) |
 | LanguageTool — usage watch | `languagetool-watch` | LanguageTool usage |
 | Usage per user | `usage-per-user` | Seerr requests, Jellyfin plays, Audiobookshelf listening per user (see Usage per user) |
 
