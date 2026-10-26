@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5m",
   "time": {
     "from": "now-24h",
@@ -544,7 +544,7 @@
       "id": 9,
       "type": "table",
       "title": "Image updates by kind",
-      "description": "Image updates per host and kind (Cup). digest = same tag, rebuilt image.",
+      "description": "Image updates per host and kind (Cup). digest = same tag, rebuilt image. As of = time of the Cup snapshot behind the figures; shows 'live' (green) when the snapshot is under 1 h old. Age = time since the snapshot, orange after 36 h, red after 8 days. A host that is asleep (beefy, tower) keeps its last snapshot, so its numbers are as old as this. 'no snapshot' = no snapshot yet.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -552,7 +552,79 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "security_image_updates{type!=\"all\"}",
+          "expr": "max by (host) (security_image_updates{type=\"major\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "max by (host) (security_image_updates{type=\"minor\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "expr": "max by (host) (security_image_updates{type=\"patch\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "expr": "max by (host) (security_image_updates{type=\"digest\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "expr": "max by (host) (security_image_updates{type=\"unknown\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "F",
+          "expr": "max by (host) (security_cup_snapshot_timestamp_seconds) * 1000 * ((time() - max by (host) (security_cup_snapshot_timestamp_seconds)) > bool 3600)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "G",
+          "expr": "time() - max by (host) (security_cup_snapshot_timestamp_seconds)",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -565,7 +637,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "noValue": "no data",
+          "noValue": "no snapshot",
           "custom": {
             "align": "auto",
             "filterable": false
@@ -771,92 +843,7 @@
                 "value": 90
               }
             ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "sortBy": []
-      },
-      "transformations": [
-        {
-          "id": "groupingToMatrix",
-          "options": {
-            "columnField": "type",
-            "rowField": "host",
-            "valueField": "Value",
-            "emptyValue": "zero"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "indexByName": {
-              "host\\type": 0,
-              "major": 1,
-              "minor": 2,
-              "patch": 3,
-              "digest": 4,
-              "unknown": 5
-            },
-            "renameByName": {
-              "host\\type": "Host"
-            }
-          }
-        }
-      ],
-      "gridPos": {
-        "x": 4,
-        "y": 5,
-        "w": 7,
-        "h": 6
-      }
-    },
-    {
-      "id": 37,
-      "type": "table",
-      "title": "Cup snapshot as of",
-      "description": "Time of the Cup snapshot behind the image-update figures. A host that is asleep (beefy, tower) keeps showing its last snapshot, so its numbers are as old as this. Age turns orange after 36 h and red after 8 days. A host with no row has no snapshot yet.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "dfc6abdxzsem8a"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max by (host) (security_cup_snapshot_timestamp_seconds) * 1000",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "B",
-          "expr": "time() - max by (host) (security_cup_snapshot_timestamp_seconds)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "dfc6abdxzsem8a"
-          },
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "no snapshot",
-          "custom": {
-            "align": "auto",
-            "filterable": false
-          }
-        },
-        "overrides": [
           {
             "matcher": {
               "id": "byName",
@@ -866,6 +853,31 @@
               {
                 "id": "unit",
                 "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "live",
+                        "color": "green",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 170
               }
             ]
           },
@@ -877,7 +889,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "s"
+                "value": "dtdurations"
               },
               {
                 "id": "custom.cellOptions",
@@ -910,6 +922,10 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "custom.width",
+                "value": 150
               }
             ]
           }
@@ -927,8 +943,19 @@
       },
       "transformations": [
         {
-          "id": "merge",
-          "options": {}
+          "id": "joinByField",
+          "options": {
+            "byField": "host",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "exclude": {
+              "pattern": "^(Time|instance|job|__name__)( \\d+)?$"
+            }
+          }
         },
         {
           "id": "organize",
@@ -939,23 +966,34 @@
               "job": true,
               "__name__": true
             },
+            "includeByName": {},
             "indexByName": {
               "host": 0,
-              "Value #A": 1,
-              "Value #B": 2
+              "major": 1,
+              "minor": 2,
+              "patch": 3,
+              "digest": 4,
+              "unknown": 5,
+              "Value #F": 6,
+              "Value #G": 7
             },
             "renameByName": {
               "host": "Host",
-              "Value #A": "As of",
-              "Value #B": "Age"
+              "Value #F": "As of",
+              "Value #G": "Age",
+              "Value #A": "major",
+              "Value #B": "minor",
+              "Value #C": "patch",
+              "Value #D": "digest",
+              "Value #E": "unknown"
             }
           }
         }
       ],
       "gridPos": {
-        "x": 11,
+        "x": 4,
         "y": 5,
-        "w": 4,
+        "w": 11,
         "h": 6
       }
     },
