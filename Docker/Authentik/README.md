@@ -581,7 +581,7 @@ Both scripts are idempotent.
 - **Hidden helpers:** `jellyfin-wake` and `nextcloud-wake` have `meta_hide=True`. That
   only removes the tile; their providers and bindings still work.
 - **Sections** sort A to Z in authentik; custom CSS `order` rules make it Media,
-  Downloads, Account, Homelab in both views (the list container is turned into a flex
+  Downloads · Beefy, Downloads · FastPi, Account, Homelab in both views (the list container is turned into a flex
   column for that).
 - **Descriptions under the tile name** (grid view, >= 768 px): authentik 2026.8 shows
   `meta_description` only in the tile's `⋮` menu (and inline in list view, which is a

@@ -22,7 +22,7 @@ ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the h
 #   note for apps that wake a sleeping host, shown under the caption and in the menu.
 #   icon: None = apps/<slug>-*.svg from fetch-app-icons.sh (downloaded, or bundled in
 #   icons/), otherwise a literal meta_icon value (fa://, https://, /static/...).
-# Sections sort A to Z in authentik; the custom CSS below orders them Media, Downloads, Account, Homelab.
+# Sections sort A to Z in authentik; the custom CSS below orders them Media, Downloads (Beefy, then FastPi), Account, Homelab.
 BEEFY = "\nwakes Beefy · ~55 s"
 TOWER = "\nwakes Tower · ~110 s"
 APPS = {
@@ -31,14 +31,14 @@ APPS = {
     "tracker":           ("Media", "Watch history & ratings", None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "nextcloud":         ("Media", "Files & calendar" + TOWER, None),
-    "radarr":            ("Downloads", "Film downloads" + BEEFY, None),
-    "sonarr":            ("Downloads", "Series downloads" + BEEFY, None),
-    "prowlarr":          ("Downloads", "Indexer manager" + BEEFY, None),
-    "sabnzbd":           ("Downloads", "Usenet downloader" + BEEFY, None),
-    "qbittorrent":       ("Downloads", "Torrent downloader" + BEEFY, None),
-    "bazarr":            ("Downloads", "Subtitles" + BEEFY, None),
-    "vpn-status-beefy":  ("Downloads", "Torrent VPN & port (films)" + BEEFY, None),
-    "vpn-status-mouse":  ("Downloads", "Torrent VPN & port (audiobooks)", None),
+    "radarr":            ("Downloads · Beefy", "Film downloads" + BEEFY, None),
+    "sonarr":            ("Downloads · Beefy", "Series downloads" + BEEFY, None),
+    "prowlarr":          ("Downloads · Beefy", "Indexer manager" + BEEFY, None),
+    "sabnzbd":           ("Downloads · Beefy", "Usenet downloader" + BEEFY, None),
+    "qbittorrent":       ("Downloads · Beefy", "Torrent downloader" + BEEFY, None),
+    "bazarr":            ("Downloads · Beefy", "Subtitles" + BEEFY, None),
+    "vpn-status-beefy":  ("Downloads · Beefy", "Torrent VPN & port (films)" + BEEFY, None),
+    "vpn-status-mouse":  ("Downloads · FastPi", "Torrent VPN & port (audiobooks)", None),
     "grafana":           ("Homelab", "Dashboards & metrics", None),
     "portainer":         ("Homelab", "Docker management", None),
     "adguard":           ("Homelab", "DNS & ad blocking", None),
@@ -191,11 +191,11 @@ CUSTOM_CSS = """\
 }
 
 /* Section order, grid and list (sections otherwise sort A-Z):
-   Media, Downloads, Account, Homelab (infrastructure admin tools) last.
+   Media, Downloads · Beefy, Downloads · FastPi, Account, Homelab (infrastructure admin tools) last.
    The list container is display:block in authentik, so make it a flex column for order. */
 [part="app-list"][data-view-mode="list"][data-anchor-strategy] { display: flex; flex-direction: column; }
 [part="app-list"] [data-group-id="media"] { order: -2; }
-[part="app-list"] [data-group-id="downloads"] { order: -1; }
+[part="app-list"] [data-group-id^="downloads"] { order: -1; }
 [part="app-list"] [data-group-id="homelab"] { order: 99; }
 """
 
