@@ -68,6 +68,8 @@ services:
         ipv4_address: 10.24.23.3
       traefik_wg_chores:
         ipv4_address: 10.24.24.3
+      traefik_mouse:
+        ipv4_address: 10.24.25.3   # qBittorrent/SABnzbd (mouse) bypass their login for this IP only
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -95,6 +97,9 @@ services:
 # =========================================================
 networks:
   traefik_proxy:
+    external: true
+  # gluetun_mouse (qBittorrent + SABnzbd, audiobooks). Created by hand (README), as both stacks join it; internal.
+  traefik_mouse:
     external: true
   # Only Traefik and Prometheus; internal = no route out, no gateway.
   traefik_metrics:

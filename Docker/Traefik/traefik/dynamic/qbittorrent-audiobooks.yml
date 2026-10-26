@@ -1,0 +1,43 @@
+# qBittorrent of fastpi's mouse stack (audiobooks, container qbittorrent_mouse in gluetun_mouse), behind Authentik SSO.
+#
+# https://qbittorrent-audiobooks.holy-grail.ch/   (LAN/VPN only, no public DNS record)
+#
+# Traefik reaches gluetun_mouse over traefik_mouse (internal, only these two). qBittorrent keeps its login
+# but bypasses it for Traefik alone: Options -> WebUI -> "Bypass authentication for clients in whitelisted
+# IP subnets" = 10.24.25.3/32. Reverse-proxy support stays OFF, so qBit checks the socket peer, not X-Forwarded-For.
+#
+# Referer is stripped for the same reason as qbittorrent.yml (CSRF 401 after the SSO redirect); Origin is still checked.
+#
+# CrowdSec sits on the websecure entrypoint. No rate limit, like the other admin UIs.
+http:
+  routers:
+    # Outpost callback path: no app middlewares, higher priority than the catch-all router below.
+    qbittorrent-audiobooks-outpost:
+      rule: "Host(`qbittorrent-audiobooks.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+    qbittorrent-audiobooks:
+      rule: "Host(`qbittorrent-audiobooks.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: qbittorrent-audiobooks
+      middlewares:
+        - local-networks@file
+        - authentik@file
+        - qbittorrent-strip-referer
+        - qbittorrent-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  services:
+    qbittorrent-audiobooks:
+      loadBalancer:
+        servers:
+          - url: "http://10.24.25.2:8080"
+        passHostHeader: true

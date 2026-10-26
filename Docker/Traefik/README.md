@@ -6,6 +6,12 @@ predictable — the Traefik dashboard allowlist depends on it.
 docker network create --subnet 172.24.0.0/16 traefik_proxy
 ```
 
+Also by hand (Traefik and the mouse stack both join it as external):
+
+```bash
+docker network create --internal --subnet 10.24.25.0/28 traefik_mouse
+```
+
 ## Secrets
 
 Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env values:
@@ -31,7 +37,7 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 
 ## Networks (H-2, 2026-10-25)
 
-Public apps and crown jewels have their own network, shared only with Traefik (`traefik_<app>`, defined in `docker-compose.yaml`, Traefik `.3` on each). Traefik's default route and published ports stay on `traefik_proxy` (`gw_priority`, 172.24.255.3). Pinned: Authentik trusts `10.24.15.3`, Portainer `10.24.7.7`, VPN NAT `10.24.5.5`. Full list: `../_global/docs/container-hardening.md`. Other apps are still on `traefik_proxy`.
+Public apps and crown jewels have their own network, shared only with Traefik (`traefik_<app>`, defined in `docker-compose.yaml`, Traefik `.3` on each). Traefik's default route and published ports stay on `traefik_proxy` (`gw_priority`, 172.24.255.3). Pinned: Authentik trusts `10.24.15.3`, Portainer `10.24.7.7`, VPN NAT `10.24.5.5`. Full list: `../_global/docs/container-hardening.md`. `traefik_mouse` (10.24.25.0/28, gluetun_mouse `.2`) is created by hand, not by this compose. Other apps are still on `traefik_proxy`.
 
 `langtool` exists so the external `:443` forward can point at it instead of the
 shared `websecure` entrypoint. `lang-tool.ddns.net` is a direct-ingress service
@@ -64,6 +70,16 @@ Forward auth first (`authentik@file`), then the wake gate `http://192.168.1.2:90
 | `radarr`, `sonarr`, `prowlarr`, `bazarr`, `qbittorrent`, `sabnzbd` | `:7878`, `:8989`, `:9696`, `:6767`, `:8080`, `:8081` | LAN + VPN | `streaming-admins` |
 | `vpn-status-beefy` | `:8087` | LAN + VPN | `homelab-admins` |
 | `dt` (Dependency-Track, `dt.yml`) | `:8090` | public | `homelab-admins`, then DT's own Holy Grail login |
+
+## Routes to the mouse stack (fastpi audiobooks)
+
+Over `traefik_mouse` to `gluetun_mouse` (`10.24.25.2`). LAN + VPN only (`local-networks@file`, no public DNS), then `authentik@file`; the apps trust only Traefik's `10.24.25.3`.
+
+| Host | Backend | Group | App login |
+|---|---|---|---|
+| `qbittorrent-audiobooks` | `:8080` qbittorrent_mouse | `streaming-admins` | bypassed for `10.24.25.3/32`, Referer stripped |
+| `sabnzbd-audiobooks` | `:8081` sabnzbd | `streaming-admins` | none; `local_ranges` + `host_whitelist` in `sabnzbd.ini` |
+| `vpn-status-mouse` | `port-updater:8087` | `homelab-admins` | Basic, injected by Authentik |
 
 ## Client IPs
 
