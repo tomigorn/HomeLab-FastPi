@@ -636,6 +636,44 @@ def test_av_tower_paths_match_the_tower_repo_when_it_is_cloned():
     assert paths["index"] == "/mnt/data/appdata/clamav/quarantine/index.txt"
 
 
+def test_fetch_nowake_skips_a_sleeping_host_without_touching_ssh():
+    saved = security_scan.host_awake, security_scan.fetch_file
+    calls = []
+    security_scan.host_awake = lambda host: False
+    security_scan.fetch_file = lambda *a, **k: calls.append((a, k))
+    try:
+        try:
+            security_scan.fetch_nowake("beefy", "/x")
+            raise AssertionError("expected NoData")
+        except security_scan.NoData:
+            pass
+        assert calls == []
+    finally:
+        security_scan.host_awake, security_scan.fetch_file = saved
+
+
+def test_fetch_nowake_reads_an_awake_host_without_waking_alias():
+    saved = security_scan.host_awake, security_scan.fetch_file
+    calls = []
+    security_scan.host_awake = lambda host: True
+    security_scan.fetch_file = lambda host, path, wake=True: calls.append((host, path, wake)) or "data"
+    try:
+        assert security_scan.fetch_nowake("beefy", "/x") == "data"
+        assert calls == [("beefy", "/x", False)]
+    finally:
+        security_scan.host_awake, security_scan.fetch_file = saved
+
+
+def test_fetch_nowake_reads_fastpi_locally_without_waker_check():
+    saved = security_scan.host_awake, security_scan.fetch_file
+    security_scan.host_awake = lambda host: (_ for _ in ()).throw(AssertionError("waker asked"))
+    security_scan.fetch_file = lambda host, path, wake=True: "local"
+    try:
+        assert security_scan.fetch_nowake("fastpi", "/x") == "local"
+    finally:
+        security_scan.host_awake, security_scan.fetch_file = saved
+
+
 def test_ssh_alias_never_wakes_when_asked_not_to():
     import datetime
     at = datetime.datetime(2026, 10, 27, 4, 20)

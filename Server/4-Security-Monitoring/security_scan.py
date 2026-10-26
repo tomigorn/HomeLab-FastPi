@@ -862,7 +862,7 @@ def publish(subject: str, samples: list, helps: dict) -> None:
 # "tower-direct" is the same box without that hook: asleep simply means
 # unreachable, which guarded() already reports as staleness.
 SSH_ALIAS = {"tower": "tower-direct"}
-# beefy is read in its 04:00-04:30 window, where plain "beefy" may wake it; at any other time (the 05:40/06:40 av pulls) "beefy-direct" leaves it asleep.
+# Only the 04:00-04:30 scans (patches, images, logins) may wake beefy through plain "beefy"; the av/media/updates pulls never do (fetch_nowake) because the maintenance window keeps beefy up.
 BEEFY_WAKE_WINDOW = ((4, 0), (4, 30))
 
 
@@ -984,7 +984,7 @@ def running_images(host: str) -> list[str]:
 # copy is only accurate if it is the SAME image, so running_image_digests()
 # resolves each running container to its repo digest (repo@sha256:...), and the
 # scan pins the platform because fastpi is arm64 and tower is amd64.
-# beefy joined 2026-10-19: it is up only until about 04:26, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is not scanned itself: its Dockerfile base images are (LOCAL_BASES), and it is counted in security_images_local_only only when no base is known.
+# beefy joined 2026-10-19: it is up until about 04:45, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is not scanned itself: its Dockerfile base images are (LOCAL_BASES), and it is counted in security_images_local_only only when no base is known.
 REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
 
 
@@ -1559,6 +1559,13 @@ def fetch_file(host: str, path: str, wake: bool = True) -> str | None:
     return r.stdout
 
 
+def fetch_nowake(host: str, path: str) -> str | None:
+    """Like fetch_file, but never wakes beefy or tower: a host the Waker sees down is skipped."""
+    if host != "fastpi" and not host_awake(host):
+        raise NoData(f"{host} asleep, skipped")
+    return fetch_file(host, path, wake=False)
+
+
 AUTH_LOGS = {"beefy": "/var/log/auth.log", "tower": "/var/log/syslog"}
 
 
@@ -1600,7 +1607,7 @@ def collect_integrity(host: str = "fastpi") -> list:
     return integrity_samples(host, integrity_diff(baseline, current), current)
 
 
-# beefy first: it is only up until about 04:26.
+# beefy first: it is only up until about 04:45.
 AUDIT_HOSTS = ("beefy", "fastpi")
 # rc lines are separate so a tool that failed is told apart from one that found something. rkhunter exits 1 when it has warnings.
 AUDIT_SCRIPT = (
@@ -2221,9 +2228,9 @@ def main() -> int:
     if want("av"):
         for host in AV_PATHS:
             def _av(host=host):
-                return collect_av(host, lambda what: fetch_file(host, AV_PATHS[host][what]))
+                return collect_av(host, lambda what: fetch_nowake(host, AV_PATHS[host][what]))
             guarded(f"av-{host}", _av, host=host)
-            guarded(f"avhits-{host}", lambda host=host: collect_av_hits(host, lambda what: fetch_file(host, AV_PATHS[host][what])), host=host)
+            guarded(f"avhits-{host}", lambda host=host: collect_av_hits(host, lambda what: fetch_nowake(host, AV_PATHS[host][what])), host=host)
 
     if only and "avhits" in only:
         # Every 15 min (security-av-hits.timer): beefy and tower only while the Waker sees them up, and never through a waking ssh alias.
@@ -2236,11 +2243,11 @@ def main() -> int:
 
     if want("media"):
         for host in MEDIA_PATHS:
-            guarded(f"media-{host}", lambda host=host: collect_media(host, lambda: fetch_file(host, MEDIA_PATHS[host])), host=host)
+            guarded(f"media-{host}", lambda host=host: collect_media(host, lambda: fetch_nowake(host, MEDIA_PATHS[host])), host=host)
 
     if want("updates"):
         for host in UPDATES_PATHS:
-            guarded(f"updates-{host}", lambda host=host: collect_updates(host, lambda: fetch_file(host, UPDATES_PATHS[host])), host=host)
+            guarded(f"updates-{host}", lambda host=host: collect_updates(host, lambda: fetch_nowake(host, UPDATES_PATHS[host])), host=host)
 
     if only and "code" in only:
         for repo in CODE_REPOS:
