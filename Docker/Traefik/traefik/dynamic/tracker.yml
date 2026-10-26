@@ -1,19 +1,18 @@
-# Ryot (watch history & ratings) on beefy, behind Authentik SSO.
+# Floppy (media tracker: films, series, books, games) on beefy, behind Authentik SSO.
 #
 # https://tracker.holy-grail.ch/   (public via the Cloudflare tunnel)
 #
 # Two logins in a row, like Seerr: the forward auth (Authentik app `tracker`,
-# group streaming-users) is the outer gate, then Ryot's own "Sign in with Holy
-# Grail" (OIDC app `tracker-login`) creates/opens the per-user Ryot account.
+# group streaming-users) is the outer gate, then Floppy redirects to its own
+# "Sign in with Holy Grail" (OIDC app `tracker-login`), which creates/opens the
+# per-user Floppy account.
 #
-# /_i/<slug> is Ryot's integration webhook (Jellyfin on beefy posts playback there).
-# Jellyfin is not a browser and cannot pass forward auth, so that path has NO
-# authentik: the secret slug is the credential, and local-networks@file keeps it
-# off the internet (tunnel traffic = 403). Jellyfin reaches it via extra_hosts.
+# Token URLs are refused: Floppy's webhook, calendar, Stremio and ListenBrainz
+# URLs carry the user's token, which is also a full-access API key. None of them
+# gets a forward-auth bypass, and they are blocked outright (tracker-token-urls).
 #
 # Wake: like requests.yml, authentik runs BEFORE tracker-wake, so only a signed-in
-# user boots beefy. /_i/ has NO wake on purpose: a webhook only fires while
-# Jellyfin plays, so beefy is already up; asleep = Traefik 502, nothing woken.
+# user boots beefy.
 http:
   routers:
     # The outpost callback path. NO middlewares and a higher priority so it wins
@@ -26,33 +25,35 @@ http:
       tls:
         certResolver: cloudflare
 
-    tracker-integrations:
-      rule: "Host(`tracker.holy-grail.ch`) && PathPrefix(`/_i/`)"
+    # 403 for everyone, before any other router: these paths authenticate by a token in the URL.
+    tracker-token-urls:
+      rule: "Host(`tracker.holy-grail.ch`) && (PathPrefix(`/webhook/`) || PathPrefix(`/stremio-addon/`) || PathPrefix(`/apis/listenbrainz/`) || PathPrefix(`/calendar/download/`))"
       entryPoints: ["websecure"]
-      priority: 20
+      priority: 30
       service: tracker
       middlewares:
-        - local-networks@file
+        - tracker-deny
       tls:
         certResolver: cloudflare
 
-    # /go/tmdb/<movie|show>/<id>: Jellyfin's "Rate in Tracker" link, resolved to the Ryot item by ryot-go (beefy :8011). Same gates as the catch-all.
+    # /go/tmdb/<movie|show>/<id>: Jellyfin's "Rate in Tracker" link, sent to Floppy's TMDB details page. Same gates as the catch-all.
     tracker-go:
       rule: "Host(`tracker.holy-grail.ch`) && PathPrefix(`/go/`)"
       entryPoints: ["websecure"]
       priority: 15
-      service: tracker-go
+      service: tracker
       middlewares:
         - authentik@file
-        - tracker-wake
+        - tracker-go-movie
+        - tracker-go-show
         - default-rate-limit@file
         - tracker-secure-headers
       tls:
         certResolver: cloudflare
 
-    # PWA install ("Add to Home screen"): browsers fetch the manifest and its icons WITHOUT cookies, so behind forward auth they get the SSO redirect and the app installs as a plain bookmark. Only Ryot's static manifest and icons, GET only, no wake (asleep = 502).
+    # PWA install ("Add to Home screen"): browsers fetch the manifest and its icons WITHOUT cookies, so behind forward auth they get the SSO redirect and the app installs as a plain bookmark. Only Floppy's static favicon files, GET only, no wake (asleep = 502).
     tracker-pwa:
-      rule: "Host(`tracker.holy-grail.ch`) && Method(`GET`) && (Path(`/manifest.json`) || PathRegexp(`^/icons/maskable_icon(_x[0-9]+)?\\.png$`))"
+      rule: "Host(`tracker.holy-grail.ch`) && Method(`GET`) && PathRegexp(`^/static/favicon/[A-Za-z0-9._-]+\\.(webmanifest|png)$`)"
       entryPoints: ["websecure"]
       priority: 18
       service: tracker
@@ -76,11 +77,27 @@ http:
         certResolver: cloudflare
 
   middlewares:
-    # ?port=8010 makes the Beefy-Waker wait for Ryot itself, not merely for sshd.
+    # ?port=8012 makes the Beefy-Waker wait for Floppy itself, not merely for sshd.
     tracker-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/gate?port=8010"
+        address: "http://192.168.1.2:9001/gate?port=8012"
         trustForwardHeader: false
+
+    # No address matches: every request gets 403.
+    tracker-deny:
+      ipAllowList:
+        sourceRange:
+          - "255.255.255.255/32"
+
+    # Floppy's details URL wants a title segment; any text works, the page shows the real title. Ryot said show, Floppy says tv.
+    tracker-go-movie:
+      redirectRegex:
+        regex: "^https://tracker\\.holy-grail\\.ch/go/tmdb/movie/([0-9]+)([?].*)?$"
+        replacement: "https://tracker.holy-grail.ch/details/tmdb/movie/${1}/item"
+    tracker-go-show:
+      redirectRegex:
+        regex: "^https://tracker\\.holy-grail\\.ch/go/tmdb/show/([0-9]+)([?].*)?$"
+        replacement: "https://tracker.holy-grail.ch/details/tmdb/tv/${1}/item"
 
     tracker-secure-headers:
       headers:
@@ -98,10 +115,5 @@ http:
     tracker:
       loadBalancer:
         servers:
-          - url: "http://192.168.1.102:8010"
+          - url: "http://192.168.1.102:8012"
         passHostHeader: true
-
-    tracker-go:
-      loadBalancer:
-        servers:
-          - url: "http://192.168.1.102:8011"
