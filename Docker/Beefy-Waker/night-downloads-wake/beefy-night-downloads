@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Wakes beefy at 22:05 only when downloads wait for the night (HomeLab-BeefyServer Docker/Movie-Downloads README "Can wait: downloads at night").
+`poll` (every 5 min): while the Waker sees beefy up, copies its night-downloads.json over ssh beefy-direct (never wakes it); asleep = cache kept.
+`wake [--dry-run]` (22:05): beefy down and the last known pending count > 0 = the maintenance wake script sends the WoL; beefy's own boot run resumes the downloads.
+Usage: beefy-night-downloads poll | wake [--dry-run]"""
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import urllib.request
+
+WAKER_STATUS = os.environ.get("BND_WAKER_STATUS", "http://192.168.1.2:9001/status")
+REMOTE = os.environ.get("BND_REMOTE", ".local/state/movie-downloads/night-downloads.json")
+CACHE = pathlib.Path(os.environ.get("BND_CACHE", "/var/lib/beefy-night-downloads/state.json"))
+WAKE = os.environ.get("BND_WAKE", "/usr/local/sbin/beefy-maintenance-wake")
+
+
+class FetchError(Exception):
+    pass
+
+
+def valid(text):
+    try:
+        d = json.loads(text)
+    except ValueError:
+        return None
+    return d if isinstance(d, dict) and isinstance(d.get("pending"), int) and not isinstance(d.get("pending"), bool) else None
+
+
+def poll(is_up, fetch, cache, **_):
+    if not is_up():
+        print("beefy asleep, cache kept")
+        return 0
+    try:
+        d = valid(fetch())
+    except FetchError as e:
+        print(f"beefy state not readable, cache kept: {e}", file=sys.stderr)
+        return 1
+    if d is None:
+        print("beefy state invalid, cache kept", file=sys.stderr)
+        return 1
+    cache = pathlib.Path(cache)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d) + "\n")
+    tmp.replace(cache)
+    print(f"beefy: {d['pending']} download(s) waiting for the night")
+    return 0
+
+
+def wake_if_waiting(is_up, wake, cache, dry_run=False, **_):
+    if is_up():
+        print("beefy is up: its own 22:05 timer resumes the downloads")
+        return 0
+    d = valid(pathlib.Path(cache).read_text()) if pathlib.Path(cache).exists() else None
+    pending = d["pending"] if d else 0
+    if pending <= 0:
+        print(f"no downloads waiting ({'no state yet' if d is None else 'last seen ' + str(d.get('updated', '?'))}): beefy stays off")
+        return 0
+    if dry_run:
+        print(f"would wake beefy: {pending} download(s) waiting (last seen {d.get('updated', '?')})")
+        return 0
+    print(f"waking beefy: {pending} download(s) waiting (last seen {d.get('updated', '?')})")
+    return 0 if wake() == 0 else 1
+
+
+def waker_up():
+    try:
+        with urllib.request.urlopen(WAKER_STATUS, timeout=5) as r:
+            return bool(json.load(r).get("up"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def ssh_fetch():
+    r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "beefy-direct", f"cat {REMOTE}"],
+                       capture_output=True, text=True, timeout=60)
+    if r.returncode:
+        raise FetchError(r.stderr.strip()[:200] or f"rc={r.returncode}")
+    return r.stdout
+
+
+def main(argv):
+    env = dict(is_up=waker_up, fetch=ssh_fetch, wake=lambda: subprocess.run([WAKE]).returncode, cache=CACHE)
+    if argv[:1] == ["poll"]:
+        return poll(**env)
+    if argv[:1] == ["wake"]:
+        return wake_if_waiting(dry_run="--dry-run" in argv, **env)
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

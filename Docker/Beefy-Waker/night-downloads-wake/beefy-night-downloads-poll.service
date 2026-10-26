@@ -1,0 +1,17 @@
+[Unit]
+Description=Copy beefy's night-download count while it is awake (never wakes it)
+Documentation=file:///home/pi/Projects/Docker/Beefy-Waker/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/home/pi/Projects/Docker/Beefy-Waker/night-downloads-wake/beefy-night-downloads poll
+StateDirectory=beefy-night-downloads
+TimeoutStartSec=90
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true

@@ -1,0 +1,9 @@
+[Unit]
+Description=beefy night-download count, every 5 minutes (skipped while beefy sleeps)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

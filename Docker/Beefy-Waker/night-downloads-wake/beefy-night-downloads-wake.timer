@@ -1,0 +1,9 @@
+[Unit]
+Description=22:05: wake beefy if downloads wait for the night (low tariff starts 22:00)
+
+[Timer]
+OnCalendar=*-*-* 22:05:00 Europe/Zurich
+Persistent=false
+
+[Install]
+WantedBy=timers.target

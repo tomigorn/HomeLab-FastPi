@@ -304,3 +304,22 @@ WoL here brings it back.
 ## Nightly maintenance wake
 
 `maintenance-wake/` sends the 03:55 wake. beefy then holds itself awake 03:58-04:45 (`HomeLab-BeefyServer`, `Server/9-Night-Schedule.md`), so the nightly jobs and the fastpi pulls (04:02-04:20, never waking) always find it up.
+
+## Night downloads wake
+
+`night-downloads-wake/` wakes beefy at 22:05 only when downloads wait for the low tariff (Seerr "Can wait", `HomeLab-BeefyServer` `Docker/Movie-Downloads/README.md` "Can wait: downloads at night").
+
+| Unit | When | Does |
+|---|---|---|
+| `beefy-night-downloads-poll.timer` | every 5 min | Waker `/status` up: `ssh beefy-direct cat ~/.local/state/movie-downloads/night-downloads.json` → `/var/lib/beefy-night-downloads/state.json`. Asleep: nothing, cache kept (never wakes) |
+| `beefy-night-downloads-wake.timer` | 22:05 | beefy down and cached `pending > 0`: runs `beefy-maintenance-wake` (Waker gate, wakeonlan fallback). beefy's boot run resumes the downloads |
+
+Why a pull: beefy grabs only while awake and stays up ≥ 15 min after, so a 5-min poll always sees the last count before it sleeps; beefy needs no access to fastpi.
+
+```bash
+cd ~/Projects/Docker/Beefy-Waker/night-downloads-wake
+sudo install -m 0644 beefy-night-downloads-poll.service beefy-night-downloads-poll.timer beefy-night-downloads-wake.service beefy-night-downloads-wake.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now beefy-night-downloads-poll.timer beefy-night-downloads-wake.timer
+./beefy-night-downloads wake --dry-run     # decision now, never wakes
+python3 test_beefy_night_downloads.py
+```
