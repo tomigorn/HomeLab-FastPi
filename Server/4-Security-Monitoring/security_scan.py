@@ -33,6 +33,7 @@ import ipaddress
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -999,11 +1000,13 @@ def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str]:
     if host in REMOTE_SCAN_HOSTS:   # runs on fastpi, needs the internet, no socket
         return ["docker", "run", "--rm",
                 "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
+                "-v", _vex_mount(),
                 TRIVY_IMAGE, *args]
     cfg = TRIVY_HOSTS[host]
     net = ["--network", cfg["network"], "-e", f"DOCKER_HOST={cfg['docker_host']}"] if attach_proxy else []
     return ["docker", "run", "--rm", *net,
             "-v", f"{cfg['cache']}:/root/.cache/trivy",
+            "-v", _vex_mount(),
             TRIVY_IMAGE, *args]
 
 
@@ -1111,7 +1114,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
         r = _trivy_run(host, [
             "image", *src, "--scanners", "vuln",
             "--skip-db-update", "--skip-java-db-update",
-            "--quiet", "--format", "json",
+            "--quiet", "--format", "json", *vex_args(host, image),
             "--timeout", "10m", image,
         ], attach_proxy=not platform, timeout=1200)
         if r.returncode != 0 or not r.stdout.strip():
@@ -1204,7 +1207,7 @@ def _sbom_name(platform: str, ref: str) -> str:
 
 def _trivy_mounted(args: list[str], *, entrypoint: str | None = None, timeout: int = 1800):
     cmd = ["docker", "run", "--rm", "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
-           "-v", f"{SBOM_DIR}:/sbom"]
+           "-v", f"{SBOM_DIR}:/sbom", "-v", _vex_mount()]
     if entrypoint:
         cmd += ["--entrypoint", entrypoint]
     return run(cmd + [TRIVY_IMAGE, *args], timeout=timeout)
@@ -1233,12 +1236,19 @@ def refresh_sboms(platform: str, refs: list[str], index: dict) -> None:
         index[f"{platform}|{ref}"] = {"made": time.time(), "ok": ok or prev.get("ok", False), "local": local, "ref": ref, "platform": platform}
 
 
-def match_sboms(names: list[str]) -> dict[str, dict]:
+def match_script(names: dict[str, str], host: str) -> str:
+    """Shell loop for one Trivy container: every SBOM against the local DB, with the VEX file of its DT project when there is one."""
+    return "".join(
+        f"trivy sbom --skip-db-update --skip-java-db-update --quiet --scanners vuln --format json "
+        f"{' '.join(shlex.quote(a) for a in vex_args(host, ref))} --output /sbom/out/{n}.json /sbom/{n}.cdx.json || echo FAIL {n} >&2; "
+        for n, ref in sorted(names.items()))
+
+
+def match_sboms(names: dict[str, str], host: str) -> dict[str, dict]:
     """One Trivy container matches every SBOM against the local DB (no registry): name -> report."""
     out_dir = SBOM_DIR / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
-    script = ("for n in " + " ".join(names) + "; do trivy sbom --skip-db-update --skip-java-db-update --quiet "
-              "--scanners vuln --format json --output /sbom/out/$n.json /sbom/$n.cdx.json || echo FAIL $n >&2; done")
+    script = match_script(names, host)
     r = _trivy_mounted(["-c", script], entrypoint="sh", timeout=3600)
     if r.stderr.strip():
         print(f"  sbom match: {r.stderr.strip()[-300:]}", file=sys.stderr)
@@ -1290,7 +1300,7 @@ def collect_code(repo: str) -> list:
     refresh_sboms(platform, refs, index)
     write_atomic(SBOM_DIR / "index.json", json.dumps(index, indent=1, sort_keys=True))
     names = {_sbom_name(platform, r): r for r in refs if index.get(f"{platform}|{r}", {}).get("ok")}
-    reports = match_sboms(sorted(names))
+    reports = match_sboms(names, repo)
     current: dict[str, str] = {}
     sev = {"CRITICAL": 0, "HIGH": 0}
     lines = [f"# Fixable CRITICAL/HIGH in images the {repo} repo refers to (SBOM {platform}), worst first.", "# critical  high  image", ""]
@@ -1573,6 +1583,95 @@ def read_cup() -> tuple[dict, dict[str, bool]]:
     return json.loads(_http_get(f"{CUP_URL}/api/v3/json", 60)), awake_map
 
 
+# ---- Triage in Dependency-Track -> VEX for Trivy: DT analysis decisions exported per project, cached under STATE/vex
+VEX_STATES = {"NOT_AFFECTED": "not_affected", "FALSE_POSITIVE": "not_affected", "RESOLVED": "fixed"}
+
+
+def vex_dir() -> Path:
+    return STATE / "vex"
+
+
+def _vex_mount() -> str:
+    try:
+        vex_dir().mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return f"{vex_dir()}:/vex:ro"
+
+
+def vex_filename(name: str, version: str) -> str:
+    return hashlib.sha256(f"{name}|{version}".encode()).hexdigest()[:24] + ".openvex.json"
+
+
+def vex_statements(findings: list[dict]) -> list[dict]:
+    """DT findings -> OpenVEX statements for the triage decisions only (one per vulnerability id and alias, product = the component purl)."""
+    out = []
+    for f in findings:
+        an = f.get("analysis") or {}
+        status = VEX_STATES.get(an.get("state"))
+        purl = (f.get("component") or {}).get("purl")
+        if not status or not purl:
+            continue
+        vuln = f.get("vulnerability") or {}
+        ids = [vuln.get("vulnId")]
+        for al in vuln.get("aliases") or []:
+            ids += list(al.values()) if isinstance(al, dict) else [al]
+        for vid in dict.fromkeys(i for i in ids if i):
+            st = {"vulnerability": {"name": vid}, "products": [{"@id": purl}], "status": status}
+            if status == "not_affected":
+                st["justification"] = "vulnerable_code_not_in_execute_path"
+            if an.get("detail"):
+                st["impact_statement" if status == "not_affected" else "status_notes"] = str(an["detail"])[:500]
+            out.append(st)
+    return out
+
+
+def build_openvex(statements: list[dict], now: float) -> dict:
+    return {"@context": "https://openvex.dev/ns/v0.2.0", "@id": "https://holy-grail.ch/vex/dependency-track",
+            "author": "Dependency-Track triage", "version": 1,
+            "timestamp": datetime.datetime.fromtimestamp(now, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "statements": statements}
+
+
+def export_dt_vex(dt, projects: list[dict]) -> list:
+    """One OpenVEX file per DT project that has decisions. A project whose export fails keeps its cached file; projects gone from DT or without decisions lose theirs."""
+    d = vex_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    keep, total, failed = set(), 0, 0
+    for p in projects:
+        if not p.get("version"):
+            continue
+        name = vex_filename(p["name"], p["version"])
+        try:
+            st = vex_statements(dt.findings(p["uuid"]))
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            keep.add(name)
+            print(f"  vex export failed for {p['name']} {p['version']}: {e}", file=sys.stderr)
+            continue
+        if st:
+            keep.add(name)
+            total += len(st)
+            write_atomic(d / name, json.dumps(build_openvex(st, time.time()), indent=1))
+    for f in d.glob("*.openvex.json"):
+        if f.name not in keep:
+            f.unlink()
+    files = len([k for k in keep if (d / k).exists()])
+    return [("security_dt_vex_projects", {}, files), ("security_dt_vex_statements", {}, total),
+            ("security_dt_vex_export_failed", {}, failed)]
+
+
+def vex_args(host: str, ref: str) -> list[str]:
+    """`--vex <file>` for the DT project of an image (matched by name+tag, or by digest through dt-index.json); empty when it has no decisions."""
+    names = [dt_project(host, ref)]
+    index = _load_json(STATE / "dt-index.json") or {}
+    names += [tuple(k.rsplit("|", 1)) for k, v in index.items() if v == ref and k.startswith(host + "/")]
+    for name, version in names:
+        if (vex_dir() / vex_filename(name, version)).exists():
+            return ["--vex", f"/vex/{vex_filename(name, version)}"]
+    return []
+
+
 # ---- Dependency-Track feed (group dt): SBOMs of the running images and of the host OS -> DT on beefy (HomeLab-BeefyServer Docker/Dependency-Track)
 DT_URL = os.environ.get("SECSCAN_DT_URL", "http://192.168.1.102:8090")
 DT_KEY = Path(os.environ.get("SECSCAN_DT_KEY", "/var/lib/security-scan/secrets/dt-api-key"))
@@ -1720,6 +1819,9 @@ class DtClient:
     def delete(self, uuid: str) -> None:
         self._call("DELETE", f"/v1/project/{uuid}")
 
+    def findings(self, uuid: str) -> list[dict]:
+        return self._call("GET", f"/v1/finding/project/{uuid}?suppressed=true") or []
+
 
 def dt_reachable() -> bool:
     """A TCP probe of DT's port: beefy asleep reads as unreachable, and nothing here wakes it."""
@@ -1858,6 +1960,9 @@ HELPS = {
     "security_dt_projects": "Dependency-Track projects of the host (running images + OS) after the last upload run.",
     "security_dt_uploads": "SBOMs uploaded to Dependency-Track in the last run (new or changed images).",
     "security_dt_sbom_failed": "Images whose SBOM could not be built in the last run (retried next run).",
+    "security_dt_vex_projects": "DT projects with triage decisions (not affected, false positive, resolved) exported as VEX files for Trivy.",
+    "security_dt_vex_statements": "VEX statements (one per vulnerability id) across those files.",
+    "security_dt_vex_export_failed": "Projects whose decisions could not be read from DT in the last export (cached file kept).",
     "security_dt_stale_deleted": "Dependency-Track projects deleted in the last run (image no longer running).",
 }
 
@@ -2011,6 +2116,12 @@ def main() -> int:
                     print(f"  dt {host}: {ref} built locally, no base image known, skipped", file=sys.stderr)
                 return collect_dt(host, dt, plan, lambda k, src: dt_image_sbom(host, k, src), dt_os_entry(host))
             guarded(f"dt-{host}", _dt, host=host)
+
+        def _vex():
+            if dt is None or not up:
+                raise NoData("Dependency-Track not reachable (beefy asleep), cached VEX files stay in use")
+            return export_dt_vex(dt, dt.projects())
+        guarded("dt-vex", _vex)
 
     if want("images"):
         def _scan(host, images):

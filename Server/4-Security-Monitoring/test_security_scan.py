@@ -1349,6 +1349,129 @@ def test_parse_os_dump_splits_files_and_drops_missing_ones():
                                    "var/lib/dpkg/status": "Package: a\n\nPackage: b\n"}
 
 
+def _finding(purl, vid, state, detail="why", aliases=None, suppressed=True):
+    f = {"component": {"purl": purl, "name": "x", "version": "1"},
+         "vulnerability": {"vulnId": vid, "aliases": aliases or []}}
+    if state:
+        f["analysis"] = {"state": state, "isSuppressed": suppressed, "detail": detail}
+    return f
+
+
+def test_vex_statements_only_triage_decisions_with_purl():
+    from security_scan import vex_statements
+    st = vex_statements([
+        _finding("pkg:deb/debian/a@1", "CVE-1", "NOT_AFFECTED", "not reachable"),
+        _finding("pkg:deb/debian/b@1", "CVE-2", "FALSE_POSITIVE"),
+        _finding("pkg:deb/debian/c@1", "CVE-3", "RESOLVED"),
+        _finding("pkg:deb/debian/d@1", "CVE-4", "EXPLOITABLE"),
+        _finding("pkg:deb/debian/e@1", "CVE-5", "IN_TRIAGE"),
+        _finding("pkg:deb/debian/f@1", "CVE-6", None),
+        _finding(None, "CVE-7", "NOT_AFFECTED"),
+    ])
+    got = {(s["vulnerability"]["name"], s["products"][0]["@id"], s["status"]) for s in st}
+    assert got == {("CVE-1", "pkg:deb/debian/a@1", "not_affected"), ("CVE-2", "pkg:deb/debian/b@1", "not_affected"),
+                   ("CVE-3", "pkg:deb/debian/c@1", "fixed")}
+    assert all(s["justification"] for s in st if s["status"] == "not_affected")
+    assert next(s for s in st if s["vulnerability"]["name"] == "CVE-1")["impact_statement"] == "not reachable"
+
+
+def test_vex_statements_one_per_alias_id():
+    from security_scan import vex_statements
+    st = vex_statements([_finding("pkg:golang/x@1", "GHSA-1", "NOT_AFFECTED",
+                                  aliases=[{"cveId": "CVE-9", "ghsaId": "GHSA-1"}, {"ghsaId": "GHSA-2"}])])
+    assert sorted(s["vulnerability"]["name"] for s in st) == ["CVE-9", "GHSA-1", "GHSA-2"]
+
+
+def test_build_openvex_document():
+    from security_scan import build_openvex
+    doc = build_openvex([{"vulnerability": {"name": "CVE-1"}}], 0)
+    assert doc["@context"].startswith("https://openvex.dev/ns/") and doc["version"] == 1
+    assert doc["timestamp"] == "1970-01-01T00:00:00Z" and doc["statements"] == [{"vulnerability": {"name": "CVE-1"}}]
+
+
+class FakeVexDt:
+    def __init__(self, by_uuid, broken=()):
+        self.by_uuid, self.broken = by_uuid, set(broken)
+
+    def findings(self, uuid):
+        if uuid in self.broken:
+            raise OSError("boom")
+        return self.by_uuid[uuid]
+
+
+def test_export_dt_vex_writes_per_project_file_and_cleans_up():
+    import json
+    from security_scan import export_dt_vex, vex_dir, vex_filename
+    d = _tmp_dirs()
+    vex_dir().mkdir()
+    (vex_dir() / vex_filename("fastpi/old", "1")).write_text("{}")
+    projects = [{"name": "fastpi/a", "version": "1", "uuid": "ua"}, {"name": "fastpi/b", "version": "1", "uuid": "ub"},
+                {"name": "fastpi", "uuid": "parent"}]
+    dt = FakeVexDt({"ua": [_finding("pkg:deb/a@1", "CVE-1", "NOT_AFFECTED")], "ub": [_finding("pkg:deb/b@1", "CVE-2", "IN_TRIAGE")]})
+    samples = export_dt_vex(dt, projects)
+    doc = json.loads((vex_dir() / vex_filename("fastpi/a", "1")).read_text())
+    assert doc["statements"][0]["vulnerability"]["name"] == "CVE-1"
+    assert not (vex_dir() / vex_filename("fastpi/b", "1")).exists()
+    assert not (vex_dir() / vex_filename("fastpi/old", "1")).exists()
+    assert ("security_dt_vex_statements", {}, 1) in samples and ("security_dt_vex_projects", {}, 1) in samples
+
+
+def test_export_dt_vex_keeps_cached_file_of_a_failing_project():
+    from security_scan import export_dt_vex, vex_dir, vex_filename
+    _tmp_dirs()
+    vex_dir().mkdir()
+    keep = vex_dir() / vex_filename("fastpi/a", "1")
+    keep.write_text('{"cached": true}')
+    export_dt_vex(FakeVexDt({}, broken={"ua"}), [{"name": "fastpi/a", "version": "1", "uuid": "ua"}])
+    assert keep.read_text() == '{"cached": true}'
+
+
+def test_export_dt_vex_revoked_decision_removes_file():
+    from security_scan import export_dt_vex, vex_dir, vex_filename
+    _tmp_dirs()
+    vex_dir().mkdir()
+    f = vex_dir() / vex_filename("fastpi/a", "1")
+    f.write_text("{}")
+    export_dt_vex(FakeVexDt({"ua": [_finding("pkg:deb/a@1", "CVE-1", "IN_TRIAGE")]}),
+                  [{"name": "fastpi/a", "version": "1", "uuid": "ua"}])
+    assert not f.exists()
+
+
+def test_vex_args_no_decisions_no_flag_and_cache_used_when_dt_is_gone():
+    from security_scan import vex_args, vex_dir, vex_filename
+    _tmp_dirs()
+    assert vex_args("fastpi", "grafana/grafana:13.2.4") == []
+    vex_dir().mkdir()
+    (vex_dir() / vex_filename("fastpi/grafana/grafana", "13.2.4")).write_text("{}")
+    assert vex_args("fastpi", "docker.io/grafana/grafana:13.2.4") == ["--vex", "/vex/" + vex_filename("fastpi/grafana/grafana", "13.2.4")]
+    assert vex_args("beefy", "grafana/grafana:13.2.4") == []
+
+
+def test_vex_args_digest_ref_found_through_dt_index():
+    import json
+    from security_scan import vex_args, vex_dir, vex_filename
+    d = _tmp_dirs()
+    vex_dir().mkdir()
+    (d / "state" / "dt-index.json").write_text(json.dumps({"beefy/linuxserver/radarr|6.1.0": "linuxserver/radarr@sha256:abc"}))
+    (vex_dir() / vex_filename("beefy/linuxserver/radarr", "6.1.0")).write_text("{}")
+    assert vex_args("beefy", "linuxserver/radarr@sha256:abc") == ["--vex", "/vex/" + vex_filename("beefy/linuxserver/radarr", "6.1.0")]
+
+
+def test_trivy_cmd_mounts_vex_dir_read_only():
+    from security_scan import _trivy_cmd
+    for host in ("fastpi", "beefy"):
+        assert any(a.endswith(":/vex:ro") for a in _trivy_cmd(host, ["image", "x"], attach_proxy=False))
+
+
+def test_sbom_match_script_passes_vex_only_for_images_with_decisions():
+    from security_scan import match_script, vex_dir, vex_filename
+    _tmp_dirs()
+    vex_dir().mkdir()
+    (vex_dir() / vex_filename("fastpi/grafana/grafana", "13.2.4")).write_text("{}")
+    script = match_script({"n1": "grafana/grafana:13.2.4", "n2": "caddy:2"}, "fastpi")
+    assert script.count("--vex") == 1 and "/vex/" + vex_filename("fastpi/grafana/grafana", "13.2.4") in script
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

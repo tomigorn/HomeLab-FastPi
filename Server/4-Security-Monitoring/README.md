@@ -61,6 +61,24 @@ DT itself: `HomeLab-BeefyServer` `Docker/Dependency-Track/README.md` (beefy `192
 | Key | `/var/lib/security-scan/secrets/dt-api-key` (pi 0600), team `fastpi-scanner` |
 | Firewall | HOST-OUT-GUARD must let uid `pi` reach `192.168.1.102:8090` (`Docker/_global/scripts/host-output-guard.sh`) |
 
+## Triage in Dependency-Track
+
+DT is the one place to triage, Trivy stays the scanner and the alert source. A decision made in DT silences the same CVE in Trivy.
+
+| | |
+|---|---|
+| Mark a CVE | DT UI (beefy `:8090`) > project `<host>/<image>` > Audit Vulnerabilities > component/CVE > Analysis `Not Affected`, `False Positive` or `Resolved` (+ a comment, it is kept in the VEX file) |
+| Not a decision | `In Triage`, `Exploitable`: still counted and alerted |
+| Export | `security_scan.py dt` (daily 04:02) writes one OpenVEX file per project with decisions to `/var/lib/security-scan/vex/` (`GET /api/v1/finding/project/<uuid>?suppressed=true`; one statement per CVE/GHSA id and alias, product = component purl) |
+| Use | image scan (daily 04:10) and code scan (hourly :17) pass `--vex /vex/<file>` for the image's DT project (name + tag, or digest via `dt-index.json`); nothing is passed for an image without decisions |
+| Takes effect | the next run after the 04:02 export; counts, `security_new_vulns` and `NewFixableImageVulnerability` drop it |
+| Revoke | set it back to `In Triage`: the file is removed at the next export, the CVE counts again and is alerted as new |
+| DT asleep | beefy is never woken; the last exported files stay in use. A project whose export fails keeps its file (`security_dt_vex_export_failed`) |
+| Scope | per image: a decision on `fastpi/grafana/grafana` does not touch another image with the same package |
+| Metrics | `security_dt_vex_projects`, `security_dt_vex_statements`, `security_dt_vex_export_failed` |
+
+DT-only ids (e.g. OSV `GO-…`) that Trivy does not report change nothing in Trivy.
+
 ## Install
 
 ```bash
