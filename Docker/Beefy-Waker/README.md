@@ -300,3 +300,7 @@ This project only **wakes** beefy. beefy decides when to **sleep itself** via th
 WoL here brings it back.
 
 **Rebuild** (`beefy-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
+
+## Nightly maintenance wake
+
+`maintenance-wake/` sends the 03:55 wake. beefy then holds itself awake 03:58-04:45 (`HomeLab-BeefyServer`, `Server/9-Night-Schedule.md`), so the nightly jobs and the fastpi pulls (04:02-04:20, never waking) always find it up.
