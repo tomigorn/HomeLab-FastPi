@@ -1,9 +1,10 @@
 # AudioBookRequest (Docker/Audiobook-Requests, container audiobookrequest), behind Authentik SSO + its own OIDC login.
 #
-# https://books.holy-grail.ch/   (LAN/VPN only, no public DNS record)
+# https://books.holy-grail.ch/   (public via the Cloudflare tunnel, like requests.holy-grail.ch: friends request from anywhere)
 #
 # Traefik reaches ABR (10.24.25.4) over traefik_mouse; ABR trusts X-Forwarded-* only from 10.24.25.3.
 # Forward auth (app books, streaming-requesters) is the outer gate; inside, ABR logs in over OIDC (app books-login).
+# CrowdSec is attached to the websecure entrypoint; default-rate-limit like requests.
 http:
   routers:
     # Outpost callback path: no app middlewares, higher priority than the catch-all router below.
@@ -12,8 +13,6 @@ http:
       entryPoints: ["websecure"]
       priority: 10
       service: authentik@file
-      middlewares:
-        - local-networks@file
       tls:
         certResolver: cloudflare
 
@@ -23,7 +22,6 @@ http:
       priority: 1
       service: books
       middlewares:
-        - local-networks@file
         - authentik@file
         - default-rate-limit@file
         - books-secure-headers

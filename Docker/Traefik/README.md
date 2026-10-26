@@ -81,7 +81,7 @@ Over `traefik_mouse` to `gluetun_mouse` (`10.24.25.2`). LAN + VPN only (`local-n
 | `sabnzbd-audiobooks` | `:8081` sabnzbd | `streaming-admins` | none; `local_ranges` + `host_whitelist` in `sabnzbd.ini` |
 | `vpn-status-mouse` | `port-updater:8087` | `homelab-admins` | Basic, injected by Authentik |
 | `prowlarr-audiobooks` | `:9696` prowlarr_mouse | `streaming-admins` | External (Holy Grail only) |
-| `books` | ABR `10.24.25.4:8000` (Docker/Audiobook-Requests) | `streaming-requesters` | ABR OIDC (`books-login`), trusts X-Forwarded-* from `10.24.25.3` only |
+| `books` | ABR `10.24.25.4:8000` (Docker/Audiobook-Requests) | `streaming-requesters` | **public** (Cloudflare tunnel, like `requests`; no `local-networks@file`), ABR OIDC (`books-login`), trusts X-Forwarded-* from `10.24.25.3` only |
 
 `traefik_mouse` members: gluetun_mouse `.2`, Traefik `.3`, audiobookrequest `.4`, audiobook-importer `.5` (ABR and the importer reach Prowlarr `:9696` and qBittorrent `:8080` here; the importer logs in to qBittorrent, only `.3` is bypassed).
 
