@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily subscription deadline check
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+
+[Timer]
+OnCalendar=*-*-* 09:07:00 Europe/Zurich
+# missed while off, and a check shortly after every boot; sent stages are remembered, so repeats are harmless
+Persistent=true
+OnBootSec=5min
+
+[Install]
+WantedBy=timers.target

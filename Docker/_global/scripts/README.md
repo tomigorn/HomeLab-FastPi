@@ -9,6 +9,7 @@
 | `smoke-test.sh` | end-to-end checks, must stay green |
 | `update-project.sh`, `auto_update.py` | image updates |
 | `oob-alert.sh` | Telegram alert that bypasses the edge |
+| `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
 
 ## host-input-guard
 - New host port needed by a container or the VPN: add it to the port lists in the script, `sudo ./host-input-guard.sh --persist`.
@@ -26,3 +27,16 @@
 | Metrics | `docker_image_cleanup_{freed_bytes,removed_images,rollback_window_images,failed_images,last_run_timestamp_seconds}` in `image_cleanup.prom` |
 | By hand | `scripts/image-cleanup.sh --dry-run` lists what would go; `systemctl start image-cleanup.service` runs it (`KEEP_DAYS=7` env to change the age) |
 | Test | `scripts/test_image_cleanup.sh` (fake docker) |
+
+## subscription-alerts
+| | |
+|---|---|
+| What | `subscription-alerts.py`: reads the `[[subscriptions]]` of Seerr's `indexer-bar/limits.toml` (beefy), sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts |
+| Stages | 🟡 ≤ 30 days left, 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"). Same colours as the Seerr bar. Services on the same end date and stage share one message |
+| Once | each stage once per (service, end date) in `/var/lib/subscription-alerts/state.json`. Renewal = change `expires`: the new date starts fresh, the old date's warnings are dropped. First run late (e.g. 23 days left) sends only the current stage. A failed send is retried at the next run |
+| When | `subscription-alerts.timer` daily 09:07 Europe/Zurich, 5 min after boot, catch-up if missed. fastpi only, beefy is never woken |
+| List cache | `/var/lib/subscription-alerts/limits.toml`: every run tries `ssh beefy-direct cat …/limits.toml` (5 s timeout); valid copy replaces the cache, otherwise the old one stays. Older than 7 days: logged and said in the message details |
+| Install | `sudo install -m 0644 ../systemd/subscription-alerts.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now subscription-alerts.timer` |
+| By hand | `systemctl start subscription-alerts.service` then `journalctl -u subscription-alerts -n 5`; `scripts/subscription-alerts.py --test` sends one 🧪 test message |
+| Renew | change `expires` in `Seerr/indexer-bar/limits.toml` on beefy and commit (next beefy-reachable run picks it up; to force: the command above) |
+| Test | `python3 scripts/test_subscription_alerts.py` |

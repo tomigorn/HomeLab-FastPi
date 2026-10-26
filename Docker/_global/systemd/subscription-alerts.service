@@ -1,0 +1,19 @@
+[Unit]
+Description=Telegram warnings for subscription deadlines (Seerr indexer-bar/limits.toml on beefy)
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+StateDirectory=subscription-alerts
+Environment=HOME=/home/pi
+ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/_global/scripts/subscription-alerts.py
+TimeoutStartSec=120
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
