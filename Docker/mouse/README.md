@@ -21,21 +21,24 @@ Connect: `\\fastpi\mouse`, `smb://fastpi.homelab/mouse` (same for `admin_books`,
 | qBittorrent | https://qbittorrent-audiobooks.holy-grail.ch | `streaming-admins` | `ssh -L 8085:127.0.0.1:8085 fastpi`, login `admin` + `secrets/qbit_pass` |
 | SABnzbd | https://sabnzbd-audiobooks.holy-grail.ch | `streaming-admins` | `ssh -L 8090:127.0.0.1:8090 fastpi` (no login) |
 | VPN status | https://vpn-status-mouse.holy-grail.ch | `homelab-admins` | `ssh -L 8087:127.0.0.1:8087 fastpi` |
-| Prowlarr (audiobooks) | https://prowlarr-audiobooks.holy-grail.ch | `streaming-admins` | `docker exec prowlarr_mouse curl -s 127.0.0.1:9696/ping`; config `/mnt/seagate-red/prowlarr/config` |
+| Prowlarr (audiobooks) | https://prowlarr-audiobooks.holy-grail.ch | `streaming-admins` | `docker exec prowlarr_mouse curl -s 127.0.0.1:9696/ping`; no other way in (gate below); config `/mnt/seagate-red/prowlarr/config` |
 
 - Traefik reaches gluetun over `traefik_mouse` (internal, Traefik `10.24.25.3`, gluetun `10.24.25.2`). Routes: `Traefik/traefik/dynamic/{qbittorrent,sabnzbd}-audiobooks.yml`.
 - qBittorrent: auth bypass only for `10.24.25.3/32` (Options → WebUI), reverse-proxy support off.
 - `sabnzbd.ini` (edit only while stopped): `local_ranges = 10.24.32.0/24, 192.168.1.0/24, 10.24.25.3/32, 10.24.5.5/32`, `host_whitelist` += `sabnzbd-audiobooks.holy-grail.ch`, username/password empty.
 
 ## Prowlarr (audiobooks)
-Indexer for AudioBookRequest (`Docker/Audiobook-Requests`), container `prowlarr_mouse` in gluetun's netns (MAM sees the VPN IP), uid 65054, auth External (Holy Grail).
+Indexer for AudioBookRequest (`Docker/Audiobook-Requests`), container `prowlarr_mouse` in gluetun's netns (MAM sees the VPN IP), uid 65054, listens on `127.0.0.1:9696` only, auth External (Holy Grail).
+
+`prowlarr-gate` (nginx, uid 65057, same netns, `:9697`, `prowlarr-gate/nginx.conf`) is the only way in: Traefik (`10.24.25.3`, after Holy Grail) gets the UI; everyone else only `/api/` and download paths with the API key (403 otherwise). Prowlarr 2.x has only Forms login (no Basic, no header login), so Holy Grail stays the one login and the gate replaces it for everyone else.
 
 | What | Value |
 |---|---|
 | Config as code | `sudo python3 scripts/prowlarr-setup.py` (idempotent), check only: `--check` (smoke test runs it) |
-| MyAnonamouse | own session `secrets/mam_prowlarr_id`, search type active, English + German, **UseFreeleechWedge off** (never `fl=1`), no RSS, saved with `forceSave` (no test search) |
+| MyAnonamouse | own session `secrets/mam_prowlarr_id`, search type active, English + German, **UseFreeleechWedge on** (owner 2026-10-26: `fl=1` only on grabs not free already), no RSS, saved with `forceSave` (no test search) |
 | Download client | qBittorrent `127.0.0.1:8080`, category `abr` (saved in `/downloads/complete`: the category save path only applies with automatic torrent management) |
-| Unlisted MAM endpoint | Prowlarr calls `/jsonLoad.php` ≤ 1×/h (VIP check) |
+| Seeding | no global and no `abr` share limit = seed forever (MAM: 72 h within 30 days, ratio 1.0); `--check` fails if one appears |
+| Unlisted MAM endpoint | Prowlarr calls `/jsonLoad.php` ≤ 1×/h (VIP check), owner-approved 2026-10-26 |
 | AudioBookBay | not in Prowlarr's indexer list (removed upstream); ABR cannot use it |
 | Tests | `python3 -m unittest discover -s Docker/mouse/scripts` |
 | After an image bump | `sudo python3 scripts/prowlarr-setup.py --check` |

@@ -292,8 +292,8 @@ services:
 # Prowlarr ################################################
 # #########################################################
   # Audiobook indexer for AudioBookRequest (Docker/Audiobook-Requests): MyAnonamouse (own session) + AudioBookBay (disabled, approval only).
-  # In gluetun's netns so MAM sees the VPN IP. UI: https://prowlarr-audiobooks.holy-grail.ch (Traefik over traefik_mouse, auth External = Holy Grail).
-  # MAM rules: search type active, EN+DE, UseFreeleechWedge off (never fl=1), no RSS; check with scripts/prowlarr-setup.py --check after every update (smoke-test does).
+  # In gluetun's netns so MAM sees the VPN IP. Listens on 127.0.0.1:9696 only; prowlarr-gate (:9697) is the way in. UI: https://prowlarr-audiobooks.holy-grail.ch (auth External = Holy Grail).
+  # MAM rules: search type active, EN+DE, UseFreeleechWedge on (fl=1 only for grabs not free already, owner 2026-10-26), no RSS; check with scripts/prowlarr-setup.py --check after every update (smoke-test does).
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:2.6.5.5623-ls165@sha256:b3b00047ed20f6ce2b16780145cb6a0acb51c9e28ea6aa6f5dcd33c7034f1797
     container_name: prowlarr_mouse
@@ -329,6 +329,45 @@ services:
         max-size: "10m"
         max-file: "3"
     restart: always
+    labels:
+      - autoheal-mouse=true
+    network_mode: "service:gluetun"
+
+# #########################################################
+# Prowlarr-Gate ###########################################
+# #########################################################
+  # The only way into Prowlarr (which listens on 127.0.0.1:9696): :9697 in gluetun's netns. Traefik gets the UI,
+  # everyone else (ABR, importer, host scripts) only API/download paths with the API key. prowlarr-gate/nginx.conf.
+  prowlarr-gate:
+    image: nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
+    container_name: prowlarr-gate
+    user: "65057:65057"
+    mem_limit: 32m
+    restart: always
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    tmpfs:
+      - /tmp:uid=65057,gid=65057,mode=0700,size=16m
+    volumes:
+      - ./prowlarr-gate/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9697/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     labels:
       - autoheal-mouse=true
     network_mode: "service:gluetun"

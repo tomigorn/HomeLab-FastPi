@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Idempotent config of prowlarr_mouse: MyAnonamouse indexer (own session) + qBittorrent (category abr). Never prints keys or indexer records.
+# Idempotent config of prowlarr_mouse: loopback only behind prowlarr-gate, MyAnonamouse indexer (own session), qBittorrent (category abr). Never prints keys or indexer records.
 #   sudo python3 Docker/mouse/scripts/prowlarr-setup.py           apply
-#   sudo python3 Docker/mouse/scripts/prowlarr-setup.py --check   only verify the MAM rules (exit 1 on a problem)
+#   sudo python3 Docker/mouse/scripts/prowlarr-setup.py --check   only verify the MAM rules and the login (exit 1 on a problem)
 import json
 import re
 import sys
@@ -11,7 +11,7 @@ import urllib.request
 from http.cookiejar import CookieJar
 from pathlib import Path
 
-PROWLARR = "http://10.24.32.2:9696/api/v1"
+PROWLARR = "http://10.24.32.2:9697/api/v1"   # prowlarr-gate: API paths need the key, the UI only Traefik
 QBIT = "http://10.24.32.2:8080/api/v2"
 CONFIG_XML = Path("/mnt/seagate-red/prowlarr/config/config.xml")
 SECRETS = Path(__file__).resolve().parent.parent / "secrets"
@@ -25,7 +25,9 @@ MAM_FIELDS = {
     "searchInDescription": False,
     "searchInSeries": False,
     "searchInFilenames": False,
-    "useFreeleechWedge": False,      # True would add fl=1 = spends a wedge
+    # Owner 2026-10-26: spend a wedge on every grab that is not free for us already (Prowlarr adds fl=1 only when
+    # the torrent is neither freeleech, personal freeleech nor VIP-free for a VIP user). Never gift/sendWedge/vault.
+    "useFreeleechWedge": True,
 }
 
 
@@ -52,6 +54,21 @@ def problems(indexers):
     return found
 
 
+def host_lockdown(host):
+    # Forms is the only login Prowlarr 2.x has (no Basic, no headers), so Holy Grail stays the login (External) and
+    # prowlarr-gate decides who reaches what: Traefik the UI, everyone else only API paths with the key.
+    return dict(host, bindAddress="127.0.0.1", authenticationMethod="external", authenticationRequired="enabled")
+
+
+def auth_problems(host):
+    found = []
+    if host.get("bindAddress") != "127.0.0.1":
+        found.append(f"bindAddress is {host.get('bindAddress')!r}, must be '127.0.0.1' (prowlarr-gate in front)")
+    if host.get("authenticationMethod") != "external":
+        found.append(f"authenticationMethod is {host.get('authenticationMethod')!r}, must be 'external'")
+    return found
+
+
 def api_key():
     return re.search(r"<ApiKey>(.+?)</ApiKey>", CONFIG_XML.read_text()).group(1)
 
@@ -73,6 +90,36 @@ def call(key, method, path, body=None):
 
 def secret(name):
     return (SECRETS / name).read_text().strip()
+
+
+def share_problems(prefs, cats):
+    """MAM: 72 h seeding + ratio 1.0; we seed forever: no global and no abr share limit (-2 = global, -1 = none)."""
+    found = [f"qBittorrent {k} is on" for k in ("max_ratio_enabled", "max_seeding_time_enabled",
+                                                 "max_inactive_seeding_time_enabled") if prefs.get(k)]
+    abr = cats.get(CATEGORY, {})
+    found += [f"category {CATEGORY} {k} = {abr[k]}" for k in ("ratio_limit", "seeding_time_limit", "inactive_seeding_time_limit")
+              if abr.get(k, -2) not in (-1, -2)]
+    return found
+
+
+def qbit_login(password):
+    jar = CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    opener.addheaders = [("Referer", "http://10.24.32.2:8080")]
+    data = urllib.parse.urlencode({"username": "admin", "password": password}).encode()
+    opener.open(QBIT + "/auth/login", data=data, timeout=30).read()
+    if not any("SID" in c.name for c in jar):
+        raise SystemExit("qBittorrent login failed")
+    return opener
+
+
+def qbit_shares(password):
+    opener = qbit_login(password)
+    with opener.open(QBIT + "/app/preferences", timeout=30) as r:
+        prefs = json.load(r)
+    with opener.open(QBIT + "/torrents/categories", timeout=30) as r:
+        cats = json.load(r)
+    return share_problems(prefs, cats)
 
 
 def qbit_category(password):
@@ -121,7 +168,7 @@ def mam_indexer(key, mam_id):
         call(key, "PUT", f"/indexer/{body['id']}?forceSave=true", body)
     else:
         call(key, "POST", "/indexer?forceSave=true", body)
-    print("OK indexer MyAnonamouse (active, EN+DE, wedges off, no RSS)")
+    print("OK indexer MyAnonamouse (active, EN+DE, wedge on non-free grabs, no RSS)")
 
 
 def main():
@@ -131,12 +178,17 @@ def main():
         qbit_category(password)
         download_client(key, password)
         mam_indexer(key, secret("mam_prowlarr_id"))
-    found = problems(call(key, "GET", "/indexer"))
+        host = call(key, "GET", "/config/host")
+        if auth_problems(host):
+            call(key, "PUT", "/config/host", host_lockdown(host))
+            print("OK Prowlarr on 127.0.0.1 only: docker restart prowlarr_mouse to apply")
+    found = (problems(call(key, "GET", "/indexer")) + auth_problems(call(key, "GET", "/config/host"))
+             + qbit_shares(secret("qbit_pass")))
     for p in found:
         print("PROBLEM", p)
     if found:
         sys.exit(1)
-    print("OK MAM rules hold")
+    print("OK MAM rules, gate and seed-forever hold")
 
 
 if __name__ == "__main__":
