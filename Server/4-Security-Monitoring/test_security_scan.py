@@ -1472,6 +1472,29 @@ def test_sbom_match_script_passes_vex_only_for_images_with_decisions():
     assert script.count("--vex") == 1 and "/vex/" + vex_filename("fastpi/grafana/grafana", "13.2.4") in script
 
 
+def test_cup_asof_samples_read_the_cached_snapshot_of_each_host():
+    import json
+    from security_scan import cup_asof_samples
+    d = _tmp_dirs()
+    (d / "state" / "cup-snapshot-beefy.json").write_text(json.dumps({"taken_at": "2026-10-25T18:15:51Z", "images": []}))
+    (d / "state" / "cup-snapshot-tower.json").write_text(json.dumps({"taken_at": "garbage", "images": []}))
+    out = cup_asof_samples(("fastpi", "beefy", "tower"))
+    assert out == [("security_cup_snapshot_timestamp_seconds", {"host": "beefy"}, 1792952151.0)]
+
+
+def test_cup_asof_publishes_per_host_file_without_touching_the_data_file():
+    import json
+    from security_scan import publish_cup_asof
+    d = _tmp_dirs()
+    (d / "textfile" / "security_cup_beefy.prom").write_text("keep\n")
+    (d / "state" / "cup-snapshot-beefy.json").write_text(json.dumps({"taken_at": "2026-10-25T18:15:51Z", "images": []}))
+    publish_cup_asof(("fastpi", "beefy"))
+    text = (d / "textfile" / "security_cup_asof_beefy.prom").read_text()
+    assert 'security_cup_snapshot_timestamp_seconds{host="beefy"} 1792952151' in text
+    assert (d / "textfile" / "security_cup_beefy.prom").read_text() == "keep\n"
+    assert not (d / "textfile" / "security_cup_asof_fastpi.prom").exists()
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

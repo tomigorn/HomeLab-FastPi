@@ -818,6 +818,27 @@ def store_cup_snapshots(data: dict) -> set[str]:
     return set(snaps)
 
 
+def cup_asof_samples(hosts) -> list:
+    """Time of the cached Cup snapshot of each host that has one; a sleeping host keeps showing its last snapshot with this time."""
+    out = []
+    for host in hosts:
+        snap = _load_json(STATE / f"cup-snapshot-{host}.json") or {}
+        try:
+            ts = datetime.datetime.fromisoformat(snap["taken_at"].replace("Z", "+00:00")).timestamp()
+        except (KeyError, ValueError, AttributeError):
+            continue
+        out.append(("security_cup_snapshot_timestamp_seconds", {"host": host}, ts))
+    return out
+
+
+def publish_cup_asof(hosts) -> None:
+    """One file per host, separate from the data file (whose success time must stay the real one)."""
+    for host in hosts:
+        samples = cup_asof_samples([host])
+        if samples:
+            publish(f"cup-asof-{host}", samples, HELPS)
+
+
 def _prom_name(subject: str) -> str:
     return "security_" + re.sub(r"[^a-z0-9]+", "_", subject.lower()).strip("_") + ".prom"
 
@@ -1949,6 +1970,7 @@ HELPS = {
     "security_unraid_os_update": "1 if a newer Unraid OS release is available on tower.",
     "security_unraid_plugin_update": "1 if a newer version of this Unraid plugin is available on tower.",
     "security_image_updates": "Images with an update according to Cup, per host and update type.",
+    "security_cup_snapshot_timestamp_seconds": "Time of the Cup snapshot behind the host's image-update figures (a sleeping host shows its last snapshot).",
     "security_image_update_info": "One series per image with an update according to Cup (host, reference, type).",
     "security_code_images": "Registry images the repo refers to (compose image:, Dockerfile FROM; local builds excluded).",
     "security_code_images_scanned": "Of those, images with an SBOM matched against the current Trivy DB.",
@@ -2080,6 +2102,7 @@ def main() -> int:
                         for h, ref, t in cup["info"] if h == host]
                 return out
             guarded(f"cup-{host}", _cup)
+        publish_cup_asof(("fastpi", "beefy", "tower"))
 
     if want("av"):
         for host in AV_PATHS:

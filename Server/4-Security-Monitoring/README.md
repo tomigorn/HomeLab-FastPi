@@ -12,7 +12,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:05 |
 | Who logged in over SSH (sshd is key-only, so no failures)? | `access` | accepted logins in the last 24 h by user and source class (lan 192.168.1.0/24, vpn 10.24.5.5 + 10.8.0.0/24, tunnel 172.20.0.0/16 = cloudflared, other); alerts on non-lan or a user other than `pi` | fastpi | every 5 min (`security-access.timer`, root) |
 | Did authorized_keys, sudoers or sshd_config change? | `access` | SHA-256 of `/home/*/.ssh/authorized_keys`, `/root/.ssh/authorized_keys`, `/etc/sudoers`, `/etc/sudoers.d/*`, `/etc/ssh/sshd_config(.d/*)` against a baseline | fastpi | every 5 min |
-| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error) | all three | daily 04:05 |
+| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error; its last figures and snapshot time stay, see "Cup snapshot of a sleeping host") | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 (fastpi, tower; beefy only if already awake) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
 | Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | hourly :17 (`security-code-scan.timer`) |
@@ -31,6 +31,7 @@ Metrics:
 | `security_integrity_changed` (1 = changed, new or missing), `security_integrity_file_info` (12-hex hash prefix), `security_integrity_files` | host, path / + sha256_prefix / host |
 | `security_unraid_os_update`, `security_unraid_plugin_update` | installed, available / plugin |
 | `security_image_updates`, `security_image_update_info` | host, type / host, reference, type |
+| `security_cup_snapshot_timestamp_seconds` | host |
 | `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
 | `security_rootkit_warnings` (new), `security_rootkit_findings` (all) | host, tool |
 | `security_lynis_hardening_index`, `security_lynis_warnings` | host |
@@ -78,6 +79,18 @@ DT is the one place to triage, Trivy stays the scanner and the alert source. A d
 | Metrics | `security_dt_vex_projects`, `security_dt_vex_statements`, `security_dt_vex_export_failed` |
 
 DT-only ids (e.g. OSV `GO-…`) that Trivy does not report change nothing in Trivy.
+
+## Cup snapshot of a sleeping host
+
+Cup's result drops beefy and tower while they sleep. Their figures are not dropped here: the `cup-<host>` data file is left untouched (see "Staleness, not absence"), and every run publishes the time of the cached snapshot (`cup-snapshot-<host>.json`, written whenever the host is in Cup's result) on its own.
+
+| Where | What it shows |
+|---|---|
+| Metric `security_cup_snapshot_timestamp_seconds{host}` | snapshot time, own file `security_cup_asof_<host>.prom` (separate so the data file's success time stays the real one) |
+| Dashboard **Updates & security** > "Cup snapshot as of" | per host: as-of time and age (orange > 36 h, red > 8 days) next to the update counts |
+| `WeeklyUpdateDigest` (Images) | `beefy: 22 (snapshot as of <time>)` when the snapshot is older than 36 h; nothing when fresh |
+
+Why here: the digest and the dashboard are the only places that show Cup figures from our own metrics (cup.holy-grail.ch is Cup's own UI, untouched), and the cached figures were already there, only without a date. No new alert: `SecurityScanStale` already covers a snapshot that stays old (14 d for Cup). A host Cup has never returned (tower so far) has no snapshot and no row.
 
 ## Install
 
