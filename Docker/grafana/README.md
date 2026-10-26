@@ -12,6 +12,7 @@ Provisioned from `provisioning/dashboards/*.json` into folder `fastpi`; edits to
 | Updates & security | `updates-security` | OS/image updates, CVEs, ClamAV, rootkit/Lynis, CrowdSec versions, firing security alerts (`Server/4-Security-Monitoring/README.md`) |
 | fastpi — RAM, containers & electricity | `fastpi-resources` | per-container RAM, plug power (InfluxDB) |
 | LanguageTool — usage watch | `languagetool-watch` | LanguageTool usage |
+| Usage per user | `usage-per-user` | Seerr requests, Jellyfin plays, Audiobookshelf listening per user (see Usage per user) |
 
 ## Container and reboot alerts
 
@@ -118,6 +119,30 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 `AlertmanagerDown` cannot be delivered by the Alertmanager that is down: the cover is the container-exporter Telegram fallback, and for fastpi fully offline an external dead-man's switch (`Docker/_global/docs/healthchecks-deadman-switch.md`, not set up).
 
+## Usage per user
+
+Dashboard `usage-per-user` (time range drives the "selected range" tables, "all time" tables ignore it). Collector `usage-collector/usage_collector.py`, every 15 min (`usage-collector.timer`, user `pi`), writes InfluxDB bucket `usage` (retention infinite).
+
+| Measurement | Source | Tags | Fields |
+|---|---|---|---|
+| `seerr_request` | Seerr `/api/v1/request` (paginated) | `user`, `media_type` (movie/tv) | `count`, `id` |
+| `jellyfin_play` | Jellyfin activity log, start paired with stop | `user`, `kind` (film/episode/other) | `plays`, `seconds` |
+| `abs_listen` | Audiobookshelf `playbackSessions` | `user` | `sessions`, `seconds` |
+
+- InfluxDB, not Prometheus textfile: points carry their original timestamp, so history backfills and per-day sums work for any range. Re-runs overwrite the same points (idempotent).
+- Seerr and Jellyfin: `usage_beefy.py` is piped to beefy over `ssh beefy-direct` and calls both APIs on localhost; the API keys are read on beefy and never copied. beefy asleep (TCP probe of `beefy.homelab:22` fails): skipped, nothing is woken, the next run catches up from the APIs' history. No Playback Reporting plugin is installed, so watch time = stop minus start, capped at the item's runtime; a start without stop counts as a play with 0 s after 6 h.
+- `kind=other`: the item was already gone from Jellyfin when first seen. Kinds seen once are remembered in `~/.local/state/usage-collector/kinds.json`, so a later deletion does not move old points.
+- Audiobookshelf: read-only SQLite read of `absdatabase.sqlite` (only `username`, never the token column). No ABS API token exists and creating one needs an admin login; the table is stable, a schema change fails loudly (unit fails).
+- Requests deleted in Seerr stay in the history. Users are labelled by name only, no emails.
+
+```bash
+sudo cp usage-collector/systemd/usage-collector.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now usage-collector.timer
+python3 usage-collector/test_usage.py
+sudo systemctl start usage-collector.service && journalctl -u usage-collector -n 5
+```
+
+New token: `docker exec influxdb influx auth create -o myorg -d "usage collector write" --write-bucket <usage bucket id>`, file `secrets/usage_influx_token` mode 0400 owner `pi`.
+
 ## Secrets
 
 Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's uid), mounted via compose `secrets:`, never env values. How-to: `Docker/_global/docs/secrets-as-files.md`.
@@ -126,8 +151,9 @@ Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's ui
 |---|---|---|
 | `grafana_admin_password` | 65050 | `GF_SECURITY_ADMIN_PASSWORD__FILE` (only on first DB create) |
 | `grafana_oauth_client_secret` | 65050 | `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET__FILE` |
-| `grafana_influx_token` | 65050 | `provisioning/datasources/influxdb.yml` `$__file{}`. Read-only token `grafana read`: read on buckets `rpi` + `homeassistant` (all the dashboards query). A dashboard on a new bucket needs that bucket added to the token |
+| `grafana_influx_token` | 65050 | `provisioning/datasources/influxdb.yml` `$__file{}`. Read-only token `grafana read (+usage …)`: read on buckets `rpi` + `homeassistant` + `usage` (all the dashboards query). A dashboard on a new bucket needs that bucket added to the token |
 | `influxdb_admin_password` | 65020 | `DOCKER_INFLUXDB_INIT_PASSWORD_FILE` (only on first setup) |
+| `usage_influx_token` | pi | `usage-collector`. Write-only token `usage collector write`: write on bucket `usage` |
 | `telegraf_influx_token` | 65040 | `telegraf.conf` `@{docker_secretstore:telegraf_influx_token}` |
 | `../alertmanager/secrets/*` | 65004 | `alertmanager.yml` `*_file` |
 | InfluxDB operator token (`admin's Token`) | 65020, `0600` | not in `secrets/`: the influx CLI config `/etc/influxdb2/influx-configs` in the `influxdb` container (its anonymous volume). Admin work: `docker exec influxdb influx auth list` etc., no `--token` |
