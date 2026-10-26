@@ -289,6 +289,51 @@ services:
     network_mode: "service:gluetun"
 
 # #########################################################
+# Prowlarr ################################################
+# #########################################################
+  # Audiobook indexer for AudioBookRequest (Docker/Audiobook-Requests): MyAnonamouse (own session) + AudioBookBay (disabled, approval only).
+  # In gluetun's netns so MAM sees the VPN IP. UI: https://prowlarr-audiobooks.holy-grail.ch (Traefik over traefik_mouse, auth External = Holy Grail).
+  # MAM rules: search type active, EN+DE, UseFreeleechWedge off (never fl=1), no RSS; check with scripts/prowlarr-setup.py --check after every update (smoke-test does).
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:2.6.5.5623-ls165@sha256:b3b00047ed20f6ce2b16780145cb6a0acb51c9e28ea6aa6f5dcd33c7034f1797
+    container_name: prowlarr_mouse
+    mem_limit: 384m
+    security_opt:
+      - no-new-privileges:true
+    # linuxserver non-root mode: s6 and the app run as 65054, no root PID1, no capabilities.
+    user: "65054:65054"
+    tmpfs:
+      - /run:uid=65054,gid=65054,exec   # s6 service dir
+    cap_drop:
+      - ALL
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      - TZ=Europe/Zurich
+    volumes:
+      - type: bind
+        source: /mnt/seagate-red/prowlarr/config
+        target: /config
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:9696/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: always
+    labels:
+      - autoheal-mouse=true
+    network_mode: "service:gluetun"
+
+# #########################################################
 # MouseHole ###############################################
 # #########################################################
   mousehole:
