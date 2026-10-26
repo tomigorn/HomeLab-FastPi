@@ -42,7 +42,7 @@ ICONS=(
   "sabnzbd:sabnzbd"
   "sabnzbd-audiobooks:sabnzbd"
   "sonarr:sonarr"
-  "tracker:ryot"
+  "tracker:yamtrack"
   "traefik-dashboard:traefik"
   "wg-easy:wireguard"
   "vpn-status-beefy:gluetun"
