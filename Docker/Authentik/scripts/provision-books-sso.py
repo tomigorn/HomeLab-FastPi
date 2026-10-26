@@ -1,7 +1,8 @@
 # Idempotent Authentik setup for AudioBookRequest (Docker/Audiobook-Requests): forward auth plus ABR's OIDC login, group streaming-requesters.
 # The client id + secret leave only as a "FILE Audiobook-Requests/secrets/..." line, written by apply-sso-env.py; abr-setup.py hands them to ABR:
 #   cd Docker/Authentik && docker compose exec -T server ak shell < scripts/provision-books-sso.py 2>/dev/null | python3 scripts/apply-sso-env.py
-# ABR maps the claim abr_groups: streaming-admins = ABR admin (auto-download, approves), everyone else = untrusted (requests wait for approval).
+# ABR maps the claim abr_groups: streaming-admins = ABR admin, streaming-requesters = trusted (auto-download, owner 2026-10-26), else untrusted.
+# The limit of 5 books per 7 days (everyone) is enforced in front of ABR (Audiobook-Requests books-proxy + importer /quota).
 from authentik.core.models import Application, Group
 from authentik.outposts.models import Outpost
 from authentik.policies.models import PolicyBinding
@@ -62,8 +63,12 @@ def app_for(slug, name, host, group, provider=None):
 app_for("books", "Audiobook requests", HOST, "streaming-requesters")
 
 groups, _ = ScopeMapping.objects.update_or_create(name="AudioBookRequest groups", defaults={
-    "scope_name": "abr", "description": "ABR role (admin / untrusted)",
-    "expression": 'return {"abr_groups": ["admin" if request.user.groups.filter(name="streaming-admins").exists() else "untrusted"]}'})
+    "scope_name": "abr", "description": "ABR role (admin / trusted / untrusted)",
+    "expression": (
+        'groups = request.user.groups\n'
+        'role = "admin" if groups.filter(name="streaming-admins").exists() else '
+        '"trusted" if groups.filter(name="streaming-requesters").exists() else "untrusted"\n'
+        'return {"abr_groups": [role]}')})
 
 # ABR's "Login with OIDC" (Settings -> Security). Issuer https://sso.holy-grail.ch/application/o/books-login/. Hidden on the dashboard (dashboard-look.py HIDDEN).
 login = oidc("books-login", [f"{HOST}/auth/oidc"], [groups])
