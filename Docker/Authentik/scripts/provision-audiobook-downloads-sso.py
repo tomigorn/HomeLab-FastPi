@@ -1,6 +1,6 @@
-# Idempotent Authentik setup for fastpi's audiobook downloaders (mouse stack): qBittorrent and SABnzbd behind forward auth, group streaming-admins.
+# Idempotent Authentik setup for fastpi's audiobook downloaders (mouse stack): qBittorrent, SABnzbd and Prowlarr behind forward auth, group streaming-admins.
 #   cd Docker/Authentik && docker compose exec -T server ak shell < scripts/provision-audiobook-downloads-sso.py
-# Routes: Docker/Traefik/traefik/dynamic/qbittorrent-audiobooks.yml, sabnzbd-audiobooks.yml. Groups: provision-media-groups.py (a unit test keeps both in step).
+# Routes: Docker/Traefik/traefik/dynamic/qbittorrent-audiobooks.yml, sabnzbd-audiobooks.yml, prowlarr-audiobooks.yml. Groups: provision-media-groups.py (a unit test keeps both in step).
 from authentik.core.models import Application, Group
 from authentik.outposts.models import Outpost
 from authentik.policies.models import PolicyBinding
@@ -33,6 +33,7 @@ def app_for(slug, name, host, group):
 
 app_for("qbittorrent-audiobooks", "qBittorrent", "https://qbittorrent-audiobooks.holy-grail.ch", "streaming-admins")
 app_for("sabnzbd-audiobooks", "SABnzbd", "https://sabnzbd-audiobooks.holy-grail.ch", "streaming-admins")
+app_for("prowlarr-audiobooks", "Prowlarr", "https://prowlarr-audiobooks.holy-grail.ch", "streaming-admins")
 
 outpost.save()
 print("OK provisioned")

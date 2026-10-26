@@ -5,7 +5,7 @@
 # Three independent groups, no parent nesting (a parent would let streaming-admins inherit Jellyfin,
 # while Jellyfin's OIDC plugin only sees direct groups in the token, so the two would disagree):
 #   streaming-users      Jellyfin (+ wake page) and Tracker   (every invitee, enrollment stage)
-#   streaming-requesters Requests (Seerr)                     (by hand)
+#   streaming-requesters Requests (Seerr), Audiobook requests  (by hand)
 #   streaming-admins     download apps + Jellyfin admin       (by hand)
 # Only bindings of MANAGED groups on the apps below are changed; other groups, policies and apps stay.
 GROUPS = ("streaming-users", "streaming-requesters", "streaming-admins")
@@ -28,6 +28,10 @@ APP_GROUP = {
     # fastpi audiobook downloaders (provision-audiobook-downloads-sso.py).
     "qbittorrent-audiobooks": "streaming-admins",
     "sabnzbd-audiobooks": "streaming-admins",
+    "prowlarr-audiobooks": "streaming-admins",
+    # AudioBookRequest (provision-books-sso.py).
+    "books": "streaming-requesters",
+    "books-login": "streaming-requesters",
     # Image versions of every host: homelab inventory, not a media tool.
     "cup": "homelab-admins",
 }

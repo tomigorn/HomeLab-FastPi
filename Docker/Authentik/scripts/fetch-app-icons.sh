@@ -35,6 +35,7 @@ ICONS=(
   "nextcloud:nextcloud"
   "portainer:portainer"
   "prowlarr:prowlarr"
+  "prowlarr-audiobooks:prowlarr"
   "qbittorrent:qbittorrent"
   "qbittorrent-audiobooks:qbittorrent"
   "radarr:radarr"

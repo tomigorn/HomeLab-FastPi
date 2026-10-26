@@ -441,8 +441,8 @@ Three independent groups (no parent nesting), owner `tomigorn` in all three. Con
 | Group | Apps | Who |
 |---|---|---|
 | `streaming-users` | Jellyfin (+ wake page), Tracker (+ login) | every invitee, automatic |
-| `streaming-requesters` | Requests (+ login) | by hand |
-| `streaming-admins` | Radarr, Sonarr, Prowlarr, Bazarr, SABnzbd, qBittorrent (beefy); qBittorrent, SABnzbd (fastpi audiobooks); Jellyfin administrator (OIDC plugin `AdministratorGroup`, re-checked at every sign-in) | by hand |
+| `streaming-requesters` | Requests (+ login), Audiobook requests (+ login) | by hand |
+| `streaming-admins` | Radarr, Sonarr, Prowlarr, Bazarr, SABnzbd, qBittorrent (beefy); qBittorrent, SABnzbd, Prowlarr (fastpi audiobooks), ABR admin role; Jellyfin administrator (OIDC plugin `AdministratorGroup`, re-checked at every sign-in) | by hand |
 
 - A requester or admin who should also watch needs `streaming-users` too (groups do not imply each other).
 - Cup (image versions of every host) is `homelab-admins`, not a media tool.
@@ -461,6 +461,9 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Floppy's "Sign in with Holy Grail" (allauth, provider id `authentik`). Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/accounts/oidc/authentik/login/callback/`. Client id + secret go to beefy `Floppy/secrets/floppy_oidc_providers` |
 | qBittorrent (`qbittorrent-audiobooks`) | forward auth `qbittorrent-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack, https://qbittorrent-audiobooks.holy-grail.ch. In `scripts/provision-audiobook-downloads-sso.py` |
 | SABnzbd (`sabnzbd-audiobooks`) | forward auth `sabnzbd-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack, https://sabnzbd-audiobooks.holy-grail.ch. Same script |
+| Prowlarr (`prowlarr-audiobooks`) | forward auth `prowlarr-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack (MAM indexer), https://prowlarr-audiobooks.holy-grail.ch. Same script |
+| Audiobook requests (`books`) | forward auth `books-proxy` | `streaming-requesters` | outer gate for AudioBookRequest (fastpi `Audiobook-Requests`), https://books.holy-grail.ch. In `scripts/provision-books-sso.py` |
+| Audiobook requests login (`books-login`, hidden) | OIDC `books-login`, confidential, scopes openid/email/profile + `abr` | `streaming-requesters` | ABR's OIDC login. Redirect `/auth/oidc`. Scope mapping `AudioBookRequest groups` sends `abr_groups`: `admin` for `streaming-admins`, else `untrusted`. Client id + secret go to `Audiobook-Requests/secrets/abr_oidc_client.json`, then `Audiobook-Requests/scripts/abr-setup.py` |
 | Machines (`server-specs`) | forward auth `server-specs-proxy` | none: every logged-in user | specs.holy-grail.ch (Server-Specs). In `scripts/provision-specs-sso.py` (`REMOVE = True` takes it out again) |
 
 Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
@@ -474,6 +477,8 @@ cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
 Then on beefy `~/Projects/Docker/Seerr/scripts/configure.sh` puts them into Seerr.
 
 fastpi audiobook downloaders (no secrets): `docker compose exec -T server ak shell < scripts/provision-audiobook-downloads-sso.py`, then `provision-media-groups.py`.
+
+AudioBookRequest: `docker compose exec -T server ak shell < scripts/provision-books-sso.py 2>/dev/null | python3 scripts/apply-sso-env.py`, then `provision-media-groups.py`.
 
 Tracker (Floppy on beefy), written into beefy `Floppy/secrets/`, then on beefy `cd ~/Projects/Docker/Floppy && sudo docker compose up -d --force-recreate floppy`:
 

@@ -30,6 +30,7 @@ APPS = {
     "requests":          ("Media", "Request films & series" + BEEFY, None),
     "tracker":           ("Media", "Films, series, books & games" + BEEFY, None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
+    "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
     "nextcloud":         ("Media", "Files & calendar" + TOWER, None),
     "radarr":            ("Downloads · Beefy", "Film downloads" + BEEFY, None),
     "sonarr":            ("Downloads · Beefy", "Series downloads" + BEEFY, None),
@@ -41,6 +42,7 @@ APPS = {
     "vpn-status-mouse":  ("Downloads · FastPi", "Torrent VPN & port (audiobooks)", None),
     "qbittorrent-audiobooks": ("Downloads · FastPi", "Torrent downloader (audiobooks)", None),
     "sabnzbd-audiobooks": ("Downloads · FastPi", "Usenet downloader (audiobooks)", None),
+    "prowlarr-audiobooks": ("Downloads · FastPi", "Indexer manager (audiobooks)", None),
     "grafana":           ("Homelab", "Dashboards & metrics", None),
     "portainer":         ("Homelab", "Docker management", None),
     "adguard":           ("Homelab", "DNS & ad blocking", None),
@@ -57,7 +59,7 @@ APPS = {
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,
 # launch URLs and bindings are untouched, so the wake-on-sign-in flows keep working.
-HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login", "tracker-login", "dt-login"]
+HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login", "tracker-login", "dt-login", "books-login"]
 
 # Brand custom CSS. authentik adopts it into EVERY component's shadow root (login and
 # recovery flows included), so every rule is scoped to the library page's own parts
