@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nord">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All requests</title>
+  <link rel="stylesheet" href="/static/globals.css">
+  <script>
+    // Same theme as ABR (its localStorage key).
+    (function () {
+      var t = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "nord");
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <style>
+    body { background: var(--color-base-100); color: var(--color-base-content); margin: 0; }
+    main { max-width: 64rem; margin: 0 auto; padding: 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin: .5rem 0 1rem; }
+    .cover { width: 2.75rem; height: 2.75rem; object-fit: cover; border-radius: .375rem; background: var(--color-base-300); }
+    .muted { opacity: .7; font-size: .875rem; }
+    .pill { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; white-space: nowrap;
+            border: 1px solid color-mix(in oklab, var(--color-base-content) 25%, transparent); }
+    .pill.lib { background: var(--color-success); color: var(--color-success-content); border-color: transparent; }
+    .pill.dl { background: var(--color-info); color: var(--color-info-content); border-color: transparent; }
+    .wrap { overflow-x: auto; }
+    td { vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <nav class="navbar bg-base-200 shadow">
+    <a class="btn btn-ghost text-lg" href="/">ABR</a>
+    <a class="btn btn-ghost" href="/wishlist">Wishlist</a>
+    <a class="btn btn-ghost" href="https://requests.holy-grail.ch/">Movies / Series</a>
+  </nav>
+  <main>
+    <h1>All requests</h1>
+    <p class="muted" id="state">Loading…</p>
+    <div class="wrap">
+      <table class="table table-zebra">
+        <thead><tr><th></th><th>Book</th><th>Requested by</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+  <script>
+    var LABEL = { "open": ["open", ""], "downloading": ["downloading", "dl"], "in library": ["in library", "lib"] };
+    function cell(tr, child) { var td = document.createElement("td"); if (child) td.appendChild(child); tr.appendChild(td); return td; }
+    function text(t, cls) { var s = document.createElement("span"); s.textContent = t || ""; if (cls) s.className = cls; return s; }
+    fetch("/_hg/requests/data.json", { credentials: "same-origin" }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (rows) {
+      var body = document.getElementById("rows");
+      document.getElementById("state").textContent = rows.length + " requests, newest first";
+      rows.forEach(function (r) {
+        var tr = document.createElement("tr");
+        var img = document.createElement("img");
+        img.className = "cover"; img.alt = ""; img.loading = "lazy";
+        if (r.cover && /^https:\/\//.test(r.cover)) img.src = r.cover;
+        cell(tr, img);
+        var book = cell(tr, text(r.title, "font-bold"));
+        book.appendChild(document.createElement("br"));
+        book.appendChild(text(r.author, "muted"));
+        cell(tr, text(r.requested_by));
+        cell(tr, text((r.requested || "").slice(0, 10), "muted"));
+        var l = LABEL[r.status] || [r.status, ""];
+        cell(tr, text(l[0], "pill " + l[1]));
+        body.appendChild(tr);
+      });
+    }).catch(function (e) {
+      document.getElementById("state").textContent = "Could not load the requests (" + e.message + ").";
+    });
+  </script>
+</body>
+</html>

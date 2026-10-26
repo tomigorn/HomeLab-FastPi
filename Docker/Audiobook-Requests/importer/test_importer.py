@@ -238,3 +238,34 @@ class AbsSearchAllTest(unittest.TestCase):
     def test_only_book_libraries_are_searched(self):
         libs = [{"id": "en", "mediaType": "book"}, {"id": "pod", "mediaType": "podcast"}, {"id": "de", "mediaType": "book"}]
         self.assertEqual(importer.book_library_ids(libs), ["en", "de"])
+
+
+class AllRequestsTest(unittest.TestCase):
+    def wish(self, asin, downloaded, *reqs):
+        return {"book": {"asin": asin, "title": f"T{asin}", "authors": ["Jane Doe", "X"], "cover_image": f"https://img/{asin}.jpg",
+                         "downloaded": downloaded},
+                "requests": [{"user_username": u, "updated_at": t} for u, t in reqs]}
+
+    def test_every_request_with_name_date_and_status(self):
+        wishlist = [self.wish("A1", False, ("jane", "2026-10-20T10:00:00")),
+                    self.wish("A2", True, ("john", "2026-10-25T10:00:00"), ("jane", "2026-10-26T09:00:00")),
+                    self.wish("A3", True, ("jane", "2026-10-24T10:00:00"))]
+        jobs = {"h2": {"asin": "A2", "state": "pending"}, "h3": {"asin": "A3", "state": "done"}}
+        rows = importer.all_requests(wishlist, [], jobs)
+        self.assertEqual([(r["title"], r["requested_by"], r["status"]) for r in rows],
+                         [("TA2", "jane", "downloading"), ("TA2", "john", "downloading"),
+                          ("TA3", "jane", "in library"), ("TA1", "jane", "open")])
+        self.assertEqual(rows[0]["author"], "Jane Doe, X")
+        self.assertEqual(rows[0]["cover"], "https://img/A2.jpg")
+        self.assertEqual(rows[0]["requested"], "2026-10-26T09:00:00")
+
+    def test_merge_wait_is_downloading_and_abs_hit_without_job_is_in_library(self):
+        rows = importer.all_requests([self.wish("A1", True, ("jane", "2026-10-20T10:00:00")),
+                                      self.wish("A2", False, ("jane", "2026-10-21T10:00:00"))],
+                                     [], {"h": {"asin": "A2", "state": "merge-wait"}})
+        self.assertEqual({r["title"]: r["status"] for r in rows}, {"TA1": "in library", "TA2": "downloading"})
+
+    def test_manual_requests_are_listed(self):
+        manual = [{"title": "M", "authors": ["A"], "user_username": "jane", "updated_at": "2026-10-22T10:00:00", "downloaded": False}]
+        rows = importer.all_requests([], manual, {})
+        self.assertEqual([(r["title"], r["requested_by"], r["status"], r["cover"]) for r in rows], [("M", "jane", "open", None)])

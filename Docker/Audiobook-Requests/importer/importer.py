@@ -76,6 +76,31 @@ def quota_ok(wishlist, manual, user, now):
     return used < QUOTA_BOOKS
 
 
+def _status(downloaded, job_state):
+    if job_state in ("pending", "unbound", "merge-wait"):
+        return "downloading"
+    if job_state in ("done", "exists") or downloaded:
+        return "in library"
+    return "open"
+
+
+def all_requests(wishlist, manual, jobs):
+    """Everyone's requests for the read-only "All requests" page (owner 2026-10-27: with names), newest first."""
+    state = {j.get("asin"): j.get("state") for j in jobs.values() if j.get("asin")}
+    rows = []
+    for w in wishlist:
+        b = w["book"]
+        for r in w.get("requests") or []:
+            rows.append({"title": b.get("title"), "author": ", ".join(b.get("authors") or []), "cover": b.get("cover_image"),
+                         "requested_by": r.get("user_username"), "requested": r.get("updated_at"),
+                         "status": _status(b.get("downloaded"), state.get(b.get("asin")))})
+    for m in manual:
+        rows.append({"title": m.get("title"), "author": ", ".join(m.get("authors") or []), "cover": None,
+                     "requested_by": m.get("user_username"), "requested": m.get("updated_at"),
+                     "status": _status(m.get("downloaded"), None)})
+    return sorted(rows, key=lambda r: r["requested"] or "", reverse=True)
+
+
 def with_wedge(indexer, on):
     out = copy.deepcopy(indexer)
     for f in out["fields"]:
@@ -486,6 +511,25 @@ def forward(handler, method):
     handler.wfile.write(body)
 
 
+def all_requests_handler(handler):
+    try:
+        auth = {"Authorization": f"Bearer {REQUESTS.key}"}
+        with lock:
+            jobs = load()
+        body = json.dumps(all_requests(http_json(f"{ABR_URL}/api/requests", headers=auth) or [],
+                                       http_json(f"{ABR_URL}/api/requests/manual", headers=auth) or [], jobs)).encode()
+        status = 200
+    except (urllib.error.URLError, ValueError) as e:
+        log.error("all-requests: %s", e)
+        status, body = 502, b"[]"
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 def quota(handler):
     """nginx auth_request for ABR's request endpoints: 204 = allowed, 403 = limit reached."""
     user = handler.headers.get("X-authentik-username", "")
@@ -535,6 +579,8 @@ class Handler(BaseHTTPRequestHandler):
             return forward(self, "GET")
         if self.path.startswith("/abs/"):
             return abs_forward(self)
+        if self.path == "/all-requests":
+            return all_requests_handler(self)
         if self.path == "/quota":
             return quota(self)
         if self.path == "/health":
