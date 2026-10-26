@@ -225,3 +225,16 @@ class WedgeFallbackTest(unittest.TestCase):
         off = importer.with_wedge(idx, False)
         self.assertEqual({f["name"]: f["value"] for f in off["fields"]}, {"useFreeleechWedge": False, "mamId": "x"})
         self.assertIs(idx["fields"][0]["value"], True)
+
+
+class AbsSearchAllTest(unittest.TestCase):
+    def test_book_hits_of_every_language_library_are_merged(self):
+        en = {"book": [{"libraryItem": {"id": "1"}}], "series": [], "authors": []}
+        de = {"book": [{"libraryItem": {"id": "2"}}], "series": [], "authors": []}
+        other = {"book": []}
+        merged = importer.merge_searches([en, de, other])
+        self.assertEqual([b["libraryItem"]["id"] for b in merged["book"]], ["1", "2"])
+
+    def test_only_book_libraries_are_searched(self):
+        libs = [{"id": "en", "mediaType": "book"}, {"id": "pod", "mediaType": "podcast"}, {"id": "de", "mediaType": "book"}]
+        self.assertEqual(importer.book_library_ids(libs), ["en", "de"])

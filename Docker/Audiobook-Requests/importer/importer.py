@@ -148,6 +148,14 @@ def other_author_asins(found, name, current):
     return out
 
 
+def merge_searches(results):
+    return {"book": [b for r in results for b in (r.get("book") or [])]}
+
+
+def book_library_ids(libs):
+    return [lib["id"] for lib in libs if lib.get("mediaType") == "book"]
+
+
 def abs_path(rel):
     return f"{ABS_FOLDER}/{rel}"
 
@@ -496,10 +504,37 @@ def quota(handler):
     handler.end_headers()
 
 
+def abs_forward(handler):
+    """ABR's Audiobookshelf base URL. Its "already in library" search covers one library; ABS has one per language,
+    so a search is asked in every book library. Everything else passes through with ABR's own (read-only) key."""
+    path = handler.path[len("/abs"):]
+    auth = {"Authorization": handler.headers.get("Authorization", "")}
+    url = urllib.parse.urlsplit(path)
+    try:
+        if re.fullmatch(r"/api/libraries/[^/]+/search", url.path):
+            libs = http_json(f"{ABS_URL}/api/libraries", headers=auth)["libraries"]
+            body = json.dumps(merge_searches(
+                [http_json(f"{ABS_URL}/api/libraries/{i}/search?{url.query}", headers=auth) or {}
+                 for i in book_library_ids(libs)])).encode()
+            status = 200
+        else:
+            with urllib.request.urlopen(urllib.request.Request(ABS_URL + path, headers=auth), timeout=30) as r:
+                status, body = r.status, r.read()
+    except urllib.error.HTTPError as e:
+        status, body = e.code, b"{}"
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/prowlarr/"):
             return forward(self, "GET")
+        if self.path.startswith("/abs/"):
+            return abs_forward(self)
         if self.path == "/quota":
             return quota(self)
         if self.path == "/health":

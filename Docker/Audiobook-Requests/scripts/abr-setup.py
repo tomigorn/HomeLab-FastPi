@@ -115,14 +115,16 @@ def main():
     request("POST", "/api/settings/notifications", WEBHOOK, key)
     print("OK webhook onSuccessfulDownload -> audiobook-importer")
 
+    # v1.10.8 takes these as form fields. Read-only ABS user `abr`. Through the importer: it asks every language library (ABR knows only one) and
+    # passes nothing but GETs, so ABR's own scan-after-grab never reaches ABS (the importer scans).
     abs_key = SECRETS / "abs_api_key_abr"
     if abs_key.exists() and abs_key.read_text().strip():
-        request("PUT", "/api/settings/audiobookshelf/base-url", {"base_url": "https://audiobookshelf.holy-grail.ch"}, key)
-        request("PUT", "/api/settings/audiobookshelf/api-token", {"api_token": abs_key.read_text().strip()}, key)
+        request("PUT", "/api/settings/audiobookshelf/base-url", {"base_url": "http://audiobook-importer:8000/abs"}, key, form=True)
+        request("PUT", "/api/settings/audiobookshelf/api-token", {"api_token": abs_key.read_text().strip()}, key, form=True)
         libs = request("GET", "/api/settings/audiobookshelf", key=key)["abs_libraries"]
-        lib = next(lib for lib in libs if lib["name"].lower().startswith("audiobook"))
-        request("PUT", "/api/settings/audiobookshelf/library", {"library_id": lib["id"]}, key)
-        request("PUT", "/api/settings/audiobookshelf/check-downloaded", {"check_downloaded": True}, key)
+        lib = next((lib for lib in libs if "[EN]" in lib["name"]), libs[0])
+        request("PUT", "/api/settings/audiobookshelf/library", {"library_id": lib["id"]}, key, form=True)
+        request("PUT", "/api/settings/audiobookshelf/check-downloaded", {"check_downloaded": "true"}, key, form=True)
         print(f"OK Audiobookshelf library {lib['name']}")
     else:
         print("SKIP Audiobookshelf: no secrets/abs_api_key_abr (owner step, README)")

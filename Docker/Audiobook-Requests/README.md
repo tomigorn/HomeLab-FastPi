@@ -47,6 +47,8 @@ Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is 
 
 After the copy (and the merge) the importer scans the language library, then `POST /api/items/<id>/match` (Audible of the request's region, by ASIN: details, cover, narrators, series, genres) and matches every author (description + picture; when the first Audible author ASIN has no picture it tries the other ASINs of the same name). Once per job (`matched` in `data/jobs.json`).
 
+ABR's own "already in library" badge (search results show it, the request button is disabled): ABR's Audiobookshelf URL is `http://audiobook-importer:8000/abs`, which passes only GETs with ABR's read-only key and asks **every** language library (ABR itself knows one). ABR's scan-after-grab POST ends there (404), the importer scans. Checked: this key gets 403 on item PATCH, item match and library scan.
+
 Caveat: the match uses the requested Audible edition; the MAM upload can be another edition (other narrator/year).
 
 ## Setup (config as code)
@@ -69,7 +71,7 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | `abr_oidc_client.json` | pi | Authentik client id + secret |
 | `qbit_pass` | 65056 | copy of `mouse/secrets/qbit_pass` |
 | `abs_api_key` | 65056 | ABS API key `audiobook-importer` (empty = no scan/match) |
-| `abs_api_key_abr` | pi | ABS API key `audiobookrequest` (optional, "already in library" check) |
+| `abs_api_key_abr` | 65055 | ABS API key of the read-only ABS user `abr` (only library + tag access; no download/update/delete/upload, cannot log in) |
 
 ABS API key (by hand): Audiobookshelf → Settings → API Keys → Add API Key, name `audiobook-importer`, a user with **Can Update** (match is a POST) or root, no expiry → `sudo install -o 65056 -g 65056 -m 0400 /dev/stdin secrets/abs_api_key` (paste, Enter, Ctrl-D). Read on every use, no restart. ABS has one library per language folder (`/audiobooks/EN`, `/DE`, `/Other`): the importer scans the one holding the book.
 
