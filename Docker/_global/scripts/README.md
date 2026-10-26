@@ -34,7 +34,7 @@
 | What | `subscription-alerts.py`: reads the `[[subscriptions]]` of Seerr's `indexer-bar/limits.toml` (beefy), sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts |
 | Stages | 🟡 ≤ 30 days left, 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"). Same colours as the Seerr bar. Services on the same end date and stage share one message |
 | Once | each stage once per (service, end date) in `/var/lib/subscription-alerts/state.json`. Renewal = change `expires`: the new date starts fresh, the old date's warnings are dropped. First run late (e.g. 23 days left) sends only the current stage. A failed send is retried at the next run |
-| When | `subscription-alerts.timer` daily 09:07 Europe/Zurich, 5 min after boot, catch-up if missed. fastpi only, beefy is never woken |
+| When | `subscription-alerts.timer` daily 05:37 Europe/Zurich (low-power hours, outside the DST hour and the nightly jobs), 5 min after boot, catch-up if missed. fastpi only, beefy is never woken |
 | List cache | `/var/lib/subscription-alerts/limits.toml`: every run tries `ssh beefy-direct cat …/limits.toml` (5 s timeout); valid copy replaces the cache, otherwise the old one stays. Older than 7 days: logged and said in the message details |
 | Install | `sudo install -m 0644 ../systemd/subscription-alerts.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now subscription-alerts.timer` |
 | By hand | `systemctl start subscription-alerts.service` then `journalctl -u subscription-alerts -n 5`; `scripts/subscription-alerts.py --test` sends one 🧪 test message |

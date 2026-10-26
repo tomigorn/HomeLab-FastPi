@@ -23,7 +23,8 @@ REMOTE = ("beefy-direct", "/home/buntu/Projects/Docker/Seerr/indexer-bar/limits.
 STALE_DAYS = 7
 EMOJI = {"yellow": "🟡", "orange": "🟠", "red": "🔴", "expired": "🔴"}
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-HOWTO = "Renew, then update `expires` in Seerr indexer-bar/limits.toml on beefy (the bar picks it up within a minute)."
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+HOWTO = "After renewing: set the new date (<code>expires</code>) in <code>indexer-bar/limits.toml</code> (Seerr, beefy). The bar and these warnings follow within a minute."
 
 
 def zurich_today(now):
@@ -87,31 +88,31 @@ def is_stale(age_days):
 
 
 def render(group, cache_age_days):
-    n, st, d = len(group["items"]), group["stage"], group["days"]
+    items, st, d = group["items"], group["stage"], group["days"]
+    n = len(items)
+    subject = html.escape(items[0]["name"]) if n == 1 else f"{n} subscriptions"
     if st == "expired":
         when = "expired yesterday"
     elif st == "red":
         when = "ends today" if n == 1 else "end today"
     else:
         when = f"{'ends' if n == 1 else 'end'} in {d} day{'' if d == 1 else 's'}"
-    title = f"{EMOJI[st]} <b>Subscription{'' if n == 1 else 's'} {when}</b>"
     e = group["expires"]
-    lines = [title, ""]
-    for s in group["items"]:
-        kind = f" ({html.escape(s['kind'])})" if s.get("kind") else ""
-        lines.append(f"• {html.escape(s['name'])}{kind}")
-    lines.append(f"• {'ended' if st == 'expired' else 'ends'} {e.isoformat()} ({WEEKDAYS[e.weekday()]})")
+    lines = [f"{EMOJI[st]} <b>{subject} {when}</b>", "",
+             f"📅 {'ended ' if st == 'expired' else ''}{WEEKDAYS[e.weekday()]}, {e.day} {MONTHS[e.month - 1]} {e.year}"]
+    for s in items:
+        kind = f" · {html.escape(s['kind'])}" if s.get("kind") else ""
+        lines.append(f"• <b>{html.escape(s['name'])}</b>{kind}")
     age = int(cache_age_days)
-    if age < 1:
-        src = "just refreshed"
-    else:
-        src = f"{age} day{'' if age == 1 else 's'} old" + (", beefy not reachable" if is_stale(cache_age_days) else "")
-    lines.append(f"<blockquote expandable>{html.escape(HOWTO)}\nSubscription list from beefy: {src}.</blockquote>")
+    if is_stale(cache_age_days):
+        lines.append(f"⚠️ Subscription list is {age} days old (beefy not reachable)")
+    details = HOWTO + (f"\nSubscription list is {age} day{'' if age == 1 else 's'} old." if 1 <= age and not is_stale(cache_age_days) else "")
+    lines += ["", f"<blockquote expandable>{details}</blockquote>"]
     return "\n".join(lines)
 
 
 def test_message():
-    return "🧪 <b>Test: Subscription ends in 30 days</b>\n\n• Example Service (indexer)\n• ends 2026-11-18 (Wed)\n<blockquote expandable>Test of the subscription alert path (sent by hand, not a real deadline).</blockquote>"
+    return "🧪 <b>Test: Example Service ends in 30 days</b>\n\n📅 Wed, 18 Nov 2026\n• <b>Example Service</b> · indexer\n\n<blockquote expandable>Test of the subscription alert path (sent by hand, not a real deadline).</blockquote>"
 
 
 def cache_age_days(cache, now):

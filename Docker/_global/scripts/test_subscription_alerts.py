@@ -129,22 +129,33 @@ def test_message_layout_single():
     g = sa.pending([{"name": "Treasure Maps", "kind": "indexer, free User API", "expires": D(2026, 11, 18)}], D(2026, 10, 19), {})[0]
     m = sa.render(g, cache_age_days=0)
     lines = m.split("\n")
-    assert lines[0] == "🟡 <b>Subscription ends in 30 days</b>"
+    assert lines[0] == "🟡 <b>Treasure Maps ends in 30 days</b>"
     assert lines[1] == ""
-    assert lines[2] == "• Treasure Maps (indexer, free User API)"
-    assert lines[3] == "• ends 2026-11-18 (Wed)"
-    assert lines[4].startswith("<blockquote expandable>") and m.endswith("</blockquote>")
-    assert "indexer-bar/limits.toml" in m and "expires" in m
+    assert lines[2] == "📅 Wed, 18 Nov 2026"
+    assert lines[3] == "• <b>Treasure Maps</b> · indexer, free User API"
+    assert lines[4] == ""
+    assert lines[5].startswith("<blockquote expandable>") and m.endswith("</blockquote>")
+    assert "<code>indexer-bar/limits.toml</code>" in m and "`" not in m
+
+
+def test_message_layout_group():
+    g = sa.pending([{"name": "Treasure Maps", "kind": "indexer", "expires": D(2026, 11, 18)},
+                    {"name": "Eweka", "kind": "Usenet provider", "expires": D(2026, 11, 18)}], D(2026, 10, 26), {})[0]
+    lines = sa.render(g, 0).split("\n")
+    assert lines[0] == "🟡 <b>2 subscriptions end in 23 days</b>"
+    assert lines[2] == "📅 Wed, 18 Nov 2026"
+    assert lines[3:5] == ["• <b>Treasure Maps</b> · indexer", "• <b>Eweka</b> · Usenet provider"]
 
 
 def test_titles_per_stage_and_plural():
     mk = lambda today, *names: sa.pending(subs(*[(n, D(2026, 11, 18)) for n in names]), today, {})[0]
-    assert sa.render(mk(D(2026, 11, 11), "A"), 0).split("\n")[0] == "🟠 <b>Subscription ends in 7 days</b>"
-    assert sa.render(mk(D(2026, 11, 17), "A"), 0).split("\n")[0] == "🟠 <b>Subscription ends in 1 day</b>"
-    assert sa.render(mk(D(2026, 11, 18), "A"), 0).split("\n")[0] == "🔴 <b>Subscription ends today</b>"
-    assert sa.render(mk(D(2026, 11, 19), "A"), 0).split("\n")[0] == "🔴 <b>Subscription expired yesterday</b>"
-    assert sa.render(mk(D(2026, 10, 19), "A", "B"), 0).split("\n")[0] == "🟡 <b>Subscriptions end in 30 days</b>"
-    assert sa.render(mk(D(2026, 11, 19), "A", "B"), 0).split("\n")[0] == "🔴 <b>Subscriptions expired yesterday</b>"
+    assert sa.render(mk(D(2026, 11, 11), "A"), 0).split("\n")[0] == "🟠 <b>A ends in 7 days</b>"
+    assert sa.render(mk(D(2026, 11, 17), "A"), 0).split("\n")[0] == "🟠 <b>A ends in 1 day</b>"
+    assert sa.render(mk(D(2026, 11, 18), "A"), 0).split("\n")[0] == "🔴 <b>A ends today</b>"
+    assert sa.render(mk(D(2026, 11, 19), "A"), 0).split("\n")[0] == "🔴 <b>A expired yesterday</b>"
+    assert sa.render(mk(D(2026, 10, 19), "A", "B"), 0).split("\n")[0] == "🟡 <b>2 subscriptions end in 30 days</b>"
+    assert sa.render(mk(D(2026, 11, 19), "A", "B"), 0).split("\n")[0] == "🔴 <b>2 subscriptions expired yesterday</b>"
+    assert "📅 ended Wed, 18 Nov 2026" in sa.render(mk(D(2026, 11, 19), "A"), 0)
 
 
 def test_html_is_escaped():
@@ -153,11 +164,11 @@ def test_html_is_escaped():
     assert "A&lt;b&gt;&amp;Co" in m and "A<b>&Co" not in m
 
 
-def test_cache_age_in_details():
+def test_cache_age_only_when_old():
     g = sa.pending(subs(("A", D(2026, 11, 18))), D(2026, 11, 18), {})[0]
-    assert "list from beefy: just refreshed" in sa.render(g, 0)
-    assert "list from beefy: 3 days old" in sa.render(g, 3)
-    assert "list from beefy: 9 days old, beefy not reachable" in sa.render(g, 9)
+    assert "list" not in sa.render(g, 0).lower().replace("limits.toml", "")
+    assert "Subscription list is 3 days old" in sa.render(g, 3)
+    assert "⚠️ Subscription list is 9 days old (beefy not reachable)" in sa.render(g, 9)
 
 
 def test_stale_threshold():
@@ -232,7 +243,7 @@ def test_run_beefy_down_uses_cache_and_mentions_age():
         old = time.time() - 9 * 86400
         os.utime(cache, (old, old))
         run(d, lambda: None, lambda m: sent.append(m) or True, D(2026, 11, 11))
-        assert len(sent) == 1 and "end in 7 days" in sent[0] and "9 days old, beefy not reachable" in sent[0]
+        assert len(sent) == 1 and "end in 7 days" in sent[0] and "9 days old (beefy not reachable)" in sent[0]
         assert cache.read_text() == TOML
 
 

@@ -3,7 +3,8 @@ Description=Daily subscription deadline check
 Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
 
 [Timer]
-OnCalendar=*-*-* 09:07:00 Europe/Zurich
+# low-power hours; 05:37 avoids the DST gap/repeat (02:00-03:00) and the 03:10-04:30 nightly jobs
+OnCalendar=*-*-* 05:37:00 Europe/Zurich
 # missed while off, and a check shortly after every boot; sent stages are remembered, so repeats are harmless
 Persistent=true
 OnBootSec=5min
