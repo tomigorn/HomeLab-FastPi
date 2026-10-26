@@ -1,0 +1,151 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# AudioBookRequest ########################################
+# #########################################################
+  # Request UI: https://books.holy-grail.ch (LAN/VPN, Holy Grail forward auth + OIDC login, group streaming-requesters).
+  # Searches through prowlarr_mouse (Docker/mouse, gluetun netns) over traefik_mouse; Prowlarr sends grabs to qbittorrent_mouse, category abr.
+  abr:
+    image: markbeep/audiobookrequest:1.10.8@sha256:f039f88c6e08cec72038685991a26696d3c57d4acc1b319d6cc9f9ddb1e1dda1
+    container_name: audiobookrequest
+    user: "65055:65055"
+    mem_limit: 256m
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    # The root user (backup login /login?backup=1, shell recovery) is created once from this secret.
+    entrypoint: ["/bin/sh", "-c", "export ABR_APP__INIT_ROOT_PASSWORD=\"$$(cat /run/secrets/abr_root_password)\"; /app/.venv/bin/alembic upgrade heads && exec /app/.venv/bin/fastapi run --port 8000 --proxy-headers --forwarded-allow-ips=10.24.25.3"]
+    environment:
+      - TZ=Europe/Zurich
+      - PYTHONDONTWRITEBYTECODE=1
+      - ABR_APP__INIT_ROOT_USERNAME=${ABR_ROOT_USERNAME}
+      - ABR_APP__DEFAULT_REGION=${ABR_DEFAULT_REGION}
+      - ABR_APP__LOG_LEVEL=INFO
+      # Recovery when OIDC is broken: set to forms, docker compose up -d, log in as the root user.
+      - ABR_APP__FORCE_LOGIN_TYPE=${ABR_FORCE_LOGIN_TYPE}
+    secrets:
+      - abr_root_password
+    volumes:
+      - ./config:/config
+      # Navbar + "Movies / Series" link to Seerr, built from this image by scripts/build-overlay.sh (rerun after a bump).
+      - ./overlay/BaseLayout.jinja:/app/templates/layouts/BaseLayout.jinja:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/static/site.webmanifest',timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      egress:
+      traefik_mouse:
+        ipv4_address: 10.24.25.4
+
+# #########################################################
+# Audiobook-Importer ######################################
+# #########################################################
+  # Copies finished abr torrents (never moves: they keep seeding) into LANG/Author/[Series]/NN - Title, then scans ABS.
+  importer:
+    image: python:3.13-alpine@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741
+    container_name: audiobook-importer
+    user: "65056:65056"
+    group_add:
+      - "1100"   # sambashare: read the downloads, write the library
+    mem_limit: 128m
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    working_dir: /app
+    command: ["python3", "importer.py"]
+    environment:
+      - TZ=Europe/Zurich
+      - PYTHONDONTWRITEBYTECODE=1
+      - QBIT_URL=http://10.24.25.2:8080
+      - QBIT_PASS_FILE=/run/secrets/qbit_pass
+      - ABS_KEY_FILE=/run/secrets/abs_api_key
+      - ABS_URL=https://audiobookshelf.holy-grail.ch
+      - LIBRARY=/library
+      # Release policy pass-through for ABR (/prowlarr/...), reads ABR's requests to know language and abridged per book.
+      - PROWLARR_URL=http://10.24.25.2:9696
+      - ABR_URL=http://audiobookrequest:8000
+      - ABR_KEY_FILE=/run/secrets/abr_api_key
+    secrets:
+      - qbit_pass
+      - abs_api_key
+      - abr_api_key
+    volumes:
+      - ./importer:/app:ro
+      - ./data:/data
+      # Same path as inside qBittorrent, so content_path from its API is valid here.
+      - type: bind
+        source: /mnt/seagate-red/qbittorrent/downloads
+        target: /downloads
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/seagate-black/library/audiobooks
+        target: /library
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      egress:
+      traefik_mouse:
+        ipv4_address: 10.24.25.5
+
+# =========================================================
+# Secrets =================================================
+# =========================================================
+# Files in secrets/ (gitignored), mode 0400, owned by the uid that reads them.
+secrets:
+  abr_root_password:
+    file: ./secrets/abr_root_password
+  qbit_pass:
+    file: ./secrets/qbit_pass
+  abs_api_key:
+    file: ./secrets/abs_api_key
+  abr_api_key:
+    file: ./secrets/abr_api_key_importer
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  # Internet (Audible metadata, sso / audiobookshelf via Traefik on 192.168.1.2).
+  egress:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.24.26.0/28
+  # Traefik .3, gluetun_mouse .2 (Prowlarr :9696, qBittorrent :8080), ABR .4, importer .5. Internal, created by hand (Traefik README).
+  traefik_mouse:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================

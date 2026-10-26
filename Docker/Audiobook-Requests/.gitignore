@@ -1,0 +1,18 @@
+# Environment files (contain secrets) — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
+# Credentials, secrets & tokens
+secrets/
+*.secret
+*.token
+credentials.json
+
+# Logs (may leak sensitive data)
+*.log
+
+# App state: ABR database, importer job list
+/config/
+/data/
+__pycache__/
