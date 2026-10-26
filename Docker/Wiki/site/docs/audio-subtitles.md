@@ -12,6 +12,8 @@ We always keep the **original language**, plus German and English audio when a r
 
 A release that only has a dub and no original track is never taken. The same applies to films, series and anime. Titles already in the library are upgraded when a better version exists.
 
+Picture quality (resolution, HDR) is decided **before** languages; with equal picture and rank, a release with **more extra languages** wins. Full order: [Which version gets downloaded](apps/requests.md#which-version-gets-downloaded).
+
 **Subtitles:** English, German and the original language, each synced to the original voices.
 
 ## What plays by default?
