@@ -28,7 +28,7 @@ TOWER = "\nwakes Tower · ~110 s"
 APPS = {
     "jellyfin":          ("Media", "Film & series streaming" + BEEFY, None),
     "requests":          ("Media", "Request films & series" + BEEFY, None),
-    "tracker":           ("Media", "Films, series, books & games" + BEEFY, None),
+    "tracker":           ("Media", "Watch & reading lists" + BEEFY, None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
     "nextcloud":         ("Media", "Files & calendar" + TOWER, None),
