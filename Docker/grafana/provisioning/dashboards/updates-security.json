@@ -809,7 +809,153 @@
       "gridPos": {
         "x": 4,
         "y": 5,
-        "w": 11,
+        "w": 7,
+        "h": 6
+      }
+    },
+    {
+      "id": 37,
+      "type": "table",
+      "title": "Cup snapshot as of",
+      "description": "Time of the Cup snapshot behind the image-update figures. A host that is asleep (beefy, tower) keeps showing its last snapshot, so its numbers are as old as this. Age turns orange after 36 h and red after 8 days. A host with no row has no snapshot yet.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (host) (security_cup_snapshot_timestamp_seconds) * 1000",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "time() - max by (host) (security_cup_snapshot_timestamp_seconds)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no snapshot",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "As of"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 129600
+                    },
+                    {
+                      "color": "red",
+                      "value": 691200
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Host",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
+            "indexByName": {
+              "host": 0,
+              "Value #A": 1,
+              "Value #B": 2
+            },
+            "renameByName": {
+              "host": "Host",
+              "Value #A": "As of",
+              "Value #B": "Age"
+            }
+          }
+        }
+      ],
+      "gridPos": {
+        "x": 11,
+        "y": 5,
+        "w": 4,
         "h": 6
       }
     },

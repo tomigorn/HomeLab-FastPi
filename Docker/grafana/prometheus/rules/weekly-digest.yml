@@ -28,7 +28,7 @@ groups:
             • no data{{ end }}
 
             <b>Images</b> (Cup){{ range query `security_image_updates{type="all"}` | sortByLabel "host" }}
-            • {{ .Labels.host }}: {{ .Value }}{{ else }}
+            • {{ .Labels.host }}: {{ .Value }}{{ with query (printf `security_cup_snapshot_timestamp_seconds{host="%s"} and on(host) (time() - security_cup_snapshot_timestamp_seconds > 129600)` .Labels.host) }} (snapshot as of {{ . | first | value | humanizeTimestamp }}){{ end }}{{ else }}
             • no data{{ end }}{{ range query `security_image_update_info` | sortByLabel "reference" | sortByLabel "host" }}
             • {{ .Labels.host }}: {{ .Labels.reference | html }} ({{ .Labels.type }}){{ end }}
 

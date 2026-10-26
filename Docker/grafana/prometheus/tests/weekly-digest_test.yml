@@ -19,6 +19,10 @@ tests:
         values: '2x6200'
       - series: 'security_image_updates{host="beefy",type="all"}'
         values: '1x6200'
+      - series: 'security_cup_snapshot_timestamp_seconds{host="fastpi"}'
+        values: '356400x6200'
+      - series: 'security_cup_snapshot_timestamp_seconds{host="beefy"}'
+        values: '200000x6200'
       - series: 'security_image_update_info{host="fastpi",reference="caddy:2.10-alpine",type="minor"}'
         values: '1x6200'
       - series: 'security_image_update_info{host="beefy",reference="lscr.io/linuxserver/radarr:6.4.4",type="digest"}'
@@ -69,7 +73,7 @@ tests:
                 • fastpi: 5 / 1
 
                 <b>Images</b> (Cup)
-                • beefy: 1
+                • beefy: 1 (snapshot as of 1970-01-03 07:33:20 +0000 UTC)
                 • fastpi: 2
                 • beefy: lscr.io/linuxserver/radarr:6.4.4 (digest)
                 • fastpi: caddy:2.10-alpine (minor)
