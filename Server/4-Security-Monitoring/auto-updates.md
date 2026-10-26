@@ -6,7 +6,7 @@
 
 | Piece | When | What | State |
 |---|---|---|---|
-| `security-code-scan.timer` → `security_scan.py code` | hourly :17 | every image the two repos refer to (compose `image:` with `${VAR}` from `.env`/`.env.example`, Dockerfile `FROM`; local builds left out, their bases scanned) → cached CycloneDX SBOM per image → `trivy sbom` against the current DB | **enabled** |
+| `security-code-scan.timer` → `security_scan.py code` | daily 03:40 | every image the two repos refer to (compose `image:` with `${VAR}` from `.env`/`.env.example`, Dockerfile `FROM`; local builds left out, their bases scanned) → cached CycloneDX SBOM per image → `trivy sbom` against the current DB | **enabled** |
 | `security-image-scan.timer` → `images` | 04:10 | running digests on fastpi, beefy, tower (registry copy, no pull on tower) | existed; now also diffs findings |
 | `NewFixableImageVulnerability` | on a new finding | one Telegram per batch of fixable CRITICAL/HIGH (image, CVE, package) first seen in 24 h, either scan | **enabled** |
 | `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf` | **enabled** (auto tier) |
@@ -94,7 +94,7 @@ Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`: verbatim copi
 
 | Item | beefy |
 |---|---|
-| When | 04:12 (inside the 03:55–04:25 wake, after the 04:05 scan); `AUTO_UPDATE_APPLY_BY=04:16`: nothing starts later, the rest is `deferred` to the next night; `AUTO_UPDATE_MAX_APPLY=2` projects a night; `TimeoutStartSec=600` hard stop. No wake of its own |
+| When | 04:12 (inside the 03:55–04:45 window, after the 04:05 scan); `AUTO_UPDATE_APPLY_BY=04:16`: nothing starts later, the rest is `deferred` to the next night; `AUTO_UPDATE_MAX_APPLY=2` projects a night; `TimeoutStartSec=600` hard stop. No wake of its own |
 | auto | Movie-Downloads flaresolverr, recyclarr, vpn-status; Cup-Agent cup-agent, socket-proxy-unix (pinned tags except socat) |
 | notify | socket proxies + autoheal (docker.sock), gluetun + *arr + qBit + SAB (state; gluetun carries the VPN namespace), Seerr (pinned by digest), Ryot + ryot-db, Portainer-Agent; Jellyfin, clamav, ryot-go are local builds (`local_build`, detected from compose `build:`) |
 | Keep-awake | the unit holds `beefy-keep-awake` while it runs and releases only its own hold |

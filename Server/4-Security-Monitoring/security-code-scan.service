@@ -1,5 +1,5 @@
 [Unit]
-Description=Hourly CVE check of every image the repos refer to (cached SBOMs against a fresh Trivy DB)
+Description=Daily CVE check of every image the repos refer to (cached SBOMs against a fresh Trivy DB)
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 After=network-online.target docker.service
 Wants=network-online.target
@@ -9,6 +9,8 @@ Type=oneshot
 User=pi
 Group=pi
 # Trivy's layer cache is a single-writer bolt DB: never alongside the nightly image scan.
+# One run a day must rebuild every stale SBOM (24 h max age): budget raised from the hourly 4 Docker Hub + 12 others.
+Environment=SECSCAN_SBOM_BUDGET_HUB=20 SECSCAN_SBOM_BUDGET_OTHER=100
 ExecCondition=/bin/sh -c '! systemctl is-active -q security-image-scan.service'
 ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py code
 TimeoutStartSec=1800

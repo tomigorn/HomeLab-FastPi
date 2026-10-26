@@ -1,5 +1,5 @@
 # ClamAV scans on fastpi, beefy and tower (Docker/antivirus, scan.sh; beefy also its download hook and background queue, clamav-hook.py).
-# fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 04:20 for beefy, 05:40 and 06:40) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
+# fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 04:20 for beefy, 05:40 and 05:50) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
 # Quarantined hits come from each host's quarantine index.txt (security_scan.py avhits, every 15 min, beefy/tower only while awake): one series per hit for 24 h from when fastpi first saw it.
 # Tests: prometheus/tests/antivirus_test.yml
 groups:

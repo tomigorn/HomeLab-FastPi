@@ -13,10 +13,10 @@ pipeline that already exists (`security_scan.py <group>`):
 | Who logged in over SSH (sshd is key-only, so no failures)? | `access` | accepted logins in the last 24 h by user and source class (lan 192.168.1.0/24, vpn 10.24.5.5 + 10.8.0.0/24, tunnel 172.20.0.0/16 = cloudflared, other); alerts on non-lan or a user other than `pi` | fastpi | every 5 min (`security-access.timer`, root) |
 | Did authorized_keys, sudoers or sshd_config change? | `access` | SHA-256 of `/home/*/.ssh/authorized_keys`, `/root/.ssh/authorized_keys`, `/etc/sudoers`, `/etc/sudoers.d/*`, `/etc/ssh/sshd_config(.d/*)` against a baseline | fastpi | every 5 min |
 | Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error; its last figures and snapshot time stay, see "Cup snapshot of a sleeping host") | all three | daily 04:05 |
-| Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 (fastpi, tower; beefy only if already awake) |
+| Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 05:50 (fastpi, tower); never wakes beefy or tower, a sleeping host is skipped |
 | Was anything quarantined (nightly, beefy's download hook and queue)? | `avhits` (also inside `av`) | each host's quarantine `index.txt`, see "Quarantined hits" | all three | every 15 min (`security-av-hits.timer`); beefy/tower only while the Waker sees them up, always via `-direct` (never wakes) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
-| Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | hourly :17 (`security-code-scan.timer`) |
+| Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | daily 03:40 (`security-code-scan.timer`) |
 | One CVE dashboard over everything that runs? | `dt` | CycloneDX SBOM per running image (fastpi: local Docker; beefy: registry copy of the running digest, built on fastpi; local beefy builds via their Dockerfile base) + one OS SBOM per host (Trivy `rootfs` over os-release, lsb-release (Ubuntu), debian_version, dpkg status) uploaded to Dependency-Track on beefy, see "Dependency-Track" | fastpi, beefy (tower: Unraid/Slackware, no Trivy OS support) | daily 04:02 (`security-dt.timer`), only if DT answers |
 | Are images updated? | `updates` (beefy's result) | tiered auto-update with rollback, see [auto-updates.md](auto-updates.md); beefy's `auto_update.prom` republished as `auto_update_beefy.prom` | fastpi, beefy | daily 03:10 fastpi, 04:12 beefy (`auto-update.timer`); pull 04:20 (with `av`) |
 | Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
@@ -73,7 +73,7 @@ DT is the one place to triage, Trivy stays the scanner and the alert source. A d
 | Mark a CVE | DT UI (beefy `:8090`) > project `<host>/<image>` > Audit Vulnerabilities > component/CVE > Analysis `Not Affected`, `False Positive` or `Resolved` (+ a comment, it is kept in the VEX file) |
 | Not a decision | `In Triage`, `Exploitable`: still counted and alerted |
 | Export | `security_scan.py dt` (daily 04:02) writes one OpenVEX file per project with decisions to `/var/lib/security-scan/vex/` (`GET /api/v1/finding/project/<uuid>?suppressed=true`; one statement per CVE/GHSA id and alias, product = component purl) |
-| Use | image scan (daily 04:10) and code scan (hourly :17) pass `--vex /vex/<file>` for the image's DT project (name + tag, or digest via `dt-index.json`); nothing is passed for an image without decisions |
+| Use | image scan (daily 04:10) and code scan (daily 03:40) pass `--vex /vex/<file>` for the image's DT project (name + tag, or digest via `dt-index.json`); nothing is passed for an image without decisions |
 | Takes effect | the next run after the 04:02 export; counts, `security_new_vulns` and `NewFixableImageVulnerability` drop it |
 | Revoke | set it back to `In Triage`: the file is removed at the next export, the CVE counts again and is alerted as new |
 | DT asleep | beefy is never woken; the last exported files stay in use. A project whose export fails keeps its file (`security_dt_vex_export_failed`) |
@@ -203,7 +203,7 @@ behind it.
 
 ## Trivy pin
 
-Trivy runs as `TRIVY_IMAGE` in `security_scan.py` (tag + multi-arch index digest, never `:latest`). The hourly code scan also SBOM-scans that image, so a fixable CVE in it alerts like any other image. A new release is not announced: check `docker buildx imagetools inspect aquasec/trivy:<new>` and replace the one constant with `aquasec/trivy:<new>@sha256:<Digest of the index>`, then `python3 test_security_scan.py` and `sudo systemctl start security-code-scan.service`.
+Trivy runs as `TRIVY_IMAGE` in `security_scan.py` (tag + multi-arch index digest, never `:latest`). The code scan also SBOM-scans that image, so a fixable CVE in it alerts like any other image. A new release is not announced: check `docker buildx imagetools inspect aquasec/trivy:<new>` and replace the one constant with `aquasec/trivy:<new>@sha256:<Digest of the index>`, then `python3 test_security_scan.py` and `sudo systemctl start security-code-scan.service`.
 
 ## Known gaps
 
@@ -213,9 +213,9 @@ Trivy runs as `TRIVY_IMAGE` in `security_scan.py` (tag + multi-arch index digest
   specifically "a secret file sitting in beefy's working tree, uncommitted". The
   hook catches it the moment anyone tries to commit it.
 - **New findings are diffed, the backlog is not.** `NewFixableImageVulnerability` fires per (image, CVE, package) first seen in 24 h. The first run and any image new to the scan are baselined (`vulns-seen-<scope>.json`), so a newly added image's backlog shows only in `code-cves-<repo>.txt` / `image-cves-<host>.txt` and `CriticalImageVulnerabilities`. Re-baseline: `rm /var/lib/security-scan/vulns-seen-<scope>.json`.
-- **Hourly is bounded by the Trivy DB**, republished about daily (~21:15 local): a new CVE shows within an hour of that. The hourly run itself matches cached SBOMs (`/var/lib/security-scan/sbom/`, rebuilt every 24 h, at most 4 Docker Hub + 12 others per hour because of Docker Hub's 100/h limit) and never runs alongside the nightly image scan (shared Trivy cache).
+- **The code scan is daily (03:40), bounded by the Trivy DB**, republished about daily (~21:15 local): a new CVE shows by the next 03:40. The run matches cached SBOMs (`/var/lib/security-scan/sbom/`, rebuilt every 24 h, at most 20 Docker Hub + 100 others per run because of Docker Hub's rate limit) and never runs alongside the nightly image scan (shared Trivy cache).
 - **No real-time intrusion detection.** rkhunter, chkrootkit and Lynis run weekly on fastpi and beefy (not tower: Unraid has no apt). Nothing watches continuously: no auditd or AIDE.
-- **beefy and tower are only read when awake.** beefy is up only 03:55 to about 04:26 (maintenance wake, then its idle watcher), so everything reading beefy runs between 04:00 and 04:25. When it is missed, its subjects go stale (`SecurityScanStale`: 48 h daily, 7 d for tower, 14 d for weekly subjects and Cup).
+- **beefy and tower are only read when awake.** beefy is up 03:55 to about 04:45 (maintenance wake, then the window hold, then its idle watcher), so everything reading beefy runs between 04:00 and 04:45 (window: Server/6-Night-Schedule). When it is missed, its subjects go stale (`SecurityScanStale`: 48 h daily, 7 d for tower, 14 d for weekly subjects and Cup).
 
 ## unattended-upgrades covers less than it looks like
 
@@ -284,11 +284,11 @@ option — an `auth.log` on disk is required.
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
 | `test_security_scan.py` | tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
-| `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av (with avhits), media, updates |
+| `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 05:50: av (with avhits), media, updates |
 | `security-av-hits.{service,timer}` | every 15 min: avhits |
 | `~/.ssh/config` `beefy-direct`, `tower-direct` (not in git) | same hosts without the WoL `Match` block; scans use them so an asleep host stays asleep. Plain `beefy` (may wake) only inside 04:00–04:30 (`BEEFY_WAKE_WINDOW`) |
 | `security-image-scan.{service,timer}` | daily 04:10: images |
-| `security-code-scan.{service,timer}` | hourly :17: code |
+| `security-code-scan.{service,timer}` | daily 03:40: code |
 | `security-dt.{service,timer}` | daily 04:02: dt |
 | `../../Docker/_global/systemd/auto-update.{service,timer}` | daily 03:10: `auto_update.py` (installed by `install.sh`) |
 | `auto-updates.md` | auto-update tiers, switches, risks, costs |

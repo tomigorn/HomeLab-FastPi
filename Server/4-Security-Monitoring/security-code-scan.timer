@@ -1,10 +1,10 @@
 [Unit]
-Description=Hourly CVE check of the images in the repos
+Description=Daily CVE check of the images in the repos
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 
 [Timer]
-# Hourly at :17. Most runs only re-match cached SBOMs (~30 s, no registry); a few SBOMs per hour are rebuilt so Docker Hub's rate limit is never touched. The Trivy DB itself is republished about daily, so a new CVE shows within an hour of that, not at the next 04:10.
-OnCalendar=*-*-* *:17:00
+# 03:40, in the night with the other maintenance. Re-matches cached SBOMs (~30 s, no registry) against the Trivy DB, which is republished about daily (~21:15), so a new CVE shows by the next 03:40. Clear of the 04:10 image scan (shared Trivy cache).
+OnCalendar=*-*-* 03:40:00 Europe/Zurich
 Persistent=false
 
 [Install]

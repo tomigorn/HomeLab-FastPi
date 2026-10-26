@@ -3,11 +3,11 @@ Description=Pull ClamAV scan results after the nightly scans
 Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
 
 [Timer]
-# 04:20: beefy (scan at 04:05; media-language.prom from 04:07; auto_update.prom 04:12-04:19) while it is still up, before its idle watcher powers it off around 04:26. 05:40 and 06:40: fastpi and tower (scans at 05:00), the second catching a long scan. Never wakes a host.
-OnCalendar=*-*-* 04:20:00
-OnCalendar=*-*-* 05:40:00
-OnCalendar=*-*-* 06:40:00
-Persistent=true
+# 04:20: beefy (scan at 04:05; media-language.prom from 04:07; auto_update.prom 04:12-04:19), held awake by the maintenance window until 04:45. 05:40 and 05:50: fastpi and tower (scans at 05:00), the second catching a long scan. Never wakes a host.
+OnCalendar=*-*-* 04:20:00 Europe/Zurich
+OnCalendar=*-*-* 05:40:00 Europe/Zurich
+OnCalendar=*-*-* 05:50:00 Europe/Zurich
+Persistent=false
 
 [Install]
 WantedBy=timers.target
