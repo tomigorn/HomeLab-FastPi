@@ -1,0 +1,20 @@
+[Unit]
+Description=Weekly Docker image cleanup (unused images and build cache older than 14 days, rollback window kept)
+Documentation=file:///home/pi/Projects/Docker/_global/README.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+SupplementaryGroups=docker
+StateDirectory=image-cleanup
+Environment=HOME=/home/pi
+Environment=IMAGE_CLEANUP_STATE=/var/lib/image-cleanup
+ExecStart=/home/pi/Projects/Docker/_global/scripts/image-cleanup.sh
+TimeoutStartSec=900
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true

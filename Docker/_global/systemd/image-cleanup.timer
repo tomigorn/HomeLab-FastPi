@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly Docker image cleanup
+
+[Timer]
+# Sunday 05:30: after the 04:xx backup/scan windows, the 05:00 clamav scan and the 05:10 CrowdSec update
+OnCalendar=Sun *-*-* 05:30:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target
