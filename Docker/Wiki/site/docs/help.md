@@ -15,6 +15,12 @@
 ??? question "A film I requested isn't there yet"
     Rare films can take longer to find. Check the status under **Requests**.
 
+??? question "Why did a series arrive as one big download?"
+    Complete season packs are preferred over single episodes: fewer, faster downloads. See [Requesting](apps/requests.md#which-version-gets-downloaded).
+
+??? question "A download failed"
+    Nothing to do. A failed download is noticed within seconds and another release is searched automatically. Downloaded files are virus-scanned: executables and archives are blocked at once, video files are scanned in the background.
+
 ??? question "The TV app asks for a password"
     There are no passwords in Jellyfin. Use **Quick Connect**, see [Watching](apps/jellyfin.md).
 
