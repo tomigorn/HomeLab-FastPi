@@ -2,7 +2,7 @@
 #
 # https://prowlarr-audiobooks.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
-# Traefik reaches gluetun_mouse (10.24.25.2) over traefik_mouse. Prowlarr's own auth is External: Holy Grail is the login.
+# Traefik reaches prowlarr-gate (10.24.25.2:9697, gluetun netns) over traefik_mouse; the gate lets only Traefik into the UI. Prowlarr auth is External: Holy Grail is the login.
 http:
   routers:
     # Outpost callback path: no app middlewares, higher priority than the catch-all router below.
@@ -32,5 +32,5 @@ http:
     prowlarr-audiobooks:
       loadBalancer:
         servers:
-          - url: "http://10.24.25.2:9696"
+          - url: "http://10.24.25.2:9697"
         passHostHeader: true

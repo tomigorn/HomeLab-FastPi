@@ -2,7 +2,8 @@
 #
 # https://books.holy-grail.ch/   (public via the Cloudflare tunnel, like requests.holy-grail.ch: friends request from anywhere)
 #
-# Traefik reaches ABR (10.24.25.4) over traefik_mouse; ABR trusts X-Forwarded-* only from 10.24.25.3.
+# Traefik reaches books-proxy (nginx, 10.24.25.6) over traefik_mouse, which passes to ABR (.4); ABR trusts X-Forwarded-* only from .6.
+# books-proxy adds the "Movies / Series" link and the request limit (Docker/Audiobook-Requests).
 # Forward auth (app books, streaming-requesters) is the outer gate; inside, ABR logs in over OIDC (app books-login).
 # CrowdSec is attached to the websecure entrypoint; default-rate-limit like requests.
 http:
@@ -45,5 +46,5 @@ http:
     books:
       loadBalancer:
         servers:
-          - url: "http://10.24.25.4:8000"
+          - url: "http://10.24.25.6:8080"
         passHostHeader: true
