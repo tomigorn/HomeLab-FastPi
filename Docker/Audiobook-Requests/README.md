@@ -2,14 +2,14 @@
 
 Request audiobooks (AudioBookRequest), find them on MyAnonamouse (Prowlarr in `mouse`), copy finished downloads into Audiobookshelf.
 
-- **URL:** https://books.holy-grail.ch (LAN/VPN only, Holy Grail forward auth + ABR OIDC login, group `streaming-requesters`)
+- **URL:** https://books.holy-grail.ch (public via the Cloudflare tunnel like Seerr, Holy Grail forward auth + ABR OIDC login, group `streaming-requesters`); navbar link "Movies / Series" → Seerr
 - **Roles:** `streaming-admins` = ABR admin (requests download at once, approves others); everyone else = untrusted (an admin approves each request)
 
 ## Flow
 
 ```
 ABR (audiobookrequest, .4) ── search ──► importer /prowlarr (release policy) ──► prowlarr_mouse (gluetun netns) ──► MAM
-ABR grab ──► Prowlarr ──► qbittorrent_mouse, category abr (/downloads/complete/abr, keeps seeding)
+ABR grab ──► Prowlarr ──► qbittorrent_mouse, category abr (/downloads/complete, keeps seeding)
 ABR webhook onSuccessfulDownload ──► importer /abr (hash, ASIN, title, authors, release title)
 importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - Title ──► M4b-Auto-Merge (multi-file) ──► ABS scan ──► ABS Audible match (details, cover, authors + image)
 ```
@@ -45,7 +45,7 @@ Per request: the language and abridged choice come from the edition picked in AB
 | Prowlarr | `sudo python3 Docker/mouse/scripts/prowlarr-setup.py` |
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
 | Navbar link to Seerr | `bash scripts/build-overlay.sh` after every ABR image bump (overlay of the image's own `BaseLayout.jinja`, GPL-3.0) |
-| Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link; canary disabled afterwards) |
+| Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel |
 | Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer` |
 
 ## Secrets (`secrets/`, 0400)
@@ -60,7 +60,7 @@ Per request: the language and abridged choice come from the edition picked in AB
 | `abs_api_key` | 65056 | ABS API key `audiobook-importer` (empty = no scan/match) |
 | `abs_api_key_abr` | pi | ABS API key `audiobookrequest` (optional, "already in library" check) |
 
-ABS API key (by hand, admin): Audiobookshelf → Settings → API Keys → Add API Key, name `audiobook-importer`, user root, no expiry → `sudo install -o 65056 -g 65056 -m 0400 /dev/stdin secrets/abs_api_key` (paste, Enter, Ctrl-D) → `docker compose up -d --force-recreate importer`.
+ABS API key (by hand): Audiobookshelf → Settings → API Keys → Add API Key, name `audiobook-importer`, a user with **Can Update** (match is a POST) or root, no expiry → `sudo install -o 65056 -g 65056 -m 0400 /dev/stdin secrets/abs_api_key` (paste, Enter, Ctrl-D). Read on every use, no restart. ABS has one library per language folder (`/audiobooks/EN`, `/DE`, `/Other`): the importer scans the one holding the book.
 
 ## Recovery
 

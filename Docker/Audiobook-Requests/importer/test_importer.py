@@ -26,6 +26,24 @@ class ParseWebhookTest(unittest.TestCase):
         self.assertIsNone(job["asin"])
         self.assertEqual(job["title"], "")
 
+    def test_manual_source_pick_has_no_hash_and_waits_for_binding(self):
+        job = importer.parse_webhook({"hash": "{torrentInfoHash}", "asin": "B00ABC1234", "title": "T"})
+        self.assertIsNone(job["hash"])
+        self.assertEqual(job["state"], "unbound")
+
+
+class BindTest(unittest.TestCase):
+    def test_binds_the_closest_new_abr_torrent(self):
+        job = {"added": 1000.0}
+        torrents = [{"hash": "a" * 40, "added_on": 900, "category": "abr"},
+                    {"hash": "b" * 40, "added_on": 1003, "category": "abr"},
+                    {"hash": "c" * 40, "added_on": 1001, "category": "other"},
+                    {"hash": "d" * 40, "added_on": 1002, "category": "abr"}]
+        self.assertEqual(importer.bind(job, torrents, known={"d" * 40}), "b" * 40)
+
+    def test_nothing_to_bind(self):
+        self.assertIsNone(importer.bind({"added": 1000.0}, [{"hash": "a" * 40, "added_on": 500, "category": "abr"}], set()))
+
 
 class ResolveBookTest(unittest.TestCase):
     job = {"title": "Webhook Title", "authors": ["Hook Author"], "source": "X by Y [GER / MP3]"}
@@ -113,3 +131,17 @@ class MatchRequestTest(unittest.TestCase):
 
     def test_abs_path_of_a_book(self):
         self.assertEqual(importer.abs_path("EN/A B/T"), "/audiobooks/EN/A B/T")
+
+
+class LibraryForTest(unittest.TestCase):
+    libs = [{"id": "en", "folders": [{"fullPath": "/audiobooks/EN"}]},
+            {"id": "de", "folders": [{"fullPath": "/audiobooks/DE"}]},
+            {"id": "other", "folders": [{"fullPath": "/audiobooks/Other"}]}]
+
+    def test_one_library_per_language_folder(self):
+        self.assertEqual(importer.library_for(self.libs, "DE/Jörg Müßig/T"), "de")
+        self.assertEqual(importer.library_for(self.libs, "Other/A/T"), "other")
+
+    def test_no_prefix_confusion(self):
+        libs = [{"id": "x", "folders": [{"fullPath": "/audiobooks/EN"}]}]
+        self.assertIsNone(importer.library_for(libs, "ENX/A/T"))

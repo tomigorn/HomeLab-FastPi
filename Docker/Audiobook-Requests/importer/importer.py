@@ -22,7 +22,7 @@ CATEGORY = ENV("CATEGORY", "abr")
 LIBRARY = Path(ENV("LIBRARY", "/library"))
 STATE = Path(ENV("STATE", "/data/jobs.json"))
 ABS_URL = ENV("ABS_URL", "https://audiobookshelf.holy-grail.ch")
-ABS_FOLDER = ENV("ABS_FOLDER", "/audiobooks")
+ABS_FOLDER = ENV("ABS_FOLDER", "/audiobooks")   # ABS's mount of LIBRARY
 AUDIBLE_REGIONS = ENV("AUDIBLE_REGIONS", "com,de,co.uk").split(",")
 POLL_SECONDS = int(ENV("POLL_SECONDS", "60"))
 GIVE_UP_DAYS = int(ENV("GIVE_UP_DAYS", "14"))
@@ -39,16 +39,26 @@ lock = threading.Lock()
 
 def parse_webhook(body):
     h = str(body.get("hash", "")).strip().lower()
-    if not re.fullmatch(r"[0-9a-f]{40}", h):
+    # ABR sends no hash when an admin picks the source by hand: bind() matches the torrent later.
+    unbound = h in ("", "{torrentinfohash}")
+    if not unbound and not re.fullmatch(r"[0-9a-f]{40}", h):
         raise ValueError("hash must be 40 hex characters")
 
     def value(key):
         v = str(body.get(key) or "").strip()
         return "" if re.fullmatch(r"\{\w+\}", v) else v
 
-    return {"hash": h, "asin": value("asin") or None, "title": value("title"),
+    return {"hash": None if unbound else h, "asin": value("asin") or None, "title": value("title"),
             "authors": [a.strip() for a in value("authors").split(",") if a.strip()],
-            "source": value("source"), "indexer": value("indexer"), "state": "pending", "added": time.time()}
+            "source": value("source"), "indexer": value("indexer"), "state": "unbound" if unbound else "pending",
+            "added": time.time()}
+
+
+def bind(job, torrents, known, window=600):
+    """Hash of the abr torrent added closest after the webhook (within window seconds) that no job owns yet."""
+    fresh = [t for t in torrents if t.get("category") == CATEGORY and t["hash"] not in known
+             and -60 <= t["added_on"] - job["added"] <= window]
+    return min(fresh, key=lambda t: abs(t["added_on"] - job["added"]))["hash"] if fresh else None
 
 
 def resolve_book(job, product):
@@ -98,6 +108,15 @@ def abs_path(rel):
     return f"{ABS_FOLDER}/{rel}"
 
 
+def library_for(libs, rel):
+    """ABS has one library per language folder (/audiobooks/EN, /DE, /Other)."""
+    path = abs_path(rel)
+    for lib in libs:
+        if any(path.startswith(f["fullPath"].rstrip("/") + "/") for f in lib["folders"]):
+            return lib["id"]
+    return None
+
+
 def http_json(url, data=None, headers=None, opener=None, timeout=30):
     req = urllib.request.Request(url, data=data, headers=headers or {})
     with (opener or urllib.request.build_opener()).open(req, timeout=timeout) as r:
@@ -135,6 +154,11 @@ class Qbit:
         if not any("SID" in c.name for c in jar):
             raise RuntimeError("qBittorrent login failed")
 
+    def category(self):
+        if not self.opener:
+            self.login()
+        return http_json(f"{QBIT_URL}/api/v2/torrents/info?category={CATEGORY}", opener=self.opener) or []
+
     def torrent(self, h):
         for attempt in (1, 2):
             try:
@@ -149,18 +173,21 @@ class Qbit:
 
 
 class Abs:
-    def __init__(self, key):
-        self.key = key
-        self.library_id = None
+    def __init__(self, key_file):
+        self.key_file = key_file
+
+    @property
+    def key(self):
+        return secret(self.key_file)
 
     def headers(self):
         return {"Authorization": f"Bearer {self.key}"}
 
-    def library(self):
-        if not self.library_id:
-            libs = http_json(f"{ABS_URL}/api/libraries", headers=self.headers())["libraries"]
-            self.library_id = next(lib["id"] for lib in libs if any(f["fullPath"] == ABS_FOLDER for f in lib["folders"]))
-        return self.library_id
+    def library(self, rel):
+        lib = library_for(http_json(f"{ABS_URL}/api/libraries", headers=self.headers())["libraries"], rel)
+        if not lib:
+            raise RuntimeError(f"no ABS library holds {abs_path(rel)}")
+        return lib
 
     def post(self, path, body):
         data = json.dumps(body).encode()
@@ -168,7 +195,7 @@ class Abs:
 
     def find_item(self, rel, title):
         q = urllib.parse.quote(title)
-        found = http_json(f"{ABS_URL}/api/libraries/{self.library()}/search?q={q}&limit=25", headers=self.headers())
+        found = http_json(f"{ABS_URL}/api/libraries/{self.library(rel)}/search?q={q}&limit=25", headers=self.headers())
         for hit in found.get("book") or []:
             if hit["libraryItem"]["path"] == abs_path(rel):
                 return hit["libraryItem"]["id"]
@@ -192,12 +219,8 @@ class Abs:
         log.info("ABS matched %s", job["dest"])
         return True
 
-    def scan(self):
-        if not self.key:
-            log.warning("no ABS API key: scan skipped (owner step in README)")
-            return
-        self.library()
-        req = urllib.request.Request(f"{ABS_URL}/api/libraries/{self.library_id}/scan", data=b"", method="POST",
+    def scan(self, rel):
+        req = urllib.request.Request(f"{ABS_URL}/api/libraries/{self.library(rel)}/scan", data=b"", method="POST",
                                      headers=self.headers())
         urllib.request.urlopen(req, timeout=60).read()
         log.info("ABS library scan started")
@@ -242,22 +265,25 @@ def step(job, qbit, abs_, now):
         names = [p.name for p in dest.rglob("*") if p.is_file()]
         job.update(state="merge-wait" if needs_merge(names) else "done", dest=rel, imported=now)
         log.info("imported %s (%d files)", rel, len(names))
-        abs_.scan()
     elif job["state"] == "merge-wait":
         dest = LIBRARY / job["dest"]
         names = [p.name for p in dest.rglob("*") if p.is_file()]
         if not needs_merge(names) or now - job["imported"] > MERGE_WAIT_HOURS * 3600:
             job["state"] = "done"
+            job.pop("scanned", None)
             log.info("merged or waited long enough: %s", job["dest"])
-            abs_.scan()
 
 
 def match_step(job, abs_, now):
     if job["state"] not in ("done", "merge-wait") or job.get("matched") or not abs_.key or "book" not in job:
         return
-    if abs_.match(job):
+    if not job.get("scanned"):
+        abs_.scan(job["dest"])
+        job["scanned"] = now
+        return
+    if job["state"] == "done" and abs_.match(job):
         job["matched"] = now
-    elif now - job["imported"] > MATCH_GIVE_UP_HOURS * 3600:
+    elif job["state"] == "done" and now - job["scanned"] > MATCH_GIVE_UP_HOURS * 3600:
         job["matched"] = "gave up: item never appeared in ABS"
 
 
@@ -265,13 +291,26 @@ def poll(qbit, abs_):
     while True:
         with lock:
             jobs = load()
+            for key, job in list(jobs.items()):
+                if job["state"] == "unbound":
+                    try:
+                        h = bind(job, qbit.category(), set(jobs))
+                    except Exception as e:  # noqa: BLE001
+                        log.error("bind %s: %s", key, e)
+                        h = None
+                    if h:
+                        jobs[h] = dict(jobs.pop(key), hash=h, state="pending")
+                        log.info("bound %s to %s", job["title"], h[:8])
+                    elif time.time() - job["added"] > 3600:
+                        job["state"] = "failed"
+                        job["error"] = "no new abr torrent appeared for this request"
             for job in jobs.values():
                 try:
                     if job["state"] in ("pending", "merge-wait"):
                         step(job, qbit, abs_, time.time())
                     match_step(job, abs_, time.time())
                 except Exception as e:  # noqa: BLE001  one bad job must not stop the others
-                    log.error("%s: %s", job["hash"], e)
+                    log.error("%s: %s: %s", job["hash"], type(e).__name__, e)
             save(jobs)
         time.sleep(POLL_SECONDS)
 
@@ -351,10 +390,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_error(400, str(e))
         with lock:
             jobs = load()
-            if job["hash"] not in jobs:
-                jobs[job["hash"]] = job
+            key = job["hash"] or f"unbound-{job['added']:.0f}"
+            if key not in jobs:
+                jobs[key] = job
                 save(jobs)
-        log.info("queued %s %s", job["hash"][:8], job["title"])
+        log.info("queued %s %s", (job["hash"] or "unbound")[:8], job["title"])
         self.send_response(204)
         self.end_headers()
 
@@ -372,7 +412,7 @@ def secret(path):
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     qbit = Qbit(secret(ENV("QBIT_PASS_FILE")))
-    abs_ = Abs(secret(ENV("ABS_KEY_FILE")))
+    abs_ = Abs(ENV("ABS_KEY_FILE"))
     REQUESTS.key = secret(ENV("ABR_KEY_FILE"))
     threading.Thread(target=poll, args=(qbit, abs_), daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", int(ENV("PORT", "8000"))), Handler).serve_forever()

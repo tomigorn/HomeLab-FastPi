@@ -34,7 +34,7 @@ Indexer for AudioBookRequest (`Docker/Audiobook-Requests`), container `prowlarr_
 |---|---|
 | Config as code | `sudo python3 scripts/prowlarr-setup.py` (idempotent), check only: `--check` (smoke test runs it) |
 | MyAnonamouse | own session `secrets/mam_prowlarr_id`, search type active, English + German, **UseFreeleechWedge off** (never `fl=1`), no RSS, saved with `forceSave` (no test search) |
-| Download client | qBittorrent `127.0.0.1:8080`, category `abr` → `/downloads/complete/abr` |
+| Download client | qBittorrent `127.0.0.1:8080`, category `abr` (saved in `/downloads/complete`: the category save path only applies with automatic torrent management) |
 | Unlisted MAM endpoint | Prowlarr calls `/jsonLoad.php` ≤ 1×/h (VIP check) |
 | AudioBookBay | not in Prowlarr's indexer list (removed upstream); ABR cannot use it |
 | Tests | `python3 -m unittest discover -s Docker/mouse/scripts` |

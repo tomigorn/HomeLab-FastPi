@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Functional check of the books login: canary on, into streaming-requesters, real login + ABR OIDC, then ALWAYS canary off (groups stripped).
+# Functional check of the books login (PUBLIC=1 bash verify-login.sh = through the Cloudflare tunnel): canary on, into streaming-requesters, real login + ABR OIDC, then ALWAYS canary off (groups stripped).
 set -uo pipefail
 AK=/home/pi/Projects/Docker/Authentik
 cleanup() { bash "$AK/scripts/canary-disable.sh" >/dev/null 2>&1 || true; echo "canary disabled (cleanup)"; }
