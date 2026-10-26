@@ -1,8 +1,8 @@
-# Idempotent Authentik setup for the Tracker (Ryot on beefy): forward auth plus Ryot's OIDC login.
-# The client id leaves as an "ENV Ryot/.env KEY=value" line, the secret as a "FILE Ryot/secrets/..." line, written on beefy by apply-sso-env.py:
-#   cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
+# Idempotent Authentik setup for the Tracker (Floppy on beefy): forward auth plus Floppy's OIDC login.
+# The allauth provider JSON (client id + secret) leaves as a "FILE Floppy/secrets/..." line, written on beefy by apply-sso-env.py:
+#   cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy-direct:/tmp/ \
 #     && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
-#     | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
+#     | ssh beefy-direct python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
 # Group streaming-users: everyone who may watch may track.
 from authentik.core.models import Application, Group
 from authentik.outposts.models import Outpost
@@ -10,6 +10,7 @@ from authentik.policies.models import PolicyBinding
 from authentik.providers.oauth2.models import (
     ClientType, OAuth2Provider, RedirectURI, RedirectURIMatchingMode, RedirectURIType, ScopeMapping)
 from authentik.providers.proxy.models import ProxyMode, ProxyProvider
+import json
 import secrets
 
 src = ProxyProvider.objects.get(name="radarr-proxy")  # flows to copy
@@ -64,19 +65,18 @@ def app_for(slug, name, host, group, provider=None):
 # Forward auth (route Docker/Traefik/traefik/dynamic/tracker.yml), the dashboard tile.
 app_for("tracker", "Tracker", "https://tracker.holy-grail.ch", "streaming-users")
 
-# Ryot's own "Sign in with Holy Grail". Issuer https://sso.holy-grail.ch/application/o/tracker-login/,
-# redirect <FRONTEND_URL>/api/auth. Hidden on the dashboard (dashboard-look.py HIDDEN).
-ryot = oidc("tracker-login", ["https://tracker.holy-grail.ch/api/auth"])
+# Floppy's own "Sign in with Holy Grail" (allauth openid_connect, provider id authentik). Issuer
+# https://sso.holy-grail.ch/application/o/tracker-login/. Hidden on the dashboard (dashboard-look.py HIDDEN).
+REDIRECTS = ["https://tracker.holy-grail.ch/accounts/oidc/authentik/login/callback/"]
+login = oidc("tracker-login", REDIRECTS)
 app_for("tracker-login", "Tracker login", "https://tracker.holy-grail.ch", "streaming-users",
-        provider=ryot)
-print(f"ENV Ryot/.env SERVER_OIDC_CLIENT_ID={ryot.client_id}")
+        provider=login)
 
-
-def secret_file(path, owner, mode, value):
-    print(f"FILE {path} {owner} {mode} {value}")
-
-
-secret_file("Ryot/secrets/ryot_oidc_client_secret", "1001:1001", "0400", ryot.client_secret)
+providers = {"openid_connect": {"OAUTH_PKCE_ENABLED": True, "APPS": [{
+    "provider_id": "authentik", "name": "Holy Grail",
+    "client_id": login.client_id, "secret": login.client_secret,
+    "settings": {"server_url": "https://sso.holy-grail.ch/application/o/tracker-login/.well-known/openid-configuration"}}]}}
+print(f"FILE Floppy/secrets/floppy_oidc_providers 65125:65125 0400 {json.dumps(providers, separators=(',', ':'))}")
 
 outpost.save()
 print("OK provisioned")

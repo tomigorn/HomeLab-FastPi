@@ -416,7 +416,7 @@ The script is idempotent. Secrets never touch the terminal or git: the script em
 |---|---|---|
 | Grafana | `grafana/secrets/grafana_oauth_client_secret` | 65050:65050 0400 |
 | wg-easy | `WireguardVPN/secrets/oidc_client_secret` | 0:0 0400 |
-| Ryot (beefy) | `Ryot/secrets/ryot_oidc_client_secret` | 1001:1001 0400 |
+| Floppy (beefy) | `Floppy/secrets/floppy_oidc_providers` (allauth provider JSON with client id + secret) | 65125:65125 0400 |
 | Portainer, Seerr (beefy) | still `.env` (`PORTAINER_OAUTH_CLIENT_SECRET`, `SEERR_OIDC_CLIENT_SECRET`): no container reads it, only their configure step | |
 
 Restart the app afterwards (it reads the file at start). Preview without writing: `... | python3 scripts/apply-sso-env.py --dry-run` prints `would set` / `would write <path> (<owner> <mode>)`. The AdGuard proxy password is
@@ -457,8 +457,8 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Sonarr (`sonarr`) | forward auth `sonarr-proxy` | `streaming-admins` | like Radarr |
 | Requests (`requests`) | forward auth `requests-proxy` | `streaming-requesters` | outer gate for Seerr, stays on |
 | Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-requesters` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
-| Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (beefy), stays on. In `scripts/provision-tracker-sso.py` |
-| Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id goes to beefy `Ryot/.env`, the secret to `Ryot/secrets/ryot_oidc_client_secret` |
+| Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Floppy (beefy), stays on. In `scripts/provision-tracker-sso.py` |
+| Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Floppy's "Sign in with Holy Grail" (allauth, provider id `authentik`). Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/accounts/oidc/authentik/login/callback/`. Client id + secret go to beefy `Floppy/secrets/floppy_oidc_providers` |
 | qBittorrent (`qbittorrent-audiobooks`) | forward auth `qbittorrent-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack, https://qbittorrent-audiobooks.holy-grail.ch. In `scripts/provision-audiobook-downloads-sso.py` |
 | SABnzbd (`sabnzbd-audiobooks`) | forward auth `sabnzbd-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack, https://sabnzbd-audiobooks.holy-grail.ch. Same script |
 | Machines (`server-specs`) | forward auth `server-specs-proxy` | none: every logged-in user | specs.holy-grail.ch (Server-Specs). In `scripts/provision-specs-sso.py` (`REMOVE = True` takes it out again) |
@@ -475,12 +475,12 @@ Then on beefy `~/Projects/Docker/Seerr/scripts/configure.sh` puts them into Seer
 
 fastpi audiobook downloaders (no secrets): `docker compose exec -T server ak shell < scripts/provision-audiobook-downloads-sso.py`, then `provision-media-groups.py`.
 
-Tracker (Ryot on beefy), written into beefy `Ryot/.env` + `Ryot/secrets/`, then on beefy `cd ~/Projects/Docker/Ryot && sudo docker compose up -d`:
+Tracker (Floppy on beefy), written into beefy `Floppy/secrets/`, then on beefy `cd ~/Projects/Docker/Floppy && sudo docker compose up -d --force-recreate floppy`:
 
 ```bash
-cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
+cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy-direct:/tmp/ \
   && docker compose exec -T server ak shell < scripts/provision-tracker-sso.py 2>/dev/null \
-  | ssh beefy python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
+  | ssh beefy-direct python3 /tmp/apply-sso-env.py --base /home/buntu/Projects/Docker
 ```
 
 ### Gotchas
