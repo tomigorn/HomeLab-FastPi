@@ -3,7 +3,6 @@
   "version": 3,
   "theme": "default",
   "socket": "none",
-  "refresh_interval": "0 0 4 * * Sun",
   "ignore_update_type": "none",
   "images": {
     "exclude": [],

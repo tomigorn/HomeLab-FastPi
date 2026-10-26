@@ -15,7 +15,7 @@ Cup reads no socket itself (`"socket": "none"`); every host, fastpi included, is
 - Agents have no auth: each host allows port `8000` only from `192.168.1.2` (`DOCKER-USER` rule).
 - After editing `cup.json`: `docker restart Cup`.
 - Startup race: Cup's own startup refresh runs before the agent answers, so the one-shot `cup-refresh` (curl, uid 65023, exits when done) waits for the agent and Cup, then calls `/api/v3/refresh` once. Data is there ~1 min after `docker compose up -d`. A sleeping beefy only makes that refresh slower (3 retries, then it is left out until the next refresh). Cup's image is distroless, so no healthcheck / `service_healthy`.
-- Agents are only read when Cup refreshes (container start, Sundays 04:00, the refresh button). A host asleep at that moment is left out until the next refresh: `docker logs Cup` shows `Failed to refresh server`, and `cup_updates_*` count only the hosts that answered.
+- Agents are only read when Cup refreshes (container start, security-scan's daily 04:05 call to the refresh API, the refresh button; no `refresh_interval` of its own, the old Sunday one ran in UTC). A host asleep at that moment is left out until the next refresh: `docker logs Cup` shows `Failed to refresh server`, and `cup_updates_*` count only the hosts that answered.
 - An agent lists only images with a registry digest. Images put on a host with `docker load` have none and are missing from Cup until they are pulled once.
 
 ## Locally built images

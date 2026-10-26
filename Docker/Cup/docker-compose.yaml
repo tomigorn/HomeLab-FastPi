@@ -14,8 +14,8 @@ services:
     user: "65024:65024"
     # cup.json "servers": fastpi and beefy (reachable through the DOCKER-USER guard, port 8000
     # only). tower stays out while it is down (ZFS/memtest): Cup has no per-server timeout, so a
-    # dead entry costs ~3 slow retries and hangs a refresh ~9 min. The Sunday 04:00 refresh falls
-    # in beefy's nightly wake window; a refresh while beefy sleeps is slow, not broken.
+    # dead entry costs ~3 slow retries and hangs a refresh ~9 min. Cup has no schedule of its own (no refresh_interval): security-scan
+    # refreshes it daily at 04:05, while beefy is up; a refresh while beefy sleeps is slow, not broken.
     command: -c /config/cup.json serve
     # docker.sock mount REMOVED (2026-09-26). Even mounted :ro it grants the full
     # Docker API, which is root on the host - the read-only flag stops writes to the
@@ -93,7 +93,7 @@ services:
 # CUP REFRESH (one-shot) ##################################
 # #########################################################
 # Cup's startup refresh runs before the agent answers, so after a restart the dashboard stayed
-# empty until Sunday 04:00. Cup's image is distroless (no healthcheck, no depends_on
+# empty until security-scan's next refresh (04:05). Cup's image is distroless (no healthcheck, no depends_on
 # service_healthy possible), so this waits for the fastpi agent and then calls Cup's documented
 # refresh API once. Exits when done; restart "no". A sleeping beefy only makes that refresh slow.
   cup-refresh:
