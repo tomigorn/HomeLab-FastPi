@@ -1,0 +1,24 @@
+[Unit]
+Description=Per-user usage (Seerr, Jellyfin, Audiobookshelf) into InfluxDB bucket usage
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/usage-collector/usage_collector.py
+TimeoutStartSec=240
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/.local/state/usage-collector
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

@@ -1,0 +1,11 @@
+[Unit]
+Description=Per-user usage collector every 15 minutes
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
