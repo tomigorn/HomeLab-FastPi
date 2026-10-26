@@ -1,4 +1,6 @@
 """Copies finished AudioBookRequest downloads (qBittorrent category abr) into the Audiobookshelf library, then scans it."""
+import copy
+import datetime
 import json
 import logging
 import os
@@ -14,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from naming import Book, book_dir, language_folder, mam_language
-from ranking import apply_policy, prefs_from_product
+from ranking import for_abr, prefs_from_product
 
 ENV = os.environ.get
 QBIT_URL = ENV("QBIT_URL", "http://10.24.25.2:8080")
@@ -28,7 +30,10 @@ POLL_SECONDS = int(ENV("POLL_SECONDS", "60"))
 GIVE_UP_DAYS = int(ENV("GIVE_UP_DAYS", "14"))
 MERGE_WAIT_HOURS = int(ENV("MERGE_WAIT_HOURS", "48"))
 MATCH_GIVE_UP_HOURS = int(ENV("MATCH_GIVE_UP_HOURS", "24"))
-PROWLARR_URL = ENV("PROWLARR_URL", "http://10.24.25.2:9696")
+PROWLARR_URL = ENV("PROWLARR_URL", "http://10.24.25.2:9697")
+PROXY_BASE = ENV("PROXY_BASE", "http://audiobook-importer:8000/prowlarr")
+QUOTA_BOOKS = int(ENV("QUOTA_BOOKS", "5"))
+QUOTA_DAYS = int(ENV("QUOTA_DAYS", "7"))
 ABR_URL = ENV("ABR_URL", "http://audiobookrequest:8000")
 PROVIDERS = {"com": ("audible", "us"), "de": ("audible.de", "de"), "co.uk": ("audible.uk", "uk")}
 AUDIO = {".mp3", ".m4a", ".m4b", ".aac", ".flac", ".ogg", ".opus", ".wma", ".wav"}
@@ -52,6 +57,31 @@ def parse_webhook(body):
             "authors": [a.strip() for a in value("authors").split(",") if a.strip()],
             "source": value("source"), "indexer": value("indexer"), "state": "unbound" if unbound else "pending",
             "added": time.time()}
+
+
+def _ts(value):
+    try:
+        return datetime.datetime.fromisoformat(str(value)).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def quota_ok(wishlist, manual, user, now):
+    """At most QUOTA_BOOKS requests per user in a rolling QUOTA_DAYS window, for everyone (admins too)."""
+    if not user:
+        return False
+    since = now - QUOTA_DAYS * 86400
+    entries = [r for w in wishlist for r in w.get("requests") or []] + list(manual)
+    used = sum(1 for r in entries if r.get("user_username") == user and _ts(r.get("updated_at")) >= since)
+    return used < QUOTA_BOOKS
+
+
+def with_wedge(indexer, on):
+    out = copy.deepcopy(indexer)
+    for f in out["fields"]:
+        if f["name"] == "useFreeleechWedge":
+            f["value"] = on
+    return out
 
 
 def bind(job, torrents, known, window=600):
@@ -82,7 +112,10 @@ def copy_into(src, library, rel):
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.parent.mkdir(parents=True, exist_ok=True)
     if src.is_dir():
-        shutil.copytree(src, tmp, copy_function=shutil.copy2)
+        # M4b-Auto-Merge works per folder: CD1/01.mp3 becomes "CD1 - 01.mp3" (order kept, names otherwise original).
+        tmp.mkdir()
+        for f in sorted(p for p in src.rglob("*") if p.is_file()):
+            shutil.copy2(f, tmp / " - ".join(f.relative_to(src).parts))
     else:
         tmp.mkdir()
         shutil.copy2(src, tmp / src.name)
@@ -166,9 +199,15 @@ class Qbit:
             raise RuntimeError("qBittorrent login failed")
 
     def category(self):
-        if not self.opener:
-            self.login()
-        return http_json(f"{QBIT_URL}/api/v2/torrents/info?category={CATEGORY}", opener=self.opener) or []
+        for attempt in (1, 2):
+            try:
+                if not self.opener:
+                    self.login()
+                return http_json(f"{QBIT_URL}/api/v2/torrents/info?category={CATEGORY}", opener=self.opener) or []
+            except urllib.error.HTTPError as e:
+                if e.code != 403 or attempt == 2:
+                    raise
+                self.opener = None
 
     def torrent(self, h):
         for attempt in (1, 2):
@@ -308,7 +347,8 @@ def step(job, qbit, abs_, now):
 
 
 def match_step(job, abs_, now):
-    if job["state"] not in ("done", "merge-wait") or job.get("matched") or not abs_.key or "book" not in job:
+    # Only after M4b-Auto-Merge is through (state done), so ABS never indexes the loose parts.
+    if job["state"] != "done" or job.get("matched") or not abs_.key or "book" not in job:
         return
     if not job.get("scanned"):
         abs_.scan(job["dest"])
@@ -373,24 +413,62 @@ class Requests:
 REQUESTS = Requests("")
 
 
+def prowlarr(method, path, headers, data=None):
+    req = urllib.request.Request(PROWLARR_URL + path, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return r.status, r.read(), r.headers.get("Content-Type", "application/json")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read(), e.headers.get("Content-Type", "text/plain")
+
+
+def grab_without_wedge(headers, data):
+    """A wedge grab failed (e.g. no wedges left): retry once as a normal download, then switch the wedge back on."""
+    key = {"X-Api-Key": headers.get("X-Api-Key", ""), "Content-Type": "application/json"}
+    status, body, _ = prowlarr("GET", "/api/v1/indexer", key)
+    mam = next((i for i in json.loads(body) if i["implementation"] == "MyAnonamouse"), None) if status == 200 else None
+    if not mam or not any(f["name"] == "useFreeleechWedge" and f["value"] for f in mam["fields"]):
+        return None
+    prowlarr("PUT", f"/api/v1/indexer/{mam['id']}?forceSave=true", key, json.dumps(with_wedge(mam, False)).encode())
+    try:
+        result = prowlarr("POST", "/api/v1/search", headers, data)
+    finally:
+        prowlarr("PUT", f"/api/v1/indexer/{mam['id']}?forceSave=true", key, json.dumps(mam).encode())
+    log.warning("grab with wedge failed, retried without: HTTP %s", result[0])
+    return result
+
+
+QBIT = None
+
+
+def torrent_file():
+    """The .torrent ABR wants for its hash: the abr torrent qBittorrent got in the last 3 minutes, never a new MAM download."""
+    fresh = [t for t in QBIT.category() if time.time() - t["added_on"] < 180]
+    if not fresh:
+        return 404, b"not found", "text/plain"
+    h = max(fresh, key=lambda t: t["added_on"])["hash"]
+    with QBIT.opener.open(f"{QBIT_URL}/api/v2/torrents/export?hash={h}", timeout=30) as r:
+        return 200, r.read(), "application/x-bittorrent"
+
+
 def forward(handler, method):
     """Pass-through to Prowlarr; search results get the release policy (ranking.py)."""
     path = handler.path[len("/prowlarr"):]
     length = int(handler.headers.get("Content-Length", 0))
     data = handler.rfile.read(length) if length else None
     headers = {k: v for k, v in handler.headers.items() if k.lower() in ("x-api-key", "content-type", "accept", "user-agent")}
-    req = urllib.request.Request(PROWLARR_URL + path, data=data, method=method, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            status, body, ctype = r.status, r.read(), r.headers.get("Content-Type", "application/json")
-    except urllib.error.HTTPError as e:
-        status, body, ctype = e.code, e.read(), e.headers.get("Content-Type", "text/plain")
     url = urllib.parse.urlsplit(path)
+    if method == "GET" and url.path == "/torrent":
+        status, body, ctype = torrent_file()
+    else:
+        status, body, ctype = prowlarr(method, path, headers, data)
+        if method == "POST" and url.path == "/api/v1/search" and status >= 400:
+            status, body, ctype = grab_without_wedge(headers, data) or (status, body, ctype)
     if method == "GET" and url.path == "/api/v1/search" and status == 200:
         query = urllib.parse.parse_qs(url.query).get("query", [""])[0]
         prefs = REQUESTS.prefs(query)
         results = json.loads(body)
-        ranked = apply_policy(results, prefs)
+        ranked = for_abr(results, prefs, proxy_base=PROXY_BASE)
         log.info("search %r: %d -> %d results (%s, unabridged=%s)", query, len(results), len(ranked), prefs.language, prefs.unabridged)
         body = json.dumps(ranked).encode()
     handler.send_response(status)
@@ -400,10 +478,30 @@ def forward(handler, method):
     handler.wfile.write(body)
 
 
+def quota(handler):
+    """nginx auth_request for ABR's request endpoints: 204 = allowed, 403 = limit reached."""
+    user = handler.headers.get("X-authentik-username", "")
+    ok = handler.headers.get("X-Original-Method", "POST") != "POST"
+    if not ok:
+        try:
+            auth = {"Authorization": f"Bearer {REQUESTS.key}"}
+            ok = quota_ok(http_json(f"{ABR_URL}/api/requests", headers=auth) or [],
+                          http_json(f"{ABR_URL}/api/requests/manual", headers=auth) or [], user, time.time())
+        except (urllib.error.URLError, ValueError) as e:
+            log.error("quota check for %s: %s", user, e)
+            ok = False
+        if not ok:
+            log.info("quota: %s refused (%d per %d days)", user, QUOTA_BOOKS, QUOTA_DAYS)
+    handler.send_response(204 if ok else 403)
+    handler.end_headers()
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/prowlarr/"):
             return forward(self, "GET")
+        if self.path == "/quota":
+            return quota(self)
         if self.path == "/health":
             self.send_response(200)
             self.end_headers()
@@ -444,7 +542,8 @@ def secret(path):
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    qbit = Qbit(secret(ENV("QBIT_PASS_FILE")))
+    global QBIT
+    qbit = QBIT = Qbit(secret(ENV("QBIT_PASS_FILE")))
     abs_ = Abs(ENV("ABS_KEY_FILE"))
     REQUESTS.key = secret(ENV("ABR_KEY_FILE"))
     threading.Thread(target=poll, args=(qbit, abs_), daemon=True).start()

@@ -78,7 +78,8 @@ class CopyTest(unittest.TestCase):
         (src / "01.mp3").write_bytes(b"1")
         (src / "CD1" / "02.mp3").write_bytes(b"2")
         dest = importer.copy_into(src, self.lib, "EN/A B/T")
-        self.assertEqual(sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*")), ["01.mp3", "CD1", "CD1/02.mp3"])
+        # The merger works per folder: parts in subfolders are flattened, the subfolder name keeps their order.
+        self.assertEqual(sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*")), ["01.mp3", "CD1 - 02.mp3"])
         self.assertTrue((src / "01.mp3").exists())
         self.assertEqual(list(self.lib.rglob(".*")), [])
 
@@ -104,6 +105,36 @@ class MergeStateTest(unittest.TestCase):
         self.assertTrue(importer.needs_merge(["01.mp3", "02.mp3", "cover.jpg"]))
         self.assertFalse(importer.needs_merge(["book.m4b", "book.cue", "cover.jpg"]))
         self.assertFalse(importer.needs_merge(["one.mp3"]))
+
+    def test_multi_part_m4b_is_merged_too(self):
+        self.assertTrue(importer.needs_merge(["Part 1.m4b", "Part 2.m4b", "cover.jpg"]))
+
+
+class ScanAfterMergeTest(unittest.TestCase):
+    class FakeAbs:
+        key = "k"
+
+        def __init__(self):
+            self.calls = []
+
+        def scan(self, rel):
+            self.calls.append(("scan", rel))
+
+        def match(self, job):
+            self.calls.append(("match", job["dest"]))
+            return True
+
+    def test_no_scan_while_the_merge_is_pending(self):
+        abs_ = self.FakeAbs()
+        importer.match_step({"state": "merge-wait", "dest": "EN/A/T", "book": {}, "imported": 0}, abs_, 10)
+        self.assertEqual(abs_.calls, [])
+
+    def test_scan_then_match_once_done(self):
+        abs_, job = self.FakeAbs(), {"state": "done", "dest": "EN/A/T", "book": {}, "imported": 0}
+        importer.match_step(job, abs_, 10)
+        importer.match_step(job, abs_, 70)
+        importer.match_step(job, abs_, 130)
+        self.assertEqual(abs_.calls, [("scan", "EN/A/T"), ("match", "EN/A/T")])
 
 
 if __name__ == "__main__":
@@ -152,3 +183,45 @@ class AuthorCandidatesTest(unittest.TestCase):
         found = [{"asin": "B1", "name": "Jane Doe"}, {"asin": "B1", "name": "Jane Doe"}, {"asin": "B2", "name": "Jane  Doe"},
                  {"asin": "B3", "name": "John Doe"}, {"asin": "B4", "name": "jane doe"}]
         self.assertEqual(importer.other_author_asins(found, "Jane Doe", current="B2"), ["B1", "B4"])
+
+
+class QuotaTest(unittest.TestCase):
+    NOW = 1_800_000_000.0
+
+    def wish(self, *entries):
+        return [{"book": {"asin": f"B{i}"}, "requests": [{"user_username": u, "updated_at": t}]} for i, (u, t) in enumerate(entries)]
+
+    def iso(self, days_ago):
+        import datetime
+        return datetime.datetime.fromtimestamp(self.NOW - days_ago * 86400).isoformat()
+
+    def test_fifth_request_allowed_sixth_refused(self):
+        four = self.wish(*[("jane", self.iso(1))] * 4)
+        five = self.wish(*[("jane", self.iso(1))] * 5)
+        self.assertTrue(importer.quota_ok(four, [], "jane", self.NOW))
+        self.assertFalse(importer.quota_ok(five, [], "jane", self.NOW))
+
+    def test_rolling_seven_days(self):
+        old = self.wish(*[("jane", self.iso(8))] * 5)
+        self.assertTrue(importer.quota_ok(old, [], "jane", self.NOW))
+
+    def test_other_users_do_not_count(self):
+        self.assertTrue(importer.quota_ok(self.wish(*[("john", self.iso(1))] * 5), [], "jane", self.NOW))
+
+    def test_manual_requests_count_too(self):
+        manual = [{"user_username": "jane", "updated_at": self.iso(2)}] * 2
+        self.assertFalse(importer.quota_ok(self.wish(*[("jane", self.iso(1))] * 3), manual, "jane", self.NOW))
+
+    def test_admins_have_the_same_limit(self):
+        self.assertFalse(importer.quota_ok(self.wish(*[("owner", self.iso(1))] * 5), [], "owner", self.NOW))
+
+    def test_unknown_user_is_refused(self):
+        self.assertFalse(importer.quota_ok([], [], "", self.NOW))
+
+
+class WedgeFallbackTest(unittest.TestCase):
+    def test_indexer_body_with_the_wedge_switched(self):
+        idx = {"id": 1, "fields": [{"name": "useFreeleechWedge", "value": True}, {"name": "mamId", "value": "x"}]}
+        off = importer.with_wedge(idx, False)
+        self.assertEqual({f["name"]: f["value"] for f in off["fields"]}, {"useFreeleechWedge": False, "mamId": "x"})
+        self.assertIs(idx["fields"][0]["value"], True)
