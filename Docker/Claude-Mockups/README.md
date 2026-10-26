@@ -47,6 +47,16 @@ $EDITOR www/my-demo/index.html
 Reach it directly at https://claude-mockups.holy-grail.ch/my-demo/.
 Delete the folder to remove it. No restart needed (the volume is live).
 
+### Wide tables (always)
+
+Pages keep a readable text column, but tables must never be cut off on a desktop: every page with tables loads the shared helper.
+
+```html
+<script src="/_assets/wide-tables.js" defer></script>
+```
+
+It wraps each table in a scroll box; on screens wider than 900 px a table that doesn't fit breaks out to the window width (max 1600 px), phones scroll sideways. Content rendered later (e.g. Markdown via JS) calls `window.wideTables()` after inserting it. The report pages (`/home/pi/reports/_web/report-tpl.html`) do the same inline.
+
 ### Root redirect (the "current" demo)
 
 The bare site (`https://claude-mockups.holy-grail.ch/`) auto-redirects to the
