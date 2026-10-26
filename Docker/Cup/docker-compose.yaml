@@ -9,7 +9,7 @@ services:
 # It never updates anything: it lists running containers and tells you
 # which images have a newer version available. Config lives in cup.json.
   cup:
-    image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
+    image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.6.0}
     container_name: Cup
     user: "65024:65024"
     # cup.json "servers": fastpi and beefy (reachable through the DOCKER-USER guard, port 8000
@@ -73,7 +73,7 @@ services:
 # Same image in agent mode: reads fastpi's images through the bridged socket and
 # serves them to the server above as server "fastpi" (like beefy and tower).
   cup-agent-fastpi:
-    image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.5.1}
+    image: ghcr.io/sergi0g/cup:${CUP_IMAGE_TAG:-v3.6.0}
     container_name: cup-agent-fastpi
     user: "65025:65025"   # the bridged proxy socket is 0666, so no root needed to read it
     command: -c /config/cup.json serve
