@@ -121,18 +121,19 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 ## Usage per user
 
-Dashboard `usage-per-user` (time range drives the "selected range" tables, "all time" tables ignore it). Collector `usage-collector/usage_collector.py`, every 15 min (`usage-collector.timer`, user `pi`), writes InfluxDB bucket `usage` (retention infinite).
+Dashboard `usage-per-user` (time range drives the "selected range" tables, "all time" tables ignore it). Collector `usage-collector/usage_collector.py`, nightly at 04:12 Europe/Zurich (`usage-collector.timer`, user `pi`; inside beefy's 03:55 to 04:26 maintenance wake, so Seerr and Jellyfin are reachable without waking it; run `sudo systemctl start usage-collector.service` for an on-demand refresh), writes InfluxDB bucket `usage` (retention infinite).
 
 | Measurement | Source | Tags | Fields |
 |---|---|---|---|
 | `seerr_request` | Seerr `/api/v1/request` (paginated) | `user`, `media_type` (movie/tv) | `count`, `id` |
-| `jellyfin_play` | Jellyfin activity log, start paired with stop | `user`, `kind` (film/episode/other) | `plays`, `seconds` |
+| `jellyfin_play` | Jellyfin activity log, start paired with stop | `user`, `kind` (film/episode/unknown) | `plays`, `seconds` |
 | `abs_listen` | Audiobookshelf `playbackSessions` | `user` | `sessions`, `seconds` |
 
 - InfluxDB, not Prometheus textfile: points carry their original timestamp, so history backfills and per-day sums work for any range. Re-runs overwrite the same points (idempotent).
 - Seerr and Jellyfin: `usage_beefy.py` is piped to beefy over `ssh beefy-direct` and calls both APIs on localhost; the API keys are read on beefy and never copied. beefy asleep (TCP probe of `beefy.homelab:22` fails): skipped, nothing is woken, the next run catches up from the APIs' history. No Playback Reporting plugin is installed, so watch time = stop minus start, capped at the item's runtime; a start without stop counts as a play with 0 s after 6 h.
-- `kind=other`: the item was already gone from Jellyfin when first seen. Kinds seen once are remembered in `~/.local/state/usage-collector/kinds.json`, so a later deletion does not move old points.
-- Audiobookshelf: read-only SQLite read of `absdatabase.sqlite` (only `username`, never the token column). No ABS API token exists and creating one needs an admin login; the table is stable, a schema change fails loudly (unit fails).
+- `kind`: the Jellyfin item type when the item still exists. Deleted items are classified from the activity log name (`X is playing Title on Device`): `Series - Episode` means episode, plain title means film (heuristic, flagged `guessed`); an unreadable name is `unknown` (shown as "Unknown (deleted)"). Real kinds seen once are remembered in `~/.local/state/usage-collector/kinds.json` and win over a later guess.
+- Tables: one row per user, columns Films, Series, (Unknown), Total (requests, watch time), Audiobooks (listening). Ebook and audiobook requests are not tracked yet, so those columns do not exist there.
+- Audiobookshelf: read-only SQLite read of `absdatabase.sqlite` (only `username`, never the token column). Sessions without an existing account (userId NULL, ABS clears it when a user is deleted) are labelled `deleted user`. No ABS API token exists and creating one needs an admin login; the table is stable, a schema change fails loudly (unit fails).
 - Requests deleted in Seerr stay in the history. Users are labelled by name only, no emails.
 
 ```bash
