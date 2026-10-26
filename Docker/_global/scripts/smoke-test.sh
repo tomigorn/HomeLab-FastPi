@@ -106,9 +106,11 @@ check "containers expected but down" '^0$' "$(curl -s -m 5 -G --data-urlencode '
 check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]}; w={"ContainerDown","ContainerCrashLooping","ContainerUnhealthy","ContainerExporterStale","HostRebooted","HostRebootedUnclean"}; print("ok" if w<=n else "missing " + " ".join(sorted(w-n)))')"
 
 echo "== Apps on fastpi"
-running adguardhome portainer audiobookshelf prowlarr_mouse audiobookrequest audiobook-importer homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
-check "prowlarr MAM rules (no fl, active, EN+DE)" '^OK MAM rules hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
+running adguardhome portainer audiobookshelf prowlarr_mouse prowlarr-gate audiobookrequest audiobook-importer books-proxy homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+check "prowlarr MAM rules, gate, seeding" '^OK MAM rules, gate and seed-forever hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
 check "books public -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -A 'Mozilla/5.0 smoke-test' --resolve books.holy-grail.ch:443:$(dig +short @1.1.1.1 books.holy-grail.ch | head -1) https://books.holy-grail.ch/ | cut -c1-60)"
+check "prowlarr UI closed to non-Traefik" '^403$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:9697/)"
+check "books-proxy serves Seerr link"  '^1$' "$(curl -s -m 5 http://10.24.25.6:8080/_hg/links.js | grep -c 'requests.holy-grail.ch')"
 check "importer health"            '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
 check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
 check "clamav-hostscan timer active" '^active$' "$(systemctl is-active clamav-hostscan.timer)"
