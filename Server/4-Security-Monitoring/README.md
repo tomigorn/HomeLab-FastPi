@@ -160,8 +160,9 @@ Login alerts (`SshLoginOutsideLan`, `SshLoginUnexpectedUser`) stay up for an hou
 | Source | fastpi `/mnt/seagate-red/antivirus-quarantine/index.txt`, beefy `/srv/.disks/ssd-hot/quarantine/index.txt` (SSD branch, never spins the HDD), tower `/mnt/data/appdata/clamav/quarantine/index.txt` |
 | Sticky | 24 h from when fastpi first saw the line (`av-hits-seen-<host>.json`), so a hit read late (host asleep) still alerts; a `restored` line ends it |
 | Baseline | first run: lines before 2026-10-26 21:00 (the EICAR tests) are seen, never alert |
-| Mode | not in index.txt, inferred: `scan` = path in `last-infected.txt` (scan.sh), beefy otherwise `queue` for media names (clamav-hook.py `MEDIA_EXT`) else `hook` |
-| Title | folder below `complete/` or `downloads/`, else the parent folder |
+| Mode, title | beefy: from `/var/lib/clamav-scan/textfile/clamav-hits.tsv` (clamav-hook.py: time, `hook`/`queue`, job title, path, signature; matched on time + path + signature). Otherwise inferred: |
+| Mode (inferred) | `scan` = path in `last-infected.txt` (scan.sh), beefy otherwise `queue` for media names (clamav-hook.py `MEDIA_EXT`) else `hook` |
+| Title (inferred) | folder below `complete/` or `downloads/`, else the parent folder |
 | Telegram | route `MalwareQuarantined` → receiver `malware` (email + `tg.malware`, no resolved), one message per host batch |
 
 **MalwareFound is "last report-only run had hits"**, `max by (host, mode) (clamav_infected_last_run{mode!~"new|hook|queue"}) > 0` (modes `all`, `path`), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. Quarantining modes are left to `MalwareQuarantined` (one alert per hit). It clears with the next clean run of that mode. `for: 45m`, so the 04:20 (beefy) or 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error. Gap: a `new` hit whose move failed is in neither (scan errors then alert, `ClamavScanErrors`).

@@ -469,8 +469,8 @@ NEW_HIT = "2026-10-27T10:00:00+01:00\t/scan/ssd-hot/torrents/complete/Some.Show.
 LATER = 1793091600.0   # 2026-10-27T10:00:00+01:00
 
 
-def _hits(host, index, infected="", now=LATER):
-    return security_scan.collect_av_hits(host, lambda what: {"index": index, "infected": infected}[what], now=now)
+def _hits(host, index, infected="", now=LATER, hits=None):
+    return security_scan.collect_av_hits(host, lambda what: {"index": index, "infected": infected, "hits": hits}[what], now=now)
 
 
 def _hit_series(samples):
@@ -572,6 +572,44 @@ def test_av_hits_nightly_hit_is_mode_scan():
     _hits("beefy", INDEX, now=LATER - 600)
     infected = "/scan/ssd-hot/torrents/complete/Some.Show.S01/Some.Show.S01E01.mkv\tWin.Trojan.X-1\n"
     assert _hit_series(_hits("beefy", INDEX + NEW_HIT, infected))[0][1]["mode"] == "scan"
+
+
+# beefy's clamav-hook.py logs who quarantined a file (time, mode, title, path, signature) to clamav-hits.tsv.
+HITS_LOG = "2026-10-27T10:00:00+01:00\thook\tSome Show S01 Pack\t/scan/ssd-hot/torrents/complete/Some.Show.S01/Some.Show.S01E01.mkv\tWin.Trojan.X-1\n"
+
+
+def test_av_hits_mode_and_title_from_the_hook_log_beat_the_guess():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    labels = _hit_series(_hits("beefy", INDEX + NEW_HIT, hits=HITS_LOG))[0][1]
+    assert (labels["mode"], labels["title"]) == ("hook", "Some Show S01 Pack")
+
+
+def test_av_hits_hook_log_counts_per_logged_mode():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    samples = _hits("beefy", INDEX + NEW_HIT, hits=HITS_LOG)
+    assert {s[1]["mode"]: s[2] for s in samples if s[0] == "clamav_quarantine_hits_24h"} == {"scan": 0, "hook": 1, "queue": 0}
+
+
+def test_av_hits_log_line_of_another_hit_is_ignored():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    other = HITS_LOG.replace("10:00:00", "09:59:59")
+    labels = _hit_series(_hits("beefy", INDEX + NEW_HIT, hits=other))[0][1]
+    assert (labels["mode"], labels["title"]) == ("queue", "Some.Show.S01")
+
+
+def test_av_hits_empty_title_or_malformed_log_falls_back_to_the_guess():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    log = HITS_LOG.replace("Some Show S01 Pack", "") + "garbage\n\tqueue\n"
+    labels = _hit_series(_hits("beefy", INDEX + NEW_HIT, hits=log))[0][1]
+    assert (labels["mode"], labels["title"]) == ("hook", "Some.Show.S01")
+
+
+def test_av_hits_beefy_reads_the_hook_log_next_to_the_hook_metrics():
+    assert security_scan.AV_PATHS["beefy"]["hits"] == "/var/lib/clamav-scan/textfile/clamav-hits.tsv"
 
 
 def test_ssh_alias_never_wakes_when_asked_not_to():

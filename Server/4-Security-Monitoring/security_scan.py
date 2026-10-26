@@ -1361,6 +1361,8 @@ AV_PATHS = {
     "beefy": {"prom": "/var/lib/clamav-scan/textfile/clamav.prom",
               "hook": "/var/lib/clamav-scan/textfile/clamav-hook.prom",   # SABnzbd/qBittorrent completion hook, mode="hook"
               "infected": "/var/lib/clamav-scan/last-infected.txt",
+              # clamav-hook.py: time, mode (hook/queue), title, path, signature of each hit it quarantined
+              "hits": "/var/lib/clamav-scan/textfile/clamav-hits.tsv",
               # the SSD branch, not the /srv/video union (same file): reading it never spins up the HDD
               "index": "/srv/.disks/ssd-hot/quarantine/index.txt"},
     "tower": {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
@@ -1432,6 +1434,16 @@ def hit_title(path: str) -> str:
     return parts[-2] if len(parts) > 1 and parts[-2] else parts[-1]
 
 
+def parse_hits_log(text: str) -> dict:
+    """clamav-hits.tsv (time TAB mode TAB title TAB path TAB signature) -> {index line key: (mode, title)}."""
+    out = {}
+    for line in text.splitlines():
+        f = line.split("\t")
+        if len(f) == 5 and f[1] and f[3]:
+            out[f"{f[0]}\t{f[3]}\t{f[4].strip()}"] = (f[1], f[2].strip())
+    return out
+
+
 def hit_mode(host: str, path: str, nightly_paths: set) -> str:
     """index.txt does not record who wrote a line: scan.sh hits are in last-infected.txt, on beefy media names went to the queue."""
     if host not in AV_HIT_MODES or path in nightly_paths:
@@ -1454,15 +1466,16 @@ def collect_av_hits(host: str, fetch, now: float | None = None) -> list:
     if text is None:
         raise NoData(f"no quarantine index.txt on {host} yet")
     nightly = {p for p, _ in parse_infected_list(fetch("infected") or "")}
+    logged = parse_hits_log((fetch("hits") if "hits" in AV_PATHS.get(host, {}) else None) or "")
     hits = parse_quarantine_index(text)
     import fcntl
     # security-av (nightly) and security-av-hits (15 min) can overlap: one reader-writer of the seen file at a time.
     with open(STATE / f".av-hits-{host}.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        return _av_hit_samples(host, hits, nightly, now)
+        return _av_hit_samples(host, hits, nightly, now, logged)
 
 
-def _av_hit_samples(host: str, hits: list, nightly: set, now: float) -> list:
+def _av_hit_samples(host: str, hits: list, nightly: set, now: float, logged: dict | None = None) -> list:
     path = STATE / f"av-hits-seen-{host}.json"
     seen = _load_json(path)
     if seen is None:
@@ -1479,11 +1492,13 @@ def _av_hit_samples(host: str, hits: list, nightly: set, now: float) -> list:
     counts = {m: 0 for m in AV_HIT_MODES.get(host, ("scan",))}
     out = []
     for first, h in sorted(active, key=lambda a: (a[1]["ts"], a[0]), reverse=True):
-        mode = hit_mode(host, h["path"], nightly)
+        # The hook's own record wins; without one (scan.sh, an older line) mode and title are inferred from the path.
+        mode, title = (logged or {}).get(_hit_key(h), (None, None))
+        mode = mode or hit_mode(host, h["path"], nightly)
         counts[mode] = counts.get(mode, 0) + 1
         if len(out) < AV_HIT_LIMIT:
             out.append(("clamav_quarantine_hit_first_seen_timestamp_seconds",
-                        {"host": host, "mode": mode, "title": hit_title(h["path"]), "file": h["path"].rsplit("/", 1)[-1],
+                        {"host": host, "mode": mode, "title": title or hit_title(h["path"]), "file": h["path"].rsplit("/", 1)[-1],
                          "path": h["path"], "signature": h["signature"], "time": _hit_time_label(h["ts"])}, first))
     return out + [("clamav_quarantine_hits_24h", {"host": host, "mode": m}, n) for m, n in counts.items()]
 
