@@ -37,6 +37,9 @@ from security_scan import (  # noqa: E402
     parse_rkhunter,
     filter_exposition,
     parse_infected_list,
+    parse_quarantine_index,
+    hit_title,
+    hit_mode,
     count_fixable,
     is_template,
     looks_like_secret_file,
@@ -458,6 +461,124 @@ def test_av_missing_hook_file_is_skipped_not_no_data():
     collect_av("beefy", lambda what: files[what])
     assert (d / "textfile" / "clamav_beefy.prom").exists()
     assert (d / "textfile" / "clamav_hook_beefy.prom").read_text() == "old\n"
+
+
+INDEX = ("2026-10-26T20:48:49+01:00\t/scan/ssd-hot/usenet/complete/clamav-test-sync/Clamav.Test.Sync.exe\tEicar-Test-Signature\n"
+         "2026-10-26T19:53:44+00:00\t/scan/ssd-hot/usenet/complete/clamav-test-imported/media/Clamav Test Bg - S01E01.mkv\tEicar-Test-Signature\n")
+NEW_HIT = "2026-10-27T10:00:00+01:00\t/scan/ssd-hot/torrents/complete/Some.Show.S01/Some.Show.S01E01.mkv\tWin.Trojan.X-1\n"
+LATER = 1793091600.0   # 2026-10-27T10:00:00+01:00
+
+
+def _hits(host, index, infected="", now=LATER):
+    return security_scan.collect_av_hits(host, lambda what: {"index": index, "infected": infected}[what], now=now)
+
+
+def _hit_series(samples):
+    return [s for s in samples if s[0] == "clamav_quarantine_hit_first_seen_timestamp_seconds"]
+
+
+def test_quarantine_index_parses_lines_and_marks_restored():
+    hits = parse_quarantine_index("2026-10-26T20:48:49+01:00\t/scan/a.exe\tEICAR\n"
+                                  "2026-10-26T21:00:00+01:00\t/scan/b.exe\tEICAR\trestored 2026-10-26T22:00:00+01:00\n"
+                                  "garbage line\n\n")
+    assert [(h["path"], h["signature"], h["restored"]) for h in hits] == [("/scan/a.exe", "EICAR", False), ("/scan/b.exe", "EICAR", True)]
+    assert hits[0]["ts"] == 1793044129.0
+
+
+def test_hit_title_is_the_download_folder_else_the_parent():
+    assert hit_title("/scan/ssd-hot/usenet/complete/clamav-test-imported/media/x.mkv") == "clamav-test-imported"
+    assert hit_title("/scan/seagate-red/qbittorrent/downloads/Some.Album/a.exe") == "Some.Album"
+    assert hit_title("/scan/appdata/nextcloud/data/a.exe") == "data"
+
+
+def test_hit_mode_scan_when_in_the_nightly_list_else_hook_or_queue_by_media_name():
+    assert hit_mode("beefy", "/scan/x/a.mkv", {"/scan/x/a.mkv"}) == "scan"
+    assert hit_mode("beefy", "/scan/x/a.mkv", set()) == "queue"
+    assert hit_mode("beefy", "/scan/x/a.exe", set()) == "hook"
+    assert hit_mode("fastpi", "/scan/x/a.exe", set()) == "scan"
+    assert hit_mode("tower", "/scan/x/a.mkv", set()) == "scan"
+
+
+def test_av_hits_first_run_baselines_lines_before_the_cutoff():
+    # The EICAR tests of 2026-10-26 were in index.txt before this alert existed: no alert for them.
+    _tmp_dirs()
+    assert _hit_series(_hits("beefy", INDEX)) == []
+
+
+def test_av_hits_new_line_gives_one_series_with_its_details():
+    d = _tmp_dirs()
+    import os, time as _t
+    os.environ["TZ"] = "Europe/Zurich"
+    _t.tzset()
+    _hits("beefy", INDEX, now=LATER - 600)
+    series = _hit_series(_hits("beefy", INDEX + NEW_HIT))
+    assert series == [("clamav_quarantine_hit_first_seen_timestamp_seconds",
+                       {"host": "beefy", "mode": "queue", "title": "Some.Show.S01", "file": "Some.Show.S01E01.mkv",
+                        "path": "/scan/ssd-hot/torrents/complete/Some.Show.S01/Some.Show.S01E01.mkv",
+                        "signature": "Win.Trojan.X-1", "time": "Tue, 27 Oct 2026 10:00"}, LATER)]
+    assert (d / "state" / "av-hits-seen-beefy.json").exists()
+
+
+def test_av_hits_keep_first_seen_time_and_end_after_24h():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    _hits("beefy", INDEX + NEW_HIT, now=LATER)
+    assert _hit_series(_hits("beefy", INDEX + NEW_HIT, now=LATER + 3600))[0][2] == LATER
+    assert _hit_series(_hits("beefy", INDEX + NEW_HIT, now=LATER + 86401)) == []
+
+
+def test_av_hits_counted_per_mode_in_24h():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    samples = _hits("beefy", INDEX + NEW_HIT)
+    counts = {s[1]["mode"]: s[2] for s in samples if s[0] == "clamav_quarantine_hits_24h"}
+    assert counts == {"scan": 0, "hook": 0, "queue": 1}
+
+
+def test_av_hits_after_the_cutoff_alert_even_on_the_first_run():
+    # tower may first answer days after deployment: a real hit by then is not swallowed by the baseline.
+    _tmp_dirs()
+    assert len(_hit_series(_hits("tower", NEW_HIT))) == 1
+
+
+def test_av_hits_restored_line_stops_alerting():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    _hits("beefy", INDEX + NEW_HIT)
+    restored = INDEX + NEW_HIT.rstrip("\n") + "\trestored 2026-10-27T11:00:00+01:00\n"
+    assert _hit_series(_hits("beefy", restored, now=LATER + 60)) == []
+
+
+def test_av_hits_series_capped_newest_first():
+    _tmp_dirs()
+    _hits("fastpi", "", now=LATER - 600)
+    many = "".join(f"2026-10-27T09:{i:02d}:00+01:00\t/scan/r/dl/f{i}.exe\tSig\n" for i in range(30))
+    series = _hit_series(_hits("fastpi", many))
+    assert len(series) == security_scan.AV_HIT_LIMIT
+    assert series[0][1]["file"] == "f29.exe"
+
+
+def test_av_hits_missing_index_is_no_data():
+    _tmp_dirs()
+    try:
+        _hits("tower", None)
+        raise AssertionError("expected NoData")
+    except NoData:
+        pass
+
+
+def test_av_hits_nightly_hit_is_mode_scan():
+    _tmp_dirs()
+    _hits("beefy", INDEX, now=LATER - 600)
+    infected = "/scan/ssd-hot/torrents/complete/Some.Show.S01/Some.Show.S01E01.mkv\tWin.Trojan.X-1\n"
+    assert _hit_series(_hits("beefy", INDEX + NEW_HIT, infected))[0][1]["mode"] == "scan"
+
+
+def test_ssh_alias_never_wakes_when_asked_not_to():
+    import datetime
+    at = datetime.datetime(2026, 10, 27, 4, 20)
+    assert security_scan.ssh_alias("beefy", at, wake=False) == "beefy-direct"
+    assert security_scan.ssh_alias("tower", at, wake=False) == "tower-direct"
 
 
 MEDIA_PROM = ('# HELP media_language_missing_since_timestamp_seconds x\n# TYPE media_language_missing_since_timestamp_seconds gauge\n'

@@ -1,0 +1,24 @@
+[Unit]
+Description=ClamAV quarantine hits (index.txt) of fastpi, beefy and tower; beefy and tower only while awake, never woken
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py avhits
+TimeoutStartSec=120
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/security-scan /var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

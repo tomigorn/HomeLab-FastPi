@@ -866,17 +866,17 @@ SSH_ALIAS = {"tower": "tower-direct"}
 BEEFY_WAKE_WINDOW = ((4, 0), (4, 30))
 
 
-def ssh_alias(host: str, now=None) -> str:
+def ssh_alias(host: str, now=None, wake: bool = True) -> str:
     if host == "beefy":
         t = (now or datetime.datetime.now()).timetuple()[3:5]
-        return "beefy" if BEEFY_WAKE_WINDOW[0] <= t < BEEFY_WAKE_WINDOW[1] else "beefy-direct"
+        return "beefy" if wake and BEEFY_WAKE_WINDOW[0] <= t < BEEFY_WAKE_WINDOW[1] else "beefy-direct"
     return SSH_ALIAS.get(host, host)
 
 
-def ssh(host: str, cmd: str, timeout: int = 300) -> subprocess.CompletedProcess:
+def ssh(host: str, cmd: str, timeout: int = 300, wake: bool = True) -> subprocess.CompletedProcess:
     return run([
         "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-        "-o", "StrictHostKeyChecking=accept-new", ssh_alias(host), cmd,
+        "-o", "StrictHostKeyChecking=accept-new", ssh_alias(host, wake=wake), cmd,
     ], timeout=timeout)
 
 
@@ -1356,13 +1356,25 @@ class NoData(Exception):
 # Hit lists are labels on an info series so the MalwareFound alert can quote them; capped so a mass infection cannot blow up cardinality.
 AV_HIT_LIMIT = 20
 AV_PATHS = {
-    "fastpi": {"infected": "/var/lib/clamav-scan/last-infected.txt"},
+    "fastpi": {"infected": "/var/lib/clamav-scan/last-infected.txt",
+               "index": "/mnt/seagate-red/antivirus-quarantine/index.txt"},
     "beefy": {"prom": "/var/lib/clamav-scan/textfile/clamav.prom",
               "hook": "/var/lib/clamav-scan/textfile/clamav-hook.prom",   # SABnzbd/qBittorrent completion hook, mode="hook"
-              "infected": "/var/lib/clamav-scan/last-infected.txt"},
+              "infected": "/var/lib/clamav-scan/last-infected.txt",
+              # the SSD branch, not the /srv/video union (same file): reading it never spins up the HDD
+              "index": "/srv/.disks/ssd-hot/quarantine/index.txt"},
     "tower": {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
-              "infected": "/mnt/data/appdata/clamav/state/last-infected.txt"},
+              "infected": "/mnt/data/appdata/clamav/state/last-infected.txt",
+              "index": "/mnt/data/appdata/clamav/quarantine/index.txt"},
 }
+# index.txt lines older than this were there before MalwareQuarantined existed (the EICAR tests of 2026-10-26): baseline, no alert.
+AV_HITS_SINCE = datetime.datetime.fromisoformat("2026-10-26T21:00:00+01:00").timestamp()
+AV_HITS_WINDOW = 86400
+# Modes per host: scan = scan.sh (nightly new, or a path scan by hand); beefy also hook (SABnzbd/qBittorrent completion, synchronous) and queue (background media scan).
+AV_HIT_MODES = {"beefy": ("scan", "hook", "queue")}
+# clamav-hook.py's MEDIA_EXT: these go to the background queue, everything else is scanned by the hook itself.
+AV_QUEUE_EXT = {"mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "webm", "m4a", "m4b", "mp3", "flac", "opus", "ogg",
+                "aac", "srt", "ass", "ssa", "sub", "idx", "sup", "nfo", "txt", "jpg", "jpeg", "png"}
 
 
 def collect_av(host: str, fetch) -> list:
@@ -1393,6 +1405,91 @@ def collect_av(host: str, fetch) -> list:
             write_atomic(TEXTFILE / f"clamav_hook_{host}.prom", hook)
     return [("security_av_infected_info", {"host": host, "path": p, "signature": sig}, 1)
             for p, sig in hits[:AV_HIT_LIMIT]]
+
+
+def parse_quarantine_index(text: str) -> list[dict]:
+    """index.txt of a quarantine (time TAB original path TAB signature [TAB restored <time>]) -> hits, malformed lines dropped."""
+    hits = []
+    for line in text.splitlines():
+        f = line.split("\t")
+        if len(f) < 3 or not f[1]:
+            continue
+        try:
+            ts = datetime.datetime.fromisoformat(f[0]).timestamp()
+        except ValueError:
+            continue
+        hits.append({"time": f[0], "ts": ts, "path": f[1], "signature": f[2].strip() or "unknown",
+                     "restored": any(x.startswith("restored") for x in f[3:])})
+    return hits
+
+
+def hit_title(path: str) -> str:
+    """The download (folder below complete/ or downloads/), else the folder the file was in."""
+    parts = path.split("/")
+    for i in range(len(parts) - 2, -1, -1):
+        if parts[i] in ("complete", "downloads") and i + 1 < len(parts) - 1:
+            return parts[i + 1]
+    return parts[-2] if len(parts) > 1 and parts[-2] else parts[-1]
+
+
+def hit_mode(host: str, path: str, nightly_paths: set) -> str:
+    """index.txt does not record who wrote a line: scan.sh hits are in last-infected.txt, on beefy media names went to the queue."""
+    if host not in AV_HIT_MODES or path in nightly_paths:
+        return "scan"
+    return "queue" if path.rsplit(".", 1)[-1].lower() in AV_QUEUE_EXT else "hook"
+
+
+def _hit_time_label(ts: float) -> str:
+    return datetime.datetime.fromtimestamp(ts).strftime("%a, %d %b %Y %H:%M")
+
+
+def collect_av_hits(host: str, fetch, now: float | None = None) -> list:
+    """Quarantined hits from index.txt, sticky for 24 h from when fastpi first saw them (not the resettable last-run gauge).
+
+    `fetch(what)` returns "index" / "infected" text or None. Seen lines are kept in av-hits-seen-<host>.json; on the first
+    run lines older than AV_HITS_SINCE are baseline (first_seen 0) and never alert.
+    """
+    now = time.time() if now is None else now
+    text = fetch("index")
+    if text is None:
+        raise NoData(f"no quarantine index.txt on {host} yet")
+    nightly = {p for p, _ in parse_infected_list(fetch("infected") or "")}
+    hits = parse_quarantine_index(text)
+    import fcntl
+    # security-av (nightly) and security-av-hits (15 min) can overlap: one reader-writer of the seen file at a time.
+    with open(STATE / f".av-hits-{host}.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return _av_hit_samples(host, hits, nightly, now)
+
+
+def _av_hit_samples(host: str, hits: list, nightly: set, now: float) -> list:
+    path = STATE / f"av-hits-seen-{host}.json"
+    seen = _load_json(path)
+    if seen is None:
+        seen = {_hit_key(h): 0 for h in hits if h["ts"] < AV_HITS_SINCE}
+    keys = set()
+    active = []
+    for h in hits:
+        k = _hit_key(h)
+        keys.add(k)
+        first = seen.setdefault(k, now)
+        if first and now - first < AV_HITS_WINDOW and not h["restored"]:
+            active.append((first, h))
+    write_atomic(path, json.dumps({k: v for k, v in seen.items() if k in keys}, indent=1, sort_keys=True))
+    counts = {m: 0 for m in AV_HIT_MODES.get(host, ("scan",))}
+    out = []
+    for first, h in sorted(active, key=lambda a: (a[1]["ts"], a[0]), reverse=True):
+        mode = hit_mode(host, h["path"], nightly)
+        counts[mode] = counts.get(mode, 0) + 1
+        if len(out) < AV_HIT_LIMIT:
+            out.append(("clamav_quarantine_hit_first_seen_timestamp_seconds",
+                        {"host": host, "mode": mode, "title": hit_title(h["path"]), "file": h["path"].rsplit("/", 1)[-1],
+                         "path": h["path"], "signature": h["signature"], "time": _hit_time_label(h["ts"])}, first))
+    return out + [("clamav_quarantine_hits_24h", {"host": host, "mode": m}, n) for m, n in counts.items()]
+
+
+def _hit_key(h: dict) -> str:
+    return f"{h['time']}\t{h['path']}\t{h['signature']}"
 
 
 # Movie-Downloads' language-missing.py (titles still waiting for a Swiss German release); alerts: grafana/prometheus/rules/media-language.yml.
@@ -1432,14 +1529,14 @@ def collect_updates(host: str, fetch) -> list:
     return []
 
 
-def fetch_file(host: str, path: str) -> str | None:
+def fetch_file(host: str, path: str, wake: bool = True) -> str | None:
     """A file's text, locally on fastpi or over ssh; None when it does not exist."""
     if host == "fastpi":
         try:
             return Path(path).read_text()
         except FileNotFoundError:
             return None
-    r = ssh(host, f"test -e {path} || exit 3; cat {path}", timeout=60)
+    r = ssh(host, f"test -e {path} || exit 3; cat {path}", timeout=60, wake=wake)
     if r.returncode == 3:
         return None
     if r.returncode != 0:
@@ -1979,6 +2076,8 @@ HELPS = {
     "security_new_vulns": "Fixable CRITICAL/HIGH findings (image, CVE, package) first seen in the last 24 h; scope = host (running images) or code-<repo>.",
     "security_new_vuln_info": "One series per finding first seen in the last 24 h (newest 20).",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
+    "clamav_quarantine_hit_first_seen_timestamp_seconds": "One series per quarantined ClamAV hit (index.txt) first seen in the last 24 h, newest 20; value = when fastpi first saw it.",
+    "clamav_quarantine_hits_24h": "Quarantined ClamAV hits (index.txt, not restored) first seen in the last 24 h, by mode (scan, hook, queue).",
     "security_dt_projects": "Dependency-Track projects of the host (running images + OS) after the last upload run.",
     "security_dt_uploads": "SBOMs uploaded to Dependency-Track in the last run (new or changed images).",
     "security_dt_sbom_failed": "Images whose SBOM could not be built in the last run (retried next run).",
@@ -2109,6 +2208,16 @@ def main() -> int:
             def _av(host=host):
                 return collect_av(host, lambda what: fetch_file(host, AV_PATHS[host][what]))
             guarded(f"av-{host}", _av, host=host)
+            guarded(f"avhits-{host}", lambda host=host: collect_av_hits(host, lambda what: fetch_file(host, AV_PATHS[host][what])), host=host)
+
+    if only and "avhits" in only:
+        # Every 15 min (security-av-hits.timer): beefy and tower only while the Waker sees them up, and never through a waking ssh alias.
+        for host in AV_PATHS:
+            def _hits(host=host):
+                if host != "fastpi" and not host_awake(host):
+                    raise NoData(f"{host} asleep, skipped")
+                return collect_av_hits(host, lambda what: fetch_file(host, AV_PATHS[host][what], wake=False))
+            guarded(f"avhits-{host}", _hits, host=host)
 
     if want("media"):
         for host in MEDIA_PATHS:

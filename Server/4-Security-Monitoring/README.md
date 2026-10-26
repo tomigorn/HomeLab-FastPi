@@ -14,6 +14,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Did authorized_keys, sudoers or sshd_config change? | `access` | SHA-256 of `/home/*/.ssh/authorized_keys`, `/root/.ssh/authorized_keys`, `/etc/sudoers`, `/etc/sudoers.d/*`, `/etc/ssh/sshd_config(.d/*)` against a baseline | fastpi | every 5 min |
 | Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error; its last figures and snapshot time stay, see "Cup snapshot of a sleeping host") | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 06:40 (fastpi, tower; beefy only if already awake) |
+| Was anything quarantined (nightly, beefy's download hook and queue)? | `avhits` (also inside `av`) | each host's quarantine `index.txt`, see "Quarantined hits" | all three | every 15 min (`security-av-hits.timer`); beefy/tower only while the Waker sees them up, always via `-direct` (never wakes) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
 | Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | hourly :17 (`security-code-scan.timer`) |
 | One CVE dashboard over everything that runs? | `dt` | CycloneDX SBOM per running image (fastpi: local Docker; beefy: registry copy of the running digest, built on fastpi; local beefy builds via their Dockerfile base) + one OS SBOM per host (Trivy `rootfs` over os-release, lsb-release (Ubuntu), debian_version, dpkg status) uploaded to Dependency-Track on beefy, see "Dependency-Track" | fastpi, beefy (tower: Unraid/Slackware, no Trivy OS support) | daily 04:02 (`security-dt.timer`), only if DT answers |
@@ -33,6 +34,7 @@ Metrics:
 | `security_image_updates`, `security_image_update_info` | host, type / host, reference, type |
 | `security_cup_snapshot_timestamp_seconds` | host |
 | `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
+| `clamav_quarantine_hit_first_seen_timestamp_seconds` (one per hit, 24 h, newest 20), `clamav_quarantine_hits_24h` | host, mode, title, file, path, signature, time / host, mode |
 | `security_rootkit_warnings` (new), `security_rootkit_findings` (all) | host, tool |
 | `security_lynis_hardening_index`, `security_lynis_warnings` | host |
 | `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
@@ -151,7 +153,18 @@ Login alerts (`SshLoginOutsideLan`, `SshLoginUnexpectedUser`) stay up for an hou
 
 **The audit unit is not sandboxed.** It runs the tools via sudo and they must see the real system (PrivateTmp/ProtectHome would hide what chkrootkit looks at).
 
-**MalwareFound is "last run had hits"**, `max by (host) (clamav_infected_last_run) > 0` over every mode (new, all, path, hook), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. It clears with the next clean run of that mode. `for: 45m`, so the 04:20 (beefy) or 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error.
+**Quarantined hits.** Every moved file is a line in its host's `index.txt`; `MalwareQuarantined` alerts per line, not on `clamav_infected_last_run`, which the next clean run of that mode resets (beefy's hook runs many times a day, and was only pulled at 04:20).
+
+| | |
+|---|---|
+| Source | fastpi `/mnt/seagate-red/antivirus-quarantine/index.txt`, beefy `/srv/.disks/ssd-hot/quarantine/index.txt` (SSD branch, never spins the HDD), tower `/mnt/data/appdata/clamav/quarantine/index.txt` |
+| Sticky | 24 h from when fastpi first saw the line (`av-hits-seen-<host>.json`), so a hit read late (host asleep) still alerts; a `restored` line ends it |
+| Baseline | first run: lines before 2026-10-26 21:00 (the EICAR tests) are seen, never alert |
+| Mode | not in index.txt, inferred: `scan` = path in `last-infected.txt` (scan.sh), beefy otherwise `queue` for media names (clamav-hook.py `MEDIA_EXT`) else `hook` |
+| Title | folder below `complete/` or `downloads/`, else the parent folder |
+| Telegram | route `MalwareQuarantined` → receiver `malware` (email + `tg.malware`, no resolved), one message per host batch |
+
+**MalwareFound is "last report-only run had hits"**, `max by (host, mode) (clamav_infected_last_run{mode!~"new|hook|queue"}) > 0` (modes `all`, `path`), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. Quarantining modes are left to `MalwareQuarantined` (one alert per hit). It clears with the next clean run of that mode. `for: 45m`, so the 04:20 (beefy) or 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error. Gap: a `new` hit whose move failed is in neither (scan errors then alert, `ClamavScanErrors`).
 
 **The digest fires on Monday 05:00 local all year.** Prometheus knows only UTC; `homelab:local_utc_offset_hours` (2 from the last Sunday in March to the last Sunday in October, else 1) shifts the clock. Its own Alertmanager route `telegram-digest` sends no resolved message.
 
@@ -268,9 +281,10 @@ option — an `auth.log` on disk is required.
 | File | Purpose |
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
-| `test_security_scan.py` | 141 tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_security_scan.py` | tests over the pure functions (`python3 test_security_scan.py`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
-| `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av, media, updates |
+| `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 06:40: av (with avhits), media, updates |
+| `security-av-hits.{service,timer}` | every 15 min: avhits |
 | `~/.ssh/config` `beefy-direct`, `tower-direct` (not in git) | same hosts without the WoL `Match` block; scans use them so an asleep host stays asleep. Plain `beefy` (may wake) only inside 04:00–04:30 (`BEEFY_WAKE_WINDOW`) |
 | `security-image-scan.{service,timer}` | daily 04:10: images |
 | `security-code-scan.{service,timer}` | hourly :17: code |

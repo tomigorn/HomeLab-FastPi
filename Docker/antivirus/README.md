@@ -62,7 +62,7 @@ Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 | Where (host) | What |
 |---|---|
 | `/mnt/seagate-red/antivirus-quarantine/` | quarantined files |
-| `/mnt/seagate-red/antivirus-quarantine/index.txt` | one line per quarantined file: date (UTC) TAB original path TAB signature |
+| `/mnt/seagate-red/antivirus-quarantine/index.txt` | one line per quarantined file: date (UTC) TAB original path TAB signature; read every 15 min for the `MalwareQuarantined` alert (`Server/4-Security-Monitoring/README.md`, Quarantined hits) |
 | `/var/lib/clamav-scan/last-infected.txt` | hits of the last run that found something: path TAB signature |
 | `/var/lib/clamav-scan/` | state (shared by both containers): `last-run` marker, `infected-total`, `new.list`, `allow.txt` (restored false positives) |
 | `/var/lib/node-exporter/textfile/clamav.prom` | metrics for Prometheus |

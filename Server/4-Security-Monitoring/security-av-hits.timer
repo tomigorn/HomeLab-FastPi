@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the ClamAV quarantine index.txt on all hosts every 15 minutes
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

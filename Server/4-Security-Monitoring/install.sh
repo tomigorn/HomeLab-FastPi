@@ -47,6 +47,7 @@ echo "==> systemd units"
 sudo install -m 0644 "$HERE"/security-scan.service "$HERE"/security-scan.timer \
                      "$HERE"/security-image-scan.service "$HERE"/security-image-scan.timer \
                      "$HERE"/security-av.service "$HERE"/security-av.timer \
+                     "$HERE"/security-av-hits.service "$HERE"/security-av-hits.timer \
                      "$HERE"/security-audit.service "$HERE"/security-audit.timer \
                      "$HERE"/security-access.service "$HERE"/security-access.timer \
                      "$HERE"/security-code-scan.service "$HERE"/security-code-scan.timer \
@@ -54,7 +55,7 @@ sudo install -m 0644 "$HERE"/security-scan.service "$HERE"/security-scan.timer \
                      "$REPO"/Docker/_global/systemd/auto-update.service "$REPO"/Docker/_global/systemd/auto-update.timer \
                      /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-audit.timer security-access.timer security-code-scan.timer security-dt.timer auto-update.timer
+sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-av-hits.timer security-audit.timer security-access.timer security-code-scan.timer security-dt.timer auto-update.timer
 
 echo "==> node-exporter must expose the textfile collector"
 if ! docker inspect node-exporter --format '{{join .Args " "}}' 2>/dev/null | grep -q 'collector.textfile.directory'; then
