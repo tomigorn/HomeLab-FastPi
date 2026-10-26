@@ -52,14 +52,15 @@ class MatrixTest(unittest.TestCase):
         admins = {s for s, g in pmg.APP_GROUP.items() if g == "streaming-admins"}
         self.assertEqual(users, {"jellyfin", "jellyfin-wake", "tracker", "tracker-login"})
         self.assertEqual(requesters, {"requests", "requests-login"})
-        self.assertEqual(admins, {"radarr", "sonarr", "prowlarr", "bazarr", "sabnzbd", "qbittorrent"})
+        self.assertEqual(admins, {"radarr", "sonarr", "prowlarr", "bazarr", "sabnzbd", "qbittorrent",
+                                  "qbittorrent-audiobooks", "sabnzbd-audiobooks"})
 
     def test_groups_are_independent_and_owner_is_in_all(self):
         self.assertEqual(pmg.GROUPS, ("streaming-users", "streaming-requesters", "streaming-admins"))
         self.assertEqual(pmg.OWNER, "tomigorn")
 
     def test_other_provisioning_scripts_bind_the_same_groups(self):
-        for script in ("provision-media-sso.py", "provision-tracker-sso.py"):
+        for script in ("provision-media-sso.py", "provision-tracker-sso.py", "provision-audiobook-downloads-sso.py"):
             for slug, group in app_for_groups(script).items():
                 with self.subTest(script=script, slug=slug):
                     self.assertEqual(pmg.APP_GROUP[slug], group)

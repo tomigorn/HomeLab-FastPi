@@ -442,7 +442,7 @@ Three independent groups (no parent nesting), owner `tomigorn` in all three. Con
 |---|---|---|
 | `streaming-users` | Jellyfin (+ wake page), Tracker (+ login) | every invitee, automatic |
 | `streaming-requesters` | Requests (+ login) | by hand |
-| `streaming-admins` | Radarr, Sonarr, Prowlarr, Bazarr, SABnzbd, qBittorrent; Jellyfin administrator (OIDC plugin `AdministratorGroup`, re-checked at every sign-in) | by hand |
+| `streaming-admins` | Radarr, Sonarr, Prowlarr, Bazarr, SABnzbd, qBittorrent (beefy); qBittorrent, SABnzbd (fastpi audiobooks); Jellyfin administrator (OIDC plugin `AdministratorGroup`, re-checked at every sign-in) | by hand |
 
 - A requester or admin who should also watch needs `streaming-users` too (groups do not imply each other).
 - Cup (image versions of every host) is `homelab-admins`, not a media tool.
@@ -459,6 +459,8 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Requests login (`requests-login`, hidden) | OIDC `requests-login`, confidential, scopes openid/email/profile | `streaming-requesters` | Seerr's "Sign in with Holy Grail" (preview image). Issuer `https://sso.holy-grail.ch/application/o/requests-login/`, redirects `/login` + `/profile/settings/linked-accounts`. Client id/secret go to beefy `Seerr/.env` |
 | Tracker (`tracker`) | forward auth `tracker-proxy` | `streaming-users` | outer gate for Ryot (beefy), stays on. In `scripts/provision-tracker-sso.py` |
 | Tracker login (`tracker-login`, hidden) | OIDC `tracker-login`, confidential, scopes openid/email/profile | `streaming-users` | Ryot's "Sign in with Holy Grail". Issuer `https://sso.holy-grail.ch/application/o/tracker-login/`, redirect `/api/auth`. Client id goes to beefy `Ryot/.env`, the secret to `Ryot/secrets/ryot_oidc_client_secret` |
+| qBittorrent (`qbittorrent-audiobooks`) | forward auth `qbittorrent-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack, https://qbittorrent-audiobooks.holy-grail.ch. In `scripts/provision-audiobook-downloads-sso.py` |
+| SABnzbd (`sabnzbd-audiobooks`) | forward auth `sabnzbd-audiobooks-proxy` | `streaming-admins` | fastpi mouse stack, https://sabnzbd-audiobooks.holy-grail.ch. Same script |
 | Machines (`server-specs`) | forward auth `server-specs-proxy` | none: every logged-in user | specs.holy-grail.ch (Server-Specs). In `scripts/provision-specs-sso.py` (`REMOVE = True` takes it out again) |
 
 Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
@@ -470,6 +472,8 @@ cd Docker/Authentik && scp -q scripts/apply-sso-env.py beefy:/tmp/ \
 ```
 
 Then on beefy `~/Projects/Docker/Seerr/scripts/configure.sh` puts them into Seerr.
+
+fastpi audiobook downloaders (no secrets): `docker compose exec -T server ak shell < scripts/provision-audiobook-downloads-sso.py`, then `provision-media-groups.py`.
 
 Tracker (Ryot on beefy), written into beefy `Ryot/.env` + `Ryot/secrets/`, then on beefy `cd ~/Projects/Docker/Ryot && sudo docker compose up -d`:
 

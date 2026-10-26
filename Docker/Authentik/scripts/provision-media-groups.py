@@ -25,6 +25,9 @@ APP_GROUP = {
     "bazarr": "streaming-admins",
     "sabnzbd": "streaming-admins",
     "qbittorrent": "streaming-admins",
+    # fastpi audiobook downloaders (provision-audiobook-downloads-sso.py).
+    "qbittorrent-audiobooks": "streaming-admins",
+    "sabnzbd-audiobooks": "streaming-admins",
     # Image versions of every host: homelab inventory, not a media tool.
     "cup": "homelab-admins",
 }
