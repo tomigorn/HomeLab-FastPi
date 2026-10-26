@@ -39,6 +39,24 @@ def fetch_seerr(get, page_size=50):
             return out
 
 
+def title_from_activity(name):
+    """"Alice is playing Show - Ep on Chrome" -> "Show - Ep"; None when the format is unknown."""
+    if not name:
+        return None
+    for verb in (" is playing ", " has finished playing "):
+        if verb in name:
+            rest = name.split(verb, 1)[1]
+            return rest.rsplit(" on ", 1)[0] if " on " in rest else rest
+    return None
+
+
+def guess_kind(title):
+    """The activity log carries no item type. Jellyfin names an episode "Series - Title", a film just "Title"."""
+    if not title:
+        return "unknown"
+    return "episode" if " - " in title else "film"
+
+
 def fetch_jellyfin(get, now=None, page_size=100):
     now = now or datetime.now(timezone.utc)
     users = {u["Id"]: u["Name"] for u in get("/Users")}
@@ -60,11 +78,14 @@ def fetch_jellyfin(get, now=None, page_size=100):
 
     def close(start_e, seconds):
         it = info.get(start_e["ItemId"])
-        kind = {"Movie": "film", "Episode": "episode"}.get(it["Type"] if it else None, "other")
+        kind = {"Movie": "film", "Episode": "episode"}.get(it["Type"] if it else None)
+        guessed = kind is None
+        if guessed:
+            kind = guess_kind(title_from_activity(start_e.get("Name")))
         if it and it.get("RunTimeTicks"):
             seconds = min(seconds, it["RunTimeTicks"] // 10**7)
         plays.append({"user": users.get(start_e["UserId"], "unknown"), "kind": kind,
-                      "item": start_e["ItemId"], "seconds": int(seconds), "ts": start_e["Date"]})
+                      "item": start_e["ItemId"], "guessed": guessed, "seconds": int(seconds), "ts": start_e["Date"]})
 
     for e in entries:
         key = (e["UserId"], e["ItemId"])

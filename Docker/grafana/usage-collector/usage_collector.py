@@ -46,7 +46,7 @@ def beefy_lines(data):
 def abs_sessions(path):
     c = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
     try:
-        q = ("select coalesce(u.username,'unknown'), cast(s.timeListening as integer), s.createdAt "
+        q = ("select coalesce(u.username,'deleted user'), cast(s.timeListening as integer), s.createdAt "
              "from playbackSessions s left join users u on u.id=s.userId where s.timeListening > 0 order by s.createdAt")
         return [{"user": u, "seconds": sec, "ts": ts} for u, sec, ts in c.execute(q)]
     finally:
@@ -74,10 +74,10 @@ def save_kinds(path, kinds):
 
 
 def apply_kinds(plays, cache):
-    """An item deleted from Jellyfin later resolves to "other"; the remembered kind keeps old points in their series instead of duplicating them."""
+    """A kind guessed from the activity name is replaced by the real one remembered from when the item still existed, so a later deletion does not move old points."""
     for p in plays:
-        if p["kind"] == "other":
-            p["kind"] = cache.get(p.get("item"), "other")
+        if p.get("guessed"):
+            p["kind"] = cache.get(p["item"], p["kind"])
         else:
             cache[p["item"]] = p["kind"]
     return cache

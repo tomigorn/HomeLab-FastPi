@@ -40,8 +40,11 @@ class SeerrFetch(unittest.TestCase):
         self.assertEqual(bf.seerr_user({"id": 9}), "user9")
 
 
-def act(i, typ, user, item, date):
-    return {"Id": i, "Type": typ, "UserId": user, "ItemId": item, "Date": date}
+def act(i, typ, user, item, date, name=None):
+    e = {"Id": i, "Type": typ, "UserId": user, "ItemId": item, "Date": date}
+    if name:
+        e["Name"] = name
+    return e
 
 
 class JellyfinFetch(unittest.TestCase):
@@ -93,13 +96,26 @@ class JellyfinFetch(unittest.TestCase):
         plays = sorted(self.run_fetch(e), key=lambda p: p["ts"])
         self.assertEqual([p["seconds"] for p in plays], [0, 1200])
 
-    def test_deleted_item_is_other_and_audio_ignored(self):
-        e = [act(4, "VideoPlaybackStopped", "u1", "gone", "2026-10-25T20:10:00Z"),
-             act(3, "VideoPlayback", "u1", "gone", "2026-10-25T20:00:00Z"),
+    def test_deleted_item_classified_from_activity_name(self):
+        e = [act(8, "VideoPlaybackStopped", "u1", "g2", "2026-10-25T20:30:00Z", "Alice has finished playing Cat on a Hot Tin Roof on Chrome"),
+             act(7, "VideoPlayback", "u1", "g2", "2026-10-25T20:20:00Z", "Alice is playing Cat on a Hot Tin Roof on Chrome"),
+             act(6, "VideoPlaybackStopped", "u1", "g1", "2026-10-25T20:10:00Z", "Alice has finished playing Pioneer One - Earthfall on Chrome"),
+             act(5, "VideoPlayback", "u1", "g1", "2026-10-25T20:00:00Z", "Alice is playing Pioneer One - Earthfall on Chrome"),
+             act(4, "VideoPlaybackStopped", "u1", "g3", "2026-10-25T19:30:00Z"),
+             act(3, "VideoPlayback", "u1", "g3", "2026-10-25T19:20:00Z"),
              act(2, "AudioPlaybackStopped", "u1", "a1", "2026-10-25T19:10:00Z"),
              act(1, "AudioPlayback", "u1", "a1", "2026-10-25T19:00:00Z")]
-        plays = self.run_fetch(e)
-        self.assertEqual([(p["kind"], p["seconds"]) for p in plays], [("other", 600)])
+        plays = {p["item"]: p for p in self.run_fetch(e)}
+        self.assertEqual(set(plays), {"g1", "g2", "g3"})
+        self.assertEqual((plays["g1"]["kind"], plays["g1"]["seconds"], plays["g1"]["guessed"]), ("episode", 600, True))
+        self.assertEqual((plays["g2"]["kind"], plays["g2"]["guessed"]), ("film", True))
+        self.assertEqual(plays["g3"]["kind"], "unknown")
+
+    def test_known_item_is_not_guessed(self):
+        e = [act(2, "VideoPlaybackStopped", "u1", "m1", "2026-10-25T20:30:00Z", "Alice has finished playing A - B on Chrome"),
+             act(1, "VideoPlayback", "u1", "m1", "2026-10-25T20:00:00Z", "Alice is playing A - B on Chrome")]
+        p = self.run_fetch(e)[0]
+        self.assertEqual((p["kind"], p["guessed"]), ("film", False))
 
     def test_unknown_user(self):
         e = [act(2, "VideoPlaybackStopped", "zz", "m1", "2026-10-25T20:10:00Z"),
@@ -109,11 +125,11 @@ class JellyfinFetch(unittest.TestCase):
 
 class Kinds(unittest.TestCase):
     def test_cache_fills_deleted_items_and_learns_new_ones(self):
-        plays = [{"user": "a", "kind": "other", "item": "i1", "seconds": 1, "ts": "t"},
-                 {"user": "a", "kind": "film", "item": "i2", "seconds": 1, "ts": "t"},
-                 {"user": "a", "kind": "other", "item": "i3", "seconds": 1, "ts": "t"}]
+        plays = [{"user": "a", "kind": "film", "guessed": True, "item": "i1", "seconds": 1, "ts": "t"},
+                 {"user": "a", "kind": "film", "guessed": False, "item": "i2", "seconds": 1, "ts": "t"},
+                 {"user": "a", "kind": "episode", "guessed": True, "item": "i3", "seconds": 1, "ts": "t"}]
         cache = uc.apply_kinds(plays, {"i1": "episode"})
-        self.assertEqual([p["kind"] for p in plays], ["episode", "film", "other"])
+        self.assertEqual([p["kind"] for p in plays], ["episode", "film", "episode"])
         self.assertEqual(cache, {"i1": "episode", "i2": "film"})
 
     def test_cache_file_roundtrip_and_missing(self):
@@ -154,11 +170,12 @@ class Abs(unittest.TestCase):
             c.executemany("insert into playbackSessions values (?,?,?,?)", [
                 ("s1", "u1", 600.7, "2026-10-17 09:04:33.467 +00:00"),
                 ("s2", "gone", 5, "2026-10-17 10:00:00.000 +00:00"),
+                ("s4", None, 7, "2026-10-17 10:30:00.000 +00:00"),
                 ("s3", "u1", 0, "2026-10-17 11:00:00.000 +00:00")])
             c.commit()
             c.close()
             rows = uc.abs_sessions(p)
-            self.assertEqual([(r["user"], r["seconds"]) for r in rows], [("alezauron", 600), ("unknown", 5)])
+            self.assertEqual([(r["user"], r["seconds"]) for r in rows], [("alezauron", 600), ("deleted user", 5), ("deleted user", 7)])
             lines = uc.abs_lines(rows)
             self.assertEqual(lines[0], "abs_listen,user=alezauron sessions=1i,seconds=600i 1792227873467000000")
             self.assertNotIn("SECRET", str(rows))
