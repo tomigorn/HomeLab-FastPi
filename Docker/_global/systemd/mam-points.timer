@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily MyAnonamouse bonus-points check
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+
+[Timer]
+# low-power hours; 05:43 avoids the DST gap/repeat (02:00-03:00) and the 03:10-04:30 nightly jobs
+OnCalendar=*-*-* 05:43:00 Europe/Zurich
+# missed while off; a sent stage is remembered per epoch, so repeats are harmless
+Persistent=true
+
+[Install]
+WantedBy=timers.target

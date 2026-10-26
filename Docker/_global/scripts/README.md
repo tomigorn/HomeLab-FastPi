@@ -10,6 +10,7 @@
 | `update-project.sh`, `auto_update.py` | image updates |
 | `oob-alert.sh` | Telegram alert that bypasses the edge |
 | `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
+| `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
 
 ## host-input-guard
 - New host port needed by a container or the VPN: add it to the port lists in the script, `sudo ./host-input-guard.sh --persist`.
@@ -40,3 +41,19 @@
 | By hand | `systemctl start subscription-alerts.service` then `journalctl -u subscription-alerts -n 5`; `scripts/subscription-alerts.py --test` sends one 🧪 test message |
 | Renew | change `expires` in `Seerr/indexer-bar/limits.toml` on beefy and commit (next beefy-reachable run picks it up; to force: the command above) |
 | Test | `python3 scripts/test_subscription_alerts.py` |
+
+## mam-points
+| | |
+|---|---|
+| What | `mam-points.py` (CLI `mam-points` → `~/.local/bin`): estimates the MyAnonamouse bonus points from the last known balance + rate. **No call to MAM** (its rules forbid automating unlisted endpoints) |
+| Estimate | `min(99999, points + rate × hours since update)` |
+| Commands | `mam-points status` · `set 51655 [--rate 309.9]` (current balance) · `spent 25000` · `reset` (= set 0) · `rate 309.9` (new points/hour) · `check [--preview]` (timer; `--preview` sends one sample 🟡 with made-up points) |
+| Epoch | `set`, `spent`, `reset`, `rate` each start a new epoch; each alert once per epoch |
+| Alerts | 🟡 estimate ≥ 90,000 (days until the cap), 🔴 ≥ 99,999 (points wasted). Both crossed in one night: only 🔴. The message names the exact crossing time, so one check per night is enough |
+| Input | balance 0–99,999, spent > 0 and ≤ estimate, rate > 0; `51,655` accepted |
+| State | `/var/lib/mam-points/state.json` (owned by `pi`, created by the unit's `StateDirectory`) |
+| When | `mam-points.timer` daily 05:43 Europe/Zurich (low-power hours, outside the DST hour and the nightly jobs), catch-up if missed |
+| Metrics | `/var/lib/node-exporter/textfile/mam_points.prom`: `mam_points_estimated` (at the last write), `mam_points_rate_per_hour`, `mam_points_last_update_timestamp_seconds`. Estimate in Grafana: `last + rate × (time() - ts)/3600`, needs the raw balance, which is only in the state file |
+| Install | `sudo install -d -o pi -g pi /var/lib/mam-points && ln -sf $PWD/mam-points.py ~/.local/bin/mam-points && sudo install -m 0644 ../systemd/mam-points.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mam-points.timer` |
+| By hand | `systemctl start mam-points.service` then `journalctl -u mam-points -n 5` |
+| Test | `python3 scripts/test_mam_points.py` |
