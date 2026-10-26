@@ -39,6 +39,23 @@ The search box understands four prefixes. Only one per search.
 !!! example "Example"
     German-language comedies since 2015, score at least 7, on Netflix CH: Original language *German* · Genres *Comedy* · Release date from *2015* · TMDB user score *7–10*, minimum votes *200* · Streaming services *Netflix*.
 
+## Which version gets downloaded
+You don't need to choose anything: the server picks the best version automatically, in this order.
+
+| Order | What counts | Example |
+|---|---|---|
+| 1 | **Hard language tag** (if you set one under *Advanced*) | `audio-swiss-german`: without Swiss German nothing is downloaded |
+| 2 | **Resolution and source** | 4K Blu-ray › 4K web › 1080p |
+| 3 | **HDR** | 4K HDR beats 4K without HDR, whatever the languages |
+| 4 | **Languages** | original + English + German › original + English › original + German › original only |
+| 5 | **More languages** | with everything above equal, original + English + German + Spanish beats original + English + German |
+| 6 | Sound and release quality | Atmos, lossless audio, known good groups |
+
+A film that is already there is replaced by a better version until it has the original language with English (for English films: with German); after that it stays. German-only dubs are never downloaded.
+
+!!! note "Languages come from the release name"
+    The server only knows the languages written in a release's name (e.g. *German.DL* = German + original). A release that only says *MULTi* counts as original only until it has been downloaded.
+
 ## Advanced options
 In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default.
 
