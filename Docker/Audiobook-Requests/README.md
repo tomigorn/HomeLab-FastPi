@@ -3,43 +3,49 @@
 Request audiobooks (AudioBookRequest), find them on MyAnonamouse (Prowlarr in `mouse`), copy finished downloads into Audiobookshelf.
 
 - **URL:** https://books.holy-grail.ch (public via the Cloudflare tunnel like Seerr, Holy Grail forward auth + ABR OIDC login, group `streaming-requesters`); navbar link "Movies / Series" → Seerr
-- **Roles:** `streaming-admins` = ABR admin (requests download at once, approves others); everyone else = untrusted (an admin approves each request)
+- **Roles:** `streaming-admins` = ABR admin, `streaming-requesters` = trusted: every request downloads at once (owner 2026-10-26)
+- **Limit:** 5 books per rolling 7 days per person, admins too; the 6th shows ABR's error toast "Limit reached" (API: HTTP 429)
 
 ## Flow
 
 ```
-ABR (audiobookrequest, .4) ── search ──► importer /prowlarr (release policy) ──► prowlarr_mouse (gluetun netns) ──► MAM
+Traefik ──► books-proxy (nginx, .6: Seerr link, request limit via importer /quota) ──► ABR (audiobookrequest, .4)
+ABR ── search ──► importer /prowlarr (release policy) ──► prowlarr-gate :9697 ──► prowlarr_mouse 127.0.0.1:9696 (gluetun netns) ──► MAM
 ABR grab ──► Prowlarr ──► qbittorrent_mouse, category abr (/downloads/complete, keeps seeding)
 ABR webhook onSuccessfulDownload ──► importer /abr (hash, ASIN, title, authors, release title)
-importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - Title ──► M4b-Auto-Merge (multi-file) ──► ABS scan ──► ABS Audible match (details, cover, authors + image)
+importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - Title ──► M4b-Auto-Merge (several MP3 or M4B parts → one chaptered M4B) ──► ABS scan ──► ABS Audible match (details, cover, authors + image)
 ```
 
 | Container | uid | Network | Job |
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
 | `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`) |
+| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints |
 
-## Release policy (`importer/ranking.py`)
+## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
 
-ABR has no language, abridged or "newer" setting and ranks FLAC above M4B, so its Prowlarr URL points at the importer's pass-through, which filters and tags the search results.
+ABR has no language, abridged or VIP setting and ranks FLAC above M4B itself, so its Prowlarr URL is the importer's pass-through, which filters, ranks and hands ABR **only the winner** (ABR grabs its first result).
 
-| Order | Rule |
+| | Rule |
 |---|---|
-| 1 | min 1 seeder |
-| 2 | language of the requested Audible edition (default EN); other languages only when none matches |
-| 3 | unabridged edition requested → abridged releases dropped |
-| 4 | M4B first (FLAC dropped when an M4B exists, then MP3) |
-| 5 | newest upload first: flags `abr-newest-1..5` scored 50..10 in ABR (Settings → Download) |
+| filter | requested language only (default EN), no fallback: nothing matches = nothing downloads, the request stays open |
+| filter | at least 1 seeder |
+| 1 | requested abridgement first (unabridged by default; abridged only when no unabridged release exists) |
+| 2 | M4B before FLAC / MP3 |
+| 3 | VIP / freeleech before normal |
+| 4 | newest upload |
 
-Per request: the language and abridged choice come from the edition picked in ABR. German book = search with region `de` (ABR search page) and pick the German edition.
+Per request: language and abridged come from the Audible edition picked in ABR (German book = region `de` on the search page, German edition).
+
+Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is not free for us already (freeleech, personal freeleech, VIP-free for a VIP user: skipped, no wedge). If a wedge grab fails (e.g. none left), the pass-through switches the wedge off for one retry as a normal download and back on. ABR's second `.torrent` fetch (for the hash) is answered from qBittorrent (`/torrent` → `torrents/export`), so a grab never hits MAM twice.
 
 ## Library naming (`importer/naming.py`)
 
-`EN|DE|Other / First author / [Series without "Series"] / NN - Title`, from the Audible product (title, first author, series + position, language), fallback ABR webhook + MAM language flag. Files keep their download names (library convention). An existing folder is never overwritten (`exists` in the job list).
+`EN|DE|Other / First author / [Series without "Series"] / NN - Title`, from the Audible product (title, first author, series + position, language), fallback ABR webhook + MAM language flag. Files keep their download names (library convention, owner 2026-10-26); parts in subfolders are flattened as `CD1 - 01.mp3` because the merger works per folder. An existing folder is never overwritten (`exists` in the job list). Several audio files (MP3 or M4B parts) = `merge-wait` until M4b-Auto-Merge leaves one `.m4b`; only then the scan and match.
 
 ## Metadata (ABS)
 
-After the copy the importer scans the language library, then `POST /api/items/<id>/match` (Audible of the request's region, by ASIN: details, cover, narrators, series, genres) and matches every author (description + picture; when the first Audible author ASIN has no picture it tries the other ASINs of the same name). Once per job (`matched` in `data/jobs.json`).
+After the copy (and the merge) the importer scans the language library, then `POST /api/items/<id>/match` (Audible of the request's region, by ASIN: details, cover, narrators, series, genres) and matches every author (description + picture; when the first Audible author ASIN has no picture it tries the other ASINs of the same name). Once per job (`matched` in `data/jobs.json`).
 
 Caveat: the match uses the requested Audible edition; the MAM upload can be another edition (other narrator/year).
 
@@ -50,8 +56,7 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | Authentik apps | `Docker/Authentik/scripts/provision-books-sso.py` (README there) → `secrets/abr_oidc_client.json` |
 | Prowlarr | `sudo python3 Docker/mouse/scripts/prowlarr-setup.py` |
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
-| Navbar link to Seerr | `bash scripts/build-overlay.sh` after every ABR image bump (overlay of the image's own `BaseLayout.jinja`, GPL-3.0) |
-| Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel |
+| Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link, search; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel; `QUOTA_ASINS="6 ASINs"` also checks the limit (switch auto-download off first, delete the canary's requests after) |
 | Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer` |
 
 ## Secrets (`secrets/`, 0400)
@@ -77,4 +82,4 @@ ABS API key (by hand): Audiobookshelf → Settings → API Keys → Add API Key,
 
 ## MAM rules
 
-Searches only on a request (no RSS), session `mam_prowlarr_id` only in Prowlarr, wedges never used, whole torrents only, copies keep seeding (72 h). ABR re-downloads the `.torrent` once per grab to read its hash (`download.php`, a listed endpoint).
+Searches only on a request (no RSS), session `mam_prowlarr_id` only in Prowlarr, wedges on non-free grabs (never gift / sendWedge / Vault / bonus buys), whole torrents only. Seeding: copies keep the torrent seeding forever; qBittorrent has no global and no `abr` share limit (`prowlarr-setup.py --check` asserts it), nothing is ever stopped or removed for ratio. Prowlarr's hourly `/jsonLoad.php` (VIP check) is owner-approved (2026-10-26).

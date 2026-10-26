@@ -5,7 +5,7 @@ services:
 # #########################################################
 # AudioBookRequest ########################################
 # #########################################################
-  # Request UI: https://books.holy-grail.ch (LAN/VPN, Holy Grail forward auth + OIDC login, group streaming-requesters).
+  # Request UI: https://books.holy-grail.ch (public, Holy Grail forward auth + OIDC login, group streaming-requesters), behind books-proxy.
   # Searches through prowlarr_mouse (Docker/mouse, gluetun netns) over traefik_mouse; Prowlarr sends grabs to qbittorrent_mouse, category abr.
   abr:
     image: markbeep/audiobookrequest:1.10.8@sha256:f039f88c6e08cec72038685991a26696d3c57d4acc1b319d6cc9f9ddb1e1dda1
@@ -21,7 +21,7 @@ services:
     tmpfs:
       - /tmp
     # The root user (backup login /login?backup=1, shell recovery) is created once from this secret.
-    entrypoint: ["/bin/sh", "-c", "export ABR_APP__INIT_ROOT_PASSWORD=\"$$(cat /run/secrets/abr_root_password)\"; /app/.venv/bin/alembic upgrade heads && exec /app/.venv/bin/fastapi run --port 8000 --proxy-headers --forwarded-allow-ips=10.24.25.3"]
+    entrypoint: ["/bin/sh", "-c", "export ABR_APP__INIT_ROOT_PASSWORD=\"$$(cat /run/secrets/abr_root_password)\"; /app/.venv/bin/alembic upgrade heads && exec /app/.venv/bin/fastapi run --port 8000 --proxy-headers --forwarded-allow-ips=10.24.25.6"]
     environment:
       - TZ=Europe/Zurich
       - PYTHONDONTWRITEBYTECODE=1
@@ -34,8 +34,6 @@ services:
       - abr_root_password
     volumes:
       - ./config:/config
-      # Navbar + "Movies / Series" link to Seerr, built from this image by scripts/build-overlay.sh (rerun after a bump).
-      - ./overlay/BaseLayout.jinja:/app/templates/layouts/BaseLayout.jinja:ro
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/static/site.webmanifest',timeout=5)"]
       interval: 60s
@@ -51,6 +49,43 @@ services:
       egress:
       traefik_mouse:
         ipv4_address: 10.24.25.4
+
+# #########################################################
+# Books-Proxy #############################################
+# #########################################################
+  # Traefik -> books-proxy -> ABR: adds the "Movies / Series" link (books-proxy/www/links.js, survives ABR updates)
+  # and refuses a 6th request in 7 days (importer /quota) before ABR sees it. books-proxy/nginx.conf.
+  books-proxy:
+    image: nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
+    container_name: books-proxy
+    user: "65058:65058"
+    mem_limit: 32m
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    tmpfs:
+      - /tmp:uid=65058,gid=65058,mode=0700,size=16m
+    volumes:
+      - ./books-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./books-proxy/www:/srv/www:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/_hg/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      traefik_mouse:
+        ipv4_address: 10.24.25.6
 
 # #########################################################
 # Audiobook-Importer ######################################
@@ -80,7 +115,7 @@ services:
       - ABS_URL=https://audiobookshelf.holy-grail.ch
       - LIBRARY=/library
       # Release policy pass-through for ABR (/prowlarr/...), reads ABR's requests to know language and abridged per book.
-      - PROWLARR_URL=http://10.24.25.2:9696
+      - PROWLARR_URL=http://10.24.25.2:9697
       - ABR_URL=http://audiobookrequest:8000
       - ABR_KEY_FILE=/run/secrets/abr_api_key
     secrets:
@@ -142,7 +177,7 @@ networks:
     ipam:
       config:
         - subnet: 10.24.26.0/28
-  # Traefik .3, gluetun_mouse .2 (Prowlarr :9696, qBittorrent :8080), ABR .4, importer .5. Internal, created by hand (Traefik README).
+  # Traefik .3, gluetun_mouse .2 (prowlarr-gate :9697, qBittorrent :8080), ABR .4, importer .5, books-proxy .6. Internal, created by hand (Traefik README).
   traefik_mouse:
     external: true
 

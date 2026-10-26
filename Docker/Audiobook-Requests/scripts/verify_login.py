@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-# Real canary login (password + TOTP) through Holy Grail, then ABR's own OIDC login; exit 0 only if ABR shows a logged-in page. Run via verify-login.sh.
+# Real canary login (password + TOTP) through Holy Grail, then ABR's own OIDC login; exit 0 only if ABR shows a logged-in page with the Seerr link script. Run via verify-login.sh.
+# QUOTA_ASINS="a1 a2 ... a6": also request those books as the canary (auto-download must be off) and expect the 6th to be refused.
 import os
 import socket
+import urllib.request
 import subprocess
 import sys
 
@@ -45,11 +47,34 @@ def open_abr(opener, url, expect):
     except Exception as e:  # noqa: BLE001
         print(f"APP_FAIL: {e}")
         return 1
-    missing = [t for t in (expect, "Movies / Series") if t not in body]
-    if not missing:
-        print(f"APP_OK: {final} is logged in, navbar has the Seerr link")
-        return 0
-    print(f"APP_FAIL: {final} lacks {missing}")
+    base = url.rstrip("/")
+    try:
+        with opener.open(base + "/_hg/links.js", timeout=30) as r:
+            script = r.read().decode(errors="replace")
+        with opener.open(base + "/search?q=yellow+wallpaper", timeout=60) as r:
+            search = r.read().decode(errors="replace")
+    except Exception as e:  # noqa: BLE001
+        print(f"APP_FAIL: {e}")
+        return 1
+    checks = {"logged in": expect in body, "link script on page": "/_hg/links.js" in body,
+              "link script": "Movies / Series" in script, "search works": "Yellow Wallpaper" in search}
+    print("APP_CHECKS:", checks)
+    if not all(checks.values()):
+        print(f"APP_FAIL: {final}")
+        return 1
+    print(f"APP_OK: {final} logged in, Seerr link injected, search works")
+    asins = os.environ.get("QUOTA_ASINS", "").split()
+    for n, asin in enumerate(asins, 1):
+        req = urllib.request.Request(f"{base}/request/hx-add/{asin}", data=b"", method="POST")
+        with opener.open(req, timeout=60) as r:
+            refused = "Limit reached" in r.read().decode(errors="replace")
+        print(f"QUOTA request {n}: {'refused' if refused else 'accepted'}")
+        if refused != (n > 5):
+            print("QUOTA_FAIL")
+            return 1
+    if asins:
+        print("QUOTA_OK: 5 accepted, the 6th refused")
+    return 0
     return 1
 
 

@@ -16,7 +16,7 @@ ABR = "http://10.24.25.4:8000"
 HERE = Path(__file__).resolve().parent.parent
 SECRETS = HERE / "secrets"
 PROWLARR_XML = Path("/mnt/seagate-red/prowlarr/config/config.xml")
-PROWLARR_URL = "http://10.24.25.2:9696"
+PROWLARR_URL = "http://10.24.25.2:9697"
 # ABR searches through the importer's pass-through, which applies the release policy (importer/ranking.py).
 POLICY_URL = "http://audiobook-importer:8000/prowlarr"
 NEWEST_SCORES = {f"abr-newest-{i}": 60 - 10 * i for i in range(1, 6)}
