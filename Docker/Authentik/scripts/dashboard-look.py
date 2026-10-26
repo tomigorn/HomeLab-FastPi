@@ -39,6 +39,8 @@ APPS = {
     "bazarr":            ("Downloads · Beefy", "Subtitles" + BEEFY, None),
     "vpn-status-beefy":  ("Downloads · Beefy", "Torrent VPN & port (films)" + BEEFY, None),
     "vpn-status-mouse":  ("Downloads · FastPi", "Torrent VPN & port (audiobooks)", None),
+    "qbittorrent-audiobooks": ("Downloads · FastPi", "Torrent downloader (audiobooks)", None),
+    "sabnzbd-audiobooks": ("Downloads · FastPi", "Usenet downloader (audiobooks)", None),
     "grafana":           ("Homelab", "Dashboards & metrics", None),
     "portainer":         ("Homelab", "Docker management", None),
     "adguard":           ("Homelab", "DNS & ad blocking", None),
