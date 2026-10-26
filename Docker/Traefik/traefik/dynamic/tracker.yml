@@ -46,6 +46,7 @@ http:
 
     # 403 for features that must stay off (Floppy README "Security"): unknown methods; shared Item
     # edits (#3); TMDB proxy (#4); comics (#5); server-URL integrations (#1); password login (#10).
+    # Open: GET of ABS cover art (signed token, image only, fetched from the user's own linked ABS); ABS is linked on beefy by scripts/audiobookshelf-link.sh, not in the UI.
     tracker-blocked:
       rule: >-
         Host(`tracker.holy-grail.ch`) && (
@@ -53,7 +54,7 @@ http:
         || PathPrefix(`/details/image/`) || PathPrefix(`/details/metadata/`)
         || PathPrefix(`/update_tmdb_proxy`)
         || PathRegexp(`^/([^/]+/){1,3}(comic|comicissue|comicvine|gcd)(/|$)`)
-        || PathRegexp(`^/import/(audiobookshelf|kavita|komga|radarr|sonarr|mylar|kapowarr|storyteller|koreader|plex|koito|gpodder)(/|$)`)
+        || (PathRegexp(`^/import/(audiobookshelf|kavita|komga|radarr|sonarr|mylar|kapowarr|storyteller|koreader|plex|koito|gpodder)(/|$)`) && !(Method(`GET`) && PathRegexp(`^/import/audiobookshelf/cover/[A-Za-z0-9_=:-]+$`)))
         || PathPrefix(`/jellyfin/`) || PathPrefix(`/seerr/`) || PathPrefix(`/settings/integrations/jellyseerr/`)
         || (Method(`POST`) && Path(`/accounts/login/`)) || PathPrefix(`/accounts/signup/`) || PathPrefix(`/accounts/password/`)
         )
