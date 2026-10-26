@@ -37,6 +37,12 @@ Per request: the language and abridged choice come from the edition picked in AB
 
 `EN|DE|Other / First author / [Series without "Series"] / NN - Title`, from the Audible product (title, first author, series + position, language), fallback ABR webhook + MAM language flag. Files keep their download names (library convention). An existing folder is never overwritten (`exists` in the job list).
 
+## Metadata (ABS)
+
+After the copy the importer scans the language library, then `POST /api/items/<id>/match` (Audible of the request's region, by ASIN: details, cover, narrators, series, genres) and matches every author (description + picture; when the first Audible author ASIN has no picture it tries the other ASINs of the same name). Once per job (`matched` in `data/jobs.json`).
+
+Caveat: the match uses the requested Audible edition; the MAM upload can be another edition (other narrator/year).
+
 ## Setup (config as code)
 
 | Step | Command |
