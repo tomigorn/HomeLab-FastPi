@@ -86,7 +86,7 @@ check "adguard anon refused (401)" '^40[13]$' "$(http http://192.168.1.2:3000/co
 # qBittorrent/VPN status pages (homelab-admins). port_updater keeps its Basic login, Authentik injects it.
 for a in vpn-status-beefy vpn-status-mouse; do check "$a -> sso"   'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve $a.holy-grail.ch:443:192.168.1.2 https://$a.holy-grail.ch/ | cut -c1-60)"; done
 # fastpi audiobook downloaders (streaming-admins), Traefik over traefik_mouse.
-for a in qbittorrent-audiobooks sabnzbd-audiobooks; do check "$a -> sso"   'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve $a.holy-grail.ch:443:192.168.1.2 https://$a.holy-grail.ch/ | cut -c1-60)"; done
+for a in qbittorrent-audiobooks sabnzbd-audiobooks prowlarr-audiobooks books; do check "$a -> sso"   'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve $a.holy-grail.ch:443:192.168.1.2 https://$a.holy-grail.ch/ | cut -c1-60)"; done
 check "port_updater anon refused (401)" '^401$' "$(http http://127.0.0.1:8087/)"
 check "adguard local zone"         '^192\.168\.1\.2$' "$(dig +short @192.168.1.2 sso.holy-grail.ch | head -1)"
 
@@ -106,7 +106,9 @@ check "containers expected but down" '^0$' "$(curl -s -m 5 -G --data-urlencode '
 check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]}; w={"ContainerDown","ContainerCrashLooping","ContainerUnhealthy","ContainerExporterStale","HostRebooted","HostRebootedUnclean"}; print("ok" if w<=n else "missing " + " ".join(sorted(w-n)))')"
 
 echo "== Apps on fastpi"
-running adguardhome portainer audiobookshelf homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+running adguardhome portainer audiobookshelf prowlarr_mouse audiobookrequest audiobook-importer homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+check "prowlarr MAM rules (no fl, active, EN+DE)" '^OK MAM rules hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
+check "importer health"            '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
 check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
 check "clamav-hostscan timer active" '^active$' "$(systemctl is-active clamav-hostscan.timer)"
 if [[ -f /var/lib/node-exporter/textfile/clamav.prom ]]; then
