@@ -1,6 +1,6 @@
 # Prowlarr on beefy, behind Authentik SSO.
 #
-# https://prowlarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+# https://prowlarr.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
 # Same as Radarr: Settings -> General -> Security -> Authentication = External.
 # Prowlarr pushes indexer definitions to Radarr over beefy's Docker network, so

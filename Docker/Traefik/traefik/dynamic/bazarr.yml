@@ -1,6 +1,6 @@
 # Bazarr on beefy, behind Authentik SSO.
 #
-# https://bazarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+# https://bazarr.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
 # Bazarr: Settings -> General -> Security -> Authentication = None, and let this
 # gate be the only login. Bazarr talks to Radarr over beefy's Docker network.

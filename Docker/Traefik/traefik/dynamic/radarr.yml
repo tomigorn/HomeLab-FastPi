@@ -1,6 +1,6 @@
 # Radarr on beefy, behind Authentik SSO.
 #
-# https://radarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+# https://radarr.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
 # Radarr's own login is DISABLED in favour of this gate: set
 #   Settings -> General -> Security -> Authentication = External

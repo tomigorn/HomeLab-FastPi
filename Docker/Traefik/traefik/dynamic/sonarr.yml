@@ -1,6 +1,6 @@
 # Sonarr on beefy, behind Authentik SSO.
 #
-# https://sonarr.holy-grail.ch/   (public via the Cloudflare tunnel)
+# https://sonarr.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
 # Same shape as radarr.yml: Sonarr's own login is set to "External" (Settings ->
 # General -> Security -> Authentication), this gate is the login. Its API is

@@ -1,6 +1,6 @@
 # SABnzbd on beefy, behind Authentik SSO.
 #
-# https://sabnzbd.holy-grail.ch/   (public via the Cloudflare tunnel)
+# https://sabnzbd.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
 # SABnzbd: Config -> General -> Security -> leave username/password EMPTY and let
 # this gate be the login. Its API key is separate and keeps working for Radarr,

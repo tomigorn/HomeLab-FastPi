@@ -1,6 +1,6 @@
 # qBittorrent on beefy, behind Authentik SSO.
 #
-# https://qbittorrent.holy-grail.ch/   (public via the Cloudflare tunnel)
+# https://qbittorrent.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
 # qBittorrent keeps its own login ENABLED but bypassed for the proxy:
 #   Options -> WebUI -> "Bypass authentication for clients in whitelisted IP
