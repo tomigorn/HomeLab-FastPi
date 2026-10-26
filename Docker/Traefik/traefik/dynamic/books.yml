@@ -1,0 +1,51 @@
+# AudioBookRequest (Docker/Audiobook-Requests, container audiobookrequest), behind Authentik SSO + its own OIDC login.
+#
+# https://books.holy-grail.ch/   (LAN/VPN only, no public DNS record)
+#
+# Traefik reaches ABR (10.24.25.4) over traefik_mouse; ABR trusts X-Forwarded-* only from 10.24.25.3.
+# Forward auth (app books, streaming-requesters) is the outer gate; inside, ABR logs in over OIDC (app books-login).
+http:
+  routers:
+    # Outpost callback path: no app middlewares, higher priority than the catch-all router below.
+    books-outpost:
+      rule: "Host(`books.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+    books:
+      rule: "Host(`books.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: books
+      middlewares:
+        - local-networks@file
+        - authentik@file
+        - default-rate-limit@file
+        - books-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    books-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    books:
+      loadBalancer:
+        servers:
+          - url: "http://10.24.25.4:8000"
+        passHostHeader: true

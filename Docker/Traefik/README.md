@@ -37,7 +37,7 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 
 ## Networks (H-2, 2026-10-25)
 
-Public apps and crown jewels have their own network, shared only with Traefik (`traefik_<app>`, defined in `docker-compose.yaml`, Traefik `.3` on each). Traefik's default route and published ports stay on `traefik_proxy` (`gw_priority`, 172.24.255.3). Pinned: Authentik trusts `10.24.15.3`, Portainer `10.24.7.7`, VPN NAT `10.24.5.5`. Full list: `../_global/docs/container-hardening.md`. `traefik_mouse` (10.24.25.0/28, gluetun_mouse `.2`) is created by hand, not by this compose. Other apps are still on `traefik_proxy`.
+Public apps and crown jewels have their own network, shared only with Traefik (`traefik_<app>`, defined in `docker-compose.yaml`, Traefik `.3` on each). Traefik's default route and published ports stay on `traefik_proxy` (`gw_priority`, 172.24.255.3). Pinned: Authentik trusts `10.24.15.3`, Portainer `10.24.7.7`, VPN NAT `10.24.5.5`. Full list: `../_global/docs/container-hardening.md`. `traefik_mouse` (10.24.25.0/28, gluetun_mouse `.2`, ABR `.4`, importer `.5`) is created by hand, not by this compose. Other apps are still on `traefik_proxy`.
 
 `langtool` exists so the external `:443` forward can point at it instead of the
 shared `websecure` entrypoint. `lang-tool.ddns.net` is a direct-ingress service
@@ -80,6 +80,10 @@ Over `traefik_mouse` to `gluetun_mouse` (`10.24.25.2`). LAN + VPN only (`local-n
 | `qbittorrent-audiobooks` | `:8080` qbittorrent_mouse | `streaming-admins` | bypassed for `10.24.25.3/32`, Referer stripped |
 | `sabnzbd-audiobooks` | `:8081` sabnzbd | `streaming-admins` | none; `local_ranges` + `host_whitelist` in `sabnzbd.ini` |
 | `vpn-status-mouse` | `port-updater:8087` | `homelab-admins` | Basic, injected by Authentik |
+| `prowlarr-audiobooks` | `:9696` prowlarr_mouse | `streaming-admins` | External (Holy Grail only) |
+| `books` | ABR `10.24.25.4:8000` (Docker/Audiobook-Requests) | `streaming-requesters` | ABR OIDC (`books-login`), trusts X-Forwarded-* from `10.24.25.3` only |
+
+`traefik_mouse` members: gluetun_mouse `.2`, Traefik `.3`, audiobookrequest `.4`, audiobook-importer `.5` (ABR and the importer reach Prowlarr `:9696` and qBittorrent `:8080` here; the importer logs in to qBittorrent, only `.3` is bypassed).
 
 ## Client IPs
 

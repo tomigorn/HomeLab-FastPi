@@ -1,0 +1,36 @@
+# Prowlarr of fastpi's mouse stack (audiobooks: MyAnonamouse for AudioBookRequest, container prowlarr_mouse in gluetun_mouse), behind Authentik SSO.
+#
+# https://prowlarr-audiobooks.holy-grail.ch/   (LAN/VPN only, no public DNS record)
+#
+# Traefik reaches gluetun_mouse (10.24.25.2) over traefik_mouse. Prowlarr's own auth is External: Holy Grail is the login.
+http:
+  routers:
+    # Outpost callback path: no app middlewares, higher priority than the catch-all router below.
+    prowlarr-audiobooks-outpost:
+      rule: "Host(`prowlarr-audiobooks.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      middlewares:
+        - local-networks@file
+      tls:
+        certResolver: cloudflare
+
+    prowlarr-audiobooks:
+      rule: "Host(`prowlarr-audiobooks.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: prowlarr-audiobooks
+      middlewares:
+        - local-networks@file
+        - authentik@file
+        - prowlarr-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  services:
+    prowlarr-audiobooks:
+      loadBalancer:
+        servers:
+          - url: "http://10.24.25.2:9696"
+        passHostHeader: true
