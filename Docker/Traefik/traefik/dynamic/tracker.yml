@@ -7,9 +7,14 @@
 # "Sign in with Holy Grail" (OIDC app `tracker-login`), which creates/opens the
 # per-user Floppy account.
 #
-# Token URLs are refused: Floppy's webhook, calendar, Stremio and ListenBrainz
-# URLs carry the user's token, which is also a full-access API key. None of them
-# gets a forward-auth bypass, and they are blocked outright (tracker-token-urls).
+# Allow-list: the catch-all router only matches the URL prefixes the web UI uses
+# (Floppy 26.10.22). Anything else (REST API, OAuth device server, health, new
+# upstream features) has no router and gets Traefik's 404. After a Floppy update,
+# compare the prefixes with HomeLab-Beefy Docker/Floppy README "Edge allow-list".
+#
+# Blocked on top (403, review findings in that README): token URLs, shared
+# metadata edits, the instance-wide TMDB proxy, comics (XSS sink), integrations
+# that fetch a user-given server URL (SSRF), local password login.
 #
 # Wake: like requests.yml, authentik runs BEFORE tracker-wake, so only a signed-in
 # user boots beefy.
@@ -25,11 +30,35 @@ http:
       tls:
         certResolver: cloudflare
 
-    # 403 for everyone, before any other router: these paths authenticate by a token in the URL.
+    # 403 for everyone, before any other router: these paths authenticate by a token in the URL
+    # (also a full-access API key) or are the token API. Not written to the access log, so a token never lands on disk.
     tracker-token-urls:
-      rule: "Host(`tracker.holy-grail.ch`) && (PathPrefix(`/webhook/`) || PathPrefix(`/stremio-addon/`) || PathPrefix(`/apis/listenbrainz/`) || PathPrefix(`/calendar/download/`))"
+      rule: "Host(`tracker.holy-grail.ch`) && (PathPrefix(`/webhook/`) || PathPrefix(`/stremio-addon/`) || PathPrefix(`/apis/`) || PathPrefix(`/calendar/download/`) || PathPrefix(`/rss/`) || (PathPrefix(`/api/`) && !PathPrefix(`/api/cache-status/`)))"
       entryPoints: ["websecure"]
       priority: 30
+      service: tracker
+      middlewares:
+        - tracker-deny
+      observability:
+        accessLogs: false
+      tls:
+        certResolver: cloudflare
+
+    # 403 for features that must stay off (Floppy README "Security"): unknown methods; shared Item
+    # edits (#3); TMDB proxy (#4); comics (#5); server-URL integrations (#1); password login (#10).
+    tracker-blocked:
+      rule: >-
+        Host(`tracker.holy-grail.ch`) && (
+        (!Method(`GET`) && !Method(`HEAD`) && !Method(`POST`) && !Method(`DELETE`))
+        || PathPrefix(`/details/image/`) || PathPrefix(`/details/metadata/`)
+        || PathPrefix(`/update_tmdb_proxy`)
+        || PathRegexp(`^/([^/]+/){1,3}(comic|comicissue|comicvine|gcd)(/|$)`)
+        || PathRegexp(`^/import/(audiobookshelf|kavita|komga|radarr|sonarr|mylar|kapowarr|storyteller|koreader|plex|koito|gpodder)(/|$)`)
+        || PathPrefix(`/jellyfin/`) || PathPrefix(`/seerr/`) || PathPrefix(`/settings/integrations/jellyseerr/`)
+        || (Method(`POST`) && Path(`/accounts/login/`)) || PathPrefix(`/accounts/signup/`) || PathPrefix(`/accounts/password/`)
+        )
+      entryPoints: ["websecure"]
+      priority: 29
       service: tracker
       middlewares:
         - tracker-deny
@@ -63,8 +92,26 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Search and autocomplete call the metadata providers with the instance API keys: tighter per-user limit.
+    tracker-search:
+      rule: "Host(`tracker.holy-grail.ch`) && PathRegexp(`^/search(/|$)`)"
+      entryPoints: ["websecure"]
+      priority: 5
+      service: tracker
+      middlewares:
+        - authentik@file
+        - tracker-wake
+        - tracker-search-rate-limit
+        - tracker-body-limit
+        - tracker-secure-headers
+      tls:
+        certResolver: cloudflare
+
+    # Catch-all of the allow-list: the root page plus the first path segments of the web UI's URL map.
     tracker:
-      rule: "Host(`tracker.holy-grail.ch`)"
+      rule: >-
+        Host(`tracker.holy-grail.ch`) && (Path(`/`) || Path(`/serviceworker.js`) || PathPrefix(`/api/cache-status/`)
+        || PathRegexp(`^/(accounts|bulk|bulk_delete_by_import_source|bulk_delete_by_media_type|calendar|cancel_import_run|cancel_pending_import|checkin|clear_all_caches|clear_discover_cache|clear_history_cache|clear_search_cache|clear_statistics_cache|collection|create|create_export_schedule|delete_export_schedule|delete_import_schedule|details|discover|episode_bulk_save|episode_drop|episode_save|episodes|export|history|history_modal|home|image-cache|import|jsi18n|library|list|list_item_toggle|lists|lists_modal|matches|media|media_delete|media_rewatch|media_save|medialist|music|notifications|person|podcast|progress|progress_edit|providers|regenerate_token|reload_calendar|retry|rollback_import_run|saved-views|select2|settings|setup|static|statistics|studio|sync|tag_bulk_toggle|tag_create|tag_delete|tag_item_toggle|tags|tags_modal|test_notification|tmdb|track_modal|tv|update-episode-score|update-score|update_group_scrobbled_anime|user|wetrakr)(/|$)`))
       entryPoints: ["websecure"]
       priority: 1
       service: tracker
@@ -72,6 +119,7 @@ http:
         - authentik@file
         - tracker-wake
         - default-rate-limit@file
+        - tracker-body-limit
         - tracker-secure-headers
       tls:
         certResolver: cloudflare
@@ -99,6 +147,24 @@ http:
         regex: "^https://tracker\\.holy-grail\\.ch/go/tmdb/show/([0-9]+)([?].*)?$"
         replacement: "https://tracker.holy-grail.ch/details/tmdb/tv/${1}/item"
 
+    # Per real client (X-Forwarded-For from real-ip@file), like default-rate-limit.
+    tracker-search-rate-limit:
+      rateLimit:
+        average: 3
+        burst: 30
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+            ipv6Subnet: 64
+
+    # Floppy's nginx takes 512 MB; the largest real upload is an import CSV/JSON.
+    tracker-body-limit:
+      buffering:
+        maxRequestBodyBytes: 67108864
+        memRequestBodyBytes: 2097152
+
+    # CSP fits Floppy's UI: own scripts only, but inline + eval (Alpine.js, inline handlers); images from Floppy (image cache) and
+    # its approved artwork hosts (app/image_cache.py), so a user-set image URL cannot track viewers; fetch/XHR only to Floppy.
     tracker-secure-headers:
       headers:
         stsSeconds: 31536000
@@ -107,9 +173,26 @@ http:
         contentTypeNosniff: true
         referrerPolicy: "strict-origin-when-cross-origin"
         frameDeny: true
-        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        # camera: the ISBN barcode scanner.
+        permissionsPolicy: "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=()"
+        contentSecurityPolicy: >-
+          default-src 'self';
+          script-src 'self' 'unsafe-inline' 'unsafe-eval';
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' data: blob: https://image.tmdb.org https://artworks.thetvdb.com https://cdn.myanimelist.net https://images.igdb.com https://covers.openlibrary.org https://assets.hardcover.app https://cf.geekdo-images.com https://coverartarchive.org https://*.coverartarchive.org https://*.archive.org https://upload.wikimedia.org https://static.pocketcasts.com https://media.kitsu.app https://s4.anilist.co https://cdn.cloudflare.steamstatic.com https://cdn2.steamgriddb.com https://cdn.thegamesdb.net https://thumbnails.libretro.com https://i.ytimg.com https://img.youtube.com https://*.mzstatic.com https://*.mangabaka.org https://*.screenscraper.fr;
+          font-src 'self' data:;
+          connect-src 'self';
+          media-src 'self' blob:;
+          frame-src https://www.youtube.com https://www.youtube-nocookie.com;
+          worker-src 'self';
+          manifest-src 'self';
+          object-src 'none';
+          base-uri 'self';
+          form-action 'self' https:;
+          frame-ancestors 'none'
         customResponseHeaders:
           Server: ""
+          Cross-Origin-Opener-Policy: "same-origin"
 
   services:
     tracker:

@@ -66,10 +66,22 @@ Forward auth first (`authentik@file`), then the wake gate `http://192.168.1.2:90
 
 | Host | Backend | Reach | Group |
 |---|---|---|---|
-| `jellyfin`, `requests`, `tracker` | `:8096`, `:5055`, `:8010`/`:8011` | public | streaming groups (Authentik README) |
+| `jellyfin`, `requests`, `tracker` | `:8096`, `:5055`, `:8012` | public | streaming groups (Authentik README) |
 | `radarr`, `sonarr`, `prowlarr`, `bazarr`, `qbittorrent`, `sabnzbd` | `:7878`, `:8989`, `:9696`, `:6767`, `:8080`, `:8081` | LAN + VPN | `streaming-admins` |
 | `vpn-status-beefy` | `:8087` | LAN + VPN | `homelab-admins` |
 | `dt` (Dependency-Track, `dt.yml`) | `:8090` | public | `homelab-admins`, then DT's own Holy Grail login |
+
+`tracker.yml` (Floppy) is an allow-list, not a catch-all:
+
+| Router | Matches | Result |
+|---|---|---|
+| `tracker` | `/` + the first path segments of Floppy's web UI | forward auth, wake, CSP + security headers, 64 MB body limit |
+| `tracker-search` | `/search…` | same, plus 3 req/s per client (burst 30) |
+| `tracker-token-urls` | `/webhook/`, `/calendar/download/`, `/stremio-addon/`, `/apis/`, `/rss/`, `/api/` (except `/api/cache-status/`) | 403, **not in the access log** (token in the URL) |
+| `tracker-blocked` | methods other than GET/HEAD/POST/DELETE, shared metadata edits, TMDB proxy, comics, server-URL integrations, password login | 403 |
+| none | everything else (health, OAuth device server, `/admin`, new upstream paths) | 404 |
+
+Why per path, and the check after a Floppy update: HomeLab-Beefy `Docker/Floppy/README.md` "Security".
 
 ## Routes to the mouse stack (fastpi audiobooks)
 
