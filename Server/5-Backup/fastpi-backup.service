@@ -7,7 +7,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/fastpi-backup
-# beefy powers off around 04:26: hard stop before it
+# the beefy window ends 04:45: hard stop before it
 TimeoutStartSec=1080
 Nice=10
 IOSchedulingClass=idle
