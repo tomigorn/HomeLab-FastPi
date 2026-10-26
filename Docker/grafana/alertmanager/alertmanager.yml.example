@@ -67,6 +67,13 @@ route:
       group_by: ['alertname']
       repeat_interval: 168h
 
+    # Quarantined ClamAV hits (prometheus/rules/antivirus.yml): email + Telegram with title, file and signature (tg.malware), one message per host batch. Ends after 24 h or on restore, no resolved message.
+    - matchers:
+        - alertname="MalwareQuarantined"
+      receiver: malware
+      group_by: ['alertname', 'host']
+      repeat_interval: 168h
+
     # A failing Telegram must not be reported over Telegram: email only. Above the info route, which would send it to Telegram.
     - matchers:
         - alertname="AlertNotificationsFailing"
@@ -124,6 +131,20 @@ receivers:
         parse_mode: HTML
         send_resolved: true
         message: '{{ template "tg.message" . }}'
+
+  # Like admins, without the resolved message, Telegram in the malware layout.
+  - name: malware
+    email_configs:
+      - to: 'alerts@example.com'
+        send_resolved: false
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} {{ .CommonLabels.host }}'
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: false
+        message: '{{ template "tg.malware" . }}'
 
   # Email only — see the route comment above for why Telegram is excluded.
   - name: healthchecks

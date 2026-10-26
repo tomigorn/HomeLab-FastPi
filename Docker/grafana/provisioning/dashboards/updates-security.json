@@ -1664,7 +1664,7 @@
       "id": 17,
       "type": "stat",
       "title": "Infected (last run)",
-      "description": "Files ClamAV flagged in the last run per host, any mode (alert MalwareFound). Hit list: table below.",
+      "description": "Files ClamAV flagged in the last run per host, any mode. Alerts: MalwareQuarantined (every quarantined hit, from index.txt), MalwareFound (report-only scans). Hit list: table below.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -3078,7 +3078,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "ALERTS{alertstate=\"firing\", alertname=~\"MalwareFound|Clamav.*|Container.*|Cup.*|CrowdSec.*|Rootkit.*|Lynis.*|.*Image.*|FailedLogins.*|PendingSecurityUpdates|Unraid.*|SecurityScan.*|TextfileCollectorError|Secret.*\"}",
+          "expr": "ALERTS{alertstate=\"firing\", alertname=~\"Malware.*|Clamav.*|Container.*|Cup.*|CrowdSec.*|Rootkit.*|Lynis.*|.*Image.*|FailedLogins.*|PendingSecurityUpdates|Unraid.*|SecurityScan.*|TextfileCollectorError|Secret.*\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"

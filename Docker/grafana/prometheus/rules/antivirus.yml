@@ -1,22 +1,37 @@
-# ClamAV nightly scans on fastpi, beefy and tower (Docker/antivirus, scan.sh).
+# ClamAV scans on fastpi, beefy and tower (Docker/antivirus, scan.sh; beefy also its download hook and background queue, clamav-hook.py).
 # fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 04:20 for beefy, 05:40 and 06:40) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
+# Quarantined hits come from each host's quarantine index.txt (security_scan.py avhits, every 15 min, beefy/tower only while awake): one series per hit for 24 h from when fastpi first saw it.
 # Tests: prometheus/tests/antivirus_test.yml
 groups:
   - name: antivirus
     rules:
-      # Not increase(clamav_infected_total): a counter reset (the EICAR test on 2026-10-19) reads as a hit. "Last run had hits, until the next clean run" is the wanted meaning.
+      # Every file moved to a quarantine (nightly new, path scans, beefy's hook and queue), from index.txt: the last-run gauge is reset by the next clean run, and beefy's hook runs many times a day.
+      # One alert per hit (the time label tells two hits of one file apart); its route (alertmanager.yml, MalwareQuarantined) sends no resolved message. scan.sh restore marks the line restored, which ends it.
+      - alert: MalwareQuarantined
+        expr: time() - clamav_quarantine_hit_first_seen_timestamp_seconds < 86400
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $labels.signature | html }} in {{ $labels.title | html }} ({{ $labels.mode }})"
+          description: >-
+            <code>{{ $labels.path | html }}</code> was moved to the quarantine on {{ $labels.host }} (mode {{ $labels.mode }}: scan = scan.sh nightly or by hand, hook = download completion, queue = background media scan).
+            False positive: <code>docker exec clamav /scan.sh restore '{{ $labels.file | html }}'</code> on {{ $labels.host }}{{ if eq $labels.host "beefy" }} (sudo docker){{ end }}.
+            Ends 24 h after fastpi first saw it, or when restored.
+
+      # Report-only scans (all, and path outside the scan roots): nothing reaches index.txt. Not increase(clamav_infected_total): a counter reset (the EICAR test on 2026-10-19) reads as a hit. "Last run had hits, until the next clean run" is the wanted meaning.
       # for: 45m so the 04:20 (beefy) or 05:40 pull has put the hit list in place before the one notification goes out.
       - alert: MalwareFound
-        expr: max by (host) (clamav_infected_last_run) > 0
+        expr: max by (host, mode) (clamav_infected_last_run{mode!~"new|hook|queue"}) > 0
         for: 45m
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.host }}: ClamAV found {{ $value }} infected file(s) in its last scan"
+          summary: "{{ $labels.host }}: ClamAV found {{ $value }} infected file(s) in its last {{ $labels.mode }} scan"
           description: >-
-            Hits: {{ with query (printf "security_av_infected_info{host='%s'}" $labels.host) }}{{ range . }}{{ .Labels.path }} ({{ .Labels.signature }}); {{ end }}{{ else }}not collected yet; {{ end }}New-files scans moved them to quarantine (index.txt next to it).
+            Hits: {{ with query (printf "security_av_infected_info{host='%s'}" $labels.host) }}{{ range . }}{{ .Labels.path | html }} ({{ .Labels.signature | html }}); {{ end }}{{ else }}not collected yet; {{ end }}all scans only report, nothing was moved.
             Full list: /var/lib/security-scan/last-infected-{{ $labels.host }}.txt on fastpi.
-            Clears with the next clean scan.
+            Clears with the next clean scan of that mode.
 
       - alert: ClamavScanStale
         expr: time() - max by (host) (clamav_last_run_timestamp_seconds{mode="new"}) > 259200

@@ -3,14 +3,14 @@ rule_files:
   - ../rules/antivirus.yml
 evaluation_interval: 1m
 tests:
-  - name: malware quotes the hit list, waits for the 05:40 pull
+  - name: malware of a report-only scan quotes the hit list, waits for the pull
     interval: 1m
     input_series:
-      - series: 'clamav_infected_last_run{host="beefy",instance="node-exporter:9100",mode="new"}'
+      - series: 'clamav_infected_last_run{host="beefy",instance="node-exporter:9100",mode="all"}'
         values: '1x120'
-      - series: 'clamav_infected_last_run{host="fastpi",instance="node-exporter:9100",mode="new"}'
+      - series: 'clamav_infected_last_run{host="fastpi",instance="node-exporter:9100",mode="all"}'
         values: '0x120'
-      - series: 'security_av_infected_info{host="beefy",path="/scan/dl/a.exe",signature="Win.Test.EICAR_HDB-1"}'
+      - series: 'security_av_infected_info{host="beefy",path="/host/tmp/a.exe",signature="Win.Test.EICAR_HDB-1"}'
         values: '1x120'
     alert_rule_test:
       - eval_time: 40m
@@ -19,24 +19,57 @@ tests:
       - eval_time: 50m
         alertname: MalwareFound
         exp_alerts:
-          - exp_labels: {severity: warning, host: beefy}
+          - exp_labels: {severity: warning, host: beefy, mode: all}
             exp_annotations:
-              summary: "beefy: ClamAV found 1 infected file(s) in its last scan"
-              description: "Hits: /scan/dl/a.exe (Win.Test.EICAR_HDB-1); New-files scans moved them to quarantine (index.txt next to it). Full list: /var/lib/security-scan/last-infected-beefy.txt on fastpi. Clears with the next clean scan."
+              summary: "beefy: ClamAV found 1 infected file(s) in its last all scan"
+              description: "Hits: /host/tmp/a.exe (Win.Test.EICAR_HDB-1); all scans only report, nothing was moved. Full list: /var/lib/security-scan/last-infected-beefy.txt on fastpi. Clears with the next clean scan of that mode."
 
   - name: malware without a collected hit list still fires
     interval: 1m
     input_series:
-      - series: 'clamav_infected_last_run{host="tower",mode="new"}'
+      - series: 'clamav_infected_last_run{host="tower",mode="path"}'
         values: '2x60'
     alert_rule_test:
       - eval_time: 50m
         alertname: MalwareFound
         exp_alerts:
-          - exp_labels: {severity: warning, host: tower}
+          - exp_labels: {severity: warning, host: tower, mode: path}
             exp_annotations:
-              summary: "tower: ClamAV found 2 infected file(s) in its last scan"
-              description: "Hits: not collected yet; New-files scans moved them to quarantine (index.txt next to it). Full list: /var/lib/security-scan/last-infected-tower.txt on fastpi. Clears with the next clean scan."
+              summary: "tower: ClamAV found 2 infected file(s) in its last path scan"
+              description: "Hits: not collected yet; all scans only report, nothing was moved. Full list: /var/lib/security-scan/last-infected-tower.txt on fastpi. Clears with the next clean scan of that mode."
+
+  - name: quarantining modes are left to MalwareQuarantined
+    interval: 1m
+    input_series:
+      - series: 'clamav_infected_last_run{host="beefy",mode="new"}'
+        values: '1x120'
+      - series: 'clamav_infected_last_run{host="beefy",mode="hook"}'
+        values: '1x120'
+      - series: 'clamav_infected_last_run{host="beefy",mode="queue"}'
+        values: '1x120'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: MalwareFound
+        exp_alerts: []
+
+  - name: a quarantined hit alerts at once with escaped details
+    interval: 1m
+    input_series:
+      - series: 'clamav_quarantine_hit_first_seen_timestamp_seconds{host="beefy",instance="node-exporter:9100",job="node",mode="queue",title="Tom & Jerry <2026>",file="a''b.mkv",path="/scan/ssd-hot/torrents/complete/Tom & Jerry <2026>/a''b.mkv",signature="Win.Trojan.X-1",time="Tue, 27 Oct 2026 10:00"}'
+        values: '60x1500'
+      - series: 'clamav_quarantine_hits_24h{host="beefy",mode="queue"}'
+        values: '1x1500'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: MalwareQuarantined
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, instance: "node-exporter:9100", job: node, mode: queue, title: "Tom & Jerry <2026>", file: "a'b.mkv", path: "/scan/ssd-hot/torrents/complete/Tom & Jerry <2026>/a'b.mkv", signature: Win.Trojan.X-1, time: "Tue, 27 Oct 2026 10:00"}
+            exp_annotations:
+              summary: "beefy: Win.Trojan.X-1 in Tom &amp; Jerry &lt;2026&gt; (queue)"
+              description: "<code>/scan/ssd-hot/torrents/complete/Tom &amp; Jerry &lt;2026&gt;/a&#39;b.mkv</code> was moved to the quarantine on beefy (mode queue: scan = scan.sh nightly or by hand, hook = download completion, queue = background media scan). False positive: <code>docker exec clamav /scan.sh restore 'a&#39;b.mkv'</code> on beefy (sudo docker). Ends 24 h after fastpi first saw it, or when restored."
+      - eval_time: 24h2m
+        alertname: MalwareQuarantined
+        exp_alerts: []
 
   - name: a counter reset alone does not fire
     interval: 1m

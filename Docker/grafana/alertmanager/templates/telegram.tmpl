@@ -24,3 +24,16 @@
 {{ .Annotations.description | safeHtml }}
 {{ end }}
 {{- end }}
+
+{{/* MalwareQuarantined: one block per hit, the restore hints collapsed. Labels are escaped here, the description arrives escaped from the rule. */}}
+{{ define "tg.malware" -}}
+{{ if .CommonLabels.test }}🧪 <b>Test: malware quarantined on {{ .CommonLabels.host | html }}</b>{{ else }}🦠 <b>Malware quarantined on {{ .CommonLabels.host | html }}</b>{{ end }}{{ if gt (len .Alerts.Firing) 1 }} · {{ len .Alerts.Firing }} hits{{ end }}
+{{ range .Alerts.Firing }}
+📅 {{ .Labels.time | html }}
+• <b>{{ .Labels.title | html }}</b> · {{ .Labels.mode | html }}
+• <code>{{ .Labels.file | html }}</code>
+• {{ .Labels.signature | html }}
+{{ end }}
+<blockquote expandable>{{ range .Alerts.Firing }}{{ .Annotations.description | safeHtml }}
+{{ end }}</blockquote>
+{{- end }}
