@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-RUN apk add --no-cache clamav-scanner clamav-libs freshclam
+RUN apk add --no-cache clamav-scanner clamav-libs freshclam clamav-daemon clamav-clamdscan
 
 # apk creates clamav as 100/101 (the host's messagebus); pin it to a dedicated uid/gid.
 RUN deluser clamav 2>/dev/null; delgroup clamav 2>/dev/null; \

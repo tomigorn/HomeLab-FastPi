@@ -19,7 +19,7 @@ Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 |---|---|---|
 | `docker exec clamav /scan.sh new` | files under `/scan/seagate-red` and `/scan/seagate-black` changed since the last good run | moved to quarantine |
 | `docker exec clamav /scan.sh all` | both disks only (`SCAN_HOST=0`; the container has no `/host`) | report only |
-| `docker compose run --rm clamav-hostscan` (weekly timer) | the host root, one filesystem, as `/host` | report only |
+| `docker compose run --rm clamav-hostscan` (weekly timer) | the host root, one filesystem, as `/host`, without Docker image layers (below) | report only |
 | `docker exec clamav /scan.sh /scan/seagate-red/qbittorrent/downloads/<folder>` | the given files/folders | moved when under `/scan/...`, report only otherwise |
 
 - Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`; in `clamav-hostscan` `/etc/x` = `/host/etc/x`.
@@ -43,8 +43,19 @@ Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 
 - A container with internet egress must not see the whole host (a malicious file or scanner bug could exfiltrate it): the part that reads everything has no network.
 - Root is needed because a non-root uid gets no effective capabilities in Docker (`CapEff` 0), so `DAC_READ_SEARCH` does nothing for 65039. `hostscan.sh` chowns state and `clamav.prom` back to 65039 / `65039:65046`.
-- Same state dir, so one `clamav.prom` with `mode="all"` next to `new` and `path`; no clamd runs on fastpi.
+- Same state dir, so one `clamav.prom` with `mode="all"` next to `new` and `path`.
 - Smaller run, e.g. `docker compose run --rm -e SCAN_ROOTS=/host/etc clamav-hostscan` (the compose profile `hostscan` keeps it out of `up`).
+
+## Weekly host scan: speed
+
+| | |
+|---|---|
+| Engine | `USE_CLAMD=1`: `scan.sh all` starts a private `clamd` in the container (socket and config in `/tmp`, no network, signatures from the read-only `clamav-db` volume) and runs `clamdscan --multiscan`: all cores, one signature load (~1 GB RAM, hence `mem_limit: 3g`) |
+| Same output | clamdscan prints the same `path: Sig FOUND` lines, so `hits.tsv`, `last-infected.txt`, the metrics and the alerts are unchanged. `Scanned files` (not printed by clamdscan) is counted with `find` using the same excludes and size limit |
+| Not scanned (`SCAN_EXCLUDE_DIRS`) | `/var/lib/docker/{overlay2,containerd,image,buildkit}`, `/var/lib/containerd`. Container writable layers drop out of the weekly scan (accepted). `/var/lib/docker/volumes` (user data) stays in |
+| Back to one thread | `USE_CLAMD=0` (`clamscan -r`), `SCAN_EXCLUDE_DIRS` is honoured there too |
+| Settings | `CLAMD_THREADS` (default `nproc`), `CLAMD_WAIT` (seconds to wait for the signature load, 600), `CLAMD_CONF`, `CLAMD_SOCK` |
+| Allow list | each entry becomes a clamd `ExcludePath`, like `--exclude` for clamscan |
 
 ## Results
 
@@ -93,7 +104,7 @@ API key: file `secrets/vt_api_key` (owner `65014`, mode `0400`, read via `VT_API
 
 ## Settings (env in `docker-compose.yaml`)
 
-`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
+`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `USE_CLAMD`, `SCAN_EXCLUDE_DIRS` (see Weekly host scan), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
 
 ## Tests
 

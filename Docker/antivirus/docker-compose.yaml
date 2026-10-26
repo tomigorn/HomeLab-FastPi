@@ -107,7 +107,7 @@ services:
     user: "0:0"   # a non-root uid has no effective capabilities in Docker, so DAC_READ_SEARCH only works for root
     network_mode: none
     read_only: true
-    mem_limit: 2g
+    mem_limit: 3g   # clamd with all signatures ~1 GB, plus 4 scan threads and the 512m tmpfs
     restart: "no"
     healthcheck:
       disable: true
@@ -126,6 +126,9 @@ services:
       - QUARANTINE=/tmp   # unused: `all` is report only, scan.sh just needs an existing directory
       - STATE=/state
       - TEXTFILE=/textfile
+      - USE_CLAMD=1   # private clamd inside this container (socket in /tmp, no network), multiscan on all cores
+      # Image layers and runtime stores: rebuilt from images, huge. /var/lib/docker/volumes (user data) stays in.
+      - SCAN_EXCLUDE_DIRS=/host/var/lib/docker/overlay2 /host/var/lib/docker/containerd /host/var/lib/docker/image /host/var/lib/docker/buildkit /host/var/lib/containerd
     tmpfs:
       - /tmp:size=512m,mode=1777
     volumes:
