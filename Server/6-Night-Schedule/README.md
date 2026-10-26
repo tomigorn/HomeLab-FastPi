@@ -12,6 +12,7 @@ All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), time
 | `/etc/crontab` cron.daily / weekly (Sun) / monthly (1st) | 06:25 / 06:47 / 06:52 | 05:32 / 05:44 / 05:46 (rkhunter, chkrootkit stay daily) |
 | `security-av` | 04:20, 05:40, 06:40 | 04:20, 05:40, 05:50 |
 | `beefy-night-downloads-wake` | new | 22:05, wakes beefy only when downloads wait for the night (`Docker/Beefy-Waker/README.md` "Night downloads wake") |
+| `night-search` (beefy) | new | 04:17 on beefy: episodes aired and films released recently without a file, plus 5+5 cutoff-unmet titles, max 30 Treasure Maps searches (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Upgrades") |
 
 `security-av` never wakes beefy or tower (`fetch_nowake`): a host the Waker sees down is skipped. beefy is held up 03:58-04:45 (`HomeLab-BeefyServer`, `Server/9-Night-Schedule.md`).
 
