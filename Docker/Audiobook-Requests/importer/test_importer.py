@@ -145,3 +145,10 @@ class LibraryForTest(unittest.TestCase):
     def test_no_prefix_confusion(self):
         libs = [{"id": "x", "folders": [{"fullPath": "/audiobooks/EN"}]}]
         self.assertIsNone(importer.library_for(libs, "ENX/A/T"))
+
+
+class AuthorCandidatesTest(unittest.TestCase):
+    def test_other_asins_of_the_same_name_in_order_without_duplicates(self):
+        found = [{"asin": "B1", "name": "Jane Doe"}, {"asin": "B1", "name": "Jane Doe"}, {"asin": "B2", "name": "Jane  Doe"},
+                 {"asin": "B3", "name": "John Doe"}, {"asin": "B4", "name": "jane doe"}]
+        self.assertEqual(importer.other_author_asins(found, "Jane Doe", current="B2"), ["B1", "B4"])

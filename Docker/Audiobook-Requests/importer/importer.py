@@ -104,6 +104,17 @@ def author_match_body(name, region):
     return {"q": name, "region": PROVIDERS.get(region, PROVIDERS["com"])[1]}
 
 
+def other_author_asins(found, name, current):
+    """Audible lists one author under several ASINs, often only one with a picture: the other ASINs of the same name, in order."""
+    def key(n):
+        return " ".join((n or "").lower().split())
+    out = []
+    for a in found:
+        if key(a.get("name")) == key(name) and a.get("asin") and a["asin"] != current and a["asin"] not in out:
+            out.append(a["asin"])
+    return out
+
+
 def abs_path(rel):
     return f"{ABS_FOLDER}/{rel}"
 
@@ -213,11 +224,33 @@ class Abs:
         item = http_json(f"{ABS_URL}/api/items/{item_id}", headers=self.headers())
         for author in item["media"]["metadata"].get("authors") or []:
             try:
-                self.post(f"/api/authors/{author['id']}/match", author_match_body(author["name"], job.get("region")))
+                self.match_author(author, job.get("region"))
             except urllib.error.HTTPError as e:
                 log.warning("ABS author match %s: HTTP %s", author["name"], e.code)
         log.info("ABS matched %s", job["dest"])
         return True
+
+    def match_author(self, author, region):
+        body = author_match_body(author["name"], region)
+        found = (self.post(f"/api/authors/{author['id']}/match", body) or {}).get("author") or {}
+        if found.get("imagePath"):
+            return
+        q = urllib.parse.urlencode({"name": author["name"], "region": body["region"]})
+        best = found if found.get("description") else None
+        try:
+            candidates = http_json(f"https://api.audnex.us/authors?{q}") or []
+        except (urllib.error.URLError, ValueError) as e:
+            log.warning("audnexus author search %s: %s", author["name"], e)
+            candidates = []
+        for asin in other_author_asins(candidates, author["name"], found.get("asin")):
+            found = (self.post(f"/api/authors/{author['id']}/match", {"asin": asin, "region": body["region"]}) or {}).get("author") or {}
+            if found.get("imagePath"):
+                log.info("author image for %s via %s", author["name"], asin)
+                return
+            best = best or (found if found.get("description") else None)
+        if best and best.get("asin") != found.get("asin"):
+            self.post(f"/api/authors/{author['id']}/match", {"asin": best["asin"], "region": body["region"]})
+        log.info("no author image on Audible for %s (kept %s)", author["name"], (best or found).get("asin"))
 
     def scan(self, rel):
         req = urllib.request.Request(f"{ABS_URL}/api/libraries/{self.library(rel)}/scan", data=b"", method="POST",
