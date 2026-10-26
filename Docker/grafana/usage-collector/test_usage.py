@@ -175,7 +175,7 @@ class Abs(unittest.TestCase):
             c.commit()
             c.close()
             rows = uc.abs_sessions(p)
-            self.assertEqual([(r["user"], r["seconds"]) for r in rows], [("alezauron", 600), ("deleted user", 5), ("deleted user", 7)])
+            self.assertEqual([(r["user"], r["seconds"]) for r in rows], [("alezauron", 600)])
             lines = uc.abs_lines(rows)
             self.assertEqual(lines[0], "abs_listen,user=alezauron sessions=1i,seconds=600i 1792227873467000000")
             self.assertNotIn("SECRET", str(rows))

@@ -46,8 +46,8 @@ def beefy_lines(data):
 def abs_sessions(path):
     c = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
     try:
-        q = ("select coalesce(u.username,'deleted user'), cast(s.timeListening as integer), s.createdAt "
-             "from playbackSessions s left join users u on u.id=s.userId where s.timeListening > 0 order by s.createdAt")
+        q = ("select u.username, cast(s.timeListening as integer), s.createdAt "
+             "from playbackSessions s join users u on u.id=s.userId where s.timeListening > 0 order by s.createdAt")
         return [{"user": u, "seconds": sec, "ts": ts} for u, sec, ts in c.execute(q)]
     finally:
         c.close()
