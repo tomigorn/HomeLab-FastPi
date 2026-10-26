@@ -108,6 +108,7 @@ check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:
 echo "== Apps on fastpi"
 running adguardhome portainer audiobookshelf prowlarr_mouse audiobookrequest audiobook-importer homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
 check "prowlarr MAM rules (no fl, active, EN+DE)" '^OK MAM rules hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
+check "books public -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -A 'Mozilla/5.0 smoke-test' --resolve books.holy-grail.ch:443:$(dig +short @1.1.1.1 books.holy-grail.ch | head -1) https://books.holy-grail.ch/ | cut -c1-60)"
 check "importer health"            '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
 check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
 check "clamav-hostscan timer active" '^active$' "$(systemctl is-active clamav-hostscan.timer)"
