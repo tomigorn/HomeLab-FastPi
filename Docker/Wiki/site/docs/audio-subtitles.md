@@ -10,7 +10,7 @@ We always keep the **original language**, plus German and English audio when a r
 | 3 | original + German |
 | 4 | original only |
 
-A release that only has a dub and no original track is never taken. The same applies to films, series and anime. Titles already in the library are upgraded when a better version exists.
+A release that only has a dub and no original track is never taken. The same applies to films, series and anime. Titles already in the library are upgraded when a better version exists, up to 4K HDR (see the full order below).
 
 Picture quality (resolution, HDR) is decided **before** languages; with equal picture and rank, a release with **more extra languages** wins. Full order: [Which version gets downloaded](apps/requests.md#which-version-gets-downloaded).
 

@@ -46,12 +46,12 @@ You don't need to choose anything: the server picks the best version automatical
 |---|---|---|
 | 1 | **Hard language tag** (if you set one under *Advanced*) | `audio-swiss-german`: without Swiss German nothing is downloaded |
 | 2 | **Resolution and source** | 4K Blu-ray › 4K web › 1080p |
-| 3 | **HDR** | 4K is only downloaded with HDR; at 1080p, HDR beats non-HDR whatever the languages |
+| 3 | **HDR** | at the same resolution, HDR beats non-HDR whatever the languages; 4K without HDR still beats 1080p HDR |
 | 4 | **Languages** | original + English + German › original + English › original + German › original only |
 | 5 | **More languages** | with everything above equal, original + English + German + Spanish beats original + English + German |
 | 6 | Sound and release quality | Atmos, lossless audio, known good groups |
 
-A film that is already there is replaced by a better version (also one with better audio or an extra language) until it has the original language with English (for English films: with German); after that it stays. German-only dubs are never downloaded.
+A film that is already there is replaced by a better version (also one with better audio or an extra language) until it is 4K HDR with the original language and English (for English films: with German; anime: 1080p with original + English); after that it stays. German-only dubs are never downloaded.
 
 If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically.
 
