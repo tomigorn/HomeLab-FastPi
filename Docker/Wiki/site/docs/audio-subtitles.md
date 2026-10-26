@@ -15,7 +15,7 @@ A release that only has a dub and no original track is never taken. The same app
 **Subtitles:** English, German and the original language, each synced to the original voices.
 
 ## What plays by default?
-Jellyfin starts with the **original language**, unless you've set a preferred audio language in your profile and that language exists for the title. Tracks you pick yourself are remembered per film or episode.
+Jellyfin starts with the **original language** (the track is labelled **(Original)**), unless you've set a preferred audio language in your profile and that language exists for the title. Tracks you pick yourself are remembered per film or episode.
 
 !!! tip "Set your subtitle language once"
     Jellyfin web or phone app: profile → **Settings** → **Subtitles** → **Preferred subtitle language**. Without it, subtitles only appear for forced parts.

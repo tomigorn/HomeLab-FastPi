@@ -11,7 +11,7 @@
     Requests are not switched on for every account. If the tile is missing or you get "no permission", ask the admin.
 
 !!! info "The media server sleeps"
-    Opening the page wakes the media server if it's asleep, which takes about 45 seconds.
+    Requests runs on the media server. If it is asleep you see a **"Requests is starting"** page: wait about a minute and it opens by itself (reload if it doesn't). If your browser shows the "asleep, sign in to start" page instead, log in and wait, see [Watching](jellyfin.md).
 
 ## Search tips
 
@@ -51,10 +51,12 @@ You don't need to choose anything: the server picks the best version automatical
 | 5 | **More languages** | with everything above equal, original + English + German + Spanish beats original + English + German |
 | 6 | Sound and release quality | Atmos, lossless audio, known good groups |
 
-A film that is already there is replaced by a better version until it has the original language with English (for English films: with German); after that it stays. German-only dubs are never downloaded.
+A film that is already there is replaced by a better version (also one with better audio or an extra language) until it has the original language with English (for English films: with German); after that it stays. German-only dubs are never downloaded.
+
+If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically.
 
 !!! note "Languages come from the release name"
-    The server mainly knows the languages written in a release's name (e.g. *German.DL* = German + original). For a release that only says *MULTi*, it also reads the release's info file (NFO) where the indexer offers it; without one, it counts as original only until it has been downloaded.
+    The server mainly knows the languages written in a release's name (e.g. *German.DL* = German + original). For a release that only says *MULTi*, it also reads the release's info file (NFO) where the indexer offers it; without one, it counts as original only until it has been downloaded. *MULTi* releases that only contain dubs and no original track are blocked automatically.
 
 ## Advanced options
 In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default.

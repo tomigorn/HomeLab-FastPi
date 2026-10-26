@@ -8,7 +8,7 @@ The Tracker (Ryot) keeps your history, ratings and lists of films and series.
 2. Search for a title to rate it or add it to a list.
 
 !!! info "The media server sleeps"
-    Opening the Tracker wakes the media server if it's asleep, about 45 seconds.
+    The Tracker runs on the media server. If it is asleep, log in and wait about a minute on the waiting page.
 
 ## Rate from Jellyfin
 In the Jellyfin browser, film and series pages have a **Rate in Tracker** link next to the IMDb/TMDB links. It opens the title in the Tracker. The TV and phone apps don't have the link.

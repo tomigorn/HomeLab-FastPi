@@ -1,7 +1,7 @@
 # Help & FAQ
 
 ??? question "Jellyfin, Requests or the Tracker is slow to open"
-    The media server sleeps when nobody uses it and takes about a minute to wake. Wait and reload.
+    The media server sleeps when nobody uses it and takes about a minute to wake. Wait on the waiting page ("asleep, sign in to start" or "Requests is starting") and reload if it doesn't open by itself.
 
 ??? question "I lost my authenticator / phone"
     Ask the admin to reset your second factor. You'll set it up again at your next login.
@@ -17,6 +17,9 @@
 
 ??? question "The TV app asks for a password"
     There are no passwords in Jellyfin. Use **Quick Connect**, see [Watching](apps/jellyfin.md).
+
+??? question "The Jellyfin app can't connect"
+    Use the address `https://jellyfin.holy-grail.ch` (not `sso.holy-grail.ch`), sign in with **Quick Connect**, and give a sleeping server a minute. See [Watching](apps/jellyfin.md).
 
 ??? question "The film plays in the wrong language"
     Switch the audio track while playing, see [Audio & subtitles](audio-subtitles.md).
