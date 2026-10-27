@@ -46,7 +46,7 @@ http:
 
     # 403 for features that must stay off (Floppy README "Security"): unknown methods; shared Item
     # edits (#3); TMDB proxy (#4); comics (#5); server-URL integrations (#1); password login (#10).
-    # Open: GET of ABS cover art (signed token, image only, fetched from the user's own linked ABS); ABS is linked on beefy by scripts/audiobookshelf-link.sh, not in the UI.
+    # Open: GET of ABS cover art (signed token, image only, served from copies pushed by beefy's floppy-abs-push; Floppy holds no ABS key and never pulls).
     tracker-blocked:
       rule: >-
         Host(`tracker.holy-grail.ch`) && (
