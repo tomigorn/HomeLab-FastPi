@@ -6,8 +6,8 @@ Reads stdin. Each line "ENV <dir>/.env KEY=value" upserts KEY in <base>/<dir>/.e
 - never the value. Non-secret values only (client ids). Secrets come as
 "FILE <dir>/secrets/<name> <uid>:<gid> <mode> value": the bare value (no newline) is
 written to that file with that owner and mode (0400/0440/0600/0640), directly when
-the owner is us, else via `sudo -n install ... /dev/stdin <path>` (value on stdin,
-never in argv); prints "set <path>". The path must be gitignored (git check-ignore). Any other line is passed through, except lines mentioning
+the owner is us, else via `sudo -n install ... /dev/stdin <dir>/.secret.<random>.tmp`
+(value on stdin, never in argv) and `sudo -n mv -f -T` over <path>; prints "set <path>". The path must be gitignored (git check-ignore). Any other line is passed through, except lines mentioning
 SECRET / TOKEN / PASSWORD, which print "[redacted line]".
 
 Refused (error on stderr, nonzero exit after all lines are processed): any path that
@@ -21,6 +21,7 @@ nothing and prints "would set <path> KEY" / "would write <path> (<owner> <mode>)
 """
 import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -108,11 +109,18 @@ def write_file(path: Path, value: str, uid: int, gid: int, mode: int) -> None:
                 os.unlink(tmp)
             raise
         return
+    # install over an existing file of another uid fails on beefy: write a fresh temp file, then rename it over
+    tmp = path.parent / f".secret.{secrets.token_hex(8)}.tmp"
+    quiet = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     done = subprocess.run(["sudo", "-n", "install", "-o", str(uid), "-g", str(gid),
-                           "-m", f"{mode:04o}", "/dev/stdin", str(path)],
-                          input=value, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                           "-m", f"{mode:04o}", "/dev/stdin", str(tmp)],
+                          input=value, text=True, **quiet)
     if done.returncode != 0:
         raise OSError(f"sudo install exit {done.returncode}")
+    moved = subprocess.run(["sudo", "-n", "mv", "-f", "-T", str(tmp), str(path)], **quiet)
+    if moved.returncode != 0:
+        subprocess.run(["sudo", "-n", "rm", "-f", "--", str(tmp)], **quiet)
+        raise OSError(f"sudo mv exit {moved.returncode}")
 
 
 def apply_file(line: str, base: Path, stdout, stderr, dry_run: bool) -> bool:

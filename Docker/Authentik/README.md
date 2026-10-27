@@ -410,7 +410,7 @@ The script is idempotent. Secrets never touch the terminal or git: the script em
 | Line | Written to | How |
 |---|---|---|
 | `ENV` | `<dir>/.env`, key replaced in place | as the caller, mode kept |
-| `FILE` | `<dir>/secrets/<name>`, bare value, no newline | own uid: directly; other owner: `sudo -n install -o -g -m /dev/stdin <path>` (value on stdin). Refused unless `git check-ignore` says ignored; modes 0400/0440/0600/0640 only |
+| `FILE` | `<dir>/secrets/<name>`, bare value, no newline | own uid: directly; other owner: `sudo -n install -o -g -m /dev/stdin <dir>/.secret.<random>.tmp` (value on stdin), then `sudo -n mv -f -T` over `<path>`. Refused unless `git check-ignore` says ignored; modes 0400/0440/0600/0640 only |
 
 | Secret | File | Owner, mode |
 |---|---|---|

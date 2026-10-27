@@ -199,23 +199,56 @@ class ApplySsoFileTest(unittest.TestCase):
         self.assertEqual(f.read_text(), "new")
         self.assertEqual(stat.S_IMODE(f.stat().st_mode), 0o440)
 
-    def test_foreign_owner_goes_through_sudo_install_on_stdin(self):
+    def _fake_sudo(self, fail=()):
         calls = []
         real_run = subprocess.run
 
         def fake(argv, *a, **kw):
             if argv[0] == "sudo":
                 calls.append((argv, kw.get("input")))
-                return subprocess.CompletedProcess(argv, 0)
+                return subprocess.CompletedProcess(argv, 1 if argv[2] in fail else 0)
             return real_run(argv, *a, **kw)
+        return calls, fake
 
+    def test_foreign_owner_installs_temp_file_then_moves_it_over(self):
+        calls, fake = self._fake_sudo()
         with mock.patch.object(apply_sso_env.subprocess, "run", side_effect=fake):
             rc, out, err = self.run_tool("FILE App/secrets/oidc 65050:65051 0400 secretvalue\n")
         self.assertEqual(rc, 0, err)
-        path = str(self.base.resolve() / "App" / "secrets" / "oidc")
-        self.assertEqual(calls, [(["sudo", "-n", "install", "-o", "65050", "-g", "65051",
-                                   "-m", "0400", "/dev/stdin", path], "secretvalue")])
+        path = self.base.resolve() / "App" / "secrets" / "oidc"
+        self.assertEqual(len(calls), 2, calls)
+        (install, value), (move, _) = calls
+        tmp = Path(install[-1])
+        self.assertEqual(install[:-1], ["sudo", "-n", "install", "-o", "65050", "-g", "65051", "-m", "0400", "/dev/stdin"])
+        self.assertEqual(value, "secretvalue")
+        self.assertEqual(tmp.parent, path.parent)
+        self.assertTrue(tmp.name.startswith(".secret.") and tmp.name.endswith(".tmp"), tmp.name)
+        self.assertEqual(move, ["sudo", "-n", "mv", "-f", "-T", str(tmp), str(path)])
         self.assertNotIn("secretvalue", out + err)
+
+    def test_foreign_owner_temp_names_differ_per_write(self):
+        calls, fake = self._fake_sudo()
+        with mock.patch.object(apply_sso_env.subprocess, "run", side_effect=fake):
+            self.run_tool("FILE App/secrets/a 65050:65051 0400 v\nFILE App/secrets/a 65050:65051 0400 w\n")
+        temps = [argv[-1] for argv, _ in calls if argv[2] == "install"]
+        self.assertEqual(len(set(temps)), 2)
+
+    def test_failed_move_removes_temp_file_and_reports(self):
+        calls, fake = self._fake_sudo(fail=("mv",))
+        with mock.patch.object(apply_sso_env.subprocess, "run", side_effect=fake):
+            rc, out, err = self.run_tool("FILE App/secrets/oidc 65050:65051 0400 secretvalue\n")
+        self.assertNotEqual(rc, 0)
+        tmp = calls[0][0][-1]
+        self.assertEqual(calls[-1][0], ["sudo", "-n", "rm", "-f", "--", tmp])
+        self.assertIn("App/secrets/oidc", err)
+        self.assertNotIn("secretvalue", out + err)
+
+    def test_failed_install_does_not_move(self):
+        calls, fake = self._fake_sudo(fail=("install",))
+        with mock.patch.object(apply_sso_env.subprocess, "run", side_effect=fake):
+            rc, _, _ = self.run_tool("FILE App/secrets/oidc 65050:65051 0400 secretvalue\n")
+        self.assertNotEqual(rc, 0)
+        self.assertNotIn("mv", [argv[2] for argv, _ in calls])
 
     def test_sudo_failure_is_reported_without_value_and_continues(self):
         real_run = subprocess.run
@@ -303,13 +336,13 @@ class ProvisionScriptsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertNotIn(key, text)
 
-    def test_secret_files_for_grafana_wg_easy_ryot(self):
+    def test_secret_files_for_grafana_wg_easy_floppy(self):
         here = Path(__file__).parent
         admin = (here / "provision-admin-sso.py").read_text()
         tracker = (here / "provision-tracker-sso.py").read_text()
         self.assertIn('"grafana/secrets/grafana_oauth_client_secret", "65050:65050", "0400"', admin)
         self.assertIn('"WireguardVPN/secrets/oidc_client_secret", "0:0", "0400"', admin)
-        self.assertIn('"Ryot/secrets/ryot_oidc_client_secret", "1001:1001", "0400"', tracker)
+        self.assertIn('FILE Floppy/secrets/floppy_oidc_providers 65125:65125 0400 ', tracker)
 
 
 if __name__ == "__main__":
