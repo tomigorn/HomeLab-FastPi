@@ -1,0 +1,11 @@
+[Unit]
+Description=Pull beefy's idle-watcher metrics every 5 minutes
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

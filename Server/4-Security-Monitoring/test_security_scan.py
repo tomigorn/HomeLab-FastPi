@@ -1716,6 +1716,41 @@ def test_cup_asof_publishes_per_host_file_without_touching_the_data_file():
     assert not (d / "textfile" / "security_cup_asof_fastpi.prom").exists()
 
 
+
+def _run_idle_pull(tmp_path, ssh_body):
+    import os
+    import subprocess
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    (bin_dir / "ssh").write_text("#!/bin/sh\n" + ssh_body)
+    (bin_dir / "ssh").chmod(0o755)
+    dest = tmp_path / "beefy_idle.prom"
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "DEST": str(dest)}
+    subprocess.run([str(Path(__file__).parent / "beefy-idle-pull.sh")], env=env, check=True)
+    return dest
+
+
+def test_idle_pull_publishes_valid_metrics():
+    tmp_path = _tmp_dirs()
+    dest = _run_idle_pull(tmp_path, 'echo \'beefy_idle_busy{reason="conns"} 1\'\n')
+    assert 'beefy_idle_busy{reason="conns"} 1' in dest.read_text()
+    assert [p.name for p in tmp_path.iterdir() if p.name not in ("bin", "textfile", "state")] == ["beefy_idle.prom"]
+
+
+def test_idle_pull_removes_file_when_beefy_unreachable():
+    tmp_path = _tmp_dirs()
+    (tmp_path / "beefy_idle.prom").write_text("stale\n")
+    dest = _run_idle_pull(tmp_path, "exit 255\n")
+    assert not dest.exists()
+
+
+def test_idle_pull_rejects_garbage():
+    tmp_path = _tmp_dirs()
+    (tmp_path / "beefy_idle.prom").write_text("stale\n")
+    dest = _run_idle_pull(tmp_path, "echo hello\n")
+    assert not dest.exists()
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
@@ -1729,3 +1764,4 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(fns) - bad}/{len(fns)} passed")
     sys.exit(1 if bad else 0)
+

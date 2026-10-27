@@ -1,0 +1,22 @@
+[Unit]
+Description=Pull beefy's idle-watcher metrics (what keeps it awake)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/home/pi/Projects/Server/4-Security-Monitoring/beefy-idle-pull.sh
+TimeoutStartSec=30
+Nice=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

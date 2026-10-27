@@ -52,10 +52,11 @@ sudo install -m 0644 "$HERE"/security-scan.service "$HERE"/security-scan.timer \
                      "$HERE"/security-access.service "$HERE"/security-access.timer \
                      "$HERE"/security-code-scan.service "$HERE"/security-code-scan.timer \
                      "$HERE"/security-dt.service "$HERE"/security-dt.timer \
+                     "$HERE"/beefy-idle-pull.service "$HERE"/beefy-idle-pull.timer \
                      "$REPO"/Docker/_global/systemd/auto-update.service "$REPO"/Docker/_global/systemd/auto-update.timer \
                      /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-av-hits.timer security-audit.timer security-access.timer security-code-scan.timer security-dt.timer auto-update.timer
+sudo systemctl enable --now security-scan.timer security-image-scan.timer security-av.timer security-av-hits.timer security-audit.timer security-access.timer security-code-scan.timer security-dt.timer beefy-idle-pull.timer auto-update.timer
 
 echo "==> node-exporter must expose the textfile collector"
 if ! docker inspect node-exporter --format '{{join .Args " "}}' 2>/dev/null | grep -q 'collector.textfile.directory'; then

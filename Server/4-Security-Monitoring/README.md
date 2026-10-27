@@ -286,6 +286,7 @@ option — an `auth.log` on disk is required.
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 05:50: av (with avhits), media, updates |
 | `security-av-hits.{service,timer}` | every 15 min: avhits |
+| `beefy-idle-pull.{sh,service,timer}` | every 5 min: copies beefy's `/run/beefy-idle.prom` (idle-watcher reasons) to `beefy_idle.prom`, removes it when beefy is down; feeds `BeefyAwakeLong` |
 | `~/.ssh/config` `beefy-direct`, `tower-direct` (not in git) | same hosts without the WoL `Match` block; scans use them so an asleep host stays asleep. Plain `beefy` (may wake) only inside 04:00–04:30 (`BEEFY_WAKE_WINDOW`) |
 | `security-image-scan.{service,timer}` | daily 04:10: images |
 | `security-code-scan.{service,timer}` | daily 03:40: code |
