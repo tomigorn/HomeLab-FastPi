@@ -6,7 +6,7 @@ Least privilege: the everyday account keeps watching, listening, requesting; eve
 |---|---|---|
 | 1 | inventory, this plan, create `tomigorn-admin` (`scripts/provision-admin-account.py`), owner sets password + MFA via a one-time recovery link | done 2026-10-27 |
 | 2a | add `tomigorn-admin` to the admin groups, set up per-app admin users, verify each app as `tomigorn-admin` | groups added 2026-10-27 (`provision-media-groups.py` `MEMBERS`), app logins open |
-| 2b | only after 2a verified everywhere: remove `tomigorn` from the admin groups, demote/delete old admin users in the apps | in progress 2026-10-27: steps 2–4 done, 1 + 5–8 waiting (see Phase 2b state) |
+| 2b | only after 2a verified everywhere: remove `tomigorn` from the admin groups, demote/delete old admin users in the apps | done 2026-10-27 except owner sign-ins (ABS, ABR), DT user delete, Floppy link (see Phase 2b state) |
 | 3 | Nextcloud (`cloud-admins`, tower) | deferred until tower's RAM test ends |
 
 ## The two accounts
@@ -101,8 +101,11 @@ Backup: `backups/authentik-db-2026-10-27-pre-admin-split-2b.dump` (`pg_restore -
 
 | # | State |
 |---|---|
-| 1 | code + tests done (`provision-media-groups.py`), HA `roles.user: homelab-users` and Grafana Viewer mapping live; the Authentik run (group, membership, two bindings) NOT applied yet: waits for the owner's go for the binding change |
+| 1 | done: group `homelab-users` (`tomigorn`), bindings on `home-assistant` + `grafana`, HA `roles.user: homelab-users`, Grafana Viewer mapping |
 | 2 | done: owner = "Tomigorn (admin)", "Tomigorn" = `system-users`; person pictures set; backup `.storage/auth.bak-admin-split`, `person.bak-admin-split`, `~/backups/home-assistant/ha-storage-2026-10-27-pre-admin-split-2b.tgz` |
 | 3 | done: wg-easy user 1 linked to `tomigorn-admin` (oauth_id = its uid, email = admin address); backup `wg-easy-v15/wg-easy.db.bak-admin-split` |
 | 4 | done: Seerr id 1 = `tomigorn-admin` (perms 2, 0 requests), id 7 = `tomigorn` (8352, 14 requests, Holy Grail link moved); backup `/srv/appdata/seerr/db/db.sqlite3.bak-admin-split` (beefy); Jellyfin recently-added scan ok |
-| 5–8 | open, after step 1 |
+| 5 | done: `REMOVE_EXTRA = True`, `tomigorn` left `homelab-admins` + `streaming-admins`, its 4 Authentik sessions deleted, app cache cleared; PolicyEngine: `tomigorn` fails all 19 admin apps, passes the 16 everyday apps; canary green |
+| 6 | Jellyfin done (`IsAdministrator=false` via API, also covers app/Quick Connect sessions); ABS + ABR re-set the role at `tomigorn`'s next Holy Grail login (claims now `user` / `trusted`): owner signs in once and checks |
+| 7 | Grafana: `tomigorn` kept as Viewer (owner decision; demoted in `grafana.db`, backup `grafana.db.bak-admin-split` in the volume); Portainer: user `tomigorn` deleted (backup `~/backups/portainer/portainer-2026-10-27-pre-admin-split.tar.gz`); DT: OIDC user `tomigorn` still there, delete by hand as `tomigorn-admin` (local DT `admin` login refused the stored password) |
+| 8 | open: owner links ABS in Floppy as `tomigorn` after the ABS login |
