@@ -20,20 +20,15 @@ its own `tecnativa/docker-socket-proxy` (`portainer-socket-proxy`) on the intern
 republishes the TCP proxy as a unix socket on the `portainer_sock` volume, mounted at
 Portainer's `/var/run`, so Portainer's stored "local" endpoint keeps working unchanged.
 
-| Allowed (groups Portainer uses) | Denied (everything else) |
+| Allowed (read only, `GET`/`HEAD`) | Denied |
 |---|---|
-| `CONTAINERS` list/inspect/logs/start/stop/restart/create/remove | `SECRETS` `CONFIGS` |
-| `IMAGES` list + pull | `SWARM` `NODES` `SERVICES` `TASKS` |
-| `NETWORKS`, `VOLUMES` | `PLUGINS` `BUILD` `COMMIT` |
-| `INFO` `SYSTEM` (`/system/df`) `VERSION` `EVENTS` `PING` | `AUTH` `SESSION` `DISTRIBUTION` |
-| `POST` (state changes + exec creation), `EXEC` (console) | |
+| `CONTAINERS` list/inspect/logs/stats | `POST` = every state change: start/stop/restart/create/remove, image pull, exec creation |
+| `IMAGES` `NETWORKS` `VOLUMES` list/inspect | `EXEC` (console), `ALLOW_START` `ALLOW_STOP` `ALLOW_RESTARTS` |
+| `INFO` `SYSTEM` (`/system/df`) `VERSION` `EVENTS` `PING` | `SECRETS` `CONFIGS` `SWARM` `NODES` `SERVICES` `TASKS` |
+| | `PLUGINS` `BUILD` `COMMIT` `AUTH` `SESSION` `DISTRIBUTION` |
 
-**Honest limit:** this does NOT make Portainer non-root-equivalent. Portainer creates
-containers, and container-create with bind mounts is itself root on the host, so the
-`CONTAINERS`+`POST` grant is inherently privileged. What the proxy removes is the raw
-socket-file mount; it blocks the dangerous groups Portainer never needs (swarm,
-secrets, configs, nodes, services, tasks, plugins, build), and it gives one filtered,
-logged, restartable choke point in front of the daemon instead of a direct mount.
+**Effect:** with `POST=0` and `EXEC=0` Portainer can view every stack, container and log but cannot change, create or exec anything, so it is not root-equivalent. Manage containers via the shell / compose. The proxy also removes the raw socket-file mount and is one filtered, logged choke point in front of the daemon.
+
 Verify the raw mount is gone: `docker inspect portainer` shows no `/var/run/docker.sock`
 bind — only the `portainer_sock` volume at `/var/run`.
 
