@@ -16,4 +16,5 @@ if want audiobookshelf; then
   check abs.user-importer '^admin True download=False update=True delete=False upload=False$' "$(absq '" ".join([u["audiobook-importer"][0], str(bool(u["audiobook-importer"][1])), p("audiobook-importer")]) if "audiobook-importer" in u else "missing"')"
   check abs.root-single '^1$' "$(absq 'sum(1 for v in u.values() if v[0] == "root")')"
   check abs.libraries '^[3-9]$' "$(absq 'c.execute("select count(*) from libraries").fetchone()[0]')"
+  check abs.key-floppy-push '^user True$' "$(absq 'next((f"{t} {bool(a)}" for t, a in c.execute("select u.type, k.isActive from apiKeys k join users u on u.id = k.userId where k.name = ?", ("floppy-push",))), "missing")')"
 fi
