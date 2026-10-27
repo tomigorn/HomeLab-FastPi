@@ -1,0 +1,204 @@
+# Service customizations (fastpi)
+
+Everything changed on a service beyond its stock image: plugins, injected scripts, proxy overlays, hooks, settings set by script or API, DB edits, pinned images, route exceptions. Add a row in the same change that makes the customization.
+
+| Run | Command |
+|---|---|
+| One project (name = compose dir) | `Docker/_global/scripts/post-update-check.sh <Project>` |
+| Everything (about 25 s) | `Docker/_global/scripts/post-update-check.sh all` |
+| List projects | `Docker/_global/scripts/post-update-check.sh --list` |
+| Registry vs checks | `Docker/_global/scripts/test_post_update_check.sh` |
+
+- Checks: `Docker/_global/post-update.d/<Project>.sh`, one `check <id> <regex> "<actual>"` per id below, read-only, no secret printed.
+- `update-project.sh` and the nightly auto-update run the project's file after an update and roll back when a check fails ([UPDATE-RUNBOOK](_global/UPDATE-RUNBOOK.md)).
+- After every update, by hand or automatic: run the project's check, fix or roll back before calling it done.
+
+## Traefik
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Pinned tag, plugin test before a bump | `docker-compose.yaml`, `scripts/traefik-plugin-test.sh` | `update-project.sh Traefik pull` runs the test first | `traefik.version-pin`: traefik version → 3.7.16 | a new tag rejecting the plugins or the experimental block |
+| Local plugins realip + crowdsec bouncer (no registry download) | `traefik/plugins-local/`, `experimental.localPlugins` in `traefik/traefik.yml` | `docker compose up -d` | `traefik.local-plugins`: "Plugins loaded" log line → crowdsec-bouncer, realip; `traefik.config-reload`: last reload success metric set | Yaegi changes: plugin fails to load, websecure invalid, every route 404 |
+| Real client IP in X-Forwarded-For | `dynamic/real-ip.yml`, entrypoint middlewares | file reload | `traefik.real-ip`: spoofed XFF on the public sso path, Authentik logs the real IP → real | middleware order or forwardedHeaders semantics |
+| CrowdSec bouncer, fail open | `dynamic/crowdsec.yml` | file reload | `traefik.crowdsec-bouncer`: CAPI IP / clean IP as Cf-Connecting-Ip → 403 200; `traefik.bouncer-fail-open`: crowdsecMode, updateMaxFailure → stream -1 | plugin API change |
+| Pinned IP 10.24.15.3 on traefik_authentik (Authentik trusts only it) | `docker-compose.yaml` | `docker compose up -d` | `traefik.authentik-ip`: network IP → 10.24.15.3 | network recreated without ipv4_address |
+| Forward auth + LAN/VPN-only gate | `dynamic/authentik-forwardauth.yml`, `dynamic/local-networks.yml` | file reload | `traefik.forward-auth`: dashboard → sso authorize; `traefik.local-networks`: admin host from a non-local container → 403 | ipAllowList / forwardAuth semantics |
+| Password-login blocks (Portainer, Jellyfin, Nextcloud) | `dynamic/portainer.yml`, `jellyfin.yml`, `nextcloud.yml` | file reload | `traefik.portainer-password-block`: POST /api/auth → 403; `traefik.jellyfin-password-block`: two auth POSTs → 403 403 (beefy not woken); `traefik.nextcloud-login-block`: POST /login → 403 | PathRegexp or priority changes |
+| Tracker allow-list + token-URL blocks | `dynamic/tracker.yml` | file reload | `traefik.tracker-allow-list`: unknown path, webhook POST → 404 403 | rule matcher changes |
+| LanguageTool token routers (gitignored) | `dynamic/languagetool-token.yml`, entrypoint :8443 | `LanguageTool/Raspi/scripts/lt-token.py add` | `traefik.lt-token-routers`: router count, first token, bare path → N routers, token 200, bare 404 (count only, never a token) | entrypoint or ReplacePathRegex changes |
+| Metrics only on the internal entrypoint | `traefik/traefik.yml` | `docker compose up -d` | `traefik.metrics-internal`: LAN :8080, Prometheus scrape → 000 1 | entrypoint defaults |
+| Access log rotation | `logrotate/traefik` → /etc/logrotate.d | `sudo install -m 0644 logrotate/traefik /etc/logrotate.d/traefik` | `traefik.logrotate`: cmp with the repo → same | USR1 reopen behaviour |
+
+## Authentik
+
+All in Authentik's DB unless noted; one read-only `ak shell` pass (about 7 s).
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Pinned server tag | `.env` AUTHENTIK_TAG | edit, `docker compose up -d` (DB migrates: attended only) | `authentik.image-pin`: image → server:2026.x.y | one-way migration |
+| Branding: brand title, logo, favicon, footer, flow titles | Brand + Tenant + 4 flows | README "Branding" | `authentik.brand`: → Holy Grail, logo/favicon from the branding store; `authentik.footer`: → holy-grail.ch link; `authentik.flow-titles`: → no "authentik" in the 4 titles | model renames |
+| Branding mounts (logo, store at the same absolute path) | `docker-compose.yaml` server + worker | `docker compose up -d` | `authentik.brand-mounts`: logo file + store in both containers → ok ok | /web/icons path moves |
+| Dashboard look: sections, captions, icons, hidden helpers, navy CSS | `scripts/dashboard-look.py`, icons in `data/media/public/apps` | `./scripts/fetch-app-icons.sh` then `ak shell < scripts/dashboard-look.py` | `authentik.dashboard-apps`: every APPS slug's group/description/icon → n/n; `authentik.dashboard-hidden`: → n/n; `authentik.dashboard-css`: brand CSS hash vs the script → match; `authentik.app-icons`: icon files → 10+ | the CSS uses undocumented selectors: also look at /if/user/#/library in a browser after every upgrade |
+| Avatar source picker first | Tenant avatars | `Avatar-Picker/scripts/provision-authentik.py` | `authentik.avatar-source`: → attributes.avatar,initials | tenant field rename |
+| Groups (admin split, media groups, cloud) | `scripts/provision-media-groups.py`, `provision-admin-account.py`, blueprints | `ak shell < scripts/provision-media-groups.py` | `authentik.groups`: 7 groups → 7/7; `authentik.admin-account`: tomigorn-admin active → True | group model changes |
+| App bindings per group | `scripts/provision-*-sso.py`, `provision-dt-sso.py` | rerun the provisioning (README "Re-running the provisioning") | `authentik.bind-homelab-admins`, `authentik.bind-streaming-admins`, `authentik.bind-streaming-requesters`, `authentik.bind-streaming-users`: bound apps → n/n | policy engine changes |
+| Scope mappings: ABR groups, wg-easy email_verified, Audiobookshelf profile | `provision-books-sso.py`, `provision-admin-sso.py`, `blueprints/audiobookshelf-oidc.yaml` | provisioning / `ak apply_blueprint` | `authentik.abr-groups`: attached to books-login, emits abr_groups → True True; `authentik.wg-easy-email`: → True; `authentik.abs-oidc`: mapping + binding → True True | expression API changes |
+| Login lifetime 1 day / 30 days, forward auth 24 h | stage default-authentication-login, all proxy providers | `scripts/session-ttl.sh apply` | `authentik.session-ttl`: → days=1 days=29; `authentik.proxy-ttl`: every proxy provider at hours=24 → n/n | new providers start at 1 h (the provisioning helpers don't set it) |
+| Enrollment: streaming-users on sign-up, admin mail, invite warning | `blueprints/enrollment-*.yaml` | `docker cp` + `ak apply_blueprint` (README "Blueprints") | `authentik.enroll-group`: → streaming-users; `authentik.notify-new-user`: rule → True; `authentik.invite-warning`: binding → order=1 | blueprint schema |
+| Embedded outpost serves every proxy provider | provisioning scripts | rerun the script of the app | `authentik.outpost-providers`: → missing=0 | outpost model |
+| Avatar picker service account + role | `Avatar-Picker/scripts/provision-authentik.py` | rerun it | `authentik.avatar-picker-sa`: → True | RBAC changes |
+| Canary user disabled between tests | `scripts/canary-*.sh` | `scripts/canary-disable.sh` | `authentik.canary-off`: is_active → False | none |
+| Trusted proxy = Traefik only | `.env` AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS | `docker compose up -d` | `authentik.trusted-proxy`: env → 127.0.0.0/8,::1/128,10.24.15.3/32 | setting rename |
+| Email templates | `custom-templates/email/` mounted at /templates | `docker compose up -d` | `authentik.email-templates`: 3 templates in the container → ok | template context changes |
+| App-list cache flush on group change | `scripts/app-cache-on-group-change.sh`, `systemd/authentik-app-cache.*` | README "Login lifetime" install line | `authentik.app-cache-timer`: → active | user_app_cache_key rename |
+| Login page answers | stock flow + all of the above | | `authentik.login-page`: flow page → 200 | anything |
+
+Full functional check (not read-only, it toggles the canary): `scripts/canary-verify.sh` → SSO_VERIFY_OK.
+
+## Audiobook-Requests
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| ABR digest-pinned, root password + forwarded IPs entrypoint | `docker-compose.yaml` | `docker compose up -d` | `abr.image-pin`: → tag@sha256; `abr.forwarded-ips`: → 10.24.25.6 | upstream path changes (alembic, fastapi) |
+| ABR settings: Prowlarr via the importer pass-through, auto-download, webhook, ABS via importer, OIDC | ABR DB | `sudo python3 scripts/abr-setup.py` | `abr.prowlarr-passthrough`: → importer URL [3030]; `abr.auto-download`: → True; `abr.webhook`: → enabled, importer /abr, onSuccessfulDownload; `abr.abs-via-importer`: → importer /abs, check on; `abr.oidc`: → oidc abr_groups https, no forced login; `abr.oidc-redirect`: /auth/login → sso authorize | settings API or migrations resetting values |
+| books-proxy: Seerr link injected, All-requests page, request quota | `books-proxy/nginx.conf`, `books-proxy/www/` | `docker compose up -d books-proxy` | `books.links-inject`: login page carries links.js, links.js has the Seerr URL → 1; `books.all-requests`: page, data → 200 [; `books.quota`: importer /quota, auth_request lines → 204 2 | ABR renames endpoints (quota silently bypassed) or drops `</head>` |
+| Importer: ranking pass-through, read-only ABS gate | `importer/` (mounted ro) | `docker compose up -d importer` | `importer.health`: → ok; `importer.abs-readonly-gate`: POST scan → 404; `importer.ranking-tests`: unit tests → OK | ABR's Prowlarr call shape |
+
+## audiobookshelf
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| OIDC only (local login off), Holy Grail button, auto-register, match by email, groups claim | ABS DB server-settings (UI Settings → Authentication) | ABS UI | `abs.oidc-only`: public /status → [openid] Login with Holy Grail; `abs.oidc-settings`: → True email groups issuer | a migration re-enabling local login |
+| Service users: abr read-only, audiobook-importer update only | ABS DB users (UI Users) | ABS UI, keys per `Audiobook-Requests/README.md` | `abs.user-abr`: → user, active, all four perms False; `abs.user-importer`: → admin, active, only update True | permission model changes |
+| Root locked (random password + token), one root | ABS DB | ABS UI | `abs.root-single`: root users → 1 | none |
+| One library per language | ABS DB | ABS UI | `abs.libraries`: → 3+ | none |
+
+## mouse (VPN downloaders)
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Prowlarr MAM rules, seed forever | Prowlarr DB + qBittorrent prefs | `sudo python3 scripts/prowlarr-setup.py` | `mouse.prowlarr-setup`: prowlarr-setup.py --check → OK MAM rules, gate and seed-forever hold | indexer field renames |
+| prowlarr-gate (only Traefik gets the UI), Prowlarr digest pin | `prowlarr-gate/nginx.conf`, `docker-compose.yaml` | `docker compose up -d prowlarr-gate` | `mouse.prowlarr-gate`: UI from the host → 403; `mouse.prowlarr-pin`: → 2.6.5.5623-ls165@sha256 | host config resetting bindAddress |
+| qBittorrent stays on 5.2.x (MAM client rules) | `docker-compose.yaml` | keep the tag | `mouse.qbit-5.2-pin`: qbittorrent-nox --version → v5.2. | a tag bump to 5.3+ |
+| qBittorrent auth bypass only for Traefik, bound to tun0, category abr | qBittorrent.conf, categories.json under /mnt/seagate-red/qbittorrent/config | WebUI options / prowlarr-setup.py | `mouse.qbit-auth-bypass`: → 10.24.25.3/32, enabled; `mouse.qbit-bypass-scope`: importer asks → 403; `mouse.qbit-vpn-bind`: → tun0 tun0; `mouse.qbit-category-abr`: → /downloads/complete/abr -2 -2 -2 | config migration |
+| Forwarded port: TORRENTING_PORT + port_updater | `docker-compose.yaml`, `port-updater/` | `docker compose up -d port-updater` | `mouse.torrenting-port`: env set; `mouse.port-updater-sync`: log → Port OK; `mouse.port-updater-login`: anon → 401 | linuxserver init changes |
+| gluetun pinned, ASN-locked server, port forwarding, control-server auth | `docker-compose.yaml`, `secrets/gluetun/auth/config.toml` | `docker compose up -d gluetun` | `mouse.gluetun-pin`: → v3.41.3; `mouse.gluetun-server`: → node-ch-07, forwarding on; `mouse.gluetun-control-auth`: anon → 401 401; `mouse.vpn-egress`: qBittorrent IP ≠ home IP → vpn | auth schema change |
+| SABnzbd local ranges + host whitelist | sabnzbd.ini [misc] (edit only while stopped) | edit with the container stopped | `mouse.sab-whitelist`: → the four ranges, host listed True; `mouse.sab-localhost`: :8090 → 200 | sabnzbd:latest migrating the ini |
+| Mousehole keeps the MAM session | `docker-compose.yaml` | `docker compose up -d mousehole` | `mouse.mousehole-mam`: /health → ok | state path changes (0.5) |
+
+## antivirus
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Own scripts + freshclam config baked into clamav-local | `clamav/` (Dockerfile COPY) | `docker compose up -d --build --pull clamav virustotal` | `av.scripts-in-image`: sha256 of the three scripts in the image vs repo → same same same; `av.freshclam-conf`: → same; `av.freshclam-running`: → 1+ | alpine base changes (busybox flags): run tests/test_scan.sh in the image |
+| Nightly new-files scan, weekly host scan | `systemd/clamav-*`, `install.sh` | `./install.sh` | `av.timers`: → active active, units same as repo; `av.nightly-scan`: last run → under 2 days | none |
+| Host scan without network | `docker-compose.yaml` profile hostscan | | `av.hostscan-no-network`: network_mode → none | none |
+
+## Home-Assistant
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| SSO only: hass-oidc-auth 1.2.1 vendored, password provider removed | `config/custom_components/auth_oidc/`, `config/configuration.yaml` | README "Installing / updating the component" | `ha.sso-only`: /auth/providers → auth_oidc; `ha.oidc-vendored`: manifest → 1.2.1, tree clean; `ha.oidc-redirect`: welcome → sso authorize with the ha callback | HA core change stops the component: zero login methods (README shell recovery) |
+| Proxy trust | `config/.storage/http` | UI Network, or edit with HA stopped | `ha.http-trust`: → True [172.24.0.0/16]; `ha.via-traefik`: → 200 | storage migration dropping keys (400 on every request) |
+| Zigbee dongle by-id | `docker-compose.yaml` | `docker compose up -d` | `ha.zigbee-device`: /dev/ttyUSB0 → ok | none |
+
+## grafana (monitoring stack)
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Grafana SSO only (generic OAuth, form + basic off) | `docker-compose.yaml` GF_AUTH_* | `docker compose up -d grafana` | `grafana.oauth-login`: /login → sso authorize; `grafana.login-form-off`: POST /login → notConfigured; `grafana.basic-auth-off`: → 401 | GF env renames |
+| Provisioned dashboards | `provisioning/` | restart grafana | `grafana.dashboards`: every uid in provisioning/dashboards in the DB → ok | unified-storage schema |
+| Prometheus rules, retention, scrape jobs | `prometheus/` | `docker kill -s HUP prometheus` | `prom.rule-files`: loaded files = repo files, rules ok → n n [] 0; `prom.retention`: → 400d 60GiB; `prom.scrape-jobs`: jobs = pools, none down → n n 0 | flag or rule syntax changes |
+| Alertmanager routing, quiet hours, Telegram template | `alertmanager/alertmanager.yml` (gitignored), `alertmanager/templates/` | edit in place, amtool check-config, HUP | `am.config`: quiet-hours, Europe/Zurich, templates → True True True telegram.tmpl; `am.routes`: warning, critical, digest, DailyDigest → telegram critical null telegram-digest; `am.routing-tests`: test_routing.py → OK | config schema |
+| Blackbox modules (LAN + WAN) | `blackbox/blackbox.yml` | restart | `blackbox.modules`: module count both exporters → n n | config schema |
+| Telegraf docker input → InfluxDB, InfluxDB 2.x pin | `telegraf/telegraf.conf`, `docker-compose.yaml` | restart | `telegraf.writes`: output errors in 5 min → 0; `influxdb.v2-pin`: /health → v2.9.1 pass | influxdb:latest is v3 |
+| node-exporter textfile collector (security, backups, scans) | `docker-compose.yaml` | restart | `node.textfile-collector`: scrape error, files → 0 n | flag rename |
+| Host jobs: container exporter, usage collector | `container-exporter/systemd/`, `usage-collector/systemd/` | README install lines | `grafana.host-timers`: → active active; `grafana.container-exporter`: last success → under 3 min | none |
+
+## Portainer
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| OAuth only, port on 127.0.0.1 | Portainer DB, `docker-compose.yaml` | Portainer UI Authentication | `portainer.oauth-only`: → AuthenticationMethod 3; `portainer.oauth-sso`: login URI → sso authorize, redirect portainer; `portainer.localhost-only`: LAN :9443 → 000 | DB migration resetting OAuth |
+| Read-only socket proxy | `docker-compose.yaml` | `docker compose up -d socket-proxy` | `portainer.proxy-readonly`: → EXEC=0 POST=0 | env renames |
+
+## Docker-Socket-Proxy
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Read-only proxy allow-list | `docker-compose.yaml` | `docker compose up -d` | `dsp.ro-env`: → CONTAINERS EVENTS IMAGES INFO PING VERSION; `dsp.ro-denies-post`: GET version, POST restart → 200 403 | env renames |
+| haproxy overlays for autoheal and port_updater | `autoheal-haproxy.cfg`, `portupdater-haproxy.cfg` | `docker compose up -d` | `dsp.haproxy-overlays`: mounted cfg vs repo → match match; `dsp.autoheal-denies`: /info → 403; `dsp.portupdater-scope`: gluetun / traefik inspect → 200 403 | image moving its haproxy path (overlay ignored) |
+
+## WireguardVPN
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| OIDC only, password login off, secret via entrypoint | `docker-compose.yaml` | `docker compose up -d` | `wg.oidc-env`: → the four env values; `wg.password-off`: auth methods → passwordDisabled; `wg.password-post`: → 403; `wg.oidc-sso`: → sso authorize with the wg-easy callback; `wg.secret-entrypoint`: entrypoint reads oidc_client_secret | env renames, docker-entrypoint.sh moves |
+| Hooks: iptables-nft + DNAT of web traffic to Traefik | wg-easy DB hooks_table | Admin → Hooks | `wg.dnat-hook`: PREROUTING DNAT → 1; `wg.hooks-nft`: post_up/post_down only iptables-nft → (5, 0, True) twice; `wg.listening`: → 51820 | iptables backend switch (2026-10-25 restart loop) |
+
+## LanguageTool (compose dir LanguageTool/Raspi, checks in Raspi.sh)
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Local image, own entrypoint, logback, shared rules + spelling | `Raspi/Dockerfile`, `shared/`, `Raspi/config/` | `docker compose -f Raspi/docker-compose.yaml up -d --build` | `lt.local-image`: → languagetool-local:6.8; `lt.entrypoint-logback`: → /LanguageTool/logback.xml; `lt.rules-spelling`: Raspi/scripts/test.sh → PASS n FAIL 0 | upstream start.sh changes |
+
+Token routers: `traefik.lt-token-routers` (Traefik).
+
+## CrowdSec
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Collections, Traefik log acquisition | `docker-compose.yaml` COLLECTIONS, `config/acquis.yaml` | `docker compose up -d` | `cs.collections`: traefik, http-cve, base-http-scenarios → ok; `cs.acquis-traefik`: acquisition metrics → 1+ | hub renames |
+| Home IP allowlist (LAPI DB) | README "Home IP allowlist" | cscli allowlists add home | `cs.allowlist-home`: → is allowlisted | DB migration |
+| LAPI + bouncer, exporter + autoupdate timers | `systemd/` | `install.sh` | `cs.lapi`: → successfully; `cs.bouncer-pull`: → under 10 min; `cs.units`: → active active | none |
+
+## cloudflared
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Pinned tag, no autoupdate, metrics, token file | `docker-compose.yaml` | `docker compose up -d` | `cf.pin`: → cloudflared:YYYY.M.P; `cf.no-autoupdate-metrics`: → command flags; `cf.tunnel-connections`: → 1+ | flag changes |
+| Address in the host-guard SSH range | `docker-compose.yaml` network | `docker compose up -d` | `cf.host-guard-range`: → 172.20.; `cf.public-path`: home through Cloudflare → 200 | network recreated |
+
+## adguard
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Only the authentik-proxy user, lockout 5 / 15 min | `conf/AdGuardHome.yaml` (root-owned) | edit with the container stopped | `adg.users`: → [authentik-proxy], 5, 15; `adg.anon-refused`: → 401; `adg.ui-sso`: → sso | schema_version bump rewriting the YAML |
+| Local zone *.holy-grail.ch → fastpi | same file, rewrites | AdGuard UI | `adg.local-zone`: sso → 192.168.1.2; `adg.resolves`: example.com → an IP | same |
+
+## Cup
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| No socket, agents per host, 172.24.0.1 bind, forward auth | `cup.json`, `cup-agent.json`, `docker-compose.yaml` | `docker compose up -d` | `cup.config`: → socket none, servers beefy, fastpi; `cup.api-servers`: API lists beefy and fastpi; `cup.bind-172`: LAN :8000 → 000; `cup.forward-auth`: → sso | config schema version |
+
+## Avatar-Picker
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Local avatar pack, favicon, version in the image | `app/img-local/` (gitignored), `app/static/`, `Dockerfile` | `docker compose up -d --build` | `avatar.local-pack`: every local gallery file in the image → n local, 0 missing; `avatar.favicon`: → 200 200; `avatar.version`: image vs repo → same | a rebuild without the pack |
+| State via Authentik, header secret from Traefik | `secrets/`, `Traefik/traefik/dynamic/avatar-picker-secret.yml` | `scripts/rotate-secrets.sh` | `avatar.state`: → 200 groups avatars lotr; `avatar.secret-required`: without header → 403 | Authentik API changes (503) |
+| Pick queue + host sync to Jellyfin/Seerr | `data/queue.json`, `systemd/avatar-sync.*` | README install line | `avatar.queue`: → ok; `avatar.sync-units`: → active active success | none |
+| Image route LAN-only | `Traefik/traefik/dynamic/avatar-picker.yml` | file reload | `avatar.img-routes`: public / LAN → 403 200 | ClientIP rule changes |
+
+## Beefy-Waker
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Waker app | `app/` | `docker compose up -d --build` | `waker.status`: → up; `waker.version`: page vs app/VERSION → same | base image |
+| Night downloads poll/wake, maintenance wake, idle pull | `night-downloads-wake/`, `maintenance-wake/`, `Server/4-Security-Monitoring/beefy-idle-pull.*` | copy units to /etc/systemd/system, enable | `waker.timers`: → four active; `waker.units-installed`: → same same same | none |
+| ssh wake hooks | ~/.ssh/config Match exec | by hand | `waker.ssh-hooks`: → 2 | none |
+
+## Claude-Mockups
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Caddyfile, answer assets, answer inbox | `Caddyfile`, `assets/`, `inbox/server.js` | `docker compose up -d --force-recreate` | `mockups.caddyfile`: caddy validate → Valid configuration; `mockups.assets`: → ok; `mockups.answer-inbox`: → ok; `mockups.forward-auth`: → sso | caddy directive changes (auto-updated) |
+
+## Host (fastpi, no compose project)
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Security monitoring timers | `Server/4-Security-Monitoring/` | its `install.sh` | `host.security-timers`: eight timers → active; `host.security-units-installed`: units differing from the repo → 0; `host.security-scan-fresh`: stale alerts → none | none |
+| Nightly auto-update + image cleanup | `_global/systemd/` | its install line | `host.auto-update-timer`: → active active | none |
+| Host firewall guard persisted | /etc/iptables/rules.v4 | `_global/scripts/iptables-persist.sh` | `host.host-guard-persisted`: → 1 | iptables-persistent changes |

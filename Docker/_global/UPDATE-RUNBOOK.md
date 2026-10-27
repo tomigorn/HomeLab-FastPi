@@ -93,6 +93,11 @@ docker compose logs -f --tail=100       # watch for migration errors or a crash 
 ```
 Then open the app's UI / endpoint and exercise a **real** action (log in, load a page, etc.).
 
+Then check the project's customizations ([CUSTOMIZATIONS.md](../CUSTOMIZATIONS.md)); a FAIL means fix or roll back:
+```bash
+_global/scripts/post-update-check.sh <Project>    # compose dir name; `all` for everything
+```
+
 ### 5. Rollback (if broken)
 ```bash
 # a) Revert the version: set <PROJECT>_IMAGE_TAG back to the OLD tag in .env, then:
@@ -145,6 +150,7 @@ otherwise it re-tags the old image IDs and recreates (automatic rollback).
 `SERVICES="a b"` limits the pull/build and the recreate (`--no-deps`) to those services, a forced-drill rollback too; the verify still covers every container of the project (keep gluetun out of it).
 For Traefik it first runs `Traefik/scripts/traefik-plugin-test.sh <new tag>` and stops, unchanged, if the local plugins fail on the new version.
 `CHECK='<shell command>'` adds a functional check after the container checks (retried 6 × 10 s; it runs inside the project folder, so use absolute paths; for the Authentik canary use `CHECK='sleep 35; bash /home/pi/Projects/Docker/Authentik/scripts/canary-verify.sh'`, because a retry within the same 30 s TOTP window is refused); `TEST_FORCE_FAIL=1` forces the rollback (drill). The rollback recreates only the changed or down services and is verified itself: exit 0 ok, 1 rolled back, 3 rollback did not verify.
+After the container checks and CHECK it runs `post-update-check.sh <dir name>` when `post-update.d/<dir name>.sh` exists (registry: [CUSTOMIZATIONS.md](../CUSTOMIZATIONS.md)) and rolls back when a customization is missing; `POST_CHECK=0` skips it.
 It does NOT read release notes for you: majors and the stateful apps listed above
 still get the manual treatment.
 
