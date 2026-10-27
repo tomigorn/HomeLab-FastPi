@@ -91,8 +91,8 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | Own scripts + freshclam config baked into clamav-local | `clamav/` (Dockerfile COPY) | `docker compose up -d --build --pull clamav virustotal` | `av.scripts-in-image`: sha256 of the three scripts in the image vs repo → same same same; `av.freshclam-conf`: → same; `av.freshclam-running`: → 1+ | alpine base changes (busybox flags): run tests/test_scan.sh in the image |
-| Nightly new-files scan, weekly host scan | `systemd/clamav-*`, `install.sh` | `./install.sh` | `av.timers`: → active active, units same as repo; `av.nightly-scan`: last run → under 2 days | none |
-| Host scan without network | `docker-compose.yaml` profile hostscan | | `av.hostscan-no-network`: network_mode → none | none |
+| Nightly new-files scan, weekly host scan (nightly 22:30 timer, window 22:00-06:00 + Sunday, resumable) | `systemd/clamav-*`, `install.sh` | `./install.sh` | `av.timers`: → active active, units same as repo; `av.services`: units same as repo; `av.nightly-scan`: last run → under 2 days | none |
+| Host scan without network, resumable, low priority, exclude list | `docker-compose.yaml` profile hostscan | `docker compose up -d --build clamav` (image) | `av.hostscan-no-network`: network_mode → none; `av.hostscan-resume`: SCAN_RESUME=1 and cpu_shares 2 in the config | none |
 
 ## Home-Assistant
 

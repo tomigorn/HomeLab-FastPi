@@ -1,5 +1,5 @@
 [Unit]
-Description=ClamAV whole-host scan (container without network)
+Description=ClamAV whole-host scan, chunked and resumable (container without network)
 Documentation=file:///home/pi/Projects/Docker/antivirus/README.md
 After=docker.service
 Requires=docker.service
@@ -12,6 +12,10 @@ SupplementaryGroups=docker
 ExecStart=/usr/bin/docker compose --project-directory /home/pi/Projects/Docker/antivirus run --rm clamav-hostscan
 # Exit 1 = infected files found (report only); the alert reports those, the unit only fails on scan errors.
 SuccessExitStatus=1
-TimeoutStartSec=12h
+# The scan stops itself at 06:00 (22:00-06:00 and Sundays only) and resumes the next night, so a run is at most ~32 h (Sunday through Monday 06:00).
+TimeoutStartSec=36h
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
 NoNewPrivileges=true
 PrivateTmp=true

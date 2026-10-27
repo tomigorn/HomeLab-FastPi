@@ -14,6 +14,9 @@ CLAMD_CONF=${CLAMD_CONF:-/tmp/clamd-hostscan.conf}
 CLAMD_SOCK=${CLAMD_SOCK:-/tmp/clamd-hostscan.sock}
 CLAMD_THREADS=${CLAMD_THREADS:-$(nproc 2>/dev/null || echo 4)}
 CLAMD_WAIT=${CLAMD_WAIT:-600}
+SCAN_RESUME=${SCAN_RESUME:-0}
+CHUNK_FILES=${CHUNK_FILES:-20000}
+PASS_DAYS=${PASS_DAYS:-6}
 
 usage() {
 	cat >&2 <<EOF
@@ -22,7 +25,8 @@ usage: scan.sh new        files under \$SCAN_ROOTS changed since the last good r
        scan.sh <path>...  quarantined when under \$SCAN_ROOTS, else report only
        scan.sh restore <file in quarantine>  move back to its original path and never flag it again
 exit:  0 clean, 1 infected, 2 errors
-env:   USE_CLAMD=1 runs \`all\` through a private clamd (multiscan, all cores); SCAN_EXCLUDE_DIRS = directories \`all\` skips
+env:   SCAN_RESUME=1 (with USE_CLAMD=1) scans \`all\` in chunks only 22:00-06:00 and Sundays (local time), resuming where it stopped
+       USE_CLAMD=1 runs \`all\` through a private clamd (multiscan, all cores); SCAN_EXCLUDE_DIRS = directories \`all\` skips
 EOF
 	exit 2
 }
@@ -59,6 +63,39 @@ case $1 in
 	all) MODE=all ;;
 	*) MODE=path ;;
 esac
+now() {
+	if [ -n "$SCAN_NOW_FILE" ]; then cat "$SCAN_NOW_FILE"; else date +%s; fi
+}
+
+# Low-tariff window, local time: 22:00-06:00 every day, all day Sunday.
+window_open() {
+	case $(date -d "@$1" +%H) in 22 | 23 | 0[0-5]) return 0 ;; esac
+	[ "$(date -d "@$1" +%u)" = 7 ]
+}
+
+# Seconds until the window closes (a minute early at worst), 0 when closed.
+window_left() {
+	t=$(now)
+	k=0
+	while window_open $((t + k * 60)) && [ "$k" -lt 2880 ]; do k=$((k + 1)); done
+	[ "$k" -gt 0 ] && k=$((k - 1))
+	echo $((k * 60))
+}
+
+resume_gate() {
+	if ! window_open "$(now)"; then
+		echo "scan.sh all: outside the 22:00-06:00 / Sunday window, nothing to do"
+		return 1
+	fi
+	if [ ! -s "$STATE/all.list" ] && [ -s "$STATE/all.finished" ] && [ $(( $(now) - $(cat "$STATE/all.finished") )) -lt $((PASS_DAYS * 86400)) ]; then
+		echo "scan.sh all: last pass finished less than $PASS_DAYS days ago, nothing to do"
+		return 1
+	fi
+	return 0
+}
+
+[ "$MODE" = all ] && [ "$SCAN_RESUME" = 1 ] && { resume_gate || exit 0; }
+
 LOG=$STATE/last-$MODE.log
 START=$(date +%s)
 RC=0
@@ -170,11 +207,59 @@ EOF
 	fi
 }
 
+prepare_pass() {
+	if [ ! -s "$STATE/all.list" ]; then
+		set -- $targets -xdev '(' -path "$QUARANTINE"
+		for d in $SCAN_EXCLUDE_DIRS; do set -- "$@" -o -path "$d"; done
+		set -- "$@" ')' -prune -o -type f -size +0c ! -size +"$MAXBYTES"c -print
+		find "$@" 2> /dev/null | sort > "$STATE/all.list.tmp"
+		if [ -s "$ALLOW" ]; then
+			awk 'NR == FNR { allow[$0] = 1; next } !($0 in allow)' "$ALLOW" "$STATE/all.list.tmp" > "$STATE/all.list"
+			rm -f "$STATE/all.list.tmp"
+		else
+			mv "$STATE/all.list.tmp" "$STATE/all.list"
+		fi
+		echo 0 > "$STATE/all.done"
+		: > "$STATE/all.pass-hits"
+		echo "$SKIPPED" > "$STATE/all.skipped"
+		rm -f "$STATE/all.finished"
+	fi
+	PASS_TOTAL=$(wc -l < "$STATE/all.list" | tr -d ' ')
+	LISTED=$PASS_TOTAL
+	SKIPPED=$(cat "$STATE/all.skipped" 2> /dev/null || echo 0)
+}
+
+resume_scan() {
+	done=$(cat "$STATE/all.done")
+	while [ "$done" -lt "$PASS_TOTAL" ]; do
+		left=$(window_left)
+		[ "$left" -ge 60 ] || break
+		tail -n +$((done + 1)) "$STATE/all.list" | head -n "$CHUNK_FILES" > "$STATE/all.chunk"
+		timeout "$left" clamdscan -c "$CLAMD_CONF" --multiscan -i --file-list="$STATE/all.chunk" >> "$LOG" 2>&1
+		r=$?
+		case $r in 124 | 137 | 143) break ;; esac
+		[ "$r" -gt "$RC" ] && RC=$r
+		done=$((done + $(wc -l < "$STATE/all.chunk" | tr -d ' ')))
+		echo "$done" > "$STATE/all.done"
+	done
+	rm -f "$STATE/all.chunk"
+	if [ "$done" -ge "$PASS_TOTAL" ]; then
+		now > "$STATE/all.finished"
+		rm -f "$STATE/all.list"
+	fi
+	echo "Scanned files: $done" >> "$LOG"
+}
+
 clamd_all() {
 	write_clamd_conf > "$CLAMD_CONF"
 	rm -f "$CLAMD_SOCK"
-	count_files scanned $targets > "$STATE/scanned.count" &
-	counter=$!
+	counter=
+	if [ "$SCAN_RESUME" = 1 ]; then
+		prepare_pass
+	else
+		count_files scanned $targets > "$STATE/scanned.count" &
+		counter=$!
+	fi
 	clamd --config-file="$CLAMD_CONF" > "$STATE/clamd.log" 2>&1 &
 	cpid=$!
 	i=0
@@ -185,12 +270,18 @@ clamd_all() {
 			sed 's/^/ERROR: clamd: /' "$STATE/clamd.log" | tail -5 >> "$LOG"
 			kill "$cpid" 2> /dev/null
 			wait "$cpid" 2> /dev/null
-			wait "$counter"
+			[ -n "$counter" ] && wait "$counter"
 			RC=2
 			return
 		fi
 		sleep 1
 	done
+	if [ "$SCAN_RESUME" = 1 ]; then
+		resume_scan
+		kill "$cpid" 2> /dev/null
+		wait "$cpid" 2> /dev/null
+		return
+	fi
 	clamdscan -c "$CLAMD_CONF" --multiscan -i $targets >> "$LOG" 2>&1
 	r=$?
 	[ "$r" -gt "$RC" ] && RC=$r
@@ -203,6 +294,11 @@ clamd_all() {
 run_all() {
 	targets=$SCAN_ROOTS
 	[ "$SCAN_HOST" = 1 ] && targets="$targets /host"
+	if [ "$USE_CLAMD" = 1 ] && [ "$SCAN_RESUME" = 1 ]; then
+		[ -s "$STATE/all.list" ] || SKIPPED=$(count_large $targets)
+		clamd_all
+		return
+	fi
 	SKIPPED=$(count_large $targets)
 	if [ "$USE_CLAMD" = 1 ]; then
 		clamd_all
@@ -277,6 +373,13 @@ if [ "$INFECTED" -gt 0 ]; then
 fi
 TOTAL=$(( $(cat "$STATE/infected-total" 2>/dev/null || echo 0) + INFECTED ))
 echo "$TOTAL" > "$STATE/infected-total"
+INFECTED_M=$INFECTED
+if [ "$MODE" = all ] && [ "$SCAN_RESUME" = 1 ] && [ "$USE_CLAMD" = 1 ] && [ -e "$STATE/all.pass-hits" ]; then
+	cat "$HITS" >> "$STATE/all.pass-hits"
+	sort -u -o "$STATE/all.pass-hits" "$STATE/all.pass-hits"
+	INFECTED_M=$(wc -l < "$STATE/all.pass-hits" | tr -d ' ')
+	[ "$INFECTED_M" -gt 0 ] && cp "$STATE/all.pass-hits" "$STATE/last-infected.txt"
+fi
 
 if [ "$MODE" = new ] && [ "$ERRORS" -eq 0 ]; then
 	mv "$STATE/last-run.next" "$STATE/last-run"
@@ -291,7 +394,7 @@ clamav_files_listed{$L} $LISTED
 clamav_files_scanned{$L} $SCANNED
 clamav_scan_errors{$L} $ERRORS
 clamav_files_vanished{$L} $VANISHED
-clamav_infected_last_run{$L} $INFECTED
+clamav_infected_last_run{$L} $INFECTED_M
 clamav_files_skipped_large{$L} $SKIPPED
 EOF
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the ClamAV scan units (nightly new-files, weekly whole-host) on fastpi. Idempotent.
+# Install the ClamAV scan units (nightly new-files, nightly-resumable whole-host) on fastpi. Idempotent.
 set -euo pipefail
 HERE=/home/pi/Projects/Docker/antivirus
 sudo install -d -o pi -g pi -m 0755 /var/lib/node-exporter/textfile
