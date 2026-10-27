@@ -111,6 +111,27 @@ class StaticPageTest(unittest.TestCase):
         ids = [a["id"] for _, a in self.tags if "id" in a]
         self.assertEqual(len(ids), len(set(ids)))
 
+    def css_rule(self, selector):
+        m = re.search(r"(?:^|[}\s])" + re.escape(selector) + r"\{([^}]*)\}", self.html)
+        self.assertIsNotNone(m, selector)
+        return m.group(1)
+
+    def test_captions_hyphenate_instead_of_breaking_mid_word(self):
+        name = self.css_rule(".name")
+        self.assertIn("hyphens:auto", name)
+        self.assertIn("-webkit-hyphens:auto", name)
+        self.assertIn("overflow-wrap:break-word", name)
+        self.assertNotIn("anywhere", name)
+        self.assertIn("min-height:2.5em", name)
+        self.assertIn("line-height:1.25", name)
+
+    def test_tiles_align_to_the_top_of_their_row(self):
+        self.assertIn("align-items:start", self.css_rule(".grid"))
+
+    def test_long_words_get_soft_hyphens_in_the_caption_only(self):
+        self.assertIn('querySelector(".name").textContent = hyphenate(', self.js)
+        self.assertIn("\\u00ad", self.js)
+
 
 if __name__ == "__main__":
     unittest.main()

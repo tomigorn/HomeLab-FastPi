@@ -555,6 +555,30 @@ class GalleryTest(unittest.TestCase):
         for a in GALLERY:
             self.assertRegex(a["color"], r"^#[0-9A-Fa-f]{6}$")
 
+class Hyphenation(unittest.TestCase):
+    """Every long word in a caption has hand-set break points in the page's HYPHENS map (rendered as soft hyphens), so a narrow tile shows "Pachycephalo-saurus", never "Pachycephalosauru / s"."""
+
+    @classmethod
+    def setUpClass(cls):
+        page = open(os.path.join(APP, "static", "index.html"), encoding="utf-8").read()
+        m = re.search(r"const HYPHENS = (\[[^\]]*\]);", page)
+        cls.hyphens = json.loads(m.group(1)) if m else None
+
+    def test_map_present(self):
+        self.assertIsNotNone(self.hyphens)
+
+    def test_every_long_caption_word_has_break_points(self):
+        known = {w.replace("|", "") for w in self.hyphens or []}
+        words = {w for a in GALLERY for w in re.findall(r"[^\W\d_]{11,}", a["name"])}
+        self.assertEqual(sorted(words - known), [])
+
+    def test_break_points_leave_readable_parts(self):
+        for w in self.hyphens or []:
+            parts = w.split("|")
+            self.assertGreater(len(parts), 1, w)
+            self.assertTrue(all(len(p) >= 3 for p in parts), w)
+            self.assertTrue(all(len(p) <= 12 for p in parts), w)
+
 
 if __name__ == "__main__":
     unittest.main()

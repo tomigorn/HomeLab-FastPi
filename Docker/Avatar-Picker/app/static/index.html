@@ -85,7 +85,7 @@
   /* rows + avatars */
   .row{margin:0 0 2rem;text-align:left;scroll-margin-top:calc(var(--stick-h) + .75rem)}
   .row h2{font-size:1.15rem;font-weight:600;margin:0 0 .6rem .25rem}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:1rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:1rem;align-items:start}
   @media(min-width:720px){.grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1.2rem;padding:.4rem .25rem}}
   button.av{background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit;border-radius:.6rem;
     scroll-margin-top:calc(var(--stick-h) + 1rem);scroll-margin-bottom:5rem;min-width:0}
@@ -97,7 +97,8 @@
   button.av.mine img{border-color:var(--accent)}
   button.av:disabled{cursor:not-allowed}
   button.av:disabled img{filter:grayscale(1) brightness(.45)}
-  .name{display:block;margin-top:.4rem;color:#b3b3b3;font-size:.9rem;overflow-wrap:anywhere}
+  .name{display:block;margin-top:.4rem;color:#b3b3b3;font-size:.9rem;line-height:1.25;min-height:2.5em;
+    overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
   .mine .name{color:#fff;font-weight:600}
   button.av:disabled .name{color:#6b6b6b}
   button.av.flash img{animation:pulse .7s ease-out 3;border-color:#ffd54a}
@@ -155,6 +156,11 @@ const $ = id => document.getElementById(id);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const desktop = matchMedia("(min-width: 1000px)");
 const behavior = () => reduced.matches ? "auto" : "smooth";
+const HYPHENS = ["Pachy|cephalo|saurus", "Para|sauro|lophus", "Theri|zino|saurus", "Giganoto|saurus", "Struwwel|peter",
+  "Dilopho|saurus", "Brachio|saurus", "Styraco|saurus", "Quetzal|coatl", "Storm|trooper", "Veloci|raptor", "Ankylo|saurus",
+  "Fire|fighter", "Patago|titan", "Spino|saurus", "Stego|saurus", "Nightin|gale", "Manda|lorian", "Carno|taurus", "Tri|cera|tops"];
+const SHY = Object.fromEntries(HYPHENS.map(w => [w.replaceAll("|", ""), w.replaceAll("|", "\u00ad")]));
+const hyphenate = t => t.replace(/\p{L}{11,}/gu, w => SHY[w] || w);
 const fold = t => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 let state = null, first = true, observer = null, activeId = null, lockId = null, lockTimer = 0, msgTimer = 0;
 const seen = new Set();  // sections currently inside the "active" band
@@ -198,7 +204,7 @@ function render(s) {
     b.innerHTML = '<img alt="" loading="lazy" decoding="async" width="512" height="512"><span class="name"></span>';
     b.querySelector("img").src = "img/" + a.id + ".png";  // same-origin (behind the login)
     b.querySelector("img").alt = a.name;
-    b.querySelector(".name").textContent = a.status === "taken" ? a.name + " · taken" : a.name;
+    b.querySelector(".name").textContent = hyphenate(a.status === "taken" ? a.name + " · taken" : a.name);
     if (a.status === "mine") b.setAttribute("aria-current", "true");
     b.onclick = () => pick(a.id, a.name);
     g.appendChild(b);
