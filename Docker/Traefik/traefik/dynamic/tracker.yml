@@ -138,7 +138,7 @@ http:
         sourceRange:
           - "255.255.255.255/32"
 
-    # Floppy's details URL wants a title segment; any text works, the page shows the real title. Ryot said show, Floppy says tv.
+    # Floppy's details URL wants a title segment; any text works, the page shows the real title. The link says show, Floppy says tv.
     tracker-go-movie:
       redirectRegex:
         regex: "^https://tracker\\.holy-grail\\.ch/go/tmdb/movie/([0-9]+)([?].*)?$"
