@@ -6,7 +6,8 @@
 {{ define "tg.message" -}}
 {{ template "tg.icon" . }} <b>{{ .CommonLabels.alertname }}</b>{{ if eq .Status "resolved" }} · resolved{{ end }}{{ if gt (len .Alerts) 1 }} · {{ len .Alerts }}×{{ end }}
 {{ if gt (len .Alerts) 1 }}
-{{ range .Alerts }}• {{ .Annotations.summary }}
+{{ range $i, $a := .Alerts }}{{ if lt $i 20 }}• {{ $a.Annotations.summary }}
+{{ end }}{{ end }}{{ if gt (len .Alerts) 20 }}… first 20 of {{ len .Alerts }} shown (Telegram limit)
 {{ end }}{{ else }}{{ range .Alerts }}
 {{ .Annotations.summary }}
 {{ end }}{{ end }}
