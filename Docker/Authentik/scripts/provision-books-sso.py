@@ -19,7 +19,7 @@ HOST = "https://books.holy-grail.ch"
 
 def proxy(name, host):
     p, _ = ProxyProvider.objects.update_or_create(name=name, defaults={
-        "mode": ProxyMode.FORWARD_SINGLE, "external_host": host,
+        "mode": ProxyMode.FORWARD_SINGLE, "external_host": host, "access_token_validity": "hours=24",
         "authorization_flow": src.authorization_flow,
         "invalidation_flow": src.invalidation_flow})
     # Derives the redirect URIs from external_host; a bare ORM save leaves them empty.

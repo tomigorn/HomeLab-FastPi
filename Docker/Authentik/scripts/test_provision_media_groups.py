@@ -1,6 +1,7 @@
 """Tests for provision-media-groups.py. Run: python3 -m unittest discover -s Docker/Authentik/scripts"""
 import ast
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 
@@ -101,6 +102,30 @@ class MembershipTest(unittest.TestCase):
     def test_only_listed_users_are_planned(self):
         plan = pmg.membership_plan({"invitee": {"streaming-users"}, **pmg.MEMBERS}, remove=True)
         self.assertEqual(plan, {})
+
+
+def proxy_create_defaults():
+    """(script, line) -> defaults dict source of every ProxyProvider.objects.update_or_create in a provisioning script."""
+    found = {}
+    for script in sorted(HERE.glob("provision-*.py")):
+        for node in ast.walk(ast.parse(script.read_text())):
+            if (isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "update_or_create"
+                    and ast.unparse(node.func.value) == "ProxyProvider.objects"):
+                kw = {k.arg: k.value for k in node.keywords}
+                found[(script.name, node.lineno)] = kw.get("defaults")
+    return found
+
+
+class ProxyValidityTest(unittest.TestCase):
+    def test_new_proxy_providers_get_the_session_ttl_validity(self):
+        validity = re.search(r'access_token_validity = "([^"]+)"', (HERE / "session-ttl.sh").read_text()).group(1)
+        found = proxy_create_defaults()
+        self.assertGreaterEqual(len(found), 8)
+        for (script, line), defaults in found.items():
+            with self.subTest(script=script, line=line):
+                keys = {ast.literal_eval(k): v for k, v in zip(defaults.keys, defaults.values) if k is not None}
+                self.assertIn("access_token_validity", keys)
+                self.assertEqual(ast.literal_eval(keys["access_token_validity"]), validity)
 
 
 if __name__ == "__main__":

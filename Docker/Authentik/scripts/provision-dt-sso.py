@@ -27,7 +27,7 @@ def app_for(slug, name, provider, url):
 
 # Forward auth (route Docker/Traefik/traefik/dynamic/dt.yml), the dashboard tile.
 p, _ = ProxyProvider.objects.update_or_create(name="dt-proxy", defaults={
-    "mode": ProxyMode.FORWARD_SINGLE, "external_host": HOST,
+    "mode": ProxyMode.FORWARD_SINGLE, "external_host": HOST, "access_token_validity": "hours=24",
     "authorization_flow": src.authorization_flow, "invalidation_flow": src.invalidation_flow})
 # Derives the redirect URIs from external_host; a bare ORM save leaves them empty.
 p.set_oauth_defaults()

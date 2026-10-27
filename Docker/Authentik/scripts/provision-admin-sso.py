@@ -34,7 +34,7 @@ def app_for(slug, name, provider, url):
 def proxy(name, host, **extra):
     """Forward-auth (single application) proxy provider on the embedded outpost."""
     p, _ = ProxyProvider.objects.update_or_create(name=name, defaults={
-        "mode": ProxyMode.FORWARD_SINGLE, "external_host": host,
+        "mode": ProxyMode.FORWARD_SINGLE, "external_host": host, "access_token_validity": "hours=24",
         "authorization_flow": src.authorization_flow,
         "invalidation_flow": src.invalidation_flow, **extra})
     # What the API serializer does on create/update; the ORM alone leaves grant types,

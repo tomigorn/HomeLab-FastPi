@@ -345,14 +345,14 @@ failure left no trace. Only the passport-error path logs, and it redirects to
 | Layer | Value | Set by |
 |---|---|---|
 | Login (stage `default-authentication-login`) | 1 day; 30 days when "stay signed in" is ticked (`session_duration days=1`, `remember_me_offset days=29`) | `scripts/session-ttl.sh apply` (since 2026-10-23; before: until the browser closed) |
-| Forward-auth apps (all proxy providers) | 24 h, renewed silently while the login lives | same script |
+| Forward-auth apps (all proxy providers) | 24 h, renewed silently while the login lives | same script; new providers get it from the `provision-*.py` proxy helpers (test `ProxyValidityTest`) |
 | OIDC apps | access 5 min–1 h, refresh 30 days (provider defaults) | provisioning scripts |
 
 `scripts/app-cache-on-group-change.sh` (timer `systemd/authentik-app-cache.timer`, every minute, installed in `/etc/systemd/system/`) — Authentik caches each user's dashboard app list for 24 h and clears it only on a save, not when group members change (adding a user to a group left their new apps hidden). The script fingerprints memberships + group hierarchy and deletes only the cached app lists when that changes; `--force` clears now. Access itself was never affected (policy results cache 5 min). Install: `sudo install -m 644 systemd/authentik-app-cache.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now authentik-app-cache.timer`.
 
 `scripts/canary-verify.sh [<app-url> <text>]` — real login + MFA as the canary (a normal user, no groups); with the two arguments it also opens that forward-auth app and expects the text, e.g. `canary-verify.sh https://specs.holy-grail.ch/ "Holy Grail · Machines"`. An admin-only app ends at the authorize page (APP_FAIL), which is the expected result for the canary.
 
-`scripts/session-ttl.sh status|apply|rollback` — `apply` saves the old values to `backups/session-ttl-before.json`, then verifies a real login + MFA with the canary (which now answers "stay signed in") and rolls back on failure.
+`scripts/session-ttl.sh status|apply|rollback` — `apply` saves the old values to `backups/session-ttl-before.json` (only if that file does not exist yet: move an old one aside first), then verifies a real login + MFA with the canary (which now answers "stay signed in") and rolls back on failure.
 
 ## Admin SSO (homelab-admins)
 
