@@ -23,8 +23,8 @@ class FakeClient:
             if u["pk"] == pk: u["attributes"] = attrs
 
 class ServerTest(unittest.TestCase):
-    def start(self, client, secret=None):
-        server.configure(client=client, base=BASE, secret=secret)
+    def start(self, client, secret=None, queue=None):
+        server.configure(client=client, base=BASE, secret=secret, queue=queue)
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
         self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
@@ -87,6 +87,24 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("/api/pick", user="me", body={"id": "nope"})[0], 400)
         self.assertEqual(self.req("/api/pick", user="me", body={"x": 1})[0], 400)
         self.assertEqual(self.req("/api/pick", body={"id": "owl"})[0], 401)
+
+    def test_pick_is_queued_for_other_apps(self):
+        tmp = pathlib.Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, tmp)
+        q = tmp / "queue.json"
+        c = FakeClient(self.users()); self.start(c, queue=q)
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "fox"})[0], 409)
+        self.assertFalse(q.exists())
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "owl"})[0], 200)
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "adventurer-kai"})[0], 200)
+        entry = json.loads(q.read_text())["me"]
+        self.assertEqual(entry["avatar"], "adventurer-kai")
+        self.assertRegex(entry["at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
+    def test_queue_write_failure_keeps_the_pick(self):
+        tmp = pathlib.Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, tmp)
+        c = FakeClient(self.users()); self.start(c, queue=tmp / "missing-dir" / "queue.json")
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "owl"})[0], 200)
+        self.assertEqual(len(c.writes), 1)
 
     def test_authentik_down_503(self):
         self.start(FakeClient(self.users(), fail=True))

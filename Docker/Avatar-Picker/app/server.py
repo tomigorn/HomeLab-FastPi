@@ -1,8 +1,9 @@
 """Avatar picker: public gallery images + forward-auth protected picker/API."""
-import hmac, json, os, pathlib, threading
+import hmac, json, os, pathlib, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import core
+import pickqueue
 from authentik_api import AuthentikError, Client
 
 APP = pathlib.Path(__file__).resolve().parent
@@ -37,12 +38,16 @@ ICONS = {"/favicon.svg": ("favicon.svg", "image/svg+xml"), "/favicon-32.png": ("
 ICONS = {path: ((APP / "static" / name).read_bytes(), ctype) for path, (name, ctype) in ICONS.items()}
 VERSION = (APP / "VERSION").read_text().strip() if (APP / "VERSION").exists() else "dev"
 
-_cfg = {"client": None, "base": None, "secret": None}
+_cfg = {"client": None, "base": None, "secret": None, "queue": None}
 _pick_lock = threading.Lock()  # serialises check+write => uniqueness holds
 
 
-def configure(client, base, secret=None):
-    _cfg["client"], _cfg["base"], _cfg["secret"] = client, base.rstrip("/"), secret
+def configure(client, base, secret=None, queue=None):
+    _cfg["client"], _cfg["base"], _cfg["secret"], _cfg["queue"] = client, base.rstrip("/"), secret, queue
+
+
+def _now():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -155,6 +160,11 @@ class Handler(BaseHTTPRequestHandler):
                 pk = core.check_pick(GALLERY, users, _cfg["base"], caller, aid)
                 current = _cfg["client"].get_user(pk).get("attributes") or {}
                 _cfg["client"].set_attributes(pk, core.merged_attributes(current, _cfg["base"], aid))
+                if _cfg["queue"]:
+                    try:
+                        pickqueue.record(_cfg["queue"], caller, aid, _now())
+                    except OSError as e:
+                        self.log_error("queue: %s", e)
             except core.AvatarTaken:
                 return self._send(409, {"error": "just taken - pick another"})
             except core.UnknownUser:
@@ -171,7 +181,15 @@ def main():
     secret = pathlib.Path(os.environ["PICKER_SECRET_FILE"]).read_text().strip()
     if not secret:
         raise SystemExit("PICKER_SECRET_FILE is empty")
-    configure(Client(os.environ["AUTHENTIK_URL"], token), os.environ["PUBLIC_BASE_URL"], secret)
+    queue = os.environ.get("QUEUE_FILE") or None
+    client = Client(os.environ["AUTHENTIK_URL"], token)
+    configure(client, os.environ["PUBLIC_BASE_URL"], secret, queue)
+    if queue:
+        try:
+            added = pickqueue.backfill(queue, client.list_users(), _cfg["base"], _now())
+            print(f"queue: backfilled {len(added)} pick(s)", flush=True)
+        except (AuthentikError, OSError) as e:
+            print(f"queue: backfill skipped: {e}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
 
 

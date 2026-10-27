@@ -14,9 +14,11 @@ services:
     environment:
       AUTHENTIK_TOKEN_FILE: /run/secrets/authentik_token
       PICKER_SECRET_FILE: /run/secrets/picker_secret
+      QUEUE_FILE: /data/queue.json
     volumes:
       - ./secrets/authentik_token:/run/secrets/authentik_token:ro
       - ./secrets/picker_secret:/run/secrets/picker_secret:ro
+      - ./data:/data
     networks:
       - traefik_proxy
     user: "65002:65002"

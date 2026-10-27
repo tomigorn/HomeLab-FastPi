@@ -23,7 +23,7 @@ auth.json
 *.log
 
 # Project data/config dirs that may hold secrets — uncomment as needed
-# data/
+data/
 # config/
 
 # Python
