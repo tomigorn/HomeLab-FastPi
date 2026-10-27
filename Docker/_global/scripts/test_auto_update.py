@@ -12,6 +12,7 @@ from auto_update import (  # noqa: E402
     build_refs,
     crosses_major,
     decide,
+    failure_reason,
     parse_conf,
     past_deadline,
     pick_digest,
@@ -184,6 +185,20 @@ def test_rollback_failed_message_is_titled_bulleted_and_escaped():
     msg = rollback_failed_message("A<b>&", DOCKER / "A")
     assert msg.startswith("🔴 <b>Auto-update: A&lt;b&gt;&amp; is down</b>\n\n• ")
     assert "<blockquote expandable>" in msg and "<code>cd " in msg
+    assert "• Update failed verification: customizations missing: a.b\n" in rollback_failed_message("A", DOCKER / "A", "customizations missing: a.b")
+
+def test_failure_reason_names_the_missing_customizations():
+    out = "  after : seerr running nohc\n  check : OK (x)\n  custom: FAIL seerr.oidc-login seerr.bar-js\n    FAIL seerr.oidc-login got: false\nROLLBACK seerr\n"
+    assert failure_reason(out) == "customizations missing: seerr.oidc-login seerr.bar-js"
+    assert failure_reason("  check : FAIL (curl x)\nROLLBACK a\n") == "check failed"
+    assert failure_reason("  after : a exited -\nROLLBACK a\n") == "containers not running"
+    assert failure_reason("OK a\n") == ""
+
+
+def test_render_prom_carries_the_reason_of_a_rollback():
+    out = render_prom([{"project": "Seerr", "tier": "auto", "ref": "s:1", "result": "rolled_back", "from": "a", "to": "b",
+                        "reason": "customizations missing: seerr.oidc-login"}], 1, "beefy")
+    assert ',reason="customizations missing: seerr.oidc-login"} 1' in out
 
 
 if __name__ == "__main__":
