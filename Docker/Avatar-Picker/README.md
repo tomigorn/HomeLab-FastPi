@@ -3,7 +3,7 @@
 Netflix-style profile pictures for every Authentik user: pick one from a fixed gallery
 at `https://avatars.holy-grail.ch` (Holy Grail login). The choice lands in the user's
 Authentik attribute `avatar` as `https://sso.holy-grail.ch/avatar-img/img/<id>.png` and
-reaches Jellyfin and Nextcloud through the OIDC `picture` claim, and Jellyfin and Seerr right away (see below).
+reaches Jellyfin, Seerr and Home Assistant right away, Nextcloud through the OIDC `picture` claim at login (see below).
 
 ## Who can see what
 
@@ -25,25 +25,45 @@ curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:192.168.1.2 https://$H
 
 ## How a pick reaches other apps
 
-Jellyfin and Nextcloud read the `picture` claim only at their next login, so each pick also lands in `data/queue.json` (per user: avatar + time, last pick wins; written by the container, gitignored) and a host job pushes it. It never wakes beefy.
+The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each pick also lands in `data/queue.json` (per user: avatar + time, last pick wins; written by the container, gitignored) and `scripts/avatar-sync.py` pushes it to every app below. Each app is its own target with its own state in `/var/lib/avatar-sync/synced.json`: one app down never blocks the others, a failure stays pending and is retried. It never wakes beefy or tower. Mapping: Authentik username → app user. Images: only our local pack (picker URL or the PNG itself).
 
-| Step | What |
+| App | Supported | How |
+|---|---|---|
+| Authentik | yes (source) | the picker writes `attributes.avatar`; tenant avatars `attributes.avatar,initials` |
+| Jellyfin (beefy) | yes | `ssh -L` (beefy-direct) to `127.0.0.1:8096`, user by name (case-insensitive), `POST /UserImage` with the PNG. Key `secrets/jellyfin_api_key` (Jellyfin API key `avatar-sync`). Also `picture` claim at login |
+| Seerr (beefy) | yes | API cannot set an avatar: `scripts/seerr-avatar.py` over ssh on stdin, runs as Seerr's uid 65109. User = `linked_accounts` (provider `holy-grail`). Jellyfin-linked: new `avatarVersion` + empty cache (follows Jellyfin, runs after it). OIDC user: new URL if the old one is a picker URL |
+| Home Assistant | yes | websocket `person/update` `picture` = picker URL. Person = id `slug(username)` (`tomigorn-admin` → `tomigorn_admin`) or name equal to the username. Token `secrets/ha_token` (600, long-lived token of `tomigorn-admin`); no file = target inactive, active on the next run once it exists |
+| Nextcloud (tower) | prepared, inactive | `ssh tower-direct` → `docker exec -u www-data nextcloud php` → `IAvatarManager` with the PNG on stdin; only while tower's waker says up. Active once `secrets/nextcloud_users.json` (`{"<username>": "<Nextcloud uid = Authentik user uuid>"}`) exists. Until then: `picture` claim at login |
+| Audiobookshelf | no | no user pictures |
+| AudioBookRequest | no | user model has no picture |
+| Grafana | no | avatars are Gravatar only (external, by email) |
+| Portainer CE | no | no user pictures |
+| Dependency-Track | no | no user pictures |
+| Floppy (tracker) | no | no user pictures |
+| wg-easy | no | user table has no picture |
+
+| Trigger | What |
 |---|---|
-| Trigger | `avatar-sync.path` (queue changed = right after a pick) and `avatar-sync.timer` (every 5 min) start `avatar-sync.service` (user `pi`), `scripts/avatar-sync.py` |
-| beefy asleep | Waker `http://192.168.1.2:9001/status` not `{"up": true}`: nothing is sent, the pick stays queued |
-| Jellyfin | over `ssh -L` (beefy-direct) to beefy's `127.0.0.1:8096`: user by name (case-insensitive), `POST /UserImage?userId=` with the PNG. Key: `secrets/jellyfin_api_key`, Jellyfin API key `avatar-sync` (Jellyfin keys are all admin; this one is revocable on its own) |
-| Seerr | Seerr's API cannot set an avatar, so `scripts/seerr-avatar.py` goes over ssh on stdin and runs on beefy as Seerr's uid 65109. User = `linked_accounts` (provider `holy-grail`). Jellyfin-linked (owner): new `avatarVersion` + empty avatar cache, Seerr re-fetches Jellyfin's image. OIDC user: new URL, only if the old one is a picker URL |
-| Done | `/var/lib/avatar-sync/synced.json`; a failure stays queued and is retried |
-| Nextcloud (tower) | not wired yet: still at the next login |
+| right after a pick | `avatar-sync.path` (queue changed) starts `avatar-sync.service` (user `pi`) |
+| every 5 min | `avatar-sync.timer`: retries pending targets (beefy/tower asleep = Waker `:9001`/`:9002` `/status` not up, skipped) |
+| daily 21:47 | `avatar-sync-reconcile.timer`: `--reconcile` pushes every pick to every target again (drift repair) |
 
-No firewall change: only ssh, which HOST-OUT-GUARD already allows. On container start, picks made before the queue existed are backfilled.
+No firewall change: only ssh, which HOST-OUT-GUARD already allows, and HA on `127.0.0.1:8123`. On container start, picks made before the queue existed are backfilled.
 
 ```bash
-journalctl -u avatar-sync.service -n 20      # last pushes
-sudo systemctl start avatar-sync.service     # push now
+journalctl -u avatar-sync.service -n 20                # last pushes
+sudo systemctl start avatar-sync.service               # push pending now
+sudo systemctl start avatar-sync-reconcile.service     # push everything again
+python3 scripts/avatar-sync.py --check ha              # HA pictures vs picks: ok n/n
 ```
 
-Install (once): `sudo install -d -o 65002 -g 65002 data && sudo cp systemd/avatar-sync.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now avatar-sync.path avatar-sync.timer`. Jellyfin key: on beefy `POST /Auth/Keys?app=avatar-sync`, token into `secrets/jellyfin_api_key` (600).
+Install (once): `sudo install -d -o 65002 -g 65002 data && sudo cp systemd/avatar-sync* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now avatar-sync.path avatar-sync.timer avatar-sync-reconcile.timer`. Jellyfin key: on beefy `POST /Auth/Keys?app=avatar-sync`, token into `secrets/jellyfin_api_key` (600). HA token: HA as `tomigorn-admin` → Profile → Security → Long-lived access tokens → Create, into `secrets/ha_token` (600).
+
+Nextcloud, once tower is cleared (provider `Nextcloud` sends `sub` = user uuid; `--mapping-uid=sub`):
+
+```bash
+cd ../Authentik && echo 'import json; from authentik.core.models import User; print(json.dumps({u.username: str(u.uuid) for u in User.objects.filter(is_active=True, type="internal")}))' | docker compose exec -T server ak shell 2>/dev/null | tail -1 > ../Avatar-Picker/secrets/nextcloud_users.json && chmod 600 ../Avatar-Picker/secrets/nextcloud_users.json
+```
 
 ## Run
 
@@ -54,7 +74,7 @@ python3 scripts/provision-authentik.py  # application, provider, scope (idempote
 ```
 
 Secrets in `secrets/` (gitignored): `authentik_token` (service account `avatar-picker`,
-API token), `picker_secret` (the header Traefik adds), `jellyfin_api_key` (host sync only, not mounted into the container). Rotate them with `scripts/rotate-secrets.sh token-new` (check a pick) then `token-finish`, and `scripts/rotate-secrets.sh header`; nothing is printed and nobody has to log in again. Gallery sources and licences:
+API token), `picker_secret` (the header Traefik adds), `jellyfin_api_key`, `ha_token`, `nextcloud_users.json` (host sync only, not mounted into the container). Rotate them with `scripts/rotate-secrets.sh token-new` (check a pick) then `token-finish`, and `scripts/rotate-secrets.sh header`; nothing is printed and nobody has to log in again. Gallery sources and licences:
 `LICENSES.md`; the gallery is built by `scripts/build-gallery.py` (`--missing` renders only new images). Tab icon: `app/static/favicon.svg` (the SSO dashboard's Avatar Picker icon); `scripts/build-favicon.py` renders the PNGs.
 
 **Rebuild** (`avatar-picker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
