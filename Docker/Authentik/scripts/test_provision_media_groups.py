@@ -46,6 +46,21 @@ class PlanTest(unittest.TestCase):
         self.assertNotIn("audiobookshelf", plan)
 
 
+class UserBindingTest(unittest.TestCase):
+    def test_owner_decision_homelab_users_apps(self):
+        self.assertEqual(pmg.USER_APPS, {"home-assistant": "homelab-users", "grafana": "homelab-users"})
+
+    def test_missing_user_binding_is_added(self):
+        self.assertEqual(pmg.user_binding_plan({"home-assistant": {"homelab-admins"}, "grafana": {"homelab-admins"}}),
+                         {"home-assistant", "grafana"})
+
+    def test_bound_user_apps_need_no_change(self):
+        self.assertEqual(pmg.user_binding_plan({s: {"homelab-admins", g} for s, g in pmg.USER_APPS.items()}), set())
+
+    def test_user_apps_are_not_in_the_exclusive_matrix(self):
+        self.assertFalse(set(pmg.USER_APPS) & set(pmg.APP_GROUP))
+
+
 class MatrixTest(unittest.TestCase):
     def test_owner_wish(self):
         users = {s for s, g in pmg.APP_GROUP.items() if g == "streaming-users"}
@@ -72,7 +87,7 @@ ALL_SIX = {"cloud-users", "cloud-admins", "streaming-users", "streaming-admins",
 
 class MembershipTest(unittest.TestCase):
     def test_admin_split_design(self):
-        self.assertEqual(pmg.MEMBERS["tomigorn"], {"streaming-users", "streaming-requesters"})
+        self.assertEqual(pmg.MEMBERS["tomigorn"], {"streaming-users", "streaming-requesters", "homelab-users"})
         self.assertEqual(pmg.MEMBERS["tomigorn-admin"], {"homelab-admins", "streaming-admins", "streaming-users",
                                                          "streaming-requesters", "authentik Admins"})
 
@@ -82,15 +97,23 @@ class MembershipTest(unittest.TestCase):
     def test_2a_adds_admin_and_takes_nothing_away(self):
         plan = pmg.membership_plan({"tomigorn": ALL_SIX, "tomigorn-admin": set()}, remove=False)
         self.assertEqual(plan["tomigorn-admin"], (pmg.MEMBERS["tomigorn-admin"], set()))
-        self.assertNotIn("tomigorn", plan)
+        self.assertEqual(plan["tomigorn"], ({"homelab-users"}, set()))
 
     def test_2b_removes_admin_groups_from_everyday(self):
-        plan = pmg.membership_plan({"tomigorn": ALL_SIX, "tomigorn-admin": pmg.MEMBERS["tomigorn-admin"]}, remove=True)
+        have = {"tomigorn": ALL_SIX | {"homelab-users"}, "tomigorn-admin": pmg.MEMBERS["tomigorn-admin"]}
+        plan = pmg.membership_plan(have, remove=True)
         self.assertEqual(plan, {"tomigorn": (set(), {"streaming-admins", "homelab-admins"})})
+
+    def test_everyday_joins_homelab_users_without_losing_anything_in_2a(self):
+        plan = pmg.membership_plan({"tomigorn": ALL_SIX, "tomigorn-admin": pmg.MEMBERS["tomigorn-admin"]}, remove=False)
+        self.assertEqual(plan, {"tomigorn": ({"homelab-users"}, set())})
+
+    def test_admin_account_is_not_an_everyday_user(self):
+        self.assertNotIn("homelab-users", pmg.MEMBERS["tomigorn-admin"])
 
     def test_cloud_groups_are_never_touched(self):
         plan = pmg.membership_plan({"tomigorn": {"cloud-admins", "cloud-users"}}, remove=True)
-        self.assertEqual(plan["tomigorn"], ({"streaming-users", "streaming-requesters"}, set()))
+        self.assertEqual(plan["tomigorn"], ({"streaming-users", "streaming-requesters", "homelab-users"}, set()))
 
     def test_everyday_never_gets_superuser(self):
         plan = pmg.membership_plan({}, remove=False)

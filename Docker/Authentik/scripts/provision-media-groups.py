@@ -10,13 +10,15 @@
 # Only bindings of MANAGED groups on the apps below are changed; other groups, policies and apps stay.
 # Owner memberships follow the admin split (docs/admin-split-plan.md): only the users in MEMBERS and only MEMBER_MANAGED groups; cloud-* stay by hand (phase 3).
 # REMOVE_EXTRA = False (phase 2a) only adds; True (phase 2b) also takes MEMBER_MANAGED groups not listed away.
+# homelab-users (owner 2026-10-27): the everyday account's Home Assistant (user role) and Grafana (Viewer); bound next to homelab-admins, add-only.
 GROUPS = ("streaming-users", "streaming-requesters", "streaming-admins")
 MANAGED = set(GROUPS) | {"homelab-admins"}
+HOMELAB_USERS = "homelab-users"
 MEMBERS = {
-    "tomigorn": {"streaming-users", "streaming-requesters"},
+    "tomigorn": {"streaming-users", "streaming-requesters", HOMELAB_USERS},
     "tomigorn-admin": {"homelab-admins", "streaming-admins", "streaming-users", "streaming-requesters", "authentik Admins"},
 }
-MEMBER_MANAGED = set(GROUPS) | {"homelab-admins", "authentik Admins"}
+MEMBER_MANAGED = set(GROUPS) | {"homelab-admins", "authentik Admins", HOMELAB_USERS}
 REMOVE_EXTRA = False
 
 APP_GROUP = {
@@ -42,6 +44,7 @@ APP_GROUP = {
     # Image versions of every host: homelab inventory, not a media tool.
     "cup": "homelab-admins",
 }
+USER_APPS = {"home-assistant": HOMELAB_USERS, "grafana": HOMELAB_USERS}
 
 
 def plan(current):
@@ -53,6 +56,11 @@ def plan(current):
         if add or remove:
             changes[slug] = (add, remove)
     return changes
+
+
+def user_binding_plan(current):
+    """current: slug -> bound group names. Returns the USER_APPS slugs still missing their group binding."""
+    return {slug for slug, group in USER_APPS.items() if group not in current.get(slug, set())}
 
 
 def membership_plan(current, remove):
@@ -70,7 +78,7 @@ def main():
     from authentik.core.models import Application, Group, User
     from authentik.policies.models import PolicyBinding
 
-    for name in GROUPS:
+    for name in (*GROUPS, HOMELAB_USERS):
         group, created = Group.objects.get_or_create(name=name)
         if group.parents.exists():
             print(f"CHANGE {name}: parents {[p.name for p in group.parents.all()]} removed")
@@ -92,12 +100,15 @@ def main():
             group.users.remove(user)
         print(f"CHANGE {name}: +{sorted(add)} -{sorted(extra)}")
 
-    apps = {a.slug: a for a in Application.objects.filter(slug__in=APP_GROUP)}
-    missing = set(APP_GROUP) - set(apps)
+    apps = {a.slug: a for a in Application.objects.filter(slug__in={*APP_GROUP, *USER_APPS})}
+    missing = {*APP_GROUP, *USER_APPS} - set(apps)
     if missing:
         raise SystemExit(f"missing applications: {sorted(missing)} (run the other provisioning scripts first)")
     current = {slug: {b.group.name for b in PolicyBinding.objects.filter(target=app, group__isnull=False)}
                for slug, app in apps.items()}
+    for slug in sorted(user_binding_plan(current)):
+        PolicyBinding.objects.create(target=apps[slug], group=Group.objects.get(name=USER_APPS[slug]), order=10)
+        print(f"CHANGE {slug}: +['{USER_APPS[slug]}']")
     for slug, (add, remove) in sorted(plan(current).items()):
         app = apps[slug]
         for name in add:

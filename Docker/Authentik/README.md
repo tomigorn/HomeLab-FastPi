@@ -440,7 +440,7 @@ The owner has two accounts: `tomigorn` (everyday) and `tomigorn-admin` (admin ri
 
 ### Media groups
 
-Three independent groups (no parent nesting). Owner memberships follow the admin split: `MEMBERS` in `scripts/provision-media-groups.py` (`tomigorn`: streaming-users + streaming-requesters; `tomigorn-admin`: all three + `homelab-admins` + `authentik Admins`; `cloud-*` by hand); `REMOVE_EXTRA = False` only adds (phase 2a), `True` also removes unlisted ones (phase 2b). Config as code (idempotent; `docker compose exec -T server ak shell < scripts/provision-media-groups.py`; tests `python3 -m unittest discover -s scripts`).
+Three independent groups (no parent nesting). Owner memberships follow the admin split: `MEMBERS` in `scripts/provision-media-groups.py` (`tomigorn`: streaming-users + streaming-requesters + `homelab-users`; `tomigorn-admin`: all three + `homelab-admins` + `authentik Admins`; `cloud-*` by hand); `REMOVE_EXTRA = False` only adds (phase 2a), `True` also removes unlisted ones (phase 2b). `USER_APPS`: `homelab-users` bound (add-only) to `home-assistant` and `grafana` next to `homelab-admins`. Config as code (idempotent; `docker compose exec -T server ak shell < scripts/provision-media-groups.py`; tests `python3 -m unittest discover -s scripts`).
 
 | Group | Apps | Who |
 |---|---|---|

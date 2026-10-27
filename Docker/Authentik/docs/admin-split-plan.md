@@ -6,7 +6,7 @@ Least privilege: the everyday account keeps watching, listening, requesting; eve
 |---|---|---|
 | 1 | inventory, this plan, create `tomigorn-admin` (`scripts/provision-admin-account.py`), owner sets password + MFA via a one-time recovery link | done 2026-10-27 |
 | 2a | add `tomigorn-admin` to the admin groups, set up per-app admin users, verify each app as `tomigorn-admin` | groups added 2026-10-27 (`provision-media-groups.py` `MEMBERS`), app logins open |
-| 2b | only after 2a verified everywhere: remove `tomigorn` from the admin groups, demote/delete old admin users in the apps | open |
+| 2b | only after 2a verified everywhere: remove `tomigorn` from the admin groups, demote/delete old admin users in the apps | in progress 2026-10-27: steps 2–4 done, 1 + 5–8 waiting (see Phase 2b state) |
 | 3 | Nextcloud (`cloud-admins`, tower) | deferred until tower's RAM test ends |
 
 ## The two accounts
@@ -80,7 +80,7 @@ Before: every 2a login ticked, `pg_dump` (`backups/…-pre-admin-split-2b.dump`,
 
 | # | Step | Commands | Verify | Rollback |
 |---|---|---|---|---|
-| 1 | HA gate for normal users | Authentik: group `home-users` + `tomigorn`, binding on app `home-assistant` (next to `homelab-admins`); HA `configuration.yaml` `auth_oidc.roles.user: home-users` (admin stays `homelab-admins`) | `PolicyEngine(home-assistant, tomigorn)` passes | delete binding + group, revert yaml |
+| 1 | HA + Grafana gate for normal users | `provision-media-groups.py` (`HOMELAB_USERS`, `USER_APPS`): group `homelab-users` + `tomigorn`, bindings on `home-assistant` and `grafana` (next to `homelab-admins`); HA `configuration.yaml` `auth_oidc.roles.user: homelab-users`; Grafana `ALLOWED_GROUPS` + Viewer mapping | `PolicyEngine(home-assistant, tomigorn)` passes | delete binding + group, revert yaml |
 | 2 | HA owner transfer | after `tomigorn-admin` logged in once (new HA user, admin): `docker compose stop homeassistant`; `cp -a config/.storage/auth{,.bak-admin-split}`; in `.storage/auth` move `is_owner: true` to the `tomigorn-admin` user, set the `Tomigorn` user `group_ids: ["system-users"]`; `docker compose up -d` | as `tomigorn-admin`: Settings → People → Users shows it Owner + Administrator; as `tomigorn` (and the Companion app): dashboards work, no Settings → System | stop, restore `.storage/auth.bak-admin-split`, start |
 | 3 | wg-easy re-link (VPN tunnels drop ~3 s) | `cp -a wg-easy-v15/wg-easy.db{,.bak-admin-split}`; `docker compose stop wg-easy`; `sqlite3 wg-easy-v15/wg-easy.db "UPDATE users_table SET oauth_id='<tomigorn-admin uid>', email='<admin email>' WHERE id=1"` (uid = `User.uid`, the `hashed_user_id` sub); `docker compose up -d`; VPN peers reconnect | `tomigorn-admin` opens wg-easy as `admin`; a VPN client handshakes again | stop, restore `.bak-admin-split`, start |
 | 4 | Seerr B (beefy, Seerr stopped) | needs the Jellyfin user `tomigorn-admin` (2a login). `sudo docker compose stop seerr`; `sudo sqlite3 /srv/appdata/seerr/db/db.sqlite3 ".backup /srv/appdata/seerr/db/db.sqlite3.bak-admin-split"`; `.parameter set` lines (see SQL header) + `admin-split-seerr-transfer.sql` piped to `sudo sqlite3 …/db.sqlite3`; start | script prints id 1 `tomigorn-admin` perms 2, new id `tomigorn` 8352 with his requests; `/api/v1/user`; Holy Grail login: `tomigorn-admin` sees Settings, `tomigorn` sees his requests, no Settings; Settings → Jobs → Jellyfin recently added scan runs | stop, copy `.bak-admin-split` back, start |
@@ -94,3 +94,15 @@ Before: every 2a login ticked, `pg_dump` (`backups/…-pre-admin-split-2b.dump`,
 ## Owner decision 2026-10-27 (before 2b)
 - Group name for the everyday account is **`homelab-users`** (not `home-users`). `tomigorn` is in `homelab-users`; `tomigorn-admin` in `homelab-admins`.
 - `homelab-users` grants: Home Assistant as a normal user AND Grafana as Viewer (everyday account keeps read access to the dashboards). Admin rights stay with `homelab-admins`.
+
+## Phase 2b state (2026-10-27, log `~/reports/2026-10-27/admin-split-2b-log.md`)
+
+Backup: `backups/authentik-db-2026-10-27-pre-admin-split-2b.dump` (`pg_restore -l` ok), canary green before and after.
+
+| # | State |
+|---|---|
+| 1 | code + tests done (`provision-media-groups.py`), HA `roles.user: homelab-users` and Grafana Viewer mapping live; the Authentik run (group, membership, two bindings) NOT applied yet: waits for the owner's go for the binding change |
+| 2 | done: owner = "Tomigorn (admin)", "Tomigorn" = `system-users`; person pictures set; backup `.storage/auth.bak-admin-split`, `person.bak-admin-split`, `~/backups/home-assistant/ha-storage-2026-10-27-pre-admin-split-2b.tgz` |
+| 3 | done: wg-easy user 1 linked to `tomigorn-admin` (oauth_id = its uid, email = admin address); backup `wg-easy-v15/wg-easy.db.bak-admin-split` |
+| 4 | done: Seerr id 1 = `tomigorn-admin` (perms 2, 0 requests), id 7 = `tomigorn` (8352, 14 requests, Holy Grail link moved); backup `/srv/appdata/seerr/db/db.sqlite3.bak-admin-split` (beefy); Jellyfin recently-added scan ok |
+| 5–8 | open, after step 1 |
