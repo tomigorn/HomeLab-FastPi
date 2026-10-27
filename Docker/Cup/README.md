@@ -27,7 +27,7 @@ An image built here (`build:` in compose) has no registry copy, so Cup cannot tr
 | fastpi | languagetool-local | `erikvl87/languagetool:6.8` | `Docker/LanguageTool/README.md` |
 | fastpi | clamav-local, virustotal-local | `alpine:latest`, `python:3.12-alpine` | `Docker/antivirus/README.md` |
 | fastpi | m4b-auto-merge, beefy-waker, tower-waker, avatar-picker | `python:3.12/3.13-alpine` | their READMEs, `Rebuild` |
-| beefy | jellyfin-local, clamav-local, ryot-go | `lscr.io/linuxserver/jellyfin`, `alpine:latest`, `python:3.13-alpine` | their READMEs, `Rebuild` |
+| beefy | jellyfin-local, clamav-local | `lscr.io/linuxserver/jellyfin`, `alpine:latest` | their READMEs, `Rebuild` |
 
 CVEs: the weekly Trivy image scan scans fastpi's local images directly and, for beefy's, the registry copy of each Dockerfile `FROM` (`Server/4-Security-Monitoring/README.md`).
 
