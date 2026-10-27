@@ -218,7 +218,7 @@ services:
       # Admin SSO via Authentik (Grafana's own OAuth, not forward auth). The
       # OIDC client is provisioned by Authentik/scripts/provision-admin-sso.py,
       # which also writes GRAFANA_OAUTH_CLIENT_ID into .env and the secret into secrets/grafana_oauth_client_secret. Only members
-      # of homelab-admins get in, as GrafanaAdmin. Route: Traefik dynamic/grafana.yml.
+      # of homelab-admins (GrafanaAdmin) and homelab-users (Viewer, the everyday account) get in. Route: Traefik dynamic/grafana.yml.
       - GF_SERVER_ROOT_URL=https://grafana.holy-grail.ch
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
       - GF_AUTH_GENERIC_OAUTH_NAME=Holy Grail
@@ -231,8 +231,8 @@ services:
       - GF_AUTH_GENERIC_OAUTH_USE_PKCE=true
       - GF_AUTH_GENERIC_OAUTH_USE_REFRESH_TOKEN=true
       - GF_AUTH_GENERIC_OAUTH_GROUPS_ATTRIBUTE_PATH=groups
-      - GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS=homelab-admins
-      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'homelab-admins') && 'GrafanaAdmin'
+      - GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS=homelab-admins homelab-users
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'homelab-admins') && 'GrafanaAdmin' || contains(groups[*], 'homelab-users') && 'Viewer'
       - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true
       - GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN=true
       - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true

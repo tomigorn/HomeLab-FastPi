@@ -1,6 +1,6 @@
 # Grafana
 
-Monitoring stack: Grafana, Prometheus, Alertmanager, InfluxDB, Telegraf, exporters. Grafana: https://grafana.holy-grail.ch (Holy Grail, group `homelab-admins`).
+Monitoring stack: Grafana, Prometheus, Alertmanager, InfluxDB, Telegraf, exporters. Grafana: https://grafana.holy-grail.ch (Holy Grail: group `homelab-admins` = GrafanaAdmin, `homelab-users` = Viewer).
 
 ## Dashboards
 
