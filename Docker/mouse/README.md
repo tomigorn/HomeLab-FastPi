@@ -19,13 +19,13 @@ Connect: `\\fastpi\mouse`, `smb://fastpi.homelab/mouse` (same for `admin_books`,
 | App | URL | Group | Shell recovery |
 |---|---|---|---|
 | qBittorrent | https://qbittorrent-audiobooks.holy-grail.ch | `streaming-admins` | `ssh -L 8085:127.0.0.1:8085 fastpi`, login `admin` + `secrets/qbit_pass` |
-| SABnzbd | https://sabnzbd-audiobooks.holy-grail.ch | `streaming-admins` | `ssh -L 8090:127.0.0.1:8090 fastpi` (no login) |
+| SABnzbd | https://sabnzbd-audiobooks.holy-grail.ch | `streaming-admins` | `ssh -L 8090:127.0.0.1:8090 fastpi`, SABnzbd login (username/password in `sabnzbd.ini`) |
 | VPN status | https://vpn-status-mouse.holy-grail.ch | `homelab-admins` | `ssh -L 8087:127.0.0.1:8087 fastpi` |
 | Prowlarr (audiobooks) | https://prowlarr-audiobooks.holy-grail.ch | `streaming-admins` | `docker exec prowlarr_mouse curl -s 127.0.0.1:9696/ping`; no other way in (gate below); config `/mnt/seagate-red/prowlarr/config` |
 
 - Traefik reaches gluetun over `traefik_mouse` (internal, Traefik `10.24.25.3`, gluetun `10.24.25.2`). Routes: `Traefik/traefik/dynamic/{qbittorrent,sabnzbd}-audiobooks.yml`.
 - qBittorrent: auth bypass only for `10.24.25.3/32` (Options → WebUI), reverse-proxy support off.
-- `sabnzbd.ini` (edit only while stopped): `local_ranges = 10.24.32.0/24, 192.168.1.0/24, 10.24.25.3/32, 10.24.5.5/32`, `host_whitelist` += `sabnzbd-audiobooks.holy-grail.ch`, username/password empty.
+- `sabnzbd.ini` (edit only while stopped): `local_ranges = 10.24.32.0/24, 192.168.1.0/24, 10.24.25.3/32, 10.24.5.5/32`, `host_whitelist` += `sabnzbd-audiobooks.holy-grail.ch`, `[misc]` username/password set (SABnzbd login in front of the UI as a second layer; values only in the file).
 
 ## Prowlarr (audiobooks)
 Indexer for AudioBookRequest (`Docker/Audiobook-Requests`), container `prowlarr_mouse` in gluetun's netns (MAM sees the VPN IP), uid 65054, listens on `127.0.0.1:9696` only, auth External (Holy Grail).
