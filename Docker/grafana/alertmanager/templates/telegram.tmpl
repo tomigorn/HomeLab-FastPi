@@ -20,7 +20,7 @@
 {{- end }}
 
 {{ define "tg.digest" -}}
-{{ if eq .CommonLabels.alertname "AutoUpdateNightly" }}📦{{ else }}📋{{ end }} <b>{{ .CommonAnnotations.summary }}</b>
+{{ if eq .CommonLabels.alertname "DailyDigest" }}🌅{{ else }}📋{{ end }} <b>{{ .CommonAnnotations.summary }}</b>
 {{ range .Alerts }}
 {{ .Annotations.description | safeHtml }}
 {{ end }}
@@ -48,4 +48,9 @@
 {{ .Annotations.awake_by | trimSpace | safeHtml }}
 <blockquote expandable>💡 {{ .Annotations.description | safeHtml }}</blockquote>{{ end }}
 {{- end }}
+{{- end }}
+
+{{/* Synthetic tests (label test=...): the usual layout behind a 🧪 marker; the malware and digest layouts are kept so a test shows the real message. */}}
+{{ define "tg.test" -}}
+{{ if eq .CommonLabels.alertname "MalwareQuarantined" }}{{ template "tg.malware" . }}{{ else if match "Digest" .CommonLabels.alertname }}🧪 {{ template "tg.digest" . }}{{ else }}🧪 {{ template "tg.message" . }}{{ end }}
 {{- end }}

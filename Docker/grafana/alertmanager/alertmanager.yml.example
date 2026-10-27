@@ -29,14 +29,31 @@ global:
 templates:
   - /etc/alertmanager/templates/*.tmpl
 
+# Quiet hours for everything that is not critical (alerts still firing at 07:00 are sent then; what fired and cleared overnight is in the 06:30 daily digest).
+# Muted notifications are dropped, not queued: Alertmanager sends a still-firing group at the first group_interval after the window ends.
+time_intervals:
+  - name: quiet-hours
+    time_intervals:
+      - times:
+          - start_time: "22:00"
+            end_time: "24:00"
+          - start_time: "00:00"
+            end_time: "07:00"
+        location: Europe/Zurich
+
+# Channels (prometheus/rules label notify, Docker/grafana/README.md "Alert routing"):
+#   critical             Telegram + email, with resolved, any time
+#   malware, heartbeat   email (+ Telegram for malware), any time
+#   warning / info       Telegram only, no resolved, muted 22:00-07:00
+#   notify=digest|weekly no message: listed in the 06:30 DailyDigest or the Monday WeeklyUpdateDigest
 route:
-  receiver: admins
+  receiver: telegram
   # Group by alert name so "all endpoints down" arrives as ONE message rather than
   # one per host — the difference between a useful page and a pile-on.
   group_by: ['alertname']
   group_wait: 30s
   group_interval: 5m
-  repeat_interval: 12h
+  repeat_interval: 24h
   routes:
     # Dead man's switch (prometheus/rules/heartbeat.yml): always firing, pinged to healthchecks.io every 4-5 min. healthchecks.io alerts (Telegram + email) when the pings stop.
     - matchers:
@@ -46,26 +63,26 @@ route:
       group_interval: 1m
       # repeat fires on the next group_interval tick after it elapses, so 4m keeps every ping under healthchecks' 5 min period
       repeat_interval: 4m
-    # Weekly digest (prometheus/rules/weekly-digest.yml): fires Monday 05:00 for one hour. No resolved message, which would repeat the whole digest an hour later.
+
+    # Synthetic test alerts (any label test=...): Telegram only, marked 🧪, never email, never muted. Only sent when someone POSTs one on purpose.
     - matchers:
-        - alertname="WeeklyUpdateDigest"
+        - test=~".+"
+      receiver: telegram-test
+      group_by: ['alertname', 'test']
+      group_wait: 0s
+      repeat_interval: 720h
+
+    # Daily (06:30) and weekly (Monday 05:00) digests: fire for under an hour, no resolved message, exempt from quiet hours (they are the summary of them).
+    - matchers:
+        - alertname=~"DailyDigest|WeeklyUpdateDigest"
       receiver: telegram-digest
       group_wait: 0s
       repeat_interval: 168h
 
-    # Nightly auto-update summary (prometheus/rules/auto-updates.yml): fires for the hour after the 03:10 run, same no-resolved receiver.
+    # Listed in a digest instead of a message of its own.
     - matchers:
-        - alertname="AutoUpdateNightly"
-      receiver: telegram-digest
-      group_wait: 0s
-      repeat_interval: 168h
-
-    # New fixable CVE findings (prometheus/rules/security-posture.yml): one message per batch, nothing when they age out after 24 h.
-    - matchers:
-        - alertname="NewFixableImageVulnerability"
-      receiver: telegram-once
-      group_by: ['alertname']
-      repeat_interval: 168h
+        - notify=~"digest|weekly"
+      receiver: "null"
 
     # Quarantined ClamAV hits (prometheus/rules/antivirus.yml): email + Telegram with title, file and signature (tg.malware), one message per host batch. Ends after 24 h or on restore, no resolved message.
     - matchers:
@@ -74,33 +91,29 @@ route:
       group_by: ['alertname', 'host']
       repeat_interval: 168h
 
-    # A failing Telegram must not be reported over Telegram: email only. Above the info route, which would send it to Telegram.
+    # Report-only scan hits: email + Telegram at once, no resolved message.
+    - matchers:
+        - alertname="MalwareFound"
+      receiver: telegram-and-email
+      group_by: ['alertname', 'host']
+      repeat_interval: 168h
+
+    # A failing Telegram must not be reported over Telegram: email only.
     - matchers:
         - alertname="AlertNotificationsFailing"
         - integration="telegram"
       receiver: email
 
-    # "Swiss German not found" (prometheus/rules/media-language.yml): one Telegram per title and state. The rule ends the alert 5 days after it starts, inside repeat_interval, and this receiver sends no resolved message.
     - matchers:
-        - alertname="AudioLanguageNotFound"
-      receiver: telegram-once
-      group_by: ['alertname', 'app', 'title', 'failed']
-      repeat_interval: 168h
+        - severity="critical"
+      receiver: critical
+      repeat_interval: 12h
 
-    # Informational things (container updates) go to Telegram ONLY. They do not
-    # deserve an email — a weekly nag by mail is how people learn to filter alerts
-    # into the bin, and then miss a real one.
-    # beefy awake 6 h (prometheus/rules/beefy-power.yml): repeats every 6 h while it stays up, resolved says how long it was awake (tg.beefyawake).
+    # An edge or SSO container down: email too, any time.
     - matchers:
-        - alertname="BeefyAwakeLong"
-      receiver: telegram-beefy-awake
-      group_by: ['alertname']
-      repeat_interval: 6h
-
-    - matchers:
-        - severity="info"
-      receiver: telegram
-      repeat_interval: 168h     # weekly at most; Cup refreshes Sundays 04:00
+        - alertname="ContainerDown"
+        - name=~"traefik|cloudflared|crowdsec|adguard.*|authentik.*"
+      receiver: telegram-and-email
 
     # The dead-man's switch. EMAIL ONLY and deliberately slow: its job is to keep the
     # Brevo SMTP credential demonstrably in use (Brevo deactivates keys after ~3
@@ -116,7 +129,34 @@ route:
       # No grouping delay: there is only ever one of these.
       group_wait: 0s
 
+    # beefy awake 6 h (prometheus/rules/beefy-power.yml): one message per episode (tg.beefyawake); how long it was up is in the daily digest.
+    - matchers:
+        - alertname="BeefyAwakeLong"
+      receiver: telegram-beefy-awake
+      repeat_interval: 720h
+      mute_time_intervals: [quiet-hours]
+
+    # Known, slow-moving states: once per episode, again only when the rule fires anew (wake loops hold 6 h, rootkit fires on a changed finding set, tower staleness only after tower was awake at scan time).
+    - matchers:
+        - alertname=~"BeefyWakeLoop|TowerWakeLoop|RootkitWarning|SecurityScanStale|ClamavScanStale"
+      receiver: telegram
+      repeat_interval: 720h
+      mute_time_intervals: [quiet-hours]
+
+    # Info: Telegram only, at most weekly.
+    - matchers:
+        - severity="info"
+      receiver: telegram
+      repeat_interval: 168h
+      mute_time_intervals: [quiet-hours]
+
+    # Everything else (warning): Telegram only, daily repeat. The root route cannot carry mute_time_intervals, hence this catch-all.
+    - receiver: telegram
+      mute_time_intervals: [quiet-hours]
+
 receivers:
+  - name: "null"
+
   # Critical alerts go to BOTH, so an outage still reaches you when one channel is
   # broken — which is exactly the failure this whole setup exists to stop happening
   # silently.
@@ -126,7 +166,7 @@ receivers:
   # edit rather than a config change and a container restart. Alertmanager cannot
   # query Authentik for group membership, so an alias is the closest thing to "the
   # admin group" that SMTP can express.
-  - name: admins
+  - name: critical
     email_configs:
       - to: 'alerts@example.com'
         send_resolved: true
@@ -139,7 +179,21 @@ receivers:
         send_resolved: true
         message: '{{ template "tg.message" . }}'
 
-  # Like admins, without the resolved message, Telegram in the malware layout.
+  # Like critical, without the resolved message (malware report, edge/SSO container down).
+  - name: telegram-and-email
+    email_configs:
+      - to: 'alerts@example.com'
+        send_resolved: false
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: false
+        message: '{{ template "tg.message" . }}'
+
+  # Like telegram-and-email, Telegram in the malware layout.
   - name: malware
     email_configs:
       - to: 'alerts@example.com'
@@ -153,7 +207,6 @@ receivers:
         send_resolved: false
         message: '{{ template "tg.malware" . }}'
 
-  # Email only — see the route comment above for why Telegram is excluded.
   - name: healthchecks
     webhook_configs:
       - url_file: /secrets/healthchecks_url
@@ -170,7 +223,7 @@ receivers:
   - name: email
     email_configs:
       - to: 'alerts@example.com'
-        send_resolved: true
+        send_resolved: false
         headers:
           Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
 
@@ -179,7 +232,7 @@ receivers:
       - bot_token_file: /secrets/telegram_bot_token
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
-        send_resolved: true
+        send_resolved: false
         message: '{{ template "tg.message" . }}'
 
   - name: telegram-beefy-awake
@@ -187,17 +240,8 @@ receivers:
       - bot_token_file: /secrets/telegram_bot_token
         chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
         parse_mode: HTML
-        send_resolved: true
-        message: '{{ template "tg.beefyawake" . }}'
-
-  # Like telegram, without the resolved message (alerts that end on their own).
-  - name: telegram-once
-    telegram_configs:
-      - bot_token_file: /secrets/telegram_bot_token
-        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
-        parse_mode: HTML
         send_resolved: false
-        message: '{{ template "tg.message" . }}'
+        message: '{{ template "tg.beefyawake" . }}'
 
   - name: telegram-digest
     telegram_configs:
@@ -206,6 +250,15 @@ receivers:
         parse_mode: HTML
         send_resolved: false
         message: '{{ template "tg.digest" . }}'
+
+  # Synthetic tests. Same group chat (no separate test chat exists); the 🧪 prefix marks them.
+  - name: telegram-test
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: false
+        message: '{{ template "tg.test" . }}'
 
 # Stop a whole-edge outage from paging twice. group_by collapses same-alertname
 # fan-out, but the aggregate and per-endpoint alerts have DIFFERENT alertnames, so
