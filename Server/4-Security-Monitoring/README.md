@@ -35,7 +35,7 @@ Metrics:
 | `security_cup_snapshot_timestamp_seconds` | host |
 | `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
 | `clamav_quarantine_hit_first_seen_timestamp_seconds` (one per hit, 24 h, newest 20), `clamav_quarantine_hits_24h` | host, mode, title, file, path, signature, time / host, mode |
-| `security_rootkit_warnings` (new), `security_rootkit_findings` (all) | host, tool |
+| `security_rootkit_warnings` (new), `security_rootkit_findings` (all), `security_rootkit_new_fingerprint` (hash of the new set, 0 = none) | host, tool |
 | `security_lynis_hardening_index`, `security_lynis_warnings` | host |
 | `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
 | `security_new_vulns`, `security_new_vuln_info` (first seen < 24 h, newest 20) | scope (host or `code-<repo>`) / + image, id, pkg, severity |
@@ -137,7 +137,7 @@ routinely unobtainable. A collector that fails leaves its previous `.prom` file
 untouched rather than writing zero — zero would read as "beefy has no pending
 security updates". The `SecurityScanStale` alert watches the timestamps instead.
 
-**Rootkit checkers report against a baseline.** Both tools flag known false positives on a stock system (on beefy, Ubuntu 26.04's uutils coreutils reads as INFECTED to chkrootkit). The first run accepts what it finds, like `rkhunter --propupd`; `security_rootkit_warnings` counts only findings not in `/var/lib/security-scan/audit-accepted-<host>-<tool>.txt`. chkrootkit findings are its WARNING headers and INFECTED lines, not the paths listed under a header (those change every run: `/proc/<pid>`, scripts in `/tmp`). Report: `audit-<host>.txt`, NEW marks unaccepted findings. Accept again:
+**Rootkit checkers report against a baseline.** Both tools flag known false positives on a stock system (on beefy, Ubuntu 26.04's uutils coreutils reads as INFECTED to chkrootkit). The first run accepts what it finds, like `rkhunter --propupd`; `security_rootkit_warnings` counts only findings not in `/var/lib/security-scan/audit-accepted-<host>-<tool>.txt`. `RootkitWarning` fires for 25 h when that set changes (`security_rootkit_new_fingerprint`), not while a known finding stays; the Monday digest shows the standing count. chkrootkit findings are its WARNING headers and INFECTED lines, not the paths listed under a header (those change every run: `/proc/<pid>`, scripts in `/tmp`). Report: `audit-<host>.txt`, NEW marks unaccepted findings. Accept again:
 
 ```bash
 rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl start security-audit.service

@@ -1002,6 +1002,20 @@ def test_audit_later_run_counts_only_new_findings():
     assert "NEW      Checking `ls'... INFECTED" in (d / "state" / "audit-beefy.txt").read_text()
 
 
+def test_audit_fingerprint_follows_the_set_of_new_findings():
+    _tmp_dirs()
+    first = audit_samples("beefy", AUDIT_OUT)
+    assert _metric(first, "security_rootkit_new_fingerprint", host="beefy", tool="chkrootkit") == [0]
+    one = AUDIT_OUT.replace("### rc 0\n### lynis", "Checking `ls'... INFECTED\n### rc 0\n### lynis")
+    other = AUDIT_OUT.replace("### rc 0\n### lynis", "Checking `ps'... INFECTED\n### rc 0\n### lynis")
+    fp_one = _metric(audit_samples("beefy", one), "security_rootkit_new_fingerprint", host="beefy", tool="chkrootkit")
+    fp_again = _metric(audit_samples("beefy", one), "security_rootkit_new_fingerprint", host="beefy", tool="chkrootkit")
+    fp_other = _metric(audit_samples("beefy", other), "security_rootkit_new_fingerprint", host="beefy", tool="chkrootkit")
+    assert fp_one == fp_again and fp_one != [0]
+    assert fp_other != fp_one
+    assert 0 < fp_one[0] < 2 ** 32
+
+
 def test_audit_tool_failure_raises():
     _tmp_dirs()
     try:

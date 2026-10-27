@@ -629,6 +629,13 @@ def new_findings(findings: list[str], accepted: set[str]) -> list[str]:
     return [f for f in findings if f not in accepted]
 
 
+def findings_fingerprint(findings: list[str]) -> int:
+    """0 for no findings, else a 32-bit hash of the sorted set: RootkitWarning alerts when it changes, not while it stays."""
+    if not findings:
+        return 0
+    return int(hashlib.sha256("\n".join(sorted(set(findings))).encode()).hexdigest()[:8], 16) or 1
+
+
 def parse_lynis_report(text: str) -> tuple[int, int]:
     """(hardening index, warning count) from /var/log/lynis-report.dat."""
     index = None
@@ -1645,6 +1652,7 @@ def audit_samples(host: str, text: str) -> list:
         new = new_findings(findings, accepted)
         samples.append(("security_rootkit_warnings", {"host": host, "tool": tool}, len(new)))
         samples.append(("security_rootkit_findings", {"host": host, "tool": tool}, len(findings)))
+        samples.append(("security_rootkit_new_fingerprint", {"host": host, "tool": tool}, findings_fingerprint(new)))
         report.append(f"## {tool}")
         if tool == "chkrootkit":
             for f, paths in parse_chkrootkit_detail(sections[tool][0]):
@@ -2084,6 +2092,7 @@ HELPS = {
     "security_integrity_file_info": "Current SHA-256 prefix (12 hex) of each watched file.",
     "security_rootkit_warnings": "rkhunter/chkrootkit findings NOT in the accepted baseline (audit-accepted-<host>-<tool>.txt).",
     "security_rootkit_findings": "All rkhunter/chkrootkit findings, accepted ones included.",
+    "security_rootkit_new_fingerprint": "Hash of the set of findings NOT in the accepted baseline, 0 if none; changes when that set changes.",
     "security_lynis_hardening_index": "Lynis hardening index (0-100) from the weekly quick audit.",
     "security_lynis_warnings": "Lynis warnings in the weekly quick audit.",
     "security_unraid_os_update": "1 if a newer Unraid OS release is available on tower.",
