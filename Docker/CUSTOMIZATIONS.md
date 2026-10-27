@@ -102,6 +102,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | SSO only: hass-oidc-auth 1.2.1 vendored, password provider removed | `config/custom_components/auth_oidc/`, `config/configuration.yaml` | README "Installing / updating the component" | `ha.sso-only`: /auth/providers → auth_oidc; `ha.oidc-vendored`: manifest → 1.2.1, tree clean; `ha.oidc-redirect`: welcome → sso authorize with the ha callback | HA core change stops the component: zero login methods (README shell recovery) |
 | Proxy trust | `config/.storage/http` | UI Network, or edit with HA stopped | `ha.http-trust`: → True [172.24.0.0/16]; `ha.via-traefik`: → 200 | storage migration dropping keys (400 on every request) |
 | Zigbee dongle by-id | `docker-compose.yaml` | `docker compose up -d` | `ha.zigbee-device`: /dev/ttyUSB0 → ok | none |
+| Person pictures = Avatar-Picker picks (websocket `person/update`, token `Avatar-Picker/secrets/ha_token`) | HA `.storage/person` | `sudo systemctl start avatar-sync-reconcile.service` | `ha.person-pictures`: pictures vs picks → ok n/n | websocket person API change |
 
 ## grafana (monitoring stack)
 
@@ -179,7 +180,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Local avatar pack, favicon, version in the image | `app/img-local/` (gitignored), `app/static/`, `Dockerfile` | `docker compose up -d --build` | `avatar.local-pack`: every local gallery file in the image → n local, 0 missing; `avatar.favicon`: → 200 200; `avatar.version`: image vs repo → same | a rebuild without the pack |
 | State via Authentik, header secret from Traefik | `secrets/`, `Traefik/traefik/dynamic/avatar-picker-secret.yml` | `scripts/rotate-secrets.sh` | `avatar.state`: → 200 groups avatars lotr; `avatar.secret-required`: without header → 403 | Authentik API changes (503) |
-| Pick queue + host sync to Jellyfin/Seerr | `data/queue.json`, `systemd/avatar-sync.*` | README install line | `avatar.queue`: → ok; `avatar.sync-units`: → active active success | none |
+| Pick queue + host sync to Jellyfin, Seerr, Home Assistant (Nextcloud prepared, inactive) | `data/queue.json`, `scripts/avatar-sync.py`, `systemd/avatar-sync*`, `secrets/ha_token` | README install line | `avatar.queue`: → ok; `avatar.sync-units`: → active active success; `avatar.reconcile-timer`: daily reconcile → active success; `avatar.ha-pictures`: HA person pictures vs picks → ok n/n | HA websocket person API, Jellyfin /UserImage, Seerr user table |
 | Image route LAN-only | `Traefik/traefik/dynamic/avatar-picker.yml` | file reload | `avatar.img-routes`: public / LAN → 403 200 | ClientIP rule changes |
 
 ## Beefy-Waker

@@ -8,3 +8,4 @@ if want homeassistant; then
   check ha.via-traefik '^200$' "$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve ha.holy-grail.ch:443:192.168.1.2 https://ha.holy-grail.ch/)"
   check ha.zigbee-device '^ok$' "$(docker exec homeassistant test -e /dev/ttyUSB0 && echo ok)"
 fi
+check ha.person-pictures '^(ok [0-9]+/[0-9]+|inactive no token)$' "$(python3 "$HAD/../Avatar-Picker/scripts/avatar-sync.py" --check ha 2>&1 | tail -1)"
