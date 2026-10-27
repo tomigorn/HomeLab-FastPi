@@ -31,6 +31,13 @@ class Rows(unittest.TestCase):
         self.assertEqual(rows["crashed"]["running"], 0)
         self.assertEqual(rows["traefik"]["running"], 1)
 
+    def test_compose_run_one_offs_are_left_out(self):
+        run = c("clamav-hostscan-run-1a2b3c", health="unhealthy", restarts=5, project="clamav")
+        run["Config"]["Labels"]["com.docker.compose.oneoff"] = "True"
+        svc = c("clamav", health="healthy", project="clamav")
+        svc["Config"]["Labels"]["com.docker.compose.oneoff"] = "False"
+        self.assertEqual([r["name"] for r in ex.rows([run, svc], set())], ["clamav"])
+
     def test_created_and_restarting_are_not_running(self):
         rows = {r["name"]: r for r in ex.rows([c("a", status="created"), c("b", status="restarting")], set())}
         self.assertEqual((rows["a"]["running"], rows["b"]["running"]), (0, 0))

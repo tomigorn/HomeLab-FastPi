@@ -52,6 +52,9 @@ def parse_ts(s: str | None) -> float | None:
 def rows(containers: list[dict], manually_stopped: set[str]) -> list[dict]:
     out = []
     for c in containers:
+        # `docker compose run` one-offs (clamav-hostscan-run-*) are jobs, not services
+        if ((c.get("Config") or {}).get("Labels") or {}).get("com.docker.compose.oneoff") == "True":
+            continue
         st = c.get("State") or {}
         health = (st.get("Health") or {}).get("Status")
         policy = ((c.get("HostConfig") or {}).get("RestartPolicy") or {}).get("Name") or "no"

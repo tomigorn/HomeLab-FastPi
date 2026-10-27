@@ -18,7 +18,7 @@ Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits t
 
 ## Container and reboot alerts
 
-`container-exporter/container_exporter.py`, every minute (`container-exporter.timer`, root), writes `container_status.prom` for node-exporter. Rules: `prometheus/rules/containers.yml`, `prometheus/rules/host.yml`.
+`container-exporter/container_exporter.py`, every minute (`container-exporter.timer`, root), writes `container_status.prom` for node-exporter (`docker compose run` one-offs, label `com.docker.compose.oneoff=True`, are left out). Rules: `prometheus/rules/containers.yml`, `prometheus/rules/host.yml`.
 
 | Alert | Fires when | Severity |
 |---|---|---|
