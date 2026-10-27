@@ -1,9 +1,5 @@
 [Unit]
-Description=Avatar picks to the apps, every 5 minutes (beefy and tower skipped while asleep)
+Description=Avatar sync retry every 5 minutes, only while a pick is pending (started and stopped by avatar-sync.service)
 
 [Timer]
-OnBootSec=3min
 OnUnitActiveSec=5min
-
-[Install]
-WantedBy=timers.target

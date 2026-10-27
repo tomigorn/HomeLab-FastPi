@@ -15,7 +15,6 @@ All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), time
 | `beefy-night-downloads-wake` | new | 22:05, wakes beefy only when downloads wait for the night (`Docker/Beefy-Waker/README.md` "Night downloads wake") |
 | `night-search` (beefy) | new | 04:17 on beefy: episodes aired and films released recently without a file, plus 5+5 cutoff-unmet titles, max 30 Treasure Maps searches (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Upgrades") |
 | `subtitle-check` (beefy) | new | 04:21 on beefy: subtitles changed since the last run (SSD only) checked for broken encoding, unambiguous ones repaired; findings reach the 06:30 digest through the queue-watchdog file (`beefy_watchdog.prom`, kinds `subtitle_repaired`, `subtitle_suspect`) (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Subtitle check") |
-| `avatar-sync-reconcile` | new (21:47) | 04:33, inside beefy's 03:58-04:45 hold: every avatar pick pushed to every app again (`Docker/Avatar-Picker/README.md`) |
 
 `security-av` never wakes beefy or tower (`fetch_nowake`): a host the Waker sees down is skipped. beefy is held up 03:58-04:45 (`HomeLab-BeefyServer`, `Server/9-Night-Schedule.md`).
 

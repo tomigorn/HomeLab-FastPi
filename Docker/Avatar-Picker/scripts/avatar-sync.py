@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Pushes queued avatar picks to every app that can take a user picture: Jellyfin + Seerr (beefy, only while beefy is up, never wakes it), Home Assistant (fastpi, once secrets/ha_token exists), Nextcloud (tower, prepared, inactive until secrets/nextcloud_users.json exists, never wakes tower).
-Each app is a target with its own synced state: one app down never blocks the others, a failed push stays pending and is retried.
-Run by avatar-sync.service: on every queue change (avatar-sync.path) and every 5 min (avatar-sync.timer); avatar-sync-reconcile.timer runs --reconcile once a day.
-Usage: avatar-sync.py [--reconcile | --check ha]"""
+"""Pushes queued avatar picks to every app that can take a user picture: Jellyfin + Seerr (beefy, woken through the Waker for a pending pick, at most WAKE_LIMIT times per pick), Home Assistant (fastpi, once secrets/ha_token exists), Nextcloud (tower, prepared, inactive until secrets/nextcloud_users.json exists, never wakes tower).
+Each app is a target with its own synced state: one app down never blocks the others, a failed push stays pending.
+Exit 0 = every active target has every pick, 75 = something pending (avatar-sync.service then starts the 5-min avatar-sync.timer, and stops it again on 0), 1 = error.
+Usage: avatar-sync.py [--reconcile | --status | --check ha]"""
 import base64
 import collections
 import contextlib
@@ -29,6 +29,8 @@ KEY_FILE = pathlib.Path(os.environ.get("JELLYFIN_KEY_FILE", SECRETS / "jellyfin_
 HA_TOKEN_FILE = pathlib.Path(os.environ.get("HA_TOKEN_FILE", SECRETS / "ha_token"))
 NEXTCLOUD_USERS_FILE = pathlib.Path(os.environ.get("NEXTCLOUD_USERS_FILE", SECRETS / "nextcloud_users.json"))
 BEEFY_STATUS = os.environ.get("WAKER_STATUS", "http://192.168.1.2:9001/status")
+BEEFY_WAKE = os.environ.get("WAKER_WAKE", "http://192.168.1.2:9001/wake")
+BEEFY_READY = os.environ.get("WAKER_READY", "http://192.168.1.2:9001/jf/status")
 TOWER_STATUS = os.environ.get("TOWER_WAKER_STATUS", "http://192.168.1.2:9002/status")
 BEEFY = os.environ.get("BEEFY_SSH", "beefy-direct")
 TOWER = os.environ.get("TOWER_SSH", "tower-direct")
@@ -39,13 +41,17 @@ SEERR_SCRIPT = PROJECT / "scripts" / "seerr-avatar.py"
 SAFE_USER = re.compile(r"^[A-Za-z0-9._@-]{1,64}$")
 SAFE_ID = re.compile(r"^[a-z0-9-]{1,64}$")
 LEGACY_TARGETS = ("jellyfin", "seerr")
+PENDING = 75
+WAKE_LIMIT = 3
+WAKE_TIMEOUT = 180
 
 
 class SyncError(Exception):
     pass
 
 
-Target = collections.namedtuple("Target", "name gate session needs", defaults=(None,))
+# active: None or why the target is switched off (not pending); gate: None or why it is unreachable now (pending); wake: makes it reachable.
+Target = collections.namedtuple("Target", "name gate session needs active wake", defaults=(None, None, None))
 
 
 def load(path):
@@ -87,24 +93,67 @@ def picks(queue):
     return good, bad
 
 
+def is_done(synced, wanted, user, name):
+    return synced.get(user, {}).get("targets", {}).get(name) == wanted[user]
+
+
+def inactive_targets(targets):
+    off = {}
+    for t in targets:
+        reason = off.get(t.needs) and f"inactive: needs {t.needs}" or (t.active() if t.active else None)
+        if reason:
+            off[t.name] = reason
+    return off
+
+
+def pending(wanted, synced, targets, off):
+    return {(u, t.name) for t in targets if t.name not in off for u in wanted if not is_done(synced, wanted, u, t.name)}
+
+
+def status(queue_path, state_path, targets):
+    wanted, _ = picks(load(queue_path))
+    left = pending(wanted, load_state(state_path), targets, inactive_targets(targets))
+    return f"pending {len({u for u, _ in left})}" if left else "in sync"
+
+
 def run(queue_path, state_path, targets, now, reconcile=False):
     synced = load_state(state_path)
     wanted, bad = picks(load(queue_path))
+    wakes_path = pathlib.Path(state_path).with_name("wakes.json")
+    wakes = load(wakes_path)
     rc = 0
     if bad:
         print(f"{len(bad)} malformed or unsafe queue entr(y/ies) ignored", file=sys.stderr)
         rc = 1
+    off = inactive_targets(targets)
+    woken = {}
     not_done = set()
     for t in targets:
         def done(user, name):
-            return (user, name) not in not_done and synced.get(user, {}).get("targets", {}).get(name) == wanted[user]
-        todo = [u for u in wanted if reconcile or not done(u, t.name)]
+            return (user, name) not in not_done and is_done(synced, wanted, user, name)
+        waiting = [u for u in wanted if not done(u, t.name)]
+        if t.name in off:
+            if waiting:
+                print(f"{t.name}: {len(waiting)} not pushed, {off[t.name]}")
+            continue
+        todo = list(wanted) if reconcile else waiting
         if t.needs:
             todo = [u for u in todo if done(u, t.needs)]
-        not_done.update((u, t.name) for u in wanted if not done(u, t.name) or u in todo)
+        not_done.update((u, t.name) for u in waiting + todo)
         if not todo:
             continue
         reason = t.gate()
+        if reason and t.wake:
+            due = [u for u in todo if u in waiting and not (wakes.get(u, {}).get("avatar") == wanted[u] and wakes[u].get("count", 0) >= WAKE_LIMIT)]
+            if due and t.wake not in woken:
+                for u in due:
+                    count = wakes.get(u, {}).get("count", 0) if wakes.get(u, {}).get("avatar") == wanted[u] else 0
+                    wakes[u] = {"avatar": wanted[u], "count": count + 1}
+                save(wakes_path, wakes)
+                print(f"{t.name}: {len(due)} pending, {reason}, waking it")
+                woken[t.wake] = t.wake()
+            if t.wake in woken:
+                reason = woken[t.wake] or t.gate()
         if reason:
             print(f"{t.name}: {len(todo)} pending, {reason}")
             continue
@@ -116,7 +165,6 @@ def run(queue_path, state_path, targets, now, reconcile=False):
                         note = push(user, aid)
                     except SyncError as e:
                         print(f"{user} -> {aid}: {t.name} failed, stays pending: {e}", file=sys.stderr)
-                        rc = 1
                         continue
                     entry = synced.setdefault(user, {"targets": {}})
                     entry["targets"][t.name] = aid
@@ -126,10 +174,15 @@ def run(queue_path, state_path, targets, now, reconcile=False):
                     print(f"{user} -> {aid}: {t.name}: {note}")
         except SyncError as e:
             print(f"{t.name} not reachable, picks stay pending: {e}", file=sys.stderr)
-            rc = 1
         except Exception as e:  # noqa: BLE001
             print(f"{t.name} crashed, picks stay pending: {type(e).__name__}", file=sys.stderr)
-            rc = 1
+    left = pending(wanted, synced, targets, off)
+    kept = {u: w for u, w in wakes.items() if isinstance(w, dict) and w.get("avatar") == wanted.get(u) and any(p[0] == u for p in left)}
+    if kept != wakes and (kept or wakes_path.exists()):
+        save(wakes_path, kept)
+    if left:
+        print(f"pending: {len({u for u, _ in left})} pick(s), retry timer stays on")
+        return PENDING
     return rc
 
 
@@ -422,14 +475,27 @@ def file_gate(path, missing):
     return gate
 
 
-def all_gates(*gates):
-    def gate():
-        for g in gates:
-            reason = g()
-            if reason:
-                return reason
+def http_post_json(url):
+    with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"), timeout=10) as r:
+        return json.load(r)
+
+
+def waker_wake(url, ready, timeout=WAKE_TIMEOUT, interval=5, post=http_post_json, sleep=time.sleep, clock=time.monotonic):
+    """Asks the fastpi Waker (POST /wake, it resends the WoL until beefy answers), then waits until ready() or the timeout."""
+    def wake():
+        try:
+            sent = post(url)
+        except Exception as e:  # noqa: BLE001
+            return f"wake failed: {type(e).__name__}"
+        if not isinstance(sent, dict) or sent.get("sent") is not True:
+            return "wake failed: packet not sent"
+        deadline = clock() + timeout
+        while not ready():
+            if clock() >= deadline:
+                return f"beefy not ready after {timeout} s"
+            sleep(interval)
         return None
-    return gate
+    return wake
 
 
 def waker_gate(url, host):
@@ -508,12 +574,14 @@ def nextcloud_session():
 
 def targets():
     beefy = waker_gate(BEEFY_STATUS, "beefy")
+    jellyfin_ready = waker_gate(BEEFY_READY, "jellyfin")
+    wake_beefy = waker_wake(BEEFY_WAKE, lambda: jellyfin_ready() is None)
     return [
-        Target("jellyfin", beefy, jellyfin_session),
-        Target("seerr", beefy, seerr_session, "jellyfin"),
-        Target("ha", file_gate(HA_TOKEN_FILE, "no secrets/ha_token"), ha_session),
-        Target("nextcloud", all_gates(file_gate(NEXTCLOUD_USERS_FILE, "no secrets/nextcloud_users.json"),
-                                      waker_gate(TOWER_STATUS, "tower")), nextcloud_session),
+        Target("jellyfin", beefy, jellyfin_session, wake=wake_beefy),
+        Target("seerr", beefy, seerr_session, "jellyfin", wake=wake_beefy),
+        Target("ha", lambda: None, ha_session, active=file_gate(HA_TOKEN_FILE, "no secrets/ha_token")),
+        Target("nextcloud", waker_gate(TOWER_STATUS, "tower"), nextcloud_session,
+               active=file_gate(NEXTCLOUD_USERS_FILE, "no secrets/nextcloud_users.json")),
     ]
 
 
@@ -532,6 +600,9 @@ def main(argv):
     if argv == ["--check", "ha"]:
         print(check_ha())
         return 0
+    if argv == ["--status"]:
+        print(status(QUEUE, STATE, targets()))
+        return 0
     if argv not in ([], ["--reconcile"]):
         print(__doc__, file=sys.stderr)
         return 2
@@ -539,7 +610,21 @@ def main(argv):
     STATE.parent.mkdir(parents=True, exist_ok=True)
     with open(STATE.with_name("sync.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        return run(QUEUE, STATE, targets(), now, reconcile=bool(argv))
+        for _ in range(3):
+            seen = queue_stamp()
+            rc = run(QUEUE, STATE, targets(), now, reconcile=bool(argv))
+            if queue_stamp() == seen:
+                return rc
+            print("queue changed during the run, running again")
+        return rc
+
+
+def queue_stamp():
+    try:
+        st = QUEUE.stat()
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size
 
 
 if __name__ == "__main__":

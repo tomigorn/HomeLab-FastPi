@@ -1,9 +1,0 @@
-[Unit]
-Description=Avatar reconcile once a night inside beefy's 03:58-04:45 maintenance hold
-
-[Timer]
-OnCalendar=*-*-* 04:33
-Persistent=true
-
-[Install]
-WantedBy=timers.target

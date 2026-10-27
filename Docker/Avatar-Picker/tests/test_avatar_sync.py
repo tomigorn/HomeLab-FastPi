@@ -14,7 +14,7 @@ class Run(unittest.TestCase):
         self.queue, self.state = self.tmp / "queue.json", self.tmp / "state" / "synced.json"
         self.pushed, self.opened = [], []
 
-    def target(self, name, gate=None, fail_for=(), needs=None, broken=False, crash=False):
+    def target(self, name, gate=None, fail_for=(), needs=None, broken=False, crash=False, inactive=None, wake=None):
         @contextlib.contextmanager
         def open_session():
             self.opened.append(name)
@@ -28,7 +28,8 @@ class Run(unittest.TestCase):
                 self.pushed.append((name, user, aid))
                 return "set"
             yield push
-        return sync.Target(name, lambda: gate, open_session, needs)
+        return sync.Target(name, (lambda: gate) if not callable(gate) else gate, open_session, needs,
+                           (lambda: inactive) if inactive else None, wake)
 
     def run_sync(self, targets, reconcile=False):
         return sync.run(self.queue, self.state, targets, lambda: "2026-10-27T18:00:00Z", reconcile)
@@ -42,7 +43,7 @@ class Run(unittest.TestCase):
 
     def test_gated_target_keeps_the_pick_pending_others_run(self):
         self.queue.write_text(json.dumps({"me": {"avatar": "creeper", "at": "t1"}}))
-        self.assertEqual(self.run_sync([self.target("jellyfin", gate="beefy asleep"), self.target("ha")]), 0)
+        self.assertEqual(self.run_sync([self.target("jellyfin", gate="beefy asleep"), self.target("ha")]), sync.PENDING)
         self.assertEqual((self.opened, self.pushed), (["ha"], [("ha", "me", "creeper")]))
         self.assertEqual(self.synced()["me"]["targets"], {"ha": "creeper"})
         self.assertEqual(self.run_sync([self.target("jellyfin"), self.target("ha")]), 0)
@@ -67,14 +68,14 @@ class Run(unittest.TestCase):
 
     def test_failure_stays_pending_other_users_and_targets_continue(self):
         self.queue.write_text(json.dumps({"a": {"avatar": "fox", "at": "t1"}, "b": {"avatar": "owl", "at": "t2"}}))
-        self.assertEqual(self.run_sync([self.target("jellyfin", fail_for={"a"}), self.target("ha")]), 1)
+        self.assertEqual(self.run_sync([self.target("jellyfin", fail_for={"a"}), self.target("ha")]), sync.PENDING)
         self.assertEqual(self.pushed, [("jellyfin", "b", "owl"), ("ha", "a", "fox"), ("ha", "b", "owl")])
         self.assertEqual(self.synced()["a"]["targets"], {"ha": "fox"})
 
     def test_broken_or_crashing_target_does_not_block_the_others(self):
         self.queue.write_text(json.dumps({"a": {"avatar": "fox", "at": "t1"}}))
         rc = self.run_sync([self.target("jellyfin", broken=True), self.target("seerr", crash=True), self.target("ha")])
-        self.assertEqual(rc, 1)
+        self.assertEqual(rc, sync.PENDING)
         self.assertEqual(self.pushed, [("ha", "a", "fox")])
         self.assertEqual(self.synced()["a"]["targets"], {"ha": "fox"})
 
@@ -103,6 +104,140 @@ class Run(unittest.TestCase):
         self.state.parent.mkdir(); self.state.write_text(json.dumps({"me": {"avatar": "creeper", "at": "t1", "synced": "t2"}}))
         self.run_sync([self.target("jellyfin"), self.target("seerr", needs="jellyfin"), self.target("ha")])
         self.assertEqual(self.pushed, [("ha", "me", "creeper")])
+
+    def test_everything_applied_exits_0_so_the_retry_timer_stops(self):
+        self.queue.write_text(json.dumps({"me": {"avatar": "creeper", "at": "t1"}}))
+        self.assertEqual(self.run_sync([self.target("jellyfin"), self.target("seerr", needs="jellyfin"), self.target("ha")]), 0)
+        self.assertEqual(self.run_sync([self.target("jellyfin"), self.target("ha")]), 0)
+
+    def test_inactive_target_is_not_pending_and_never_opened(self):
+        self.queue.write_text(json.dumps({"me": {"avatar": "creeper", "at": "t1"}}))
+        rc = self.run_sync([self.target("ha"), self.target("nextcloud", gate="tower asleep", inactive="no secrets/nextcloud_users.json")])
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.opened, ["ha"])
+
+    def test_target_needing_an_inactive_target_is_inactive_too(self):
+        self.queue.write_text(json.dumps({"me": {"avatar": "creeper", "at": "t1"}}))
+        self.assertEqual(self.run_sync([self.target("jellyfin", inactive="no key"), self.target("seerr", needs="jellyfin")]), 0)
+        self.assertEqual(self.opened, [])
+
+    def test_unsafe_entries_with_nothing_pending_fail_the_run(self):
+        self.queue.write_text(json.dumps({"me": {"avatar": "../x"}}))
+        self.assertEqual(self.run_sync([self.target("ha")]), 1)
+
+
+class Wake(unittest.TestCase):
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, self.tmp)
+        self.queue, self.state = self.tmp / "queue.json", self.tmp / "state" / "synced.json"
+        self.queue.write_text(json.dumps({"me": {"avatar": "creeper", "at": "t1"}}))
+        self.calls, self.up = [], False
+
+    def gate(self):
+        self.calls.append("gate")
+        return None if self.up else "beefy asleep"
+
+    def wake(self, comes_up=True):
+        def wake():
+            self.calls.append("wake")
+            self.up = comes_up
+            return None if comes_up else "beefy not ready after 180 s"
+        return wake
+
+    def beefy(self, wake):
+        @contextlib.contextmanager
+        def session(name):
+            self.calls.append("open " + name)
+            yield lambda user, aid: self.calls.append(f"push {name} {user} {aid}") or "set"
+        return [sync.Target("jellyfin", self.gate, lambda: session("jellyfin"), None, None, wake),
+                sync.Target("seerr", self.gate, lambda: session("seerr"), "jellyfin", None, wake)]
+
+    def run_sync(self, targets, reconcile=False):
+        return sync.run(self.queue, self.state, targets, lambda: "t", reconcile)
+
+    def test_pending_pick_wakes_beefy_once_and_applies_everywhere(self):
+        self.assertEqual(self.run_sync(self.beefy(self.wake())), 0)
+        self.assertEqual(self.calls.count("wake"), 1)
+        self.assertIn("push jellyfin me creeper", self.calls)
+        self.assertIn("push seerr me creeper", self.calls)
+        self.assertLess(self.calls.index("wake"), self.calls.index("open jellyfin"))
+
+    def test_awake_beefy_is_not_woken(self):
+        self.up = True
+        self.assertEqual(self.run_sync(self.beefy(self.wake())), 0)
+        self.assertNotIn("wake", self.calls)
+
+    def test_nothing_pending_never_wakes(self):
+        self.run_sync(self.beefy(self.wake()))
+        self.calls.clear(); self.up = False
+        self.assertEqual(self.run_sync(self.beefy(self.wake())), 0)
+        self.assertEqual(self.calls, [])
+
+    def test_reconcile_without_a_pending_pick_does_not_wake(self):
+        self.run_sync(self.beefy(self.wake()))
+        self.calls.clear(); self.up = False
+        self.assertEqual(self.run_sync(self.beefy(self.wake()), reconcile=True), 0)
+        self.assertNotIn("wake", self.calls)
+
+    def test_failed_wake_stays_pending(self):
+        self.assertEqual(self.run_sync(self.beefy(self.wake(comes_up=False))), sync.PENDING)
+        self.assertEqual(self.calls.count("wake"), 1)
+        self.assertFalse(any(c.startswith("push") for c in self.calls))
+
+    def test_a_pick_wakes_beefy_at_most_three_times(self):
+        for _ in range(5):
+            self.up = False
+            self.assertEqual(self.run_sync(self.beefy(self.wake(comes_up=False))), sync.PENDING)
+        self.assertEqual(self.calls.count("wake"), sync.WAKE_LIMIT)
+        self.queue.write_text(json.dumps({"me": {"avatar": "owl", "at": "t2"}}))
+        self.run_sync(self.beefy(self.wake(comes_up=False)))
+        self.assertEqual(self.calls.count("wake"), sync.WAKE_LIMIT + 1)
+
+
+class Waker(unittest.TestCase):
+    def test_posts_wake_then_waits_until_ready(self):
+        calls, ready = [], iter([False, False, True])
+        clock = iter(range(0, 1000, 5))
+        wake = sync.waker_wake("http://w/wake", lambda: next(ready), timeout=180, interval=5,
+                               post=lambda url: calls.append(url) or {"sent": True}, sleep=calls.append, clock=lambda: next(clock))
+        self.assertIsNone(wake())
+        self.assertEqual(calls, ["http://w/wake", 5, 5])
+
+    def test_gives_up_after_the_timeout(self):
+        clock = iter(range(0, 1000, 60))
+        wake = sync.waker_wake("http://w/wake", lambda: False, timeout=180, interval=60,
+                               post=lambda url: {"sent": True}, sleep=lambda s: None, clock=lambda: next(clock))
+        self.assertEqual(wake(), "beefy not ready after 180 s")
+
+    def test_waker_down_or_packet_not_sent(self):
+        def down(url):
+            raise OSError("refused")
+        self.assertEqual(sync.waker_wake("u", lambda: True, post=down)(), "wake failed: OSError")
+        self.assertEqual(sync.waker_wake("u", lambda: True, post=lambda url: {"sent": False})(), "wake failed: packet not sent")
+
+    def test_real_targets_wake_only_beefy(self):
+        names = {t.name: t for t in sync.targets()}
+        self.assertIsNotNone(names["jellyfin"].wake)
+        self.assertIs(names["seerr"].wake, names["jellyfin"].wake)
+        self.assertIsNone(names["nextcloud"].wake)
+        self.assertIsNone(names["ha"].wake)
+        self.assertIsNotNone(names["nextcloud"].active)
+
+
+class Status(unittest.TestCase):
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, self.tmp)
+        self.queue, self.state = self.tmp / "queue.json", self.tmp / "synced.json"
+
+    def test_counts_pending_picks_of_active_targets_without_any_network(self):
+        boom = lambda: (_ for _ in ()).throw(AssertionError("no gate or session at --status"))
+        targets = [sync.Target("jellyfin", boom, boom), sync.Target("seerr", boom, boom, "jellyfin"),
+                   sync.Target("nextcloud", boom, boom, None, lambda: "inactive")]
+        self.queue.write_text(json.dumps({"a": {"avatar": "fox"}, "b": {"avatar": "owl"}}))
+        self.state.write_text(json.dumps({"a": {"targets": {"jellyfin": "fox", "seerr": "fox"}}}))
+        self.assertEqual(sync.status(self.queue, self.state, targets), "pending 1")
+        self.state.write_text(json.dumps({"a": {"targets": {"jellyfin": "fox", "seerr": "fox"}}, "b": {"targets": {"jellyfin": "owl", "seerr": "owl"}}}))
+        self.assertEqual(sync.status(self.queue, self.state, targets), "in sync")
 
 
 class FakeJellyfin(BaseHTTPRequestHandler):
@@ -239,10 +374,6 @@ class Gates(unittest.TestCase):
         self.assertEqual(gate(), "inactive: no secrets/ha_token")
         f.write_text("tok\n")
         self.assertIsNone(gate())
-
-    def test_all_gates(self):
-        self.assertEqual(sync.all_gates(lambda: None, lambda: "beefy asleep")(), "beefy asleep")
-        self.assertIsNone(sync.all_gates(lambda: None, lambda: None)())
 
     def test_nextcloud_users_file(self):
         f = self.tmp / "nextcloud_users.json"

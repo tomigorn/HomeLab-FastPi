@@ -21,6 +21,6 @@ except e.HTTPError as x: print(x.code)' 2>&1 | tail -1)"
   check avatar.queue '^ok$' "$(docker exec avatar-picker python -c 'import json; json.load(open("/data/queue.json")); print("ok")' 2>&1 | tail -1)"
   check avatar.img-routes '^403 200$' "$(i=$(docker exec avatar-picker sh -c 'ls /app/img | head -1'); pub=$(dig +short sso.holy-grail.ch @1.1.1.1 | head -1); for ip in $pub 192.168.1.2; do curl -s -m 10 -o /dev/null -w '%{http_code}\n' --resolve sso.holy-grail.ch:443:$ip "https://sso.holy-grail.ch/avatar-img/img/$i"; done | xargs)"
 fi
-check avatar.sync-units '^active active (success|)$' "$(echo "$(systemctl is-active avatar-sync.path avatar-sync.timer | xargs) $(systemctl show avatar-sync.service -p Result --value)")"
-check avatar.reconcile-timer '^active (success|)$' "$(echo "$(systemctl is-active avatar-sync-reconcile.timer) $(systemctl show avatar-sync-reconcile.service -p Result --value)")"
+check avatar.sync-units '^active enabled (success|)$' "$(echo "$(systemctl is-active avatar-sync.path) $(systemctl is-enabled avatar-sync.service) $(systemctl show avatar-sync.service -p Result --value)")"
+check avatar.retry-timer '^(in sync inactive|pending [0-9]+ active)$' "$(echo "$(python3 "$APD/scripts/avatar-sync.py" --status 2>&1 | tail -1) $(systemctl is-active avatar-sync.timer)")"
 check avatar.ha-pictures '^(ok [0-9]+/[0-9]+|inactive no token)$' "$(python3 "$APD/scripts/avatar-sync.py" --check ha 2>&1 | tail -1)"

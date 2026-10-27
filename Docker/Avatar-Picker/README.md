@@ -25,7 +25,7 @@ curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:192.168.1.2 https://$H
 
 ## How a pick reaches other apps
 
-The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each pick also lands in `data/queue.json` (per user: avatar + time, last pick wins; written by the container, gitignored) and `scripts/avatar-sync.py` pushes it to every app below. Each app is its own target with its own state in `/var/lib/avatar-sync/synced.json`: one app down never blocks the others, a failure stays pending and is retried. It never wakes beefy or tower. Mapping: Authentik username → app user. Images: only our local pack (picker URL or the PNG itself).
+The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each pick also lands in `data/queue.json` (per user: avatar + time, last pick wins; written by the container, gitignored) and `scripts/avatar-sync.py` pushes it to every app below. Each app is its own target with its own state in `/var/lib/avatar-sync/synced.json`: one app down never blocks the others, a failure stays pending and is retried. A pending pick wakes beefy (Waker `POST :9001/wake`, wait ≤ 3 min for Jellyfin `/jf/status`), at most 3 times per pick; tower is never woken, an inactive target (Nextcloud) is never pending. Mapping: Authentik username → app user. Images: only our local pack (picker URL or the PNG itself).
 
 | App | Supported | How |
 |---|---|---|
@@ -44,20 +44,20 @@ The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each
 
 | Trigger | What |
 |---|---|
-| right after a pick | `avatar-sync.path` (queue changed) starts `avatar-sync.service` (user `pi`) |
-| every 5 min | `avatar-sync.timer`: retries pending targets (beefy/tower asleep = Waker `:9001`/`:9002` `/status` not up, skipped) |
-| daily 04:33 (beefy held up 03:58-04:45) | `avatar-sync-reconcile.timer`: `--reconcile` pushes every pick to every target again (drift repair) |
+| right after a pick (and at boot) | `avatar-sync.path` (queue changed) starts `avatar-sync.service` (user `pi`) |
+| every 5 min, only while something is pending | exit 75 = pending: the service starts `avatar-sync.timer`; exit 0 (all applied) stops it. Nothing runs on a schedule when everything is in sync |
 
 No firewall change: only ssh, which HOST-OUT-GUARD already allows, and HA on `127.0.0.1:8123`. On container start, picks made before the queue existed are backfilled.
 
 ```bash
 journalctl -u avatar-sync.service -n 20                # last pushes
 sudo systemctl start avatar-sync.service               # push pending now
-sudo systemctl start avatar-sync-reconcile.service     # push everything again
+python3 scripts/avatar-sync.py --status                # in sync | pending n
+python3 scripts/avatar-sync.py --reconcile             # repair: push every pick again (wakes beefy only for a pending pick)
 python3 scripts/avatar-sync.py --check ha              # HA pictures vs picks: ok n/n
 ```
 
-Install (once): `sudo install -d -o 65002 -g 65002 data && sudo cp systemd/avatar-sync* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now avatar-sync.path avatar-sync.timer avatar-sync-reconcile.timer`. Jellyfin key: on beefy `POST /Auth/Keys?app=avatar-sync`, token into `secrets/jellyfin_api_key` (600). HA token: HA as `tomigorn-admin` → Profile → Security → Long-lived access tokens → Create, into `secrets/ha_token` (600).
+Install (once): `sudo install -d -o 65002 -g 65002 data && sudo cp systemd/avatar-sync* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable avatar-sync.service && sudo systemctl enable --now avatar-sync.path`. Jellyfin key: on beefy `POST /Auth/Keys?app=avatar-sync`, token into `secrets/jellyfin_api_key` (600). HA token: HA as `tomigorn-admin` → Profile → Security → Long-lived access tokens → Create, into `secrets/ha_token` (600).
 
 Nextcloud, once tower is cleared (provider `Nextcloud` sends `sub` = user uuid; `--mapping-uid=sub`):
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Push queued avatar picks to Jellyfin, Seerr, Home Assistant, Nextcloud (never wakes beefy or tower)
+Description=Push avatar picks to Jellyfin, Seerr, Home Assistant, Nextcloud (wakes beefy for a pending pick, never tower)
 Documentation=file:///home/pi/Projects/Docker/Avatar-Picker/README.md
 After=network-online.target
 Wants=network-online.target
@@ -9,8 +9,10 @@ Type=oneshot
 User=pi
 Group=pi
 ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/Avatar-Picker/scripts/avatar-sync.py
+SuccessExitStatus=75
+ExecStopPost=+/bin/sh -c 'if [ "$${EXIT_STATUS}" = 75 ]; then systemctl start avatar-sync.timer; else systemctl stop avatar-sync.timer; fi'
 StateDirectory=avatar-sync
-TimeoutStartSec=180
+TimeoutStartSec=600
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
@@ -19,3 +21,6 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
