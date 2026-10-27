@@ -71,6 +71,28 @@ tests:
         alertname: AutoUpdateNightly
         exp_alerts: []
 
+  - name: a rollback names the missing customizations
+    interval: 1m
+    input_series:
+      - series: 'auto_update_result{host="beefy",project="Seerr",tier="auto",ref="s:1",result="rolled_back",from="a",to="b",reason="customizations missing: seerr.oidc-login"}'
+        values: '1x60'
+      - series: 'auto_update_last_run_timestamp_seconds{host="beefy"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AutoUpdateNightly
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              notify: digest
+              host: beefy
+            exp_annotations:
+              summary: "Nightly auto-update beefy"
+              description: |-
+                • ↩️ <b>Seerr</b> · rolled_back · s:1 (a → b) · customizations missing: seerr.oidc-login
+                • ⏳ 0 waiting out the cool-down
+                <blockquote expandable>Log: <code>journalctl -u auto-update</code> on beefy</blockquote>
+
   - name: failed rollback pages
     interval: 1m
     input_series:
