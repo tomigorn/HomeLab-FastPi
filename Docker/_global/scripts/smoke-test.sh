@@ -141,6 +141,20 @@ check "wiki -> sso"              '^https://sso\.holy-grail\.ch/application/o/aut
 check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 -X POST --data '{}' https://claude-mockups.holy-grail.ch/_inbox/submit | cut -c1-40)"
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
 check "tower waker v1.2.0"         '1\.2\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
+# Avatar picker loads its state (needs Authentik's user list; 503 = Authentik unreachable, the 2026-10-25 regression).
+# Asked inside the container with the Traefik header secret, which is read there and never printed.
+running avatar-picker
+check "avatar picker state"        '^200 groups=[0-9]+ avatars=[1-9][0-9]* lotr=[1-9]' "$(docker exec -i avatar-picker python - 2>&1 <<'PY' | tail -1
+import json, urllib.error, urllib.request
+s = open("/run/secrets/picker_secret").read().strip()
+r = urllib.request.Request("http://127.0.0.1:8080/api/state", headers={"X-Picker-Secret": s, "X-authentik-username": "smoke-test"})
+try:
+    d = json.load(urllib.request.urlopen(r, timeout=15))
+    print(200, f"groups={len(d['groups'])} avatars={len(d['avatars'])} lotr={sum(a.get('group') == 'lotr' for a in d['avatars'])}")
+except urllib.error.HTTPError as e:
+    print(e.code, e.read().decode()[:60])
+PY
+)"
 
 echo "== Tracker (Floppy on beefy; containers + backup in the beefy section)"
 check "tracker -> sso"             'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/ | cut -c1-60)"
