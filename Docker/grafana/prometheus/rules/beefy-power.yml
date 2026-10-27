@@ -31,12 +31,16 @@ groups:
             The 2026-10-09 cause was a blackbox probe of an un-authenticated
             beefy route (Jellyfin).
 
-      # Added 2026-10-27. beefy sleeps when idle, so 6 h up in a row means something keeps it awake (the idle watcher's reasons are republished by beefy-idle-pull.timer as beefy_idle_*).
+      # Added 2026-10-27. beefy sleeps when idle, so 6 h since boot means something keeps it awake (the idle watcher's reasons are republished by beefy-idle-pull.timer as beefy_idle_*).
+      # Based on beefy's real boot time (beefy_boot_time_seconds, S5 power-off so boot = wake), not on Prometheus history: a Prometheus restart cannot make it fire early.
+      # Needs fresh idle metrics (< 15 min old), so the message always has a reason list.
       # Not NEW inside 03:58-04:45 local (the maintenance wake and its scans); an alert that already fires carries on through the window instead of resolving with a false "asleep again".
       # Local time is derived from homelab:local_utc_offset_hours (rules/weekly-digest.yml).
       - alert: BeefyAwakeLong
         expr: |-
-          min_over_time(probe_success{job="blackbox-beefy"}[6h]) == 1
+          probe_success{job="blackbox-beefy"} == 1
+            and on() (time() - beefy_boot_time_seconds >= 6 * 3600)
+            and on() (time() - beefy_idle_updated_timestamp_seconds < 900)
             and on() (
                   (hour(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) * 60
                    + minute(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) < 238)
@@ -48,11 +52,11 @@ groups:
           severity: warning
         annotations:
           summary: "beefy has been awake for 6 h"
+          awake_since: '{{ with query "beefy_boot_time_seconds + 3600 * scalar(homelab:local_utc_offset_hours)" }}{{ . | first | value | humanizeTimestamp }}{{ end }}'
           awake_by: |-
             {{ range query `beefy_idle_busy == 1` | sortByLabel "reason" }}• {{ .Labels.reason | html }}
-            {{ else }}• nothing reported (no idle-watcher metrics, or beefy looks idle)
             {{ end }}{{ range query `beefy_idle_info` }}{{ if .Labels.detail }}• {{ .Labels.detail | html }}
             {{ end }}{{ end }}
           description: >-
-            beefy has answered ssh without a break for 6 hours. Kept awake by: {{ range query `beefy_idle_busy == 1` | sortByLabel "reason" }}{{ .Labels.reason | html }} {{ else }}nothing reported (no idle-watcher metrics, or beefy looks idle) {{ end }}{{ range query `beefy_idle_info` }}{{ if .Labels.detail }}- detail: {{ .Labels.detail | html }}{{ end }}{{ end }}.
+            beefy has been up for 6 hours or more since its last boot. Kept awake by: {{ range query `beefy_idle_busy == 1` | sortByLabel "reason" }}{{ .Labels.reason | html }} {{ end }}{{ range query `beefy_idle_info` }}{{ if .Labels.detail }}- detail: {{ .Labels.detail | html }}{{ end }}{{ end }}.
             Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>

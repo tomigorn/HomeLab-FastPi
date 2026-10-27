@@ -102,7 +102,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | Alert | Fires when |
 |---|---|
 | `BeefyWakeLoop` | > 20 up/down changes in 24 h |
-| `BeefyAwakeLong` | up 6 h in a row (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): repeats every 6 h, resolved says "asleep again (awake ~X h)". Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
+| `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): repeats every 6 h, "awake since" is the boot time; resolved says "asleep again (awake ~X h)", counted from the alert start minus 6 h (a lower bound). Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
 
 ## Media language (beefy)
 

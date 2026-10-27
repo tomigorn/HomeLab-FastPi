@@ -1,17 +1,21 @@
 # promtool test rules tests/beefy-power-dst_test.yml
-# Separate file for its 10-minute evaluation: these eval times lie months after promtool's time 0.
+# Separate file for its 4-minute evaluation (under the 5 min lookback, so the recorded offset never goes stale): these eval times lie months after promtool's time 0.
 rule_files:
   - ../rules/weekly-digest.yml
   - ../rules/beefy-power.yml
-evaluation_interval: 10m
+evaluation_interval: 4m
 tests:
   - name: summer time shifts the window by an hour
-    interval: 10m
+    interval: 4m
     input_series:
-      # first up sample 20:00 UTC on 1970-07-01 (day 181), 6 h reached 02:00 UTC = 04:00 CEST (offset 2)
+      # boot 20:00 UTC on 1970-07-01 (day 181, 15660000 s), 6 h reached 02:00 UTC = 04:00 CEST (offset 2)
       - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
-        values: '0+0x26184 1+0x100'
+        values: '1+0x65700'
+      - series: 'beefy_boot_time_seconds'
+        values: '15710400+0x65700'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+240x65700'
     alert_rule_test:
-      - eval_time: 4370h30m  # 02:30 UTC = 04:30 CEST: inside the window (with offset 1 it would be 03:30 and fire)
+      - eval_time: 4370h32m  # 02:32 UTC = 04:32 CEST: inside the window (with offset 1 it would be 03:30 and fire)
         alertname: BeefyAwakeLong
         exp_alerts: []

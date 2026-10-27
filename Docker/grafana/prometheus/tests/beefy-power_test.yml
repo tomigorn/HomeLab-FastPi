@@ -1,15 +1,20 @@
 # promtool test rules tests/beefy-power_test.yml
 # 1970-01-01 is winter (CET, UTC+1): 02:00 UTC = 03:00 local. Eval times below are UTC.
+# beefy_boot_time_seconds is absolute; the idle timestamp advances 60 s per 1m sample (fresh metrics).
 rule_files:
   - ../rules/weekly-digest.yml
   - ../rules/beefy-power.yml
 evaluation_interval: 1m
 tests:
-  - name: up 6 h fires, 5 h 59 does not
+  - name: fires 6 h after boot, not at 5 h 59
     interval: 1m
     input_series:
       - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
-        values: '0+0x59 1+0x600'
+        values: '1+0x660'
+      - series: 'beefy_boot_time_seconds'
+        values: '3600+0x660'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+60x660'
       - series: 'beefy_idle_busy{reason="conns"}'
         values: '1+0x660'
       - series: 'beefy_idle_busy{reason="net"}'
@@ -17,10 +22,10 @@ tests:
       - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
         values: '1+0x660'
     alert_rule_test:
-      - eval_time: 6h58m   # up 5 h 58 min
+      - eval_time: 6h59m   # 5 h 59 min after boot (01:00)
         alertname: BeefyAwakeLong
         exp_alerts: []
-      - eval_time: 6h59m
+      - eval_time: 7h
         alertname: BeefyAwakeLong
         exp_alerts:
           - exp_labels:
@@ -29,14 +34,86 @@ tests:
               job: blackbox-beefy
             exp_annotations:
               summary: "beefy has been awake for 6 h"
+              awake_since: "1970-01-01 02:00:00 +0000 UTC"
               awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
-              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+              description: "beefy has been up for 6 hours or more since its last boot. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+
+  - name: fires at 6 h after boot even with a short probe history (Prometheus restart)
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '_x420 1+0x240'
+      - series: 'beefy_boot_time_seconds'
+        values: '3600+0x660'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+60x660'
+      - series: 'beefy_idle_busy{reason="conns"}'
+        values: '1+0x660'
+      - series: 'beefy_idle_busy{reason="net"}'
+        values: '0+0x660'
+      - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
+        values: '1+0x660'
+    alert_rule_test:
+      - eval_time: 7h5m   # probe only seen for 20 min, boot 6 h 5 min ago
+        alertname: BeefyAwakeLong
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: beefy
+              job: blackbox-beefy
+            exp_annotations:
+              summary: "beefy has been awake for 6 h"
+              awake_since: "1970-01-01 02:00:00 +0000 UTC"
+              awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
+              description: "beefy has been up for 6 hours or more since its last boot. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+
+  - name: no alert when the idle metrics are stale
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '1+0x660'
+      - series: 'beefy_boot_time_seconds'
+        values: '3600+0x660'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+60x400 24000+0x260'
+      - series: 'beefy_idle_busy{reason="conns"}'
+        values: '1+0x660'
+      - series: 'beefy_idle_busy{reason="net"}'
+        values: '0+0x660'
+      - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
+        values: '1+0x660'
+    alert_rule_test:
+      - eval_time: 7h30m   # last update 6 h 40 min of data ago, stale for > 15 min
+        alertname: BeefyAwakeLong
+        exp_alerts: []
+
+  - name: no alert without idle metrics at all
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '1+0x660'
+      - series: 'beefy_boot_time_seconds'
+        values: '3600+0x660'
+    alert_rule_test:
+      - eval_time: 7h30m
+        alertname: BeefyAwakeLong
+        exp_alerts: []
 
   - name: resolves when beefy goes down
     interval: 1m
     input_series:
       - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
         values: '1+0x500 0+0x100'
+      - series: 'beefy_boot_time_seconds'
+        values: '0+0x600'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+60x600'
+      - series: 'beefy_idle_busy{reason="conns"}'
+        values: '1+0x600'
+      - series: 'beefy_idle_busy{reason="net"}'
+        values: '0+0x600'
+      - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
+        values: '1+0x600'
     alert_rule_test:
       - eval_time: 6h1m
         alertname: BeefyAwakeLong
@@ -47,8 +124,9 @@ tests:
               job: blackbox-beefy
             exp_annotations:
               summary: "beefy has been awake for 6 h"
-              awake_by: "• nothing reported (no idle-watcher metrics, or beefy looks idle)\n"
-              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: nothing reported (no idle-watcher metrics, or beefy looks idle) . Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+              awake_since: "1970-01-01 01:00:00 +0000 UTC"
+              awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
+              description: "beefy has been up for 6 hours or more since its last boot. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
       - eval_time: 8h30m
         alertname: BeefyAwakeLong
         exp_alerts: []
@@ -56,9 +134,19 @@ tests:
   - name: not newly fired inside the maintenance window 03:58-04:45 local
     interval: 1m
     input_series:
-      # first up sample at 21:00 UTC day 0 = 22:00 local, so 6 h are reached at 03:00 UTC day 1 = 04:00 local
+      # boot at 21:00 UTC day 0 = 22:00 local (75600 s), so 6 h are reached at 03:00 UTC day 1 = 04:00 local
       - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
-        values: '0+0x1260 1+0x600'
+        values: '1+0x1900'
+      - series: 'beefy_boot_time_seconds'
+        values: '75600+0x1900'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+60x1900'
+      - series: 'beefy_idle_busy{reason="conns"}'
+        values: '1+0x1900'
+      - series: 'beefy_idle_busy{reason="net"}'
+        values: '0+0x1900'
+      - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
+        values: '1+0x1900'
     alert_rule_test:
       - eval_time: 26h30m   # 02:30 UTC = 03:30 local, 5 h 30 up
         alertname: BeefyAwakeLong
@@ -78,15 +166,26 @@ tests:
               job: blackbox-beefy
             exp_annotations:
               summary: "beefy has been awake for 6 h"
-              awake_by: "• nothing reported (no idle-watcher metrics, or beefy looks idle)\n"
-              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: nothing reported (no idle-watcher metrics, or beefy looks idle) . Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+              awake_since: "1970-01-01 22:00:00 +0000 UTC"
+              awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
+              description: "beefy has been up for 6 hours or more since its last boot. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
 
   - name: an alert already firing carries through the window
     interval: 1m
     input_series:
-      # first up sample 14:00 UTC day 0, fires from 20:00 UTC (21:00 local)
+      # boot 14:00 UTC day 0 (50400 s), fires from 20:00 UTC (21:00 local)
       - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
-        values: '0+0x840 1+0x1000'
+        values: '1+0x1900'
+      - series: 'beefy_boot_time_seconds'
+        values: '50400+0x1900'
+      - series: 'beefy_idle_updated_timestamp_seconds'
+        values: '0+60x1900'
+      - series: 'beefy_idle_busy{reason="conns"}'
+        values: '1+0x1900'
+      - series: 'beefy_idle_busy{reason="net"}'
+        values: '0+0x1900'
+      - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
+        values: '1+0x1900'
     alert_rule_test:
       - eval_time: 27h5m    # 03:05 UTC = 04:05 local
         alertname: BeefyAwakeLong
@@ -97,5 +196,6 @@ tests:
               job: blackbox-beefy
             exp_annotations:
               summary: "beefy has been awake for 6 h"
-              awake_by: "• nothing reported (no idle-watcher metrics, or beefy looks idle)\n"
-              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: nothing reported (no idle-watcher metrics, or beefy looks idle) . Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+              awake_since: "1970-01-01 15:00:00 +0000 UTC"
+              awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
+              description: "beefy has been up for 6 hours or more since its last boot. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
