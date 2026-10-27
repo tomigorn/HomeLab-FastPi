@@ -567,7 +567,8 @@ LOCAL = {
         ("lassie", "Lassie", "neutral", WP + "commons/4/4e/Lassie.jpg", (222, 144, 300)),
     ],
     # Lord of the Rings (18): the major cast of Peter Jackson's films (2001-2003), film stills
-    # from the characters' English or Italian Wikipedia articles (Sauron: a Commons photo of a replica armour); listed order is the row order
+    # from the characters' English or Italian Wikipedia articles (Sauron: the Eye on Barad-dur; the only
+    # armoured film still is 352x199 and too dark at avatar size); listed order is the row order
     # (vibe-exempt). Gandalf is the Grey (hat and staff), the look of most of the story.
     "lotr": [
         ("frodo", "Frodo", "masculine", WP + "it/d/d6/Il_Signore_degli_Anelli_341.jpg", (281, 0, 530)),
@@ -589,7 +590,7 @@ LOCAL = {
         ("theoden", "Théoden", "masculine", WP + "en/3/3a/Th%C3%A9oden600ppx.png", (56, 0, 260)),
         ("elrond", "Elrond", "masculine", WP + "it/0/0e/Il_Signore_degli_Anelli_058.jpg", (263, 0, 526)),
         ("bilbo", "Bilbo", "masculine", WP + "en/7/78/Bilbo_Baggins.jpg", (22, 5, 150)),
-        ("sauron", "Sauron", "neutral", WP + "commons/9/93/Sauron_replica.jpg", (288, 110, 400)),
+        ("sauron", "Sauron", "neutral", WP + "it/c/c3/Il_Signore_degli_Anelli_132.JPG", (255, 35, 330)),
     ],
     # Cartoons (27): animated TV characters across eras and studios
     "tvcartoons": [

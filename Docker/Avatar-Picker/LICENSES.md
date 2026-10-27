@@ -467,7 +467,7 @@ SpongeBob, Patrick, Finn, Jake, the Creeper, the Pac-Man ghosts; public-domain
 studio publicity stills and screenshots - Mary Poppins, Dorothy (1939), King Kong
 (1933), Godzilla (1954), Lassie, Spock (1967); and freely licensed or public-domain
 photographs of character figures, props and puppets - the Minion statue, the
-R2-D2 and C-3PO props, the Sauron armour replica, the E.T. and Katniss figures at Madame Tussauds, the Toothless
+R2-D2 and C-3PO props, the E.T. and Katniss figures at Madame Tussauds, the Toothless
 statue, the TARDIS and Dalek props, the Kermit, Elmo, Big Bird and Oscar puppets;
 the photos are
 free, the depicted characters remain copyrighted), and Studio Ghibli's official
@@ -581,7 +581,7 @@ photographs of real people (owners/keepers are cropped out).
 | Théoden (`theoden`) | Lord of the Rings | https://upload.wikimedia.org/wikipedia/en/3/3a/Th%C3%A9oden600ppx.png |
 | Elrond (`elrond`) | Lord of the Rings | https://upload.wikimedia.org/wikipedia/it/0/0e/Il_Signore_degli_Anelli_058.jpg |
 | Bilbo (`bilbo`) | Lord of the Rings | https://upload.wikimedia.org/wikipedia/en/7/78/Bilbo_Baggins.jpg |
-| Sauron (`sauron`) | Lord of the Rings | https://upload.wikimedia.org/wikipedia/commons/9/93/Sauron_replica.jpg |
+| Sauron (`sauron`) | Lord of the Rings | https://upload.wikimedia.org/wikipedia/it/c/c3/Il_Signore_degli_Anelli_132.JPG |
 | Lisa (`lisa-simpson`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/e/ec/Lisa_Simpson.png |
 | Velma (`velma`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/9/9d/Velma_Dinkley.png |
 | Leela (`leela`) | Cartoons | https://upload.wikimedia.org/wikipedia/en/d/d4/Turanga_Leela.png |
