@@ -108,7 +108,8 @@ install_icon() {
     install -m 444 -o "$(stat -c %u "$DEST")" -g "$(stat -c %g "$DEST")" "$file" "$target"
     echo "new        apps/$slug-$hash.svg"
   fi
-  find "$DEST" -maxdepth 1 -name "$slug-*.svg" ! -name "$slug-$hash.svg" -delete
+  # exact <slug>-<hash>.svg only: prowlarr-* would also match prowlarr-audiobooks-*
+  find "$DEST" -maxdepth 1 -regextype posix-extended -regex ".*/$slug-[0-9a-f]{8}\.svg" ! -name "$slug-$hash.svg" -delete
 }
 
 for pair in "${ICONS[@]}"; do
