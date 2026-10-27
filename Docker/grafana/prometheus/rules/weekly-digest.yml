@@ -38,7 +38,10 @@ groups:
             • no data{{ end }}{{ range query `security_image_update_info` | sortByLabel "reference" | sortByLabel "host" }}
             • {{ .Labels.host }}: {{ .Labels.reference | html }} ({{ .Labels.type }}){{ end }}
 
-            <b>Fixable critical CVEs</b>{{ range query `security_image_vulnerabilities_fixable{severity="CRITICAL"}` | sortByLabel "host" }}
+            {{ with query `vector(1) and on() (day_of_month(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) <= 7) and on() count(auto_update_result{result="local_build"} == 1)` }}<b>Rebuild</b> (monthly, custom builds: refresh the base image){{ range query `count by (host, project) (auto_update_result{result="local_build"} == 1)` | sortByLabel "project" | sortByLabel "host" }}
+            • {{ .Labels.host }}: {{ .Labels.project }}{{ end }}
+
+            {{ end }}<b>Fixable critical CVEs</b>{{ range query `security_image_vulnerabilities_fixable{severity="CRITICAL"}` | sortByLabel "host" }}
             • {{ .Labels.host }}: {{ .Value }}{{ else }}
             • no data{{ end }}
 
