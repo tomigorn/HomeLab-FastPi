@@ -122,7 +122,7 @@ tests:
         values: '1x200'
       - series: 'auto_update_result{host="beefy",project="Seerr",tier="notify",ref="s:1",result="current",from="e",to="e"}'
         values: '1x200'
-      - series: 'auto_update_result{host="beefy",project="Ryot",tier="notify",ref="r:1",result="waiting",from="f",to="g"}'
+      - series: 'auto_update_result{host="beefy",project="Floppy",tier="notify",ref="r:1",result="waiting",from="f",to="g"}'
         values: '1x200'
       - series: 'auto_update_omitted{host="beefy"}'
         values: '2x200'
