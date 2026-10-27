@@ -1207,10 +1207,10 @@ def test_dockerfile_bases_keep_digest_pin_and_dedupe():
 
 
 def test_parse_local_bases_maps_image_to_bases():
-    out = "## clamav-local:latest\nFROM alpine:latest\n## ryot-go:local\nFROM docker.io/library/python:3.13-alpine\n## orphan:local\n"
+    out = "## clamav-local:latest\nFROM alpine:latest\n## app-helper:local\nFROM docker.io/library/python:3.13-alpine\n## orphan:local\n"
     assert parse_local_bases(out) == {
         "clamav-local:latest": ["alpine:latest"],
-        "ryot-go:local": ["docker.io/library/python:3.13-alpine"],
+        "app-helper:local": ["docker.io/library/python:3.13-alpine"],
     }
 
 

@@ -96,7 +96,7 @@ Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`: verbatim copi
 |---|---|
 | When | 04:12 (inside the 03:55–04:45 window, after the 04:05 scan); `AUTO_UPDATE_APPLY_BY=04:16`: nothing starts later, the rest is `deferred` to the next night; `AUTO_UPDATE_MAX_APPLY=2` projects a night; `TimeoutStartSec=600` hard stop. No wake of its own |
 | auto | Movie-Downloads flaresolverr, recyclarr, vpn-status; Cup-Agent cup-agent, socket-proxy-unix (pinned tags except socat) |
-| notify | socket proxies + autoheal (docker.sock), gluetun + *arr + qBit + SAB (state; gluetun carries the VPN namespace), Seerr (pinned by digest), Ryot + ryot-db, Portainer-Agent; Jellyfin, clamav, ryot-go are local builds (`local_build`, detected from compose `build:`) |
+| notify | socket proxies + autoheal (docker.sock), gluetun + *arr + qBit + SAB (state; gluetun carries the VPN namespace), Seerr + Floppy (pinned by digest), Dependency-Track, Jellyfin, Antivirus, Portainer-Agent; Jellyfin, clamav are local builds (`local_build`, detected from compose `build:`) |
 | Keep-awake | the unit holds `beefy-keep-awake` while it runs and releases only its own hold |
 | Docker | the unit has the `docker` group; by hand (`buntu`) both scripts fall back to `sudo -n docker` |
 | Result | `/var/lib/auto-update/textfile/auto_update.prom` → `security_scan.py updates` (security-av, 04:20) → `auto_update_beefy.prom` here (only `host="beefy"` samples) → `AutoUpdateNightly{host="beefy"}` |
