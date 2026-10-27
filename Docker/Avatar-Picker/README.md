@@ -33,6 +33,6 @@ python3 scripts/provision-authentik.py  # application, provider, scope (idempote
 
 Secrets in `secrets/` (gitignored): `authentik_token` (service account `avatar-picker`,
 API token), `picker_secret` (the header Traefik adds). Rotate them with `scripts/rotate-secrets.sh token-new` (check a pick) then `token-finish`, and `scripts/rotate-secrets.sh header`; nothing is printed and nobody has to log in again. Gallery sources and licences:
-`LICENSES.md`; the gallery is built by `scripts/build-gallery.py`. Tab icon: `app/static/favicon.svg` (the SSO dashboard's Avatar Picker icon); `scripts/build-favicon.py` renders the PNGs.
+`LICENSES.md`; the gallery is built by `scripts/build-gallery.py` (`--missing` renders only new images). Tab icon: `app/static/favicon.svg` (the SSO dashboard's Avatar Picker icon); `scripts/build-favicon.py` renders the PNGs.
 
 **Rebuild** (`avatar-picker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.

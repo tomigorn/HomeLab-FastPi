@@ -8,28 +8,30 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 # files in app/img-local/). A fresh clone has none of them; the tests below
 # must pass with or without the local pack present.
 LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime",
-                "pokemon", "games", "mario", "memes"}
+                "pokemon", "games", "mario", "lego", "dinosaurs", "memes"}
 # Rows exempt from the f-m-n interleave: memes (mostly animals/objects), colours (no
-# people at all), Pokemon (creatures; every entry is "neutral") and Lord of the Rings
-# (its major cast is mostly male; the row keeps its listed order).
-FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr"}
+# people at all), Pokemon and Dinosaurs (creatures; every entry is "neutral") and Lord of
+# the Rings (its major cast is mostly male; the row keeps its listed order).
+FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr", "dinosaurs"}
 # Order the user asked for (v1.5): Disney & Pixar, other animated films, live-action
-# movies, Lord of the Rings (v1.6), cartoons, live-action TV, anime, Pokemon, video games, Super Mario, then
+# movies, Lord of the Rings (v1.6), cartoons, live-action TV, anime, Pokemon, video games, Super Mario,
+# LEGO and Dinosaurs (v1.7), then
 # storybook, illustrated people, flat emoji, art classics, memes, cartoon & sketch,
 # the rest, with the colours row last.
 ORDER = ["disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime", "pokemon", "games",
-         "mario", "storybook", "illustrated", "flatemoji", "paintings", "memes", "cartoon",
+         "mario", "lego", "dinosaurs", "storybook", "illustrated", "flatemoji", "paintings", "memes", "cartoon",
          "ukiyoe", "belleepoque", "fairytale", "comics", "swiss", "people3d", "pixel", "classics",
          "colours"]
 LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "Movies",
           "lotr": "Lord of the Rings",
           "tvcartoons": "Cartoons", "tvshows": "TV series", "anime": "Anime", "pokemon": "Pokémon",
-          "games": "Video games", "mario": "Super Mario", "storybook": "Classic storybook",
+          "games": "Video games", "mario": "Super Mario", "lego": "LEGO", "dinosaurs": "Dinosaurs",
+          "storybook": "Classic storybook",
           "illustrated": "Illustrated people", "flatemoji": "Flat emoji", "paintings": "Art classics",
           "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 18, "tvcartoons": 27, "tvshows": 27, "anime": 27,
-         "pokemon": 18, "games": 27, "mario": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
+SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 18, "tvcartoons": 36, "tvshows": 36, "anime": 36,
+         "pokemon": 18, "games": 27, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
          "colours": 18}
 # One character, one row: entries that show the same character under a different
 # name or id map to a shared key here (e.g. the meme "Big Chungus" is Bugs Bunny);
@@ -58,6 +60,31 @@ PACK_DIR = {None: "img", "local": "img-local"}
 # Gollum, Saruman and Sauron.
 LOTR = {"frodo", "samwise", "merry", "pippin", "gandalf", "aragorn", "legolas", "gimli", "boromir",
         "bilbo", "arwen", "galadriel", "eowyn", "elrond", "theoden", "gollum", "saruman", "sauron"}
+# LEGO row (v1.7): LEGO minifigures. LEGO versions of characters that also appear in another
+# row are separate avatars, named "LEGO <character>" (their character key is namespaced).
+LEGO = {"wyldstyle", "lego-hermione", "lego-leia", "lego-wonder-woman", "lego-batgirl", "lego-harley-quinn",
+        "emmet", "lego-batman", "lego-legolas", "lego-gandalf", "lego-harry-potter", "lego-spider-man",
+        "benny", "unikitty", "lego-darth-vader", "lego-yoda", "lego-stormtrooper", "lego-skeleton"}
+# Dinosaurs row (v1.7): true dinosaurs only, including Spinosaurus and the biggest recent finds
+# (Patagotitan, Nagatitan).
+DINOSAURS = {"t-rex", "triceratops", "velociraptor", "stegosaurus", "brachiosaurus", "spinosaurus",
+             "ankylosaurus", "parasaurolophus", "allosaurus", "therizinosaurus", "patagotitan", "nagatitan",
+             "giganotosaurus", "carnotaurus", "pachycephalosaurus", "dilophosaurus", "styracosaurus",
+             "iguanodon"}
+# Single additions (v1.7) and the row each one belongs to.
+ADDED = {"dipper-pines": "tvcartoons", "patrick-jane": "tvshows", "pochita": "anime"}
+
+
+def character_key(a):
+    """One character, one key: aliases first, else the name without a "(...)" qualifier;
+    the LEGO row has its own namespace, so "LEGO Batman" is not Batman."""
+    if a["id"] in CHARACTER_ALIASES:
+        k = CHARACTER_ALIASES[a["id"]]
+    else:
+        k = re.sub(r"\s*\(.*\)$", "", a["name"]).strip().lower()
+    if a["group"] == "lego":
+        return "lego:" + re.sub(r"^lego ", "", k)
+    return k
 # Rows whose tiles are an emoji, a generated figure or a swatch on a plain square:
 # the tile colour showing at the edges is the design. Elsewhere a uniform edge in
 # the tile colour means the crop box ran past the source image (a "band"), unless
@@ -76,8 +103,8 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 25)
-        self.assertEqual(len(GALLERY), 11 * 9 + 7 * 27 + 7 * 18)  # 414
+        self.assertEqual(len(GROUPS), 27)
+        self.assertEqual(len(GALLERY), 11 * 9 + 4 * 27 + 3 * 36 + 9 * 18)  # 477
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -112,10 +139,7 @@ class GalleryTest(unittest.TestCase):
 
     def test_one_row_per_character(self):
         """No character appears in more than one row (or twice in a row)."""
-        def key(a):
-            if a["id"] in CHARACTER_ALIASES:
-                return CHARACTER_ALIASES[a["id"]]
-            return re.sub(r"\s*\(.*\)$", "", a["name"]).strip().lower()
+        key = character_key
         seen = {}
         for a in GALLERY:
             if a["group"] in GENERIC_GROUPS:
@@ -140,6 +164,43 @@ class GalleryTest(unittest.TestCase):
             self.skipTest("no local pack (fresh clone)")
         for a in row:
             self.assertTrue(os.path.isfile(os.path.join(local_dir, a["file"])), a["id"])
+
+    def test_lego_row(self):
+        """LEGO minifigures, right after Super Mario; LEGO versions of characters found in other
+        rows are named "LEGO <name>" and do not clash with the original."""
+        row = [a for a in GALLERY if a["group"] == "lego"]
+        self.assertEqual({a["id"] for a in row}, LEGO)
+        ids = [g["id"] for g in GROUPS]
+        self.assertEqual(ids.index("lego"), ids.index("mario") + 1)
+        others = {character_key(a) for a in GALLERY if a["group"] not in GENERIC_GROUPS | {"lego"}}
+        for a in row:
+            bare = character_key(a)[len("lego:"):]
+            if bare in others:
+                self.assertTrue(a["name"].startswith("LEGO "), a["id"])
+        self.assertIn("legolas", others)
+        self.assertIn("batman", {character_key(a)[len("lego:"):] for a in row})
+
+    def test_lego_namespace_does_not_exempt_other_rows(self):
+        """Only the LEGO row is namespaced: a second plain Legolas would still clash."""
+        legolas = next(a for a in GALLERY if a["id"] == "legolas")
+        fake = dict(legolas, id="legolas-2", group="movies")
+        self.assertEqual(character_key(fake), character_key(legolas))
+        lego = next(a for a in GALLERY if a["id"] == "lego-legolas")
+        self.assertNotEqual(character_key(lego), character_key(legolas))
+
+    def test_dinosaurs_row(self):
+        """Dinosaurs: true dinosaurs only, all neutral, right after LEGO."""
+        row = [a for a in GALLERY if a["group"] == "dinosaurs"]
+        self.assertEqual({a["id"] for a in row}, DINOSAURS)
+        self.assertNotIn("pteranodon", {a["id"] for a in row})  # a pterosaur, not a dinosaur
+        self.assertTrue(all(a["vibe"] == "neutral" for a in row))
+        ids = [g["id"] for g in GROUPS]
+        self.assertEqual(ids.index("dinosaurs"), ids.index("lego") + 1)
+
+    def test_single_additions(self):
+        rows = {a["id"]: a["group"] for a in GALLERY}
+        for aid, group in ADDED.items():
+            self.assertEqual(rows.get(aid), group, aid)
 
     def test_pokemon_row_is_neutral(self):
         """The Pokemon row is vibe-exempt; every entry is marked neutral."""

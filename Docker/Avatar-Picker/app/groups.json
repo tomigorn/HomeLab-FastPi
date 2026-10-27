@@ -40,6 +40,14 @@
     "label": "Super Mario"
   },
   {
+    "id": "lego",
+    "label": "LEGO"
+  },
+  {
+    "id": "dinosaurs",
+    "label": "Dinosaurs"
+  },
+  {
     "id": "storybook",
     "label": "Classic storybook"
   },

@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (25 rows, each a multiple of 9 avatars,
+"""One-off: build the avatar gallery (27 rows, each a multiple of 9 avatars,
 human-made art only, no AI art).
 
 Rows, in order (every row holds equal numbers of feminine, masculine and neutral
 avatars; the `vibe` field is only used to interleave them f, m, n, ... so each
-row looks mixed - the memes, colours, Pokemon and Lord of the Rings rows are exempt). One character
+row looks mixed - the memes, colours, Pokemon, Lord of the Rings and Dinosaurs rows are exempt). One character
 never appears in two rows (tests/test_gallery.py checks it):
 
   disney      Disney & Pixar (27)               - LOCAL PACK (see below)
   animated    Animated films, other studios (27) - LOCAL PACK
   movies      Movies, live action (27)          - LOCAL PACK (in-character stills/posters)
   lotr        Lord of the Rings, the films' major cast (18) - LOCAL PACK (film stills)
-  tvcartoons  Cartoons, animated TV (27)        - LOCAL PACK
-  tvshows     TV series, live action + puppets (27) - LOCAL PACK
-  anime       Anime (27)                        - LOCAL PACK
+  tvcartoons  Cartoons, animated TV (36)        - LOCAL PACK
+  tvshows     TV series, live action + puppets (36) - LOCAL PACK
+  anime       Anime (36)                        - LOCAL PACK
   pokemon     Pokemon (18, all "neutral")       - LOCAL PACK
   games       Video games (27)                  - LOCAL PACK
   mario       Super Mario (18)                  - LOCAL PACK
+  lego        LEGO minifigures (18)             - LOCAL PACK (BrickLink catalogue photos, cut out)
+  dinosaurs   Dinosaurs (18, all "neutral")     - LOCAL PACK (TotalDino paleoart, Commons CC BY / CC BY-SA / CC0)
   storybook   original period storybook art (Tenniel, Potter, Busch, Hoffmann)
   illustrated DiceBear "adventurer" / "lorelei"
   flatemoji   Google Noto Emoji (Apache 2.0), centred on a soft square (18)
@@ -38,7 +40,7 @@ Local pack: the pop-culture rows are third-party copyrighted character art.
 They are written to app/img-local/ (gitignored: the repo is public) and marked
 "pack": "local" in gallery.json; the picker hides any entry whose image is
 missing, so a fresh clone works without them. Re-fetch them with
-`--only disney,animated,movies,lotr,tvcartoons,tvshows,anime,pokemon,games,mario,memes`. Their source URLs are listed in
+`--only disney,animated,movies,lotr,tvcartoons,tvshows,anime,pokemon,games,mario,lego,dinosaurs,memes`. Their source URLs are listed in
 LOCAL below and in LICENSES.md.
 
 All Commons rows except `classics` use original period artwork whose artist
@@ -60,11 +62,12 @@ Writes app/img/<id>.png (+ app/img-local/<id>.png), app/gallery.json (flat list)
 (ordered rows), and deletes images no longer in the gallery. Re-run only to
 change the gallery; the output is committed. `--only g1,g2` re-renders just
 those rows' images (the JSON is always rewritten; other committed rows' images
-must already exist, missing local-pack images are only reported). Needs Pillow (dev only).
+must already exist, missing local-pack images are only reported). `--missing` renders
+only images that do not exist yet (delete one to re-render it). Needs Pillow (dev only).
 """
 import colorsys, hashlib, io, json, os, pathlib, sys, time
 import urllib.error, urllib.parse, urllib.request
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageFilter
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 UA = "HomelabAvatarGallery/1.5 (private non-commercial gallery build)"
@@ -90,6 +93,8 @@ GROUPS = [
     ("pokemon", "Pokémon"),
     ("games", "Video games"),
     ("mario", "Super Mario"),
+    ("lego", "LEGO"),
+    ("dinosaurs", "Dinosaurs"),
     ("storybook", "Classic storybook"),
     ("illustrated", "Illustrated people"),
     ("flatemoji", "Flat emoji"),
@@ -416,6 +421,9 @@ WP = "https://upload.wikimedia.org/wikipedia/"
 DISNEY = "https://lumiere-a.akamaihd.net/v1/images/"
 # Illumination's official character renders (illumination.com/movie/...)
 ILLUMINATION = "https://www.illumination.com/wp-content/uploads/"
+# BrickLink catalogue minifigure photos (img.bricklink.com/ItemImage/MN/0/<item no>.png)
+BRICKLINK = "https://img.bricklink.com/ItemImage/MN/0/"
+CUT = {"cutout": 248}
 LOCAL = {
     # Disney & Pixar (27): Disney Animation and Pixar characters, 1937-2021
     "disney": [
@@ -631,6 +639,19 @@ LOCAL = {
         ("gromit", "Gromit", "neutral", WP + "en/e/ec/Wallace_and_gromit.jpg", (192, 68, 164)),
         ("jerry-mouse", "Jerry", "neutral", WP + "en/2/2f/Jerry_Mouse.png", (20, -2, 162)),
         ("tweety", "Tweety", "neutral", WP + "en/thumb/0/02/Tweety.svg/960px-Tweety.svg.png", (-40, 60, 1040)),
+        # v1.7: Dipper (asked for) plus fillers up to 36
+        ("katara", "Katara", "feminine", WP + "commons/5/57/Katara_character.png", (250, 40, 480)),
+        ("bluey", "Bluey", "feminine", WP + "en/f/fe/Bluey_the_puppy.png", (47, -15, 250)),
+        ("kim-possible", "Kim Possible", "feminine",
+         WP + "en/2/2b/Kim_Possible_%28character_design%29.png", (15, 0, 125)),
+        ("dipper-pines", "Dipper", "masculine", WP + "en/1/15/Dipper_Pines.png", (5, 0, 210)),
+        ("stewie-griffin", "Stewie", "masculine", WP + "en/0/02/Stewie_Griffin.png", (10, -15, 215)),
+        ("morty-smith", "Morty", "masculine", WP + "en/c/c3/Morty_Smith.png", (-5, -15, 175)),
+        ("jake-the-dog", "Jake", "neutral",
+         WP + "commons/thumb/d/d8/Jake_the_Dog_character.svg/960px-Jake_the_Dog_character.svg.png",
+         (50, -230, 1000)),
+        ("tom-cat", "Tom (Tom & Jerry)", "neutral", WP + "en/f/f6/Tom_Tom_and_Jerry.png", (25, 15, 150)),
+        ("perry", "Perry", "neutral", WP + "en/3/3d/Perry_Platypus.png", (0, 35, 105)),
     ],
     # TV series (27): live-action TV characters and TV puppets (Muppets, Sesame Street)
     "tvshows": [
@@ -689,6 +710,16 @@ LOCAL = {
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Cardiff_Bay_-_Dalek_-_geograph.org.uk_-_5253753.jpg/1280px-Cardiff_Bay_-_Dalek_-_geograph.org.uk_-_5253753.jpg",
          (224, 365, 704)),
         ("alf", "ALF", "neutral", WP + "en/8/89/GordonShumway.png", (34, 17, 178)),
+        # v1.7: The Mentalist (asked for) plus fillers up to 36
+        ("eleven", "Eleven", "feminine", WP + "en/3/3f/Eleven_%28Stranger_Things_5%29.png", (25, 10, 175)),
+        ("arya-stark", "Arya", "feminine", WP + "en/3/39/Arya_Stark-Maisie_Williams.jpg", (60, 0, 170)),
+        ("phoebe-buffay", "Phoebe", "feminine", WP + "en/f/f6/Friendsphoebe.jpg", (55, 25, 160)),
+        ("patrick-jane", "Patrick Jane", "masculine", WP + "en/3/37/Patrick_Jane.jpg", (40, 15, 170)),
+        ("tenth-doctor", "The Doctor", "masculine", WP + "en/2/21/Tenth_Doctor_%28Doctor_Who%29.jpg", (55, 32, 160)),
+        ("michael-scott", "Michael Scott", "masculine", WP + "en/d/dc/MichaelScott.png", (65, 10, 135)),
+        ("fozzie", "Fozzie", "neutral", WP + "commons/0/09/Fozzie_Bear_puppet_in_1979.jpg", (150, 50, 300)),
+        ("beaker", "Beaker", "neutral", WP + "commons/6/67/Beaker_Muppets.png", (20, 0, 280)),
+        ("rowlf", "Rowlf", "neutral", WP + "commons/9/91/Rowlf_the_Dog.png", (55, 0, 360)),
     ],
     # Anime (27)
     "anime": [
@@ -725,6 +756,17 @@ LOCAL = {
          WP + "en/2/28/Jibanyan_artwork_for_Yo-kai_Watch_3.png",
          (15, -10, 280)),
         ("luna", "Luna", "neutral", WP + "en/4/4d/Luna_Sailor_Moon.jpg", (50, 8, 120)),
+        # v1.7: Pochita (asked for) plus fillers up to 36
+        ("mei", "Mei", "feminine", "https://www.ghibli.jp/gallery/totoro021.jpg", (700, 120, 620)),
+        ("san", "San", "feminine", "https://www.ghibli.jp/gallery/mononoke049.jpg", (740, 160, 620)),
+        ("satsuki", "Satsuki", "feminine", "https://www.ghibli.jp/gallery/totoro008.jpg", (630, 0, 560)),
+        ("saitama", "Saitama", "masculine", WP + "en/9/98/SaitamaWikipediapage.png", (65, 0, 140)),
+        ("ashitaka", "Ashitaka", "masculine", "https://www.ghibli.jp/gallery/mononoke030.jpg", (660, 40, 620)),
+        ("light-yagami", "Light Yagami", "masculine", WP + "en/0/0c/Light_from_Death_Note.jpg", (20, 5, 170)),
+        # MyAnimeList character image (no Wikipedia/Commons image shows Pochita at a usable size)
+        ("pochita", "Pochita", "neutral", "https://cdn.myanimelist.net/images/characters/7/391655.jpg", (0, 75, 225)),
+        ("catbus", "Catbus", "neutral", "https://www.ghibli.jp/gallery/totoro044.jpg", (200, 230, 560)),
+        ("happy", "Happy", "neutral", WP + "en/5/52/HappyFairyTail.png", (0, 40, 190)),
     ],
     # Pokemon (18): official artwork; vibe-exempt row (all neutral)
     "pokemon": [
@@ -817,6 +859,53 @@ LOCAL = {
          WP + "en/7/75/Piranha_Plant_by_Shigehisa_Nakaue.png",
          (12, 0, 232)),
         ("luma", "Luma", "neutral", WP + "en/5/5e/Rosalina_by_Shigehisa_Nakaue.png", (171, 17, 94)),
+    ],
+    # Dinosaurs (18): true dinosaurs only (no pterosaurs), one consistent paleoart series: TotalDino's
+    # side-view life reconstructions on Commons (CC BY 4.0 / CC BY-SA 4.0 / CC0, see LICENSES.md),
+    # transparent, cropped to head and neck. Patagotitan (2017) is the largest dinosaur known from good
+    # remains; Nagatitan (May 2026) is the newest giant. Listed order is the row order (all "neutral").
+    "dinosaurs": [
+        ("t-rex", "T. rex", "neutral", WP + "commons/c/c2/Tyrannosaurus_TD.png", (2253, -87, 681)),
+        ("triceratops", "Triceratops", "neutral", WP + "commons/4/45/Triceratops_TD.png", (1800, -130, 1100)),
+        ("velociraptor", "Velociraptor", "neutral", WP + "commons/c/cc/Velociraptor_TD.png", (2285, -74, 634)),
+        ("stegosaurus", "Stegosaurus", "neutral", WP + "commons/0/09/Stegosaurus_TD.png", (2150, 330, 560)),
+        ("spinosaurus", "Spinosaurus", "neutral", WP + "commons/5/56/Spinosaurus_TD.png", (2100, -3, 820)),
+        ("brachiosaurus", "Brachiosaurus", "neutral", WP + "commons/4/4d/Brachiosaurus_TD.png", (1912, -93, 371)),
+        ("ankylosaurus", "Ankylosaurus", "neutral", WP + "commons/5/5a/Ankylosaurus_TD.png", (2090, 90, 504)),
+        ("parasaurolophus", "Parasaurolophus", "neutral", WP + "commons/e/e6/Parasaurolophus_TD.png", (2091, -22, 678)),
+        ("patagotitan", "Patagotitan", "neutral", WP + "commons/1/1c/Patagotitan_TD.png", (2329, -39, 345)),
+        ("nagatitan", "Nagatitan", "neutral", WP + "commons/9/9b/Nagatitan_TD.png", (2238, -83, 365)),
+        ("allosaurus", "Allosaurus", "neutral", WP + "commons/5/50/Allosaurus_TD.png", (2116, -53, 607)),
+        ("therizinosaurus", "Therizinosaurus", "neutral", WP + "commons/5/53/Therizinosaurus_TD.png", (1600, -20, 600)),
+        ("giganotosaurus", "Giganotosaurus", "neutral", WP + "commons/c/c1/Giganotosaurus_TD.png", (2172, -70, 630)),
+        ("carnotaurus", "Carnotaurus", "neutral", WP + "commons/4/48/Carnotaurus_TD.png", (2195, -135, 723)),
+        ("pachycephalosaurus", "Pachycephalosaurus", "neutral", WP + "commons/a/a5/Pachycephalosaurus_TD.png", (1831, -21, 596)),
+        ("dilophosaurus", "Dilophosaurus", "neutral", WP + "commons/c/cd/Dilophosaurus_TD.png", (1994, -62, 581)),
+        ("styracosaurus", "Styracosaurus", "neutral", WP + "commons/a/a7/Styracosaurus_TD.png", (1550, 90, 1000)),
+        ("iguanodon", "Iguanodon", "neutral", WP + "commons/7/7b/Iguanodon_TD.png", (2108, -110, 635)),
+    ],
+    # LEGO (18): official LEGO minifigures, BrickLink catalogue photos (white studio background,
+    # cut out so the figure sits on the tile colour; the cut-out also drops the small inset
+    # face shots). LEGO versions of characters found in other rows are named "LEGO <name>".
+    "lego": [
+        ("wyldstyle", "Wyldstyle", "feminine", BRICKLINK + "tlm083.png", (12, -6, 215), CUT),
+        ("lego-hermione", "LEGO Hermione", "feminine", BRICKLINK + "colhp02.png", (32, 6, 196), CUT),
+        ("lego-leia", "LEGO Leia", "feminine", BRICKLINK + "sw0779.png", (22, -2, 202), CUT),
+        ("lego-wonder-woman", "LEGO Wonder Woman", "feminine", BRICKLINK + "colsh02.png", (18, -5, 205), CUT),
+        ("lego-batgirl", "LEGO Batgirl", "feminine", BRICKLINK + "sh0305.png", (53, 7, 194), CUT),
+        ("lego-harley-quinn", "LEGO Harley Quinn", "feminine", BRICKLINK + "coltlbm13.png", (21, -1, 201), CUT),
+        ("emmet", "Emmet", "masculine", BRICKLINK + "tlm066.png", (50, -6, 203), CUT),
+        ("lego-batman", "LEGO Batman", "masculine", BRICKLINK + "sh0312.png", (57, -4, 196), CUT),
+        ("lego-legolas", "LEGO Legolas", "masculine", BRICKLINK + "lor015.png", (19, 2, 199), CUT),
+        ("lego-gandalf", "LEGO Gandalf", "masculine", BRICKLINK + "lor001.png", (38, -3, 184), CUT),
+        ("lego-harry-potter", "LEGO Harry Potter", "masculine", BRICKLINK + "colhp01.png", (32, 2, 199), CUT),
+        ("lego-spider-man", "LEGO Spider-Man", "masculine", BRICKLINK + "sh0536.png", (39, -1, 201), CUT),
+        ("benny", "Benny", "neutral", BRICKLINK + "tlm057.png", (37, -2, 162), CUT),
+        ("unikitty", "Unikitty", "neutral", BRICKLINK + "tlm126.png", (-48, -5, 290), CUT),
+        ("lego-darth-vader", "LEGO Darth Vader", "neutral", BRICKLINK + "sw0636.png", (42, 8, 150), CUT),
+        ("lego-yoda", "LEGO Yoda", "neutral", BRICKLINK + "sw0707.png", (20, -4, 200), CUT),
+        ("lego-stormtrooper", "LEGO Stormtrooper", "neutral", BRICKLINK + "sw0585.png", (41, 0, 159), CUT),
+        ("lego-skeleton", "LEGO Skeleton", "neutral", BRICKLINK + "gen004.png", (28, -6, 206), CUT),
     ],
     # Memes: animals and drawn/rendered characters only (no real people's faces).
     "memes": [
@@ -994,11 +1083,17 @@ DICE = {
 COLOR_ORDER = ["storybook", "paintings", "illustrated", "pixel", "cartoon",
                "ukiyoe", "belleepoque", "fairytale", "comics", "swiss",
                "classics", "movies", "tvcartoons", "anime", "games", "memes",
-               "disney", "animated", "tvshows", "pokemon", "mario", "lotr"]
+               "disney", "animated", "tvshows", "pokemon", "mario", "lotr", "lego", "dinosaurs"]
+# Entries added to existing rows later take their colours after all rows, so the
+# colours (and transparent tiles) of everything already built stay the same.
+LATER = ["katara", "bluey", "kim-possible", "dipper-pines", "stewie-griffin", "morty-smith", "jake-the-dog",
+         "tom-cat", "perry", "eleven", "arya-stark", "phoebe-buffay", "patrick-jane", "tenth-doctor",
+         "michael-scott", "fozzie", "beaker", "rowlf", "mei", "san", "satsuki", "saitama", "ashitaka",
+         "light-yagami", "pochita", "catbus", "happy"]
 # Rows whose f/m/n order is not enforced (kept in the order listed above): memes and
 # colours (no people), Pokémon (creatures; every entry is "neutral"), Lord of the Rings
-# (the major cast is mostly male).
-FREE_VIBE = {"memes", "colours", "pokemon", "lotr"}
+# (the major cast is mostly male), Dinosaurs (animals; every entry is "neutral").
+FREE_VIBE = {"memes", "colours", "pokemon", "lotr", "dinosaurs"}
 
 
 def pastel(i):
@@ -1101,12 +1196,46 @@ def clamp(box, size):
     s = min(s, w, h)
     return (min(max(x, 0), w - s), min(max(y, 0), h - s), s)
 
-def local_image(aid, url, color, box):
+def cutout(src, white=248):
+    """Studio photo on white -> transparent background (flood fill from the border), keeping
+    only the largest figure, which drops the small inset face shots of catalogue photos."""
+    rgb = src.convert("RGB"); w, h = rgb.size; px = rgb.load()
+    bg = bytearray(w * h)
+    todo = [(x, y) for x in range(w) for y in (0, h - 1)] + [(x, y) for y in range(h) for x in (0, w - 1)]
+    while todo:
+        x, y = todo.pop()
+        if 0 <= x < w and 0 <= y < h and not bg[y * w + x] and min(px[x, y]) >= white:
+            bg[y * w + x] = 1
+            todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    seen, best = bytearray(bg), []
+    for start in range(w * h):
+        if seen[start]:
+            continue
+        seen[start] = 1; comp = [start]; i = 0
+        while i < len(comp):
+            p = comp[i]; i += 1; x, y = p % w, p // w
+            for q, ok in ((p + 1, x + 1 < w), (p - 1, x > 0), (p + w, y + 1 < h), (p - w, y > 0)):
+                if ok and not seen[q]:
+                    seen[q] = 1; comp.append(q)
+        if len(comp) > len(best):
+            best = comp
+    mask = bytearray(w * h)
+    for p in best:
+        mask[p] = 255
+    alpha = Image.frombytes("L", (w, h), bytes(mask)).filter(ImageFilter.MinFilter(3)) \
+                 .filter(ImageFilter.GaussianBlur(0.6))
+    out = rgb.convert("RGBA"); out.putalpha(alpha)
+    return out
+
+def local_image(aid, url, color, box, opts=None):
     """Fetch a local-pack image and crop it. Returns (tile, square): a source with
     transparency is laid on `color` like an emoji on its square and its box may run
     past the edges (square=True); an opaque source's box is clamped inside the
-    image so the tile colour can never show as a band."""
+    image so the tile colour can never show as a band. opts {"cutout": n} first
+    turns a white studio background (channels >= n) transparent."""
     src = Image.open(io.BytesIO(get(url))).convert("RGBA")
+    if opts and "cutout" in opts:
+        src = cutout(src, opts["cutout"])
     x, y, s = box
     alpha = src.getchannel("A")
     square = alpha.getextrema()[0] < 250
@@ -1123,8 +1252,10 @@ def tint(img, color):
 
 def main():
     only = None
-    if len(sys.argv) > 2 and sys.argv[1] == "--only":
-        only = set(sys.argv[2].split(","))
+    missing_only = "--missing" in sys.argv[1:]
+    args = [a for a in sys.argv[1:] if a != "--missing"]
+    if len(args) > 1 and args[0] == "--only":
+        only = set(args[1].split(","))
         unknown = only - {g for g, _ in GROUPS}
         if unknown:
             raise SystemExit(f"unknown groups: {sorted(unknown)}")
@@ -1135,7 +1266,10 @@ def main():
     color_of = {}
     for gid in COLOR_ORDER:
         for item in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, []):
-            color_of[item[0]] = next(colors)
+            if item[0] not in LATER:
+                color_of[item[0]] = next(colors)
+    for aid in LATER:
+        color_of[aid] = next(colors)
 
     gallery_json = ROOT / "app" / "gallery.json"
     previous = {e["id"]: e for e in json.loads(gallery_json.read_text())} if gallery_json.exists() else {}
@@ -1145,7 +1279,7 @@ def main():
         tinted line art, transparent source art); True/False, or None to take it
         from the render (local sources), kept from the last build when not rebuilt."""
         path = (out_local if pack else out) / f"{aid}.png"
-        if only is None or group in only:
+        if (only is None or group in only) and not (missing_only and path.exists()):
             img = render()
             if isinstance(img, tuple):
                 img, square = img
@@ -1179,9 +1313,9 @@ def main():
             add(group, aid, name, vibe, color_of[aid], render,
                 pack="local" if group in LOCAL_COMMONS else None, square=bool(opt and opt[0]))
     for group, items in LOCAL.items():
-        for aid, name, vibe, url, box in items:
-            def render(aid=aid, url=url, color=color_of[aid], box=box):
-                img = local_image(aid, url, color, box)
+        for aid, name, vibe, url, box, *opts in items:
+            def render(aid=aid, url=url, color=color_of[aid], box=box, opts=opts[0] if opts else None):
+                img = local_image(aid, url, color, box, opts)
                 if not CACHE:
                     time.sleep(2)
                 return img

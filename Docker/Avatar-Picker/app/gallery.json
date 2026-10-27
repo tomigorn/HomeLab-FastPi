@@ -1191,6 +1191,95 @@
     "square": true
   },
   {
+    "id": "katara",
+    "name": "Katara",
+    "file": "katara.png",
+    "color": "#CDC6F1",
+    "group": "tvcartoons",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "dipper-pines",
+    "name": "Dipper",
+    "file": "dipper-pines.png",
+    "color": "#F1C6EE",
+    "group": "tvcartoons",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "jake-the-dog",
+    "name": "Jake",
+    "file": "jake-the-dog.png",
+    "color": "#F1C6C9",
+    "group": "tvcartoons",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "bluey",
+    "name": "Bluey",
+    "file": "bluey.png",
+    "color": "#F1DAC6",
+    "group": "tvcartoons",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "stewie-griffin",
+    "name": "Stewie",
+    "file": "stewie-griffin.png",
+    "color": "#E2F1C6",
+    "group": "tvcartoons",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "tom-cat",
+    "name": "Tom (Tom & Jerry)",
+    "file": "tom-cat.png",
+    "color": "#C6F1CF",
+    "group": "tvcartoons",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "kim-possible",
+    "name": "Kim Possible",
+    "file": "kim-possible.png",
+    "color": "#C6F1E6",
+    "group": "tvcartoons",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "morty-smith",
+    "name": "Morty",
+    "file": "morty-smith.png",
+    "color": "#C6D5F1",
+    "group": "tvcartoons",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "perry",
+    "name": "Perry",
+    "file": "perry.png",
+    "color": "#DCC6F1",
+    "group": "tvcartoons",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
     "id": "jessica-fletcher",
     "name": "Jessica Fletcher",
     "file": "jessica-fletcher.png",
@@ -1430,6 +1519,87 @@
     "name": "ALF",
     "file": "alf.png",
     "color": "#F1C6D6",
+    "group": "tvshows",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "eleven",
+    "name": "Eleven",
+    "file": "eleven.png",
+    "color": "#F1E8C6",
+    "group": "tvshows",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "patrick-jane",
+    "name": "Patrick Jane",
+    "file": "patrick-jane.png",
+    "color": "#D4F1C6",
+    "group": "tvshows",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "fozzie",
+    "name": "Fozzie",
+    "file": "fozzie.png",
+    "color": "#C6F1DE",
+    "group": "tvshows",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "arya-stark",
+    "name": "Arya",
+    "file": "arya-stark.png",
+    "color": "#C6EDF1",
+    "group": "tvshows",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "tenth-doctor",
+    "name": "The Doctor",
+    "file": "tenth-doctor.png",
+    "color": "#C6C7F1",
+    "group": "tvshows",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "beaker",
+    "name": "Beaker",
+    "file": "beaker.png",
+    "color": "#EAC6F1",
+    "group": "tvshows",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "phoebe-buffay",
+    "name": "Phoebe",
+    "file": "phoebe-buffay.png",
+    "color": "#F1C6E0",
+    "group": "tvshows",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "michael-scott",
+    "name": "Michael Scott",
+    "file": "michael-scott.png",
+    "color": "#F1D1C6",
+    "group": "tvshows",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "rowlf",
+    "name": "Rowlf",
+    "file": "rowlf.png",
+    "color": "#EBF1C6",
     "group": "tvshows",
     "vibe": "neutral",
     "pack": "local"
@@ -1682,6 +1852,87 @@
     "name": "Luna",
     "file": "luna.png",
     "color": "#EBC6F1",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "mei",
+    "name": "Mei",
+    "file": "mei.png",
+    "color": "#C6DEF1",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "saitama",
+    "name": "Saitama",
+    "file": "saitama.png",
+    "color": "#D3C6F1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "pochita",
+    "name": "Pochita",
+    "file": "pochita.png",
+    "color": "#F1C6E9",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "san",
+    "name": "San",
+    "file": "san.png",
+    "color": "#F1C6D2",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "ashitaka",
+    "name": "Ashitaka",
+    "file": "ashitaka.png",
+    "color": "#F1DFC6",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "catbus",
+    "name": "Catbus",
+    "file": "catbus.png",
+    "color": "#DCF1C6",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "satsuki",
+    "name": "Satsuki",
+    "file": "satsuki.png",
+    "color": "#C6F1C6",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "light-yagami",
+    "name": "Light Yagami",
+    "file": "light-yagami.png",
+    "color": "#C6F1EC",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "happy",
+    "name": "Happy",
+    "file": "happy.png",
+    "color": "#C6D0F1",
     "group": "anime",
     "vibe": "neutral",
     "pack": "local"
@@ -2308,6 +2559,366 @@
     "file": "luma.png",
     "color": "#CBC6F1",
     "group": "mario",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "wyldstyle",
+    "name": "Wyldstyle",
+    "file": "wyldstyle.png",
+    "color": "#F1C6D4",
+    "group": "lego",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "emmet",
+    "name": "Emmet",
+    "file": "emmet.png",
+    "color": "#DFF1C6",
+    "group": "lego",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "benny",
+    "name": "Benny",
+    "file": "benny.png",
+    "color": "#C6E9F1",
+    "group": "lego",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-hermione",
+    "name": "LEGO Hermione",
+    "file": "lego-hermione.png",
+    "color": "#C7F1C6",
+    "group": "lego",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-batman",
+    "name": "LEGO Batman",
+    "file": "lego-batman.png",
+    "color": "#C6D2F1",
+    "group": "lego",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "unikitty",
+    "name": "Unikitty",
+    "file": "unikitty.png",
+    "color": "#F1C6DD",
+    "group": "lego",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-leia",
+    "name": "LEGO Leia",
+    "file": "lego-leia.png",
+    "color": "#D1C6F1",
+    "group": "lego",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-legolas",
+    "name": "LEGO Legolas",
+    "file": "lego-legolas.png",
+    "color": "#F1C6C6",
+    "group": "lego",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-darth-vader",
+    "name": "LEGO Darth Vader",
+    "file": "lego-darth-vader.png",
+    "color": "#D0F1C6",
+    "group": "lego",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-wonder-woman",
+    "name": "LEGO Wonder Woman",
+    "file": "lego-wonder-woman.png",
+    "color": "#F1DDC6",
+    "group": "lego",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-gandalf",
+    "name": "LEGO Gandalf",
+    "file": "lego-gandalf.png",
+    "color": "#C6F1D3",
+    "group": "lego",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-yoda",
+    "name": "LEGO Yoda",
+    "file": "lego-yoda.png",
+    "color": "#C8C6F1",
+    "group": "lego",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-batgirl",
+    "name": "LEGO Batgirl",
+    "file": "lego-batgirl.png",
+    "color": "#C6F1EA",
+    "group": "lego",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-harry-potter",
+    "name": "LEGO Harry Potter",
+    "file": "lego-harry-potter.png",
+    "color": "#DFC6F1",
+    "group": "lego",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-stormtrooper",
+    "name": "LEGO Stormtrooper",
+    "file": "lego-stormtrooper.png",
+    "color": "#F1D5C6",
+    "group": "lego",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-harley-quinn",
+    "name": "LEGO Harley Quinn",
+    "file": "lego-harley-quinn.png",
+    "color": "#F1C6EB",
+    "group": "lego",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-spider-man",
+    "name": "LEGO Spider-Man",
+    "file": "lego-spider-man.png",
+    "color": "#F1ECC6",
+    "group": "lego",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "lego-skeleton",
+    "name": "LEGO Skeleton",
+    "file": "lego-skeleton.png",
+    "color": "#C6F1E1",
+    "group": "lego",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "t-rex",
+    "name": "T. rex",
+    "file": "t-rex.png",
+    "color": "#EEC6F1",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "triceratops",
+    "name": "Triceratops",
+    "file": "triceratops.png",
+    "color": "#E7F1C6",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "velociraptor",
+    "name": "Velociraptor",
+    "file": "velociraptor.png",
+    "color": "#C6DBF1",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "stegosaurus",
+    "name": "Stegosaurus",
+    "file": "stegosaurus.png",
+    "color": "#F1C6CE",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "spinosaurus",
+    "name": "Spinosaurus",
+    "file": "spinosaurus.png",
+    "color": "#C6F1CA",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "brachiosaurus",
+    "name": "Brachiosaurus",
+    "file": "brachiosaurus.png",
+    "color": "#D6C6F1",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "ankylosaurus",
+    "name": "Ankylosaurus",
+    "file": "ankylosaurus.png",
+    "color": "#F1E3C6",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "parasaurolophus",
+    "name": "Parasaurolophus",
+    "file": "parasaurolophus.png",
+    "color": "#C6F1EF",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "patagotitan",
+    "name": "Patagotitan",
+    "file": "patagotitan.png",
+    "color": "#F1C6E6",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "nagatitan",
+    "name": "Nagatitan",
+    "file": "nagatitan.png",
+    "color": "#D9F1C6",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "allosaurus",
+    "name": "Allosaurus",
+    "file": "allosaurus.png",
+    "color": "#C6CDF1",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "therizinosaurus",
+    "name": "Therizinosaurus",
+    "file": "therizinosaurus.png",
+    "color": "#F1CCC6",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "giganotosaurus",
+    "name": "Giganotosaurus",
+    "file": "giganotosaurus.png",
+    "color": "#C6F1D8",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "carnotaurus",
+    "name": "Carnotaurus",
+    "file": "carnotaurus.png",
+    "color": "#E5C6F1",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "pachycephalosaurus",
+    "name": "Pachycephalosaurus",
+    "file": "pachycephalosaurus.png",
+    "color": "#F0F1C6",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "dilophosaurus",
+    "name": "Dilophosaurus",
+    "file": "dilophosaurus.png",
+    "color": "#C6E4F1",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "styracosaurus",
+    "name": "Styracosaurus",
+    "file": "styracosaurus.png",
+    "color": "#F1C6D7",
+    "group": "dinosaurs",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "iguanodon",
+    "name": "Iguanodon",
+    "file": "iguanodon.png",
+    "color": "#CBF1C6",
+    "group": "dinosaurs",
     "vibe": "neutral",
     "pack": "local",
     "square": true
