@@ -1624,6 +1624,44 @@ def test_build_openvex_document():
     assert doc["timestamp"] == "1970-01-01T00:00:00Z" and doc["statements"] == [{"vulnerability": {"name": "CVE-1"}}]
 
 
+class PagedFindingsDt:
+    def __init__(self, total, header=True, cap=None):
+        self.total, self.header, self.cap, self.paths = total, header, cap, []
+
+    def _fetch(self, method, path, body=None, timeout=120):
+        import urllib.parse
+        self.paths.append(path)
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+        size, num = int(q["pageSize"][0]), int(q["pageNumber"][0])
+        size = min(size, self.cap) if self.cap else size
+        rows = [{"n": i} for i in range(self.total)][(num - 1) * size:num * size]
+        return rows, (self.total if self.header else None)
+
+
+def _paged(total, **kw):
+    from security_scan import DtClient
+    c = DtClient("http://x", "k")
+    fake = PagedFindingsDt(total, **kw)
+    c._fetch = fake._fetch
+    return c.findings("u"), fake
+
+
+def test_findings_pages_through_all_results():
+    out, fake = _paged(250, cap=100)
+    assert len(out) == 250 and len(fake.paths) == 3
+    assert all("suppressed=true" in p and "pageNumber=" in p for p in fake.paths)
+
+
+def test_findings_without_total_header_stops_on_short_page():
+    out, fake = _paged(250, header=False, cap=100)
+    assert len(out) == 250
+
+
+def test_findings_exact_multiple_and_empty():
+    assert len(_paged(200, cap=100)[0]) == 200
+    assert _paged(0)[0] == []
+
+
 class FakeVexDt:
     def __init__(self, by_uuid, broken=()):
         self.by_uuid, self.broken = by_uuid, set(broken)

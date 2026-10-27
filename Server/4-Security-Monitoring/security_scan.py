@@ -1936,13 +1936,18 @@ class DtClient:
         self.url, self.key = url.rstrip("/"), key
 
     def _call(self, method: str, path: str, body=None, timeout: int = 120):
+        return self._fetch(method, path, body, timeout)[0]
+
+    def _fetch(self, method: str, path: str, body=None, timeout: int = 120):
+        """(parsed body, X-Total-Count as int or None)"""
         import urllib.request
         req = urllib.request.Request(f"{self.url}/api{path}", method=method,
                                      data=None if body is None else json.dumps(body).encode(),
                                      headers={"X-Api-Key": self.key, "Content-Type": "application/json", "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             text = r.read().decode()
-            return json.loads(text) if text.strip() else None
+            total = r.headers.get("X-Total-Count")
+            return (json.loads(text) if text.strip() else None), (int(total) if total and total.isdigit() else None)
 
     def projects(self) -> list[dict]:
         out, page = [], 1
@@ -1968,7 +1973,15 @@ class DtClient:
         self._call("DELETE", f"/v1/project/{uuid}")
 
     def findings(self, uuid: str) -> list[dict]:
-        return self._call("GET", f"/v1/finding/project/{uuid}?suppressed=true") or []
+        """All findings, paged (v5 defaults to 100 per page): stops at X-Total-Count, else on a short or empty page."""
+        out, page, size = [], 1, 100
+        while True:
+            batch, total = self._fetch("GET", f"/v1/finding/project/{uuid}?suppressed=true&pageSize={size}&pageNumber={page}")
+            batch = batch or []
+            out += batch
+            if not batch or (total is not None and len(out) >= total) or (total is None and len(batch) < size):
+                return out
+            page += 1
 
 
 def dt_reachable() -> bool:

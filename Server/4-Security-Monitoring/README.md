@@ -72,7 +72,7 @@ DT is the one place to triage, Trivy stays the scanner and the alert source. A d
 |---|---|
 | Mark a CVE | DT UI (beefy `:8090`) > project `<host>/<image>` > Audit Vulnerabilities > component/CVE > Analysis `Not Affected`, `False Positive` or `Resolved` (+ a comment, it is kept in the VEX file) |
 | Not a decision | `In Triage`, `Exploitable`: still counted and alerted |
-| Export | `security_scan.py dt` (daily 04:02) writes one OpenVEX file per project with decisions to `/var/lib/security-scan/vex/` (`GET /api/v1/finding/project/<uuid>?suppressed=true`; one statement per CVE/GHSA id and alias, product = component purl) |
+| Export | `security_scan.py dt` (daily 04:02) writes one OpenVEX file per project with decisions to `/var/lib/security-scan/vex/` (`GET /api/v1/finding/project/<uuid>?suppressed=true`, paged 100 per request for DT 4 and 5; one statement per CVE/GHSA id and alias, product = component purl) |
 | Use | image scan (daily 04:10) and code scan (daily 03:40) pass `--vex /vex/<file>` for the image's DT project (name + tag, or digest via `dt-index.json`); nothing is passed for an image without decisions |
 | Takes effect | the next run after the 04:02 export; counts, `security_new_vulns` and `NewFixableImageVulnerability` drop it |
 | Revoke | set it back to `In Triage`: the file is removed at the next export, the CVE counts again and is alerted as new |
