@@ -46,7 +46,7 @@ The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each
 |---|---|
 | right after a pick | `avatar-sync.path` (queue changed) starts `avatar-sync.service` (user `pi`) |
 | every 5 min | `avatar-sync.timer`: retries pending targets (beefy/tower asleep = Waker `:9001`/`:9002` `/status` not up, skipped) |
-| daily 21:47 | `avatar-sync-reconcile.timer`: `--reconcile` pushes every pick to every target again (drift repair) |
+| daily 04:33 (beefy held up 03:58-04:45) | `avatar-sync-reconcile.timer`: `--reconcile` pushes every pick to every target again (drift repair) |
 
 No firewall change: only ssh, which HOST-OUT-GUARD already allows, and HA on `127.0.0.1:8123`. On container start, picks made before the queue existed are backfilled.
 
