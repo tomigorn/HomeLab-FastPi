@@ -1,0 +1,9 @@
+[Unit]
+Description=Avatar picks to beefy, every 5 minutes (skipped while beefy sleeps)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
