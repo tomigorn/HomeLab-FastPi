@@ -32,6 +32,48 @@ back.
 
 ---
 
+## Install and new users
+
+### 1. Create a link for a new person (on fastpi)
+
+One link per person and device; the label is `Person-Device` or `Person-Device-Client`.
+
+```bash
+cd ~/Projects/Docker/LanguageTool/Raspi/scripts
+./lt-token.py add Filip-LinuxLaptop     # prints the link once: https://lang-tool.ddns.net/lt-<64 hex>
+./lt-token.py list                      # labels only, never the links
+./lt-token.py remove Filip-LinuxLaptop  # revoke
+```
+
+- Traefik picks the change up by itself (no restart); a backup of the old file goes to `~/backups/languagetool-token/` (mode 600, outside the repo).
+- Test the new link: `curl -s -o /dev/null -w '%{http_code}\n' https://lang-tool.ddns.net/lt-<token>/check --data 'language=en-GB&text=This is a tset.'` → `200`.
+- Send the link privately (it is the password). Never commit it: it lives only in the gitignored `Traefik/traefik/dynamic/languagetool-token.yml`.
+- Tests: `python3 Raspi/scripts/test_lt_token.py`.
+
+### 2. Install the browser extension
+
+| Browser | Official "LanguageTool" extension |
+|---|---|
+| Chrome, Brave, Vivaldi | https://chromewebstore.google.com/detail/oldceeleldhonbafppcapldpdifcinji |
+| Firefox | https://addons.mozilla.org/firefox/addon/languagetool/ |
+| Edge | https://microsoftedge.microsoft.com/addons/detail/hfjadhjooeceemgojogkhlppanjkbobc |
+
+No LanguageTool account is needed; skip the sign-in and premium offers.
+
+### 3. Extension settings (gear icon → Settings)
+
+| Setting | Value | Why |
+|---|---|---|
+| Advanced settings → "Other server" | the personal link → **Save** | uses our server; the link is the login |
+| Picky mode | on | extra style and punctuation checks (picky is per client, see below) |
+| English variant | British | colour, organise |
+| German variant | Swiss | no "ß" |
+| "Prefer Oxford spelling" | off | Oxford means -ize; we want British -ise |
+
+Everything else stays at its default: dictionaries and disabled rules are managed on the server. Other clients (VS Code, Obsidian, LibreOffice, LaTeX, CLI): `CLIENTS.md`.
+
+---
+
 ## Layout
 
 ```
