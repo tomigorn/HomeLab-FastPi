@@ -13,7 +13,16 @@
     Jellyfin and the Tracker come with your invite. Requests are switched on by the admin: ask.
 
 ??? question "A film I requested isn't there yet"
-    Rare films can take longer to find. Check the status under **Requests**.
+    Rare films can take longer to find. Check the status under **Requests**. If **Can wait** was ticked in the request, the download starts at night. Need it sooner? Ask the admin, or untick the box next time. See [Requesting](apps/requests.md#can-wait-download-tonight).
+
+??? question "Audiobook request: limit reached"
+    You can request 5 audiobooks per 7 days. Try again when an earlier request is a week old. See [Requesting audiobooks](apps/audiobook-requests.md).
+
+??? question "My audiobook isn't in Audiobookshelf yet"
+    It appears after download and import, normally within minutes to hours, in the library of its language. If no release exists in that language, the request stays open. Check **All requests** at `books.holy-grail.ch`.
+
+??? question "How do I log in to the Tracker?"
+    Press the **Holy Grail** button on its login page. See [Tracker](apps/tracker.md).
 
 ??? question "Why did a series arrive as one big download?"
     Complete season packs are preferred over single episodes: fewer, faster downloads. See [Requesting](apps/requests.md#which-version-gets-downloaded).

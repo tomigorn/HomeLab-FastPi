@@ -7,11 +7,23 @@
 3. Your request is approved automatically. The title is downloaded and appears in Jellyfin on its own.
 4. Follow its status under **Requests**.
 
+Looking for an audiobook? Use the **Audiobooks** entry in the menu (after Series), see [Requesting audiobooks](audiobook-requests.md).
+
 !!! info "Needs the requester role"
     Requests are not switched on for every account. If the tile is missing or you get "no permission", ask the admin.
 
 !!! info "The media server sleeps"
     Requests runs on the media server. If it is asleep you see a **"Requests is starting"** page: wait about a minute and it opens by itself (reload if it doesn't). If your browser shows the "asleep, sign in to start" page instead, log in and wait, see [Watching](jellyfin.md).
+
+## Can wait: download tonight
+The request dialog has a checkbox, **ticked by default**: **Can wait, download tonight (cheaper power)**.
+
+| Box | What happens |
+|---|---|
+| Ticked | the title is searched at once, the download starts at night (22:00-06:00, all Sunday) when power is cheaper |
+| Unticked | downloads at once (first download only; later episodes and upgrades wait for the night again) |
+
+Untick it only when you want to watch it soon.
 
 ## Search tips
 
@@ -78,7 +90,7 @@ In the request dialog, **Advanced** is only needed in special cases. Leave the q
 Old and rare titles are moved to a more tolerant quality profile automatically.
 
 ## What happens after a request
-Your request is searched for, downloaded and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
+Your request is searched for, downloaded (tonight, if **Can wait** is ticked) and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
 
 ## The indexer bar at the top
 A thin bar at the top of every Requests page shows how much of the search services (indexers) is used up. **more** opens the full list; click **Indexers** to make the bar smaller.

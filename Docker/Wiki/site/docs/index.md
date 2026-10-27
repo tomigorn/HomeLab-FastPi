@@ -9,6 +9,7 @@ Everything you need to watch, request and listen, with one login.
 - :material-magnify: **[Requesting](apps/requests.md)**: find a film or series and ask for it
 - :material-translate: **[Audio & subtitles](audio-subtitles.md)**: original language, switching tracks
 - :material-headphones: **[Audiobooks](apps/audiobookshelf.md)**: listen in the browser or on your phone
+- :material-book-plus: **[Request audiobooks](apps/audiobook-requests.md)**: ask for a book
 - :material-chart-timeline: **[Watch history](apps/tracker.md)**: what you watched and rated
 - :material-account-circle: **[Profile picture](apps/profile-picture.md)**: pick your avatar
 - :material-server: **[Our machines](apps/machines.md)**: what it all runs on

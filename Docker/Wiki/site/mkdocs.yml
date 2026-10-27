@@ -36,6 +36,7 @@ nav:
   - Requesting films & series: apps/requests.md
   - Audio & subtitles: audio-subtitles.md
   - Audiobooks: apps/audiobookshelf.md
+  - Requesting audiobooks: apps/audiobook-requests.md
   - Watch history (Tracker): apps/tracker.md
   - Profile picture: apps/profile-picture.md
   - Our machines: apps/machines.md
