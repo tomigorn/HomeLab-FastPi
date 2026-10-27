@@ -158,7 +158,7 @@ still get the manual treatment.
 
 ## Automatically updated: tiered nightly run
 
-`scripts/auto_update.py` (daily 03:10, `auto-update.timer`) moves the digest behind the tags in the repo for the `auto` stacks in `auto-update.conf` (24 h cool-down, `CHECK` per stack, rollback) and reports the rest with the command. Tiers, switches, risks: `Server/4-Security-Monitoring/auto-updates.md`.
+`scripts/auto_update.py` (daily 03:10, `auto-update.timer`) moves the digest behind the tags in the repo for the `auto` stacks in `auto-update.conf` (24 h cool-down, `CHECK` per stack, rollback) and reports the rest with the command. Tiers, switches, risks: `Server/4-Security-Monitoring/auto-updates.md`. Custom builds are never pulled: the first-Monday digest lists them, rebuild with `update-project.sh <dir> build`.
 
 ## Automatically updated: CrowdSec
 

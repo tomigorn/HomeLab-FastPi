@@ -200,6 +200,40 @@ def test_render_prom_carries_the_reason_of_a_rollback():
                         "reason": "customizations missing: seerr.oidc-login"}], 1, "beefy")
     assert ',reason="customizations missing: seerr.oidc-login"} 1' in out
 
+# Projects on purpose outside auto-update.conf: parked or stopped, no live compose project.
+UNMANAGED = {"LoyaltyCards", "LoyaltyCards-Sync", "bitwarden", "Jenkins"}
+# auto / edge-auto rows whose customization check does not exist yet.
+NO_CHECK_YET = {"M4b-Merge-Dashboard", "DDNS", "sbb-easyride-taxreport"}
+
+
+def _conf_rows():
+    return parse_conf((DOCKER / "_global" / "auto-update.conf").read_text())
+
+
+def _compose_projects():
+    found = {f.parent.name for f in DOCKER.glob("*/docker-compose.yaml") if not f.parent.name.startswith("_")}
+    return (found - {"LanguageTool"}) | {"LanguageTool/Raspi"}
+
+
+def test_every_compose_project_is_in_the_conf_or_unmanaged():
+    if not (DOCKER / "Traefik").exists():
+        return
+    listed = {r["project"] for r in _conf_rows()}
+    projects = _compose_projects()
+    assert not (projects - listed - UNMANAGED), sorted(projects - listed - UNMANAGED)
+    assert not (listed - projects), sorted(listed - projects)
+    assert not (listed & UNMANAGED)
+
+
+def test_every_auto_row_has_a_post_update_check():
+    if not (DOCKER / "Traefik").exists():
+        return
+    checks = {f.stem for f in (DOCKER / "_global" / "post-update.d").glob("*.sh")}
+    need = {r["project"] for r in _conf_rows() if r["tier"] in ("auto", "edge-auto")}
+    missing = {p for p in need if Path(p).name not in checks} - NO_CHECK_YET
+    assert not missing, sorted(missing)
+    assert not (NO_CHECK_YET - need)
+
 
 if __name__ == "__main__":
     import traceback

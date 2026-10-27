@@ -195,6 +195,18 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Caddyfile, answer assets, answer inbox | `Caddyfile`, `assets/`, `inbox/server.js` | `docker compose up -d --force-recreate` | `mockups.caddyfile`: caddy validate → Valid configuration; `mockups.assets`: → ok; `mockups.answer-inbox`: → ok; `mockups.forward-auth`: → sso | caddy directive changes (auto-updated) |
 
+## Wiki
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Static site served read-only from www/ (built by build.sh), 404 page | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `wiki.caddyfile`: caddy validate → Valid configuration; `wiki.site`: index → 200 + bytes; `wiki.not-found`: unknown path → 404 | caddy directive changes (auto-updated) |
+
+## Server-Specs
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Static specs page served read-only from www/ | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `specs.caddyfile`: caddy validate → Valid configuration; `specs.page`: index → 200 + bytes | caddy directive changes (auto-updated) |
+
 ## Host (fastpi, no compose project)
 
 | Customization | Where | Reapply | Verify | Update can break |

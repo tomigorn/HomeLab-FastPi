@@ -20,11 +20,12 @@
 
 | Tier | Projects | Behaviour |
 |---|---|---|
-| `auto` | Claude-Mockups, M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
-| `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
-| `edge` | Authentik, Traefik, adguard, cloudflared, WireguardVPN | like notify (machine.md: owner's yes) |
+| `auto` | Claude-Mockups, Wiki, Server-Specs (static caddy), M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
+| `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup, Audiobook-Requests (digest-pinned) | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
+| `notify`, custom builds | Avatar-Picker, M4b-Auto-Merge, BackdropCarousel, Stonks, LanguageTool/Raspi | never pulled (`build:` or a local tag): reported as `local_build`; the Monday digest of the first week of the month lists them as the rebuild reminder (base image refresh) |
+| `edge` | Authentik, Traefik, WireguardVPN, CrowdSec (engine/hub also by `crowdsec-autoupdate`), Beefy-Waker, Tower-Waker | like notify (machine.md: owner's yes) |
 | `edge-auto` | cloudflared, adguard (owner 2026-10-25) | like auto, check = canary / DNS / public route; failed rollback → OOB page |
-| not listed | LoyaltyCards*, bitwarden (parked), CrowdSec (own updater), local builds, tower | untouched |
+| not listed | LoyaltyCards, LoyaltyCards-Sync, bitwarden (parked), Jenkins (stopped), tower | untouched; `test_auto_update.py` fails when a compose project is neither in the conf nor in its `UNMANAGED` list |
 
 Only the digest behind the tag written in the repo moves, so the repo stays the truth. Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
 
@@ -105,5 +106,7 @@ Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`: verbatim copi
 
 ## Not covered yet
 
-- Local builds (`build --pull` of Avatar-Picker, Stonks, wakers …): base-image CVEs are detected, rebuilds stay manual.
+- Local builds (Avatar-Picker, Stonks, wakers, M4b-Auto-Merge, BackdropCarousel, LanguageTool): base-image CVEs are detected; the rebuild is manual (`update-project.sh <dir> build`; Stonks: its `redeploy.sh`), prompted by the first-Monday digest.
+- LanguageTool is a local build of a pinned base (`FROM erikvl87/languagetool:6.8`), so it cannot be `auto`: there is no digest to pull.
+- Auto rows without a customization check yet (`post-update.d`): M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport (`NO_CHECK_YET` in the test); they roll back on the `CHECK` command only.
 - Pinned version bumps: Cup + Monday digest, by hand.
