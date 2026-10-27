@@ -434,6 +434,10 @@ To add a new app, add a block to `provision-admin-sso.py` using the helpers:
 - `secret_file(path, "<uid>:<gid>", "0400", value)` hands a secret to it for the tool's secret file
 - for forward auth use `proxy(name, host)` instead of `oidc()`
 
+### Admin account (least privilege)
+
+The owner has two accounts: `tomigorn` (everyday) and `tomigorn-admin` (admin rights, email = everyday address as `+admin` plus-address). Config as code: `scripts/provision-admin-account.py` (idempotent, never touches groups; `docker compose exec -T server ak shell < scripts/provision-admin-account.py`). Password + MFA via a one-time link: `docker compose exec -T server ak create_recovery_key 60 tomigorn-admin`. Moving the admin groups over: `docs/admin-split-plan.md`.
+
 ### Media groups
 
 Three independent groups (no parent nesting), owner `tomigorn` in all three. Config as code: `scripts/provision-media-groups.py` (idempotent; `docker compose exec -T server ak shell < scripts/provision-media-groups.py`; tests `python3 -m unittest discover -s scripts`).
