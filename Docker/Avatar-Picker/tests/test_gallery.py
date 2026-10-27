@@ -10,7 +10,7 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime",
                 "pokemon", "games", "mario", "lego", "dinosaurs", "memes",
                 "harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro",
-                "pirates"}
+                "pirates", "voxmachina"}
 # Rows added in v1.9 (all in the local pack, even the free and public-domain ones)
 NEW_ROWS = ["harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro", "pirates"]
 # Rows exempt from the f-m-n interleave: memes (mostly animals/objects), colours (no
@@ -19,7 +19,7 @@ NEW_ROWS = ["harrypotter", "heroes", "muppets", "animals", "space", "mythology",
 # Marvel & DC and Muppets (casts mostly male), Animals, Space and Retro games (no people; all
 # "neutral") and Historic figures (real people: women and men alternate, nobody is "neutral").
 FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr", "dinosaurs", "harrypotter", "heroes", "muppets",
-                    "animals", "space", "historic", "retro"}
+                    "animals", "space", "historic", "retro", "voxmachina"}
 # Order the user asked for (v1.5): Disney & Pixar, other animated films, live-action
 # movies, Lord of the Rings (v1.6), cartoons, live-action TV, anime, Pokemon, video games, Super Mario,
 # LEGO and Dinosaurs (v1.7), then
@@ -27,8 +27,8 @@ FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr", "dinosaurs", "harrypo
 # the rest, with the colours row last.
 # v1.9: Harry Potter and Marvel & DC after Lord of the Rings, Muppets after TV series, Retro games
 # after Video games, Animals and Space after Dinosaurs, Mythology, Historic figures and Pirates &
-# knights after Art classics.
-ORDER = ["disney", "animated", "movies", "lotr", "harrypotter", "heroes", "tvcartoons", "tvshows", "muppets",
+# knights after Art classics. v1.10: Vox Machina after Cartoons.
+ORDER = ["disney", "animated", "movies", "lotr", "harrypotter", "heroes", "tvcartoons", "voxmachina", "tvshows", "muppets",
          "anime", "pokemon", "games", "retro", "mario", "lego", "dinosaurs", "animals", "space", "storybook",
          "illustrated", "flatemoji", "paintings", "mythology", "historic", "pirates", "memes", "cartoon",
          "ukiyoe", "belleepoque", "fairytale", "comics", "swiss", "people3d", "pixel", "classics",
@@ -42,12 +42,12 @@ LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "M
           "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours",
           "harrypotter": "Harry Potter", "heroes": "Marvel & DC", "muppets": "Muppets & Sesame Street",
           "animals": "Animals", "space": "Space", "mythology": "Mythology", "historic": "Historic figures",
-          "retro": "Retro games", "pirates": "Pirates & knights"}
+          "retro": "Retro games", "pirates": "Pirates & knights", "voxmachina": "Vox Machina"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 36,
-         "pokemon": 18, "games": 27, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
-         "colours": 18, "harrypotter": 18, "heroes": 18, "muppets": 18, "animals": 18, "space": 18,
-         "mythology": 18, "historic": 18, "retro": 9, "pirates": 9}
+SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 63,
+         "pokemon": 18, "games": 36, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
+         "colours": 18, "harrypotter": 18, "heroes": 27, "muppets": 18, "animals": 27, "space": 27,
+         "mythology": 18, "historic": 18, "retro": 9, "pirates": 9, "voxmachina": 9}
 # One character, one row: entries that show the same character under a different
 # name or id map to a shared key here (e.g. the meme "Big Chungus" is Bugs Bunny);
 # every other entry's key is its name without a "(...)" qualifier. No two entries
@@ -58,7 +58,8 @@ CHARACTER_ALIASES = {
     "betty-boop-1930": "betty boop", "oswald-1927": "oswald the lucky rabbit",
     "felix-1925": "felix the cat", "clarabelle-1930": "clarabelle cow",
     "powerpuff-girls": "blossom (powerpuff girls)", "meme-man": "meme man",
-    "spider-man": "spider-man (peter parker)", "miles-morales": "spider-man (miles morales)",
+    "spider-man": "spider-man (peter parker)", "spider-man-tobey": "spider-man (peter parker)",
+    "spider-man-andrew": "spider-man (peter parker)", "miles-morales": "spider-man (miles morales)",
     "gwen-stacy": "spider-woman (gwen stacy)", "mandalorian": "din djarin",
     "doge": "kabosu", "cheems": "balltze", "smudge": "smudge the cat", "e-t": "e.t.",
     "kermit": "kermit the frog", "oscar-grouch": "oscar the grouch", "count-von-count": "count von count",
@@ -66,8 +67,14 @@ CHARACTER_ALIASES = {
     "thor": "thor (marvel)", "thor-norse": "thor (norse god)",
     "sauron": "sauron", "sauron-armour": "sauron",
 }
-# Deliberate exceptions to one character, one row: the owner wants both forms of Sauron (v1.9.1).
-SAME_CHARACTER_PAIRS = {frozenset({"sauron", "sauron-armour"})}
+# Deliberate exceptions to one character, one row: the owner wants both forms of Sauron (v1.9.1) and
+# all three live-action Spider-Men (v1.10).
+SAME_CHARACTER = [frozenset({"sauron", "sauron-armour"}),
+                  frozenset({"spider-man", "spider-man-tobey", "spider-man-andrew"})]
+
+
+def same_character_allowed(a, b):
+    return any(a in group and b in group for group in SAME_CHARACTER)
 # Rows of generic, unnamed figures (emoji, generated people, colours): not characters.
 GENERIC_GROUPS = {"illustrated", "flatemoji", "cartoon", "people3d", "pixel", "colours"}
 # Characters that must never appear because another entry already is that character.
@@ -96,18 +103,25 @@ DINOSAURS = {"t-rex", "triceratops", "velociraptor", "stegosaurus", "brachiosaur
 HARRY_POTTER = {"harry-potter", "hermione", "ron-weasley", "dumbledore", "hagrid", "snape", "mcgonagall",
                 "voldemort", "dobby", "luna-lovegood", "sirius-black", "draco-malfoy", "hedwig", "ginny-weasley",
                 "bellatrix", "neville", "lupin", "umbridge"}
+HEROES_V110 = {"spider-man-tobey", "spider-man-andrew", "gamora", "the-flash", "nick-fury", "ant-man", "shazam",
+               "hawkeye", "wasp"}
 HEROES = {"spider-man", "wonder-woman", "iron-man", "black-widow", "batman", "groot", "captain-america",
           "harley-quinn", "superman", "thor", "scarlet-witch", "black-panther", "hulk", "captain-marvel",
-          "deadpool", "joker", "catwoman", "wolverine"}
+          "deadpool", "joker", "catwoman", "wolverine"} | HEROES_V110
 MUPPETS = {"kermit", "miss-piggy", "elmo", "fozzie", "cookie-monster", "animal-muppet", "big-bird", "gonzo",
            "oscar-grouch", "swedish-chef", "bert", "rosita", "count-von-count", "beaker", "grover", "rowlf",
            "statler", "waldorf"}
 ANIMALS = {"red-fox", "red-panda", "snowy-owl", "sea-otter", "axolotl", "kitten", "puppy", "giant-panda",
            "seal-pup", "sloth", "hedgehog", "lion-cub", "fennec", "elephant", "highland-cow", "alpaca",
-           "meerkat", "snow-leopard"}
+           "meerkat", "snow-leopard"} | {"arctic-fox", "quokka", "koala", "penguin-chick", "hamster", "red-squirrel",
+                                        "raccoon", "bunny", "clownfish"}
 SPACE = {"earth", "moon", "sun", "mars", "jupiter", "saturn", "neptune", "black-hole", "pillars-of-creation",
          "cosmic-cliffs", "crab-nebula", "whirlpool-galaxy", "comet", "iss", "hubble", "rocket-launch",
          "spacewalk", "moonwalk"}
+# v1.10: Apollo and the crewed Artemis II lunar flyby (1-10 April 2026: Wiseman, Glover, Koch, Hansen).
+SPACE_V110 = {"earthrise", "apollo-11-crew", "artemis-ii-crew", "artemis-ii-launch", "orion", "earth-from-orion",
+              "earthset", "far-side-of-the-moon", "eclipse-from-orion"}
+SPACE |= SPACE_V110
 MYTHOLOGY = {"athena", "zeus", "japanese-dragon", "medusa", "poseidon", "phoenix", "isis", "thor-norse", "sphinx",
              "freyja", "odin", "quetzalcoatl", "valkyrie", "anubis", "cyclops", "artemis", "ra", "pegasus"}
 HISTORIC = {"marie-curie", "einstein", "cleopatra", "leonardo", "ada-lovelace", "newton", "frida-kahlo",
@@ -126,8 +140,24 @@ MOVED = {"hermione": "harrypotter", "black-widow": "heroes", "spider-man": "hero
          "count-von-count": "muppets", "beaker": "muppets", "rowlf": "muppets"}
 REFILLS = {"ripley": "movies", "amelie": "movies", "james-bond": "movies", "terminator": "movies",
            "chewbacca": "movies", "wednesday": "tvshows", "mr-bean": "tvshows", "thing": "tvshows",
-           "kitt": "tvshows", "weeping-angel": "tvshows", "k9": "tvshows", "cylon": "tvshows",
-           "tribble": "tvshows", "flipper": "tvshows", "cyberman": "tvshows"}
+           "kitt": "tvshows", "cylon": "tvshows", "flipper": "tvshows"}
+# v1.10 (owner's request): the Tribble and all Doctor Who entries but the TARDIS left TV series; each
+# replacement takes the removed avatar's place and colour (removed id -> replacement id). Nobody had
+# picked a removed avatar (checked 2026-10-27), so no pick needed migrating.
+REPLACED_V110 = {"tenth-doctor": "sherlock", "dalek": "uss-enterprise", "weeping-angel": "young-hee",
+                 "k9": "barney", "tribble": "squid-game-guard", "cyberman": "money-heist"}
+REMOVED_V110 = set(REPLACED_V110)
+COLOURS_V191 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.9.1.json")))
+VOX_MACHINA = {"vexahlia", "vaxildan", "percy", "keyleth", "grog", "pike", "scanlan", "trinket", "lady-kima"}
+FRIEREN = {"frieren", "fern", "stark", "himmel", "heiter", "eisen", "ubel", "flamme", "serie", "sein"}
+DUNGEON_MESHI = {"laios", "marcille", "chilchuck", "senshi", "falin", "izutsumi", "namari", "kabru", "kuro"}
+ANIME_V110 = FRIEREN | DUNGEON_MESHI | {"teto", "ohmu", "robot-soldier", "kodama", "forest-spirit", "yakul",
+                                        "soot-sprites", "moro"}
+GAMES_V110 = {"jebediah-kerman", "bill-kerman", "bob-kerman", "valentina-kerman", "riebeck", "anglerfish",
+              "we-were-here-explorer", "ellie", "aloy"}
+NEW_V110 = HEROES_V110 | SPACE_V110 | ANIMALS - {"red-fox", "red-panda", "snowy-owl", "sea-otter", "axolotl",
+           "kitten", "puppy", "giant-panda", "seal-pup", "sloth", "hedgehog", "lion-cub", "fennec", "elephant",
+           "highland-cow", "alpaca", "meerkat", "snow-leopard"} | VOX_MACHINA | ANIME_V110 | GAMES_V110
 COLOURS_V18 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.8.0.json")))
 COLOURS_V19 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.9.0.json")))
 # Single additions (v1.7) and the row each one belongs to.
@@ -162,8 +192,8 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 36)
-        self.assertEqual(len(GALLERY), 486 + 144)  # 630
+        self.assertEqual(len(GROUPS), 37)
+        self.assertEqual(len(GALLERY), 558 + 144)  # 702
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -204,7 +234,7 @@ class GalleryTest(unittest.TestCase):
             if a["group"] in GENERIC_GROUPS:
                 continue
             k = key(a)
-            if k in seen and frozenset({a["id"], seen[k].split()[0]}) not in SAME_CHARACTER_PAIRS:
+            if k in seen and not same_character_allowed(a["id"], seen[k].split()[0]):
                 self.fail(f"{a['id']} ({a['group']}) duplicates {seen[k]}")
             seen[k] = f"{a['id']} ({a['group']})"
             self.assertNotIn(a["name"].lower(), FORBIDDEN_DUPLICATES, a["id"])
@@ -288,9 +318,10 @@ class GalleryTest(unittest.TestCase):
         self.assertFalse(retro & {"pac-man", "blinky", "donkey-kong", "link", "sonic"})
 
     def test_no_avatar_removed(self):
-        """Adding never removes: every v1.8.0 avatar is still in the gallery."""
+        """Adding never removes: every v1.8.0 avatar is still in the gallery, except the ones the owner
+        asked to remove in v1.10."""
         ids = {a["id"] for a in GALLERY}
-        self.assertEqual(set(COLOURS_V18) - ids, set())
+        self.assertEqual(set(COLOURS_V18) - ids, REMOVED_V110 & set(COLOURS_V18))
 
     def test_existing_colours_unchanged(self):
         """New and moved avatars never change the colour of an avatar that already existed."""
@@ -310,7 +341,7 @@ class GalleryTest(unittest.TestCase):
         lotr = [a["id"] for a in GALLERY if a["group"] == "lotr"]
         self.assertEqual(lotr.index("sauron-armour"), lotr.index("sauron") + 1)
         third = dict(armour, id="sauron-3", name="Sauron (Annatar)")
-        self.assertNotIn(frozenset({third["id"], eye["id"]}), SAME_CHARACTER_PAIRS)
+        self.assertFalse(same_character_allowed(third["id"], eye["id"]))
         self.assertEqual(character_key(third), character_key(eye))
 
     def test_v191_lotr_additions(self):
@@ -324,11 +355,84 @@ class GalleryTest(unittest.TestCase):
     def test_v19_colours_unchanged(self):
         """The v1.9.1 avatars take new colours; every v1.9.0 avatar keeps its colour, none disappears."""
         rows = {a["id"]: a["color"] for a in GALLERY}
-        self.assertEqual(set(COLOURS_V19) - set(rows), set())
+        self.assertEqual(set(COLOURS_V19) - set(rows), REMOVED_V110)
         for aid, colour in COLOURS_V19.items():
-            self.assertEqual(rows[aid], colour, aid)
+            if aid not in REMOVED_V110:
+                self.assertEqual(rows[aid], colour, aid)
         new = [rows[aid] for aid in LOTR_V191]
         self.assertEqual(len(set(new)), len(new))
+
+    def test_v191_colours_unchanged(self):
+        """v1.10: every v1.9.1 avatar keeps its colour; only the six removed ones are gone, and each
+        replacement wears the colour of the avatar it replaced."""
+        rows = {a["id"]: a["color"] for a in GALLERY}
+        self.assertEqual(set(COLOURS_V191) - set(rows), REMOVED_V110)
+        for aid, colour in COLOURS_V191.items():
+            if aid not in REMOVED_V110:
+                self.assertEqual(rows[aid], colour, aid)
+        for old, new in REPLACED_V110.items():
+            self.assertEqual(rows[new], COLOURS_V191[old], new)
+
+    def test_v110_new_colours(self):
+        """Avatars added in v1.10 take fresh colours, all different from each other."""
+        rows = {a["id"]: a["color"] for a in GALLERY}
+        self.assertLessEqual(NEW_V110, set(rows))
+        new = [rows[aid] for aid in NEW_V110]
+        self.assertEqual(len(set(new)), len(new))
+
+    def test_spider_man_three_actors(self):
+        """All three live-action Spider-Men, side by side in Marvel & DC, each named after the actor; they
+        share one character key and are allowed only as this explicit group."""
+        heroes = [a for a in GALLERY if a["group"] == "heroes"]
+        ids = [a["id"] for a in heroes]
+        names = {a["id"]: a["name"] for a in heroes}
+        self.assertEqual(ids[ids.index("spider-man"):ids.index("spider-man") + 3],
+                         ["spider-man", "spider-man-tobey", "spider-man-andrew"])
+        self.assertEqual(names["spider-man"], "Spider-Man (Tom Holland)")
+        self.assertEqual(names["spider-man-tobey"], "Spider-Man (Tobey Maguire)")
+        self.assertEqual(names["spider-man-andrew"], "Spider-Man (Andrew Garfield)")
+        keys = {character_key(a) for a in heroes if a["id"].startswith("spider-man")}
+        self.assertEqual(keys, {"spider-man (peter parker)"})
+        miles = next(a for a in GALLERY if a["id"] == "miles-morales")
+        self.assertFalse(same_character_allowed("miles-morales", "spider-man"))
+        self.assertNotEqual(character_key(miles), "spider-man (peter parker)")
+
+    def test_tv_series_round4(self):
+        """v1.10: no Tribble and only the TARDIS left of Doctor Who; the replacements sit where the removed
+        avatars were, with the same vibe, so the row keeps its size and order."""
+        tv = [a["id"] for a in GALLERY if a["group"] == "tvshows"]
+        ids = {a["id"] for a in GALLERY}
+        self.assertFalse(ids & REMOVED_V110)
+        self.assertIn("tardis", tv)
+        for new in REPLACED_V110.values():
+            self.assertIn(new, tv)
+        vibes = {a["id"]: a["vibe"] for a in GALLERY}
+        self.assertEqual(vibes["sherlock"], "masculine")
+        for new in set(REPLACED_V110.values()) - {"sherlock"}:
+            self.assertEqual(vibes[new], "neutral", new)
+
+    def test_vox_machina_row(self):
+        """The Legend of Vox Machina: the main cast, Trinket and Lady Kima, a row of its own right after
+        Cartoons, all in the local pack."""
+        row = [a for a in GALLERY if a["group"] == "voxmachina"]
+        self.assertEqual({a["id"] for a in row}, VOX_MACHINA)
+        ids = [g["id"] for g in GROUPS]
+        self.assertEqual(ids.index("voxmachina"), ids.index("tvcartoons") + 1)
+        self.assertTrue(all(a.get("pack") == "local" for a in row))
+        self.assertEqual(next(a for a in row if a["id"] == "trinket")["vibe"], "neutral")
+
+    def test_v110_additions(self):
+        """v1.10 rows hold the requested additions: Frieren and Delicious in Dungeon in Anime, Kerbal Space
+        Program, Outer Wilds and We Were Here in Video games, Apollo and Artemis II in Space."""
+        rows = {a["id"]: a["group"] for a in GALLERY}
+        for ids, group in ((ANIME_V110, "anime"), (GAMES_V110, "games"), (SPACE_V110, "space"),
+                           (HEROES_V110, "heroes")):
+            for aid in ids:
+                self.assertEqual(rows.get(aid), group, aid)
+        anime = [a["id"] for a in GALLERY if a["group"] == "anime"]
+        self.assertEqual(len(anime), 63)
+        self.assertLessEqual({"frieren", "fern", "stark", "himmel", "heiter", "eisen", "ubel"}, set(anime))
+        self.assertLessEqual({"laios", "marcille", "chilchuck", "senshi", "falin", "izutsumi"}, set(anime))
 
     def test_thor_twice_on_purpose(self):
         """Marvel's Thor and the Norse god are different characters; each has its own key."""

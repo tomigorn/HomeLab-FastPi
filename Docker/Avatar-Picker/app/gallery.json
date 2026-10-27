@@ -1167,9 +1167,27 @@
   },
   {
     "id": "spider-man",
-    "name": "Spider-Man",
+    "name": "Spider-Man (Tom Holland)",
     "file": "spider-man.png",
     "color": "#C6F1E5",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "spider-man-tobey",
+    "name": "Spider-Man (Tobey Maguire)",
+    "file": "spider-man-tobey.png",
+    "color": "#C6F1E4",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "spider-man-andrew",
+    "name": "Spider-Man (Andrew Garfield)",
+    "file": "spider-man-andrew.png",
+    "color": "#F0C6F1",
     "group": "heroes",
     "vibe": "masculine",
     "pack": "local"
@@ -1324,6 +1342,69 @@
     "name": "Wolverine",
     "file": "wolverine.png",
     "color": "#C6F1E9",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "gamora",
+    "name": "Gamora",
+    "file": "gamora.png",
+    "color": "#E5F1C6",
+    "group": "heroes",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "the-flash",
+    "name": "The Flash",
+    "file": "the-flash.png",
+    "color": "#C6D8F1",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "nick-fury",
+    "name": "Nick Fury",
+    "file": "nick-fury.png",
+    "color": "#F1C6CC",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "wasp",
+    "name": "Wasp",
+    "file": "wasp.png",
+    "color": "#C6F1CD",
+    "group": "heroes",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "ant-man",
+    "name": "Ant-Man",
+    "file": "ant-man.png",
+    "color": "#D9C6F1",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "shazam",
+    "name": "Shazam",
+    "file": "shazam.png",
+    "color": "#F1E6C6",
+    "group": "heroes",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "hawkeye",
+    "name": "Hawkeye",
+    "file": "hawkeye.png",
+    "color": "#C6EFF1",
     "group": "heroes",
     "vibe": "masculine",
     "pack": "local"
@@ -1687,6 +1768,87 @@
     "pack": "local"
   },
   {
+    "id": "vexahlia",
+    "name": "Vex'ahlia",
+    "file": "vexahlia.png",
+    "color": "#F1C6E3",
+    "group": "voxmachina",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "trinket",
+    "name": "Trinket",
+    "file": "trinket.png",
+    "color": "#D6F1C6",
+    "group": "voxmachina",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "vaxildan",
+    "name": "Vax'ildan",
+    "file": "vaxildan.png",
+    "color": "#C6CAF1",
+    "group": "voxmachina",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "keyleth",
+    "name": "Keyleth",
+    "file": "keyleth.png",
+    "color": "#F1CFC6",
+    "group": "voxmachina",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "percy",
+    "name": "Percy",
+    "file": "percy.png",
+    "color": "#C6F1DB",
+    "group": "voxmachina",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "pike",
+    "name": "Pike",
+    "file": "pike.png",
+    "color": "#E8C6F1",
+    "group": "voxmachina",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "grog",
+    "name": "Grog",
+    "file": "grog.png",
+    "color": "#EDF1C6",
+    "group": "voxmachina",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "scanlan",
+    "name": "Scanlan",
+    "file": "scanlan.png",
+    "color": "#C6E1F1",
+    "group": "voxmachina",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "lady-kima",
+    "name": "Lady Kima",
+    "file": "lady-kima.png",
+    "color": "#F1C6D4",
+    "group": "voxmachina",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
     "id": "jessica-fletcher",
     "name": "Jessica Fletcher",
     "file": "jessica-fletcher.png",
@@ -1759,9 +1921,9 @@
     "pack": "local"
   },
   {
-    "id": "dalek",
-    "name": "Dalek",
-    "file": "dalek.png",
+    "id": "uss-enterprise",
+    "name": "USS Enterprise",
+    "file": "uss-enterprise.png",
     "color": "#C6E2F1",
     "group": "tvshows",
     "vibe": "neutral",
@@ -1867,9 +2029,9 @@
     "pack": "local"
   },
   {
-    "id": "weeping-angel",
-    "name": "Weeping Angel",
-    "file": "weeping-angel.png",
+    "id": "young-hee",
+    "name": "Young-hee",
+    "file": "young-hee.png",
     "color": "#D4C6F1",
     "group": "tvshows",
     "vibe": "neutral",
@@ -1894,9 +2056,9 @@
     "pack": "local"
   },
   {
-    "id": "k9",
-    "name": "K9",
-    "file": "k9.png",
+    "id": "barney",
+    "name": "Barney",
+    "file": "barney.png",
     "color": "#F1E0C6",
     "group": "tvshows",
     "vibe": "neutral",
@@ -1939,18 +2101,18 @@
     "pack": "local"
   },
   {
-    "id": "tenth-doctor",
-    "name": "The Doctor",
-    "file": "tenth-doctor.png",
+    "id": "sherlock",
+    "name": "Sherlock",
+    "file": "sherlock.png",
     "color": "#C6C7F1",
     "group": "tvshows",
     "vibe": "masculine",
     "pack": "local"
   },
   {
-    "id": "tribble",
-    "name": "Tribble",
-    "file": "tribble.png",
+    "id": "squid-game-guard",
+    "name": "Squid Game guard",
+    "file": "squid-game-guard.png",
     "color": "#F1C6E8",
     "group": "tvshows",
     "vibe": "neutral",
@@ -2002,9 +2164,9 @@
     "pack": "local"
   },
   {
-    "id": "cyberman",
-    "name": "Cyberman",
-    "file": "cyberman.png",
+    "id": "money-heist",
+    "name": "Money Heist",
+    "file": "money-heist.png",
     "color": "#C6CFF1",
     "group": "tvshows",
     "vibe": "neutral",
@@ -2507,6 +2669,258 @@
     "pack": "local"
   },
   {
+    "id": "frieren",
+    "name": "Frieren",
+    "file": "frieren.png",
+    "color": "#C8F1C6",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "stark",
+    "name": "Stark",
+    "file": "stark.png",
+    "color": "#DFC6F1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "kuro",
+    "name": "Kuro",
+    "file": "kuro.png",
+    "color": "#E8F1C6",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "fern",
+    "name": "Fern",
+    "file": "fern.png",
+    "color": "#D0C6F1",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "himmel",
+    "name": "Himmel",
+    "file": "himmel.png",
+    "color": "#F1EBC6",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "teto",
+    "name": "Teto",
+    "file": "teto.png",
+    "color": "#C6DBF1",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "ubel",
+    "name": "\u00dcbel",
+    "file": "ubel.png",
+    "color": "#F1DDC6",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "heiter",
+    "name": "Heiter",
+    "file": "heiter.png",
+    "color": "#C6EAF1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "ohmu",
+    "name": "Ohmu",
+    "file": "ohmu.png",
+    "color": "#F1C6CF",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "flamme",
+    "name": "Flamme",
+    "file": "flamme.png",
+    "color": "#C6F1E9",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "eisen",
+    "name": "Eisen",
+    "file": "eisen.png",
+    "color": "#F1C6DD",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "robot-soldier",
+    "name": "Robot soldier",
+    "file": "robot-soldier.png",
+    "color": "#C6F1C9",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "serie",
+    "name": "Serie",
+    "file": "serie.png",
+    "color": "#F1C6EC",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "sein",
+    "name": "Sein",
+    "file": "sein.png",
+    "color": "#D1F1C6",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "kodama",
+    "name": "Kodama",
+    "file": "kodama.png",
+    "color": "#D6C6F1",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "marcille",
+    "name": "Marcille",
+    "file": "marcille.png",
+    "color": "#DFF1C6",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "laios",
+    "name": "Laios",
+    "file": "laios.png",
+    "color": "#C8C6F1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "forest-spirit",
+    "name": "Forest Spirit",
+    "file": "forest-spirit.png",
+    "color": "#F1E2C6",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "falin",
+    "name": "Falin",
+    "file": "falin.png",
+    "color": "#C6D3F1",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "chilchuck",
+    "name": "Chilchuck",
+    "file": "chilchuck.png",
+    "color": "#F1D4C6",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "yakul",
+    "name": "Yakul",
+    "file": "yakul.png",
+    "color": "#C6F1EF",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "izutsumi",
+    "name": "Izutsumi",
+    "file": "izutsumi.png",
+    "color": "#F1C6C6",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "senshi",
+    "name": "Senshi",
+    "file": "senshi.png",
+    "color": "#C6F1E1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "soot-sprites",
+    "name": "Soot sprites",
+    "file": "soot-sprites.png",
+    "color": "#F1C6E6",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "namari",
+    "name": "Namari",
+    "file": "namari.png",
+    "color": "#C6F1D2",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "kabru",
+    "name": "Kabru",
+    "file": "kabru.png",
+    "color": "#EDC6F1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "moro",
+    "name": "Moro",
+    "file": "moro.png",
+    "color": "#DAF1C6",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
     "id": "pikachu",
     "name": "Pikachu",
     "file": "pikachu.png",
@@ -2951,6 +3365,87 @@
     "vibe": "neutral",
     "pack": "local",
     "square": true
+  },
+  {
+    "id": "valentina-kerman",
+    "name": "Valentina Kerman",
+    "file": "valentina-kerman.png",
+    "color": "#C6CDF1",
+    "group": "games",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "jebediah-kerman",
+    "name": "Jebediah Kerman",
+    "file": "jebediah-kerman.png",
+    "color": "#E4C6F1",
+    "group": "games",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "riebeck",
+    "name": "Riebeck",
+    "file": "riebeck.png",
+    "color": "#F1C6D8",
+    "group": "games",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "ellie",
+    "name": "Ellie",
+    "file": "ellie.png",
+    "color": "#F1CBC6",
+    "group": "games",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "bill-kerman",
+    "name": "Bill Kerman",
+    "file": "bill-kerman.png",
+    "color": "#F1F1C6",
+    "group": "games",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "anglerfish",
+    "name": "Anglerfish",
+    "file": "anglerfish.png",
+    "color": "#CBF1C6",
+    "group": "games",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "aloy",
+    "name": "Aloy",
+    "file": "aloy.png",
+    "color": "#C6F1D8",
+    "group": "games",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "bob-kerman",
+    "name": "Bob Kerman",
+    "file": "bob-kerman.png",
+    "color": "#C6E4F1",
+    "group": "games",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "we-were-here-explorer",
+    "name": "Explorer (We Were Here)",
+    "file": "we-were-here-explorer.png",
+    "color": "#CDC6F1",
+    "group": "games",
+    "vibe": "neutral",
+    "pack": "local"
   },
   {
     "id": "space-invader",
@@ -3743,6 +4238,87 @@
     "pack": "local"
   },
   {
+    "id": "arctic-fox",
+    "name": "Arctic fox",
+    "file": "arctic-fox.png",
+    "color": "#F1D9C6",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "quokka",
+    "name": "Quokka",
+    "file": "quokka.png",
+    "color": "#C6F1E6",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "koala",
+    "name": "Cuddly koala",
+    "file": "koala.png",
+    "color": "#F1C6EF",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "penguin-chick",
+    "name": "Penguin chick",
+    "file": "penguin-chick.png",
+    "color": "#E2F1C6",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "hamster",
+    "name": "Hamster",
+    "file": "hamster.png",
+    "color": "#C6D6F1",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "red-squirrel",
+    "name": "Red squirrel",
+    "file": "red-squirrel.png",
+    "color": "#F1C6C9",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "raccoon",
+    "name": "Raccoon",
+    "file": "raccoon.png",
+    "color": "#C6F1CF",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "bunny",
+    "name": "Bunny",
+    "file": "bunny.png",
+    "color": "#DBC6F1",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "clownfish",
+    "name": "Clownfish",
+    "file": "clownfish.png",
+    "color": "#F1E8C6",
+    "group": "animals",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
     "id": "earth",
     "name": "Earth",
     "file": "earth.png",
@@ -3900,6 +4476,87 @@
     "name": "Moonwalk",
     "file": "moonwalk.png",
     "color": "#D5F1C6",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "earthrise",
+    "name": "Earthrise",
+    "file": "earthrise.png",
+    "color": "#C6EDF1",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "apollo-11-crew",
+    "name": "Apollo 11 crew",
+    "file": "apollo-11-crew.png",
+    "color": "#F1C6E1",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "artemis-ii-crew",
+    "name": "Artemis II crew",
+    "file": "artemis-ii-crew.png",
+    "color": "#D4F1C6",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "artemis-ii-launch",
+    "name": "Artemis II launch",
+    "file": "artemis-ii-launch.png",
+    "color": "#C6C8F1",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "orion",
+    "name": "Orion",
+    "file": "orion.png",
+    "color": "#F1D1C6",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "earth-from-orion",
+    "name": "Earth from Orion",
+    "file": "earth-from-orion.png",
+    "color": "#C6F1DD",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "earthset",
+    "name": "Earthset",
+    "file": "earthset.png",
+    "color": "#EAC6F1",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "far-side-of-the-moon",
+    "name": "Far side of the Moon",
+    "file": "far-side-of-the-moon.png",
+    "color": "#EBF1C6",
+    "group": "space",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "eclipse-from-orion",
+    "name": "Eclipse from Orion",
+    "file": "eclipse-from-orion.png",
+    "color": "#C6DFF1",
     "group": "space",
     "vibe": "neutral",
     "pack": "local"

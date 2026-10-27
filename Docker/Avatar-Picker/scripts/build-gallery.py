@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (36 rows, each a multiple of 9 avatars,
+"""One-off: build the avatar gallery (37 rows, each a multiple of 9 avatars,
 human-made art only, no AI art).
 
 Rows, in order (every row holds equal numbers of feminine, masculine and neutral
 avatars; the `vibe` field is only used to interleave them f, m, n, ... so each
 row looks mixed - the memes, colours, Pokemon, Lord of the Rings, Dinosaurs, Harry Potter, Marvel & DC,
-Muppets, Animals, Space, Historic figures and Retro games rows are exempt). One character
+Muppets, Animals, Space, Historic figures, Retro games and Vox Machina rows are exempt). One character
 never appears in two rows (tests/test_gallery.py checks it):
 
   disney      Disney & Pixar (27)               - LOCAL PACK (see below)
@@ -13,19 +13,20 @@ never appears in two rows (tests/test_gallery.py checks it):
   movies      Movies, live action (27)          - LOCAL PACK (in-character stills/posters)
   lotr        Lord of the Rings, the films' major cast (27) - LOCAL PACK (film stills)
   harrypotter Harry Potter, the films' major cast (18) - LOCAL PACK
-  heroes      Marvel & DC, live-action heroes (18) - LOCAL PACK
+  heroes      Marvel & DC, live-action heroes (27) - LOCAL PACK
   tvcartoons  Cartoons, animated TV (36)        - LOCAL PACK
+  voxmachina  The Legend of Vox Machina, main cast (9) - LOCAL PACK
   tvshows     TV series, live action (36)       - LOCAL PACK
   muppets     Muppets & Sesame Street (18)      - LOCAL PACK
-  anime       Anime (36)                        - LOCAL PACK
+  anime       Anime (63)                        - LOCAL PACK
   pokemon     Pokemon (18, all "neutral")       - LOCAL PACK
-  games       Video games (27)                  - LOCAL PACK
+  games       Video games (36)                  - LOCAL PACK
   retro       Retro games (9, all "neutral")    - LOCAL PACK
   mario       Super Mario (18)                  - LOCAL PACK
   lego        LEGO minifigures (18)             - LOCAL PACK (BrickLink catalogue photos, cut out)
   dinosaurs   Dinosaurs (18, all "neutral")     - LOCAL PACK (TotalDino paleoart, Commons CC BY / CC BY-SA / CC0)
-  animals     Animals, real photos (18, all "neutral") - LOCAL PACK (Commons)
-  space       Space, NASA / ESA images (18, all "neutral") - LOCAL PACK (Commons)
+  animals     Animals, real photos (27, all "neutral") - LOCAL PACK (Commons)
+  space       Space, NASA / ESA images (27, all "neutral") - LOCAL PACK (Commons)
   storybook   original period storybook art (Tenniel, Potter, Busch, Hoffmann)
   illustrated DiceBear "adventurer" / "lorelei"
   flatemoji   Google Noto Emoji (Apache 2.0), centred on a soft square (18)
@@ -50,7 +51,7 @@ Local pack: the pop-culture rows are third-party copyrighted character art.
 They are written to app/img-local/ (gitignored: the repo is public) and marked
 "pack": "local" in gallery.json; the picker hides any entry whose image is
 missing, so a fresh clone works without them. Re-fetch them with
-`--only disney,animated,movies,lotr,harrypotter,heroes,tvcartoons,tvshows,muppets,anime,pokemon,games,retro,mario,lego,dinosaurs,animals,space,mythology,historic,pirates,memes`. Their source URLs are listed in
+`--only disney,animated,movies,lotr,harrypotter,heroes,tvcartoons,voxmachina,tvshows,muppets,anime,pokemon,games,retro,mario,lego,dinosaurs,animals,space,mythology,historic,pirates,memes`. Their source URLs are listed in
 LOCAL below and in LICENSES.md.
 
 All Commons rows except `classics` use original period artwork whose artist
@@ -75,7 +76,7 @@ those rows' images (the JSON is always rewritten; other committed rows' images
 must already exist, missing local-pack images are only reported). `--missing` renders
 only images that do not exist yet (delete one to re-render it). Needs Pillow (dev only).
 """
-import colorsys, hashlib, io, json, os, pathlib, sys, time
+import colorsys, hashlib, io, json, os, pathlib, sys, time, zipfile
 import urllib.error, urllib.parse, urllib.request
 from PIL import Image, ImageChops, ImageFilter, ImageOps
 
@@ -100,6 +101,7 @@ GROUPS = [
     ("harrypotter", "Harry Potter"),
     ("heroes", "Marvel & DC"),
     ("tvcartoons", "Cartoons"),
+    ("voxmachina", "Vox Machina"),
     ("tvshows", "TV series"),
     ("muppets", "Muppets & Sesame Street"),
     ("anime", "Anime"),
@@ -443,6 +445,14 @@ ILLUMINATION = "https://www.illumination.com/wp-content/uploads/"
 # BrickLink catalogue minifigure photos (img.bricklink.com/ItemImage/MN/0/<item no>.png)
 BRICKLINK = "https://img.bricklink.com/ItemImage/MN/0/"
 CUT = {"cutout": 248}
+# v1.10 sources: the KSP wiki, Steam store art, the Outer Wilds press kit (one file of the archive:
+# "<zip>#<member>"), the official Frieren and Delicious in Dungeon sites, Behind The Voice Actors
+KSP = "https://wiki.kerbalspaceprogram.com/images/"
+STEAM = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"
+OUTER_WILDS_PRESS = "https://www.mobiusdigitalgames.com/uploads/4/7/3/2/47328935/outer_wilds_press.zip"
+FRIEREN = "https://frieren-anime.jp/wp-content/uploads/"
+DUNGEON = "https://delicious-in-dungeon.com/assets/character/"
+VOXMACHINA = "https://www.behindthevoiceactors.com/_img/chars/"
 LOCAL = {
     # Disney & Pixar (27): Disney Animation and Pixar characters, 1937-2021
     "disney": [
@@ -686,6 +696,19 @@ LOCAL = {
         ("tom-cat", "Tom (Tom & Jerry)", "neutral", WP + "en/f/f6/Tom_Tom_and_Jerry.png", (25, 15, 150)),
         ("perry", "Perry", "neutral", WP + "en/3/3d/Perry_Platypus.png", (0, 35, 105)),
     ],
+    # Vox Machina (9, v1.10): The Legend of Vox Machina's seven heroes, Vex'ahlia's bear Trinket and Lady Kima;
+    # character stills from Behind The Voice Actors. Listed order is the row order (vibe-exempt).
+    "voxmachina": [
+        ("vexahlia", "Vex'ahlia", "feminine", VOXMACHINA + "vexahlia-the-legend-of-vox-machina-37.jpg", (0, 10, 210)),
+        ("trinket", "Trinket", "neutral", VOXMACHINA + "trinket-the-legend-of-vox-machina-15.7.jpg", (0, 10, 210)),
+        ("vaxildan", "Vax'ildan", "masculine", VOXMACHINA + "vaxildan-the-legend-of-vox-machina-6.94.jpg", (0, 10, 210)),
+        ("keyleth", "Keyleth", "feminine", VOXMACHINA + "keyleth-the-legend-of-vox-machina-6.2.jpg", (0, 10, 210)),
+        ("percy", "Percy", "masculine", VOXMACHINA + "percival-de-rolo-iii-the-legend-of-vox-machina-2.33.jpg", (0, 10, 210)),
+        ("pike", "Pike", "feminine", VOXMACHINA + "pike-trickfoot-the-legend-of-vox-machina-7.05.jpg", (0, 10, 210)),
+        ("grog", "Grog", "masculine", VOXMACHINA + "grog-strongjaw-the-legend-of-vox-machina-2.75.jpg", (0, 10, 210)),
+        ("scanlan", "Scanlan", "masculine", VOXMACHINA + "scanlan-shorthalt-the-legend-of-vox-machina-8.51.jpg", (0, 10, 210)),
+        ("lady-kima", "Lady Kima", "feminine", VOXMACHINA + "lady-kima-of-vord-the-legend-of-vox-machina-1.5.jpg", (0, 10, 210)),
+    ],
     # TV series (27): live-action TV characters and TV puppets (Muppets, Sesame Street)
     "tvshows": [
         ("jessica-fletcher", "Jessica Fletcher", "feminine",
@@ -722,36 +745,37 @@ LOCAL = {
         ("mandalorian", "The Mandalorian", "masculine", WP + "en/a/a1/TheMandalorian.jpg", (90, 15, 130)),
         ("grogu", "Grogu", "neutral", WP + "en/a/a0/Grogu_%28Star_Wars%29.jpg", (25, 0, 260)),
         ("tardis", "TARDIS", "neutral", WP + "commons/1/1a/Tardis_in_Snow.jpg", (30, 31, 543)),
-        ("dalek", "Dalek", "neutral",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Cardiff_Bay_-_Dalek_-_geograph.org.uk_-_5253753.jpg/1280px-Cardiff_Bay_-_Dalek_-_geograph.org.uk_-_5253753.jpg",
-         (224, 365, 704)),
+        ("uss-enterprise", "USS Enterprise", "neutral", WP + "it/c/c6/USS_Enterprise_NCC-1701-D.jpg", (330, 0, 1080)),
         ("alf", "ALF", "neutral", WP + "en/8/89/GordonShumway.png", (34, 17, 178)),
         # v1.7: The Mentalist (asked for) plus fillers up to 36
         ("eleven", "Eleven", "feminine", WP + "en/3/3f/Eleven_%28Stranger_Things_5%29.png", (25, 10, 175)),
         ("arya-stark", "Arya", "feminine", WP + "en/3/39/Arya_Stark-Maisie_Williams.jpg", (60, 0, 170)),
         ("phoebe-buffay", "Phoebe", "feminine", WP + "en/f/f6/Friendsphoebe.jpg", (55, 25, 160)),
         ("patrick-jane", "Patrick Jane", "masculine", WP + "en/3/37/Patrick_Jane.jpg", (40, 15, 170)),
-        ("tenth-doctor", "The Doctor", "masculine", WP + "en/2/21/Tenth_Doctor_%28Doctor_Who%29.jpg", (55, 32, 160)),
+        ("sherlock", "Sherlock", "masculine", WP + "commons/0/0f/Benedict_Cumberbatch_filming_Sherlock_cropped2.jpg",
+         (140, 0, 440)),
         ("michael-scott", "Michael Scott", "masculine", WP + "en/d/dc/MichaelScott.png", (65, 10, 135)),
         # v1.9: the Muppets moved to their own row; these keep the row at 36
         ("wednesday", "Wednesday", "feminine", WP + "en/d/d1/Wednesday_Addams_%282022%29.png", (20, 0, 252)),
-        ("mr-bean", "Mr. Bean", "masculine",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Polonia_Wax_Museum_Krak%C3%B3w_-_Mr._Bean_and_Olaf.jpg/1280px-Polonia_Wax_Museum_Krak%C3%B3w_-_Mr._Bean_and_Olaf.jpg",
-         (600, 30, 480)),
+        ("mr-bean", "Mr. Bean", "masculine", WP + "commons/e/e0/Atkinson_Rowan_crop.jpg", (90, 20, 770)),
         ("thing", "Thing", "neutral", WP + "en/d/d0/Thing_%28The_Addams_Family%29.gif", (100, 0, 224)),
         ("kitt", "KITT", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fb/KITT_at_Universal_Studios%2C_original_uncropped_version.jpg/1920px-KITT_at_Universal_Studios%2C_original_uncropped_version.jpg",
          (377, 129, 1166)),
-        ("weeping-angel", "Weeping Angel", "neutral",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Weeping_Angel.jpg/1280px-Weeping_Angel.jpg",
-         (192, 109, 896)),
-        ("k9", "K9", "neutral",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Doctor_Who_Experience_%288105526993%29.jpg/1280px-Doctor_Who_Experience_%288105526993%29.jpg",
-         (0, 100, 850)),
+        ("young-hee", "Young-hee", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8a/Mu%C3%B1eca_Young-hee%2C_El_juego_de_Calamar_A74000620250204.jpg/1920px-Mu%C3%B1eca_Young-hee%2C_El_juego_de_Calamar_A74000620250204.jpg",
+         (530, 120, 340)),
+        ("barney", "Barney", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Barney_show_in_Qatar_%284340543390%29.jpg/1920px-Barney_show_in_Qatar_%284340543390%29.jpg",
+         (600, 10, 560)),
         ("cylon", "Cylon", "neutral", WP + "en/3/3f/BSG_-_Cylon_Centurion_%282004_series%29.jpg", (0, 0, 280)),
-        ("tribble", "Tribble", "neutral", WP + "en/5/50/ST_TroubleWithTribbles.jpg", (0, 80, 190)),
+        ("squid-game-guard", "Squid Game guard", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Cosplay_of_Squid_Game_Guards_at_Sutera_Cosplay_Fest_2021.jpg/1280px-Cosplay_of_Squid_Game_Guards_at_Sutera_Cosplay_Fest_2021.jpg",
+         (260, 170, 420)),
         ("flipper", "Flipper", "neutral", WP + "commons/4/4d/Flipper_The_Dolphin_1968.jpg", (159, 135, 410)),
-        ("cyberman", "Cyberman", "neutral", "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/Cyber-Warrior.jpg/1280px-Cyber-Warrior.jpg", (300, 150, 700)),
+        ("money-heist", "Money Heist", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/45/Money_Heist_Berlin_character.jpg/1280px-Money_Heist_Berlin_character.jpg",
+         (350, 230, 360)),
     ],
     # Anime (27)
     "anime": [
@@ -799,6 +823,35 @@ LOCAL = {
         ("pochita", "Pochita", "neutral", "https://cdn.myanimelist.net/images/characters/7/391655.jpg", (0, 75, 225)),
         ("catbus", "Catbus", "neutral", "https://www.ghibli.jp/gallery/totoro044.jpg", (200, 230, 560)),
         ("happy", "Happy", "neutral", WP + "en/5/52/HappyFairyTail.png", (0, 40, 190)),
+        # v1.10: Frieren (official character sheets, frieren-anime.jp) and Delicious in Dungeon (official
+        # character art, delicious-in-dungeon.com), plus Studio Ghibli creatures as the neutral third
+        ("frieren", "Frieren", "feminine", FRIEREN + "2023/08/chara1_face1.jpg", (0, 0, 248)),
+        ("fern", "Fern", "feminine", FRIEREN + "2023/08/chara2_face1.jpg", (0, 0, 248)),
+        ("ubel", "Übel", "feminine", FRIEREN + "2024/01/chara04_face2.jpg", (0, 0, 248)),
+        ("flamme", "Flamme", "feminine", FRIEREN + "2023/09/chara7_face1.jpg", (0, 0, 248)),
+        ("serie", "Serie", "feminine", FRIEREN + "2024/02/chara15_face1.jpg", (0, 0, 248)),
+        ("marcille", "Marcille", "feminine", DUNGEON + "2c.png", (340, 100, 300)),
+        ("falin", "Falin", "feminine", DUNGEON + "5c.png", (245, 40, 340)),
+        ("izutsumi", "Izutsumi", "feminine", DUNGEON + "14c.png", (250, 0, 340)),
+        ("namari", "Namari", "feminine", DUNGEON + "6c.png", (315, 125, 330)),
+        ("stark", "Stark", "masculine", FRIEREN + "2023/08/chara3_face1.jpg", (0, 0, 248)),
+        ("himmel", "Himmel", "masculine", FRIEREN + "2023/08/chara4_face1.jpg", (0, 0, 248)),
+        ("heiter", "Heiter", "masculine", FRIEREN + "2023/08/chara5_face1.jpg", (0, 0, 248)),
+        ("eisen", "Eisen", "masculine", FRIEREN + "2023/08/chara6_face2.jpg", (0, 0, 248)),
+        ("sein", "Sein", "masculine", FRIEREN + "2023/11/chara17_face1.jpg", (0, 0, 248)),
+        ("laios", "Laios", "masculine", DUNGEON + "1c.png", (200, -20, 360)),
+        ("chilchuck", "Chilchuck", "masculine", DUNGEON + "3c.png", (340, 160, 320)),
+        ("senshi", "Senshi", "masculine", DUNGEON + "4c.png", (240, 150, 400)),
+        ("kabru", "Kabru", "masculine", DUNGEON + "8c.png", (230, 10, 340)),
+        ("kuro", "Kuro", "neutral", DUNGEON + "11c.png", (269, 66, 360)),
+        ("teto", "Teto", "neutral", "https://www.ghibli.jp/gallery/nausicaa045.jpg", (264, 150, 480)),
+        ("ohmu", "Ohmu", "neutral", "https://www.ghibli.jp/gallery/nausicaa009.jpg", (600, 0, 950)),
+        ("robot-soldier", "Robot soldier", "neutral", "https://www.ghibli.jp/gallery/laputa040.jpg", (740, 40, 480)),
+        ("kodama", "Kodama", "neutral", "https://www.ghibli.jp/gallery/mononoke008.jpg", (1335, 110, 360)),
+        ("forest-spirit", "Forest Spirit", "neutral", "https://www.ghibli.jp/gallery/mononoke041.jpg", (230, 150, 800)),
+        ("yakul", "Yakul", "neutral", "https://www.ghibli.jp/gallery/mononoke048.jpg", (1400, 80, 520)),
+        ("soot-sprites", "Soot sprites", "neutral", "https://www.ghibli.jp/gallery/chihiro014.jpg", (900, 100, 600)),
+        ("moro", "Moro", "neutral", "https://www.ghibli.jp/gallery/mononoke029.jpg", (525, 120, 900)),
     ],
     # Pokemon (18): official artwork; vibe-exempt row (all neutral)
     "pokemon": [
@@ -862,13 +915,26 @@ LOCAL = {
          WP + "en/d/de/Hollow_Knight_2026_cover_art.jpg",
          (79, 41, 158)),
         ("sackboy", "Sackboy", "neutral", WP + "en/1/19/SackboySony.png", (37, -9, 221)),
+        # v1.10: Kerbal Space Program (KSP wiki), Outer Wilds (Mobius press kit, Steam screenshot), We Were
+        # Here Together, The Last of Us and Horizon Zero Dawn (Steam library art)
+        ("valentina-kerman", "Valentina Kerman", "feminine", KSP + "7/76/Valentina_Kerman_portrait.01.png", (5, 10, 310)),
+        ("ellie", "Ellie", "feminine", STEAM + "1888930/library_600x900_2x.jpg", (210, 90, 320)),
+        ("aloy", "Aloy", "feminine", STEAM + "1151640/library_hero.jpg", (1288, 0, 300)),
+        ("jebediah-kerman", "Jebediah Kerman", "masculine", KSP + "5/5d/Jeb_global_selfie.jpg", (325, 0, 560)),
+        ("bill-kerman", "Bill Kerman", "masculine", KSP + "d/dd/BillArtwork.jpg", (680, 110, 560)),
+        ("bob-kerman", "Bob Kerman", "masculine", KSP + "0/04/Bob.jpg", (925, 180, 420)),
+        ("riebeck", "Riebeck", "neutral", OUTER_WILDS_PRESS + "#Outer Wilds/OW_Riebeck.png", (600, 125, 300)),
+        ("anglerfish", "Anglerfish", "neutral",
+         STEAM + "753640/ss_c624a6b8edca0d451605592edd927dbcc14917a8.1920x1080.jpg", (560, 150, 900)),
+        ("we-were-here-explorer", "Explorer (We Were Here)", "neutral", STEAM + "865360/library_hero.jpg",
+         (345, 0, 420)),
     ],
     # Super Mario (18): Nintendo's Super Mario world (moved out of Video games)
     "mario": [
-        ("princess-peach", "Peach", "feminine", WP + "en/1/16/Princess_Peach_Stock_Art.png", (30, -18, 134)),
+        ("princess-peach", "Peach", "feminine", WP + "en/1/16/Princess_Peach_Stock_Art.png", (40, 0, 140)),
         ("princess-daisy", "Daisy", "feminine",
          WP + "en/e/eb/Princess_Daisy_by_Shigehisa_Nakaue.png",
-         (30, -17, 133)),
+         (37, -4, 140)),
         ("toadette", "Toadette", "feminine",
          WP + "en/6/6a/Toadette_Artwork_by_Shigehisa_Nakaue.png",
          (20, -13, 202)),
@@ -968,9 +1034,14 @@ LOCAL = {
     # exhibition photos (Commons) for the masked ones; Spider-Man, Iron Man, Black Widow and Groot moved
     # here from Movies. Listed order is the row order (vibe-exempt).
     "heroes": [
-        ("spider-man", "Spider-Man", "masculine",
+        ("spider-man", "Spider-Man (Tom Holland)", "masculine",
          WP + "en/0/0f/Tom_Holland_as_Spider-Man.jpg",
          (62, 10, 115)),
+        # v1.10: all three live-action Spider-Men (owner's request), film frames from the Italian articles
+        ("spider-man-tobey", "Spider-Man (Tobey Maguire)", "masculine",
+         WP + "it/5/5b/Spider-Man_%28Tobey_Maguire%29.jpeg", (240, 40, 1150)),
+        ("spider-man-andrew", "Spider-Man (Andrew Garfield)", "masculine",
+         WP + "it/2/25/Peter_Parker_%28Garfield%29.jpeg", (1100, 0, 800)),
         ("wonder-woman", "Wonder Woman", "feminine", WP + "en/e/e1/Gal_Gadot_as_Wonder_Woman.jpg", (84, 0, 90)),
         ("iron-man", "Iron Man", "masculine",
          WP + "en/0/02/Iron_Man_%282008_film%29_poster.jpg",
@@ -978,14 +1049,11 @@ LOCAL = {
         ("black-widow", "Black Widow", "feminine",
          WP + "en/f/f6/Scarlett_Johansson_as_Black_Widow.jpg",
          (65, 5, 135)),
-        ("batman", "Batman", "masculine",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Batsuit_from_The_Dark_Knight_Rises_film_-_closer_view.jpg/1280px-Batsuit_from_The_Dark_Knight_Rises_film_-_closer_view.jpg",
-         (410, 100, 460)),
+        ("batman", "Batman", "masculine", WP + "it/4/41/BatmanilritornoMichaelKeaton4k.png", (360, 96, 700)),
         ("groot", "Groot", "neutral", WP + "en/3/3b/Groot.png", (26, 0, 203)),
-        ("captain-america", "Captain America", "masculine",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/Chris_Evans_as_Steve_Rogers_aka_Captain_America_%2834407349161%29.jpg/1280px-Chris_Evans_as_Steve_Rogers_aka_Captain_America_%2834407349161%29.jpg",
-         (364, 200, 500)),
-        ("harley-quinn", "Harley Quinn", "feminine", WP + "en/5/56/SuicideSquadHarleyQuinn.jpg", (40, 30, 110)),
+        ("captain-america", "Captain America", "masculine", WP + "it/f/f0/Captain_America_Civil_War.png",
+         (985, 0, 340)),
+        ("harley-quinn", "Harley Quinn", "feminine", WP + "it/f/f3/Harley_Quinn_%28DCEU%29.png", (840, 20, 640)),
         ("superman", "Superman", "masculine", WP + "en/d/d6/Superman_Man_of_Steel.jpg", (79, 0, 131)),
         ("thor", "Thor", "masculine", WP + "en/3/3c/Chris_Hemsworth_as_Thor.jpg", (90, 2, 124)),
         ("scarlet-witch", "Scarlet Witch", "feminine",
@@ -994,9 +1062,7 @@ LOCAL = {
         ("black-panther", "Black Panther", "masculine",
          WP + "en/1/1a/Chadwick_Boseman_as_T%27Challa.jpg",
          (50, 0, 103)),
-        ("hulk", "Hulk", "neutral",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Hulk_%282540708438%29.jpg/1920px-Hulk_%282540708438%29.jpg",
-         (778, 20, 480)),
+        ("hulk", "Hulk", "neutral", WP + "it/4/45/Hulk_%28film%29.jpg", (300, 20, 440)),
         ("captain-marvel", "Captain Marvel", "feminine",
          WP + "en/f/f1/Brie_Larson_as_Carol_Danvers.jpeg",
          (30, 5, 124)),
@@ -1007,7 +1073,15 @@ LOCAL = {
         ("catwoman", "Catwoman", "feminine",
          WP + "en/d/d7/Michelle_Pfeiffer_as_Catwoman_in_Batman_Returns.jpg",
          (240, 0, 150)),
-        ("wolverine", "Wolverine", "masculine", WP + "commons/d/d5/Hugh_Jackman_as_Wolverine.png", (10, 11, 372)),
+        ("wolverine", "Wolverine", "masculine", WP + "it/8/8d/Wolverine_-_Le_origini.jpg", (375, 0, 533)),
+        # v1.10: fillers up to 27 (film frames from the Italian articles)
+        ("gamora", "Gamora", "feminine", WP + "it/d/d4/GamoraGuardianiDellaGalassiaVol2.jpeg", (330, 20, 450)),
+        ("the-flash", "The Flash", "masculine", WP + "it/b/b4/Barry_Allen_%28DCEU%29.png", (740, 120, 520)),
+        ("nick-fury", "Nick Fury", "masculine", WP + "it/1/13/Nick_Fury_%28MCU%29.png", (1360, 80, 900)),
+        ("wasp", "Wasp", "feminine", WP + "it/2/27/Ant-Man%26WaspMovie.png", (760, 60, 560)),
+        ("ant-man", "Ant-Man", "masculine", WP + "it/e/e4/Ant-Man_film.jpg", (360, 10, 320)),
+        ("shazam", "Shazam", "masculine", WP + "it/5/50/Shazam%21.jpg", (390, 0, 360)),
+        ("hawkeye", "Hawkeye", "masculine", WP + "it/e/eb/Occhio_di_Falco.png", (620, 0, 330)),
     ],
     # Muppets & Sesame Street (18): the ten Muppets moved here from TV series plus eight more puppets.
     # Listed order is the row order (vibe-exempt).
@@ -1099,6 +1173,34 @@ LOCAL = {
         ("snow-leopard", "Snow leopard", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/19/Snow_leopard_portrait.jpg/1920px-Snow_leopard_portrait.jpg",
          (55, 0, 1809)),
+        # v1.10: nine more cute and iconic animals (Commons, the articles' lead photos)
+        ("arctic-fox", "Arctic fox", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Vulpes_lagopus_in_Iceland_%28cropped_3%29.jpg/1920px-Vulpes_lagopus_in_Iceland_%28cropped_3%29.jpg",
+         (450, 200, 1000)),
+        ("quokka", "Quokka", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/Setonix_brachyurus_on_Rottnest_Island_1.jpg/1920px-Setonix_brachyurus_on_Rottnest_Island_1.jpg",
+         (250, 850, 1000)),
+        ("koala", "Cuddly koala", "neutral",
+         WP + "commons/4/49/Koala_climbing_tree.jpg",
+         (240, 0, 640)),
+        ("penguin-chick", "Penguin chick", "neutral",
+         WP + "commons/a/a3/Aptenodytes_forsteri_-Snow_Hill_Island%2C_Antarctica_-adults_and_juvenile-8.jpg",
+         (180, 580, 520)),
+        ("hamster", "Hamster", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6b/Golden_hamster_front_1.jpg/1920px-Golden_hamster_front_1.jpg",
+         (100, 250, 1100)),
+        ("red-squirrel", "Red squirrel", "neutral",
+         WP + "commons/1/1c/Squirrel_posing.jpg",
+         (500, 50, 1000)),
+        ("raccoon", "Raccoon", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Raccoon_in_Central_Park_%2835264%29.jpg/1920px-Raccoon_in_Central_Park_%2835264%29.jpg",
+         (710, 100, 800)),
+        ("bunny", "Bunny", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Oryctolagus_cuniculus_Rcdo.jpg/1920px-Oryctolagus_cuniculus_Rcdo.jpg",
+         (650, 400, 1000)),
+        ("clownfish", "Clownfish", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Amphiprion_ocellaris_%28Clown_anemonefish%29_by_Nick_Hobgood.jpg/1920px-Amphiprion_ocellaris_%28Clown_anemonefish%29_by_Nick_Hobgood.jpg",
+         (250, 150, 1000)),
     ],
     # Space (18): NASA / ESA / EHT images from Commons; listed order is the row order (all "neutral").
     "space": [
@@ -1156,6 +1258,35 @@ LOCAL = {
         ("moonwalk", "Moonwalk", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/98/Aldrin_Apollo_11_original.jpg/1920px-Aldrin_Apollo_11_original.jpg",
          (269, 23, 1382)),
+        # v1.10: Apollo 8 and 11, and the crewed Artemis II lunar flyby (1-10 April 2026; Reid Wiseman, Victor
+        # Glover, Christina Koch, Jeremy Hansen): crew, launch, Orion, and the views from Orion
+        ("earthrise", "Earthrise", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a8/NASA-Apollo8-Dec24-Earthrise.jpg/1920px-NASA-Apollo8-Dec24-Earthrise.jpg",
+         (680, 760, 820)),
+        ("apollo-11-crew", "Apollo 11 crew", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3d/Apollo_11_Crew.jpg/1920px-Apollo_11_Crew.jpg",
+         (220, 0, 1480)),
+        ("artemis-ii-crew", "Artemis II crew", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/Artemis_2_Crew_Portrait_%28cropped%29.jpg/1920px-Artemis_2_Crew_Portrait_%28cropped%29.jpg",
+         (0, 60, 1920)),
+        ("artemis-ii-launch", "Artemis II launch", "neutral",
+         WP + "commons/6/66/Artemis_II_Launch_%28cropped%29.jpg",
+         (0, 360, 1548)),
+        ("orion", "Orion", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/25/Orion_Snaps_a_Selfie_During_External_Inspection.jpg/1920px-Orion_Snaps_a_Selfie_During_External_Inspection.jpg",
+         (690, 100, 1150)),
+        ("earth-from-orion", "Earth from Orion", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/Earth_From_the_Perspective_of_Artemis_II_%28cropped%29.jpg/1920px-Earth_From_the_Perspective_of_Artemis_II_%28cropped%29.jpg",
+         (0, 0, 1905)),
+        ("earthset", "Earthset", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/15/Earthset_%28art002e009288%29.jpg/1920px-Earthset_%28art002e009288%29.jpg",
+         (390, 280, 1000)),
+        ("far-side-of-the-moon", "Far side of the Moon", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/A_New_View_of_the_Moon.jpg/1920px-A_New_View_of_the_Moon.jpg",
+         (370, 100, 1180)),
+        ("eclipse-from-orion", "Eclipse from Orion", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Solar_eclipse_taken_from_Artemis_II_-_April_2026.jpg/1920px-Solar_eclipse_taken_from_Artemis_II_-_April_2026.jpg",
+         (227, 94, 1100)),
     ],
     # Mythology (18): public-domain paintings, prints, codices, tomb paintings and classical sculpture
     # (Commons), cropped to the god or creature.
@@ -1519,6 +1650,20 @@ LATER_V19 = ["ripley", "amelie", "james-bond", "terminator", "chewbacca", "wedne
 # v1.9.1: added to the Lord of the Rings row, colours after all of the above.
 LATER_V191 = ["sauron-armour", "faramir", "mouth-of-sauron", "treebeard", "denethor", "shelob", "witch-king", "celeborn",
               "balrog"]
+# v1.10: avatars added to existing rows and the new Vox Machina row, colours after all of the above.
+LATER_V110 = ["spider-man-tobey", "spider-man-andrew", "gamora", "the-flash", "nick-fury", "wasp", "ant-man", "shazam",
+              "hawkeye", "vexahlia", "trinket", "vaxildan", "keyleth", "percy", "pike", "grog", "scanlan", "lady-kima",
+              "frieren", "fern", "ubel", "flamme", "serie", "marcille", "falin", "izutsumi", "namari", "stark", "himmel",
+              "heiter", "eisen", "sein", "laios", "chilchuck", "senshi", "kabru", "kuro", "teto", "ohmu",
+              "robot-soldier", "kodama", "forest-spirit", "yakul", "soot-sprites", "moro", "valentina-kerman", "ellie",
+              "aloy", "jebediah-kerman", "bill-kerman", "bob-kerman", "riebeck", "anglerfish", "we-were-here-explorer",
+              "arctic-fox", "quokka", "koala", "penguin-chick", "hamster", "red-squirrel", "raccoon", "bunny",
+              "clownfish", "earthrise", "apollo-11-crew", "artemis-ii-crew", "artemis-ii-launch", "orion",
+              "earth-from-orion", "earthset", "far-side-of-the-moon", "eclipse-from-orion"]
+# v1.10: removed on the owner's request; each replacement takes the removed avatar's place and colour
+# (replacement -> removed id).
+REPLACES = {"sherlock": "tenth-doctor", "uss-enterprise": "dalek", "young-hee": "weeping-angel", "barney": "k9",
+            "squid-game-guard": "tribble", "money-heist": "cyberman"}
 # Avatars moved to a v1.9 row keep the colour slot of the row they came from: (old row, index there).
 MOVED = {"hermione": ("movies", 0), "black-widow": ("movies", 7), "spider-man": ("movies", 11),
          "iron-man": ("movies", 17), "groot": ("movies", 24), "miss-piggy": ("tvshows", 6),
@@ -1528,9 +1673,9 @@ MOVED = {"hermione": ("movies", 0), "black-widow": ("movies", 7), "spider-man": 
 # colours (no people), Pokémon (creatures; every entry is "neutral"), Lord of the Rings
 # (the major cast is mostly male), Dinosaurs (animals; every entry is "neutral"); v1.9: Harry
 # Potter, Marvel & DC and Muppets (casts mostly male), Animals, Space and Retro games (all
-# "neutral"), Historic figures (real people, women and men alternate).
+# "neutral"), Historic figures (real people, women and men alternate); v1.10: Vox Machina (the cast).
 FREE_VIBE = {"memes", "colours", "pokemon", "lotr", "dinosaurs", "harrypotter", "heroes", "muppets", "animals",
-             "space", "historic", "retro"}
+             "space", "historic", "retro", "voxmachina"}
 
 
 def pastel(i):
@@ -1664,6 +1809,13 @@ def cutout(src, white=248):
     out = rgb.convert("RGBA"); out.putalpha(alpha)
     return out
 
+def source(url):
+    """Bytes of a local-pack source; "<archive>.zip#<member>" is one file of a downloaded archive."""
+    archive, _, member = url.partition("#")
+    if member and archive.endswith(".zip"):
+        return zipfile.ZipFile(io.BytesIO(get(archive))).read(member)
+    return get(url)
+
 def local_image(aid, url, color, box, opts=None):
     """Fetch a local-pack image and crop it. Returns (tile, square): a source with
     transparency is laid on `color` like an emoji on its square and its box may run
@@ -1671,7 +1823,7 @@ def local_image(aid, url, color, box, opts=None):
     image so the tile colour can never show as a band. opts {"cutout": n} first
     turns a white studio background (channels >= n) transparent, {"exif": True} turns a
     camera photo upright, {"pixel": True} keeps pixel-art sprites sharp."""
-    src = Image.open(io.BytesIO(get(url)))
+    src = Image.open(io.BytesIO(source(url)))
     if opts and opts.get("exif"):
         src = ImageOps.exif_transpose(src)
     src = src.convert("RGBA")
@@ -1711,18 +1863,22 @@ def main():
     color_of = {}
 
     def colour_ids(gid):
-        ids = [i[0] for i in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, []) if i[0] not in MOVED]
+        ids = [REPLACES.get(i[0], i[0]) for i in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, [])
+               if i[0] not in MOVED]
         for aid, (old, k) in sorted(MOVED.items(), key=lambda m: m[1][1]):
             if old == gid:
                 ids.insert(k, aid)
         return ids
-    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19), ([], LATER_V191)):
+    later_all = LATER + LATER_V19 + LATER_V191 + LATER_V110
+    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19), ([], LATER_V191), ([], LATER_V110)):
         for gid in order:
             for aid in colour_ids(gid):
-                if aid not in LATER + LATER_V19 + LATER_V191 and aid not in color_of:
+                if aid not in later_all and aid not in color_of:
                     color_of[aid] = next(colors)
         for aid in later:
             color_of[aid] = next(colors)
+    for new, old in REPLACES.items():
+        color_of[new] = color_of[old]
 
     gallery_json = ROOT / "app" / "gallery.json"
     previous = {e["id"]: e for e in json.loads(gallery_json.read_text())} if gallery_json.exists() else {}
