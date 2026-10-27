@@ -1,5 +1,5 @@
 [Unit]
-Description=Avatar picks to beefy, every 5 minutes (skipped while beefy sleeps)
+Description=Avatar picks to the apps, every 5 minutes (beefy and tower skipped while asleep)
 
 [Timer]
 OnBootSec=3min

@@ -1,5 +1,5 @@
 [Unit]
-Description=Push queued avatar picks to Jellyfin and Seerr on beefy (never wakes it)
+Description=Push queued avatar picks to Jellyfin, Seerr, Home Assistant, Nextcloud (never wakes beefy or tower)
 Documentation=file:///home/pi/Projects/Docker/Avatar-Picker/README.md
 After=network-online.target
 Wants=network-online.target

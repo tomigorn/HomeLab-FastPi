@@ -1,0 +1,9 @@
+[Unit]
+Description=Avatar reconcile once a day in the evening, while beefy is usually up
+
+[Timer]
+OnCalendar=*-*-* 21:47
+Persistent=true
+
+[Install]
+WantedBy=timers.target

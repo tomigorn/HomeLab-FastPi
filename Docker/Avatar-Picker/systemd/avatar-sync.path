@@ -1,5 +1,5 @@
 [Unit]
-Description=Avatar picks to beefy, right after a pick
+Description=Avatar picks to the apps, right after a pick
 
 [Path]
 PathChanged=/home/pi/Projects/Docker/Avatar-Picker/data/queue.json
