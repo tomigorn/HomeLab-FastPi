@@ -1,0 +1,101 @@
+# promtool test rules tests/beefy-power_test.yml
+# 1970-01-01 is winter (CET, UTC+1): 02:00 UTC = 03:00 local. Eval times below are UTC.
+rule_files:
+  - ../rules/weekly-digest.yml
+  - ../rules/beefy-power.yml
+evaluation_interval: 1m
+tests:
+  - name: up 6 h fires, 5 h 59 does not
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0+0x59 1+0x600'
+      - series: 'beefy_idle_busy{reason="conns"}'
+        values: '1+0x660'
+      - series: 'beefy_idle_busy{reason="net"}'
+        values: '0+0x660'
+      - series: 'beefy_idle_info{detail="conn from 192.168.1.50:55512"}'
+        values: '1+0x660'
+    alert_rule_test:
+      - eval_time: 6h58m   # up 5 h 58 min
+        alertname: BeefyAwakeLong
+        exp_alerts: []
+      - eval_time: 6h59m
+        alertname: BeefyAwakeLong
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: beefy
+              job: blackbox-beefy
+            exp_annotations:
+              summary: "beefy has been awake for 6 h"
+              awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
+              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+
+  - name: resolves when beefy goes down
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '1+0x500 0+0x100'
+    alert_rule_test:
+      - eval_time: 6h1m
+        alertname: BeefyAwakeLong
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: beefy
+              job: blackbox-beefy
+            exp_annotations:
+              summary: "beefy has been awake for 6 h"
+              awake_by: "• nothing reported (no idle-watcher metrics, or beefy looks idle)\n"
+              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: nothing reported (no idle-watcher metrics, or beefy looks idle) . Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+      - eval_time: 8h30m
+        alertname: BeefyAwakeLong
+        exp_alerts: []
+
+  - name: not newly fired inside the maintenance window 03:58-04:45 local
+    interval: 1m
+    input_series:
+      # first up sample at 21:00 UTC day 0 = 22:00 local, so 6 h are reached at 03:00 UTC day 1 = 04:00 local
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0+0x1260 1+0x600'
+    alert_rule_test:
+      - eval_time: 26h30m   # 02:30 UTC = 03:30 local, 5 h 30 up
+        alertname: BeefyAwakeLong
+        exp_alerts: []
+      - eval_time: 27h5m    # 03:05 UTC = 04:05 local, 6 h reached but inside the window
+        alertname: BeefyAwakeLong
+        exp_alerts: []
+      - eval_time: 27h44m   # 03:44 UTC = 04:44 local
+        alertname: BeefyAwakeLong
+        exp_alerts: []
+      - eval_time: 27h47m   # 03:47 UTC = 04:47 local, window over
+        alertname: BeefyAwakeLong
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: beefy
+              job: blackbox-beefy
+            exp_annotations:
+              summary: "beefy has been awake for 6 h"
+              awake_by: "• nothing reported (no idle-watcher metrics, or beefy looks idle)\n"
+              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: nothing reported (no idle-watcher metrics, or beefy looks idle) . Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+
+  - name: an alert already firing carries through the window
+    interval: 1m
+    input_series:
+      # first up sample 14:00 UTC day 0, fires from 20:00 UTC (21:00 local)
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0+0x840 1+0x1000'
+    alert_rule_test:
+      - eval_time: 27h5m    # 03:05 UTC = 04:05 local
+        alertname: BeefyAwakeLong
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: beefy
+              job: blackbox-beefy
+            exp_annotations:
+              summary: "beefy has been awake for 6 h"
+              awake_by: "• nothing reported (no idle-watcher metrics, or beefy looks idle)\n"
+              description: "beefy has answered ssh without a break for 6 hours. Kept awake by: nothing reported (no idle-watcher metrics, or beefy looks idle) . Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"

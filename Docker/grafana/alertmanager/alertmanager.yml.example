@@ -90,6 +90,13 @@ route:
     # Informational things (container updates) go to Telegram ONLY. They do not
     # deserve an email — a weekly nag by mail is how people learn to filter alerts
     # into the bin, and then miss a real one.
+    # beefy awake 6 h (prometheus/rules/beefy-power.yml): repeats every 6 h while it stays up, resolved says how long it was awake (tg.beefyawake).
+    - matchers:
+        - alertname="BeefyAwakeLong"
+      receiver: telegram-beefy-awake
+      group_by: ['alertname']
+      repeat_interval: 6h
+
     - matchers:
         - severity="info"
       receiver: telegram
@@ -174,6 +181,14 @@ receivers:
         parse_mode: HTML
         send_resolved: true
         message: '{{ template "tg.message" . }}'
+
+  - name: telegram-beefy-awake
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: true
+        message: '{{ template "tg.beefyawake" . }}'
 
   # Like telegram, without the resolved message (alerts that end on their own).
   - name: telegram-once

@@ -1,0 +1,17 @@
+# promtool test rules tests/beefy-power-dst_test.yml
+# Separate file for its 10-minute evaluation: these eval times lie months after promtool's time 0.
+rule_files:
+  - ../rules/weekly-digest.yml
+  - ../rules/beefy-power.yml
+evaluation_interval: 10m
+tests:
+  - name: summer time shifts the window by an hour
+    interval: 10m
+    input_series:
+      # first up sample 20:00 UTC on 1970-07-01 (day 181), 6 h reached 02:00 UTC = 04:00 CEST (offset 2)
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0+0x26184 1+0x100'
+    alert_rule_test:
+      - eval_time: 4370h30m  # 02:30 UTC = 04:30 CEST: inside the window (with offset 1 it would be 03:30 and fire)
+        alertname: BeefyAwakeLong
+        exp_alerts: []

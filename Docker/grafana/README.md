@@ -95,6 +95,15 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 |---|---|
 | `CloudflaredTunnelDown` | `cloudflared_tunnel_ha_connections < 1` for 5 min (job `cloudflared`, `cloudflared:20241` over the external network `infra__cloudflare_default`, not published on the host); inhibits `CloudflareTunnelDown` and `PublicPathDown`; a dead scrape is `TargetDown` |
 
+## beefy power
+
+`prometheus/rules/beefy-power.yml`, tests `prometheus/tests/beefy-power_test.yml` + `beefy-power-dst_test.yml`. Probe: `blackbox-beefy` (ssh, never wakes it).
+
+| Alert | Fires when |
+|---|---|
+| `BeefyWakeLoop` | > 20 up/down changes in 24 h |
+| `BeefyAwakeLong` | up 6 h in a row (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): repeats every 6 h, resolved says "asleep again (awake ~X h)". Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
+
 ## Media language (beefy)
 
 `prometheus/rules/media-language.yml`, test `prometheus/tests/media-language_test.yml`. Source: beefy `Movie-Downloads/scripts/language-missing.py` → `security_scan.py media` (04:20 pull) → `media_language_beefy.prom`.

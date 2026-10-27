@@ -38,3 +38,14 @@
 <blockquote expandable>{{ range .Alerts.Firing }}{{ .Annotations.description | safeHtml }}
 {{ end }}</blockquote>
 {{- end }}
+
+{{/* BeefyAwakeLong: firing says since when and what holds beefy up; resolved says how long it was up (the alert starts after 6 h, so StartsAt - 6 h is the wake). */}}
+{{ define "tg.beefyawake" -}}
+{{ if eq .Status "resolved" }}{{ range .Alerts }}✅ <b>beefy is asleep again</b> (awake ~{{ printf "%.1f" (.EndsAt.Sub (.StartsAt.Add -21600000000000)).Hours }} h){{ end }}
+{{- else }}{{ range .Alerts.Firing }}🟠 <b>{{ .Annotations.summary }}</b>
+
+📅 awake since {{ (.StartsAt.Add -21600000000000 | tz "Europe/Zurich").Format "Mon 02 Jan 15:04" }}
+{{ .Annotations.awake_by | trimSpace | safeHtml }}
+<blockquote expandable>💡 {{ .Annotations.description | safeHtml }}</blockquote>{{ end }}
+{{- end }}
+{{- end }}
