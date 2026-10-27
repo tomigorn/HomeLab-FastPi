@@ -19,7 +19,7 @@ MEMBERS = {
     "tomigorn-admin": {"homelab-admins", "streaming-admins", "streaming-users", "streaming-requesters", "authentik Admins"},
 }
 MEMBER_MANAGED = set(GROUPS) | {"homelab-admins", "authentik Admins", HOMELAB_USERS}
-REMOVE_EXTRA = False
+REMOVE_EXTRA = True
 
 APP_GROUP = {
     "jellyfin": "streaming-users",

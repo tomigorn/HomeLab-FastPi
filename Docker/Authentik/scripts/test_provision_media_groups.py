@@ -91,8 +91,8 @@ class MembershipTest(unittest.TestCase):
         self.assertEqual(pmg.MEMBERS["tomigorn-admin"], {"homelab-admins", "streaming-admins", "streaming-users",
                                                          "streaming-requesters", "authentik Admins"})
 
-    def test_phase_2a_is_add_only(self):
-        self.assertFalse(pmg.REMOVE_EXTRA)
+    def test_phase_2b_removes_unlisted_groups(self):
+        self.assertTrue(pmg.REMOVE_EXTRA)
 
     def test_2a_adds_admin_and_takes_nothing_away(self):
         plan = pmg.membership_plan({"tomigorn": ALL_SIX, "tomigorn-admin": set()}, remove=False)
