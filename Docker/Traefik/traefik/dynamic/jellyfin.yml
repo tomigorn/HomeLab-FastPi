@@ -133,6 +133,23 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Web client files: File Transformation (Plugin Pages, Home Screen Sections) rewrites them but keeps the
+    # original ETag, so a cached copy revalidates to 304 forever. Cloudflare's edge kept a pre-plugin
+    # main.jellyfin.bundle.js (no userpluginsettings route: "Modular Home" errored for every public user,
+    # LAN was fine) - 2026-10-27. Dropping the conditional request headers makes Jellyfin always send the
+    # current body, so Cloudflare and browsers refresh on their next revalidation.
+    jellyfin-web:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathPrefix(`/web/`)"
+      entryPoints: ["websecure"]
+      priority: 2
+      service: jellyfin
+      middlewares:
+        - jellyfin-wake
+        - jellyfin-web-no-conditional
+        - jellyfin-secure-headers
+      tls:
+        certResolver: cloudflare
+
     jellyfin:
       rule: "Host(`jellyfin.holy-grail.ch`)"
       entryPoints: ["websecure"]
@@ -152,6 +169,12 @@ http:
       forwardAuth:
         address: "http://192.168.1.2:9001/gate?port=8096&policy=jellyfin"
         trustForwardHeader: false
+
+    jellyfin-web-no-conditional:
+      headers:
+        customRequestHeaders:
+          If-None-Match: ""
+          If-Modified-Since: ""
 
     jellyfin-deny-all:
       ipAllowList:
