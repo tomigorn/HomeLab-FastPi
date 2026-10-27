@@ -44,7 +44,7 @@ LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "M
           "animals": "Animals", "space": "Space", "mythology": "Mythology", "historic": "Historic figures",
           "retro": "Retro games", "pirates": "Pirates & knights"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 18, "tvcartoons": 36, "tvshows": 36, "anime": 36,
+SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 36,
          "pokemon": 18, "games": 27, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
          "colours": 18, "harrypotter": 18, "heroes": 18, "muppets": 18, "animals": 18, "space": 18,
          "mythology": 18, "historic": 18, "retro": 9, "pirates": 9}
@@ -64,7 +64,10 @@ CHARACTER_ALIASES = {
     "kermit": "kermit the frog", "oscar-grouch": "oscar the grouch", "count-von-count": "count von count",
     "white-rabbit": "white rabbit (alice)", "peter-rabbit": "peter rabbit",
     "thor": "thor (marvel)", "thor-norse": "thor (norse god)",
+    "sauron": "sauron", "sauron-armour": "sauron",
 }
+# Deliberate exceptions to one character, one row: the owner wants both forms of Sauron (v1.9.1).
+SAME_CHARACTER_PAIRS = {frozenset({"sauron", "sauron-armour"})}
 # Rows of generic, unnamed figures (emoji, generated people, colours): not characters.
 GENERIC_GROUPS = {"illustrated", "flatemoji", "cartoon", "people3d", "pixel", "colours"}
 # Characters that must never appear because another entry already is that character.
@@ -73,9 +76,11 @@ FORBIDDEN_DUPLICATES = {"big chungus", "mickey", "minnie", "pluto", "winnie the 
                         "mithrandir", "gandalf the grey", "gandalf the white"}
 PACK_DIR = {None: "img", "local": "img-local"}
 # Lord of the Rings row: the Fellowship, Bilbo, Arwen, Galadriel, Éowyn, Elrond, Théoden,
-# Gollum, Saruman and Sauron.
+# Gollum, Saruman and Sauron; v1.9.1: Sauron's armoured form and eight more of the major cast.
+LOTR_V191 = {"sauron-armour", "faramir", "mouth-of-sauron", "treebeard", "denethor", "shelob", "witch-king", "celeborn",
+             "balrog"}
 LOTR = {"frodo", "samwise", "merry", "pippin", "gandalf", "aragorn", "legolas", "gimli", "boromir",
-        "bilbo", "arwen", "galadriel", "eowyn", "elrond", "theoden", "gollum", "saruman", "sauron"}
+        "bilbo", "arwen", "galadriel", "eowyn", "elrond", "theoden", "gollum", "saruman", "sauron"} | LOTR_V191
 # LEGO row (v1.7): LEGO minifigures. LEGO versions of characters that also appear in another
 # row are separate avatars, named "LEGO <character>" (their character key is namespaced).
 LEGO = {"wyldstyle", "lego-hermione", "lego-leia", "lego-wonder-woman", "lego-batgirl", "lego-harley-quinn",
@@ -124,6 +129,7 @@ REFILLS = {"ripley": "movies", "amelie": "movies", "james-bond": "movies", "term
            "kitt": "tvshows", "weeping-angel": "tvshows", "k9": "tvshows", "cylon": "tvshows",
            "tribble": "tvshows", "flipper": "tvshows", "cyberman": "tvshows"}
 COLOURS_V18 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.8.0.json")))
+COLOURS_V19 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.9.0.json")))
 # Single additions (v1.7) and the row each one belongs to.
 ADDED = {"dipper-pines": "tvcartoons", "patrick-jane": "tvshows", "pochita": "anime"}
 
@@ -157,7 +163,7 @@ class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
         self.assertEqual(len(GROUPS), 36)
-        self.assertEqual(len(GALLERY), 477 + 144)  # 621
+        self.assertEqual(len(GALLERY), 486 + 144)  # 630
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -198,7 +204,7 @@ class GalleryTest(unittest.TestCase):
             if a["group"] in GENERIC_GROUPS:
                 continue
             k = key(a)
-            if k in seen:
+            if k in seen and frozenset({a["id"], seen[k].split()[0]}) not in SAME_CHARACTER_PAIRS:
                 self.fail(f"{a['id']} ({a['group']}) duplicates {seen[k]}")
             seen[k] = f"{a['id']} ({a['group']})"
             self.assertNotIn(a["name"].lower(), FORBIDDEN_DUPLICATES, a["id"])
@@ -291,6 +297,38 @@ class GalleryTest(unittest.TestCase):
         for a in GALLERY:
             if a["id"] in COLOURS_V18:
                 self.assertEqual(a["color"], COLOURS_V18[a["id"]], a["id"])
+
+    def test_sauron_twice_on_purpose(self):
+        """The owner keeps the Eye of Sauron (same id) and adds the armoured Dark Lord; both are Sauron,
+        allowed only as this one explicit pair, side by side in the Lord of the Rings row."""
+        eye = next(a for a in GALLERY if a["id"] == "sauron")
+        armour = next(a for a in GALLERY if a["id"] == "sauron-armour")
+        self.assertEqual(eye["name"], "Eye of Sauron")
+        self.assertEqual(armour["name"], "Sauron (armour)")
+        self.assertEqual(character_key(eye), character_key(armour))
+        self.assertEqual((eye["group"], armour["group"]), ("lotr", "lotr"))
+        lotr = [a["id"] for a in GALLERY if a["group"] == "lotr"]
+        self.assertEqual(lotr.index("sauron-armour"), lotr.index("sauron") + 1)
+        third = dict(armour, id="sauron-3", name="Sauron (Annatar)")
+        self.assertNotIn(frozenset({third["id"], eye["id"]}), SAME_CHARACTER_PAIRS)
+        self.assertEqual(character_key(third), character_key(eye))
+
+    def test_v191_lotr_additions(self):
+        """v1.9.1 adds nine Lord of the Rings avatars at the end of the row; the first 18 keep their order."""
+        lotr = [a["id"] for a in GALLERY if a["group"] == "lotr"]
+        self.assertEqual(set(lotr[18:]), LOTR_V191)
+        self.assertEqual(lotr[:18], ["frodo", "gandalf", "arwen", "samwise", "aragorn", "galadriel", "gollum",
+                                     "legolas", "eowyn", "gimli", "boromir", "saruman", "merry", "pippin",
+                                     "theoden", "elrond", "bilbo", "sauron"])
+
+    def test_v19_colours_unchanged(self):
+        """The v1.9.1 avatars take new colours; every v1.9.0 avatar keeps its colour, none disappears."""
+        rows = {a["id"]: a["color"] for a in GALLERY}
+        self.assertEqual(set(COLOURS_V19) - set(rows), set())
+        for aid, colour in COLOURS_V19.items():
+            self.assertEqual(rows[aid], colour, aid)
+        new = [rows[aid] for aid in LOTR_V191]
+        self.assertEqual(len(set(new)), len(new))
 
     def test_thor_twice_on_purpose(self):
         """Marvel's Thor and the Norse god are different characters; each has its own key."""

@@ -11,7 +11,7 @@ never appears in two rows (tests/test_gallery.py checks it):
   disney      Disney & Pixar (27)               - LOCAL PACK (see below)
   animated    Animated films, other studios (27) - LOCAL PACK
   movies      Movies, live action (27)          - LOCAL PACK (in-character stills/posters)
-  lotr        Lord of the Rings, the films' major cast (18) - LOCAL PACK (film stills)
+  lotr        Lord of the Rings, the films' major cast (27) - LOCAL PACK (film stills)
   harrypotter Harry Potter, the films' major cast (18) - LOCAL PACK
   heroes      Marvel & DC, live-action heroes (18) - LOCAL PACK
   tvcartoons  Cartoons, animated TV (36)        - LOCAL PACK
@@ -593,9 +593,11 @@ LOCAL = {
         ("chewbacca", "Chewbacca", "neutral", WP + "en/f/f1/Chewbacca.png", (72, -20, 95)),
     ],
     # Lord of the Rings (18): the major cast of Peter Jackson's films (2001-2003), film stills
-    # from the characters' English or Italian Wikipedia articles (Sauron: the Eye on Barad-dur; the only
-    # armoured film still is 352x199 and too dark at avatar size); listed order is the row order
-    # (vibe-exempt). Gandalf is the Grey (hat and staff), the look of most of the story.
+    # from the characters' English or Italian Wikipedia articles; listed order is the row order
+    # (vibe-exempt). Gandalf is the Grey (hat and staff), the look of most of the story. Sauron twice on
+    # purpose (v1.9.1): the Eye on Barad-dur and the armoured Dark Lord (the only armoured film still is
+    # 352x199 and too dark, so a sharp Commons photo of a film-accurate armour costume); then eight more
+    # of the major cast (Italian Wikipedia film frames).
     "lotr": [
         ("frodo", "Frodo", "masculine", WP + "it/d/d6/Il_Signore_degli_Anelli_341.jpg", (281, 0, 530)),
         ("gandalf", "Gandalf", "masculine", WP + "it/f/fb/Gandalf_film.png", (569, 0, 440)),
@@ -616,7 +618,20 @@ LOCAL = {
         ("theoden", "Théoden", "masculine", WP + "en/3/3a/Th%C3%A9oden600ppx.png", (56, 0, 260)),
         ("elrond", "Elrond", "masculine", WP + "it/0/0e/Il_Signore_degli_Anelli_058.jpg", (263, 0, 526)),
         ("bilbo", "Bilbo", "masculine", WP + "en/7/78/Bilbo_Baggins.jpg", (22, 5, 150)),
-        ("sauron", "Sauron", "neutral", WP + "it/c/c3/Il_Signore_degli_Anelli_132.JPG", (255, 35, 330)),
+        ("sauron", "Eye of Sauron", "neutral", WP + "it/c/c3/Il_Signore_degli_Anelli_132.JPG", (255, 35, 330)),
+        ("sauron-armour", "Sauron (armour)", "neutral",
+         "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/"
+         "Sauron_Tolkien_2015_Calgary_Expo_%E2%80%93_Calgary_Comic_%26_Entertainment_Expo_%2816599548683%29.jpg/"
+         "1280px-Sauron_Tolkien_2015_Calgary_Expo_%E2%80%93_Calgary_Comic_%26_Entertainment_Expo_%2816599548683%29.jpg",
+         (128, 0, 1152)),
+        ("faramir", "Faramir", "masculine", WP + "it/c/c0/Il_Signore_degli_Anelli_244.jpg", (560, 0, 460)),
+        ("mouth-of-sauron", "Mouth of Sauron", "masculine", WP + "it/a/a2/Il_Signore_degli_Anelli_317.JPG", (380, 0, 528)),
+        ("treebeard", "Treebeard", "neutral", WP + "it/0/0d/Il_Signore_degli_Anelli_157.jpg", (210, 0, 529)),
+        ("denethor", "Denethor", "masculine", WP + "it/4/45/Il_Signore_degli_Anelli_245.JPG", (335, 0, 529)),
+        ("shelob", "Shelob", "neutral", WP + "it/4/43/Il_Signore_degli_Anelli_291.jpg", (470, 0, 520)),
+        ("witch-king", "Witch-king", "masculine", WP + "it/8/8e/Il_Signore_degli_Anelli_298.jpg", (680, 0, 400)),
+        ("celeborn", "Celeborn", "masculine", WP + "it/d/d6/Il_Signore_degli_Anelli_107.jpg", (400, 0, 480)),
+        ("balrog", "Balrog", "neutral", WP + "it/4/4c/Il_Signore_degli_Anelli_096.JPG", (560, 60, 700)),
     ],
     # Cartoons (27): animated TV characters across eras and studios
     "tvcartoons": [
@@ -1501,6 +1516,9 @@ COLOR_ORDER_V19 = ["harrypotter", "heroes", "muppets", "animals", "space", "myth
                    "pirates"]
 LATER_V19 = ["ripley", "amelie", "james-bond", "terminator", "chewbacca", "wednesday", "mr-bean", "thing",
              "kitt", "weeping-angel", "k9", "cylon", "tribble", "flipper", "cyberman"]
+# v1.9.1: added to the Lord of the Rings row, colours after all of the above.
+LATER_V191 = ["sauron-armour", "faramir", "mouth-of-sauron", "treebeard", "denethor", "shelob", "witch-king", "celeborn",
+              "balrog"]
 # Avatars moved to a v1.9 row keep the colour slot of the row they came from: (old row, index there).
 MOVED = {"hermione": ("movies", 0), "black-widow": ("movies", 7), "spider-man": ("movies", 11),
          "iron-man": ("movies", 17), "groot": ("movies", 24), "miss-piggy": ("tvshows", 6),
@@ -1698,10 +1716,10 @@ def main():
             if old == gid:
                 ids.insert(k, aid)
         return ids
-    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19)):
+    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19), ([], LATER_V191)):
         for gid in order:
             for aid in colour_ids(gid):
-                if aid not in LATER + LATER_V19 and aid not in color_of:
+                if aid not in LATER + LATER_V19 + LATER_V191 and aid not in color_of:
                     color_of[aid] = next(colors)
         for aid in later:
             color_of[aid] = next(colors)

@@ -915,9 +915,90 @@
   },
   {
     "id": "sauron",
-    "name": "Sauron",
+    "name": "Eye of Sauron",
     "file": "sauron.png",
     "color": "#C6E0F1",
+    "group": "lotr",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "sauron-armour",
+    "name": "Sauron (armour)",
+    "file": "sauron-armour.png",
+    "color": "#F1C9C6",
+    "group": "lotr",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "faramir",
+    "name": "Faramir",
+    "file": "faramir.png",
+    "color": "#C6F1D6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "mouth-of-sauron",
+    "name": "Mouth of Sauron",
+    "file": "mouth-of-sauron.png",
+    "color": "#E2C6F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "treebeard",
+    "name": "Treebeard",
+    "file": "treebeard.png",
+    "color": "#F1EFC6",
+    "group": "lotr",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "denethor",
+    "name": "Denethor",
+    "file": "denethor.png",
+    "color": "#C6E6F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "shelob",
+    "name": "Shelob",
+    "file": "shelob.png",
+    "color": "#F1C6DA",
+    "group": "lotr",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "witch-king",
+    "name": "Witch-king",
+    "file": "witch-king.png",
+    "color": "#CDF1C6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "celeborn",
+    "name": "Celeborn",
+    "file": "celeborn.png",
+    "color": "#CBC6F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "balrog",
+    "name": "Balrog",
+    "file": "balrog.png",
+    "color": "#F1D7C6",
     "group": "lotr",
     "vibe": "neutral",
     "pack": "local"
