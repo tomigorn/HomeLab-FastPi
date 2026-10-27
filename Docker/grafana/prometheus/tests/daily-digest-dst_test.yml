@@ -1,0 +1,26 @@
+# promtool test rules tests/daily-digest-dst_test.yml
+# Separate file for its 10-minute evaluation: the eval times lie months after promtool's time 0 (Thursday 1970-01-01 UTC). 1 June 1970 = 151d (CEST, UTC+2).
+rule_files:
+  - ../rules/weekly-digest.yml
+  - ../rules/daily-digest.yml
+evaluation_interval: 10m
+tests:
+  - name: summer 06:30 CEST is 04:30 UTC, an empty day renders every section
+    interval: 10m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0x21800'
+    alert_rule_test:
+      - eval_time: 151d4h20m
+        alertname: DailyDigest
+        exp_alerts: []
+      - eval_time: 151d4h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Daily digest"
+              description: "📅 1970-06-01 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• none\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• none\n\n<b>🛡️ New fixable CVEs</b>\n• none\n\n<b>📦 Auto-updates</b>\n• no run in the last 24 h\n\n<b>💤 Awake</b> (24 h) · beefy 0.0 h\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
+      - eval_time: 151d5h
+        alertname: DailyDigest
+        exp_alerts: []

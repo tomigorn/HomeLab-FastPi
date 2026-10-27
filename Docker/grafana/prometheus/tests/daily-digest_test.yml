@@ -1,0 +1,95 @@
+# promtool test rules tests/daily-digest_test.yml
+# promtool time 0 is Thursday 1970-01-01 00:00 UTC (CET, UTC+1): 06:30 local on 2 January = 1d5h30m. 1 June (CEST, UTC+2) = 151d, 06:30 local = 151d4h30m.
+rule_files:
+  - ../rules/weekly-digest.yml
+  - ../rules/daily-digest.yml
+evaluation_interval: 1m
+tests:
+  - name: winter 06:30 CET, realistic day, lists capped
+    interval: 1m
+    input_series:
+      - series: 'ALERTS{alertstate="firing",alertname="SecurityScanFailing",notify="digest",severity="warning",subject="cup-fastpi"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="SecurityScanFailing",notify="digest",severity="warning",subject="cup-beefy"}'
+        values: '1x600'
+      - series: 'ALERTS{alertstate="firing",alertname="SecurityScanFailing",notify="digest",severity="warning",subject="logins-tower"}'
+        values: '1x600'
+      - series: 'ALERTS{alertstate="firing",alertname="SshLoginOutsideLan",notify="digest",severity="warning",host="fastpi",user="pi",source_class="vpn"}'
+        values: '_x1000 1x60'
+      - series: 'ALERTS{alertstate="firing",alertname="HostRebooted",notify="digest",severity="info",job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '_x1200 1x360'
+      - series: 'ALERTS{alertstate="firing",alertname="AutoUpdateNightly",notify="digest",severity="info",host="fastpi"}'
+        values: '_x1560 1x60'
+      - series: 'ALERTS{alertstate="firing",alertname="NewFixableImageVulnerability",notify="digest",severity="info",id="CVE-2026-1"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="CriticalImageVulnerabilities",notify="weekly",severity="info",host="fastpi"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="DeadMansSwitch",severity="deadman"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="ContainerCrashLooping",severity="warning",name="authentik-server",project="authentik"}'
+        values: '_x1400 1x20'
+      - series: 'ALERTS{alertstate="pending",alertname="ContainerDown",severity="warning",name="x"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="BeefyWakeLoop",severity="warning",job="blackbox-beefy",instance="beefy"}'
+        values: '1x1800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="grafana/grafana:13.2.4",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="grafana/grafana:13.2.4",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/duckdns:latest",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/duckdns:latest",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/bazarr@sha256:946dc8c5bb53",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/bazarr@sha256:946dc8c5bb53",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="ghcr.io/home-assistant/home-assistant:stable",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="ghcr.io/home-assistant/home-assistant:stable",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="nginxinc/nginx-unprivileged:alpine",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="fastpi",image="nginxinc/nginx-unprivileged:alpine",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="beefy",image="influxdb:2.9.1",id="CVE-2026-84782",pkg="openssl",severity="CRITICAL"}'
+        values: '_x1000 1x800'
+      - series: 'security_new_vuln_info{scope="beefy",image="old:1",id="CVE-2025-1",pkg="zlib",severity="HIGH"}'
+        values: '1x100 0x1700'
+      - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
+        values: '94200x1800'
+      - series: 'auto_update_last_run_timestamp_seconds{host="beefy"}'
+        values: '97920x1800'
+      - series: 'auto_update_result{host="fastpi",project="Grafana",result="updated"}'
+        values: '1x1800'
+      - series: 'auto_update_result{host="fastpi",project="Seerr",result="waiting"}'
+        values: '1x1800'
+      - series: 'auto_update_result{host="fastpi",project="Traefik",result="major_held"}'
+        values: '1x1800'
+      - series: 'auto_update_result{host="fastpi",project="Caddy",result="current"}'
+        values: '1x1800'
+      - series: 'auto_update_result{host="beefy",project="Jellyfin",result="current"}'
+        values: '1x1800'
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0x1080 1x360 0x359'
+      - series: 'probe_success{job="blackbox-tower",instance="192.168.1.101:22"}'
+        values: '0x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="guard_removed",app="radarr",title="Wrong Film & Co (2024)"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="stalled",app="sonarr",title="Old Show S01E01"}'
+        values: '12000x1800'
+    alert_rule_test:
+      - eval_time: 1d5h29m
+        alertname: DailyDigest
+        exp_alerts: []
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Daily digest"
+              description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• ✔️ <b>HostRebooted</b> · node-exporter:9100\n• ⏳ <b>SecurityScanFailing</b> ×3 · cup-beefy, cup-fastpi …\n• ✔️ <b>SshLoginOutsideLan</b> · fastpi via vpn\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• ⏳ <b>BeefyWakeLoop</b> · beefy\n• ✔️ <b>ContainerCrashLooping</b> · authentik-server\n\n<b>🛡️ New fixable CVEs</b>\n• <b>CVE-2026-84782</b> CRITICAL · openssl · 1 image: influxdb:2.9.1\n• <b>CVE-2026-92392</b> HIGH · curl, libcurl · 5 images: home-assistant:stable, grafana:13.2.4, bazarr …\n\n<b>📦 Auto-updates</b>\n• beefy: nothing changed\n• fastpi: ✅ Grafana, ✋ Traefik · ⏳ 1 waiting\n\n<b>💤 Awake</b> (24 h) · beefy 6.0 h · tower 0.0 h\n\n<b>🎬 Downloads</b> (beefy, handled automatically)\n• wrong release removed · Wrong Film &amp; Co (2024)\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
+      - eval_time: 1d6h
+        alertname: DailyDigest
+        exp_alerts: []
+

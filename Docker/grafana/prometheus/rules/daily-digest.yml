@@ -1,0 +1,45 @@
+# Daily digest: one Telegram message at 06:30 local time with everything that does not page. Tests: prometheus/tests/daily-digest_test.yml
+# Alerts labelled notify: digest are routed to a null receiver (alertmanager.yml) and only show up here; non-critical alerts muted by the 22:00-07:00 quiet hours show up here too.
+# Alertmanager routes it to telegram-digest (no resolved message, no quiet hours); it fires 06:30-06:59, so each day is a new notification. Local time comes from homelab:local_utc_offset_hours (weekly-digest.yml).
+# Lists are capped (8 digest alerts, 6 others, 5 CVEs, 6 projects per host, 5 download events) to stay under Telegram's 4096 characters.
+groups:
+  - name: daily-digest
+    rules:
+      - alert: DailyDigest
+        expr: |-
+          vector(1)
+            and on() (hour(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) == 6)
+            and on() (minute(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) >= 30)
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Daily digest"
+          description: |-
+            📅 {{ with query "vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))" }}{{ . | first | value | humanizeTimestamp | reReplaceAll " .*" "" }}{{ end }} · last 24 h · ⏳ still firing, ✔️ cleared
+
+            <b>🔕 Digest only</b>{{ range $i, $a := query `count by (alertname) (max_over_time(ALERTS{alertstate="firing",notify="digest",alertname!~"AutoUpdateNightly|NewFixableImageVulnerability"}[24h]))` | sortByLabel "alertname" }}{{ if lt $i 8 }}{{ $n := $a.Labels.alertname }}
+            • {{ if query (printf `ALERTS{alertstate="firing",alertname="%s"}` $n) }}⏳{{ else }}✔️{{ end }} <b>{{ $n }}</b>{{ if gt $a.Value 1.0 }} ×{{ $a.Value }}{{ end }} · {{ range $j, $s := query (printf `max_over_time(ALERTS{alertstate="firing",alertname="%s"}[24h])` $n) | sortByLabel "subject" | sortByLabel "name" | sortByLabel "host" }}{{ if lt $j 2 }}{{ if $j }}, {{ end }}{{ or $s.Labels.name $s.Labels.subject $s.Labels.title $s.Labels.host $s.Labels.instance | reReplaceAll "^(.{30}).+$" "$1…" | html }}{{ if $s.Labels.source_class }} via {{ $s.Labels.source_class }}{{ end }}{{ end }}{{ end }}{{ if gt $a.Value 2.0 }} …{{ end }}{{ end }}{{ else }}
+            • none{{ end }}{{ with query `count(count by (alertname) (max_over_time(ALERTS{alertstate="firing",notify="digest",alertname!~"AutoUpdateNightly|NewFixableImageVulnerability"}[24h])))` }}{{ if gt (. | first | value) 8.0 }}
+            • … {{ . | first | value }} alert types in total{{ end }}{{ end }}
+
+            <b>🔔 Other alerts</b> (sent, or muted overnight){{ range $i, $a := query `count by (alertname) (max_over_time(ALERTS{alertstate="firing",notify="",severity=~"critical|warning|info",alertname!~"DailyDigest|WeeklyUpdateDigest"}[24h]))` | sortByLabel "alertname" }}{{ if lt $i 6 }}{{ $n := $a.Labels.alertname }}
+            • {{ if query (printf `ALERTS{alertstate="firing",alertname="%s"}` $n) }}⏳{{ else }}✔️{{ end }} <b>{{ $n }}</b>{{ if gt $a.Value 1.0 }} ×{{ $a.Value }}{{ end }} · {{ range $j, $s := query (printf `max_over_time(ALERTS{alertstate="firing",alertname="%s"}[24h])` $n) | sortByLabel "subject" | sortByLabel "name" | sortByLabel "host" }}{{ if lt $j 2 }}{{ if $j }}, {{ end }}{{ or $s.Labels.name $s.Labels.subject $s.Labels.title $s.Labels.host $s.Labels.instance | reReplaceAll "^(.{30}).+$" "$1…" | html }}{{ if $s.Labels.source_class }} via {{ $s.Labels.source_class }}{{ end }}{{ end }}{{ end }}{{ if gt $a.Value 2.0 }} …{{ end }}{{ end }}{{ else }}
+            • none{{ end }}{{ with query `count(count by (alertname) (max_over_time(ALERTS{alertstate="firing",notify="",severity=~"critical|warning|info",alertname!~"DailyDigest|WeeklyUpdateDigest"}[24h])))` }}{{ if gt (. | first | value) 6.0 }}
+            • … {{ . | first | value }} alert types in total{{ end }}{{ end }}
+
+            <b>🛡️ New fixable CVEs</b>{{ range $i, $v := query `count by (id, severity) (max_over_time(security_new_vuln_info[24h]) == 1)` | sortByLabel "id" | sortByLabel "severity" }}{{ if lt $i 5 }}{{ $id := $v.Labels.id }}
+            • <b>{{ $id | html }}</b> {{ $v.Labels.severity }} · {{ range $j, $p := query (printf `count by (pkg) (max_over_time(security_new_vuln_info{id="%s"}[24h]) == 1)` $id) | sortByLabel "pkg" }}{{ if lt $j 3 }}{{ if $j }}, {{ end }}{{ $p.Labels.pkg | html }}{{ end }}{{ end }} · {{ with query (printf `count(count by (image) (max_over_time(security_new_vuln_info{id="%s"}[24h]) == 1))` $id) }}{{ $c := . | first | value }}{{ $c }} image{{ if gt $c 1.0 }}s{{ end }}: {{ range $j, $m := query (printf `count by (image) (max_over_time(security_new_vuln_info{id="%s"}[24h]) == 1)` $id) | sortByLabel "image" }}{{ if lt $j 3 }}{{ if $j }}, {{ end }}{{ $m.Labels.image | reReplaceAll "@sha256:.*" "" | reReplaceAll "^.*/" "" | html }}{{ end }}{{ end }}{{ if gt $c 3.0 }} …{{ end }}{{ end }}{{ end }}{{ else }}
+            • none{{ end }}{{ with query `count(count by (id) (max_over_time(security_new_vuln_info[24h]) == 1))` }}{{ if gt (. | first | value) 5.0 }}
+            • … {{ . | first | value }} CVEs in total{{ end }}{{ end }}
+
+            <b>📦 Auto-updates</b>{{ range query `auto_update_last_run_timestamp_seconds > time() - 86400` | sortByLabel "host" }}{{ $h := .Labels.host }}
+            • {{ $h }}: {{ range $j, $r := query (printf `auto_update_result{host="%s",result!~"current|local_build|waiting"} == 1` $h) | sortByLabel "project" }}{{ if lt $j 6 }}{{ if $j }}, {{ end }}{{ if eq $r.Labels.result "updated" }}✅{{ else if eq $r.Labels.result "available" }}📦{{ else if eq $r.Labels.result "rolled_back" }}↩️{{ else if eq $r.Labels.result "rollback_failed" }}🔴{{ else if eq $r.Labels.result "error" }}❌{{ else if eq $r.Labels.result "major_held" }}✋{{ else if eq $r.Labels.result "held_back" }}⏸️{{ else if eq $r.Labels.result "skipped" }}⏭️{{ else }}⏳{{ end }} {{ $r.Labels.project }}{{ end }}{{ end }}{{ with query (printf `count(auto_update_result{host="%s",result!~"current|local_build|waiting"} == 1) > 6` $h) }} …{{ end }}{{ with query (printf `count(auto_update_result{host="%s",result!~"current|local_build|waiting"} == 1)` $h) }}{{ else }}nothing changed{{ end }}{{ with query (printf `count(auto_update_result{host="%s",result="waiting"} == 1)` $h) }} · ⏳ {{ . | first | value }} waiting{{ end }}{{ else }}
+            • no run in the last 24 h{{ end }}
+
+            <b>💤 Awake</b> (24 h){{ range query `avg_over_time(probe_success{job=~"blackbox-beefy|blackbox-tower"}[24h]) * 24` | sortByLabel "job" }} · {{ .Labels.job | reReplaceAll "blackbox-" "" }} {{ .Value | printf "%.1f" }} h{{ end }}{{ with query `beefy_watchdog_event_timestamp_seconds > time() - 86400` }}
+
+            <b>🎬 Downloads</b> (beefy, handled automatically){{ range $i, $e := . | sortByLabel "title" | sortByLabel "kind" }}{{ if lt $i 5 }}
+            • {{ if eq $e.Labels.kind "guard_removed" }}wrong release removed{{ else if eq $e.Labels.kind "failed" }}failed, re-searching{{ else if eq $e.Labels.kind "stalled" }}stalled, re-searching{{ else if eq $e.Labels.kind "indexer_recovered" }}indexers back{{ else }}{{ $e.Labels.kind }}{{ end }} · {{ $e.Labels.title | reReplaceAll "^(.{40}).+$" "$1…" | html }}{{ end }}{{ end }}{{ if gt (len .) 5 }}
+            • … {{ len . }} events in total{{ end }}{{ end }}
+            <blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>
