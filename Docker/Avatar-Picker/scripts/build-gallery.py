@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (27 rows, each a multiple of 9 avatars,
+"""One-off: build the avatar gallery (36 rows, each a multiple of 9 avatars,
 human-made art only, no AI art).
 
 Rows, in order (every row holds equal numbers of feminine, masculine and neutral
 avatars; the `vibe` field is only used to interleave them f, m, n, ... so each
-row looks mixed - the memes, colours, Pokemon, Lord of the Rings and Dinosaurs rows are exempt). One character
+row looks mixed - the memes, colours, Pokemon, Lord of the Rings, Dinosaurs, Harry Potter, Marvel & DC,
+Muppets, Animals, Space, Historic figures and Retro games rows are exempt). One character
 never appears in two rows (tests/test_gallery.py checks it):
 
   disney      Disney & Pixar (27)               - LOCAL PACK (see below)
   animated    Animated films, other studios (27) - LOCAL PACK
   movies      Movies, live action (27)          - LOCAL PACK (in-character stills/posters)
   lotr        Lord of the Rings, the films' major cast (18) - LOCAL PACK (film stills)
+  harrypotter Harry Potter, the films' major cast (18) - LOCAL PACK
+  heroes      Marvel & DC, live-action heroes (18) - LOCAL PACK
   tvcartoons  Cartoons, animated TV (36)        - LOCAL PACK
-  tvshows     TV series, live action + puppets (36) - LOCAL PACK
+  tvshows     TV series, live action (36)       - LOCAL PACK
+  muppets     Muppets & Sesame Street (18)      - LOCAL PACK
   anime       Anime (36)                        - LOCAL PACK
   pokemon     Pokemon (18, all "neutral")       - LOCAL PACK
   games       Video games (27)                  - LOCAL PACK
+  retro       Retro games (9, all "neutral")    - LOCAL PACK
   mario       Super Mario (18)                  - LOCAL PACK
   lego        LEGO minifigures (18)             - LOCAL PACK (BrickLink catalogue photos, cut out)
   dinosaurs   Dinosaurs (18, all "neutral")     - LOCAL PACK (TotalDino paleoart, Commons CC BY / CC BY-SA / CC0)
+  animals     Animals, real photos (18, all "neutral") - LOCAL PACK (Commons)
+  space       Space, NASA / ESA images (18, all "neutral") - LOCAL PACK (Commons)
   storybook   original period storybook art (Tenniel, Potter, Busch, Hoffmann)
   illustrated DiceBear "adventurer" / "lorelei"
   flatemoji   Google Noto Emoji (Apache 2.0), centred on a soft square (18)
   paintings   famous public-domain paintings, cropped to the face/subject (18)
+  mythology   Mythology, public-domain art and sculpture (18) - LOCAL PACK (Commons)
+  historic    Historic figures, period portraits and photos (18) - LOCAL PACK (Commons)
+  pirates     Pirates & knights, period engravings and paintings (9) - LOCAL PACK (Commons)
   memes       Memes - animals and drawn characters only (18) - LOCAL PACK
   cartoon     DiceBear "avataaars" / "open-peeps" / "notionists"
   ukiyoe      Japanese woodblock prints (Utamaro, Sharaku, Hokusai, Hiroshige)
@@ -40,7 +50,7 @@ Local pack: the pop-culture rows are third-party copyrighted character art.
 They are written to app/img-local/ (gitignored: the repo is public) and marked
 "pack": "local" in gallery.json; the picker hides any entry whose image is
 missing, so a fresh clone works without them. Re-fetch them with
-`--only disney,animated,movies,lotr,tvcartoons,tvshows,anime,pokemon,games,mario,lego,dinosaurs,memes`. Their source URLs are listed in
+`--only disney,animated,movies,lotr,harrypotter,heroes,tvcartoons,tvshows,muppets,anime,pokemon,games,retro,mario,lego,dinosaurs,animals,space,mythology,historic,pirates,memes`. Their source URLs are listed in
 LOCAL below and in LICENSES.md.
 
 All Commons rows except `classics` use original period artwork whose artist
@@ -67,7 +77,7 @@ only images that do not exist yet (delete one to re-render it). Needs Pillow (de
 """
 import colorsys, hashlib, io, json, os, pathlib, sys, time
 import urllib.error, urllib.parse, urllib.request
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image, ImageChops, ImageFilter, ImageOps
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 UA = "HomelabAvatarGallery/1.5 (private non-commercial gallery build)"
@@ -87,18 +97,27 @@ GROUPS = [
     ("animated", "Animated films"),
     ("movies", "Movies"),
     ("lotr", "Lord of the Rings"),
+    ("harrypotter", "Harry Potter"),
+    ("heroes", "Marvel & DC"),
     ("tvcartoons", "Cartoons"),
     ("tvshows", "TV series"),
+    ("muppets", "Muppets & Sesame Street"),
     ("anime", "Anime"),
     ("pokemon", "Pokémon"),
     ("games", "Video games"),
+    ("retro", "Retro games"),
     ("mario", "Super Mario"),
     ("lego", "LEGO"),
     ("dinosaurs", "Dinosaurs"),
+    ("animals", "Animals"),
+    ("space", "Space"),
     ("storybook", "Classic storybook"),
     ("illustrated", "Illustrated people"),
     ("flatemoji", "Flat emoji"),
     ("paintings", "Art classics"),
+    ("mythology", "Mythology"),
+    ("historic", "Historic figures"),
+    ("pirates", "Pirates & knights"),
     ("memes", "Memes"),
     ("cartoon", "Cartoon & sketch"),
     ("ukiyoe", "Japanese woodblock"),
@@ -510,7 +529,6 @@ LOCAL = {
     ],
     # Movies (27): live-action film characters, in-character stills/posters/infobox images (no candid photos)
     "movies": [
-        ("hermione", "Hermione", "feminine", WP + "en/d/d3/Hermione_Granger_poster.jpg", (55, 1, 136)),
         ("mary-poppins", "Mary Poppins", "feminine",
          WP + "commons/8/84/Mary_Poppins_screen_2_%28cropped%29.jpg",
          (65, 154, 405)),
@@ -523,9 +541,6 @@ LOCAL = {
         ("trinity", "Trinity", "feminine", WP + "en/7/7a/MatrixTrinity.jpg", (62, 15, 100)),
         ("matilda", "Matilda", "feminine", WP + "en/3/39/Matilda-Mara-Wilson.webp", (75, 36, 201)),
         ("elle-woods", "Elle Woods", "feminine", WP + "en/0/00/Elle_Woods.jpg", (58, 17, 173)),
-        ("black-widow", "Black Widow", "feminine",
-         WP + "en/f/f6/Scarlett_Johansson_as_Black_Widow.jpg",
-         (65, 5, 135)),
         ("katniss", "Katniss", "feminine",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Katniss_Everdeen_%28Jennifer_Lawrence%29_figure_at_Madame_Tussauds_London_%2831139647115%29.jpg/1280px-Katniss_Everdeen_%28Jennifer_Lawrence%29_figure_at_Madame_Tussauds_London_%2831139647115%29.jpg",
          (416, 32, 448)),
@@ -533,9 +548,6 @@ LOCAL = {
          WP + "en/0/0b/Darth_Vader_in_The_Empire_Strikes_Back.jpg",
          (71, 0, 174)),
         ("yoda", "Yoda", "masculine", WP + "en/9/9b/Yoda_Empire_Strikes_Back.png", (0, 0, 250)),
-        ("spider-man", "Spider-Man", "masculine",
-         WP + "en/0/0f/Tom_Holland_as_Spider-Man.jpg",
-         (62, 10, 115)),
         ("indiana-jones", "Indiana Jones", "masculine",
          WP + "en/1/10/Indiana_Jones_and_the_Temple_of_Doom_PosterB.jpg",
          (76, 86, 127)),
@@ -547,9 +559,6 @@ LOCAL = {
          (67, 33, 201)),
         ("han-solo", "Han Solo", "masculine", WP + "en/c/c9/Han_Solo_with_Blaster.jpg", (20, 0, 175)),
         ("neo", "Neo", "masculine", WP + "en/c/c6/NeoTheMatrix.jpg", (68, 38, 138)),
-        ("iron-man", "Iron Man", "masculine",
-         WP + "en/0/02/Iron_Man_%282008_film%29_poster.jpg",
-         (0, 3, 156)),
         ("slimer", "Slimer", "neutral",
          WP + "en/7/7c/Slimer_%28Ghostbusters_1984_film_character%29.png",
          (15, -32, 270)),
@@ -568,11 +577,20 @@ LOCAL = {
         ("king-kong", "King Kong", "neutral",
          WP + "commons/3/30/King_Kong_1933_Promotional_Image.png",
          (284, 20, 230)),
-        ("groot", "Groot", "neutral", WP + "en/3/3b/Groot.png", (26, 0, 203)),
         ("stay-puft", "Stay Puft", "neutral",
          WP + "en/0/01/Mr._Stay-Puft_Marshmallow_Man.png",
          (40, -1, 188)),
         ("lassie", "Lassie", "neutral", WP + "commons/4/4e/Lassie.jpg", (222, 144, 300)),
+        # v1.9: Hermione and the heroes moved to their own rows; these keep the row at 27
+        ("ripley", "Ripley", "feminine", WP + "en/1/17/Ellen_ripley.jpg", (75, 0, 115)),
+        ("amelie", "Amélie", "feminine", WP + "en/5/53/Amelie_poster.jpg", (36, 43, 213)),
+        ("james-bond", "James Bond", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Sean_Connery_as_James_Bond_at_Switzerland_1964_%28two_thirds_crop%29.jpg/1280px-Sean_Connery_as_James_Bond_at_Switzerland_1964_%28two_thirds_crop%29.jpg",
+         (0, 244, 1280)),
+        ("terminator", "Terminator", "masculine",
+         WP + "en/d/d6/T-800_Model_101_%28Arnold_Schwarzenegger%29_T2_1991_cutout.png",
+         (40, -10, 95)),
+        ("chewbacca", "Chewbacca", "neutral", WP + "en/f/f1/Chewbacca.png", (72, -20, 95)),
     ],
     # Lord of the Rings (18): the major cast of Peter Jackson's films (2001-2003), film stills
     # from the characters' English or Italian Wikipedia articles (Sauron: the Eye on Barad-dur; the only
@@ -669,14 +687,10 @@ LOCAL = {
          (173, 17, 151)),
         ("buffy", "Buffy", "feminine", WP + "en/a/a2/S514_Buffy.png", (56, 15, 187)),
         ("scully", "Scully", "feminine", WP + "en/7/7c/Scully2016.png", (60, 18, 148)),
-        ("miss-piggy", "Miss Piggy", "feminine", WP + "it/9/9f/Miss_Piggy.jpeg", (430, 0, 560)),
         ("janeway", "Janeway", "feminine",
          WP + "en/4/43/Kathryn_Janeway_season_7_publicity_photo.jpg",
          (71, 24, 142)),
         ("lorelai", "Lorelai", "feminine", WP + "en/c/c6/LorelaiGilmore.jpg", (73, 20, 147)),
-        ("kermit", "Kermit", "masculine",
-         WP + "commons/thumb/7/74/Kermit_puppet.jpg/1280px-Kermit_puppet.jpg",
-         (384, 85, 512)),
         ("walter-white", "Walter White", "masculine", WP + "en/0/03/Walter_White_S5B.png", (34, 7, 205)),
         ("sheldon-cooper", "Sheldon", "masculine",
          WP + "en/f/f7/Sheldon_and_Young_Sheldon.jpg",
@@ -691,20 +705,7 @@ LOCAL = {
         ("ted-lasso", "Ted Lasso", "masculine", WP + "en/2/21/Jason_Sudeikis_as_Ted_Lasso.jpg", (53, 1, 133)),
         ("jon-snow", "Jon Snow", "masculine", WP + "en/3/30/Jon_Snow_Season_8.png", (55, 30, 150)),
         ("mandalorian", "The Mandalorian", "masculine", WP + "en/a/a1/TheMandalorian.jpg", (90, 15, 130)),
-        ("elmo", "Elmo", "neutral",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Season_3_introduces_one_of_Sesame_Street%27s_original_character_Elmo_%284313578924%29.jpg/1920px-Season_3_introduces_one_of_Sesame_Street%27s_original_character_Elmo_%284313578924%29.jpg",
-         (682, 288, 576)),
         ("grogu", "Grogu", "neutral", WP + "en/a/a0/Grogu_%28Star_Wars%29.jpg", (25, 0, 260)),
-        ("animal-muppet", "Animal", "neutral", WP + "en/e/e7/Animal_%28Muppet%29.jpg", (17, 0, 173)),
-        ("big-bird", "Big Bird", "neutral",
-         WP + "commons/5/5a/LBJ_Foundation_DIG14086-057_%2835105588940%29.jpg",
-         (70, 0, 1257)),
-        ("oscar-grouch", "Oscar the Grouch", "neutral",
-         "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/LBJ_Foundation_DIG14086-069_%2834650875314%29.jpg/1280px-LBJ_Foundation_DIG14086-069_%2834650875314%29.jpg",
-         (330, 60, 620)),
-        ("count-von-count", "The Count", "neutral",
-         WP + "en/2/29/Count_von_Count_kneeling.png",
-         (66, -3, 162)),
         ("tardis", "TARDIS", "neutral", WP + "commons/1/1a/Tardis_in_Snow.jpg", (30, 31, 543)),
         ("dalek", "Dalek", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Cardiff_Bay_-_Dalek_-_geograph.org.uk_-_5253753.jpg/1280px-Cardiff_Bay_-_Dalek_-_geograph.org.uk_-_5253753.jpg",
@@ -717,9 +718,25 @@ LOCAL = {
         ("patrick-jane", "Patrick Jane", "masculine", WP + "en/3/37/Patrick_Jane.jpg", (40, 15, 170)),
         ("tenth-doctor", "The Doctor", "masculine", WP + "en/2/21/Tenth_Doctor_%28Doctor_Who%29.jpg", (55, 32, 160)),
         ("michael-scott", "Michael Scott", "masculine", WP + "en/d/dc/MichaelScott.png", (65, 10, 135)),
-        ("fozzie", "Fozzie", "neutral", WP + "commons/0/09/Fozzie_Bear_puppet_in_1979.jpg", (150, 50, 300)),
-        ("beaker", "Beaker", "neutral", WP + "commons/6/67/Beaker_Muppets.png", (20, 0, 280)),
-        ("rowlf", "Rowlf", "neutral", WP + "commons/9/91/Rowlf_the_Dog.png", (55, 0, 360)),
+        # v1.9: the Muppets moved to their own row; these keep the row at 36
+        ("wednesday", "Wednesday", "feminine", WP + "en/d/d1/Wednesday_Addams_%282022%29.png", (20, 0, 252)),
+        ("mr-bean", "Mr. Bean", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Polonia_Wax_Museum_Krak%C3%B3w_-_Mr._Bean_and_Olaf.jpg/1280px-Polonia_Wax_Museum_Krak%C3%B3w_-_Mr._Bean_and_Olaf.jpg",
+         (600, 30, 480)),
+        ("thing", "Thing", "neutral", WP + "en/d/d0/Thing_%28The_Addams_Family%29.gif", (100, 0, 224)),
+        ("kitt", "KITT", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fb/KITT_at_Universal_Studios%2C_original_uncropped_version.jpg/1920px-KITT_at_Universal_Studios%2C_original_uncropped_version.jpg",
+         (377, 129, 1166)),
+        ("weeping-angel", "Weeping Angel", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Weeping_Angel.jpg/1280px-Weeping_Angel.jpg",
+         (192, 109, 896)),
+        ("k9", "K9", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Doctor_Who_Experience_%288105526993%29.jpg/1280px-Doctor_Who_Experience_%288105526993%29.jpg",
+         (0, 100, 850)),
+        ("cylon", "Cylon", "neutral", WP + "en/3/3f/BSG_-_Cylon_Centurion_%282004_series%29.jpg", (0, 0, 280)),
+        ("tribble", "Tribble", "neutral", WP + "en/5/50/ST_TroubleWithTribbles.jpg", (0, 80, 190)),
+        ("flipper", "Flipper", "neutral", WP + "commons/4/4d/Flipper_The_Dolphin_1968.jpg", (159, 135, 410)),
+        ("cyberman", "Cyberman", "neutral", "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/Cyber-Warrior.jpg/1280px-Cyber-Warrior.jpg", (300, 150, 700)),
     ],
     # Anime (27)
     "anime": [
@@ -907,6 +924,394 @@ LOCAL = {
         ("lego-stormtrooper", "LEGO Stormtrooper", "neutral", BRICKLINK + "sw0585.png", (41, 0, 159), CUT),
         ("lego-skeleton", "LEGO Skeleton", "neutral", BRICKLINK + "gen004.png", (28, -6, 206), CUT),
     ],
+    # Harry Potter (18): the films' major cast, film stills from the characters' English or Italian
+    # Wikipedia articles; Dobby (studio prop) and Hedwig (studio owl) from Commons photos. Hermione
+    # moved here from Movies. Listed order is the row order (vibe-exempt: the cast is mostly male).
+    "harrypotter": [
+        ("harry-potter", "Harry Potter", "masculine", WP + "it/5/5b/Harry_Potter_PMS.jpg", (160, 0, 403)),
+        ("hermione", "Hermione", "feminine", WP + "en/d/d3/Hermione_Granger_poster.jpg", (55, 1, 136)),
+        ("ron-weasley", "Ron", "masculine", WP + "en/5/5e/Ron_Weasley_poster.jpg", (7, 0, 266)),
+        ("dumbledore", "Dumbledore", "masculine", WP + "en/e/e8/Dumbledore_-_Prisoner_of_Azkaban.jpg", (0, 16, 232)),
+        ("hagrid", "Hagrid", "masculine", WP + "it/c/cd/Rubeus_Hagrid.jpg", (470, 0, 549)),
+        ("snape", "Snape", "masculine", WP + "en/b/b9/Ootp076.jpg", (34, 0, 170)),
+        ("mcgonagall", "McGonagall", "feminine", WP + "en/e/ea/McGonagall_%28screenshot%29.jpg", (38, 8, 197)),
+        ("voldemort", "Voldemort", "masculine", WP + "en/2/2a/Voldemort_book_and_film.jpg", (268, 0, 199)),
+        ("dobby", "Dobby", "neutral", WP + "commons/9/9b/Dobby_2.jpg", (80, 0, 800)),
+        ("luna-lovegood", "Luna Lovegood", "feminine", WP + "en/c/c2/LunaLovegood.jpeg", (54, 0, 258)),
+        ("sirius-black", "Sirius", "masculine", WP + "en/6/6b/Sirius_Black.jpeg", (0, 22, 184)),
+        ("draco-malfoy", "Draco", "masculine", WP + "en/1/16/Draco_Mal.JPG", (25, 0, 170)),
+        ("hedwig", "Hedwig", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ae/The_Making_of_Harry_Potter_29-05-2012_%28Hedwig%29.jpg/1280px-The_Making_of_Harry_Potter_29-05-2012_%28Hedwig%29.jpg",
+         (243, 346, 844)),
+        ("ginny-weasley", "Ginny", "feminine", WP + "en/e/e7/Ginny_Weasley_poster.jpg", (68, 0, 190)),
+        ("bellatrix", "Bellatrix", "feminine", WP + "en/d/d8/Bellatrix.jpeg", (40, 10, 138)),
+        ("neville", "Neville", "masculine", WP + "en/7/75/Neville_Longbottom.jpeg", (0, 0, 273)),
+        ("lupin", "Lupin", "masculine", WP + "en/2/2f/Remus_Lupin.jpeg", (34, 12, 133)),
+        ("umbridge", "Umbridge", "feminine", WP + "en/b/b9/Umbridge.jpeg", (133, 1, 156)),
+    ],
+    # Marvel & DC (18): live-action heroes and villains, film stills (Wikipedia) and Madame Tussauds /
+    # exhibition photos (Commons) for the masked ones; Spider-Man, Iron Man, Black Widow and Groot moved
+    # here from Movies. Listed order is the row order (vibe-exempt).
+    "heroes": [
+        ("spider-man", "Spider-Man", "masculine",
+         WP + "en/0/0f/Tom_Holland_as_Spider-Man.jpg",
+         (62, 10, 115)),
+        ("wonder-woman", "Wonder Woman", "feminine", WP + "en/e/e1/Gal_Gadot_as_Wonder_Woman.jpg", (84, 0, 90)),
+        ("iron-man", "Iron Man", "masculine",
+         WP + "en/0/02/Iron_Man_%282008_film%29_poster.jpg",
+         (0, 3, 156)),
+        ("black-widow", "Black Widow", "feminine",
+         WP + "en/f/f6/Scarlett_Johansson_as_Black_Widow.jpg",
+         (65, 5, 135)),
+        ("batman", "Batman", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Batsuit_from_The_Dark_Knight_Rises_film_-_closer_view.jpg/1280px-Batsuit_from_The_Dark_Knight_Rises_film_-_closer_view.jpg",
+         (410, 100, 460)),
+        ("groot", "Groot", "neutral", WP + "en/3/3b/Groot.png", (26, 0, 203)),
+        ("captain-america", "Captain America", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/Chris_Evans_as_Steve_Rogers_aka_Captain_America_%2834407349161%29.jpg/1280px-Chris_Evans_as_Steve_Rogers_aka_Captain_America_%2834407349161%29.jpg",
+         (364, 200, 500)),
+        ("harley-quinn", "Harley Quinn", "feminine", WP + "en/5/56/SuicideSquadHarleyQuinn.jpg", (40, 30, 110)),
+        ("superman", "Superman", "masculine", WP + "en/d/d6/Superman_Man_of_Steel.jpg", (79, 0, 131)),
+        ("thor", "Thor", "masculine", WP + "en/3/3c/Chris_Hemsworth_as_Thor.jpg", (90, 2, 124)),
+        ("scarlet-witch", "Scarlet Witch", "feminine",
+         WP + "en/d/d9/Elizabeth_Olsen_as_Wanda_Maximoff.jpg",
+         (58, 8, 142)),
+        ("black-panther", "Black Panther", "masculine",
+         WP + "en/1/1a/Chadwick_Boseman_as_T%27Challa.jpg",
+         (50, 0, 103)),
+        ("hulk", "Hulk", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Hulk_%282540708438%29.jpg/1920px-Hulk_%282540708438%29.jpg",
+         (778, 20, 480)),
+        ("captain-marvel", "Captain Marvel", "feminine",
+         WP + "en/f/f1/Brie_Larson_as_Carol_Danvers.jpeg",
+         (30, 5, 124)),
+        ("deadpool", "Deadpool", "masculine", WP + "en/f/fb/Ryan_Reynolds_as_Deadpool_2016.jpg", (75, 15, 90)),
+        ("joker", "Joker", "masculine",
+         WP + "en/2/2b/Heath_Ledger_as_the_Joker_in_The_Dark_Knight.png",
+         (47, 13, 151)),
+        ("catwoman", "Catwoman", "feminine",
+         WP + "en/d/d7/Michelle_Pfeiffer_as_Catwoman_in_Batman_Returns.jpg",
+         (240, 0, 150)),
+        ("wolverine", "Wolverine", "masculine", WP + "commons/d/d5/Hugh_Jackman_as_Wolverine.png", (10, 11, 372)),
+    ],
+    # Muppets & Sesame Street (18): the ten Muppets moved here from TV series plus eight more puppets.
+    # Listed order is the row order (vibe-exempt).
+    "muppets": [
+        ("kermit", "Kermit", "masculine",
+         WP + "commons/thumb/7/74/Kermit_puppet.jpg/1280px-Kermit_puppet.jpg",
+         (384, 85, 512)),
+        ("miss-piggy", "Miss Piggy", "feminine", WP + "it/9/9f/Miss_Piggy.jpeg", (430, 0, 560)),
+        ("elmo", "Elmo", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Season_3_introduces_one_of_Sesame_Street%27s_original_character_Elmo_%284313578924%29.jpg/1920px-Season_3_introduces_one_of_Sesame_Street%27s_original_character_Elmo_%284313578924%29.jpg",
+         (682, 288, 576)),
+        ("fozzie", "Fozzie", "neutral", WP + "commons/0/09/Fozzie_Bear_puppet_in_1979.jpg", (150, 50, 300)),
+        ("cookie-monster", "Cookie Monster", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/95/Cookie_Monster_and_Gingerbread_Man_vending_machine_%2818807184852%29.jpg/1920px-Cookie_Monster_and_Gingerbread_Man_vending_machine_%2818807184852%29.jpg",
+         (760, 240, 440)),
+        ("animal-muppet", "Animal", "neutral", WP + "en/e/e7/Animal_%28Muppet%29.jpg", (17, 0, 173)),
+        ("big-bird", "Big Bird", "neutral",
+         WP + "commons/5/5a/LBJ_Foundation_DIG14086-057_%2835105588940%29.jpg",
+         (70, 0, 1257)),
+        ("gonzo", "Gonzo", "neutral", WP + "commons/4/41/Gonzo.png", (0, 0, 239)),
+        ("oscar-grouch", "Oscar the Grouch", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/LBJ_Foundation_DIG14086-069_%2834650875314%29.jpg/1280px-LBJ_Foundation_DIG14086-069_%2834650875314%29.jpg",
+         (330, 60, 620)),
+        ("swedish-chef", "Swedish Chef", "neutral", WP + "commons/c/c1/Swedish_Chef_%28cropped%29.png", (0, 0, 396)),
+        ("bert", "Bert", "neutral", WP + "commons/a/aa/Bert_and_Ernie_from_Sesame_Street.jpg", (10, 20, 380)),
+        ("rosita", "Rosita", "feminine", WP + "commons/b/b0/Rosita_%282009%29.jpg", (26, 0, 380)),
+        ("count-von-count", "The Count", "neutral",
+         WP + "en/2/29/Count_von_Count_kneeling.png",
+         (66, -3, 162)),
+        ("beaker", "Beaker", "neutral", WP + "commons/6/67/Beaker_Muppets.png", (20, 0, 280)),
+        ("grover", "Grover", "neutral", WP + "en/b/be/Grover.JPG", (20, 0, 223)),
+        ("rowlf", "Rowlf", "neutral", WP + "commons/9/91/Rowlf_the_Dog.png", (55, 0, 360)),
+        ("statler", "Statler", "neutral", WP + "commons/b/b2/Statler_and_waldorf_muppet.png", (30, 0, 330)),
+        ("waldorf", "Waldorf", "neutral", WP + "commons/b/b2/Statler_and_waldorf_muppet.png", (347, 0, 347)),
+    ],
+    # Animals (18): real photos from Commons, head-centred; listed order is the row order (all "neutral").
+    "animals": [
+        ("red-fox", "Red fox", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Alaska_Red_Fox_%28Vulpes_vulpes%29.jpg/1920px-Alaska_Red_Fox_%28Vulpes_vulpes%29.jpg",
+         (558, 166, 1110)),
+        ("red-panda", "Red panda", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/71/Red_Panda_Portrait_%2831625024560%29.jpg/1920px-Red_Panda_Portrait_%2831625024560%29.jpg",
+         (419, 31, 1081)),
+        ("snowy-owl", "Snowy owl", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/09/Female_Snowy_Owl_Portrait_-_24937699785.jpg/1920px-Female_Snowy_Owl_Portrait_-_24937699785.jpg",
+         (320, 0, 1280)),
+        ("sea-otter", "Sea otter", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Sea_Otter_%28Enhydra_lutris%29_%2825169790524%29.jpg/1280px-Sea_Otter_%28Enhydra_lutris%29_%2825169790524%29.jpg",
+         (318, 21, 644)),
+        ("axolotl", "Axolotl", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Leucistic_Axolotl_front_2010-02-24.JPG/1920px-Leucistic_Axolotl_front_2010-02-24.JPG",
+         (640, 0, 1280)),
+        ("kitten", "Kitten", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/A_kitten_in_the_hand_%28Flickr%29.jpg/1920px-A_kitten_in_the_hand_%28Flickr%29.jpg",
+         (537, 57, 960)),
+        ("puppy", "Puppy", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/33/Callie_the_golden_retriever_puppy.jpg/1920px-Callie_the_golden_retriever_puppy.jpg",
+         (348, 36, 1224)),
+        ("giant-panda", "Giant panda", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Panda_g%C3%A9ant_-_t%C3%AAte_%28Ailuropoda_melanoleuca%29_%282%29.jpg/1920px-Panda_g%C3%A9ant_-_t%C3%AAte_%28Ailuropoda_melanoleuca%29_%282%29.jpg",
+         (0, 32, 1216)),
+        ("seal-pup", "Seal pup", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Weaned_harp_seal_pup_%28cropped%29.jpg/1920px-Weaned_harp_seal_pup_%28cropped%29.jpg",
+         (933, 230, 987)),
+        ("sloth", "Sloth", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/18/Bradypus.jpg/1280px-Bradypus.jpg",
+         (448, 235, 793)),
+        ("hedgehog", "Hedgehog", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Erinaceus_europaeus_%28Linnaeus%2C_1758%29.jpg/1920px-Erinaceus_europaeus_%28Linnaeus%2C_1758%29.jpg",
+         (443, 185, 1263)),
+        ("lion-cub", "Lion cub", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/44/Lion_cub_with_mother_-_cropped.jpg/1920px-Lion_cub_with_mother_-_cropped.jpg",
+         (38, 114, 960)),
+        ("fennec", "Fennec", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Sleeping_Vulpes_zerda_at_Happy_Hollow%2C_closeup.jpg/1920px-Sleeping_Vulpes_zerda_at_Happy_Hollow%2C_closeup.jpg",
+         (262, 0, 1280)),
+        ("elephant", "Elephant", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/African_elephant_side_view_portrait.jpg/1920px-African_elephant_side_view_portrait.jpg",
+         (0, 0, 1217)),
+        ("highland-cow", "Highland cow", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/2011-05-30_008_Young_Highland_cow%2C_Denmark.jpg/1920px-2011-05-30_008_Young_Highland_cow%2C_Denmark.jpg",
+         (619, 13, 797)),
+        ("alpaca", "Alpaca", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/81/Alpaca_Portrait_%2826631626457%29.jpg/1920px-Alpaca_Portrait_%2826631626457%29.jpg",
+         (166, 0, 1280)),
+        ("meerkat", "Meerkat", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f0/Meerkat_portrait_looking_sunset.jpg/1920px-Meerkat_portrait_looking_sunset.jpg",
+         (320, 0, 1280)),
+        ("snow-leopard", "Snow leopard", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/19/Snow_leopard_portrait.jpg/1920px-Snow_leopard_portrait.jpg",
+         (55, 0, 1809)),
+    ],
+    # Space (18): NASA / ESA / EHT images from Commons; listed order is the row order (all "neutral").
+    "space": [
+        ("earth", "Earth", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/The_Earth_seen_from_Apollo_17.jpg/1920px-The_Earth_seen_from_Apollo_17.jpg",
+         (0, 0, 1920)),
+        ("moon", "Moon", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e1/FullMoon2010.jpg/1920px-FullMoon2010.jpg",
+         (47, 0, 1825)),
+        ("sun", "Sun", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg/1920px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg",
+         (43, 0, 1833)),
+        ("mars", "Mars", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/02/OSIRIS_Mars_true_color.jpg/1920px-OSIRIS_Mars_true_color.jpg",
+         (0, 0, 1920)),
+        ("jupiter", "Jupiter", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Jupiter_and_its_shrunken_Great_Red_Spot.jpg/960px-Jupiter_and_its_shrunken_Great_Red_Spot.jpg",
+         (0, 0, 960)),
+        ("saturn", "Saturn", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/ca/Top_view_of_the_rings_of_Saturn_by_Cassini_-_October_10%2C_2013.jpg/1920px-Top_view_of_the_rings_of_Saturn_by_Cassini_-_October_10%2C_2013.jpg",
+         (240, 0, 1440)),
+        ("neptune", "Neptune", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/63/Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg/960px-Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg",
+         (0, 0, 960)),
+        ("black-hole", "Black hole", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/Black_hole_-_Messier_87_crop_max_res.jpg/1920px-Black_hole_-_Messier_87_crop_max_res.jpg",
+         (269, 269, 1382)),
+        ("pillars-of-creation", "Pillars of Creation", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f1/Pillars_of_Creation_%28NIRCam_Image%29.jpg/1920px-Pillars_of_Creation_%28NIRCam_Image%29.jpg",
+         (0, 703, 1920)),
+        ("cosmic-cliffs", "Cosmic Cliffs", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/44/NASA%E2%80%99s_Webb_Reveals_Cosmic_Cliffs%2C_Glittering_Landscape_of_Star_Birth.jpg/1920px-NASA%E2%80%99s_Webb_Reveals_Cosmic_Cliffs%2C_Glittering_Landscape_of_Star_Birth.jpg",
+         (212, 0, 1112)),
+        ("crab-nebula", "Crab Nebula", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Crab_Nebula.jpg/1920px-Crab_Nebula.jpg",
+         (0, 0, 1920)),
+        ("whirlpool-galaxy", "Whirlpool Galaxy", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/db/Messier51_sRGB.jpg/1920px-Messier51_sRGB.jpg",
+         (193, 33, 1265)),
+        ("comet", "Comet Hale-Bopp", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Comet_Hale-Bopp_1995O1.jpg/1280px-Comet_Hale-Bopp_1995O1.jpg",
+         (0, 0, 1280)),
+        ("iss", "ISS", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/International_Space_Station_after_undocking_of_STS-132.jpg/1920px-International_Space_Station_after_undocking_of_STS-132.jpg",
+         (348, 0, 1224)),
+        ("hubble", "Hubble", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/HST-SM4.jpeg/1920px-HST-SM4.jpeg",
+         (239, 0, 1441)),
+        ("rocket-launch", "Saturn V launch", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Apollo_11_Launch_-_GPN-2000-000630.jpg/1920px-Apollo_11_Launch_-_GPN-2000-000630.jpg",
+         (0, 0, 1920)),
+        ("spacewalk", "Spacewalk", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/91/Bruce_McCandless_II_during_EVA_in_1984.jpg/1920px-Bruce_McCandless_II_during_EVA_in_1984.jpg",
+         (403, 211, 1190)),
+        ("moonwalk", "Moonwalk", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/98/Aldrin_Apollo_11_original.jpg/1920px-Aldrin_Apollo_11_original.jpg",
+         (269, 23, 1382)),
+    ],
+    # Mythology (18): public-domain paintings, prints, codices, tomb paintings and classical sculpture
+    # (Commons), cropped to the god or creature.
+    "mythology": [
+        ("athena", "Athena", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/63/Klimt_-_Pallas_Athene.jpeg/1920px-Klimt_-_Pallas_Athene.jpeg",
+         (406, 133, 570)),
+        ("zeus", "Zeus", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Jupiter_Smyrna_Louvre_Ma13%2C_Ausschnitt.jpg/1280px-Jupiter_Smyrna_Louvre_Ma13%2C_Ausschnitt.jpg",
+         (582, 348, 576)),
+        ("japanese-dragon", "Japanese dragon", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/Hokusai_Dragon.jpg/1280px-Hokusai_Dragon.jpg",
+         (665, 262, 320)),
+        ("medusa", "Medusa", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Caravaggio_-_Medusa_Uffizi_-_High_quality.jpg/1920px-Caravaggio_-_Medusa_Uffizi_-_High_quality.jpg",
+         (365, 462, 1190)),
+        ("poseidon", "Poseidon", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Parian_Marble_Statue_of_Poseidon%2C_from_Melos%2C_Cyclades%2C_125-100_BC_%2827884076403%29.jpg/1920px-Parian_Marble_Statue_of_Poseidon%2C_from_Melos%2C_Cyclades%2C_125-100_BC_%2827884076403%29.jpg",
+         (712, 310, 380)),
+        ("phoenix", "Phoenix", "neutral",
+         WP + "commons/6/61/Phoenix_detail_from_Aberdeen_Bestiary.jpg",
+         (133, 227, 618)),
+        ("isis", "Isis", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/39/Queen_Nefertari_being_led_by_Isis_MET_DP167142.jpg/1920px-Queen_Nefertari_being_led_by_Isis_MET_DP167142.jpg",
+         (980, 420, 720)),
+        ("thor-norse", "Thor (Norse)", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/M%C3%A5rten_Eskil_Winge_-_Tor%27s_Fight_with_the_Giants_-_Google_Art_Project.jpg/1920px-M%C3%A5rten_Eskil_Winge_-_Tor%27s_Fight_with_the_Giants_-_Google_Art_Project.jpg",
+         (528, 40, 864)),
+        ("sphinx", "Sphinx", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Great_Sphinx_of_Giza_and_Pyramid_of_Cheops.jpg/1920px-Great_Sphinx_of_Giza_and_Pyramid_of_Cheops.jpg",
+         (1101, 115, 793)),
+        ("freyja", "Freyja", "feminine",
+         WP + "commons/e/ec/Freyja_and_the_Necklace_by_James_Doyle_Penrose%2C_1890.jpg",
+         (148, 16, 212)),
+        ("odin", "Odin", "masculine",
+         WP + "commons/1/1d/Georg_von_Rosen_-_Oden_som_vandringsman%2C_1886_%28Odin%2C_the_Wanderer%29.jpg",
+         (72, 69, 375)),
+        ("quetzalcoatl", "Quetzalcoatl", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Quetzalcoatl_telleriano2.jpg/960px-Quetzalcoatl_telleriano2.jpg",
+         (290, 280, 345)),
+        ("valkyrie", "Valkyrie", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Peter_Nicolai_Arbo_-_The_Valkyrie_-_NG.M.00259_-_National_Museum_of_Art%2C_Architecture_and_Design.jpg/1920px-Peter_Nicolai_Arbo_-_The_Valkyrie_-_NG.M.00259_-_National_Museum_of_Art%2C_Architecture_and_Design.jpg",
+         (739, 310, 480)),
+        ("anubis", "Anubis", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/Roman_statue_of_Anubis%2C_Gregorian_Egyptian_Museum%2C_Vatican_Museums.jpg/1920px-Roman_statue_of_Anubis%2C_Gregorian_Egyptian_Museum%2C_Vatican_Museums.jpg",
+         (506, 100, 600)),
+        ("cyclops", "Cyclops", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Odilon_Redon_-_The_Cyclops%2C_c._1914.jpg/1920px-Odilon_Redon_-_The_Cyclops%2C_c._1914.jpg",
+         (384, 148, 1152)),
+        ("artemis", "Artemis", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/Detail_Diana_Versailles_Louvre_Ma589.jpg/1920px-Detail_Diana_Versailles_Louvre_Ma589.jpg",
+         (606, 0, 1092)),
+        ("ra", "Ra", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Maler_der_Grabkammer_der_Nefertari_001.jpg/1920px-Maler_der_Grabkammer_der_Nefertari_001.jpg",
+         (609, 335, 650)),
+        ("pegasus", "Pegasus", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f4/Jacob_Jordaens_-_Pegasus.jpg/1920px-Jacob_Jordaens_-_Pegasus.jpg",
+         (700, 0, 700)),
+    ],
+    # Historic figures (18): period portraits and photographs (Commons, public domain); women and men
+    # alternate (vibe-exempt: nobody is "neutral").
+    "historic": [
+        ("marie-curie", "Marie Curie", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Marie_Curie_c._1920s.jpg/1280px-Marie_Curie_c._1920s.jpg",
+         (0, 99, 1280)),
+        ("einstein", "Einstein", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/1920px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg",
+         (547, 225, 1009)),
+        ("cleopatra", "Cleopatra", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Bust_of_Cleopatra_VII_-_Altes_Museum_-_Berlin_-_Germany_2017.jpg/1920px-Bust_of_Cleopatra_VII_-_Altes_Museum_-_Berlin_-_Germany_2017.jpg",
+         (0, 456, 1920)),
+        ("leonardo", "Leonardo da Vinci", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Leonardo_da_Vinci_-_presumed_self-portrait_-_WGA12798.jpg/1920px-Leonardo_da_Vinci_-_presumed_self-portrait_-_WGA12798.jpg",
+         (310, 300, 1300)),
+        ("ada-lovelace", "Ada Lovelace", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Ada_Lovelace_portrait.jpg/1920px-Ada_Lovelace_portrait.jpg",
+         (573, 326, 825)),
+        ("newton", "Isaac Newton", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/Portrait_of_Sir_Isaac_Newton%2C_1689.jpg/1920px-Portrait_of_Sir_Isaac_Newton%2C_1689.jpg",
+         (576, 45, 1071)),
+        ("frida-kahlo", "Frida Kahlo", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Frida_Kahlo%2C_by_Guillermo_Kahlo.jpg/960px-Frida_Kahlo%2C_by_Guillermo_Kahlo.jpg",
+         (0, 26, 960)),
+        ("darwin", "Charles Darwin", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Charles_Darwin_photograph_by_Julia_Margaret_Cameron%2C_1868.jpg/1920px-Charles_Darwin_photograph_by_Julia_Margaret_Cameron%2C_1868.jpg",
+         (138, 175, 1610)),
+        ("elizabeth-i", "Elizabeth I", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/Elizabeth_I_Armada_Portrait_British_School.jpg/1920px-Elizabeth_I_Armada_Portrait_British_School.jpg",
+         (755, 173, 473)),
+        ("napoleon", "Napoleon", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/50/Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg/1920px-Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg",
+         (637, 270, 568)),
+        ("florence-nightingale", "Florence Nightingale", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Florence_Nightingale_by_Henry_Hering%2C_1858.jpg/1280px-Florence_Nightingale_by_Henry_Hering%2C_1858.jpg",
+         (451, 70, 381)),
+        ("mozart", "Mozart", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/Barbara_Krafft_-_Portr%C3%A4t_Wolfgang_Amadeus_Mozart_%281819%29.jpg/1280px-Barbara_Krafft_-_Portr%C3%A4t_Wolfgang_Amadeus_Mozart_%281819%29.jpg",
+         (114, 68, 1166)),
+        ("amelia-earhart", "Amelia Earhart", "feminine", WP + "commons/d/d2/Amelia_Earhart_1935.jpg", (0, 63, 560)),
+        ("tesla", "Nikola Tesla", "masculine", WP + "commons/7/79/Tesla_circa_1890.jpeg", (0, 16, 940)),
+        ("harriet-tubman", "Harriet Tubman", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/Harriet_Tubman_by_Squyer%2C_NPG%2C_c1885.jpg/1920px-Harriet_Tubman_by_Squyer%2C_NPG%2C_c1885.jpg",
+         (631, 181, 473)),
+        ("gandhi", "Gandhi", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/Mahatma-Gandhi%2C_studio%2C_1931.jpg/1920px-Mahatma-Gandhi%2C_studio%2C_1931.jpg",
+         (451, 0, 1216)),
+        ("marie-antoinette", "Marie Antoinette", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/Louise_Elisabeth_Vig%C3%A9e-Lebrun_-_Marie-Antoinette_dit_%C2%AB_%C3%A0_la_Rose_%C2%BB_-_Google_Art_Project.jpg/1920px-Louise_Elisabeth_Vig%C3%A9e-Lebrun_-_Marie-Antoinette_dit_%C2%AB_%C3%A0_la_Rose_%C2%BB_-_Google_Art_Project.jpg",
+         (558, 323, 772)),
+        ("lincoln", "Abraham Lincoln", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/44/Abraham_Lincoln_head_on_shoulders_photo_portrait.jpg/1920px-Abraham_Lincoln_head_on_shoulders_photo_portrait.jpg",
+         (0, 0, 1920)),
+    ],
+    # Retro games (9): arcade sprites and period art; Pac-Man, Blinky, Donkey Kong, Link and Sonic are in
+    # Video games / Super Mario already. Listed order is the row order (all "neutral").
+    "retro": [
+        ("space-invader", "Space Invader", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b9/Pixel_invader_Pinhead_icon.svg/500px-Pixel_invader_Pinhead_icon.svg.png",
+         (-70, -70, 640)),
+        ("ms-pac-man", "Ms. Pac-Man", "neutral",
+         WP + "commons/e/eb/Ms._Pac-Man_ingame_and_2D_alternative_design.png",
+         (53, 54, 280), {"pixel": True}),
+        ("tetris", "Tetris", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/41/Tetromino_T.svg/960px-Tetromino_T.svg.png",
+         (-60, -188, 1080)),
+        ("pong", "Pong", "neutral", WP + "commons/6/6c/Pong_game.png", (0, 0, 218), {"pixel": True}),
+        ("mega-man", "Mega Man", "neutral", WP + "en/7/7e/Mega_Man_11_Artwork.png", (40, -10, 210)),
+        ("pinky", "Pinky", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Blinky%2C_Pinky%2C_Inky_and_Clyde.svg/1280px-Blinky%2C_Pinky%2C_Inky_and_Clyde.svg.png",
+         (950, -40, 370)),
+        ("frogger", "Frogger", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Sega_-_Gremlin_-_Frogger_-_December_1st_1981_Play_Meter_advert.jpg/1920px-Sega_-_Gremlin_-_Frogger_-_December_1st_1981_Play_Meter_advert.jpg",
+         (240, 85, 1248)),
+        ("clyde", "Clyde", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Blinky%2C_Pinky%2C_Inky_and_Clyde.svg/1280px-Blinky%2C_Pinky%2C_Inky_and_Clyde.svg.png",
+         (290, -40, 370)),
+        ("inky", "Inky", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Blinky%2C_Pinky%2C_Inky_and_Clyde.svg/1280px-Blinky%2C_Pinky%2C_Inky_and_Clyde.svg.png",
+         (620, -40, 370)),
+    ],
+    # Pirates & knights (9): period engravings and paintings (Commons, public domain) plus Felice Beato's
+    # 1860s samurai photograph.
+    "pirates": [
+        ("anne-bonny", "Anne Bonny", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/Ann_Bonny%2C_Cole_1724.jpg/1280px-Ann_Bonny%2C_Cole_1724.jpg",
+         (319, 100, 400)),
+        ("blackbeard", "Blackbeard", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7c/Teach_alias_Blackbeard%2C_colored.jpg/1280px-Teach_alias_Blackbeard%2C_colored.jpg",
+         (250, 160, 400)),
+        ("samurai", "Samurai", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/09/Samurai.png/1280px-Samurai.png",
+         (516, 120, 420)),
+        ("mary-read", "Mary Read", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Mary_Read%2C_Cole_1724.jpg/960px-Mary_Read%2C_Cole_1724.jpg",
+         (362, 50, 300)),
+        ("long-john-silver", "Long John Silver", "masculine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/TI-parrot.jpg/1920px-TI-parrot.jpg",
+         (1050, 250, 700)),
+        ("knight", "Knight in armour", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/41/Aleksander_Lesser_-_Knight_in_armour_-_MP_2240_MNW_-_National_Museum_in_Warsaw.jpg/1920px-Aleksander_Lesser_-_Knight_in_armour_-_MP_2240_MNW_-_National_Museum_in_Warsaw.jpg",
+         (634, 197, 650)),
+        ("joan-of-arc", "Joan of Arc", "feminine",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Ingres_coronation_charles_vii.jpg/1920px-Ingres_coronation_charles_vii.jpg",
+         (603, 190, 560)),
+        ("captain-kidd", "Captain Kidd", "masculine",
+         WP + "commons/e/ee/Captain_Kidd_%28Pyle_painting%29.gif",
+         (212, 125, 330)),
+        ("pirate-ship", "Pirate ship", "neutral",
+         "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Painting_of_a_pirate_ship_%28after_1852%29%2C_after_Ambroise_Louis_Garneray.jpg/960px-Painting_of_a_pirate_ship_%28after_1852%29%2C_after_Ambroise_Louis_Garneray.jpg",
+         (112, 0, 640)),
+    ],
     # Memes: animals and drawn/rendered characters only (no real people's faces).
     "memes": [
         ("doge", "Doge", "feminine",
@@ -1090,10 +1495,24 @@ LATER = ["katara", "bluey", "kim-possible", "dipper-pines", "stewie-griffin", "m
          "tom-cat", "perry", "eleven", "arya-stark", "phoebe-buffay", "patrick-jane", "tenth-doctor",
          "michael-scott", "fozzie", "beaker", "rowlf", "mei", "san", "satsuki", "saitama", "ashitaka",
          "light-yagami", "pochita", "catbus", "happy"]
+# v1.9 rows take their colours after all of the above; LATER_V19 are the avatars added to
+# existing rows in v1.9.
+COLOR_ORDER_V19 = ["harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro",
+                   "pirates"]
+LATER_V19 = ["ripley", "amelie", "james-bond", "terminator", "chewbacca", "wednesday", "mr-bean", "thing",
+             "kitt", "weeping-angel", "k9", "cylon", "tribble", "flipper", "cyberman"]
+# Avatars moved to a v1.9 row keep the colour slot of the row they came from: (old row, index there).
+MOVED = {"hermione": ("movies", 0), "black-widow": ("movies", 7), "spider-man": ("movies", 11),
+         "iron-man": ("movies", 17), "groot": ("movies", 24), "miss-piggy": ("tvshows", 6),
+         "kermit": ("tvshows", 9), "elmo": ("tvshows", 18), "animal-muppet": ("tvshows", 20),
+         "big-bird": ("tvshows", 21), "oscar-grouch": ("tvshows", 22), "count-von-count": ("tvshows", 23)}
 # Rows whose f/m/n order is not enforced (kept in the order listed above): memes and
 # colours (no people), Pokémon (creatures; every entry is "neutral"), Lord of the Rings
-# (the major cast is mostly male), Dinosaurs (animals; every entry is "neutral").
-FREE_VIBE = {"memes", "colours", "pokemon", "lotr", "dinosaurs"}
+# (the major cast is mostly male), Dinosaurs (animals; every entry is "neutral"); v1.9: Harry
+# Potter, Marvel & DC and Muppets (casts mostly male), Animals, Space and Retro games (all
+# "neutral"), Historic figures (real people, women and men alternate).
+FREE_VIBE = {"memes", "colours", "pokemon", "lotr", "dinosaurs", "harrypotter", "heroes", "muppets", "animals",
+             "space", "historic", "retro"}
 
 
 def pastel(i):
@@ -1232,8 +1651,12 @@ def local_image(aid, url, color, box, opts=None):
     transparency is laid on `color` like an emoji on its square and its box may run
     past the edges (square=True); an opaque source's box is clamped inside the
     image so the tile colour can never show as a band. opts {"cutout": n} first
-    turns a white studio background (channels >= n) transparent."""
-    src = Image.open(io.BytesIO(get(url))).convert("RGBA")
+    turns a white studio background (channels >= n) transparent, {"exif": True} turns a
+    camera photo upright, {"pixel": True} keeps pixel-art sprites sharp."""
+    src = Image.open(io.BytesIO(get(url)))
+    if opts and opts.get("exif"):
+        src = ImageOps.exif_transpose(src)
+    src = src.convert("RGBA")
     if opts and "cutout" in opts:
         src = cutout(src, opts["cutout"])
     x, y, s = box
@@ -1244,7 +1667,11 @@ def local_image(aid, url, color, box, opts=None):
         print(f"warning: {aid}: box {box} clamped to {(x, y, s)} in {src.size}")
     canvas = Image.new("RGBA", (s, s), color)
     canvas.alpha_composite(src.crop((x, y, x + s, y + s)))
-    return canvas.convert("RGB").resize((SIZE, SIZE), Image.LANCZOS), square
+    tile = canvas.convert("RGB")
+    if opts and opts.get("pixel"):
+        k = -(-2 * SIZE // s)
+        tile = tile.resize((s * k, s * k), Image.NEAREST)
+    return tile.resize((SIZE, SIZE), Image.LANCZOS), square
 
 def tint(img, color):
     """Multiply line art on white paper with a soft colour."""
@@ -1264,12 +1691,20 @@ def main():
     rows = {}
     colors = iter(pastel(i) for i in range(1000))
     color_of = {}
-    for gid in COLOR_ORDER:
-        for item in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, []):
-            if item[0] not in LATER:
-                color_of[item[0]] = next(colors)
-    for aid in LATER:
-        color_of[aid] = next(colors)
+
+    def colour_ids(gid):
+        ids = [i[0] for i in COMMONS.get(gid, []) + DICE.get(gid, []) + LOCAL.get(gid, []) if i[0] not in MOVED]
+        for aid, (old, k) in sorted(MOVED.items(), key=lambda m: m[1][1]):
+            if old == gid:
+                ids.insert(k, aid)
+        return ids
+    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19)):
+        for gid in order:
+            for aid in colour_ids(gid):
+                if aid not in LATER + LATER_V19 and aid not in color_of:
+                    color_of[aid] = next(colors)
+        for aid in later:
+            color_of[aid] = next(colors)
 
     gallery_json = ROOT / "app" / "gallery.json"
     previous = {e["id"]: e for e in json.loads(gallery_json.read_text())} if gallery_json.exists() else {}

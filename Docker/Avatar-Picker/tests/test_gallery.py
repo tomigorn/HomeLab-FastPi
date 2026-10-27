@@ -8,18 +8,29 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 # files in app/img-local/). A fresh clone has none of them; the tests below
 # must pass with or without the local pack present.
 LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime",
-                "pokemon", "games", "mario", "lego", "dinosaurs", "memes"}
+                "pokemon", "games", "mario", "lego", "dinosaurs", "memes",
+                "harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro",
+                "pirates"}
+# Rows added in v1.9 (all in the local pack, even the free and public-domain ones)
+NEW_ROWS = ["harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro", "pirates"]
 # Rows exempt from the f-m-n interleave: memes (mostly animals/objects), colours (no
 # people at all), Pokemon and Dinosaurs (creatures; every entry is "neutral") and Lord of
-# the Rings (its major cast is mostly male; the row keeps its listed order).
-FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr", "dinosaurs"}
+# the Rings (its major cast is mostly male; the row keeps its listed order). v1.9: Harry Potter,
+# Marvel & DC and Muppets (casts mostly male), Animals, Space and Retro games (no people; all
+# "neutral") and Historic figures (real people: women and men alternate, nobody is "neutral").
+FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr", "dinosaurs", "harrypotter", "heroes", "muppets",
+                    "animals", "space", "historic", "retro"}
 # Order the user asked for (v1.5): Disney & Pixar, other animated films, live-action
 # movies, Lord of the Rings (v1.6), cartoons, live-action TV, anime, Pokemon, video games, Super Mario,
 # LEGO and Dinosaurs (v1.7), then
 # storybook, illustrated people, flat emoji, art classics, memes, cartoon & sketch,
 # the rest, with the colours row last.
-ORDER = ["disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime", "pokemon", "games",
-         "mario", "lego", "dinosaurs", "storybook", "illustrated", "flatemoji", "paintings", "memes", "cartoon",
+# v1.9: Harry Potter and Marvel & DC after Lord of the Rings, Muppets after TV series, Retro games
+# after Video games, Animals and Space after Dinosaurs, Mythology, Historic figures and Pirates &
+# knights after Art classics.
+ORDER = ["disney", "animated", "movies", "lotr", "harrypotter", "heroes", "tvcartoons", "tvshows", "muppets",
+         "anime", "pokemon", "games", "retro", "mario", "lego", "dinosaurs", "animals", "space", "storybook",
+         "illustrated", "flatemoji", "paintings", "mythology", "historic", "pirates", "memes", "cartoon",
          "ukiyoe", "belleepoque", "fairytale", "comics", "swiss", "people3d", "pixel", "classics",
          "colours"]
 LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "Movies",
@@ -28,11 +39,15 @@ LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "M
           "games": "Video games", "mario": "Super Mario", "lego": "LEGO", "dinosaurs": "Dinosaurs",
           "storybook": "Classic storybook",
           "illustrated": "Illustrated people", "flatemoji": "Flat emoji", "paintings": "Art classics",
-          "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours"}
+          "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours",
+          "harrypotter": "Harry Potter", "heroes": "Marvel & DC", "muppets": "Muppets & Sesame Street",
+          "animals": "Animals", "space": "Space", "mythology": "Mythology", "historic": "Historic figures",
+          "retro": "Retro games", "pirates": "Pirates & knights"}
 # Row sizes (every row is a multiple of 9)
 SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 18, "tvcartoons": 36, "tvshows": 36, "anime": 36,
          "pokemon": 18, "games": 27, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
-         "colours": 18}
+         "colours": 18, "harrypotter": 18, "heroes": 18, "muppets": 18, "animals": 18, "space": 18,
+         "mythology": 18, "historic": 18, "retro": 9, "pirates": 9}
 # One character, one row: entries that show the same character under a different
 # name or id map to a shared key here (e.g. the meme "Big Chungus" is Bugs Bunny);
 # every other entry's key is its name without a "(...)" qualifier. No two entries
@@ -48,6 +63,7 @@ CHARACTER_ALIASES = {
     "doge": "kabosu", "cheems": "balltze", "smudge": "smudge the cat", "e-t": "e.t.",
     "kermit": "kermit the frog", "oscar-grouch": "oscar the grouch", "count-von-count": "count von count",
     "white-rabbit": "white rabbit (alice)", "peter-rabbit": "peter rabbit",
+    "thor": "thor (marvel)", "thor-norse": "thor (norse god)",
 }
 # Rows of generic, unnamed figures (emoji, generated people, colours): not characters.
 GENERIC_GROUPS = {"illustrated", "flatemoji", "cartoon", "people3d", "pixel", "colours"}
@@ -71,6 +87,43 @@ DINOSAURS = {"t-rex", "triceratops", "velociraptor", "stegosaurus", "brachiosaur
              "ankylosaurus", "parasaurolophus", "allosaurus", "therizinosaurus", "patagotitan", "nagatitan",
              "giganotosaurus", "carnotaurus", "pachycephalosaurus", "dilophosaurus", "styracosaurus",
              "iguanodon"}
+# v1.9 rows. Moved avatars keep their ids (and colours), so users' picks survive the move.
+HARRY_POTTER = {"harry-potter", "hermione", "ron-weasley", "dumbledore", "hagrid", "snape", "mcgonagall",
+                "voldemort", "dobby", "luna-lovegood", "sirius-black", "draco-malfoy", "hedwig", "ginny-weasley",
+                "bellatrix", "neville", "lupin", "umbridge"}
+HEROES = {"spider-man", "wonder-woman", "iron-man", "black-widow", "batman", "groot", "captain-america",
+          "harley-quinn", "superman", "thor", "scarlet-witch", "black-panther", "hulk", "captain-marvel",
+          "deadpool", "joker", "catwoman", "wolverine"}
+MUPPETS = {"kermit", "miss-piggy", "elmo", "fozzie", "cookie-monster", "animal-muppet", "big-bird", "gonzo",
+           "oscar-grouch", "swedish-chef", "bert", "rosita", "count-von-count", "beaker", "grover", "rowlf",
+           "statler", "waldorf"}
+ANIMALS = {"red-fox", "red-panda", "snowy-owl", "sea-otter", "axolotl", "kitten", "puppy", "giant-panda",
+           "seal-pup", "sloth", "hedgehog", "lion-cub", "fennec", "elephant", "highland-cow", "alpaca",
+           "meerkat", "snow-leopard"}
+SPACE = {"earth", "moon", "sun", "mars", "jupiter", "saturn", "neptune", "black-hole", "pillars-of-creation",
+         "cosmic-cliffs", "crab-nebula", "whirlpool-galaxy", "comet", "iss", "hubble", "rocket-launch",
+         "spacewalk", "moonwalk"}
+MYTHOLOGY = {"athena", "zeus", "japanese-dragon", "medusa", "poseidon", "phoenix", "isis", "thor-norse", "sphinx",
+             "freyja", "odin", "quetzalcoatl", "valkyrie", "anubis", "cyclops", "artemis", "ra", "pegasus"}
+HISTORIC = {"marie-curie", "einstein", "cleopatra", "leonardo", "ada-lovelace", "newton", "frida-kahlo",
+            "darwin", "elizabeth-i", "napoleon", "florence-nightingale", "mozart", "amelia-earhart", "tesla",
+            "harriet-tubman", "gandhi", "marie-antoinette", "lincoln"}
+# Retro games: Pac-Man, Blinky, Donkey Kong, Link and Sonic already live in Video games / Super Mario.
+RETRO = {"space-invader", "ms-pac-man", "mega-man", "pinky", "frogger", "tetris", "pong", "clyde", "inky"}
+PIRATES = {"anne-bonny", "blackbeard", "samurai", "mary-read", "long-john-silver", "knight", "joan-of-arc",
+           "captain-kidd", "pirate-ship"}
+NEW_ROW_IDS = {"harrypotter": HARRY_POTTER, "heroes": HEROES, "muppets": MUPPETS, "animals": ANIMALS,
+               "space": SPACE, "mythology": MYTHOLOGY, "historic": HISTORIC, "retro": RETRO, "pirates": PIRATES}
+# Moved in v1.9 from Movies / TV series; those rows got new avatars instead (never shrink a row).
+MOVED = {"hermione": "harrypotter", "black-widow": "heroes", "spider-man": "heroes", "iron-man": "heroes",
+         "groot": "heroes", "kermit": "muppets", "miss-piggy": "muppets", "elmo": "muppets", "fozzie": "muppets",
+         "animal-muppet": "muppets", "big-bird": "muppets", "oscar-grouch": "muppets",
+         "count-von-count": "muppets", "beaker": "muppets", "rowlf": "muppets"}
+REFILLS = {"ripley": "movies", "amelie": "movies", "james-bond": "movies", "terminator": "movies",
+           "chewbacca": "movies", "wednesday": "tvshows", "mr-bean": "tvshows", "thing": "tvshows",
+           "kitt": "tvshows", "weeping-angel": "tvshows", "k9": "tvshows", "cylon": "tvshows",
+           "tribble": "tvshows", "flipper": "tvshows", "cyberman": "tvshows"}
+COLOURS_V18 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.8.0.json")))
 # Single additions (v1.7) and the row each one belongs to.
 ADDED = {"dipper-pines": "tvcartoons", "patrick-jane": "tvshows", "pochita": "anime"}
 
@@ -103,8 +156,8 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 27)
-        self.assertEqual(len(GALLERY), 11 * 9 + 4 * 27 + 3 * 36 + 9 * 18)  # 477
+        self.assertEqual(len(GROUPS), 36)
+        self.assertEqual(len(GALLERY), 477 + 144)  # 621
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -196,6 +249,54 @@ class GalleryTest(unittest.TestCase):
         self.assertTrue(all(a["vibe"] == "neutral" for a in row))
         ids = [g["id"] for g in GROUPS]
         self.assertEqual(ids.index("dinosaurs"), ids.index("lego") + 1)
+
+    def test_new_rows(self):
+        """v1.9 rows hold exactly their avatars, all in the local pack, every image present."""
+        local_dir = os.path.join(APP, "img-local")
+        for gid, ids in NEW_ROW_IDS.items():
+            row = [a for a in GALLERY if a["group"] == gid]
+            self.assertEqual({a["id"] for a in row}, ids, gid)
+            for a in row:
+                self.assertEqual(a.get("pack"), "local", a["id"])
+                if os.path.isdir(local_dir):
+                    self.assertTrue(os.path.isfile(os.path.join(local_dir, a["file"])), a["id"])
+
+    def test_new_rows_placement(self):
+        ids = [g["id"] for g in GROUPS]
+        for before, row in (("lotr", "harrypotter"), ("harrypotter", "heroes"), ("tvshows", "muppets"),
+                            ("games", "retro"), ("dinosaurs", "animals"), ("animals", "space"),
+                            ("paintings", "mythology"), ("mythology", "historic"), ("historic", "pirates")):
+            self.assertEqual(ids.index(row), ids.index(before) + 1, row)
+
+    def test_moved_avatars_keep_ids(self):
+        """Movie heroes, Hermione and the Muppets moved rows; their ids (users' picks) stay, and the
+        rows they left got new avatars so no row shrank."""
+        rows = {a["id"]: a["group"] for a in GALLERY}
+        for aid, group in MOVED.items():
+            self.assertEqual(rows.get(aid), group, aid)
+        for aid, group in REFILLS.items():
+            self.assertEqual(rows.get(aid), group, aid)
+        tvshows = {a["id"] for a in GALLERY if a["group"] == "tvshows"}
+        self.assertFalse(tvshows & MUPPETS)
+        retro = {a["id"] for a in GALLERY if a["group"] == "retro"}
+        self.assertFalse(retro & {"pac-man", "blinky", "donkey-kong", "link", "sonic"})
+
+    def test_no_avatar_removed(self):
+        """Adding never removes: every v1.8.0 avatar is still in the gallery."""
+        ids = {a["id"] for a in GALLERY}
+        self.assertEqual(set(COLOURS_V18) - ids, set())
+
+    def test_existing_colours_unchanged(self):
+        """New and moved avatars never change the colour of an avatar that already existed."""
+        for a in GALLERY:
+            if a["id"] in COLOURS_V18:
+                self.assertEqual(a["color"], COLOURS_V18[a["id"]], a["id"])
+
+    def test_thor_twice_on_purpose(self):
+        """Marvel's Thor and the Norse god are different characters; each has its own key."""
+        thor = next(a for a in GALLERY if a["id"] == "thor")
+        norse = next(a for a in GALLERY if a["id"] == "thor-norse")
+        self.assertNotEqual(character_key(thor), character_key(norse))
 
     def test_single_additions(self):
         rows = {a["id"]: a["group"] for a in GALLERY}
