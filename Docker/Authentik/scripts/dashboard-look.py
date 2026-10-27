@@ -11,6 +11,7 @@
 # provision-admin-sso.py or the Avatar-Picker provisioning.
 import glob
 import os
+import re
 
 from authentik.brands.models import Brand
 from authentik.core.models import Application
@@ -28,7 +29,7 @@ TOWER = "\nwakes Tower · ~110 s"
 APPS = {
     "jellyfin":          ("Media", "Film & series streaming" + BEEFY, None),
     "requests":          ("Media", "Request films & series" + BEEFY, None),
-    "tracker":           ("Media", "Watch & reading lists" + BEEFY, None),
+    "tracker":           ("Media", "Ratings & watchlists" + BEEFY, None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
     "nextcloud":         ("Media", "Files & calendar" + TOWER, None),
@@ -38,11 +39,11 @@ APPS = {
     "sabnzbd":           ("Downloads · Beefy", "Usenet downloader" + BEEFY, None),
     "qbittorrent":       ("Downloads · Beefy", "Torrent downloader" + BEEFY, None),
     "bazarr":            ("Downloads · Beefy", "Subtitles" + BEEFY, None),
-    "vpn-status-beefy":  ("Downloads · Beefy", "Torrent VPN & port (films)" + BEEFY, None),
-    "vpn-status-mouse":  ("Downloads · FastPi", "Torrent VPN & port (audiobooks)", None),
-    "qbittorrent-audiobooks": ("Downloads · FastPi", "Torrent downloader (audiobooks)", None),
-    "sabnzbd-audiobooks": ("Downloads · FastPi", "Usenet downloader (audiobooks)", None),
-    "prowlarr-audiobooks": ("Downloads · FastPi", "Indexer manager (audiobooks)", None),
+    "vpn-status-beefy":  ("Downloads · Beefy", "Torrent VPN & port" + BEEFY, None),
+    "vpn-status-mouse":  ("Downloads · FastPi", "Audiobook VPN & port", None),
+    "qbittorrent-audiobooks": ("Downloads · FastPi", "Audiobook torrents", None),
+    "sabnzbd-audiobooks": ("Downloads · FastPi", "Audiobook Usenet", None),
+    "prowlarr-audiobooks": ("Downloads · FastPi", "Audiobook indexers", None),
     "grafana":           ("Homelab", "Dashboards & metrics", None),
     "portainer":         ("Homelab", "Docker management", None),
     "adguard":           ("Homelab", "DNS & ad blocking", None),
@@ -207,7 +208,9 @@ CUSTOM_CSS = """\
 def icon_for(slug, literal):
     if literal:
         return literal
-    found = sorted(glob.glob(os.path.join(ICON_DIR, "apps", f"{slug}-*.svg")))
+    # exact <slug>-<md5-8>.svg: prowlarr-*.svg would also match prowlarr-audiobooks-*.svg
+    found = sorted(f for f in glob.glob(os.path.join(ICON_DIR, "apps", f"{slug}-*.svg"))
+                   if re.fullmatch(re.escape(slug) + r"-[0-9a-f]{8}\.svg", os.path.basename(f)))
     if not found:
         return None  # leave the current icon alone
     return os.path.relpath(found[-1], ICON_DIR)  # e.g. apps/jellyfin-4ebae366.svg
