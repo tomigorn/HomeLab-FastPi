@@ -199,3 +199,40 @@ tests:
               awake_since: "1970-01-01 15:00:00 +0000 UTC"
               awake_by: "• conns\n• conn from 192.168.1.50:55512\n"
               description: "beefy has been up for 6 hours or more since its last boot. Kept awake by: conns - detail: conn from 192.168.1.50:55512. Check on beefy: <code>journalctl -u beefy-idle-watcher -n 20</code>"
+
+  - name: beefy wake loop fires above 60 changes in 24 h and holds 6 h after it stops
+    interval: 10m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 1x150'
+    alert_rule_test:
+      - eval_time: 9h
+        alertname: BeefyWakeLoop
+        exp_alerts: []
+      - eval_time: 11h
+        alertname: BeefyWakeLoop
+        exp_alerts:
+          - exp_labels: {severity: warning, job: blackbox-beefy, instance: beefy}
+            exp_annotations:
+              summary: "beefy keeps waking up (66 state changes in 24h)"
+              description: "beefy has switched between up and down 66 times in the last 24 hours. Planned wakes (night downloads, the 03:55 maintenance wake, idle pulls) stay under about 40 a day, so something keeps waking it right after it idles off. Find the source in the Beefy-Waker log (`docker logs` on it is truncated; use `sudo grep -a 'beefy down\\|manual wake'` on its json log file): \"beefy down (...:PORT)\" lines come through a Traefik *-wake gate, \"manual wake\" from 192.168.1.2 is `ssh beefy` on fastpi. The 2026-10-09 cause was a blackbox probe of an un-authenticated beefy route (Jellyfin)."
+      - eval_time: 35h
+        alertname: BeefyWakeLoop
+        exp_alerts:
+          - exp_labels: {severity: warning, job: blackbox-beefy, instance: beefy}
+            exp_annotations:
+              summary: "beefy keeps waking up (61 state changes in 24h)"
+              description: "beefy has switched between up and down 61 times in the last 24 hours. Planned wakes (night downloads, the 03:55 maintenance wake, idle pulls) stay under about 40 a day, so something keeps waking it right after it idles off. Find the source in the Beefy-Waker log (`docker logs` on it is truncated; use `sudo grep -a 'beefy down\\|manual wake'` on its json log file): \"beefy down (...:PORT)\" lines come through a Traefik *-wake gate, \"manual wake\" from 192.168.1.2 is `ssh beefy` on fastpi. The 2026-10-09 cause was a blackbox probe of an un-authenticated beefy route (Jellyfin)."
+      - eval_time: 37h
+        alertname: BeefyWakeLoop
+        exp_alerts: []
+
+  - name: beefy planned wakes (36 changes a day) stay quiet
+    interval: 10m
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0'
+    alert_rule_test:
+      - eval_time: 40h
+        alertname: BeefyWakeLoop
+        exp_alerts: []

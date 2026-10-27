@@ -44,6 +44,7 @@ groups:
         for: 30m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "{{ $value }} unignored secret file(s) on {{ $labels.host }}"
           description: >-
@@ -60,6 +61,7 @@ groups:
         for: 72h
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} security update(s) pending for 3+ days"
           description: >-
@@ -71,6 +73,7 @@ groups:
         for: 1h
         labels:
           severity: info
+          notify: weekly
         annotations:
           summary: "tower: {{ if $labels.plugin }}plugin {{ $labels.plugin }} has an update{{ else }}Unraid OS {{ $labels.available }} available (installed {{ $labels.installed }}){{ end }}"
           description: >-
@@ -79,7 +82,7 @@ groups:
 
   - name: security-images
     rules:
-      # severity: info on purpose - Telegram only, weekly at most. A standing
+      # notify: weekly - no message of its own, the Monday digest (weekly-digest.yml) lists the count. A standing
       # count of CRITICALs across 60 images is a backlog to work through, not an
       # incident, and mailing it would be the fastest possible way to teach
       # yourself to filter these alerts away.
@@ -93,39 +96,19 @@ groups:
         for: 1h
         labels:
           severity: info
+          notify: weekly
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} FIXABLE critical CVE(s) in running images"
           description: >-
             Critical CVEs in running images on {{ $labels.host }}, usually fixed by a newer tag (Cup: https://cup.holy-grail.ch/). Worst first: <code>/var/lib/security-scan/image-cves-{{ $labels.host }}.txt</code> on fastpi.
 
-      # The standing count above is a quiet weekly info line. THIS one is the
-      # page: it fires when the number of fixable criticals on a host GOES UP,
-      # i.e. a new critical CVE just landed (a fresh disclosure, or a new image).
-      # Compares today's count to the value 24h ago (offset, so it is an exact
-      # integer, not an extrapolated delta). The textfile metric is served
-      # continuously between the daily 04:10 scans, so the offset always lands on
-      # a real sample; a brand-new host has nothing 24h ago and stays silent. A
-      # drop (we patched) is negative = silent. It pages for ~a day after a rise,
-      # then self-resolves once the offset window passes it. severity warning ->
-      # the default 'admins' receiver = email + Telegram.
-      - alert: NewCriticalImageVulnerabilities
-        expr: >-
-          security_image_vulnerabilities_fixable{severity="CRITICAL"}
-          - (security_image_vulnerabilities_fixable{severity="CRITICAL"} offset 24h) > 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "{{ $labels.host }}: {{ $value }} NEW fixable critical CVE(s) since yesterday"
-          description: >-
-            Count rose by {{ $value }} since the last daily scan (new disclosure or new image). Update the affected image today. Worst first: <code>/var/lib/security-scan/image-cves-{{ $labels.host }}.txt</code> on fastpi; newer tag in Cup: https://cup.holy-grail.ch/.
-
-      # Per finding, not per count: fires for each fixable CRITICAL/HIGH (image, CVE, package) first seen in the last 24 h, from the hourly code scan (scope code-<repo>) or the nightly running-image scan (scope = host). Images new to the scan are baselined, so this is "a new CVE in something we already run", not the backlog. Routed to telegram-once grouped by alertname: one message per batch of new findings, none when they age out.
+      # Per finding, not per count: fires for each fixable CRITICAL/HIGH (image, CVE, package) first seen in the last 24 h, from the hourly code scan (scope code-<repo>) or the nightly running-image scan (scope = host). Images new to the scan are baselined, so this is "a new CVE in something we already run", not the backlog. notify: digest: listed once per CVE in the 06:30 daily digest (daily-digest.yml), no message of its own.
       - alert: NewFixableImageVulnerability
         expr: security_new_vuln_info == 1
         for: 0m
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "{{ $labels.scope }}: new fixable {{ $labels.severity }} {{ $labels.id }} in {{ $labels.image }} ({{ $labels.pkg }})"
           description: >-
@@ -136,6 +119,7 @@ groups:
         for: 1d
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} image(s) could not be scanned"
           description: >-
@@ -149,6 +133,7 @@ groups:
         for: 15m
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} failed SSH logins in 24 h"
           description: >-
@@ -159,8 +144,21 @@ groups:
   - name: security-access
     rules:
       # Scan every 5 min; the last-login timestamp keeps the alert up for an hour. lan logins (beefy automation, 192.168.1.102) stay quiet.
+      # vpn and tunnel logins are the owner's own: daily digest only. An unclassified source pages.
       - alert: SshLoginOutsideLan
-        expr: security_ssh_last_login_timestamp_seconds{source_class!="lan"} > time() - 3600
+        expr: security_ssh_last_login_timestamp_seconds{source_class=~"vpn|tunnel"} > time() - 3600
+        for: 0m
+        labels:
+          severity: warning
+          notify: digest
+        annotations:
+          summary: "{{ $labels.host }}: SSH login of {{ $labels.user }} from {{ $labels.source_class }}"
+          description: >-
+            Accepted SSH login from outside the LAN (vpn = WireGuard, tunnel = cloudflared, other = unknown address) within the last hour.
+            Source address and key fingerprint: journalctl _COMM=sshd-session | grep Accepted
+
+      - alert: SshLoginOutsideLan
+        expr: security_ssh_last_login_timestamp_seconds{source_class!~"lan|vpn|tunnel"} > time() - 3600
         for: 0m
         labels:
           severity: warning
@@ -195,6 +193,7 @@ groups:
         for: 10m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "Security scan {{ $labels.subject }} has not succeeded in {{ $value | humanizeDuration }}"
           description: "The 5-minute security-access.timer is not producing fresh SSH login and integrity figures: systemctl status security-access.service"
@@ -202,22 +201,27 @@ groups:
   - name: security-audit
     rules:
       # Weekly (security-audit.timer, Sun 04:05), fastpi and beefy. Telegram only, by decision: rootkit checkers are noisy, so only findings outside the accepted baseline count.
+      # Alerts for 25 h after the set of NEW findings changed (security_rootkit_new_fingerprint), not for as long as a known finding stays: the weekly digest lists the standing count.
       - alert: RootkitWarning
-        expr: security_rootkit_warnings > 0
+        expr: |-
+          security_rootkit_warnings > 0
+            and on(host, tool) changes(security_rootkit_new_fingerprint[25h]) > 0
         for: 5m
         labels:
           severity: info
         annotations:
           summary: "{{ $labels.host }}: {{ $value }} new {{ $labels.tool }} finding(s)"
           description: >-
-            Findings not in the accepted baseline are marked NEW in /var/lib/security-scan/audit-{{ $labels.host }}.txt on fastpi.
+            The set of findings outside the accepted baseline changed in the last audit; they are marked NEW in /var/lib/security-scan/audit-{{ $labels.host }}.txt on fastpi.
             Check them by hand; a false positive is accepted by deleting /var/lib/security-scan/audit-accepted-{{ $labels.host }}-{{ $labels.tool }}.txt and running systemctl start security-audit.service.
+            A set that stays the same does not alert again.
 
       - alert: LynisHardeningDropped
         expr: (security_lynis_hardening_index offset 7d) - security_lynis_hardening_index > 5
         for: 1h
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "{{ $labels.host }}: Lynis hardening index fell to {{ with query (printf \"security_lynis_hardening_index{host='%s'}\" $labels.host) }}{{ . | first | value }}{{ end }} ({{ $value }} points in 7 days)"
           description: >-
@@ -236,6 +240,7 @@ groups:
         for: 2h
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "Security scan subject {{ $labels.subject }} is failing"
           description: >-
@@ -243,11 +248,16 @@ groups:
 
       # Catches both a silently dead timer and a host that stopped being
       # reachable for longer than its normal off-hours.
+      # tower sleeps most days, so its subjects count only when tower was awake at their scan time (tower:awake_for_scan, tower-power.yml): 04:05 for logins/patches, 05:00 + 05:50 for av/avhits.
       - alert: SecurityScanStale
         expr: >-
           (time() - security_scan_last_success_timestamp_seconds{subject!~"(images|audit|cup|ssh-logins|integrity)-.*|.*-tower"} > 172800)
           or
-          (time() - security_scan_last_success_timestamp_seconds{subject=~".*-tower",subject!~"(images|audit|cup|ssh-logins|integrity)-.*"} > 604800)
+          ((time() - security_scan_last_success_timestamp_seconds{subject=~"(logins|patches)-tower"} > 93600)
+            and on() (max_over_time(tower:awake_for_scan{slot="0405"}[24h]) == 1))
+          or
+          ((time() - security_scan_last_success_timestamp_seconds{subject=~"(av|avhits)-tower"} > 93600)
+            and on() (max_over_time(tower:awake_for_scan{slot="0550"}[24h]) == 1))
           or
           (time() - security_scan_last_success_timestamp_seconds{subject=~"(images|audit|cup)-.*"} > 1209600)
         for: 1h
@@ -256,7 +266,9 @@ groups:
         annotations:
           summary: "Security scan {{ $labels.subject }} has not succeeded in {{ $value | humanizeDuration }}"
           description: >-
-            Stale after 48h (daily scans), 7d (tower), 14d (weekly image, audit and Cup scans). Old figures are still served, so the dashboard looks fine.
+            Stale after 48h (daily scans) or 14d (weekly image, audit and Cup scans).
+            tower sleeps most of the time, so its subjects count only when tower was awake at their scan time in the last 24 h and there is still no result for 26 h.
+            Old figures are still served, so the dashboard looks fine.
 
       # Guards the transport itself. A malformed .prom file makes node-exporter
       # discard the WHOLE file, so a formatting slip silently removes every
@@ -267,6 +279,7 @@ groups:
         for: 15m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "node-exporter cannot read a textfile metric file"
           description: >-

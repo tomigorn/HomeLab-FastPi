@@ -12,6 +12,7 @@ groups:
         for: 30m
         labels:
           severity: info
+          notify: weekly
         annotations:
           summary: "{{ $value }} container image update(s) available"
           description: >-
@@ -29,6 +30,7 @@ groups:
         for: 1h
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "Cup update check is not being scraped"
           description: >-

@@ -10,6 +10,7 @@ groups:
         for: 0m
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "Nightly auto-update {{ $labels.host }}"
           description: |-
@@ -35,6 +36,7 @@ groups:
         for: 1h
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "Nightly auto-update on {{ $labels.host }} has not run for {{ $value | humanizeDuration }}"
           description: "Check <code>systemctl status auto-update.timer</code> and <code>journalctl -u auto-update</code> (beefy: its file reaches fastpi with the 04:20 security-av pull)"

@@ -4,6 +4,16 @@
 groups:
   - name: tower-power
     rules:
+      # tower was awake for a whole scan slot (local time, homelab:local_minute_of_day): 03:55-04:15 covers the 04:05 logins/patches scans, 04:55-05:59 its own 05:00 ClamAV run and the 05:50 pull. Used by SecurityScanStale and ClamavScanStale.
+      - record: tower:awake_for_scan
+        labels:
+          slot: "0405"
+        expr: min_over_time(probe_success{job="blackbox-tower"}[15m]) == 1 and on() (homelab:local_minute_of_day >= 250 < 255)
+      - record: tower:awake_for_scan
+        labels:
+          slot: "0550"
+        expr: min_over_time(probe_success{job="blackbox-tower"}[60m]) == 1 and on() (homelab:local_minute_of_day >= 355 < 360)
+
       # tower answers on 22 but Nextcloud has not come up: the array is not
       # started (licence, disk, pool) or Docker is down. 30m covers a normal
       # boot (Nextcloud follows sshd by ~30 s) and a slow parity check or pool mount.
@@ -24,17 +34,18 @@ groups:
             array state, and Docker: ssh -i ~/.ssh/tower root@192.168.1.101,
             then grep cmdStart /var/log/syslog.
 
-      # Same threshold as BeefyWakeLoop: a healthy day is a handful of
-      # up/down transitions; a probe or client that keeps waking it is dozens.
+      # Same threshold and hold as BeefyWakeLoop.
       - alert: TowerWakeLoop
-        expr: changes(probe_success{job="blackbox-tower"}[24h]) > 20
+        expr: changes(probe_success{job="blackbox-tower"}[24h]) > 60
+        keep_firing_for: 6h
         labels:
           severity: warning
         annotations:
           summary: "tower keeps waking up ({{ $value }} state changes in 24h)"
           description: >-
             tower has switched between up and down {{ $value }} times in the
-            last 24 hours. Find the waker: sudo grep -a 'tower down\|manual wake'
+            last 24 hours. Planned wakes stay under about 40 a day, so something
+            keeps waking it. Find the waker: sudo grep -a 'tower down\|manual wake'
             on the tower-waker container log.
 
       # The scanner filter in front of tower-wake is gone or broken: requests

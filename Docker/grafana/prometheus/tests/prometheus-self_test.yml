@@ -142,7 +142,7 @@ tests:
       - eval_time: 15m
         alertname: TargetDown
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100"}
             exp_annotations:
               summary: "Prometheus cannot scrape raspberry-pi (node-exporter:9100)"
               description: "Down for 5 min; every alert built on this job is blind. Why: the error column at http://localhost:9090/targets (ssh -L 9090:127.0.0.1:9090 fastpi), then docker ps -a for its container."

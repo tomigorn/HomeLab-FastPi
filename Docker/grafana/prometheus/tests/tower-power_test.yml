@@ -1,0 +1,42 @@
+# promtool test rules tests/tower-power_test.yml
+rule_files:
+  - ../rules/weekly-digest.yml
+  - ../rules/tower-power.yml
+evaluation_interval: 1m
+tests:
+  - name: tower wake loop fires above 60 changes in 24 h and holds 6 h after it stops
+    interval: 10m
+    input_series:
+      - series: 'probe_success{job="blackbox-tower",instance="192.168.1.101:22"}'
+        values: '0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 1x150'
+    alert_rule_test:
+      - eval_time: 9h
+        alertname: TowerWakeLoop
+        exp_alerts: []
+      - eval_time: 11h
+        alertname: TowerWakeLoop
+        exp_alerts:
+          - exp_labels: {severity: warning, job: blackbox-tower, instance: 192.168.1.101:22}
+            exp_annotations:
+              summary: "tower keeps waking up (66 state changes in 24h)"
+              description: "tower has switched between up and down 66 times in the last 24 hours. Planned wakes stay under about 40 a day, so something keeps waking it. Find the waker: sudo grep -a 'tower down\\|manual wake' on the tower-waker container log."
+      - eval_time: 35h
+        alertname: TowerWakeLoop
+        exp_alerts:
+          - exp_labels: {severity: warning, job: blackbox-tower, instance: 192.168.1.101:22}
+            exp_annotations:
+              summary: "tower keeps waking up (61 state changes in 24h)"
+              description: "tower has switched between up and down 61 times in the last 24 hours. Planned wakes stay under about 40 a day, so something keeps waking it. Find the waker: sudo grep -a 'tower down\\|manual wake' on the tower-waker container log."
+      - eval_time: 37h
+        alertname: TowerWakeLoop
+        exp_alerts: []
+
+  - name: tower planned wakes (36 changes a day) stay quiet
+    interval: 10m
+    input_series:
+      - series: 'probe_success{job="blackbox-tower",instance="192.168.1.101:22"}'
+        values: '0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0'
+    alert_rule_test:
+      - eval_time: 40h
+        alertname: TowerWakeLoop
+        exp_alerts: []

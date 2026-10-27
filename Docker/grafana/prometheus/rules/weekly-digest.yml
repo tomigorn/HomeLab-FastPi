@@ -12,6 +12,12 @@ groups:
             or (month() == 10 and (day_of_month() - day_of_week()) < 25)
           )) or vector(1)
 
+      # Local minutes since midnight (0-1439), for rules that look at a local time slot (tower-power.yml).
+      - record: homelab:local_minute_of_day
+        expr: |-
+          hour(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours))) * 60
+            + minute(vector(time() + 3600 * scalar(homelab:local_utc_offset_hours)))
+
       - alert: WeeklyUpdateDigest
         expr: |-
           vector(1)

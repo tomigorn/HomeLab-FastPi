@@ -112,6 +112,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "Prometheus cannot scrape {{ $labels.job }} ({{ $labels.instance }})"
           description: >-

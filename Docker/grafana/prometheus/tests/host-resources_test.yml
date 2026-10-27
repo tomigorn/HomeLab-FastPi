@@ -31,7 +31,7 @@ tests:
       - eval_time: 40m
         alertname: HostFilesystemSpaceLow
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
             exp_annotations:
               summary: "fastpi: / has 10% space left"
               description: "Under 15% free for 30 min. Find it: sudo du -xh --max-depth=2 / | sort -h | tail; docker system df."
@@ -108,7 +108,7 @@ tests:
       - eval_time: 40m
         alertname: HostInodesLow
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100", device: /dev/nvme0n1p2, fstype: ext4, mountpoint: /}
             exp_annotations:
               summary: "fastpi: / has 8% inodes left"
               description: "Under 10% of inodes free: many small files (logs, caches, image layers). Find them: sudo du -x --inodes --max-depth=3 / | sort -n | tail."
@@ -135,7 +135,7 @@ tests:
       - eval_time: 18m
         alertname: HostMemoryLow
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100"}
             exp_annotations:
               summary: "fastpi: only 8% memory available"
               description: "Under 10% MemAvailable for 10 min. Biggest containers: docker stats --no-stream --format '{{.MemUsage}} {{.Name}}' | sort -h | tail; dashboard fastpi-resources."
@@ -158,7 +158,7 @@ tests:
       - eval_time: 30m
         alertname: HostSwapHigh
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100"}
             exp_annotations:
               summary: "fastpi: 85% of swap in use"
               description: "Over 80% of the 10 GB swap for 15 min: RAM is overcommitted and the Pi slows to a crawl. Check: free -h; vmstat 5 3; dashboard fastpi-resources."
@@ -183,7 +183,7 @@ tests:
       - eval_time: 20m
         alertname: HostCpuHot
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", type: cpu-thermal, zone: "0"}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100", type: cpu-thermal, zone: "0"}
             exp_annotations:
               summary: "fastpi: CPU at 77 °C"
               description: "Over 75 °C for 10 min; the Pi throttles from 80 °C. Check the fan and airflow: vcgencmd measure_temp; vcgencmd get_throttled."
@@ -200,7 +200,7 @@ tests:
       - eval_time: 20m
         alertname: HostNvmeHot
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", chip: nvme_nvme0, sensor: temp1}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100", chip: nvme_nvme0, sensor: temp1}
             exp_annotations:
               summary: "fastpi: NVMe at 70 °C, over its own warning temperature"
               description: "Above the drive's warning threshold for 10 min; it throttles and wears faster. Check: sudo smartctl -a /dev/nvme0 | grep -i temp."
@@ -227,7 +227,7 @@ tests:
       - eval_time: 40m
         alertname: HostLoadHigh
         exp_alerts:
-          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100"}
+          - exp_labels: {severity: warning, notify: digest, job: raspberry-pi, instance: "node-exporter:9100"}
             exp_annotations:
               summary: "fastpi: load 2.2 per core for 30 min"
               description: "15-min load over 2 per core for 30 min (often I/O wait on the USB disks). Check: top -o %CPU; sudo iotop -o; docker stats --no-stream."

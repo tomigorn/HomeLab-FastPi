@@ -48,6 +48,7 @@ groups:
         for: 30m
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "Community blocklist not pulled for {{ $value | humanizeDuration }}"
           description: >-
@@ -62,6 +63,7 @@ groups:
         for: 6h
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec GeoIP databases are {{ $value | humanizeDuration }} old"
           description: >-
@@ -76,6 +78,7 @@ groups:
         for: 1h
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "{{ $value | humanizePercentage }} of Traefik log lines are not parsed by CrowdSec"
           description: >-
@@ -88,6 +91,7 @@ groups:
         for: 30m
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec dashboard exporter is failing or stale"
           description: >-
@@ -104,6 +108,7 @@ groups:
         for: 1d
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "Traefik bouncer plugin {{ with query \"crowdsec_bouncer_plugin_version_info\" }}{{ with index . 0 }}{{ .Labels.installed }} is outdated, upstream has {{ .Labels.latest }}{{ end }}{{ end }}"
           description: >-
@@ -135,6 +140,7 @@ groups:
         for: 1h
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "Bouncer plugin release check has not succeeded for 3 days"
           description: >-
@@ -151,6 +157,7 @@ groups:
           and on() (time() - crowdsec_autoupdate_last_change_timestamp_seconds < 86400)
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec auto-update: {{ $labels.result }} {{ $labels.from }} -> {{ $labels.to }}"
           description: >-
@@ -176,6 +183,7 @@ groups:
         expr: crowdsec_autoupdate_result{result="held_back"} == 1
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec {{ $labels.to }} held back (failed verification earlier); staying on {{ $labels.from }}"
           description: >-
@@ -197,6 +205,7 @@ groups:
         expr: crowdsec_autoupdate_result{result="major_available"} == 1
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec {{ $labels.to }} is a new MAJOR - not auto-installed"
           description: >-
@@ -209,6 +218,7 @@ groups:
         for: 36h      # one failed night (GitHub down) is noise; two is not
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec auto-update could not run for two nights"
           description: "journalctl -u crowdsec-autoupdate --since -2d"
@@ -218,6 +228,7 @@ groups:
         for: 1h
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "CrowdSec auto-update has not run for 3 days"
           description: >-

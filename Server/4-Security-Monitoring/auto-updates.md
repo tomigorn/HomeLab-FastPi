@@ -8,10 +8,10 @@
 |---|---|---|---|
 | `security-code-scan.timer` → `security_scan.py code` | daily 03:40 | every image the two repos refer to (compose `image:` with `${VAR}` from `.env`/`.env.example`, Dockerfile `FROM`; local builds left out, their bases scanned) → cached CycloneDX SBOM per image → `trivy sbom` against the current DB | **enabled** |
 | `security-image-scan.timer` → `images` | 04:10 | running digests on fastpi, beefy, tower (registry copy, no pull on tower) | existed; now also diffs findings |
-| `NewFixableImageVulnerability` | on a new finding | one Telegram per batch of fixable CRITICAL/HIGH (image, CVE, package) first seen in 24 h, either scan | **enabled** |
+| `NewFixableImageVulnerability` | on a new finding | no message of its own (`notify: digest`): the 06:30 daily digest lists fixable CRITICAL/HIGH findings first seen in 24 h, grouped per CVE | **enabled** |
 | `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf` | **enabled** (auto tier) |
 | beefy: same script, own `auto-update.conf` | 04:12 | see [beefy](#beefy) | **enabled** (auto tier) |
-| `AutoUpdateNightly` | hour after the run | one Telegram per host (`host` label): updated / rolled back / available (with command) / errors; capped at ~3000 characters (failures first), the rest becomes `… N more, see journalctl -u auto-update` (Telegram limit 4096) | **enabled** |
+| `AutoUpdateNightly` | hour after the run | no message of its own (`notify: digest`): the 06:30 daily digest lists per host what was updated / rolled back / held / waiting; failures and rollbacks keep their own alerts | **enabled** |
 | `AutoUpdateRollbackFailed` | at once | email + Telegram; the script also pages via `oob-alert.sh` (bypasses the edge) | **enabled** |
 | unattended-upgrades | daily (apt timers) | Debian + Debian-Security only, no reboot | existed |
 | `crowdsec-autoupdate.timer` | 05:07 | CrowdSec engine patch/minor + hub, own verify/rollback | existed |

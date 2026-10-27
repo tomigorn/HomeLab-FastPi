@@ -12,6 +12,7 @@ groups:
         for: 30m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: {{ $labels.mountpoint }} has {{ $value | printf \"%.0f\" }}% space left"
           description: >-
@@ -60,6 +61,7 @@ groups:
         for: 30m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: {{ $labels.mountpoint }} has {{ $value | printf \"%.0f\" }}% inodes left"
           description: >-
@@ -83,6 +85,7 @@ groups:
         for: 10m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: only {{ $value | printf \"%.0f\" }}% memory available"
           description: >-
@@ -104,6 +107,7 @@ groups:
         for: 15m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: {{ $value | printf \"%.0f\" }}% of swap in use"
           description: >-
@@ -114,6 +118,7 @@ groups:
         for: 10m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: CPU at {{ $value | printf \"%.0f\" }} °C"
           description: >-
@@ -135,6 +140,7 @@ groups:
         for: 10m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: NVMe at {{ $value | printf \"%.0f\" }} °C, over its own warning temperature"
           description: >-
@@ -145,6 +151,7 @@ groups:
         for: 30m
         labels:
           severity: warning
+          notify: digest
         annotations:
           summary: "fastpi: load {{ $value | printf \"%.1f\" }} per core for 30 min"
           description: >-

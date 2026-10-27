@@ -43,6 +43,7 @@ groups:
         for: 5m
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "fastpi: container state not exported for 10+ min"
           description: >-

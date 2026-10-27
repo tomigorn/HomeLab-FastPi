@@ -70,7 +70,7 @@ Job `prometheus` scrapes `localhost:9090`. Rules: `prometheus/rules/prometheus-s
 | `PrometheusTSDBWALCorruptions` | WAL corruption in the last 3 h |
 | `PrometheusNotIngestingSamples` | no samples appended for 10 min |
 | `TargetDown` | `up == 0` for 5 min; excludes `blackbox-*` (`BlackboxExporterDown`; sleeping beefy/tower stay `up`), `alertmanager` (`AlertmanagerDown`), `cup` (`CupNotReporting`) |
-| `ContainerImageUpdatesAvailable` | `last_over_time(cup_updates_available[20m]) > 0` for 30 min; severity info, Telegram only, repeats weekly |
+| `ContainerImageUpdatesAvailable` | `last_over_time(cup_updates_available[20m]) > 0` for 30 min; `notify: weekly`, no message of its own (Monday digest) |
 | `CupNotReporting` | `last_over_time(up{job="cup"}[20m]) == 0` for 1 h; Cup is scraped every 15m but a sample is only current for 5m, so a bare selector would never hold for `for:` |
 
 `prometheus.yml`, `blackbox.yml` and `alertmanager.yml` are single-file bind mounts: an editor that replaces the file leaves the container on the old inode, so after editing them run `docker compose up -d --force-recreate <service>` instead of a HUP/reload.
@@ -101,8 +101,8 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 | Alert | Fires when |
 |---|---|
-| `BeefyWakeLoop` | > 20 up/down changes in 24 h |
-| `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): repeats every 6 h, "awake since" is the boot time; resolved says "asleep again (awake ~X h)", counted from the alert start minus 6 h (a lower bound). Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
+| `BeefyWakeLoop` | > 60 up/down changes in 24 h (planned wakes give 7-41), holds 6 h after it drops below; one message per episode |
+| `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): one message per episode, no repeat, no resolved message; "awake since" is the boot time; hours awake per day are in the daily digest. Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
 
 ## Media language (beefy)
 
@@ -110,7 +110,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 | Alert | Fires when | Severity |
 |---|---|---|
-| `AudioLanguageNotFound` | a Radarr/Sonarr title tagged `audio-swiss-german` waits 7 days for a Swiss German release (or a grab of it failed later); holds 5 days, so one Telegram per title and `failed` count | info |
+| `AudioLanguageNotFound` | a Radarr/Sonarr title tagged `audio-swiss-german` waits 7 days for a Swiss German release (or a grab of it failed later); holds 5 days; `notify: digest`, listed in the daily digest | info |
 
 The textfile stays on fastpi while beefy sleeps, so the series do not go stale; details in `HomeLab-BeefyServer` `Docker/Movie-Downloads/README.md`, "Swiss German not found alert".
 
@@ -118,17 +118,34 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 `alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`). Telegram layout: `alertmanager/templates/telegram.tmpl` (directory mount, so edits are live after `amtool`-checked reload) (icon by severity, one line per alert, explanation once in a collapsed quote). Check a route: `docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=info`.
 
-| Match | Receiver |
-|---|---|
-| `DeadMansSwitch` (`severity="deadman"`, always firing) | `healthchecks`: webhook to healthchecks.io every 4-5 min (URL in `alertmanager/secrets/healthchecks_url`); healthchecks.io alerts by Telegram + email after 15 min without a ping |
-| `WeeklyUpdateDigest` | `telegram-digest` |
-| `AlertNotificationsFailing{integration="telegram"}` | `email` (a broken Telegram is not reported over Telegram) |
-| `AudioLanguageNotFound` | `telegram-once` (no resolved message; grouped per app, title, failed) |
-| `severity="info"` | `telegram` |
-| `severity="heartbeat"` | `heartbeat` (email, 28 days) |
-| everything else (warning, critical) | `admins` (email + Telegram) |
+| Alerts | Channel | When |
+|---|---|---|
+| `severity=critical` (edge, DNS, endpoints, disk/RAM critical, rollback failed, secret leak) | `critical`: Telegram + email, with resolved | at once, any time, repeat 12 h |
+| `MalwareQuarantined`, `MalwareFound` | Telegram + email, no resolved | at once, any time |
+| `ContainerDown` of traefik, cloudflared, crowdsec, adguard*, authentik* | Telegram + email, no resolved | at once, any time |
+| `AlertingHeartbeat` | email | every 28 days |
+| `DeadMansSwitch` | healthchecks.io webhook (it alerts by Telegram + email) | every 4 min |
+| other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |
+| other info | Telegram, no resolved | at once, muted 22:00-07:00, repeat 7 d |
+| `BeefyWakeLoop`, `TowerWakeLoop`, `RootkitWarning`, `SecurityScanStale`, `ClamavScanStale`, `BeefyAwakeLong` | Telegram, no resolved | once per episode, muted 22:00-07:00 |
+| label `notify: digest` (36 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`) | no message (`null`), listed in `DailyDigest` | daily 06:30 |
+| label `notify: weekly` (`ContainerImageUpdatesAvailable`, `UnraidUpdateAvailable`, `CriticalImageVulnerabilities`) | no message, figures in `WeeklyUpdateDigest` | Monday 05:00 |
+| `DailyDigest`, `WeeklyUpdateDigest` | `telegram-digest` | 06:30 daily, Monday 05:00, never muted |
+| `AlertNotificationsFailing{integration="telegram"}` | email | at once |
+| any label `test=…` | `telegram-test`, marked 🧪, never email | only when sent on purpose |
 
-`AlertmanagerDown` cannot be delivered by the Alertmanager that is down: the cover is the container-exporter Telegram fallback, and for fastpi fully offline an external dead-man's switch (`Docker/_global/docs/healthchecks-deadman-switch.md`, not set up).
+- **Quiet hours** (`time_intervals: quiet-hours`, Europe/Zurich, DST-safe): muted sends are dropped; a group still firing at 07:00 is sent then, one that fired and cleared overnight is in the digest.
+- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`). Lists capped (8/6/5/6/5) to stay under 4096 characters.
+- **New alert rule:** pick its line above; give it `notify: digest` if it needs no action today.
+- **Maintenance:** `Docker/_global/scripts/maintenance-silence.sh on [hours] [reason]` before batch or upgrade work, `off` after: silences ContainerCrashLooping, ContainerDown, ContainerUnhealthy, SecurityFileChanged, HostRebooted, SshLoginOutsideLan; the digest still lists them.
+- **Tests:** no separate test chat exists, so 🧪 messages go to the alert group, only when sent on purpose (a POSTed alert with a `test` label, `oob-alert.sh --test`). To check the path without a message: `oob-alert.sh --check`.
+
+```bash
+python3 alertmanager/test_routing.py [alertmanager/alertmanager.yml]   # receivers via amtool + quiet-hour muting; default: the template
+docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=warning
+```
+
+`AlertmanagerDown` cannot be delivered by the Alertmanager that is down: the cover is the container-exporter Telegram fallback, and for fastpi fully offline the healthchecks.io dead-man's switch.
 
 ## Usage per user
 

@@ -13,6 +13,7 @@ groups:
           and (media_language_missing_notify_timestamp_seconds > time() - 432000)
         labels:
           severity: info
+          notify: digest
         annotations:
           summary: "{{ $labels.language }} not found: {{ $labels.title }}"
           description: >-

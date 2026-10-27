@@ -11,19 +11,20 @@
 groups:
   - name: beefy-power
     rules:
-      # A normal day is the 03:55 maintenance wake (security scans 04:05-04:25) and a
-      # handful of real sessions - each boot is two changes (up, down), so well
-      # under 20. The 2026-10-09 loop produced ~180 changes a day and would have
-      # crossed 20 within about four hours.
+      # Each boot is two changes (up, down). Planned wakes (night downloads, the 03:55 maintenance wake, idle pulls) gave 7-41 changes a day in Oct 2026, so 20 fired on normal days; the 2026-10-09 loop produced ~180 a day and crosses 60 within about 8 hours.
+      # keep_firing_for: the sliding 24 h window must not flap the alert around the threshold; routed once (alertmanager.yml), no resolved message.
       - alert: BeefyWakeLoop
-        expr: changes(probe_success{job="blackbox-beefy"}[24h]) > 20
+        expr: changes(probe_success{job="blackbox-beefy"}[24h]) > 60
+        keep_firing_for: 6h
         labels:
           severity: warning
         annotations:
           summary: "beefy keeps waking up ({{ $value }} state changes in 24h)"
           description: >-
             beefy has switched between up and down {{ $value }} times in the last
-            24 hours, so something keeps waking it right after it idles off.
+            24 hours. Planned wakes (night downloads, the 03:55 maintenance wake,
+            idle pulls) stay under about 40 a day, so something keeps waking it
+            right after it idles off.
             Find the source in the Beefy-Waker log (`docker logs` on it is
             truncated; use `sudo grep -a 'beefy down\|manual wake'` on its json
             log file): "beefy down (...:PORT)" lines come through a Traefik

@@ -34,7 +34,7 @@ tests:
       - eval_time: 30m
         alertname: HostRebooted
         exp_alerts:
-          - exp_labels: {severity: info, instance: "node-exporter:9100", job: raspberry-pi}
+          - exp_labels: {severity: info, notify: digest, instance: "node-exporter:9100", job: raspberry-pi}
             exp_annotations:
               summary: "fastpi rebooted 30m 0s ago"
               description: "Clean shutdown. If nobody rebooted it, check: journalctl -b -1 -n 50. Then the smoke test (Docker/_global/scripts/smoke-test.sh)."

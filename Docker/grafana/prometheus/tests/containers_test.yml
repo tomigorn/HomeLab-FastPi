@@ -74,7 +74,7 @@ tests:
       - eval_time: 25m
         alertname: ContainerExporterStale
         exp_alerts:
-          - exp_labels: {severity: info}
+          - exp_labels: {severity: info, notify: digest}
             exp_annotations:
               summary: "fastpi: container state not exported for 10+ min"
               description: "ContainerDown and ContainerCrashLooping are blind. Check: systemctl status container-exporter.timer container-exporter.service."
@@ -88,7 +88,7 @@ tests:
       - eval_time: 12m
         alertname: ContainerExporterStale
         exp_alerts:
-          - exp_labels: {severity: info}
+          - exp_labels: {severity: info, notify: digest}
             exp_annotations:
               summary: "fastpi: container state not exported for 10+ min"
               description: "ContainerDown and ContainerCrashLooping are blind. Check: systemctl status container-exporter.timer container-exporter.service."

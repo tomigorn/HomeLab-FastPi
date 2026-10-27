@@ -1,5 +1,7 @@
 # promtool test rules tests/security_test.yml
 rule_files:
+  - ../rules/weekly-digest.yml
+  - ../rules/tower-power.yml
   - ../rules/security-posture.yml
 evaluation_interval: 1m
 tests:
@@ -17,26 +19,43 @@ tests:
       - eval_time: 20m
         alertname: FailedLoginsSpike
         exp_alerts:
-          - exp_labels: {severity: info, host: beefy, instance: "node-exporter:9100"}
+          - exp_labels: {severity: info, notify: digest, host: beefy, instance: "node-exporter:9100"}
             exp_annotations:
               summary: "beefy: 21 failed SSH logins in 24 h"
               description: "More than 20 sshd lines with Failed password / Invalid user / authentication failure in the last 24 h. SSH is LAN-only, so the source is inside the LAN or VPN. Look: journalctl _COMM=sshd (fastpi), /var/log/auth.log (beefy), /var/log/syslog (tower)."
 
-  - name: rootkit findings outside the baseline
+  - name: rootkit warnings alert only when the set of new findings changes
     interval: 1m
     input_series:
+      # beefy: a known finding since before the window, unchanged: silent.
       - series: 'security_rootkit_warnings{host="beefy",tool="chkrootkit"}'
-        values: '1x30'
+        values: '1x3000'
+      - series: 'security_rootkit_new_fingerprint{host="beefy",tool="chkrootkit"}'
+        values: '111x3000'
+      # fastpi: one new finding at 30 h (fingerprint 0 -> 222), a different one at 40 h (222 -> 333, same count).
       - series: 'security_rootkit_warnings{host="fastpi",tool="rkhunter"}'
-        values: '0x30'
+        values: '0x1799 1x1200'
+      - series: 'security_rootkit_new_fingerprint{host="fastpi",tool="rkhunter"}'
+        values: '0x1799 222x599 333x600'
+      # fastpi chkrootkit: findings went away (fingerprint changes to 0, count 0): silent.
+      - series: 'security_rootkit_warnings{host="fastpi",tool="chkrootkit"}'
+        values: '2x1799 0x1200'
+      - series: 'security_rootkit_new_fingerprint{host="fastpi",tool="chkrootkit"}'
+        values: '444x1799 0x1200'
     alert_rule_test:
-      - eval_time: 10m
+      - eval_time: 29h
+        alertname: RootkitWarning
+        exp_alerts: []
+      - eval_time: 30h10m
         alertname: RootkitWarning
         exp_alerts:
-          - exp_labels: {severity: info, host: beefy, tool: chkrootkit}
+          - exp_labels: {severity: info, host: fastpi, tool: rkhunter}
             exp_annotations:
-              summary: "beefy: 1 new chkrootkit finding(s)"
-              description: "Findings not in the accepted baseline are marked NEW in /var/lib/security-scan/audit-beefy.txt on fastpi. Check them by hand; a false positive is accepted by deleting /var/lib/security-scan/audit-accepted-beefy-chkrootkit.txt and running systemctl start security-audit.service."
+              summary: "fastpi: 1 new rkhunter finding(s)"
+              description: "The set of findings outside the accepted baseline changed in the last audit; they are marked NEW in /var/lib/security-scan/audit-fastpi.txt on fastpi. Check them by hand; a false positive is accepted by deleting /var/lib/security-scan/audit-accepted-fastpi-rkhunter.txt and running systemctl start security-audit.service. A set that stays the same does not alert again."
+      - eval_time: 66h
+        alertname: RootkitWarning
+        exp_alerts: []
 
   - name: lynis hardening index drops more than 5 points in a week
     interval: 1m
@@ -52,7 +71,7 @@ tests:
       - eval_time: 10160m
         alertname: LynisHardeningDropped
         exp_alerts:
-          - exp_labels: {severity: info, host: fastpi}
+          - exp_labels: {severity: info, notify: digest, host: fastpi}
             exp_annotations:
               summary: "fastpi: Lynis hardening index fell to 64 (6 points in 7 days)"
               description: "Something weakened the configuration since last week's audit. The warnings are in /var/lib/security-scan/audit-fastpi.txt on fastpi; the full report is /var/log/lynis-report.dat on the host."
@@ -64,15 +83,21 @@ tests:
         values: '0x120'
       - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="pi",source_class="vpn"}'
         values: '600x120'
+      - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="pi",source_class="other"}'
+        values: '600x120'
       - series: 'security_ssh_last_login_timestamp_seconds{host="fastpi",user="deploy",source_class="lan"}'
         values: '600x120'
     alert_rule_test:
       - eval_time: 30m
         alertname: SshLoginOutsideLan
         exp_alerts:
-          - exp_labels: {severity: warning, host: fastpi, user: pi, source_class: vpn}
+          - exp_labels: {severity: warning, notify: digest, host: fastpi, user: pi, source_class: vpn}
             exp_annotations:
               summary: "fastpi: SSH login of pi from vpn"
+              description: "Accepted SSH login from outside the LAN (vpn = WireGuard, tunnel = cloudflared, other = unknown address) within the last hour. Source address and key fingerprint: journalctl _COMM=sshd-session | grep Accepted"
+          - exp_labels: {severity: warning, host: fastpi, user: pi, source_class: other}
+            exp_annotations:
+              summary: "fastpi: SSH login of pi from other"
               description: "Accepted SSH login from outside the LAN (vpn = WireGuard, tunnel = cloudflared, other = unknown address) within the last hour. Source address and key fingerprint: journalctl _COMM=sshd-session | grep Accepted"
       - eval_time: 30m
         alertname: SshLoginUnexpectedUser
@@ -129,7 +154,7 @@ tests:
       - eval_time: 80m
         alertname: SecurityAccessScanStale
         exp_alerts:
-          - exp_labels: {severity: warning, subject: integrity-fastpi}
+          - exp_labels: {severity: warning, notify: digest, subject: integrity-fastpi}
             exp_annotations:
               summary: "Security scan integrity-fastpi has not succeeded in 1h 20m 0s"
               description: "The 5-minute security-access.timer is not producing fresh SSH login and integrity figures: systemctl status security-access.service"
@@ -152,7 +177,35 @@ tests:
           - exp_labels: {severity: warning, subject: logins-beefy}
             exp_annotations:
               summary: "Security scan logins-beefy has not succeeded in 3d 0h 0m 0s"
-              description: "Stale after 48h (daily scans), 7d (tower), 14d (weekly image, audit and Cup scans). Old figures are still served, so the dashboard looks fine."
+              description: "Stale after 48h (daily scans) or 14d (weekly image, audit and Cup scans). tower sleeps most of the time, so its subjects count only when tower was awake at their scan time in the last 24 h and there is still no result for 26 h. Old figures are still served, so the dashboard looks fine."
+
+  # promtool time 0 = 01:00 local (CET). Slot 0405: tower up all of local 03:55-04:15 (UTC 1d02:55-03:15). Slot 0550: up all of local 04:55-05:59.
+  - name: tower subjects are stale only when tower was awake at their scan time
+    interval: 1m
+    input_series:
+      - series: 'security_scan_last_success_timestamp_seconds{subject="logins-tower"}'
+        values: '0x3200'
+      - series: 'security_scan_last_success_timestamp_seconds{subject="av-tower"}'
+        values: '0x3200'
+      # tower up 1d02:50-03:20 UTC (local 03:50-04:20): covers the 04:05 scans, not the 05:00/05:50 antivirus run.
+      - series: 'probe_success{job="blackbox-tower",instance="192.168.1.101:22"}'
+        values: '0x1609 1x30 0x1560'
+    alert_rule_test:
+      # 3 days without a result, tower asleep at every scan time: silent.
+      - eval_time: 1d2h
+        alertname: SecurityScanStale
+        exp_alerts: []
+      - eval_time: 1d4h30m
+        alertname: SecurityScanStale
+        exp_alerts:
+          - exp_labels: {severity: warning, subject: logins-tower}
+            exp_annotations:
+              summary: "Security scan logins-tower has not succeeded in 1d 4h 30m 0s"
+              description: "Stale after 48h (daily scans) or 14d (weekly image, audit and Cup scans). tower sleeps most of the time, so its subjects count only when tower was awake at their scan time in the last 24 h and there is still no result for 26 h. Old figures are still served, so the dashboard looks fine."
+      # the awake slot leaves the 24 h window: silent again although still stale.
+      - eval_time: 2d3h30m
+        alertname: SecurityScanStale
+        exp_alerts: []
 
   - name: unraid OS and plugin updates
     interval: 1m
@@ -170,45 +223,14 @@ tests:
       - eval_time: 70m
         alertname: UnraidUpdateAvailable
         exp_alerts:
-          - exp_labels: {severity: info, installed: "7.3.2", available: "7.3.3"}
+          - exp_labels: {severity: info, notify: weekly, installed: "7.3.2", available: "7.3.3"}
             exp_annotations:
               summary: "tower: Unraid OS 7.3.3 available (installed 7.3.2)"
               description: "Update by hand on tower: Tools > Update OS for the OS, Plugins > Check for updates for plugins. Weekly reminder at most (info)."
-          - exp_labels: {severity: info, plugin: fix.common.problems}
+          - exp_labels: {severity: info, notify: weekly, plugin: fix.common.problems}
             exp_annotations:
               summary: "tower: plugin fix.common.problems has an update"
               description: "Update by hand on tower: Tools > Update OS for the OS, Plugins > Check for updates for plugins. Weekly reminder at most (info)."
-
-  - name: new critical image vulnerabilities (rise since yesterday)
-    # 1-minute-dense samples: in production node-exporter serves the textfile
-    # continuously, so the metric is never stale; the test mirrors that (hourly
-    # samples would go stale between scans under the file's 1m eval and the 5m
-    # 'for' could never accumulate).
-    interval: 1m
-    input_series:
-      # fastpi: 2 fixable criticals for 27h, then a new disclosure makes it 5.
-      - series: 'security_image_vulnerabilities_fixable{host="fastpi",severity="CRITICAL"}'
-        values: '2+0x1619 5+0x360'
-      # beefy: steady, never rises -> must stay silent.
-      - series: 'security_image_vulnerabilities_fixable{host="beefy",severity="CRITICAL"}'
-        values: '3+0x1979'
-      # tower: we patched, count drops -> negative difference, must stay silent.
-      - series: 'security_image_vulnerabilities_fixable{host="tower",severity="CRITICAL"}'
-        values: '6+0x1619 1+0x360'
-    alert_rule_test:
-      # Before the rise (20h): fastpi has no sample 24h earlier -> silent.
-      - eval_time: 20h
-        alertname: NewCriticalImageVulnerabilities
-        exp_alerts: []
-      # An hour after fastpi's rise (28h): only fastpi pages; beefy (flat) and
-      # tower (dropped) stay silent.
-      - eval_time: 28h
-        alertname: NewCriticalImageVulnerabilities
-        exp_alerts:
-          - exp_labels: {severity: warning, host: fastpi}
-            exp_annotations:
-              summary: "fastpi: 3 NEW fixable critical CVE(s) since yesterday"
-              description: "Count rose by 3 since the last daily scan (new disclosure or new image). Update the affected image today. Worst first: <code>/var/lib/security-scan/image-cves-fastpi.txt</code> on fastpi; newer tag in Cup: https://cup.holy-grail.ch/."
 
   - name: a new fixable finding pages once per series, nothing without one
     interval: 1h
@@ -219,7 +241,7 @@ tests:
       - eval_time: 1h
         alertname: NewFixableImageVulnerability
         exp_alerts:
-          - exp_labels: {severity: info, scope: code-fastpi, image: "caddy:alpine", id: CVE-2026-1, pkg: openssl}
+          - exp_labels: {severity: info, notify: digest, scope: code-fastpi, image: "caddy:alpine", id: CVE-2026-1, pkg: openssl}
             exp_annotations:
               summary: "code-fastpi: new fixable CRITICAL CVE-2026-1 in caddy:alpine (openssl)"
               description: "Update the image (Cup: https://cup.holy-grail.ch/). All findings: <code>/var/lib/security-scan/code-cves-&lt;repo&gt;.txt</code> or <code>image-cves-&lt;host&gt;.txt</code> on fastpi."

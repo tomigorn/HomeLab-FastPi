@@ -28,32 +28,32 @@ tests:
       - eval_time: 169h
         alertname: AudioLanguageNotFound
         exp_alerts:
-          - exp_labels: {severity: info, app: radarr, failed: "0", language: Swiss German, title: The Ring Thing (2004)}
+          - exp_labels: {severity: info, notify: digest, app: radarr, failed: "0", language: Swiss German, title: The Ring Thing (2004)}
             exp_annotations:
               summary: "Swiss German not found: The Ring Thing (2004)"
               description: "radarr: tagged audio-swiss-german, monitored, no file for 7d 1h 0m 0s; the searches so far found no acceptable release (Swiss German must be in the release name). Check Wanted -> Missing and Interactive Search; Movie-Downloads/scripts/swiss-german-check.py lists every waiting title. Sent once; a failed grab sends it again."
       - eval_time: 287h
         alertname: AudioLanguageNotFound
         exp_alerts:
-          - exp_labels: {severity: info, app: radarr, failed: "0", language: Swiss German, title: The Ring Thing (2004)}
+          - exp_labels: {severity: info, notify: digest, app: radarr, failed: "0", language: Swiss German, title: The Ring Thing (2004)}
             exp_annotations:
               summary: "Swiss German not found: The Ring Thing (2004)"
               description: "radarr: tagged audio-swiss-german, monitored, no file for 11d 23h 0m 0s; the searches so far found no acceptable release (Swiss German must be in the release name). Check Wanted -> Missing and Interactive Search; Movie-Downloads/scripts/swiss-german-check.py lists every waiting title. Sent once; a failed grab sends it again."
       - eval_time: 289h
         alertname: AudioLanguageNotFound
         exp_alerts:
-          - exp_labels: {severity: info, app: sonarr, failed: "0", language: Swiss German, title: Wilder (2017)}
+          - exp_labels: {severity: info, notify: digest, app: sonarr, failed: "0", language: Swiss German, title: Wilder (2017)}
             exp_annotations:
               summary: "Swiss German not found: Wilder (2017)"
               description: "sonarr: tagged audio-swiss-german, monitored, missing episodes for 7d 1h 0m 0s; the searches so far found no acceptable release (Swiss German must be in the release name). Check Wanted -> Missing and Interactive Search; Movie-Downloads/scripts/swiss-german-check.py lists every waiting title. Sent once; a failed grab sends it again."
       - eval_time: 313h
         alertname: AudioLanguageNotFound
         exp_alerts:
-          - exp_labels: {severity: info, app: radarr, failed: "1", language: Swiss German, title: The Ring Thing (2004)}
+          - exp_labels: {severity: info, notify: digest, app: radarr, failed: "1", language: Swiss German, title: The Ring Thing (2004)}
             exp_annotations:
               summary: "Swiss German not found: The Ring Thing (2004)"
               description: "radarr: tagged audio-swiss-german, monitored, no file for 13d 1h 0m 0s; 1 grab(s) failed or were blocklisted, nothing else acceptable found yet. Check Wanted -> Missing and Interactive Search; Movie-Downloads/scripts/swiss-german-check.py lists every waiting title. Sent once; a failed grab sends it again."
-          - exp_labels: {severity: info, app: sonarr, failed: "0", language: Swiss German, title: Wilder (2017)}
+          - exp_labels: {severity: info, notify: digest, app: sonarr, failed: "0", language: Swiss German, title: Wilder (2017)}
             exp_annotations:
               summary: "Swiss German not found: Wilder (2017)"
               description: "sonarr: tagged audio-swiss-german, monitored, missing episodes for 8d 1h 0m 0s; the searches so far found no acceptable release (Swiss German must be in the release name). Check Wanted -> Missing and Interactive Search; Movie-Downloads/scripts/swiss-german-check.py lists every waiting title. Sent once; a failed grab sends it again."

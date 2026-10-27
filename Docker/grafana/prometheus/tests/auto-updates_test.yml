@@ -20,6 +20,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              notify: digest
               host: fastpi
             exp_annotations:
               summary: "Nightly auto-update fastpi"
@@ -48,6 +49,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              notify: digest
               host: fastpi
             exp_annotations:
               summary: "Nightly auto-update fastpi"
@@ -106,6 +108,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              notify: digest
               host: fastpi
             exp_annotations:
               summary: "Nightly auto-update on fastpi has not run for 2d 2h 0m 0s"
@@ -135,6 +138,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              notify: digest
               host: fastpi
             exp_annotations:
               summary: "Nightly auto-update fastpi"
@@ -147,6 +151,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: info
+              notify: digest
               host: beefy
             exp_annotations:
               summary: "Nightly auto-update beefy"

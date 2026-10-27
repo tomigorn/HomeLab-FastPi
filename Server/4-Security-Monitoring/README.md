@@ -149,7 +149,7 @@ rm /var/lib/security-scan/audit-accepted-<host>-<tool>.txt && sudo systemctl sta
 sudo rm /var/lib/security-scan/integrity-baseline-fastpi.json && sudo systemctl start security-access.service
 ```
 
-Login alerts (`SshLoginOutsideLan`, `SshLoginUnexpectedUser`) stay up for an hour after the login. The `access` group runs as root in its own 5-minute unit because sudoers and other users' keys are root-only; it is read-only apart from the two state/metric directories. The leftover `deploy` user's key is in the baseline, so a login by it alerts.
+Login alerts (`SshLoginOutsideLan`, `SshLoginUnexpectedUser`) stay up for an hour after the login. `SshLoginOutsideLan` via vpn or tunnel (the owner's own logins) is digest-only (`notify: digest`); from any other source it pages. The `access` group runs as root in its own 5-minute unit because sudoers and other users' keys are root-only; it is read-only apart from the two state/metric directories. The leftover `deploy` user's key is in the baseline, so a login by it alerts.
 
 **The audit unit is not sandboxed.** It runs the tools via sudo and they must see the real system (PrivateTmp/ProtectHome would hide what chkrootkit looks at).
 
@@ -215,7 +215,7 @@ Trivy runs as `TRIVY_IMAGE` in `security_scan.py` (tag + multi-arch index digest
 - **New findings are diffed, the backlog is not.** `NewFixableImageVulnerability` fires per (image, CVE, package) first seen in 24 h. The first run and any image new to the scan are baselined (`vulns-seen-<scope>.json`), so a newly added image's backlog shows only in `code-cves-<repo>.txt` / `image-cves-<host>.txt` and `CriticalImageVulnerabilities`. Re-baseline: `rm /var/lib/security-scan/vulns-seen-<scope>.json`.
 - **The code scan is daily (03:40), bounded by the Trivy DB**, republished about daily (~21:15 local): a new CVE shows by the next 03:40. The run matches cached SBOMs (`/var/lib/security-scan/sbom/`, rebuilt every 24 h, at most 20 Docker Hub + 100 others per run because of Docker Hub's rate limit) and never runs alongside the nightly image scan (shared Trivy cache).
 - **No real-time intrusion detection.** rkhunter, chkrootkit and Lynis run weekly on fastpi and beefy (not tower: Unraid has no apt). Nothing watches continuously: no auditd or AIDE.
-- **beefy and tower are only read when awake.** beefy is up 03:55 to about 04:45 (maintenance wake, then the window hold, then its idle watcher), so everything reading beefy runs between 04:00 and 04:45 (window: Server/6-Night-Schedule). When it is missed, its subjects go stale (`SecurityScanStale`: 48 h daily, 7 d for tower, 14 d for weekly subjects and Cup).
+- **beefy and tower are only read when awake.** beefy is up 03:55 to about 04:45 (maintenance wake, then the window hold, then its idle watcher), so everything reading beefy runs between 04:00 and 04:45 (window: Server/6-Night-Schedule). When it is missed, its subjects go stale (`SecurityScanStale`: 48 h daily, 14 d for weekly subjects and Cup). tower subjects (and `ClamavScanStale` for tower) count only after tower was awake for a whole scan slot in the last 24 h (`tower:awake_for_scan`: 03:55-04:15 for logins/patches, 04:55-05:59 for av) and still have no result for 26 h, so a sleeping tower is silent.
 
 ## unattended-upgrades covers less than it looks like
 
