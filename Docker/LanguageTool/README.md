@@ -23,7 +23,7 @@ Two layers:
 
 | Where | URL                                    | When used                    |
 |-------|----------------------------------------|------------------------------|
-| Pi    | `https://languagetool.holy-grail.ch`   | phone, work laptop, anywhere |
+| Pi    | `https://lang-tool.ddns.net/lt-<TOKEN>` | phone, work laptop, anywhere (personal token) |
 | Mac   | `http://localhost:8010`                | browser extension on the Mac |
 
 Read `REVIEW.md` first — it explains what changed from the original plan
@@ -237,6 +237,5 @@ Everything except secrets and re-downloadables lives in the
 `HomeLab-FastPi` git repo — that is the backup. N-grams
 (`scripts/download-ngrams.sh`) and Hunspell dicts (`Vale/download-dicts.sh`)
 are re-downloadable and gitignored. The image tag is pinned, so a rebuild
-is byte-identical. Basic-auth credentials: `Traefik/traefik/dynamic/languagetool.users`
-(bcrypt, gitignored) — plaintext was written once to `CREDENTIALS.local.txt`
-(gitignored; delete after saving).
+is byte-identical.
+Access tokens (one per person and device): `Traefik/traefik/dynamic/languagetool-token.yml` (gitignored). Basic-auth was retired with the move to `lang-tool.ddns.net` (2026-08-24).

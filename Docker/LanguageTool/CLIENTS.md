@@ -6,29 +6,21 @@ explicit language (`en-GB` or `de-CH`).
 
 Endpoints:
 
-* **Pi (anywhere):** `https://languagetool.holy-grail.ch` — basic-auth
-  (`Traefik/traefik/dynamic/languagetool.users`; plaintext in
-  `CREDENTIALS.local.txt`).
+* **Pi (anywhere):** `https://lang-tool.ddns.net/lt-<TOKEN>` — one personal token per person and device (router label `Person-Device-Client` in the gitignored `Traefik/traefik/dynamic/languagetool-token.yml`; revoke by deleting that router). No basic-auth; the bare host returns 404.
 * **Mac (local):** `http://localhost:8010` — no auth.
 
 ---
 
 ## Browser extension (Chrome / Firefox / Edge)
 
-**The official add-on CANNOT do Basic-Auth** — it has no username/password
-field and its `fetch()` never triggers the browser login dialog, so the
-normal `https://languagetool.holy-grail.ch` URL just returns 401. Instead it
-authenticates via a **secret token in the URL path** (Traefik router
-`languagetool-token`, defined in the gitignored
-`Traefik/traefik/dynamic/languagetool-token.yml`; template + setup steps in
-`dynamic-example/languagetool-token.yml`).
+The server has no login: every client authenticates with a **secret token in the URL path** (one Traefik router per person and device in the gitignored `Traefik/traefik/dynamic/languagetool-token.yml`; template + setup steps in `dynamic-example/languagetool-token.yml`). The official add-on could not do Basic-Auth anyway (no username/password field).
 
 Official *LanguageTool* extension → Settings (gear):
 
 1. **Advanced settings → "Other server — requires LanguageTool server
    running there"** → paste the **token URL** (the whole thing acts as the
    password — anyone with it can use the server):
-   `https://languagetool.holy-grail.ch/lt-<TOKEN>`
+   `https://lang-tool.ddns.net/lt-<TOKEN>`
    The extension appends `/check`, so requests arrive as
    `/lt-<TOKEN>/check` and Traefik rewrites them to `/v2/check`.
    (Mac local: `http://localhost:8010`, no token needed.)
@@ -45,9 +37,7 @@ Vale — see below).
 ```jsonc
 // settings.json
 "languageToolLinter.languageTool.url": "http://localhost:8010",
-// or the Pi URL; the linter supports basic-auth via username/password:
-"languageToolLinter.languageTool.username": "lt",
-"languageToolLinter.languageTool.password": "<from CREDENTIALS.local.txt>",
+// or the Pi: "https://lang-tool.ddns.net/lt-<TOKEN>" (no username/password)
 "languageToolLinter.languageTool.preferredVariants": "en-GB,de-CH",
 "languageToolLinter.languageTool.level": "picky"
 ```
@@ -56,8 +46,7 @@ Vale — see below).
 
 Community plugin **"LanguageTool Integration"**:
 
-* Settings → **"LanguageTool API URL"** → `https://languagetool.holy-grail.ch`.
-* Basic-auth: put `user:pass` in the plugin's *username/password* fields.
+* Settings → **"LanguageTool API URL"** → `https://lang-tool.ddns.net/lt-<TOKEN>` (leave username/password empty).
 * Enable **Picky Mode**; set the language to `en-GB` / `de-CH` (or
   autodetect, but variant-pin if it guesses de-DE).
 
@@ -93,8 +82,8 @@ curl -s http://localhost:8010/v2/check \
   --data-urlencode 'text=We organize the colour scheme.' \
 | jq -r '.matches[] | "\(.rule.id): \(.message)"'
 
-# Against the Pi (basic-auth)
-curl -s -u lt:'<password>' https://languagetool.holy-grail.ch/v2/check \
+# Against the Pi (personal token)
+curl -s https://lang-tool.ddns.net/lt-<TOKEN>/v2/check \
   --data-urlencode 'language=de-CH' --data-urlencode 'level=picky' \
   --data-urlencode 'text=Ich fahre mit dem Fahrrad.'
 ```
