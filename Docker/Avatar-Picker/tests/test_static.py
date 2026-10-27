@@ -2,7 +2,7 @@
 
 Independent of the gallery contents: only the page's own markup/script is inspected.
 """
-import pathlib, re, unittest
+import pathlib, re, struct, unittest
 from html.parser import HTMLParser
 
 PAGE = pathlib.Path(__file__).resolve().parent.parent / "app" / "static" / "index.html"
@@ -92,6 +92,20 @@ class StaticPageTest(unittest.TestCase):
                 if t in ("script", "link", "img", "iframe"):
                     self.assertNotRegex(v, r"^(https?:)?//", f"external {t} {k}={v}")
         self.assertNotRegex(self.html, r"@import|url\(\s*['\"]?(https?:)?//")
+
+    def test_favicons_linked(self):
+        """The tab shows the picker's own icon (SVG + PNG fallback + Apple touch icon)."""
+        icons = {a.get("href"): a for a in self.find("link") if "icon" in (a.get("rel") or "")}
+        self.assertEqual(icons["favicon.svg"].get("type"), "image/svg+xml")
+        self.assertEqual(icons["favicon-32.png"].get("sizes"), "32x32")
+        self.assertEqual(icons["apple-touch-icon.png"].get("rel"), "apple-touch-icon")
+        self.assertNotIn("data:,", icons)
+        static = PAGE.parent
+        self.assertTrue(static.joinpath("favicon.svg").read_text().lstrip().startswith("<svg"))
+        for name, size in (("favicon-32.png", 32), ("apple-touch-icon.png", 180)):
+            head = static.joinpath(name).read_bytes()[:24]
+            self.assertEqual(head[:8], b"\x89PNG\r\n\x1a\n", name)
+            self.assertEqual(struct.unpack(">II", head[16:24]), (size, size), name)
 
     def test_ids_unique(self):
         ids = [a["id"] for _, a in self.tags if "id" in a]

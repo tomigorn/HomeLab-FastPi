@@ -157,6 +157,22 @@ class ServerTest(unittest.TestCase):
         self.assertGreater(int(h["Content-Length"]), 0)
         self.assertEqual(self.raw("HEAD", "/img/nope.png")[0], 404)
 
+    def test_favicons(self):
+        """Tab icons are static, need no login or secret, and carry the right type."""
+        self.start(FakeClient(self.users()), secret="s3cret")
+        for path, ctype, magic in (("/favicon.svg", "image/svg+xml", b"<svg"),
+                                   ("/favicon-32.png", "image/png", b"\x89PNG"),
+                                   ("/apple-touch-icon.png", "image/png", b"\x89PNG")):
+            code, body, h = self.raw("GET", path)
+            self.assertEqual(code, 200, path)
+            self.assertEqual(h["Content-Type"], ctype, path)
+            self.assertTrue(body.startswith(magic), path)
+            self.assertIn("max-age", h["Cache-Control"], path)
+            self.assertEqual(self.raw("HEAD", path)[0], 200, path)
+        self.assertEqual(self.raw("GET", "/favicon.ico")[0], 404)
+        self.assertEqual(self.raw("GET", "/static/favicon.svg")[0], 404)
+        self.assertEqual(self.raw("GET", "/index.html")[0], 403)  # the page itself still needs the secret
+
     def test_missing_local_pack_hidden(self):
         """A local-pack avatar whose file is absent (fresh clone) is hidden from the
         picker, can't be picked or fetched, and a row left empty is dropped."""

@@ -31,6 +31,10 @@ def load(app_dir=APP):
 
 load()
 INDEX = (APP / "static" / "index.html").read_bytes()
+# Tab icons: static, public like the images (they show no user data).
+ICONS = {"/favicon.svg": ("favicon.svg", "image/svg+xml"), "/favicon-32.png": ("favicon-32.png", "image/png"),
+         "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png")}
+ICONS = {path: ((APP / "static" / name).read_bytes(), ctype) for path, (name, ctype) in ICONS.items()}
 VERSION = (APP / "VERSION").read_text().strip() if (APP / "VERSION").exists() else "dev"
 
 _cfg = {"client": None, "base": None, "secret": None}
@@ -80,9 +84,13 @@ class Handler(BaseHTTPRequestHandler):
         return hmac.compare_digest(got.encode(), expected.encode())
 
     def _public(self, path, head=False):
-        """healthz / img: returns True if handled."""
+        """healthz / img / tab icons: returns True if handled."""
         if path == "/healthz":
             self._send(200, "ok", head=head)
+            return True
+        if path in ICONS:
+            body, ctype = ICONS[path]
+            self._send(200, body, ctype, cache="public, max-age=86400", head=head)
             return True
         if path.startswith("/img/") and path.endswith(".png"):
             aid = path[len("/img/"):-len(".png")]
