@@ -89,3 +89,8 @@ Before: every 2a login ticked, `pg_dump` (`backups/…-pre-admin-split-2b.dump`,
 | 7 | Delete old admin users | Grafana: Administration → Users → `tomigorn` delete; DT: Administration → Access → OpenID Connect users → `tomigorn` delete; Portainer: Users → `tomigorn` (id 2) delete | lists show only `tomigorn-admin` (+ local break-glass) | recreate (Portainer: as initial admin) |
 | 8 | Floppy ABS link | Floppy as `tomigorn` → link ABS (possible now: `tomigorn` is no ABS admin) | progress syncs | unlink |
 | 9 | Docs | README "Admin account", this table's state column, memory | – | – |
+
+
+## Owner decision 2026-10-27 (before 2b)
+- Group name for the everyday account is **`homelab-users`** (not `home-users`). `tomigorn` is in `homelab-users`; `tomigorn-admin` in `homelab-admins`.
+- `homelab-users` grants: Home Assistant as a normal user AND Grafana as Viewer (everyday account keeps read access to the dashboards). Admin rights stay with `homelab-admins`.
