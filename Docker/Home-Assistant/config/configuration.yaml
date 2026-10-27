@@ -58,7 +58,7 @@ scene: !include scenes.yaml
 # PUBLIC client + PKCE, provider/application "home-assistant" provisioned by
 # Docker/Authentik/scripts/provision-admin-sso.py; the client id comes from .env
 # (HA_OIDC_CLIENT_ID, passed in by docker-compose.yaml). Only members of
-# homelab-admins are let in, as admins. Roles are applied at FIRST login only.
+# homelab-admins (admins) and homelab-users (normal users, the everyday account) are let in. Roles are applied at FIRST login only.
 # Users are never auto-linked to existing HA users. There is no local login any
 # more (auth_providers: [] above); the owner is the OIDC user. Break-glass = shell
 # recovery, see the comment under homeassistant: above.
@@ -69,7 +69,7 @@ auth_oidc:
   display_name: "Holy Grail"
   roles:
     admin: homelab-admins
-    user: homelab-admins
+    user: homelab-users
   features:
     automatic_user_linking: false
     automatic_person_creation: true

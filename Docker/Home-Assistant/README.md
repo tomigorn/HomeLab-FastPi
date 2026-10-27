@@ -72,9 +72,8 @@ own login, not Traefik forward auth (that would break the Companion apps and the
 | Traefik route | `Docker/Traefik/traefik/dynamic/home-assistant.yml` (`local-networks@file`) |
 | Reverse-proxy trust | `config/.storage/http` — see below |
 
-**Who gets in, as what.** Only members of the Authentik group `homelab-admins`
-(`roles.user` and `roles.admin` are both that group), and they become HA
-**administrators**. The groups claim comes with the `profile` scope — Authentik has
+**Who gets in, as what.** Members of the Authentik group `homelab-admins` become HA
+**administrators** (`roles.admin`), members of `homelab-users` normal users (`roles.user`, the everyday account `tomigorn`; admin split 2026-10-27). The groups claim comes with the `profile` scope — Authentik has
 no `groups` scope, so `features.include_groups_scope: false`. **Roles are applied at
 first login only**: removing someone from the group later does not demote or lock
 out their HA user — do that in HA (*Settings → People → Users*) and revoke their
@@ -89,7 +88,8 @@ refresh tokens. A first login creates a new HA user + person
 `?skip_oidc_redirect=true` no longer offers a password form. The smoke test checks this
 ("home assistant sso-only").
 
-- **Owner = the OIDC user** "Tomigorn" (created at the first SSO login, `system-admin`).
+- **Owner = the OIDC user** "Tomigorn (admin)" (`tomigorn-admin`, `system-admin`) since the admin split 2026-10-27; "Tomigorn" (everyday, Companion app, device trackers) is `system-users`. Backup before the move: `config/.storage/auth.bak-admin-split`. Person pictures = the picker URL of each account's avatar (`.storage/person` `picture`); hass-oidc-auth ignores the `picture` claim, so a new pick does not reach HA by itself.
+- Before 2026-10-27 the owner was the OIDC user "Tomigorn" (created at the first SSO login, `system-admin`).
   The old local owner `admin` was deleted (user, credential, password entry, refresh
   tokens, frontend prefs). Its person `person.admin` was kept, unlinked (no user), so
   its entity and history stay; it never had device trackers. Long-term statistics,
