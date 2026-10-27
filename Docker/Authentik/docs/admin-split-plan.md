@@ -5,7 +5,7 @@ Least privilege: the everyday account keeps watching, listening, requesting; eve
 | Phase | What | State |
 |---|---|---|
 | 1 | inventory, this plan, create `tomigorn-admin` (`scripts/provision-admin-account.py`), owner sets password + MFA via a one-time recovery link | done 2026-10-27 |
-| 2a | add `tomigorn-admin` to the admin groups, set up per-app admin users, verify each app as `tomigorn-admin` | open |
+| 2a | add `tomigorn-admin` to the admin groups, set up per-app admin users, verify each app as `tomigorn-admin` | groups added 2026-10-27 (`provision-media-groups.py` `MEMBERS`), app logins open |
 | 2b | only after 2a verified everywhere: remove `tomigorn` from the admin groups, demote/delete old admin users in the apps | open |
 | 3 | Nextcloud (`cloud-admins`, tower) | deferred until tower's RAM test ends |
 

@@ -55,9 +55,8 @@ class MatrixTest(unittest.TestCase):
         self.assertEqual(admins, {"radarr", "sonarr", "prowlarr", "bazarr", "sabnzbd", "qbittorrent",
                                   "qbittorrent-audiobooks", "sabnzbd-audiobooks", "prowlarr-audiobooks"})
 
-    def test_groups_are_independent_and_owner_is_in_all(self):
+    def test_groups_are_independent(self):
         self.assertEqual(pmg.GROUPS, ("streaming-users", "streaming-requesters", "streaming-admins"))
-        self.assertEqual(pmg.OWNER, "tomigorn")
 
     def test_other_provisioning_scripts_bind_the_same_groups(self):
         for script in ("provision-media-sso.py", "provision-tracker-sso.py", "provision-audiobook-downloads-sso.py",
@@ -65,6 +64,43 @@ class MatrixTest(unittest.TestCase):
             for slug, group in app_for_groups(script).items():
                 with self.subTest(script=script, slug=slug):
                     self.assertEqual(pmg.APP_GROUP[slug], group)
+
+
+ALL_SIX = {"cloud-users", "cloud-admins", "streaming-users", "streaming-admins", "streaming-requesters", "homelab-admins"}
+
+
+class MembershipTest(unittest.TestCase):
+    def test_admin_split_design(self):
+        self.assertEqual(pmg.MEMBERS["tomigorn"], {"streaming-users", "streaming-requesters"})
+        self.assertEqual(pmg.MEMBERS["tomigorn-admin"], {"homelab-admins", "streaming-admins", "streaming-users",
+                                                         "streaming-requesters", "authentik Admins"})
+
+    def test_phase_2a_is_add_only(self):
+        self.assertFalse(pmg.REMOVE_EXTRA)
+
+    def test_2a_adds_admin_and_takes_nothing_away(self):
+        plan = pmg.membership_plan({"tomigorn": ALL_SIX, "tomigorn-admin": set()}, remove=False)
+        self.assertEqual(plan["tomigorn-admin"], (pmg.MEMBERS["tomigorn-admin"], set()))
+        self.assertNotIn("tomigorn", plan)
+
+    def test_2b_removes_admin_groups_from_everyday(self):
+        plan = pmg.membership_plan({"tomigorn": ALL_SIX, "tomigorn-admin": pmg.MEMBERS["tomigorn-admin"]}, remove=True)
+        self.assertEqual(plan, {"tomigorn": (set(), {"streaming-admins", "homelab-admins"})})
+
+    def test_cloud_groups_are_never_touched(self):
+        plan = pmg.membership_plan({"tomigorn": {"cloud-admins", "cloud-users"}}, remove=True)
+        self.assertEqual(plan["tomigorn"], ({"streaming-users", "streaming-requesters"}, set()))
+
+    def test_everyday_never_gets_superuser(self):
+        plan = pmg.membership_plan({}, remove=False)
+        self.assertNotIn("authentik Admins", plan["tomigorn"][0])
+
+    def test_target_state_needs_no_change(self):
+        self.assertEqual(pmg.membership_plan(dict(pmg.MEMBERS), remove=True), {})
+
+    def test_only_listed_users_are_planned(self):
+        plan = pmg.membership_plan({"invitee": {"streaming-users"}, **pmg.MEMBERS}, remove=True)
+        self.assertEqual(plan, {})
 
 
 if __name__ == "__main__":
