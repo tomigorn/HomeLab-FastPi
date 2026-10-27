@@ -614,9 +614,9 @@
     "pack": "local"
   },
   {
-    "id": "gollum",
-    "name": "Gollum",
-    "file": "gollum.png",
+    "id": "c-3po",
+    "name": "C-3PO",
+    "file": "c-3po.png",
     "color": "#D5F1C6",
     "group": "movies",
     "vibe": "neutral",
@@ -686,9 +686,9 @@
     "pack": "local"
   },
   {
-    "id": "gandalf",
-    "name": "Gandalf",
-    "file": "gandalf.png",
+    "id": "han-solo",
+    "name": "Han Solo",
+    "file": "han-solo.png",
     "color": "#F1C6CB",
     "group": "movies",
     "vibe": "masculine",
@@ -756,6 +756,168 @@
     "file": "lassie.png",
     "color": "#ECF1C6",
     "group": "movies",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "frodo",
+    "name": "Frodo",
+    "file": "frodo.png",
+    "color": "#F1D8C6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "gandalf",
+    "name": "Gandalf",
+    "file": "gandalf.png",
+    "color": "#C6F1E4",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "arwen",
+    "name": "Arwen",
+    "file": "arwen.png",
+    "color": "#F1C6F1",
+    "group": "lotr",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "samwise",
+    "name": "Sam",
+    "file": "samwise.png",
+    "color": "#E4F1C6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "aragorn",
+    "name": "Aragorn",
+    "file": "aragorn.png",
+    "color": "#C6D8F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "galadriel",
+    "name": "Galadriel",
+    "file": "galadriel.png",
+    "color": "#F1C6CB",
+    "group": "lotr",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "gollum",
+    "name": "Gollum",
+    "file": "gollum.png",
+    "color": "#C6F1CD",
+    "group": "lotr",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "legolas",
+    "name": "Legolas",
+    "file": "legolas.png",
+    "color": "#DAC6F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "eowyn",
+    "name": "\u00c9owyn",
+    "file": "eowyn.png",
+    "color": "#F1E6C6",
+    "group": "lotr",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "gimli",
+    "name": "Gimli",
+    "file": "gimli.png",
+    "color": "#C6EFF1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "boromir",
+    "name": "Boromir",
+    "file": "boromir.png",
+    "color": "#F1C6E2",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "saruman",
+    "name": "Saruman",
+    "file": "saruman.png",
+    "color": "#D6F1C6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "merry",
+    "name": "Merry",
+    "file": "merry.png",
+    "color": "#C6C9F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "pippin",
+    "name": "Pippin",
+    "file": "pippin.png",
+    "color": "#F1CFC6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "theoden",
+    "name": "Th\u00e9oden",
+    "file": "theoden.png",
+    "color": "#C6F1DC",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "elrond",
+    "name": "Elrond",
+    "file": "elrond.png",
+    "color": "#E8C6F1",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "bilbo",
+    "name": "Bilbo",
+    "file": "bilbo.png",
+    "color": "#EDF1C6",
+    "group": "lotr",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "sauron",
+    "name": "Sauron",
+    "file": "sauron.png",
+    "color": "#C6E0F1",
+    "group": "lotr",
     "vibe": "neutral",
     "pack": "local"
   },

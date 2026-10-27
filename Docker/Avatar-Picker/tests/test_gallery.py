@@ -7,26 +7,28 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 # Rows whose avatars are third-party art kept out of git ("pack": "local",
 # files in app/img-local/). A fresh clone has none of them; the tests below
 # must pass with or without the local pack present.
-LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "tvcartoons", "tvshows", "anime",
+LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime",
                 "pokemon", "games", "mario", "memes"}
 # Rows exempt from the f-m-n interleave: memes (mostly animals/objects), colours (no
-# people at all) and Pokemon (creatures; every entry is "neutral").
-FREE_VIBE_GROUPS = {"memes", "colours", "pokemon"}
+# people at all), Pokemon (creatures; every entry is "neutral") and Lord of the Rings
+# (its major cast is mostly male; the row keeps its listed order).
+FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr"}
 # Order the user asked for (v1.5): Disney & Pixar, other animated films, live-action
-# movies, cartoons, live-action TV, anime, Pokemon, video games, Super Mario, then
+# movies, Lord of the Rings (v1.6), cartoons, live-action TV, anime, Pokemon, video games, Super Mario, then
 # storybook, illustrated people, flat emoji, art classics, memes, cartoon & sketch,
 # the rest, with the colours row last.
-ORDER = ["disney", "animated", "movies", "tvcartoons", "tvshows", "anime", "pokemon", "games",
+ORDER = ["disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime", "pokemon", "games",
          "mario", "storybook", "illustrated", "flatemoji", "paintings", "memes", "cartoon",
          "ukiyoe", "belleepoque", "fairytale", "comics", "swiss", "people3d", "pixel", "classics",
          "colours"]
 LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "Movies",
+          "lotr": "Lord of the Rings",
           "tvcartoons": "Cartoons", "tvshows": "TV series", "anime": "Anime", "pokemon": "Pokémon",
           "games": "Video games", "mario": "Super Mario", "storybook": "Classic storybook",
           "illustrated": "Illustrated people", "flatemoji": "Flat emoji", "paintings": "Art classics",
           "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"disney": 27, "animated": 27, "movies": 27, "tvcartoons": 27, "tvshows": 27, "anime": 27,
+SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 18, "tvcartoons": 27, "tvshows": 27, "anime": 27,
          "pokemon": 18, "games": 27, "mario": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
          "colours": 18}
 # One character, one row: entries that show the same character under a different
@@ -49,8 +51,13 @@ CHARACTER_ALIASES = {
 GENERIC_GROUPS = {"illustrated", "flatemoji", "cartoon", "people3d", "pixel", "colours"}
 # Characters that must never appear because another entry already is that character.
 FORBIDDEN_DUPLICATES = {"big chungus", "mickey", "minnie", "pluto", "winnie the pooh", "piglet",
-                        "baby yoda", "the child"}
+                        "baby yoda", "the child", "sméagol", "smeagol", "strider", "elessar",
+                        "mithrandir", "gandalf the grey", "gandalf the white"}
 PACK_DIR = {None: "img", "local": "img-local"}
+# Lord of the Rings row: the Fellowship, Bilbo, Arwen, Galadriel, Éowyn, Elrond, Théoden,
+# Gollum, Saruman and Sauron.
+LOTR = {"frodo", "samwise", "merry", "pippin", "gandalf", "aragorn", "legolas", "gimli", "boromir",
+        "bilbo", "arwen", "galadriel", "eowyn", "elrond", "theoden", "gollum", "saruman", "sauron"}
 # Rows whose tiles are an emoji, a generated figure or a swatch on a plain square:
 # the tile colour showing at the edges is the design. Elsewhere a uniform edge in
 # the tile colour means the crop box ran past the source image (a "band"), unless
@@ -69,8 +76,8 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 24)
-        self.assertEqual(len(GALLERY), 11 * 9 + 7 * 27 + 6 * 18)  # 396
+        self.assertEqual(len(GROUPS), 25)
+        self.assertEqual(len(GALLERY), 11 * 9 + 7 * 27 + 7 * 18)  # 414
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -118,6 +125,21 @@ class GalleryTest(unittest.TestCase):
                 self.fail(f"{a['id']} ({a['group']}) duplicates {seen[k]}")
             seen[k] = f"{a['id']} ({a['group']})"
             self.assertNotIn(a["name"].lower(), FORBIDDEN_DUPLICATES, a["id"])
+
+    def test_lotr_row(self):
+        """Lord of the Rings: the major film cast, one avatar each, right after the movies row
+        (Gandalf and Gollum moved here from Movies, keeping their ids)."""
+        row = [a for a in GALLERY if a["group"] == "lotr"]
+        self.assertEqual({a["id"] for a in row}, LOTR)
+        ids = [g["id"] for g in GROUPS]
+        self.assertEqual(ids.index("lotr"), ids.index("movies") + 1)
+        for a in row:
+            self.assertEqual(a.get("pack"), "local", a["id"])
+        local_dir = os.path.join(APP, "img-local")
+        if not os.path.isdir(local_dir):
+            self.skipTest("no local pack (fresh clone)")
+        for a in row:
+            self.assertTrue(os.path.isfile(os.path.join(local_dir, a["file"])), a["id"])
 
     def test_pokemon_row_is_neutral(self):
         """The Pokemon row is vibe-exempt; every entry is marked neutral."""

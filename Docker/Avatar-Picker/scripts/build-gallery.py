@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (24 rows, each a multiple of 9 avatars,
+"""One-off: build the avatar gallery (25 rows, each a multiple of 9 avatars,
 human-made art only, no AI art).
 
 Rows, in order (every row holds equal numbers of feminine, masculine and neutral
 avatars; the `vibe` field is only used to interleave them f, m, n, ... so each
-row looks mixed - the memes, colours and Pokemon rows are exempt). One character
+row looks mixed - the memes, colours, Pokemon and Lord of the Rings rows are exempt). One character
 never appears in two rows (tests/test_gallery.py checks it):
 
   disney      Disney & Pixar (27)               - LOCAL PACK (see below)
   animated    Animated films, other studios (27) - LOCAL PACK
   movies      Movies, live action (27)          - LOCAL PACK (in-character stills/posters)
+  lotr        Lord of the Rings, the films' major cast (18) - LOCAL PACK (film stills)
   tvcartoons  Cartoons, animated TV (27)        - LOCAL PACK
   tvshows     TV series, live action + puppets (27) - LOCAL PACK
   anime       Anime (27)                        - LOCAL PACK
@@ -37,7 +38,7 @@ Local pack: the pop-culture rows are third-party copyrighted character art.
 They are written to app/img-local/ (gitignored: the repo is public) and marked
 "pack": "local" in gallery.json; the picker hides any entry whose image is
 missing, so a fresh clone works without them. Re-fetch them with
-`--only disney,animated,movies,tvcartoons,tvshows,anime,pokemon,games,mario,memes`. Their source URLs are listed in
+`--only disney,animated,movies,lotr,tvcartoons,tvshows,anime,pokemon,games,mario,memes`. Their source URLs are listed in
 LOCAL below and in LICENSES.md.
 
 All Commons rows except `classics` use original period artwork whose artist
@@ -82,6 +83,7 @@ GROUPS = [
     ("disney", "Disney & Pixar"),
     ("animated", "Animated films"),
     ("movies", "Movies"),
+    ("lotr", "Lord of the Rings"),
     ("tvcartoons", "Cartoons"),
     ("tvshows", "TV series"),
     ("anime", "Anime"),
@@ -402,7 +404,7 @@ LOCAL_COMMONS = {"classics"}
 # Local pack: third-party copyrighted character art. Rendered into app/img-local/
 # (gitignored, never committed; baked into the private Docker image only) and
 # marked "pack": "local" in gallery.json. Sources are the low-resolution infobox
-# images of the character's English Wikipedia article (non-free, fetched straight
+# images of the character's English (or Italian) Wikipedia article (non-free, fetched straight
 # from upload.wikimedia.org), Wikimedia Commons photos for the meme animals, and
 # Studio Ghibli's official free-to-use stills (ghibli.jp/info/013344).
 # (id, name, vibe, image URL, (x, y, size) crop box). Transparent sources: the box
@@ -535,7 +537,7 @@ LOCAL = {
         ("willy-wonka", "Willy Wonka", "masculine",
          WP + "en/8/85/Gene_Wilder_as_Willy_Wonka.jpeg",
          (67, 33, 201)),
-        ("gandalf", "Gandalf", "masculine", WP + "en/e/e9/Gandalf600ppx.jpg", (85, 0, 200)),
+        ("han-solo", "Han Solo", "masculine", WP + "en/c/c9/Han_Solo_with_Blaster.jpg", (20, 0, 175)),
         ("neo", "Neo", "masculine", WP + "en/c/c6/NeoTheMatrix.jpg", (68, 38, 138)),
         ("iron-man", "Iron Man", "masculine",
          WP + "en/0/02/Iron_Man_%282008_film%29_poster.jpg",
@@ -549,7 +551,9 @@ LOCAL = {
         ("e-t", "E.T.", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/ce/E.T._figure_at_Madame_Tussauds_London.jpg/1280px-E.T._figure_at_Madame_Tussauds_London.jpg",
          (224, 24, 704)),
-        ("gollum", "Gollum", "neutral", WP + "en/e/e0/Gollum.PNG", (80, 10, 140)),
+        ("c-3po", "C-3PO", "neutral",
+         WP + "commons/5/5b/Parents_of_Earth%2C_are_your_children_fully_immunized_%284647268251%29_%28cropped%29_auto_color_%28cropped_to_C-3PO%29.jpg",
+         (60, 0, 500)),
         ("godzilla", "Godzilla", "neutral",
          "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/Godzilla_%281954%29_%28cropped%29.jpg/1280px-Godzilla_%281954%29_%28cropped%29.jpg",
          (371, 92, 384)),
@@ -561,6 +565,31 @@ LOCAL = {
          WP + "en/0/01/Mr._Stay-Puft_Marshmallow_Man.png",
          (40, -1, 188)),
         ("lassie", "Lassie", "neutral", WP + "commons/4/4e/Lassie.jpg", (222, 144, 300)),
+    ],
+    # Lord of the Rings (18): the major cast of Peter Jackson's films (2001-2003), film stills
+    # from the characters' English or Italian Wikipedia articles (Sauron: a Commons photo of a replica armour); listed order is the row order
+    # (vibe-exempt). Gandalf is the Grey (hat and staff), the look of most of the story.
+    "lotr": [
+        ("frodo", "Frodo", "masculine", WP + "it/d/d6/Il_Signore_degli_Anelli_341.jpg", (281, 0, 530)),
+        ("gandalf", "Gandalf", "masculine", WP + "it/f/fb/Gandalf_film.png", (569, 0, 440)),
+        ("arwen", "Arwen", "feminine", WP + "it/f/fd/Il_Signore_degli_Anelli_039.jpg", (321, 0, 525)),
+        ("samwise", "Sam", "masculine", WP + "it/f/f5/Il_Signore_degli_Anelli_288.jpg", (136, 0, 480)),
+        ("aragorn", "Aragorn", "masculine", WP + "it/c/cd/ISDA_Elessar.PNG", (125, 3, 261)),
+        ("galadriel", "Galadriel", "feminine",
+         WP + "it/0/00/Galadriel_%28Cate_Blanchett%29.png", (238, 0, 480)),
+        ("gollum", "Gollum", "neutral", WP + "en/e/e0/Gollum.PNG", (18, 10, 190)),
+        ("legolas", "Legolas", "masculine", WP + "en/2/2b/Legolas600ppx.jpg", (66, 20, 200)),
+        ("eowyn", "Éowyn", "feminine",
+         WP + "it/2/2d/LOTR_-_Return_of_the_King_-_%C3%89owyn.png", (306, 10, 430)),
+        ("gimli", "Gimli", "masculine", WP + "it/9/93/GimliMoria.JPG", (302, 17, 420)),
+        ("boromir", "Boromir", "masculine", WP + "it/3/3d/Il_Signore_degli_Anelli_064.JPG", (601, 20, 440)),
+        ("saruman", "Saruman", "masculine", WP + "en/a/aa/Christopher_Lee_as_Saruman_LOTR.jpg", (88, 3, 177)),
+        ("merry", "Merry", "masculine", WP + "en/4/4a/Meriadoc_Brandybuck_screenshot.jpg", (26, 10, 200)),
+        ("pippin", "Pippin", "masculine", WP + "it/1/1a/Il_Signore_degli_Anelli_336.jpg", (283, 0, 530)),
+        ("theoden", "Théoden", "masculine", WP + "en/3/3a/Th%C3%A9oden600ppx.png", (56, 0, 260)),
+        ("elrond", "Elrond", "masculine", WP + "it/0/0e/Il_Signore_degli_Anelli_058.jpg", (263, 0, 526)),
+        ("bilbo", "Bilbo", "masculine", WP + "en/7/78/Bilbo_Baggins.jpg", (22, 5, 150)),
+        ("sauron", "Sauron", "neutral", WP + "commons/9/93/Sauron_replica.jpg", (288, 110, 400)),
     ],
     # Cartoons (27): animated TV characters across eras and studios
     "tvcartoons": [
@@ -964,10 +993,11 @@ DICE = {
 COLOR_ORDER = ["storybook", "paintings", "illustrated", "pixel", "cartoon",
                "ukiyoe", "belleepoque", "fairytale", "comics", "swiss",
                "classics", "movies", "tvcartoons", "anime", "games", "memes",
-               "disney", "animated", "tvshows", "pokemon", "mario"]
+               "disney", "animated", "tvshows", "pokemon", "mario", "lotr"]
 # Rows whose f/m/n order is not enforced (kept in the order listed above): memes and
-# colours (no people), Pokémon (creatures; every entry is "neutral").
-FREE_VIBE = {"memes", "colours", "pokemon"}
+# colours (no people), Pokémon (creatures; every entry is "neutral"), Lord of the Rings
+# (the major cast is mostly male).
+FREE_VIBE = {"memes", "colours", "pokemon", "lotr"}
 
 
 def pastel(i):

@@ -12,6 +12,10 @@
     "label": "Movies"
   },
   {
+    "id": "lotr",
+    "label": "Lord of the Rings"
+  },
+  {
     "id": "tvcartoons",
     "label": "Cartoons"
   },
