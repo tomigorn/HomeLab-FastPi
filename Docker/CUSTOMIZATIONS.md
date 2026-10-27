@@ -73,7 +73,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | Service users: abr read-only, audiobook-importer update only | ABS DB users (UI Users) | ABS UI, keys per `Audiobook-Requests/README.md` | `abs.user-abr`: → user, active, all four perms False; `abs.user-importer`: → admin, active, only update True | permission model changes |
 | Root locked (random password + token), one root | ABS DB | ABS UI | `abs.root-single`: root users → 1 | none |
 | One library per language | ABS DB | ABS UI | `abs.libraries`: → 3+ | none |
-| API key `floppy-push` of the non-admin user `tomigorn`, read by beefy's `floppy-abs-push` (HomeLab-BeefyServer `Floppy/README.md` "Audiobookshelf push") | ABS DB apiKeys (UI Settings → API Keys) | ABS UI, then beefy `sudo Floppy/scripts/abs-push.py link tomigorn` | `abs.key-floppy-push`: → user True | the key's user turning admin (beefy refuses) |
+| Service user `floppy-sync` (admin, random password) + its one API key `floppy-sync`, read by beefy's `floppy-abs-push` to sync every ABS user with a same-named Floppy user (HomeLab-BeefyServer `Floppy/README.md` "Audiobookshelf push"); admin because only `GET /api/users/:id` returns other users' progress; key root-only on beefy, used GET-only | ABS DB users + apiKeys (UI Users, Settings → API Keys) | ABS UI, then beefy `sudo Floppy/scripts/abs-push.py store-key` | `abs.key-floppy-sync`: → admin True floppy-sync | user or key renamed or demoted (beefy refuses a key that is not the admin `floppy-sync`) |
 
 ## mouse (VPN downloaders)
 
