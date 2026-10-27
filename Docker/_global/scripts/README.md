@@ -8,7 +8,8 @@
 | `iptables-persist.sh` | writes `/etc/iptables/rules.v4/v6` with only those chains; never `netfilter-persistent save` |
 | `smoke-test.sh` | end-to-end checks, must stay green |
 | `update-project.sh`, `auto_update.py` | image updates |
-| `oob-alert.sh` | Telegram alert that bypasses the edge |
+| `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
+| `maintenance-silence.sh on [hours] [reason] \| off \| status` | Alertmanager silence for batch/upgrade work (crash loops, container down/unhealthy, file changes, reboots, own SSH logins), default 4 h, max 24 h; only touches its own silences. Test: `./test_maintenance_silence.sh` |
 | `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
 | `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
 
