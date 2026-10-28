@@ -139,7 +139,7 @@ A thin bar at the top of every Requests page shows how much of the search servic
 | green · amber · red | under 70 % · 70–95 % · 95 % or used up |
 | `used up, resets 14:32` | that indexer pauses until then |
 | `∞` (under **more**) | no limit, only the count of the last 24 hours |
-| Subscriptions | days left until a paid service ends; amber 14 days or less, red 3 days or less; `lifetime` never ends |
+| Subscriptions | days left until a paid service ends; yellow 30 days or less, orange 7 days or less, red on the end date; `lifetime` never ends |
 | `usage unavailable` | the numbers can't be read right now; requests still work |
 | `SSD 2.9/14 TB 20 %` | the fast disks (both SSDs together) where new downloads land; green under 70 %, yellow 70–80 %, red from 80 % |
 | `HDD 0.5/27 TB 2 %` | the big archive disk; green under 80 %, yellow 80–90 %, red from 90 % |

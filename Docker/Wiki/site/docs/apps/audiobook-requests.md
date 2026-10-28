@@ -33,12 +33,15 @@ The same thin bar as in [Requests](requests.md#the-indexer-bar-at-the-top), on e
 |---|---|
 | `MyAnonamouse 2/∞ searches 0/∞ downloads` | searches and downloads of the last 24 hours; `∞` = no limit |
 | `My requests 1/5 in 7 days` | your own requests this week; red with "next free" when all 5 are used |
+| `MAM unsatisfied 12/150` | MyAnonamouse downloads that have not seeded 72 h yet (MAM rule: 72 h in total within 30 days), of the limit for our class; green under 70 %, yellow 70–90 %, red from 90 % |
+| `… 1 at risk` (red) | a MAM torrent was paused or removed before its 72 h; **more** names it. Resume it in qBittorrent |
 | `Next renewal: ProtonVPN Plus in 230 d` | days until the VPN the downloads use must be renewed |
+| `MAM VIP 20 days left` | the MyAnonamouse VIP class ends; yellow 30 days or less, orange 7 or less, red on the end date |
 | `Library 376 GB/1.8 TB 22 %` | the Audiobookshelf disk |
 | `Downloads 253 GB/1.8 TB 14 %` | the download disk; torrents keep seeding, so it only grows |
 | green · yellow · red (disks) | under 70 % · 70–80 % · from 80 % |
 
-Point at a disk (or open **more**) for the free space. Nothing is deleted automatically. German browsers get the disk texts in German.
+Point at a disk (or open **more**) for the free space; point at **MAM unsatisfied** for when the next one is done. Nothing is deleted automatically. German browsers get the disk texts in German.
 
 ## All requests
 **All requests** (top menu) lists everyone's requests: who asked, date, cover and status (open, downloading, in library).
