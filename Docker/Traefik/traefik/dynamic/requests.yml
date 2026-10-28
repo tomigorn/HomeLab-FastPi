@@ -57,6 +57,8 @@ http:
         frameDeny: false
         customFrameOptionsValue: "SAMEORIGIN"
         permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        # S-16: report-only first (violations show in the browser console); enforce later as contentSecurityPolicy.
+        contentSecurityPolicyReportOnly: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org https://plex.tv https://*.plex.tv https://gravatar.com https://*.gravatar.com; font-src 'self' data:; connect-src 'self'; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://sso.holy-grail.ch; frame-ancestors 'self'"
         customResponseHeaders:
           Server: ""
 
