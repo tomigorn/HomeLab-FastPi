@@ -104,6 +104,19 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `BeefyWakeLoop` | > 60 up/down changes in 24 h (planned wakes give 7-41), holds 6 h after it drops below; one message per episode |
 | `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): one message per episode, no repeat, no resolved message; "awake since" is the boot time; hours awake per day are in the daily digest. Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
 
+## beefy storage and mover
+
+`prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The daily digest shows SSD/HDD used % and, after a run that moved something, titles, GB and SSD before -> after.
+
+| Alert | Fires when | Severity |
+|---|---|---|
+| `BeefySsdFilling` | SSD used >= 80 % for 10 min (the mover keeps it <= 70 %; at 80 % mergerfs sends new downloads to the HDD) | warning |
+| `BeefyHddFilling` | HDD used 80-90 % for 10 min | warning |
+| `BeefyHddFull` | HDD used >= 90 % for 10 min (Radarr/Sonarr refuse imports); replaces `BeefyHddFilling` (exclusive expressions) | critical |
+| `BeefyMoverFailed` | last run `success == 0` and not a dry run, for 10 min; names the failed titles, points at `journalctl -u beefy-mover` | warning |
+| `BeefyMoverNotRun` | last mover run older than 50 h, for 1 h | warning |
+| `BeefyStorageStale` | `beefy_storage.prom` older than 3 days or missing, for 1 h; `notify: digest` | info |
+
 ## Media language (beefy)
 
 `prometheus/rules/media-language.yml`, test `prometheus/tests/media-language_test.yml`. Source: beefy `Movie-Downloads/scripts/language-missing.py` → `security_scan.py media` (04:20 pull) → `media_language_beefy.prom`.
@@ -135,7 +148,7 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 | any label `test=…` | `telegram-test`, marked 🧪, never email | only when sent on purpose |
 
 - **Quiet hours** (`time_intervals: quiet-hours`, Europe/Zurich, DST-safe): muted sends are dropped; a group still firing at 07:00 is sent then, one that fired and cleared overnight is in the digest.
-- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`, kinds `guard_removed` `failed` `stalled` `indexer_recovered` `subtitle_repaired` `subtitle_suspect` shown as plain text, unknown kinds raw). Lists capped (8/6/5/6/5) to stay under 4096 characters.
+- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy SSD/HDD used % and the last mover run, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`, kinds `guard_removed` `failed` `stalled` `indexer_recovered` `subtitle_repaired` `subtitle_suspect` shown as plain text, unknown kinds raw). Lists capped (8/6/5/6/5) to stay under 4096 characters.
 - **New alert rule:** pick its line above; give it `notify: digest` if it needs no action today.
 - **Maintenance:** `Docker/_global/scripts/maintenance-silence.sh on [hours] [reason]` before batch or upgrade work, `off` after: silences ContainerCrashLooping, ContainerDown, ContainerUnhealthy, SecurityFileChanged, HostRebooted, SshLoginOutsideLan; the digest still lists them.
 - **Tests:** no separate test chat exists, so 🧪 messages go to the alert group, only when sent on purpose (a POSTed alert with a `test` label, `oob-alert.sh --test`). To check the path without a message: `oob-alert.sh --check`.
