@@ -74,6 +74,26 @@ tests:
         values: '0x1080 1x360 0x359'
       - series: 'probe_success{job="blackbox-tower",instance="192.168.1.101:22"}'
         values: '0x1800'
+      - series: 'beefy_storage_size_bytes{branch="ssd"}'
+        values: '1000000000000x1800'
+      - series: 'beefy_storage_avail_bytes{branch="ssd"}'
+        values: '300000000000x1800'
+      - series: 'beefy_storage_size_bytes{branch="hdd"}'
+        values: '1000000000000x1800'
+      - series: 'beefy_storage_avail_bytes{branch="hdd"}'
+        values: '500000000000x1800'
+      - series: 'beefy_mover_last_run_timestamp_seconds'
+        values: '98400x1800'
+      - series: 'beefy_mover_dry_run'
+        values: '0x1800'
+      - series: 'beefy_mover_moved_titles'
+        values: '12x1800'
+      - series: 'beefy_mover_moved_bytes'
+        values: '85000000000x1800'
+      - series: 'beefy_mover_ssd_used_ratio{when="before"}'
+        values: '0.78x1800'
+      - series: 'beefy_mover_ssd_used_ratio{when="after"}'
+        values: '0.66x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="guard_removed",app="radarr",title="Wrong Film & Co (2024)"}'
         values: '98400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="stalled",app="sonarr",title="Old Show S01E01"}'
@@ -92,7 +112,7 @@ tests:
           - exp_labels: {severity: info}
             exp_annotations:
               summary: "Daily digest"
-              description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• ✔️ <b>HostRebooted</b> · node-exporter:9100\n• ⏳ <b>SecurityScanFailing</b> ×3 · cup-beefy, cup-fastpi …\n• ✔️ <b>SshLoginOutsideLan</b> · fastpi via vpn\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• ⏳ <b>BeefyWakeLoop</b> · beefy\n• ✔️ <b>ContainerCrashLooping</b> · authentik-server\n\n<b>🛡️ New fixable CVEs</b>\n• <b>CVE-2026-84782</b> CRITICAL · openssl · 1 image: influxdb:2.9.1\n• <b>CVE-2026-92392</b> HIGH · curl, libcurl · 5 images: home-assistant:stable, grafana:13.2.4, bazarr …\n\n<b>📦 Auto-updates</b>\n• beefy: nothing changed\n• fastpi: ✅ Grafana, ✋ Traefik · ⏳ 1 waiting\n\n<b>💤 Awake</b> (24 h) · beefy 6.0 h · tower 0.0 h\n\n<b>🎬 Downloads</b> (beefy, handled automatically)\n• wrong release removed · Wrong Film &amp; Co (2024)\n• subtitle repaired (broken characters fixed) · Some Film (2023)\n• subtitle needs a look (suspicious characters) · Other Show S02E03\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
+              description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• ✔️ <b>HostRebooted</b> · node-exporter:9100\n• ⏳ <b>SecurityScanFailing</b> ×3 · cup-beefy, cup-fastpi …\n• ✔️ <b>SshLoginOutsideLan</b> · fastpi via vpn\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• ⏳ <b>BeefyWakeLoop</b> · beefy\n• ✔️ <b>ContainerCrashLooping</b> · authentik-server\n\n<b>🛡️ New fixable CVEs</b>\n• <b>CVE-2026-84782</b> CRITICAL · openssl · 1 image: influxdb:2.9.1\n• <b>CVE-2026-92392</b> HIGH · curl, libcurl · 5 images: home-assistant:stable, grafana:13.2.4, bazarr …\n\n<b>📦 Auto-updates</b>\n• beefy: nothing changed\n• fastpi: ✅ Grafana, ✋ Traefik · ⏳ 1 waiting\n\n<b>💤 Awake</b> (24 h) · beefy 6.0 h · tower 0.0 h\n\n<b>🗄️ beefy storage</b> · HDD 50 % · SSD 70 %\n• mover: 12 title(s), 85 GB SSD → HDD, SSD 78 % → 66 %\n\n<b>🎬 Downloads</b> (beefy, handled automatically)\n• wrong release removed · Wrong Film &amp; Co (2024)\n• subtitle repaired (broken characters fixed) · Some Film (2023)\n• subtitle needs a look (suspicious characters) · Other Show S02E03\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
       - eval_time: 1d6h
         alertname: DailyDigest
         exp_alerts: []
