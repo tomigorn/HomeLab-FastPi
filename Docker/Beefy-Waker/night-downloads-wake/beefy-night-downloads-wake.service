@@ -6,6 +6,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# pi, not root: the script is pi-writable; beefy-maintenance-wake needs no root (Waker HTTP, wakeonlan, ping).
+User=pi
+Group=pi
 ExecStart=/home/pi/Projects/Docker/Beefy-Waker/night-downloads-wake/beefy-night-downloads wake
 TimeoutStartSec=330
 NoNewPrivileges=true
