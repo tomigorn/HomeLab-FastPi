@@ -27,16 +27,21 @@ Untick it only when you want to watch it soon.
 
 A title waiting for the night shows **Waiting for the night 🌙** instead of a stuck 0 %. That is normal.
 
-Small icons next to the status and on the posters (hover, or tap on the phone, shows what they mean):
+Every requested title that is not in Jellyfin yet shows an icon next to the status and on the poster (hover, or tap on the phone, shows what it means):
 
 | Icon | Means |
 |---|---|
+| ⏳ | waiting for an admin to approve the request |
+| magnifier (still) | just requested, the search starts in a moment |
+| magnifier (pulsing) | searching right now (a few minutes), or waiting for other searches |
 | 🌙 | Can wait: downloads at night (cheaper power) |
 | 🧭 | searched, nothing found yet; tonight's search (04:17) keeps looking |
 | 📅 | not released yet (with the expected date) |
-| spinning ring | downloading now, with the percent |
-| ✅ | available in Jellyfin |
-| ◐ (half-filled circle) | partly available (the rest can show 🌙 🧭 📅 or the spinning ring next to it) |
+| spinning ring | downloading now, with the percent; "Importing…" right after |
+| ✅ | available in Jellyfin (or downloaded, Jellyfin shows it shortly) |
+| ◐ (half-filled circle) | partly available: released episodes still missing (the rest can show 🌙 🧭 📅, the magnifier or the spinning ring next to it); the status reads **Partially Available** in blue |
+| ✅📅 | series complete so far: everything released is there, the next episode or season is not out yet (status **Available so far**) |
+| ⚠️ | a download or import problem: an admin has a look (Requests / Activity) |
 
 **At night:** films download in parallel, series one after another, episodes in order.
 
@@ -53,7 +58,7 @@ Open a title **you requested** → the card **My request** under the title (tap 
 | change the quality | pick another in **Quality**; it then stays when you change languages later (**Quality kept (your pick)**) |
 | add or remove audio / subtitle languages | × on a language, or **Add…**; removing one undoes it (no Swiss German any more → normal quality again) |
 | switch Can wait on or off | the checkbox (off = downloads at once, like ⚡ Download now) |
-| delete your request | **Delete request**; the question says exactly what goes |
+| delete your request | **Delete request**; the question says exactly what goes. Already downloaded: **Remove request only, keep the files** is the default; **Delete files too** needs a second tap |
 
 Press **Save**; within 2 minutes the server applies it and searches again if quality or audio changed (subtitles only: no new download). If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
 
