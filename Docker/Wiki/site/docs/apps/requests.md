@@ -34,6 +34,9 @@ Small icons next to the status and on the posters (hover, or tap on the phone, s
 | 🌙 | Can wait: downloads at night (cheaper power) |
 | 🧭 | searched, nothing found yet; tonight's search (04:17) keeps looking |
 | 📅 | not released yet (with the expected date) |
+| spinning ring | downloading now, with the percent |
+| ✅ | available in Jellyfin |
+| ☑️ | partly available (the rest can show 🌙 🧭 📅 next to it) |
 
 **At night:** films download in parallel, series one after another, episodes in order.
 
