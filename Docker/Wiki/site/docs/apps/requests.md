@@ -29,8 +29,8 @@ A title waiting for the night shows **Waiting for the night 🌙** instead of a 
 
 **At night:** films download in parallel, series one after another, episodes in order.
 
-!!! info "Admins: Download now"
-    Open the title → **Manage** → **⚡ Download now**. It starts the waiting download at once, at the higher daytime power price.
+!!! info "Download now"
+    Open a title **you requested** → **⚡ Download now** (next to the request button). It starts the waiting download at once, at the higher daytime power price. Titles other people requested have no button; admins see it on every title.
 
 ## Search tips
 
