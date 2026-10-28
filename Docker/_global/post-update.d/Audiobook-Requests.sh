@@ -25,6 +25,10 @@ j = json.load(sys.stdin); age = d.datetime.now(d.timezone.utc) - d.datetime.from
 print("fresh" if age.total_seconds() < 300 else "stale", "ok" if j["ok"] and j["storage"] else "not-ok")' < /var/lib/abr-bar/usage.json 2>&1 | tail -1) $(systemctl is-active abr-bar-usage.timer)"
   check books.bar-unauth '^302 sso 302 sso 302 sso 302 sso$' "$(cf=$(dig +short @1.1.1.1 books.holy-grail.ch A | grep -m1 -E '^[0-9.]+$'); for ip in 192.168.1.2 $cf; do for p in usage.json my-quota.json; do curl -s -m 10 -o /dev/null --resolve books.holy-grail.ch:443:$ip -w '%{http_code} %{redirect_url}\n' https://books.holy-grail.ch/_hg/bar/$p | sed -E 's#https://(sso)\.holy-grail\.ch/.*#\1#'; done; done | xargs)"
   check books.bar-needs-abr-session '^401 401$' "$(for p in usage.json my-quota.json; do curl -s -m 5 -o /dev/null -w '%{http_code} ' "http://10.24.25.6:8080/_hg/bar/$p"; done | xargs)"
+  check books.mam-inject '^_hg/mam\.js 200$' "$(echo $(curl -s -m 5 'http://10.24.25.6:8080/auth/login?backup=1' | grep -o '_hg/mam\.js' | head -1) $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.25.6:8080/_hg/mam.js))"
+  check books.mam-unsatisfied '^ok [0-9]+/[0-9]+$' "$(python3 -c 'import json,sys
+m = json.load(sys.stdin).get("mam") or {}
+print("ok" if m.get("ok") else "not-ok", "%s/%s" % (m.get("unsatisfied"), m.get("limit")))' < /var/lib/abr-bar/usage.json 2>&1 | tail -1)"
   check books.bar-shared '^(same|skipped: beefy not reachable \(not woken\))$' "$(bash "$ARD/scripts/sync-bar.sh" --check 2>&1 | tail -1)"
   check books.admin-only-downloads '^403 403$' "$(for p in /wishlist/hx-auto-download/B000CHECK0 /api/requests/B000CHECK0/auto-download; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' -X POST -H 'X-authentik-groups: streaming-requesters' "http://10.24.25.6:8080$p"; done | xargs)"
 fi
