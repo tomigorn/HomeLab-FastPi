@@ -141,6 +141,10 @@ A thin bar at the top of every Requests page shows how much of the search servic
 | `∞` (under **more**) | no limit, only the count of the last 24 hours |
 | Subscriptions | days left until a paid service ends; amber 14 days or less, red 3 days or less; `lifetime` never ends |
 | `usage unavailable` | the numbers can't be read right now; requests still work |
+| `SSD 2.9/14 TB 20 %` | the fast disks (both SSDs together) where new downloads land; green under 70 %, yellow 70–80 %, red from 80 % |
+| `HDD 0.5/27 TB 2 %` | the big archive disk; green under 80 %, yellow 80–90 %, red from 90 % |
+
+- **Storage:** point at SSD or HDD (or open **more**) for the free space and the rule. From 70 % the SSDs are tidied up at night: titles nobody watched or added for 30 days move to the HDD (down to 60 %). They stay in the library and still play, the first seconds may just take a little longer. From 90 % on the HDD no new downloads are imported.
 
 - **Used up:** your request may wait until the indexer resets. The other indexers keep searching.
 - **When it resets:** "last 24 h" indexers when their oldest counted search is 24 hours old; "per day" indexers at midnight.
