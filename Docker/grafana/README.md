@@ -106,7 +106,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 ## beefy storage and mover
 
-`prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The daily digest shows SSD/HDD used % and, after a run that moved something, titles, GB and SSD before -> after.
+`prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The mover counters are only written on runs with the SSD tier >= 70 % (absent otherwise); `beefy_disk_smart_raw` comes from `smartctl -n standby`, so series have gaps. `ssd` = both SSDs combined. The daily digest shows SSD/HDD used %, SSD TB written, HDD start/stops and power cycles of the last 24 h and, after a run that moved something, titles, GB and SSD before -> after.
 
 | Alert | Fires when | Severity |
 |---|---|---|
@@ -115,6 +115,12 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `BeefyHddFull` | HDD used >= 90 % for 10 min (Radarr/Sonarr refuse imports); replaces `BeefyHddFilling` (exclusive expressions) | critical |
 | `BeefyMoverFailed` | last run `success == 0` and not a dry run, for 10 min; names the failed titles, points at `journalctl -u beefy-mover` | warning |
 | `BeefyMoverNotRun` | last mover run older than 50 h, for 1 h | warning |
+| `BeefyMoverVerifyFailures` | `beefy_mover_verify_failures > 0` (a copy read back differed and was discarded), 10 min | warning |
+| `BeefyMoverHddOverflow` | `beefy_mover_hdd_overflow_files > 0` (downloads spilled onto the HDD, both SSDs at their mergerfs limit) | warning |
+| `BeefyMoverNothingToMove` | real run, SSD used after >= 75 % and 0 titles moved | warning |
+| `BeefyHddSpinningUpTooOften` | HDD `Start_Stop_Count` rose by > 30 in 24 h (max - min, tolerates gaps) | warning |
+| `BeefyMoverStagingOrphans` / `BeefyMoverDuplicates` | leftovers in `hdd-cold/.tier-staging` / videos on an SSD and the HDD at one path; `notify: digest` | info |
+| `BeefySsdWearHigh` | SSD `Wear_Leveling_Count` raw (P/E cycles, QVO rated ~1000) >= 800; `notify: digest` | info |
 | `BeefyStorageStale` | `beefy_storage.prom` older than 3 days or missing, for 1 h; `notify: digest` | info |
 
 ## Media language (beefy)
