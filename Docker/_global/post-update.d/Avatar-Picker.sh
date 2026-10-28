@@ -19,7 +19,16 @@ PY
 try: u.urlopen(u.Request("http://127.0.0.1:8080/api/state", headers={"X-authentik-username": "post-update-check"}), timeout=5); print(200)
 except e.HTTPError as x: print(x.code)' 2>&1 | tail -1)"
   check avatar.queue '^ok$' "$(docker exec avatar-picker python -c 'import json; json.load(open("/data/queue.json")); print("ok")' 2>&1 | tail -1)"
-  check avatar.img-routes '^403 200$' "$(i=$(docker exec avatar-picker sh -c 'ls /app/img | head -1'); pub=$(dig +short sso.holy-grail.ch @1.1.1.1 | head -1); for ip in $pub 192.168.1.2; do curl -s -m 10 -o /dev/null -w '%{http_code}\n' --resolve sso.holy-grail.ch:443:$ip "https://sso.holy-grail.ch/avatar-img/img/$i"; done | xargs)"
+  check avatar.img-routes '^200 403 200$' "$(read -r pk un < <(docker exec -i avatar-picker python - 2>&1 <<'PY'
+import os, pathlib, sys
+sys.path.insert(0, "/app")
+import core, server
+from authentik_api import Client
+c = Client(os.environ["AUTHENTIK_URL"], pathlib.Path(os.environ["AUTHENTIK_TOKEN_FILE"]).read_text().strip())
+picked = sorted(core.picked_ids(c.list_users(), os.environ["PUBLIC_BASE_URL"]) & server.IDS)
+print(picked[0] if picked else "-", next(i for i in sorted(server.IDS) if i not in picked))
+PY
+); pub=$(dig +short sso.holy-grail.ch @1.1.1.1 | head -1); for t in "$pub $pk" "$pub $un" "192.168.1.2 $un"; do set -- $t; curl -s -m 10 -o /dev/null -w '%{http_code}\n' --resolve sso.holy-grail.ch:443:$1 "https://sso.holy-grail.ch/avatar-img/img/$2.png"; done | xargs)"
 fi
 check avatar.sync-units '^active enabled (success|)$' "$(echo "$(systemctl is-active avatar-sync.path) $(systemctl is-enabled avatar-sync.service) $(systemctl show avatar-sync.service -p Result --value)")"
 check avatar.retry-timer '^(in sync inactive|pending [0-9]+ active)$' "$(echo "$(python3 "$APD/scripts/avatar-sync.py" --status 2>&1 | tail -1) $(systemctl is-active avatar-sync.timer)")"

@@ -10,17 +10,19 @@ reaches Jellyfin, Seerr and Home Assistant right away, Nextcloud through the OID
 | URL | Who | How (Traefik, `Traefik/traefik/dynamic/avatar-picker.yml`) |
 |---|---|---|
 | `avatars.holy-grail.ch` | every Authentik user | `authentik@file` forward auth + shared-secret header to the container |
-| `sso.holy-grail.ch/avatar-img/*` from LAN or VPN | no login | router `avatar-img-local`: `ClientIP()` in the rule + `local-networks@file`. Jellyfin (beefy) and Nextcloud (tower) fetch the images this way |
-| `sso.holy-grail.ch/avatar-img/*` from anywhere else | logged-in Authentik users | router `avatar-img-session`: forwardAuth to Authentik's `/api/v3/core/users/me/` with the request's cookies (200 = session, 403 = none). The browser sends the `authentik_session` cookie because the images sit on the sso host, so the avatar shows on the phone away from home. `Cache-Control: private` keeps Cloudflare from caching the image for others |
+| `sso.holy-grail.ch/avatar-img/*` from LAN or VPN | no login | router `avatar-img-local`: `ClientIP()` in the rule + `local-networks@file`, sets `X-Avatar-Access: lan`. Jellyfin (beefy) and Nextcloud (tower) fetch the images this way |
+| `sso.holy-grail.ch/avatar-img/*` from anywhere else, picked image | everyone (no login) | router `avatar-img-public` sets `X-Avatar-Access: gated` (overwrites the client's). An image someone holds (`attributes.avatar`) is public, so the login page can show the pending user's avatar. `Cache-Control: public, max-age=300` |
+| same, any other image | logged-in Authentik users | the container asks Authentik's `/api/v3/core/users/me/` with only the `authentik_session` cookie (200 = session; no redirects followed). Else 403, also for unknown ids. `Cache-Control: private` |
 
-Nothing is public. Check after a Traefik change (home IP is allowlisted in CrowdSec, so
-test both paths):
+Container rules: no or unknown `X-Avatar-Access` = gated (fail closed); the picker's secret header opens every image. Picked set = Authentik's user list, cached 30 s, refreshed at once after a pick; on an Authentik error the last known set. Positive session answers cached 60 s (cookie hash only). No listing, no endpoint that lists picks.
+
+Cloudflare: the edge caches a picked image ≤ 5 min (unpicked → gone from the edge within 5 min); the zone's Browser Cache TTL raises the browser copy to 4 h. Check after a Traefik change (home IP is allowlisted in CrowdSec, so test both paths):
 
 ```bash
-H=sso.holy-grail.ch; P=/avatar-img/img/<id>.png; PUB=$(dig +short holy-grail.ch @1.1.1.1 | head -1)
-curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:$PUB https://$H$P            # 403
-curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:$PUB -H "Authorization: Bearer <api token>" https://$H$P  # 200
-curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:192.168.1.2 https://$H$P     # 200 (what beefy/tower do)
+H=sso.holy-grail.ch; PUB=$(dig +short $H @1.1.1.1 | head -1); U=https://$H/avatar-img/img
+curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:$PUB $U/<picked>.png        # 200
+curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:$PUB $U/<unpicked>.png      # 403
+curl -s -o /dev/null -w '%{http_code}\n' --resolve $H:443:192.168.1.2 $U/<unpicked>.png  # 200 (what beefy/tower do)
 ```
 
 ## How a pick reaches other apps

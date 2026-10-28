@@ -186,7 +186,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Local avatar pack, favicon, version in the image | `app/img-local/` (gitignored), `app/static/`, `Dockerfile` | `docker compose up -d --build` | `avatar.local-pack`: every local gallery file in the image → n local, 0 missing; `avatar.favicon`: → 200 200; `avatar.version`: image vs repo → same | a rebuild without the pack |
 | State via Authentik, header secret from Traefik | `secrets/`, `Traefik/traefik/dynamic/avatar-picker-secret.yml` | `scripts/rotate-secrets.sh` | `avatar.state`: → 200 groups avatars lotr; `avatar.secret-required`: without header → 403 | Authentik API changes (503) |
 | Pick queue + host sync to Jellyfin, Seerr (wakes beefy for a pending pick), Home Assistant (Nextcloud prepared, inactive); retry timer only while pending | `data/queue.json`, `scripts/avatar-sync.py`, `systemd/avatar-sync*`, `secrets/ha_token` | README install line | `avatar.queue`: → ok; `avatar.sync-units`: path + boot run → active enabled success; `avatar.retry-timer`: → in sync inactive, or pending n active; `avatar.ha-pictures`: HA person pictures vs picks → ok n/n | HA websocket person API, Jellyfin /UserImage, Seerr user table |
-| Image route LAN-only | `Traefik/traefik/dynamic/avatar-picker.yml` | file reload | `avatar.img-routes`: public / LAN → 403 200 | ClientIP rule changes |
+| Image routes: LAN all, outside picked only (rest needs a login session) | `Traefik/traefik/dynamic/avatar-picker.yml` (`X-Avatar-Access` header), `app/server.py` | file reload, `docker compose up -d --build` | `avatar.img-routes`: public picked / public unpicked / LAN → 200 403 200 | ClientIP rule changes, Authentik `users/me` semantics |
 
 ## Beefy-Waker
 
