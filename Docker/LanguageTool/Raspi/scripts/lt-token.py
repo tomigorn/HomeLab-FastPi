@@ -3,6 +3,7 @@
   lt-token.py add <Person-Device>   create a link, prints the URL once
   lt-token.py list                  labels only, never tokens
   lt-token.py remove <Person-Device>
+  lt-token.py quiet                 turn the access log off for routers made before that was the default
 Edits the gitignored Traefik/traefik/dynamic/languagetool-token.yml (Traefik reloads it by itself)."""
 import os
 import re
@@ -28,9 +29,12 @@ def router(label, token):
       middlewares:
         - languagetool-token-strip-{label}
         - languagetool-secure-headers
+      observability:
+        accessLogs: false
       tls:
         certResolver: le
 """
+QUIET = "      observability:\n        accessLogs: false\n"
 
 
 def middleware(label, token):
@@ -82,11 +86,33 @@ def remove(label):
     _write(text)
 
 
+def quiet():
+    """The token is in the path: without this every request writes a working token to the access log."""
+    text = open(FILE).read()
+    routers, sep, rest = text.partition(MW_HEADER)
+    pattern = re.compile(r"(^    languagetool-token-(?!strip-)[A-Za-z0-9-]+:\n(?:      .*\n)+?)(      tls:\n)", re.M)
+    count = 0
+
+    def fix(m):
+        nonlocal count
+        if "accessLogs:" in m.group(1):
+            return m.group(0)
+        count += 1
+        return m.group(1) + QUIET + m.group(2)
+
+    routers = pattern.sub(fix, routers)
+    if count:
+        _write(routers + sep + rest)
+    return count
+
+
 def main(argv):
     if argv[:1] == ["list"]:
         print("\n".join(labels(open(FILE).read())))
     elif argv[:1] == ["add"] and len(argv) == 2:
         print(add(argv[1]))
+    elif argv[:1] == ["quiet"]:
+        print(f"{quiet()} router(s) changed")
     elif argv[:1] == ["remove"] and len(argv) == 2:
         remove(argv[1])
         print(f"removed {argv[1]}")

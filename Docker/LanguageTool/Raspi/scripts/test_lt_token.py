@@ -93,6 +93,20 @@ class LtToken(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.lt.remove("Nobody-Here")
 
+    def test_new_router_is_not_access_logged(self):
+        self.lt.add("Filip-LinuxLaptop")
+        block = self.file.read_text().split("languagetool-token-Filip-LinuxLaptop:\n")[1].split("\n\n")[0]
+        self.assertIn("      observability:\n        accessLogs: false\n", block)
+
+    def test_quiet_adds_observability_to_old_routers_once(self):
+        self.assertEqual(self.lt.quiet(), 1)
+        text = self.file.read_text()
+        self.assertEqual(text.count("accessLogs: false"), 1)
+        self.assertEqual(self.lt.labels(text), ["Anna-Laptop"])
+        self.assertNotIn("accessLogs", text.split("\n  middlewares:\n")[1])
+        self.assertEqual(self.lt.quiet(), 0)
+        self.assertEqual(self.file.read_text(), text)
+
 
 if __name__ == "__main__":
     unittest.main()
