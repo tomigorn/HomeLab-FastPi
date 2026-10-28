@@ -1,22 +1,21 @@
-# Avatar picker (Docker/Avatar-Picker). Nothing here is public:
+# Avatar picker (Docker/Avatar-Picker).
 #   - avatars.holy-grail.ch: Authentik forward auth (every Authentik user), plus a
 #     shared-secret header (avatar-picker-secret@file, gitignored) so the container
 #     only trusts requests that came through this router.
 #   - sso.holy-grail.ch/avatar-img/*: the avatar image URLs stored in Authentik. Two
-#     routers for the same path:
-#       avatar-img-local (priority 100): LAN + VPN, no login. Jellyfin (beefy) and
-#         Nextcloud (tower) fetch the images server-side from the LAN; they must live
-#         on the IdP host because Jellyfin's OIDC plugin only accepts private
-#         addresses for the issuer host. The ClientIP() part of the rule mirrors
-#         local-networks@file: Traefik never falls through to the next router once a
-#         rule matched, so the client IP has to be part of the match itself.
-#       avatar-img-session (priority 90): everyone else, gated by the Authentik login
-#         session. forwardAuth asks Authentik's own API (/api/v3/core/users/me/) with
-#         the request's cookies; 200 = logged in, 403 = not. The browser sends the
-#         authentik_session cookie because the images are on the sso host, so a
-#         logged-in user sees their avatar from anywhere (phone on mobile data).
-#         Cache-Control: private on this router, because Cloudflare caches .png by
-#         default and would otherwise hand a logged-in user's fetch to anyone.
+#     routers for the same path; each sets X-Avatar-Access (overwriting whatever the
+#     client sent) and the container decides:
+#       avatar-img-local (priority 100): LAN + VPN, header "lan" = every image, no login.
+#         Jellyfin (beefy) and Nextcloud (tower) fetch the images server-side from the
+#         LAN; they must live on the IdP host because Jellyfin's OIDC plugin only
+#         accepts private addresses for the issuer host. The ClientIP() part of the rule
+#         mirrors local-networks@file: Traefik never falls through to the next router
+#         once a rule matched, so the client IP has to be part of the match itself.
+#       avatar-img-public (priority 90): everyone else, header "gated". A picked image
+#         (someone's attributes.avatar) is public, so the login page can show the
+#         pending user's avatar before login; any other image needs an Authentik login
+#         session, which the container checks against Authentik's /api/v3/core/users/me/
+#         with the request's authentik_session cookie. No header = gated (fail closed).
 http:
   routers:
     avatar-img-local:
@@ -26,17 +25,17 @@ http:
       service: avatar-picker
       middlewares:
         - local-networks@file
+        - avatar-img-lan
         - avatar-img-strip
       tls:
         certResolver: cloudflare
-    avatar-img-session:
+    avatar-img-public:
       rule: "Host(`sso.holy-grail.ch`) && PathPrefix(`/avatar-img/`)"
       entryPoints: ["websecure"]
       priority: 90
       service: avatar-picker
       middlewares:
-        - avatar-img-session
-        - avatar-img-private
+        - avatar-img-gated
         - avatar-img-strip
         - default-rate-limit@file
       tls:
@@ -60,16 +59,14 @@ http:
       tls:
         certResolver: cloudflare
   middlewares:
-    avatar-img-session:
-      forwardAuth:
-        address: "http://authentik-server:9000/api/v3/core/users/me/"
-        trustForwardHeader: false
-        authResponseHeaders: []
-        maxResponseBodySize: 4096
-    avatar-img-private:
+    avatar-img-lan:
       headers:
-        customResponseHeaders:
-          Cache-Control: "private, max-age=300"
+        customRequestHeaders:
+          X-Avatar-Access: "lan"
+    avatar-img-gated:
+      headers:
+        customRequestHeaders:
+          X-Avatar-Access: "gated"
     avatar-img-strip:
       stripPrefix:
         prefixes:
