@@ -253,7 +253,32 @@ class QuotaLedgerTest(unittest.TestCase):
         self.assertEqual(len(importer.quota_entries([], manual)), 2)
 
 
+class MyQuotaTest(unittest.TestCase):
+    NOW = 1_800_000_000.0
+
+    def ledger(self, *entries):
+        return {f"{u}|B{i}": {"user": u, "at": self.NOW - d * 86400} for i, (u, d) in enumerate(entries)}
+
+    def test_own_count_only(self):
+        q = importer.my_quota(self.ledger(("jane", 1), ("jane", 2), ("john", 1)), "jane", self.NOW)
+        self.assertEqual(q, {"used": 2, "limit": 5, "days": 7, "freesAt": None})
+
+    def test_full_says_when_the_oldest_slot_frees(self):
+        q = importer.my_quota(self.ledger(*[("jane", d) for d in (1, 2, 3, 4, 6.5)]), "jane", self.NOW)
+        self.assertEqual((q["used"], q["freesAt"]), (5, "2027-01-15T20:00:00Z"))
+
+    def test_outside_the_window_does_not_count(self):
+        self.assertEqual(importer.my_quota(self.ledger(("jane", 8)), "jane", self.NOW)["used"], 0)
+
+    def test_no_user_is_none(self):
+        self.assertIsNone(importer.my_quota(self.ledger(("jane", 1)), "", self.NOW))
+
+
 class CallerTest(unittest.TestCase):
+    def test_my_quota_only_from_books_proxy(self):
+        self.assertTrue(importer.caller_ok("/my-quota", "10.24.25.6"))
+        self.assertFalse(importer.caller_ok("/my-quota", "10.24.25.2"))
+
     def test_quota_and_all_requests_only_from_books_proxy(self):
         for path in ("/quota", "/all-requests"):
             self.assertTrue(importer.caller_ok(path, "10.24.25.6"))

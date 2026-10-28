@@ -38,6 +38,7 @@ QUOTA_DAYS = int(ENV("QUOTA_DAYS", "7"))
 QUOTA_LEDGER = Path(ENV("QUOTA_LEDGER", "/data/quota.json"))
 # Only these neighbours on traefik_mouse may call these paths: the username header is trusted only from books-proxy, the .torrent carries the MAM passkey.
 CALLERS = {"/quota": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),), "/all-requests": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),),
+           "/my-quota": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),),
            "/prowlarr/torrent": (ENV("ABR_IP", "10.24.25.4"), ENV("ABR_HOST", "audiobookrequest"))}
 ABR_URL = ENV("ABR_URL", "http://audiobookrequest:8000")
 PROVIDERS = {"com": ("audible", "us"), "de": ("audible.de", "de"), "co.uk": ("audible.uk", "uk")}
@@ -114,6 +115,18 @@ def quota_ok(wishlist, manual, user, now, ledger=None):
         return False
     entries = merge_ledger(ledger or {}, quota_entries(wishlist, manual), now)
     return sum(1 for v in entries.values() if v["user"] == user) < QUOTA_BOOKS
+
+
+def my_quota(ledger, user, now):
+    """The caller's own count for the requests bar: no other user's data."""
+    if not user:
+        return None
+    since = now - QUOTA_DAYS * 86400
+    ats = sorted(v["at"] for v in ledger.values() if v["user"] == user and v["at"] >= since)
+    frees = None
+    if len(ats) >= QUOTA_BOOKS:
+        frees = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ats[len(ats) - QUOTA_BOOKS] + QUOTA_DAYS * 86400))
+    return {"used": len(ats), "limit": QUOTA_BOOKS, "days": QUOTA_DAYS, "freesAt": frees}
 
 
 def _status(downloaded, job_state):
@@ -614,6 +627,19 @@ def quota(handler):
     handler.end_headers()
 
 
+def my_quota_handler(handler):
+    """Requests bar: the logged-in user's quota from the ledger (refreshed every minute), as JSON."""
+    with quota_lock:
+        q = my_quota(load_ledger(), handler.headers.get("X-authentik-username", ""), time.time())
+    body = json.dumps(q).encode()
+    handler.send_response(200 if q else 400)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 def abs_forward(handler):
     """ABR's Audiobookshelf base URL. Its "already in library" search covers one library; ABS has one per language,
     so a search is asked in every book library. Everything else passes through with ABR's own (read-only) key."""
@@ -651,6 +677,8 @@ class Handler(BaseHTTPRequestHandler):
             return all_requests_handler(self)
         if self.path == "/quota":
             return quota(self)
+        if self.path == "/my-quota":
+            return my_quota_handler(self)
         if self.path == "/health":
             self.send_response(200)
             self.end_headers()
