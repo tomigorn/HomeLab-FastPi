@@ -48,11 +48,11 @@ class PlanTest(unittest.TestCase):
 
 class UserBindingTest(unittest.TestCase):
     def test_owner_decision_homelab_users_apps(self):
-        self.assertEqual(pmg.USER_APPS, {"home-assistant": "homelab-users", "grafana": "homelab-users"})
+        self.assertEqual(pmg.USER_APPS, {"home-assistant": "homelab-users", "grafana": "homelab-users", "claude-mockups": "homelab-users"})
 
     def test_missing_user_binding_is_added(self):
-        self.assertEqual(pmg.user_binding_plan({"home-assistant": {"homelab-admins"}, "grafana": {"homelab-admins"}}),
-                         {"home-assistant", "grafana"})
+        self.assertEqual(pmg.user_binding_plan({"home-assistant": {"homelab-admins"}, "grafana": {"homelab-admins"}, "claude-mockups": {"homelab-admins"}}),
+                         {"home-assistant", "grafana", "claude-mockups"})
 
     def test_bound_user_apps_need_no_change(self):
         self.assertEqual(pmg.user_binding_plan({s: {"homelab-admins", g} for s, g in pmg.USER_APPS.items()}), set())

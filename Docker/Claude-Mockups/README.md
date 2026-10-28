@@ -3,7 +3,7 @@
 A private space (Holy Grail SSO only) for hosting throwaway UI mockups and demos so
 they can be reviewed remotely (not just on `localhost`).
 
-- **URL:** https://claude-mockups.holy-grail.ch (Holy Grail / Authentik SSO login, group `homelab-admins`)
+- **URL:** https://claude-mockups.holy-grail.ch (Holy Grail / Authentik SSO login, group `homelab-admins` or `homelab-users`)
 - **Server:** a single `caddy:alpine` container serving static files with a
   styled directory listing (see `Caddyfile`). Caddy does no auth.
 - **Content:** one subfolder per demo under `www/`.
@@ -139,7 +139,7 @@ The Traefik route is picked up automatically (Traefik watches `/dynamic`).
    service `HTTPS` → `192.168.1.2:443`, **No TLS Verify: On**.
    Cloudflare auto-creates the DNS record.
 2. **Authentik side (Holy Grail SSO):** provider `claude-mockups-proxy` and application
-   `claude-mockups` (bound to group `homelab-admins`) come from section 7 of
+   `claude-mockups` (bound to `homelab-admins`; `homelab-users` added by `Authentik/scripts/provision-media-groups.py`) come from section 7 of
    `../Authentik/scripts/provision-admin-sso.py`; the dashboard look from
    `../Authentik/scripts/dashboard-look.py`. See "Admin SSO" in `../Authentik/README.md`.
 

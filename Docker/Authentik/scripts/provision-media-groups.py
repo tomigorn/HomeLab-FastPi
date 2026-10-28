@@ -10,7 +10,7 @@
 # Only bindings of MANAGED groups on the apps below are changed; other groups, policies and apps stay.
 # Owner memberships follow the admin split (docs/admin-split-plan.md): only the users in MEMBERS and only MEMBER_MANAGED groups; cloud-* stay by hand (phase 3).
 # REMOVE_EXTRA = False (phase 2a) only adds; True (phase 2b) also takes MEMBER_MANAGED groups not listed away.
-# homelab-users (owner 2026-10-27): the everyday account's Home Assistant (user role) and Grafana (Viewer); bound next to homelab-admins, add-only.
+# homelab-users (owner 2026-10-27): the everyday account's Home Assistant (user role), Grafana (Viewer) and Claude-Mockups (owner 2026-10-28); bound next to homelab-admins, add-only.
 GROUPS = ("streaming-users", "streaming-requesters", "streaming-admins")
 MANAGED = set(GROUPS) | {"homelab-admins"}
 HOMELAB_USERS = "homelab-users"
@@ -44,7 +44,7 @@ APP_GROUP = {
     # Image versions of every host: homelab inventory, not a media tool.
     "cup": "homelab-admins",
 }
-USER_APPS = {"home-assistant": HOMELAB_USERS, "grafana": HOMELAB_USERS}
+USER_APPS = {"home-assistant": HOMELAB_USERS, "grafana": HOMELAB_USERS, "claude-mockups": HOMELAB_USERS}
 
 
 def plan(current):
