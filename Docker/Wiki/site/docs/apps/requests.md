@@ -42,6 +42,18 @@ Small icons next to the status and on the posters (hover, or tap on the phone, s
 
     Nothing grabbed yet: it searches first. **🔍 Searching…** shows while the search runs (several searches run one after the other). Found → **✅ Downloading**. Nothing found → **🧭 No release found yet**: the title goes back to the night queue (🌙) and tonight's search keeps looking; **⚡ Search again** tries once more.
 
+## My request: see and change it
+Open a title **you requested** → the card **My request** under the title (tap to open).
+
+| You can | How |
+|---|---|
+| change the quality | pick another in **Quality** |
+| add or remove audio / subtitle languages | × on a language, or **Add…** |
+| switch Can wait on or off | the checkbox (off = downloads at once, like ⚡ Download now) |
+| delete your request | **Delete request**; the question says exactly what goes |
+
+Press **Save**; the server searches again within 2 minutes. If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
+
 ## Search tips
 
 The search box understands four prefixes. Only one per search.
