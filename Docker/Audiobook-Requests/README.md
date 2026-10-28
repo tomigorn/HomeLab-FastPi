@@ -21,7 +21,7 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
 | `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`) |
-| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints |
+| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js` and the requests bar (`www/bar/`) before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints |
 
 ## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
 
@@ -44,6 +44,27 @@ Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is 
 
 `https://books.holy-grail.ch/_hg/requests/` (link "All requests" in ABR's navbar), read-only, same login as ABR: everyone's requests with **who requested** (owner 2026-10-27), date, cover and status (open / downloading / in library). Data: importer `GET /all-requests` (ABR's request list + the importer's job states), served by books-proxy as `/_hg/requests/data.json`; page in ABR's theme (`books-proxy/www/requests/`).
 
+## Requests bar
+
+The bar Seerr has (requests.holy-grail.ch), on every ABR page and the All requests page. Only after login: Traefik forward auth covers `/_hg/bar/*` (no Holy Grail session → 302 to sso), and books-proxy asks ABR `GET /api/users/me` with the caller's cookie (`auth_request`; no ABR session → 401). `bar.js` draws nothing until `usage.json` answers 200, never on `/login`, `/auth/*`, `/init`; a later 401/redirect removes it.
+
+| Chip | Source |
+|---|---|
+| MyAnonamouse `searches` / `downloads` (`∞` = no limit) | Prowlarr history, last 24 h; limits per indexer in `abr-bar/limits.toml` (none for MAM) |
+| My requests `n/5 in 7 days`, red + "next free" when used up | importer `/my-quota`: the viewer's own count from the quota ledger, nobody else's |
+| Next renewal / due subscription | `abr-bar/limits.toml`; `seerr = true` takes the date from Seerr's list (beefy, cached by subscription-alerts) |
+| Library, Downloads: used/total, % (`df` numbers) | statvfs of `/mnt/seagate-black/library/audiobooks` and the qBittorrent + SABnzbd download folders; one chip per filesystem (same disk → "Library + Downloads") |
+
+Disk colours: green < 70 %, yellow 70–80 %, red ≥ 80 % (both 1.8 TB HDDs; fastpi's disk alert fires at 85 %, so the bar warns first). Nothing is deleted automatically: torrents seed forever (MAM), the hint says so. Hints and disk names EN/DE (browser language).
+
+| Part | Where |
+|---|---|
+| collector | `scripts/abr_bar_usage.py`, `systemd/abr-bar-usage.{service,timer}` (every minute, user pi, Prowlarr key via `LoadCredential`, network only to the gate 10.24.32.2:9697) → `/var/lib/abr-bar/usage.json` (names and counts only) |
+| served | books-proxy `/_hg/bar/usage.json` (mount `/var/lib/abr-bar`, ro), `/_hg/bar/my-quota.json` (→ importer, user from `X-authentik-username`), `/_hg/bar/bar.{js,css}`; config = `data-ib-*` on the injected `<script>` tag |
+| shared code | `books-proxy/www/bar/bar.{js,css}` and `abr-bar/indexer-bar-schema.md` are a vendored, unchanged copy of Seerr's `indexer-bar/www/bar.{js,css}` + `indexer-bar/schema.md` (HomeLab-BeefyServer, canonical). Never edit them here: change them on beefy (both test suites green), commit, then `scripts/sync-bar.sh` here. `--check` compares the sha256 with beefy's HEAD (beefy asleep = skipped, never woken); post-update check `books.bar-shared`. ABR wording (disk names, hints, note) lives in `abr_bar_usage.py` |
+
+Install: `sudo install -m 0644 systemd/abr-bar-usage.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now abr-bar-usage.timer`, then `docker compose up -d books-proxy` (the mount needs `/var/lib/abr-bar`).
+
 ## Library naming (`importer/naming.py`)
 
 `EN|DE|Other / First author / [Series without "Series"] / NN - Title`, from the Audible product (title, first author, series + position, language), fallback ABR webhook + MAM language flag. Files keep their download names (library convention, owner 2026-10-26); parts in subfolders are flattened as `CD1 - 01.mp3` because the merger works per folder. An existing folder is never overwritten (`exists` in the job list). Several audio files (MP3 or M4B parts) = `merge-wait` until M4b-Auto-Merge leaves one `.m4b`; only then the scan and match.
@@ -64,7 +85,8 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | Prowlarr | `sudo python3 Docker/mouse/scripts/prowlarr-setup.py` |
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
 | Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link, search; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel; `QUOTA_ASINS="6 ASINs"` also checks the limit (switch auto-download off first, delete the canary's requests after) |
-| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer` |
+| Requests bar | `systemd/abr-bar-usage.timer`, see "Requests bar" |
+| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer`; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
 
 ## Secrets (`secrets/`, 0400)
 

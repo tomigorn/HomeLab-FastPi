@@ -30,7 +30,7 @@ Connect: `\\fastpi\mouse`, `smb://fastpi.homelab/mouse` (same for `admin_books`,
 ## Prowlarr (audiobooks)
 Indexer for AudioBookRequest (`Docker/Audiobook-Requests`), container `prowlarr_mouse` in gluetun's netns (MAM sees the VPN IP), uid 65054, listens on `127.0.0.1:9696` only, auth External (Holy Grail).
 
-`prowlarr-gate` (nginx, uid 65057, same netns, `:9697`, `prowlarr-gate/nginx.conf`) is the only way in: Traefik (`10.24.25.3`, after Holy Grail) gets the UI; everyone else only `/api/` and download paths with the API key (403 otherwise). Prowlarr 2.x has only Forms login (no Basic, no header login), so Holy Grail stays the one login and the gate replaces it for everyone else.
+`prowlarr-gate` (nginx, uid 65057, same netns, `:9697`, `prowlarr-gate/nginx.conf`) is the only way in: Traefik (`10.24.25.3`, after Holy Grail) gets the UI; everyone else only `/api/` and download paths with the API key (403 otherwise; e.g. ABR, the importer pass-through, ABR's requests bar collector `abr-bar-usage`). Prowlarr 2.x has only Forms login (no Basic, no header login), so Holy Grail stays the one login and the gate replaces it for everyone else.
 
 The netns neighbours (qBittorrent, SABnzbd, Mousehole) cannot skip the gate: `gluetun/post-rules.txt` (mounted at `/iptables/post-rules.txt`) rejects `lo` → `:9696` for every uid except the gate (65057) and Prowlarr (65054). Check: `docker exec qbittorrent_mouse curl -s -o /dev/null -w '%{http_code}' 127.0.0.1:9696/ping` → `000`.
 
