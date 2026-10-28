@@ -1,7 +1,7 @@
 // "Movies / Series" link to Seerr: next to ABR's Wishlist button; if ABR's navbar ever changes, a small fixed bar instead.
-// Also "All requests" (books-proxy page /_hg/requests/).
+// Also "All requests" (/_hg/requests/) and "Library" (/_hg/library/), books-proxy pages.
 (function () {
-  var links = [["hg-all", "/_hg/requests/", "All requests"], ["hg-movies", "https://requests.holy-grail.ch/", "Movies / Series"]];
+  var links = [["hg-all", "/_hg/requests/", "All requests"], ["hg-library", "/_hg/library/", "Library"], ["hg-movies", "https://requests.holy-grail.ch/", "Movies / Series"]];
   function add() {
     if (document.getElementById("hg-movies")) return;
     var wishlist = document.querySelector('nav a[title="Wishlist"]');
