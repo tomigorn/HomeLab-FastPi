@@ -21,7 +21,7 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
 | `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`) |
-| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js` and the requests bar (`www/bar/`) before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints |
+| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints |
 
 ## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
 
@@ -42,7 +42,24 @@ Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is 
 
 ## All requests page
 
-`https://books.holy-grail.ch/_hg/requests/` (link "All requests" in ABR's navbar), read-only, same login as ABR: everyone's requests with **who requested** (owner 2026-10-27), date, cover and status (open / downloading / in library). Data: importer `GET /all-requests` (ABR's request list + the importer's job states), served by books-proxy as `/_hg/requests/data.json`; page in ABR's theme (`books-proxy/www/requests/`).
+`https://books.holy-grail.ch/_hg/requests/` (link "All requests" in ABR's navbar), read-only, same login as ABR: everyone's requests with **who requested** (owner 2026-10-27), date, size, cover and status (open / downloading / in library); sort newest / largest / smallest. Data: importer `GET /all-requests` (ABR's request list + the importer's job states + sizes), served by books-proxy as `/_hg/requests/data.json`; page in ABR's theme (`books-proxy/www/requests/`).
+
+## Sizes on ABR's lists
+
+ABR's Requests and Downloaded tabs get a **Size** column after "Length (hrs)"; clicking it sorts largest → smallest → ABR's order (remembered per browser). `books-proxy/www/sizes.js` (injected) only adds cells and re-orders the existing rows, so ABR's htmx buttons keep working; after an htmx swap it re-applies. Size per ASIN: the Audiobookshelf item (after import and merge), else the qBittorrent torrent while it downloads; `–` = unknown (no ASIN in ABS). Data: importer `GET /sizes` → `/_hg/sizes.json` (ABR session needed).
+
+## Library page
+
+`https://books.holy-grail.ch/_hg/library/` (link "Library" in ABR's navbar, next to All requests): every Audiobookshelf book **the viewer's own ABS account may open** (its library access, explicit flag, tag rules; root/admin all), with cover, title, author, narrator, series, length, size, added date, library and "Open in Audiobookshelf". Search (title, author, narrator, series), sort (newest, title, author, largest, smallest, longest), library filter; one column on phones.
+
+Placement: a books-proxy page under `/_hg/` like All requests, not inside ABR: ABR has no extension point, a page of our own survives ABR updates, and the nav link comes from the same `links.js` injection.
+
+| Part | Where |
+|---|---|
+| data | importer `GET /library` (viewer = `X-authentik-username`, set by Traefik forward auth; ABS username = the same Holy Grail `preferred_username`, matched exactly) → `/_hg/library/data.json`; covers `GET /library-cover/<id>` (only items the viewer may see, 240 px webp) → `/_hg/library/cover/<id>`. Both need an ABR session (`auth_request`) |
+| ABS access | importer's key `audiobook-importer` (ABS admin, GET only here): `/api/libraries`, `/api/libraries/<id>/items?minified=1`, `/api/users` (permissions; tokens and mails never leave the importer); cached 5 min (users 1 min). Keys never reach the browser |
+| no ABS account yet | the page says to open Audiobookshelf once (Holy Grail login creates it) |
+| page | `books-proxy/www/library/` (`index.html`, `library.js`) |
 
 ## Requests bar
 
@@ -94,7 +111,7 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
 | Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link, search; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel; `QUOTA_ASINS="6 ASINs"` also checks the limit (switch auto-download off first, delete the canary's requests after) |
 | Requests bar | `systemd/abr-bar-usage.timer`, see "Requests bar" |
-| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer`; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar + MAM chip: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
+| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer`; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar, MAM chip, sizes, library, all requests, links: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
 
 ## Secrets (`secrets/`, 0400)
 
