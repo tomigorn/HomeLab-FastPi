@@ -23,6 +23,12 @@ os.environ.setdefault("BEEFY_PROBE_HOST", "127.0.0.1")
 import waker  # noqa: E402
 
 
+class ListenBacklogTest(unittest.TestCase):
+    def test_backlog_absorbs_bursts(self):
+        self.assertGreaterEqual(waker.Server.request_queue_size, 64)
+        self.assertTrue(issubclass(waker.Server, ThreadingHTTPServer))
+
+
 class ServerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

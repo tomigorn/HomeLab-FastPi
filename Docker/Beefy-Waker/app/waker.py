@@ -955,6 +955,10 @@ class Handler(BaseHTTPRequestHandler):
         sys.stdout.flush()
 
 
+class Server(ThreadingHTTPServer):
+    request_queue_size = 64
+
+
 def main():
     missing = [k for k, v in (("BEEFY_MAC", MAC),
                               ("BEEFY_PROBE_HOST", PROBE_HOST)) if not v]
@@ -962,7 +966,7 @@ def main():
         sys.exit("missing required env: %s" % ", ".join(missing))
     magic_packet(MAC)  # validate MAC format at startup
     _load_public_info()
-    srv = ThreadingHTTPServer((BIND, LISTEN_PORT), Handler)
+    srv = Server((BIND, LISTEN_PORT), Handler)
     print("beefy-waker listening on %s:%d - page=/ gate=/gate, wake %s via %s, probe %s:%d"
           % (BIND, LISTEN_PORT, MAC, BROADCAST, PROBE_HOST, PROBE_PORT), flush=True)
     srv.serve_forever()
