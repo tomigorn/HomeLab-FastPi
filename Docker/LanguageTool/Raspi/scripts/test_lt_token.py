@@ -68,6 +68,23 @@ class LtToken(unittest.TestCase):
         self.assertEqual(baks[0].stat().st_mode & 0o777, 0o600)
         self.assertEqual(baks[0].read_text(), BASE)
 
+    def test_write_keeps_the_group_traefik_reads_with(self):
+        calls = []
+        real_chown = self.lt.os.chown
+        def chown(path, uid, gid):
+            calls.append((os.path.basename(path), uid, gid))
+            raise PermissionError
+        sudo = []
+        self.lt.os.chown = chown
+        self.lt.subprocess.run = lambda args, **kw: sudo.append(args)
+        try:
+            self.lt.quiet()
+        finally:
+            self.lt.os.chown = real_chown
+        gid = self.file.stat().st_gid
+        self.assertEqual(calls, [(".languagetool-token.tmp", -1, gid)])
+        self.assertEqual(sudo, [["sudo", "-n", "chgrp", str(gid), str(self.file.parent / ".languagetool-token.tmp")]])
+
     def test_tokens_are_unique(self):
         a = self.lt.add("Filip-LinuxLaptop")
         b = self.lt.add("Filip-Phone")

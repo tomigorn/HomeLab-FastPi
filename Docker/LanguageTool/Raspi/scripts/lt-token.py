@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import shutil
+import subprocess
 import sys
 import time
 
@@ -57,7 +58,13 @@ def _write(text):
     tmp = os.path.join(os.path.dirname(FILE), ".languagetool-token.tmp")
     with open(tmp, "w") as f:
         f.write(text)
-    os.chmod(tmp, os.stat(FILE).st_mode & 0o777)
+    st = os.stat(FILE)
+    os.chmod(tmp, st.st_mode & 0o777)
+    try:
+        os.chown(tmp, -1, st.st_gid)
+    except PermissionError:
+        # Traefik reads the 0640 file through its own group, which pi is not in.
+        subprocess.run(["sudo", "-n", "chgrp", str(st.st_gid), tmp], check=True)
     os.replace(tmp, FILE)
 
 
