@@ -182,6 +182,7 @@ class Config(unittest.TestCase):
         cfg = bu.load_config(HERE.parent / "abr-bar" / "limits.toml")
         self.assertIn("ProtonVPN Plus", [s["name"] for s in cfg["subscriptions"]])
         self.assertIsInstance(cfg["indexers"], dict)
+        self.assertEqual((cfg["mam"]["class"], cfg["mam"]["unsatisfied_limit"]), ("VIP", 150))
 
     def test_bad_window_is_an_error(self):
         with tempfile.TemporaryDirectory() as d:
@@ -191,9 +192,94 @@ class Config(unittest.TestCase):
                 bu.load_config(p)
 
 
+H = 3600
+MAMT = "https://t.myanonamouse.net/tracker.php/PASSKEY123/announce"
+
+
+def tor(h, added_days_ago, seeded_h, state="stalledUP", tracker=MAMT, name=None, now=utc(2026, 10, 28, 12, 0)):
+    added = int((now - dt.timedelta(days=added_days_ago)).timestamp())
+    return {"hash": h, "name": name or "Book " + h, "tracker": tracker, "added_on": added, "completion_on": added + 600,
+            "seeding_time": int(seeded_h * H), "state": state, "category": ""}
+
+
+class Mam(unittest.TestCase):
+    NOW = utc(2026, 10, 28, 12, 0)
+    CFG = {"class": "VIP", "unsatisfied_limit": 150, "vip_expires": None}
+
+    def m(self, torrents, seen=None, cfg=None, trackers=None):
+        return bu.mam(torrents, trackers or {}, seen or {}, cfg or self.CFG, self.NOW)
+
+    def test_counts_mam_torrents_under_72h_added_within_30_days(self):
+        ts = [tor("a", 1, 10), tor("b", 29, 71.9), tor("c", 2, 72), tor("d", 31, 1, state="stalledUP"),
+              tor("e", 1, 1, tracker="udp://tracker.torrent.eu.org:451/announce"), tor("f", 0, 0, state="downloading")]
+        out, _ = self.m(ts)
+        self.assertEqual((out["unsatisfied"], out["limit"], out["class"]), (3, 150, "VIP"))
+        self.assertEqual([r["reason"] for r in out["risks"]], ["missed"])
+
+    def test_levels_green_below_70_yellow_to_90_red_from_90(self):
+        for n, level in {6: "ok", 7: "yellow", 8: "yellow", 9: "full", 10: "full"}.items():
+            out, _ = self.m([tor(str(i), 1, 1) for i in range(n)], cfg={**self.CFG, "unsatisfied_limit": 10})
+            self.assertEqual(out["level"], level, n)
+
+    def test_next_free_is_the_seeding_torrent_closest_to_72h(self):
+        out, _ = self.m([tor("a", 1, 10), tor("b", 3, 70), tor("c", 3, 71, state="stoppedUP")])
+        self.assertEqual(out["freesAt"], "2026-10-28T14:00:00Z")
+
+    def test_no_unsatisfied_no_free_time(self):
+        out, _ = self.m([tor("a", 5, 100)])
+        self.assertEqual((out["unsatisfied"], out["freesAt"], out["risks"]), (0, None, []))
+
+    def test_paused_or_stopped_before_72h_is_a_red_risk(self):
+        out, _ = self.m([tor("a", 2, 5, state="stoppedUP", name="Paused Book"), tor("b", 2, 5, state="pausedDL"), tor("c", 2, 80, state="stoppedUP")])
+        self.assertEqual([(r["name"], r["reason"], r["seededHours"]) for r in out["risks"]], [("Paused Book", "paused", 5), ("Book b", "paused", 5)])
+        self.assertEqual(out["level"], "full")
+
+    def test_removed_before_72h_is_remembered_as_risk(self):
+        _, seen = self.m([tor("a", 2, 5, name="Gone Book"), tor("b", 4, 80)])
+        out, seen2 = self.m([], seen=seen)
+        self.assertEqual([(r["name"], r["reason"], r["seededHours"]) for r in out["risks"]], [("Gone Book", "removed", 5)])
+        self.assertIn("a", seen2)
+        self.assertNotIn("b", seen2)
+
+    def test_removed_risk_is_dropped_30_days_after_download(self):
+        seen = {"a": {"name": "Old", "added": int((self.NOW - dt.timedelta(days=31)).timestamp()), "seeded": 5 * H, "gone": True}}
+        out, seen2 = self.m([], seen=seen)
+        self.assertEqual((out["risks"], seen2), ([], {}))
+
+    def test_older_than_30_days_without_72h_is_a_missed_risk(self):
+        out, _ = self.m([tor("a", 31, 50, name="Late Book")])
+        self.assertEqual([(r["name"], r["reason"]) for r in out["risks"]], [("Late Book", "missed")])
+
+    def test_tracker_from_the_tracker_list_when_the_torrent_has_none(self):
+        out, _ = self.m([tor("a", 1, 1, tracker="")], trackers={"a": ["https://t.myanonamouse.net/tracker.php/X/announce"]})
+        self.assertEqual(out["unsatisfied"], 1)
+
+    def test_texts_and_no_tracker_url(self):
+        out, seen = self.m([tor("a", 1, 1)])
+        self.assertEqual(out["label"], {"en": "MAM unsatisfied", "de": "MAM unerfüllt"})
+        self.assertEqual(out["hint"]["en"], "Unsatisfied MAM torrents: 1 of 150 (VIP) — each must seed 72 h within 30 days; oldest frees at {freesAt}.")
+        self.assertTrue(out["hint"]["de"].startswith("Unerfüllte MAM-Torrents: 1 von 150 (VIP)"))
+        self.assertNotIn("PASSKEY", json.dumps([out, seen]))
+
+    def test_vip_expiry_is_a_subscription_when_set(self):
+        self.assertEqual(bu.mam_subscriptions({"vip_expires": None}), [])
+        self.assertEqual(bu.mam_subscriptions({"vip_expires": dt.date(2026, 11, 20)}), [{"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date(2026, 11, 20)}])
+
+    def test_mam_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = pathlib.Path(d) / "l.toml"
+            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\nvip_expires = "2026-12-01"\n')
+            self.assertEqual(bu.load_config(p)["mam"], {"class": "VIP", "unsatisfied_limit": 150, "vip_expires": dt.date(2026, 12, 1)})
+            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\nvip_expires = ""\n')
+            self.assertIsNone(bu.load_config(p)["mam"]["vip_expires"])
+            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\nvip_expires = "1.12.2026"\n')
+            with self.assertRaises(ValueError):
+                bu.load_config(p)
+
+
 class Run(unittest.TestCase):
     NOW = utc(2026, 10, 28, 12, 0)
-    CFG = {"indexers": LIMITS, "subscriptions": [{"name": "ProtonVPN Plus", "seerr": True}]}
+    CFG = {"indexers": LIMITS, "subscriptions": [{"name": "ProtonVPN Plus", "seerr": True}], "mam": {"class": "VIP", "unsatisfied_limit": 150, "vip_expires": dt.date(2026, 11, 2)}}
     SEERR = [{"name": "ProtonVPN Plus", "kind": "VPN", "expires": dt.date(2027, 6, 15)}]
 
     def disks(self):
@@ -237,8 +323,44 @@ class Run(unittest.TestCase):
         self.assertFalse(data["ok"])
         self.assertEqual(data["indexers"], [])
         self.assertEqual(len(data["storage"]), 2)
-        self.assertEqual(len(data["subscriptions"]), 1)
+        self.assertEqual([s["name"] for s in data["subscriptions"]], ["ProtonVPN Plus", "MAM VIP"])
         self.assertNotIn("connection refused", json.dumps(data))
+
+    def test_mam_from_qbittorrent_and_seen_state_kept_private(self):
+        calls = []
+
+        def qbit(path):
+            calls.append(path)
+            if path == "/torrents/info":
+                return [tor("a", 1, 10, name="Secret Title"), tor("b", 1, 1, tracker="")]
+            return [{"url": "** [DHT] **"}, {"url": MAMT}]
+        st, dev = self.disks()
+        with tempfile.TemporaryDirectory() as d:
+            out = pathlib.Path(d) / "usage.json"
+            bu.run(self.CFG, lambda p: INDEXERS if p == "/indexer" else [], out, self.NOW, disks=DISKS, statvfs=st, device=dev, seerr=self.SEERR, qbit=qbit)
+            data = json.loads(out.read_text())
+            seen = pathlib.Path(d) / "mam-seen.json"
+            seen_mode = seen.stat().st_mode & 0o777
+            seen_text = seen.read_text()
+        self.assertEqual(calls, ["/torrents/info", "/torrents/trackers?hash=b"])
+        self.assertTrue(data["mam"]["ok"])
+        self.assertEqual(data["mam"]["unsatisfied"], 2)
+        self.assertNotIn("Secret Title", json.dumps(data))
+        self.assertNotIn("PASSKEY", json.dumps(data) + seen_text)
+        self.assertEqual(seen_mode, 0o600)
+        self.assertIn("MAM VIP", [s["name"] for s in data["subscriptions"]])
+
+    def test_qbittorrent_down_marks_only_mam_unavailable(self):
+        def qbit(path):
+            raise bu.ApiError("refused")
+        st, dev = self.disks()
+        with tempfile.TemporaryDirectory() as d:
+            out = pathlib.Path(d) / "usage.json"
+            bu.run(self.CFG, lambda p: INDEXERS if p == "/indexer" else [], out, self.NOW, disks=DISKS, statvfs=st, device=dev, seerr=self.SEERR, qbit=qbit)
+            data = json.loads(out.read_text())
+            self.assertFalse((pathlib.Path(d) / "mam-seen.json").exists())
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["mam"], {"ok": False, "label": {"en": "MAM unsatisfied", "de": "MAM unerfüllt"}})
 
     def test_api_key_from_the_credential_file(self):
         with tempfile.TemporaryDirectory() as d:

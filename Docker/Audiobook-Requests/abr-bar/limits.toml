@@ -14,3 +14,11 @@
 [[subscriptions]]
 name = "ProtonVPN Plus"
 seerr = true
+
+# MyAnonamouse seeding rule (rules.php 2.5, "Unsatisfied torrents", as of 2026-05-10): every download seeds 72 h in total within 30 days; until then it is unsatisfied.
+# Unsatisfied limit per class: new member (first 2 weeks) 20, User 50, Power User 100, VIP 150, above VIP 200. Read from qBittorrent (seeding time), no MAM call.
+# vip_expires = "YYYY-MM-DD" (the VIP end date from the MAM profile) shows a "MAM VIP" renewal chip; "" = hidden. When VIP ends, set class and limit to the new class.
+[mam]
+class = "VIP"
+unsatisfied_limit = 150
+vip_expires = ""

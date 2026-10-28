@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Requests bar above ABR (README "Requests bar"): Prowlarr searches (queries + RSS) and grabs per audiobook indexer inside its window from abr-bar/limits.toml, subscription deadlines, and the fill level of the audiobook library and download filesystems; writes usage.json (names and counts only) for books-proxy.
+"""Requests bar above ABR (README "Requests bar"): Prowlarr searches (queries + RSS) and grabs per audiobook indexer inside its window from abr-bar/limits.toml, subscription deadlines (MAM VIP included), unsatisfied MyAnonamouse torrents from qBittorrent (72 h seed rule), and the fill level of the audiobook library and download filesystems; writes usage.json (names and counts only) for books-proxy.
 Counting and subscriptions are a copy of Seerr's scripts/indexer-usage.py (beefy); output = the shared schema (abr-bar/indexer-bar-schema.md). Prowlarr unreachable: ok=false, storage and subscriptions stay. Run by systemd/abr-bar-usage.timer.
 Usage: scripts/abr_bar_usage.py"""
 import datetime as dt
@@ -39,6 +39,25 @@ DISK_TEXT = {
 }
 NOTE = {"en": "Searches and downloads go through Prowlarr to MyAnonamouse. A request stays open until a release in the requested language exists; searches made by hand on the indexer website are not counted.",
         "de": "Suchen und Downloads laufen über Prowlarr zu MyAnonamouse. Eine Anfrage bleibt offen, bis es eine Ausgabe in der gewünschten Sprache gibt; von Hand auf der Indexer-Website gemachte Suchen werden nicht gezählt."}
+# MyAnonamouse seeding rule (rules.php 2.5): every download seeds 72 h in total within 30 days; until then it is "unsatisfied" and counts against the class limit.
+MAM_HOST = "myanonamouse.net"
+MAM_SEED, MAM_DAYS = 72 * 3600, 30
+MAM_YELLOW, MAM_RED = 0.70, 0.90
+SEEDING = {"uploading", "stalledUP", "forcedUP"}
+STOPPED = {"pausedUP", "pausedDL", "stoppedUP", "stoppedDL", "error", "missingFiles"}
+MAM_TEXT = {
+    "label": {"en": "MAM unsatisfied", "de": "MAM unerfüllt"},
+    "hint": {"en": "Unsatisfied MAM torrents: {n} of {limit} ({cls}) — each must seed 72 h within 30 days{free}.",
+             "de": "Unerfüllte MAM-Torrents: {n} von {limit} ({cls}) — jeder muss innerhalb von 30 Tagen 72 h seeden{free}."},
+    "free": {"en": "; oldest frees at {freesAt}", "de": "; der nächste ist frei um {freesAt}"},
+    "head": {"en": "MyAnonamouse seeding", "de": "MyAnonamouse seeden"},
+    "risksHead": {"en": "Rule risk: stopped before 72 h", "de": "Regelrisiko: vor 72 h gestoppt"},
+    "reasons": {"paused": {"en": "paused in qBittorrent, resume it", "de": "in qBittorrent pausiert, wieder starten"},
+                "removed": {"en": "removed from qBittorrent", "de": "aus qBittorrent entfernt"},
+                "missed": {"en": "30 days passed without 72 h", "de": "30 Tage ohne 72 h vorbei"}},
+    "rule": {"en": "MAM rule: seed every download 72 h in total within 30 days (counted here from qBittorrent's seeding time). Never stop a MAM torrent early.",
+             "de": "MAM-Regel: jeden Download innerhalb von 30 Tagen insgesamt 72 h seeden (hier aus der Seed-Zeit von qBittorrent gezählt). Nie einen MAM-Torrent früher stoppen."},
+}
 SEERR_LIST = pathlib.Path("/var/lib/subscription-alerts/limits.toml")
 
 
@@ -138,6 +157,69 @@ def seerr_subscriptions(path):
         return None
 
 
+def is_mam(url):
+    host = urllib.parse.urlparse(url or "").hostname or ""
+    return host == MAM_HOST or host.endswith("." + MAM_HOST)
+
+
+def mam(torrents, trackers, seen, cfg, now):
+    """Unsatisfied count, next free slot and rule risks; seen = last run's MAM torrents under 72 h (hash -> name, added, seeded, gone), returned updated."""
+    t_now = now.timestamp()
+    cutoff = t_now - MAM_DAYS * 86400
+    current, unsat, frees, risks = {}, 0, [], []
+    for t in torrents:
+        h = t.get("hash")
+        if not h or not (is_mam(t.get("tracker")) or any(is_mam(u) for u in trackers.get(h, []))):
+            continue
+        seeded, added, state = t.get("seeding_time", 0), t.get("added_on", 0), t.get("state", "")
+        if seeded >= MAM_SEED:
+            continue
+        current[h] = {"name": t.get("name", ""), "added": added, "seeded": seeded, "gone": False}
+        if added < cutoff:
+            risks.append((t.get("name", ""), "missed", seeded))
+            continue
+        unsat += 1
+        if state in STOPPED:
+            risks.append((t.get("name", ""), "paused", seeded))
+        elif state in SEEDING:
+            frees.append(t_now + MAM_SEED - seeded)
+    for h, s in seen.items():
+        if h in current or s.get("added", 0) < cutoff:
+            continue
+        current[h] = {**s, "gone": True}
+        risks.append((s.get("name", ""), "removed", s.get("seeded", 0)))
+    limit = cfg["unsatisfied_limit"]
+    ratio = unsat / limit if limit else 1
+    lvl = "full" if risks or ratio >= MAM_RED else "yellow" if ratio >= MAM_YELLOW else "ok"
+    free_at = dt.datetime.fromtimestamp(min(frees), UTC) if frees else None
+    hint = {l: MAM_TEXT["hint"][l].format(n=unsat, limit=limit, cls=cfg["class"], free=MAM_TEXT["free"][l] if free_at else "") for l in ("en", "de")}
+    out = {"ok": True, "unsatisfied": unsat, "limit": limit, "class": cfg["class"], "level": lvl, "freesAt": iso(free_at),
+           "seedHours": MAM_SEED // 3600, "windowDays": MAM_DAYS,
+           "risks": [{"name": n, "reason": r, "seededHours": int(s // 3600)} for n, r, s in risks],
+           **{k: v for k, v in MAM_TEXT.items() if k not in ("hint", "free")}, "hint": hint}
+    return out, current
+
+
+def mam_subscriptions(cfg):
+    return [{"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": cfg["vip_expires"]}] if cfg and cfg.get("vip_expires") else []
+
+
+def mam_config(c):
+    if not c:
+        return None
+    if not isinstance(c.get("class"), str) or not isinstance(c.get("unsatisfied_limit"), int) or c["unsatisfied_limit"] < 0:
+        raise ValueError("[mam]: needs class = \"...\" and unsatisfied_limit = a whole number")
+    vip = c.get("vip_expires") or None
+    if isinstance(vip, str):
+        try:
+            vip = dt.date.fromisoformat(vip)
+        except ValueError:
+            raise ValueError("[mam]: vip_expires must be \"YYYY-MM-DD\" or empty") from None
+    elif vip is not None and not isinstance(vip, dt.date):
+        raise ValueError("[mam]: vip_expires must be \"YYYY-MM-DD\" or empty")
+    return {"class": c["class"], "unsatisfied_limit": c["unsatisfied_limit"], "vip_expires": vip}
+
+
 def storage(disks, statvfs=os.statvfs, device=lambda p: os.stat(p).st_dev):
     groups = {}
     for d in disks:
@@ -179,21 +261,42 @@ def load_config(path):
                 raise ValueError(f"indexer {name!r}: {k} must be a whole number")
     subs = cfg.get("subscriptions", [])
     subscriptions([s for s in subs if not s.get("seerr")], dt.date.today())
-    return {"indexers": limits, "subscriptions": subs}
+    return {"indexers": limits, "subscriptions": subs, "mam": mam_config(cfg.get("mam"))}
 
 
-def write(path, data):
+def write(path, data, mode=0o644):
     path = pathlib.Path(path)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".usage-")
     with os.fdopen(fd, "w") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    os.chmod(tmp, 0o644)
+    os.chmod(tmp, mode)
     os.replace(tmp, path)
 
 
-def run(cfg, api, out, now, disks=DISKS, statvfs=os.statvfs, device=lambda p: os.stat(p).st_dev, seerr=None):
+def read_seen(path):
+    try:
+        return json.loads(pathlib.Path(path).read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def mam_run(cfg, qbit, seen_path, now):
+    try:
+        torrents = qbit("/torrents/info")
+        trackers = {t["hash"]: [x.get("url", "") for x in qbit("/torrents/trackers?hash=" + t["hash"])]
+                    for t in torrents if t.get("hash") and not t.get("tracker")}
+    except ApiError as e:
+        print(f"abr-bar-usage: qBittorrent unavailable: {e}", file=sys.stderr)
+        return {"ok": False, "label": MAM_TEXT["label"]}
+    out, seen = mam(torrents, trackers, read_seen(seen_path), cfg, now)
+    write(seen_path, seen, 0o600)
+    return out
+
+
+def run(cfg, api, out, now, disks=DISKS, statvfs=os.statvfs, device=lambda p: os.stat(p).st_dev, seerr=None, qbit=None):
+    mcfg = cfg.get("mam")
     data = {"ok": True, "generated": iso(now), "indexers": [], "showUnlimited": True, "note": NOTE,
-            "subscriptions": subscriptions(cfg["subscriptions"], local_date(now), seerr),
+            "subscriptions": subscriptions(cfg["subscriptions"] + mam_subscriptions(mcfg), local_date(now), seerr),
             "storage": storage(disks, statvfs, device)}
     try:
         indexers = api("/indexer")
@@ -202,6 +305,8 @@ def run(cfg, api, out, now, disks=DISKS, statvfs=os.statvfs, device=lambda p: os
     except ApiError as e:
         data["ok"] = False
         print(f"abr-bar-usage: Prowlarr unavailable: {e}", file=sys.stderr)
+    if mcfg and qbit:
+        data["mam"] = mam_run(mcfg, qbit, pathlib.Path(out).parent / "mam-seen.json", now)
     write(out, data)
     return data
 
@@ -224,13 +329,36 @@ def client(config_xml, base):
     return get
 
 
+def qbit_client(pass_file, base):
+    """Read-only qBittorrent Web API (torrents/info, torrents/trackers); the session cookie stays in memory."""
+    import http.cookiejar
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    opener.addheaders = [("Referer", base)]
+    state = {"in": False}
+
+    def get(path):
+        try:
+            if not state["in"]:
+                pw = pathlib.Path(pass_file).read_text().strip()
+                body = urllib.parse.urlencode({"username": os.environ.get("BAR_QBIT_USER", "admin"), "password": pw}).encode()
+                if opener.open(base + "/api/v2/auth/login", data=body, timeout=20).read().strip() not in (b"Ok.", b""):
+                    raise ApiError("login refused")
+                state["in"] = True
+            with opener.open(base + "/api/v2" + path, timeout=20) as r:
+                return json.load(r)
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            raise ApiError(type(e).__name__ + (f" {e.code}" if isinstance(e, urllib.error.HTTPError) else "")) from None
+    return get
+
+
 def main():
     cfg = load_config(os.environ.get("BAR_CONFIG", ROOT / "abr-bar" / "limits.toml"))
     state = os.environ.get("STATE_DIRECTORY", "/var/lib/abr-bar")
     creds = os.environ.get("CREDENTIALS_DIRECTORY", "")
     api = client(os.path.join(creds, "prowlarr-config.xml"), os.environ.get("BAR_PROWLARR_URL", "http://10.24.32.2:9697"))
+    qbit = qbit_client(os.path.join(creds, "qbit-pass"), os.environ.get("BAR_QBIT_URL", "http://10.24.25.2:8080"))
     run(cfg, api, os.path.join(state, "usage.json"), dt.datetime.now(UTC).replace(microsecond=0),
-        seerr=seerr_subscriptions(os.environ.get("BAR_SEERR_LIST", SEERR_LIST)))
+        seerr=seerr_subscriptions(os.environ.get("BAR_SEERR_LIST", SEERR_LIST)), qbit=qbit)
 
 
 if __name__ == "__main__":
