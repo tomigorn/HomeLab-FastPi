@@ -26,6 +26,20 @@ Books made of several files are merged into one M4B with chapters.
 ## Limit
 **5 books per 7 days** per person, everyone included. The 6th request shows "Limit reached": wait until an earlier one is a week old.
 
+## The bar at the top
+The same thin bar as in [Requests](requests.md#the-indexer-bar-at-the-top), on every audiobook page. **more** opens the full list; click **Indexers** to make the bar smaller.
+
+| You see | Means |
+|---|---|
+| `MyAnonamouse 2/∞ searches 0/∞ downloads` | searches and downloads of the last 24 hours; `∞` = no limit |
+| `My requests 1/5 in 7 days` | your own requests this week; red with "next free" when all 5 are used |
+| `Next renewal: ProtonVPN Plus in 230 d` | days until the VPN the downloads use must be renewed |
+| `Library 376 GB/1.8 TB 22 %` | the Audiobookshelf disk |
+| `Downloads 253 GB/1.8 TB 14 %` | the download disk; torrents keep seeding, so it only grows |
+| green · yellow · red (disks) | under 70 % · 70–80 % · from 80 % |
+
+Point at a disk (or open **more**) for the free space. Nothing is deleted automatically. German browsers get the disk texts in German.
+
 ## All requests
 **All requests** (top menu) lists everyone's requests: who asked, date, cover and status (open, downloading, in library).
 
