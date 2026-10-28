@@ -141,3 +141,112 @@ tests:
             exp_annotations:
               summary: "beefy storage figures are stale"
               description: "beefy_storage.prom is missing or older than 3 days, so the disk-full alerts see old data. Check <code>systemctl status beefy-idle-pull.service</code> on fastpi and the writer of storage.prom on beefy."
+
+  - name: mover counters, nothing to move, SMART alerts
+    interval: 4m
+    input_series:
+      - series: 'beefy_mover_verify_failures'
+        values: '2x10'
+      - series: 'beefy_mover_hdd_overflow_files'
+        values: '5x10'
+      - series: 'beefy_mover_staging_orphans'
+        values: '1x10'
+      - series: 'beefy_mover_duplicates'
+        values: '3x10'
+      - series: 'beefy_mover_ssd_used_ratio{when="after"}'
+        values: '0.8x10'
+      - series: 'beefy_mover_ssd_used_ratio{when="before"}'
+        values: '0.8x10'
+      - series: 'beefy_mover_moved_titles'
+        values: '0x10'
+      - series: 'beefy_mover_dry_run'
+        values: '0x10'
+      - series: 'beefy_disk_smart_raw{disk="ssd",attribute="Wear_Leveling_Count"}'
+        values: '800x10'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: BeefyMoverVerifyFailures
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "beefy mover: 2 copy verify failure(s)"
+              description: "2 copy/copies read back from disk differed in the last mover run and were discarded (the SSD originals are untouched). Suspect the HDD, cabling or RAM; check <code>journalctl -u beefy-mover</code> and <code>dmesg</code> on beefy."
+      - eval_time: 20m
+        alertname: BeefyMoverHddOverflow
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "beefy: 5 download file(s) landed on the HDD"
+              description: "5 file(s) under hdd-cold/torrents and hdd-cold/usenet: downloads spilled onto the HDD because both SSDs hit their mergerfs limit. They spin the HDD up on every access; free SSD space and let the mover (or you) move them."
+      - eval_time: 20m
+        alertname: BeefyMoverStagingOrphans
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest}
+            exp_annotations:
+              summary: "beefy: 1 leftover(s) in hdd-cold/.tier-staging"
+              description: "A killed copy left 1 file(s) in hdd-cold/.tier-staging on beefy. Safe to delete once no mover run is active."
+      - eval_time: 20m
+        alertname: BeefyMoverDuplicates
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest}
+            exp_annotations:
+              summary: "beefy: 3 video(s) on an SSD and the HDD"
+              description: "3 video(s) exist at the same path on an SSD and on the HDD. Check <code>journalctl -u beefy-mover</code> and remove the redundant copy."
+      - eval_time: 20m
+        alertname: BeefyMoverNothingToMove
+        exp_alerts:
+          - exp_labels: {severity: warning, when: after}
+            exp_annotations:
+              summary: "beefy mover found nothing to move, SSD at 80%"
+              description: "The last mover run moved no titles and left the SSD tier 80% full. Nothing qualifies (age, watched state or free HDD space); see the selection log in <code>journalctl -u beefy-mover</code> on beefy before the SSDs reach 80 %."
+      - eval_time: 20m
+        alertname: BeefySsdWearHigh
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, disk: ssd}
+            exp_annotations:
+              summary: "beefy SSD wear: 800 P/E cycles used"
+              description: "Wear_Leveling_Count raw is 800 (QVO rated about 1000 P/E cycles). Plan the replacement."
+
+  - name: mover counters quiet when absent, below thresholds, or moved something
+    interval: 4m
+    input_series:
+      - series: 'beefy_mover_verify_failures'
+        values: '0x10'
+      - series: 'beefy_mover_ssd_used_ratio{when="after"}'
+        values: '0.8x10'
+      - series: 'beefy_mover_moved_titles'
+        values: '4x10'
+      - series: 'beefy_mover_dry_run'
+        values: '0x10'
+      - series: 'beefy_disk_smart_raw{disk="ssd",attribute="Wear_Leveling_Count"}'
+        values: '7x10'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: BeefyMoverVerifyFailures
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: BeefyMoverNothingToMove
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: BeefySsdWearHigh
+        exp_alerts: []
+
+  - name: hdd start/stop rise over 30 per day, with gaps; calm drive stays quiet
+    interval: 4m
+    input_series:
+      - series: 'beefy_disk_smart_raw{disk="hdd",attribute="Start_Stop_Count"}'
+        values: '100x100 _x100 140x200'
+    alert_rule_test:
+      - eval_time: 3h
+        alertname: BeefyHddSpinningUpTooOften
+        exp_alerts: []
+      - eval_time: 15h
+        alertname: BeefyHddSpinningUpTooOften
+        exp_alerts:
+          - exp_labels: {severity: warning, disk: hdd, attribute: Start_Stop_Count}
+            exp_annotations:
+              summary: "beefy HDD start/stop count rose by 40 in 24 h"
+              description: "The cold HDD started/stopped 40 times in 24 h (more than 30 wears the spindle motor). Something keeps waking it: check <code>lsof +D /srv/.disks/hdd-cold</code> and the mover and scan jobs on beefy."
+      - eval_time: 40h
+        alertname: BeefyHddSpinningUpTooOften
+        exp_alerts: []

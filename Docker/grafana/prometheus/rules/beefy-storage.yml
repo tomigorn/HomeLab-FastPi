@@ -82,3 +82,84 @@ groups:
           description: >-
             beefy_storage.prom is missing or older than 3 days, so the disk-full alerts see old data.
             Check <code>systemctl status beefy-idle-pull.service</code> on fastpi and the writer of storage.prom on beefy.
+
+      # The four mover counters are only written on runs where the SSD tier is >= 70 % (absent otherwise), so these clear on a quiet night.
+      - alert: BeefyMoverVerifyFailures
+        expr: beefy_mover_verify_failures > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy mover: {{ $value | printf \"%.0f\" }} copy verify failure(s)"
+          description: >-
+            {{ $value | printf "%.0f" }} copy/copies read back from disk differed in the last mover run and were discarded (the SSD originals are untouched).
+            Suspect the HDD, cabling or RAM; check <code>journalctl -u beefy-mover</code> and <code>dmesg</code> on beefy.
+
+      - alert: BeefyMoverHddOverflow
+        expr: beefy_mover_hdd_overflow_files > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy: {{ $value | printf \"%.0f\" }} download file(s) landed on the HDD"
+          description: >-
+            {{ $value | printf "%.0f" }} file(s) under hdd-cold/torrents and hdd-cold/usenet: downloads spilled onto the HDD because both SSDs hit their mergerfs limit.
+            They spin the HDD up on every access; free SSD space and let the mover (or you) move them.
+
+      - alert: BeefyMoverStagingOrphans
+        expr: beefy_mover_staging_orphans > 0
+        for: 10m
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "beefy: {{ $value | printf \"%.0f\" }} leftover(s) in hdd-cold/.tier-staging"
+          description: >-
+            A killed copy left {{ $value | printf "%.0f" }} file(s) in hdd-cold/.tier-staging on beefy. Safe to delete once no mover run is active.
+
+      - alert: BeefyMoverDuplicates
+        expr: beefy_mover_duplicates > 0
+        for: 10m
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "beefy: {{ $value | printf \"%.0f\" }} video(s) on an SSD and the HDD"
+          description: >-
+            {{ $value | printf "%.0f" }} video(s) exist at the same path on an SSD and on the HDD. Check <code>journalctl -u beefy-mover</code> and remove the redundant copy.
+
+      # A real run that moved nothing while the SSDs stay high: nothing is eligible to move, so the SSDs will fill.
+      - alert: BeefyMoverNothingToMove
+        expr: beefy_mover_ssd_used_ratio{when="after"} >= 0.75 and on() beefy_mover_moved_titles == 0 and on() beefy_mover_dry_run == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy mover found nothing to move, SSD at {{ $value | humanizePercentage }}"
+          description: >-
+            The last mover run moved no titles and left the SSD tier {{ $value | humanizePercentage }} full. Nothing qualifies (age, watched state or free HDD space);
+            see the selection log in <code>journalctl -u beefy-mover</code> on beefy before the SSDs reach 80 %.
+
+      # Start_Stop_Count is a counter and the series has gaps (read with smartctl -n standby, missing when the HDD slept): max - min over 24 h tolerates both.
+      - alert: BeefyHddSpinningUpTooOften
+        expr: max_over_time(beefy_disk_smart_raw{disk="hdd",attribute="Start_Stop_Count"}[1d]) - min_over_time(beefy_disk_smart_raw{disk="hdd",attribute="Start_Stop_Count"}[1d]) > 30
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy HDD start/stop count rose by {{ $value | printf \"%.0f\" }} in 24 h"
+          description: >-
+            The cold HDD started/stopped {{ $value | printf "%.0f" }} times in 24 h (more than 30 wears the spindle motor). Something keeps waking it:
+            check <code>lsof +D /srv/.disks/hdd-cold</code> and the mover and scan jobs on beefy.
+
+      # Samsung QVO raw Wear_Leveling_Count = P/E cycles used (rated ~1000); only raw is exported.
+      - alert: BeefySsdWearHigh
+        expr: max by (disk) (last_over_time(beefy_disk_smart_raw{disk="ssd",attribute="Wear_Leveling_Count"}[3d])) >= 800
+        for: 10m
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "beefy SSD wear: {{ $value | printf \"%.0f\" }} P/E cycles used"
+          description: >-
+            Wear_Leveling_Count raw is {{ $value | printf "%.0f" }} (QVO rated about 1000 P/E cycles). Plan the replacement.
