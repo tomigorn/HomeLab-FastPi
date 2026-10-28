@@ -1,0 +1,11 @@
+[Unit]
+Description=Requests bar usage above ABR every minute
+Documentation=file:///home/pi/Projects/Docker/Audiobook-Requests/README.md
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=1min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

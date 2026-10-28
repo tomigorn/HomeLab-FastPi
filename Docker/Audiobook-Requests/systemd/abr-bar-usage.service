@@ -1,0 +1,26 @@
+[Unit]
+Description=Requests bar above ABR: Prowlarr counts, subscriptions and audiobook disk usage into usage.json
+Documentation=file:///home/pi/Projects/Docker/Audiobook-Requests/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+StateDirectory=abr-bar
+StateDirectoryMode=0755
+UMask=0022
+LoadCredential=prowlarr-config.xml:/mnt/seagate-red/prowlarr/config/config.xml
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/Audiobook-Requests/scripts/abr_bar_usage.py
+TimeoutStartSec=50
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=10.24.32.2

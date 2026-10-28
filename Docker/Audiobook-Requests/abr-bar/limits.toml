@@ -1,0 +1,16 @@
+# Requests bar above ABR (README "Requests bar"). Read by scripts/abr_bar_usage.py every minute, no restart needed.
+# No secrets here: the repo is public.
+
+# Limits per Prowlarr indexer (prowlarr_mouse), by its name in Prowlarr. An indexer not listed here is unlimited (shown with ∞).
+# searches = API calls incl. RSS, downloads = grabs; leave one out = unlimited.
+# window = "rolling" (the last 24 h) or "day" (calendar day, Europe/Zurich, resets at midnight).
+# MyAnonamouse has no search or grab limit for us (Prowlarr Query/Grab Limit empty), so it is not listed.
+# [indexers."Example"]
+# downloads = 20
+# window = "rolling"
+
+# Paid or time-limited services the audiobook pipeline needs: shown with days left.
+# expires = the day it ends (YYYY-MM-DD, no quotes), lifetime = true, or seerr = true: the date from Seerr's indexer-bar/limits.toml (beefy, cached by subscription-alerts), so a renewal is changed in one place.
+[[subscriptions]]
+name = "ProtonVPN Plus"
+seerr = true
