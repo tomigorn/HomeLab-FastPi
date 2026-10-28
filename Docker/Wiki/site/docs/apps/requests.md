@@ -50,12 +50,12 @@ Open a title **you requested** → the card **My request** under the title (tap 
 
 | You can | How |
 |---|---|
-| change the quality | pick another in **Quality** |
-| add or remove audio / subtitle languages | × on a language, or **Add…** |
+| change the quality | pick another in **Quality**; it then stays when you change languages later (**Quality kept (your pick)**) |
+| add or remove audio / subtitle languages | × on a language, or **Add…**; removing one undoes it (no Swiss German any more → normal quality again) |
 | switch Can wait on or off | the checkbox (off = downloads at once, like ⚡ Download now) |
 | delete your request | **Delete request**; the question says exactly what goes |
 
-Press **Save**; the server searches again within 2 minutes. If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
+Press **Save**; within 2 minutes the server applies it and searches again if quality or audio changed (subtitles only: no new download). If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
 
 ## Search tips
 
