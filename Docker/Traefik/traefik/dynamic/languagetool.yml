@@ -12,11 +12,12 @@ http:
     # CORS preflight: the browser add-on sends an unauthenticated OPTIONS before
     # its cross-origin POST. This higher-priority router answers it via the CORS
     # middleware; real POSTs fall through to the token routers (priority 5).
+    # noop@internal: a bare OPTIONS (no preflight headers) must never reach LanguageTool, which runs a full check on it without a token.
     languagetool-preflight:
-      rule: "Host(`lang-tool.ddns.net`) && Method(`OPTIONS`)"
+      rule: "Host(`lang-tool.ddns.net`) && Method(`OPTIONS`) && HeaderRegexp(`Access-Control-Request-Method`, `.+`)"
       entryPoints: ["langtool"]
       priority: 10
-      service: languagetool
+      service: noop@internal
       middlewares:
         - languagetool-cors
       tls:

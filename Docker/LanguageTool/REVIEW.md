@@ -105,6 +105,7 @@ and verified the same session:
   a `languagetool-cors` middleware that answers preflights **without**
   auth. Verified: preflight → `200` with `Allow-Headers: Authorization`;
   unauth POST → `401`; authed POST → `200` with a single `ACAO`.
+  2026-10-28: a bare `OPTIONS` (no preflight headers) still reached LT and ran a full check without a token; the router now also needs `Access-Control-Request-Method` and points to `noop@internal`.
 * **Pi memory limit** — `mem_limit: 2560m` + `mem_reservation: 1g`
   (above `Xmx` so the JVM isn't OOM-killed) so LT can't freeze the shared
   Pi. `security_opt: no-new-privileges:true` on both instances.

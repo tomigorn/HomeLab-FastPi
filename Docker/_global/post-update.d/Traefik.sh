@@ -23,6 +23,7 @@ if want traefik; then
     tcode --resolve jellyfin.holy-grail.ch:443:192.168.1.2 -H "If-None-Match: $e" "$u"; else echo beefy asleep; fi)"
   check traefik.tracker-allow-list '^404 403$' "$(echo "$(tcode --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/zz-no-such-route) $(tcode -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/webhook/jellyfin/post-update)")"
   check traefik.tracker-encoded-block '^403 403 403$' "$(for p in /accounts/signup%2F /import/kavita%2Fx /details/image%5Cx; do tcode --resolve tracker.holy-grail.ch:443:192.168.1.2 "https://tracker.holy-grail.ch$p"; echo; done | xargs)"
+  check traefik.lt-preflight '^404 200$' "$(echo "$(tcode -X OPTIONS --resolve lang-tool.ddns.net:8443:127.0.0.1 https://lang-tool.ddns.net:8443/v2/languages) $(tcode -X OPTIONS -H 'Origin: chrome-extension://check' -H 'Access-Control-Request-Method: POST' --resolve lang-tool.ddns.net:8443:127.0.0.1 https://lang-tool.ddns.net:8443/v2/check)")"
   check traefik.lt-token-routers '^[1-9][0-9]* routers, token 200, bare 404$' "$(f=$TR/traefik/dynamic/languagetool-token.yml
     n=$(grep -cE '^\s{4}languagetool-token-[^:]+:' "$f")
     t=$(python3 -c 'import re,sys; m=re.search(r"PathPrefix\(`(/[^`]+)`\)", open(sys.argv[1]).read()); print(m.group(1) if m else "/none")' "$f" | { read -r p; printf 'url = "https://lang-tool.ddns.net:8443%s/languages"\n' "$p" | curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve lang-tool.ddns.net:8443:127.0.0.1 -K -; })
