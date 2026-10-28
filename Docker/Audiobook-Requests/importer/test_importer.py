@@ -219,6 +219,60 @@ class QuotaTest(unittest.TestCase):
         self.assertFalse(importer.quota_ok([], [], "", self.NOW))
 
 
+class QuotaLedgerTest(unittest.TestCase):
+    NOW = 1_800_000_000.0
+
+    def iso(self, days_ago):
+        import datetime
+        return datetime.datetime.fromtimestamp(self.NOW - days_ago * 86400).isoformat()
+
+    def wish(self, *entries):
+        return [{"book": {"asin": a}, "requests": [{"user_username": u, "updated_at": t}]} for a, u, t in entries]
+
+    def test_a_deleted_request_still_counts(self):
+        five = self.wish(*[(f"B{i}", "jane", self.iso(1)) for i in range(5)])
+        ledger = importer.merge_ledger({}, importer.quota_entries(five, []), self.NOW)
+        self.assertFalse(importer.quota_ok([], [], "jane", self.NOW, ledger))
+
+    def test_live_and_ledger_entry_count_once(self):
+        four = self.wish(*[(f"B{i}", "jane", self.iso(1)) for i in range(4)])
+        ledger = importer.merge_ledger({}, importer.quota_entries(four, []), self.NOW)
+        self.assertTrue(importer.quota_ok(four, [], "jane", self.NOW, ledger))
+
+    def test_first_sighting_keeps_its_time(self):
+        old = importer.merge_ledger({}, importer.quota_entries(self.wish(("B1", "jane", self.iso(6))), []), self.NOW)
+        new = importer.merge_ledger(old, importer.quota_entries(self.wish(("B1", "jane", self.iso(0))), []), self.NOW)
+        self.assertEqual(new, old)
+
+    def test_entries_older_than_the_window_are_dropped(self):
+        ledger = importer.merge_ledger({}, importer.quota_entries(self.wish(("B1", "jane", self.iso(8))), []), self.NOW)
+        self.assertEqual(importer.merge_ledger(ledger, {}, self.NOW), {})
+
+    def test_manual_requests_without_id_are_separate(self):
+        manual = [{"user_username": "jane", "updated_at": self.iso(1)}] * 2
+        self.assertEqual(len(importer.quota_entries([], manual)), 2)
+
+
+class CallerTest(unittest.TestCase):
+    def test_quota_and_all_requests_only_from_books_proxy(self):
+        for path in ("/quota", "/all-requests"):
+            self.assertTrue(importer.caller_ok(path, "10.24.25.6"))
+            self.assertFalse(importer.caller_ok(path, "10.24.25.2"))
+
+    def test_torrent_only_from_abr(self):
+        self.assertTrue(importer.caller_ok("/prowlarr/torrent?hash=x", "10.24.25.4"))
+        self.assertFalse(importer.caller_ok("/prowlarr/torrent", "10.24.25.2"))
+
+    def test_abr_by_name_on_the_egress_network(self):
+        resolve = {"audiobookrequest": ["10.24.26.2"]}.get
+        self.assertTrue(importer.caller_ok("/prowlarr/torrent", "10.24.26.2", lambda n: resolve(n, [])))
+        self.assertFalse(importer.caller_ok("/prowlarr/torrent", "10.24.26.3", lambda n: resolve(n, [])))
+
+    def test_other_paths_unchanged(self):
+        self.assertTrue(importer.caller_ok("/health", "10.24.25.1"))
+        self.assertTrue(importer.caller_ok("/prowlarr/api/v1/search", "10.24.25.2"))
+
+
 class WedgeFallbackTest(unittest.TestCase):
     def test_indexer_body_with_the_wedge_switched(self):
         idx = {"id": 1, "fields": [{"name": "useFreeleechWedge", "value": True}, {"name": "mamId", "value": "x"}]}

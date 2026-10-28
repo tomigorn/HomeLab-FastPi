@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import shutil
+import socket
 import threading
 import time
 import urllib.error
@@ -34,6 +35,10 @@ PROWLARR_URL = ENV("PROWLARR_URL", "http://10.24.25.2:9697")
 PROXY_BASE = ENV("PROXY_BASE", "http://audiobook-importer:8000/prowlarr")
 QUOTA_BOOKS = int(ENV("QUOTA_BOOKS", "5"))
 QUOTA_DAYS = int(ENV("QUOTA_DAYS", "7"))
+QUOTA_LEDGER = Path(ENV("QUOTA_LEDGER", "/data/quota.json"))
+# Only these neighbours on traefik_mouse may call these paths: the username header is trusted only from books-proxy, the .torrent carries the MAM passkey.
+CALLERS = {"/quota": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),), "/all-requests": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),),
+           "/prowlarr/torrent": (ENV("ABR_IP", "10.24.25.4"), ENV("ABR_HOST", "audiobookrequest"))}
 ABR_URL = ENV("ABR_URL", "http://audiobookrequest:8000")
 PROVIDERS = {"com": ("audible", "us"), "de": ("audible.de", "de"), "co.uk": ("audible.uk", "uk")}
 AUDIO = {".mp3", ".m4a", ".m4b", ".aac", ".flac", ".ogg", ".opus", ".wma", ".wav"}
@@ -66,14 +71,49 @@ def _ts(value):
         return 0.0
 
 
-def quota_ok(wishlist, manual, user, now):
+def _resolve(name):
+    try:
+        return socket.gethostbyname_ex(name)[2]
+    except OSError:
+        return []
+
+
+def caller_ok(path, client, resolve=_resolve):
+    """ABR also calls over the egress network, whose address is dynamic: names are resolved per call."""
+    want = CALLERS.get(urllib.parse.urlsplit(path).path)
+    if want is None:
+        return True
+    return any(client == w or (not w[0].isdigit() and client in resolve(w)) for w in want)
+
+
+def quota_entries(wishlist, manual):
+    """ABR's live requests as {user|book: {user, at}}."""
+    out = {}
+    for w in wishlist:
+        asin = (w.get("book") or {}).get("asin")
+        for r in w.get("requests") or []:
+            out[f"{r.get('user_username')}|{asin}"] = {"user": r.get("user_username"), "at": _ts(r.get("updated_at"))}
+    for i, m in enumerate(manual):
+        out[f"{m.get('user_username')}|manual-{m.get('id') or i}"] = {"user": m.get("user_username"), "at": _ts(m.get("updated_at"))}
+    return out
+
+
+def merge_ledger(ledger, entries, now):
+    """Every request ever seen in the window, so deleting a request does not give its slot back. First sighting wins."""
+    since = now - QUOTA_DAYS * 86400
+    merged = {k: v for k, v in ledger.items() if v["at"] >= since}
+    for k, v in entries.items():
+        if v["at"] >= since:
+            merged.setdefault(k, v)
+    return merged
+
+
+def quota_ok(wishlist, manual, user, now, ledger=None):
     """At most QUOTA_BOOKS requests per user in a rolling QUOTA_DAYS window, for everyone (admins too)."""
     if not user:
         return False
-    since = now - QUOTA_DAYS * 86400
-    entries = [r for w in wishlist for r in w.get("requests") or []] + list(manual)
-    used = sum(1 for r in entries if r.get("user_username") == user and _ts(r.get("updated_at")) >= since)
-    return used < QUOTA_BOOKS
+    entries = merge_ledger(ledger or {}, quota_entries(wishlist, manual), now)
+    return sum(1 for v in entries.values() if v["user"] == user) < QUOTA_BOOKS
 
 
 def _status(downloaded, job_state):
@@ -418,6 +458,10 @@ def poll(qbit, abs_):
                 except Exception as e:  # noqa: BLE001  one bad job must not stop the others
                     log.error("%s: %s: %s", job["hash"], type(e).__name__, e)
             save(jobs)
+        try:
+            snapshot_quota()
+        except (urllib.error.URLError, ValueError, OSError) as e:
+            log.error("quota snapshot: %s", e)
         time.sleep(POLL_SECONDS)
 
 
@@ -530,16 +574,38 @@ def all_requests_handler(handler):
     handler.wfile.write(body)
 
 
+quota_lock = threading.Lock()
+
+
+def load_ledger():
+    try:
+        return json.loads(QUOTA_LEDGER.read_text())
+    except FileNotFoundError:
+        return {}
+
+
+def snapshot_quota():
+    """Adds ABR's live requests to the ledger; returns (wishlist, manual, ledger)."""
+    auth = {"Authorization": f"Bearer {REQUESTS.key}"}
+    wishlist = http_json(f"{ABR_URL}/api/requests", headers=auth) or []
+    manual = http_json(f"{ABR_URL}/api/requests/manual", headers=auth) or []
+    with quota_lock:
+        ledger = merge_ledger(load_ledger(), quota_entries(wishlist, manual), time.time())
+        tmp = QUOTA_LEDGER.with_suffix(".tmp")
+        tmp.write_text(json.dumps(ledger))
+        tmp.replace(QUOTA_LEDGER)
+    return wishlist, manual, ledger
+
+
 def quota(handler):
     """nginx auth_request for ABR's request endpoints: 204 = allowed, 403 = limit reached."""
     user = handler.headers.get("X-authentik-username", "")
     ok = handler.headers.get("X-Original-Method", "POST") != "POST"
     if not ok:
         try:
-            auth = {"Authorization": f"Bearer {REQUESTS.key}"}
-            ok = quota_ok(http_json(f"{ABR_URL}/api/requests", headers=auth) or [],
-                          http_json(f"{ABR_URL}/api/requests/manual", headers=auth) or [], user, time.time())
-        except (urllib.error.URLError, ValueError) as e:
+            wishlist, manual, ledger = snapshot_quota()
+            ok = quota_ok(wishlist, manual, user, time.time(), ledger)
+        except (urllib.error.URLError, ValueError, OSError) as e:
             log.error("quota check for %s: %s", user, e)
             ok = False
         if not ok:
@@ -575,6 +641,8 @@ def abs_forward(handler):
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if not caller_ok(self.path, self.client_address[0]):
+            return self.send_error(403)
         if self.path.startswith("/prowlarr/"):
             return forward(self, "GET")
         if self.path.startswith("/abs/"):

@@ -5,6 +5,7 @@ Request audiobooks (AudioBookRequest), find them on MyAnonamouse (Prowlarr in `m
 - **URL:** https://books.holy-grail.ch (public via the Cloudflare tunnel like Seerr, Holy Grail forward auth + ABR OIDC login, group `streaming-requesters`); navbar link "Movies / Series" → Seerr
 - **Roles:** `streaming-admins` = ABR admin, `streaming-requesters` = trusted: every request downloads at once (owner 2026-10-26)
 - **Limit:** 5 books per rolling 7 days per person, admins too; the 6th shows ABR's error toast "Limit reached" (API: HTTP 429)
+  - deleted requests keep counting (importer ledger `data/quota.json`, filled every minute and on each request); the download buttons that skip a request (wishlist auto-download, API auto-download/download/refresh) are admin only (books-proxy, 403)
 
 ## Flow
 
