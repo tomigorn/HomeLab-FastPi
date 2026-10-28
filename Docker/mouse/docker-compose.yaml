@@ -232,6 +232,8 @@ services:
     volumes:
       - gluetun-data:/tmp/gluetun
       - ./secrets/gluetun:/gluetun
+      # S-05: only prowlarr-gate (65057) and Prowlarr itself (65054) may reach 127.0.0.1:9696; qBit/SAB/Mousehole are refused.
+      - ./gluetun/post-rules.txt:/iptables/post-rules.txt:ro
     logging:
       driver: "json-file"
       options:
