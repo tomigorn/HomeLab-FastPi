@@ -1,0 +1,84 @@
+# Alert rules for beefy's storage tiers and the nightly SSD->HDD mover.
+#
+# Written 2026-10-28. mergerfs on beefy has a hot SSD tier (/srv/.disks/ssd-hot, 7.3 TB) and a cold HDD tier (/srv/.disks/hdd-cold, 28 TB). beefy-mover moves cold titles SSD->HDD at ~04:00 and keeps the SSD at or below 70 %; at 80 % mergerfs starts sending new downloads to the HDD, at 90 % on the HDD Radarr/Sonarr refuse imports.
+# Data: beefy writes storage.prom (every minute while awake) and mover.prom (end of every mover run); Server/4-Security-Monitoring/beefy-idle-pull.sh copies them every 5 min to beefy_storage.prom / beefy_mover.prom.
+# The copies stay while beefy sleeps (disk usage cannot change while it is off), so the series never go stale by themselves: a failed pull is caught by BeefyStorageStale.
+# Routing (alertmanager.yml): warning = Telegram only, muted 22:00-07:00, no resolved; critical = Telegram + email, with resolved; info + notify: digest = listed in the daily digest only.
+# Warning and critical on the HDD exclude each other in the expressions, so a rising disk sends one message per level, not two at once.
+# Tests: prometheus/tests/beefy-storage_test.yml
+groups:
+  - name: beefy-storage
+    rules:
+      # for: 10m = two pulls; the used ratio only moves with downloads and the nightly move.
+      - alert: BeefySsdFilling
+        expr: (1 - beefy_storage_avail_bytes{branch="ssd"} / beefy_storage_size_bytes{branch="ssd"}) >= 0.80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy SSD is {{ $value | humanizePercentage }} full"
+          description: >-
+            The hot SSD tier is {{ $value | humanizePercentage }} used ({{ with query `beefy_storage_avail_bytes{branch="ssd"} / 1e9` }}{{ . | first | value | printf "%.0f" }}{{ end }} GB free).
+            The nightly mover should keep it at 70 % or less; from 80 % mergerfs sends new downloads to the HDD.
+            Check the last mover run (BeefyMoverFailed, <code>journalctl -u beefy-mover</code> on beefy) and what sits on the SSD.
+
+      - alert: BeefyHddFilling
+        expr: (1 - beefy_storage_avail_bytes{branch="hdd"} / beefy_storage_size_bytes{branch="hdd"}) >= 0.80
+              and (1 - beefy_storage_avail_bytes{branch="hdd"} / beefy_storage_size_bytes{branch="hdd"}) < 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy HDD is {{ $value | humanizePercentage }} full"
+          description: >-
+            The cold HDD tier is {{ $value | humanizePercentage }} used ({{ with query `beefy_storage_avail_bytes{branch="hdd"} / 1e12` }}{{ . | first | value | printf "%.1f" }}{{ end }} TB free).
+            At 90 % Radarr and Sonarr refuse imports. Free space or add a disk.
+
+      - alert: BeefyHddFull
+        expr: (1 - beefy_storage_avail_bytes{branch="hdd"} / beefy_storage_size_bytes{branch="hdd"}) >= 0.90
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "beefy HDD is {{ $value | humanizePercentage }} full"
+          description: >-
+            The cold HDD tier is {{ $value | humanizePercentage }} used ({{ with query `beefy_storage_avail_bytes{branch="hdd"} / 1e12` }}{{ . | first | value | printf "%.1f" }}{{ end }} TB free).
+            Radarr and Sonarr refuse imports from 90 %, and the nightly mover has nowhere to move to. Free space now.
+
+      # The file only changes at the end of a run (~04:05), so 10m just rides out a re-pull. Dry runs never alert.
+      - alert: BeefyMoverFailed
+        expr: beefy_mover_last_run_success == 0 and on() beefy_mover_dry_run == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy SSD->HDD mover failed"
+          description: >-
+            The last mover run ({{ with query "beefy_mover_last_run_timestamp_seconds" }}{{ . | first | value | humanizeTimestamp }}{{ end }} UTC) failed:
+            {{ with query "beefy_mover_failed_titles" }}{{ . | first | value | printf "%.0f" }}{{ end }} title(s) failed copy or verify, or the run errored.
+            Look at <code>journalctl -u beefy-mover</code> on beefy. Retries at the next run (~04:00); the SSD is {{ with query `1 - beefy_storage_avail_bytes{branch="ssd"} / beefy_storage_size_bytes{branch="ssd"}` }}{{ . | first | value | humanizePercentage }}{{ end }} full.
+
+      # Nightly run + 2 h slack. beefy is always woken for it, so a miss means the timer, the wake or the pull is broken.
+      - alert: BeefyMoverNotRun
+        expr: time() - beefy_mover_last_run_timestamp_seconds > 50 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "beefy mover has not run for {{ $value | humanizeDuration }}"
+          description: >-
+            No mover run for {{ $value | humanizeDuration }} (expected nightly at ~04:00 inside the 03:58-04:45 window).
+            Check <code>systemctl list-timers beefy-mover.timer</code> and <code>journalctl -u beefy-mover</code> on beefy, then the 03:55 maintenance wake and beefy-idle-pull.timer on fastpi.
+
+      # Info + digest: the figures are only copied while beefy answers; 3 days without a fresh pull leaves the rules above blind.
+      - alert: BeefyStorageStale
+        expr: (time() - beefy_storage_updated_timestamp_seconds > 3 * 86400) or absent(beefy_storage_updated_timestamp_seconds)
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "beefy storage figures are stale"
+          description: >-
+            beefy_storage.prom is missing or older than 3 days, so the disk-full alerts see old data.
+            Check <code>systemctl status beefy-idle-pull.service</code> on fastpi and the writer of storage.prom on beefy.

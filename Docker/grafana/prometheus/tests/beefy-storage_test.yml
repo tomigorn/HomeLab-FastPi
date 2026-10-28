@@ -1,0 +1,143 @@
+# promtool test rules tests/beefy-storage_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/beefy-storage.yml
+evaluation_interval: 1m
+tests:
+  - name: ssd 80 percent warns after 10m; hdd warning and critical are exclusive
+    interval: 5m
+    input_series:
+      - series: 'beefy_storage_size_bytes{branch="ssd"}'
+        values: '1000x100'
+      - series: 'beefy_storage_avail_bytes{branch="ssd"}'
+        values: '300x3 190x20 300x100'
+      - series: 'beefy_storage_size_bytes{branch="hdd"}'
+        values: '1000x100'
+      - series: 'beefy_storage_avail_bytes{branch="hdd"}'
+        values: '500x3 190x6 80x6 500x100'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BeefySsdFilling
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: BeefySsdFilling
+        exp_alerts:
+          - exp_labels: {severity: warning, branch: ssd}
+            exp_annotations:
+              summary: "beefy SSD is 81% full"
+              description: "The hot SSD tier is 81% used (0 GB free). The nightly mover should keep it at 70 % or less; from 80 % mergerfs sends new downloads to the HDD. Check the last mover run (BeefyMoverFailed, <code>journalctl -u beefy-mover</code> on beefy) and what sits on the SSD."
+      - eval_time: 130m
+        alertname: BeefySsdFilling
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: BeefyHddFilling
+        exp_alerts:
+          - exp_labels: {severity: warning, branch: hdd}
+            exp_annotations:
+              summary: "beefy HDD is 81% full"
+              description: "The cold HDD tier is 81% used (0.0 TB free). At 90 % Radarr and Sonarr refuse imports. Free space or add a disk."
+      - eval_time: 25m
+        alertname: BeefyHddFull
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: BeefyHddFilling
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: BeefyHddFull
+        exp_alerts:
+          - exp_labels: {severity: critical, branch: hdd}
+            exp_annotations:
+              summary: "beefy HDD is 92% full"
+              description: "The cold HDD tier is 92% used (0.0 TB free). Radarr and Sonarr refuse imports from 90 %, and the nightly mover has nowhere to move to. Free space now."
+      - eval_time: 100m
+        alertname: BeefyHddFull
+        exp_alerts: []
+
+  - name: mover failed (not on dry run), recovers after a good run
+    interval: 5m
+    input_series:
+      - series: 'beefy_mover_last_run_success'
+        values: '0x6 1x20'
+      - series: 'beefy_mover_dry_run'
+        values: '0x26'
+      - series: 'beefy_mover_failed_titles'
+        values: '2x26'
+      - series: 'beefy_mover_last_run_timestamp_seconds'
+        values: '0x26'
+      - series: 'beefy_storage_size_bytes{branch="ssd"}'
+        values: '1000x26'
+      - series: 'beefy_storage_avail_bytes{branch="ssd"}'
+        values: '250x26'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BeefyMoverFailed
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: BeefyMoverFailed
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "beefy SSD->HDD mover failed"
+              description: "The last mover run (1970-01-01 00:00:00 +0000 UTC UTC) failed: 2 title(s) failed copy or verify, or the run errored. Look at <code>journalctl -u beefy-mover</code> on beefy. Retries at the next run (~04:00); the SSD is 75% full."
+      - eval_time: 60m
+        alertname: BeefyMoverFailed
+        exp_alerts: []
+
+  - name: dry run failure does not alert
+    interval: 5m
+    input_series:
+      - series: 'beefy_mover_last_run_success'
+        values: '0x10'
+      - series: 'beefy_mover_dry_run'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: BeefyMoverFailed
+        exp_alerts: []
+
+  - name: mover not run for 50 h
+    interval: 4m
+    input_series:
+      - series: 'beefy_mover_last_run_timestamp_seconds'
+        values: '0x1500'
+    alert_rule_test:
+      - eval_time: 50h
+        alertname: BeefyMoverNotRun
+        exp_alerts: []
+      - eval_time: 53h
+        alertname: BeefyMoverNotRun
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "beefy mover has not run for 2d 5h 0m 0s"
+              description: "No mover run for 2d 5h 0m 0s (expected nightly at ~04:00 inside the 03:58-04:45 window). Check <code>systemctl list-timers beefy-mover.timer</code> and <code>journalctl -u beefy-mover</code> on beefy, then the 03:55 maintenance wake and beefy-idle-pull.timer on fastpi."
+
+  - name: storage stale after 3 days, digest only
+    interval: 4m
+    input_series:
+      - series: 'beefy_storage_updated_timestamp_seconds'
+        values: '0x1500'
+    alert_rule_test:
+      - eval_time: 72h
+        alertname: BeefyStorageStale
+        exp_alerts: []
+      - eval_time: 74h
+        alertname: BeefyStorageStale
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest}
+            exp_annotations:
+              summary: "beefy storage figures are stale"
+              description: "beefy_storage.prom is missing or older than 3 days, so the disk-full alerts see old data. Check <code>systemctl status beefy-idle-pull.service</code> on fastpi and the writer of storage.prom on beefy."
+
+  - name: storage metrics missing entirely
+    interval: 4m
+    input_series:
+      - series: 'up'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 3h
+        alertname: BeefyStorageStale
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest}
+            exp_annotations:
+              summary: "beefy storage figures are stale"
+              description: "beefy_storage.prom is missing or older than 3 days, so the disk-full alerts see old data. Check <code>systemctl status beefy-idle-pull.service</code> on fastpi and the writer of storage.prom on beefy."
