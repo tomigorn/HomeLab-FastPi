@@ -652,13 +652,17 @@ class Handler(BaseHTTPRequestHandler):
         sys.stdout.flush()
 
 
+class Server(ThreadingHTTPServer):
+    request_queue_size = 64
+
+
 def main():
     missing = [k for k, v in (("TARGET_MAC", MAC),
                               ("TARGET_PROBE_HOST", PROBE_HOST)) if not v]
     if missing:
         sys.exit("missing required env: %s" % ", ".join(missing))
     magic_packet(MAC)  # validate MAC format at startup
-    srv = ThreadingHTTPServer((BIND, LISTEN_PORT), Handler)
+    srv = Server((BIND, LISTEN_PORT), Handler)
     print("tower-waker listening on %s:%d - page=/ gate=/gate, wake %s via %s, probe %s:%d"
           % (BIND, LISTEN_PORT, MAC, BROADCAST, PROBE_HOST, PROBE_PORT), flush=True)
     srv.serve_forever()

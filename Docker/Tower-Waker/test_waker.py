@@ -3,6 +3,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 import waker as w
 
 
+class ListenBacklog(unittest.TestCase):
+    def test_backlog_absorbs_bursts(self):
+        self.assertGreaterEqual(w.Server.request_queue_size, 64)
+
+
 class NextcloudDecision(unittest.TestCase):
     def d(self, headers, up=False, starting=False):
         return w.nextcloud_decision(up, starting, headers)
