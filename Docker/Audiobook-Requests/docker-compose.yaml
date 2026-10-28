@@ -53,7 +53,7 @@ services:
 # #########################################################
 # Books-Proxy #############################################
 # #########################################################
-  # Traefik -> books-proxy -> ABR: adds the "Movies / Series" link (books-proxy/www/links.js, survives ABR updates)
+  # Traefik -> books-proxy -> ABR: adds the "Movies / Series" link (books-proxy/www/links.js, survives ABR updates), the requests bar (www/bar/)
   # and refuses a 6th request in 7 days (importer /quota) before ABR sees it. books-proxy/nginx.conf.
   books-proxy:
     image: nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
@@ -72,6 +72,13 @@ services:
     volumes:
       - ./books-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./books-proxy/www:/srv/www:ro
+      # Requests bar data, written every minute by systemd/abr-bar-usage.timer (host).
+      - type: bind
+        source: /var/lib/abr-bar
+        target: /srv/bar-data
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/_hg/health"]
       interval: 60s
