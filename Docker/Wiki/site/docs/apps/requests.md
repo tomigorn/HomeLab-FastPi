@@ -27,10 +27,20 @@ Untick it only when you want to watch it soon.
 
 A title waiting for the night shows **Waiting for the night 🌙** instead of a stuck 0 %. That is normal.
 
+Small icons next to the status and on the posters (hover, or tap on the phone, shows what they mean):
+
+| Icon | Means |
+|---|---|
+| 🌙 | Can wait: downloads at night (cheaper power) |
+| 🧭 | searched, nothing found yet; tonight's search (04:17) keeps looking |
+| 📅 | not released yet (with the expected date) |
+
 **At night:** films download in parallel, series one after another, episodes in order.
 
 !!! info "Download now"
     Open a title **you requested** → **⚡ Download now** (next to the request button). It starts the waiting download at once, at the higher daytime power price. Titles other people requested have no button; admins see it on every title.
+
+    Nothing grabbed yet: it searches first. **🔍 Searching…** shows while the search runs (several searches run one after the other). Found → **✅ Downloading**. Nothing found → **🧭 No release found yet**: the title goes back to the night queue (🌙) and tonight's search keeps looking; **⚡ Search again** tries once more.
 
 ## Search tips
 
