@@ -22,7 +22,8 @@ if want traefik; then
     e=$(curl -sk -m 10 -o /dev/null -D - --resolve jellyfin.holy-grail.ch:443:192.168.1.2 "$u" | tr -d '\r' | awk 'tolower($1)=="etag:"{print $2}')
     tcode --resolve jellyfin.holy-grail.ch:443:192.168.1.2 -H "If-None-Match: $e" "$u"; else echo beefy asleep; fi)"
   check traefik.tracker-allow-list '^404 403$' "$(echo "$(tcode --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/zz-no-such-route) $(tcode -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/webhook/jellyfin/post-update)")"
-  check traefik.tracker-encoded-block '^403 403 403$' "$(for p in /accounts/signup%2F /import/kavita%2Fx /details/image%5Cx; do tcode --resolve tracker.holy-grail.ch:443:192.168.1.2 "https://tracker.holy-grail.ch$p"; echo; done | xargs)"
+  check traefik.tracker-encoded-block '^400 400 403$' "$(for p in /accounts/signup%2F /details/image%5Cx /accounts/signup%252F; do tcode --resolve tracker.holy-grail.ch:443:192.168.1.2 "https://tracker.holy-grail.ch$p"; echo; done | xargs)"
+  check traefik.encoded-chars '^400 (200|404) 400$' "$(echo "$(tcode --resolve sso.holy-grail.ch:443:192.168.1.2 'https://sso.holy-grail.ch/a%2Fb') $(tcode --resolve sso.holy-grail.ch:443:192.168.1.2 'https://sso.holy-grail.ch/-/health/live/%23') $(tcode --resolve wg-aemtli.ddns.net:8443:127.0.0.1 'https://wg-aemtli.ddns.net:8443/a%3Fb')")"
   check traefik.lt-preflight '^404 200$' "$(echo "$(tcode -X OPTIONS --resolve lang-tool.ddns.net:8443:127.0.0.1 https://lang-tool.ddns.net:8443/v2/languages) $(tcode -X OPTIONS -H 'Origin: chrome-extension://check' -H 'Access-Control-Request-Method: POST' --resolve lang-tool.ddns.net:8443:127.0.0.1 https://lang-tool.ddns.net:8443/v2/check)")"
   check traefik.lt-token-routers '^[1-9][0-9]* routers, token 200, bare 404$' "$(f=$TR/traefik/dynamic/languagetool-token.yml
     n=$(grep -cE '^\s{4}languagetool-token-[^:]+:' "$f")

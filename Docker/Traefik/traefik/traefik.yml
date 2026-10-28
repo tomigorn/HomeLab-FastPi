@@ -16,6 +16,12 @@ entryPoints:
       # Strip headers that alias a Traefik-managed one (X_Auth_User for
       # X-Auth-User): PHP/CGI backends would read them as the real header.
       aliasHeadersStrategy: delete
+      # S-02: an encoded / \ or NUL in the path is never legitimate and slips past path-based block lists (400).
+      # %25 %3B %3F %23 stay allowed: they are legal in file names (Nextcloud WebDAV, Jellyfin, ABS).
+      encodedCharacters:
+        allowEncodedSlash: false
+        allowEncodedBackSlash: false
+        allowEncodedNullCharacter: false
       middlewares:
         # Attached HERE, not per-router, so every public route is covered -
         # including any added later. Per-router attachment silently misses new
@@ -49,6 +55,15 @@ entryPoints:
     address: ":8443"
     http:
       aliasHeadersStrategy: delete
+      # S-02: LanguageTool and WG-Chores use fixed paths, so every encoded special character is refused (400).
+      encodedCharacters:
+        allowEncodedSlash: false
+        allowEncodedBackSlash: false
+        allowEncodedNullCharacter: false
+        allowEncodedSemicolon: false
+        allowEncodedPercent: false
+        allowEncodedQuestionMark: false
+        allowEncodedHash: false
       middlewares:
         - real-ip@file
         - crowdsec@file

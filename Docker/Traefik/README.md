@@ -30,6 +30,8 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 | `internal` | 8080 (not published) | Prometheus only, over the internal `traefik_metrics` network | `/metrics` |
 | `langtool` | 8443 | public (direct forward) | the two ddns services below |
 
+Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%5C` `%00` (`%25 %3B %3F %23` stay allowed, they occur in file names); `langtool` refuses all seven. Check: `traefik.encoded-chars`.
+
 | Service | Host | Entrypoint | Login |
 |---|---|---|---|
 | LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
