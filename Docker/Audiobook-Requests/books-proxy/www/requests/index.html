@@ -33,46 +33,22 @@
   <nav class="navbar bg-base-200 shadow">
     <a class="btn btn-ghost text-lg" href="/">ABR</a>
     <a class="btn btn-ghost" href="/wishlist">Wishlist</a>
+    <a class="btn btn-ghost" href="/_hg/library/">Library</a>
     <a class="btn btn-ghost" href="https://requests.holy-grail.ch/">Movies / Series</a>
   </nav>
   <main>
     <h1>All requests</h1>
     <p class="muted" id="state">Loading…</p>
+    <label class="muted">Sort <select id="sort" class="select select-bordered select-sm">
+      <option value="">newest first</option><option value="desc">largest first</option><option value="asc">smallest first</option>
+    </select></label>
     <div class="wrap">
       <table class="table table-zebra">
-        <thead><tr><th></th><th>Book</th><th>Requested by</th><th>Date</th><th>Status</th></tr></thead>
+        <thead><tr><th></th><th>Book</th><th>Requested by</th><th>Date</th><th>Size</th><th>Status</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
   </main>
-  <script>
-    var LABEL = { "open": ["open", ""], "downloading": ["downloading", "dl"], "in library": ["in library", "lib"] };
-    function cell(tr, child) { var td = document.createElement("td"); if (child) td.appendChild(child); tr.appendChild(td); return td; }
-    function text(t, cls) { var s = document.createElement("span"); s.textContent = t || ""; if (cls) s.className = cls; return s; }
-    fetch("/_hg/requests/data.json", { credentials: "same-origin" }).then(function (r) {
-      if (!r.ok) throw new Error(r.status);
-      return r.json();
-    }).then(function (rows) {
-      var body = document.getElementById("rows");
-      document.getElementById("state").textContent = rows.length + " requests, newest first";
-      rows.forEach(function (r) {
-        var tr = document.createElement("tr");
-        var img = document.createElement("img");
-        img.className = "cover"; img.alt = ""; img.loading = "lazy";
-        if (r.cover && /^https:\/\//.test(r.cover)) img.src = r.cover;
-        cell(tr, img);
-        var book = cell(tr, text(r.title, "font-bold"));
-        book.appendChild(document.createElement("br"));
-        book.appendChild(text(r.author, "muted"));
-        cell(tr, text(r.requested_by));
-        cell(tr, text((r.requested || "").slice(0, 10), "muted"));
-        var l = LABEL[r.status] || [r.status, ""];
-        cell(tr, text(l[0], "pill " + l[1]));
-        body.appendChild(tr);
-      });
-    }).catch(function (e) {
-      document.getElementById("state").textContent = "Could not load the requests (" + e.message + ").";
-    });
-  </script>
+  <script src="/_hg/requests/requests.js" defer></script>
 </body>
 </html>
