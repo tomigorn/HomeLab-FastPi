@@ -21,4 +21,4 @@ seerr = true
 [mam]
 class = "VIP"
 unsatisfied_limit = 150
-vip_expires = ""
+vip_expires = "2027-01-27"
