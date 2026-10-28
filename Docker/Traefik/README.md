@@ -32,7 +32,7 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 
 Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%5C` `%00` (`%25 %3B %3F %23` stay allowed, they occur in file names); `langtool` refuses all seven. Check: `traefik.encoded-chars`.
 
-`requests.holy-grail.ch` sends `Content-Security-Policy-Report-Only` (`dynamic/requests.yml`): watch the browser console for `violates the following Content Security Policy`, then switch to `contentSecurityPolicy`.
+`requests.holy-grail.ch` sends `Content-Security-Policy-Report-Only` (`dynamic/requests.yml`): watch the browser console for `violates the following Content Security Policy`, then switch to `contentSecurityPolicy`. Expected and harmless: the `'unsafe-eval'` report from Zod 4's `Function("")` probe (try/catch, falls back to non-JIT parsing), so `'unsafe-eval'` stays out.
 
 | Service | Host | Entrypoint | Login |
 |---|---|---|---|
