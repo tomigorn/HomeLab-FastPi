@@ -29,13 +29,15 @@ print("fresh" if age.total_seconds() < 300 else "stale", "ok" if j["ok"] and j["
   check books.mam-unsatisfied '^ok [0-9]+/[0-9]+$' "$(python3 -c 'import json,sys
 m = json.load(sys.stdin).get("mam") or {}
 print("ok" if m.get("ok") else "not-ok", "%s/%s" % (m.get("unsatisfied"), m.get("limit")))' < /var/lib/abr-bar/usage.json 2>&1 | tail -1)"
+  check books.library '^200 401 401 401 _hg/sizes\.js [1-9]$' "$(echo $(for p in /_hg/library/ /_hg/library/data.json /_hg/library/cover/x /_hg/sizes.json; do curl -s -m 5 -o /dev/null -w '%{http_code} ' "http://10.24.25.6:8080$p"; done) $(curl -s -m 5 'http://10.24.25.6:8080/auth/login?backup=1' | grep -o '_hg/sizes\.js' | head -1) $(curl -s -m 5 http://10.24.25.6:8080/_hg/links.js | grep -c '/_hg/library/'))"
   check books.bar-shared '^(same|skipped: beefy not reachable \(not woken\))$' "$(bash "$ARD/scripts/sync-bar.sh" --check 2>&1 | tail -1)"
   check books.admin-only-downloads '^403 403$' "$(for p in /wishlist/hx-auto-download/B000CHECK0 /api/requests/B000CHECK0/auto-download; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' -X POST -H 'X-authentik-groups: streaming-requesters' "http://10.24.25.6:8080$p"; done | xargs)"
 fi
 if want importer; then
   check importer.health '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
+  check importer.library '^True 0 [1-9][0-9]*$' "$(echo $(docker exec books-proxy wget -q -O - --header 'X-authentik-username: post-update-nobody' http://audiobook-importer:8000/library | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["noAbsUser"], d["count"])' 2>&1 | tail -1) $(docker exec books-proxy wget -q -O - http://audiobook-importer:8000/sizes | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>&1 | tail -1))"
   check importer.abs-readonly-gate '^404$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST http://10.24.25.5:8000/abs/api/libraries/x/scan)"
-  check importer.callers '^403 403 403$' "$(for p in /quota /all-requests /prowlarr/torrent; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://10.24.25.5:8000$p"; done | xargs)"
+  check importer.callers '^403 403 403 403 403 403$' "$(for p in /quota /all-requests /prowlarr/torrent /library /library-cover/x /sizes; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://10.24.25.5:8000$p"; done | xargs)"
   check importer.my-quota '^403 400$' "$(echo $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.25.5:8000/my-quota) $(docker exec books-proxy wget -q -S -O /dev/null http://audiobook-importer:8000/my-quota 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}'))"
   check importer.ranking-tests '^OK' "$(cd "$ARD/importer" && python3 -m unittest discover -s . 2>&1 | tail -1)"
 fi
