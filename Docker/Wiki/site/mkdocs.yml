@@ -33,6 +33,8 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Watching (Jellyfin): apps/jellyfin.md
+  - Home screen: apps/jellyfin-home.md
+  - Skip intro & credits: apps/skip-buttons.md
   - Requesting films & series: apps/requests.md
   - Audio & subtitles: audio-subtitles.md
   - Audiobooks: apps/audiobookshelf.md

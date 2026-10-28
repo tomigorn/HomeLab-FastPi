@@ -39,5 +39,14 @@
 ??? question "The film plays in the wrong language"
     Switch the audio track while playing, see [Audio & subtitles](audio-subtitles.md).
 
+??? question "A row on the Jellyfin home screen looks old"
+    Reload with Ctrl+Shift+R, or close and reopen the TV app. See [Home screen](apps/jellyfin-home.md).
+
+??? question "There is no Skip intro button"
+    New episodes get their buttons the next day. For recaps and previews, turn on **Ask to skip** in Settings → Playback → Advanced. See [Skip buttons](apps/skip-buttons.md).
+
+??? question "Requests says 'Waiting for the night'"
+    The download starts at night when power is cheaper. See [Requesting](apps/requests.md#can-wait-download-tonight).
+
 ??? question "Something else"
     Ask the admin.

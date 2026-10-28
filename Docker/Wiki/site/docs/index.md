@@ -6,6 +6,8 @@ Everything you need to watch, request and listen, with one login.
 
 - :material-account-key: **[Getting started](getting-started.md)**: your invite, login and authenticator app
 - :material-television-play: **[Watching](apps/jellyfin.md)**: films and series in the browser or on your TV
+- :material-home-variant: **[Home screen](apps/jellyfin-home.md)**: what each row shows
+- :material-skip-next: **[Skip buttons](apps/skip-buttons.md)**: skip intros and credits
 - :material-magnify: **[Requesting](apps/requests.md)**: find a film or series and ask for it
 - :material-translate: **[Audio & subtitles](audio-subtitles.md)**: original language, switching tracks
 - :material-headphones: **[Audiobooks](apps/audiobookshelf.md)**: listen in the browser or on your phone

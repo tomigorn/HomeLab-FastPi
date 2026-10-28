@@ -25,6 +25,13 @@ The request dialog has a checkbox, **ticked by default**: **Can wait, download t
 
 Untick it only when you want to watch it soon.
 
+A title waiting for the night shows **Waiting for the night 🌙** instead of a stuck 0 %. That is normal.
+
+**At night:** films download in parallel, series one after another, episodes in order.
+
+!!! info "Admins: Download now"
+    Open the title → **Manage** → **⚡ Download now**. It starts the waiting download at once, at the higher daytime power price.
+
 ## Search tips
 
 The search box understands four prefixes. Only one per search.
@@ -79,7 +86,7 @@ If the server grabbed the wrong film (same title, different year), it notices an
     The server mainly knows the languages written in a release's name (e.g. *German.DL* = German + original). For a release that only says *MULTi*, it also reads the release's info file (NFO) where the indexer offers it; without one, it counts as original only until it has been downloaded. *MULTi* releases that only contain dubs and no original track are blocked automatically.
 
 ## Advanced options
-In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default.
+In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default (**4K preferred · older versions allowed**).
 
 | You want | Choose |
 |---|---|
