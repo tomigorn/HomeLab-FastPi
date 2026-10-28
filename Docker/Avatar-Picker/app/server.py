@@ -1,5 +1,5 @@
 """Avatar picker: public gallery images + forward-auth protected picker/API."""
-import hmac, json, os, pathlib, threading, time
+import hashlib, hmac, json, os, pathlib, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import core
@@ -41,9 +41,66 @@ VERSION = (APP / "VERSION").read_text().strip() if (APP / "VERSION").exists() el
 _cfg = {"client": None, "base": None, "secret": None, "queue": None}
 _pick_lock = threading.Lock()  # serialises check+write => uniqueness holds
 
+# Images reached from outside (no LAN header): a picked one is public, the rest need a login session.
+PICKED_TTL = 30
+SESSION_TTL = 60
+SESSION_MAX = 1000
+_picked = {"ids": None, "at": 0.0}
+_picked_lock = threading.Lock()
+_sessions = {}
+_sessions_lock = threading.Lock()
+
 
 def configure(client, base, secret=None, queue=None):
     _cfg["client"], _cfg["base"], _cfg["secret"], _cfg["queue"] = client, base.rstrip("/"), secret, queue
+    _picked.update(ids=None, at=0.0)
+    with _sessions_lock:
+        _sessions.clear()
+
+
+def _set_picked(users):
+    _picked.update(ids=set(core.picked_ids(users, _cfg["base"])), at=time.monotonic())
+
+
+def picked_ids():
+    """Avatar ids someone holds right now; on an Authentik error the last known set (empty if none)."""
+    with _picked_lock:
+        if _picked["ids"] is None or time.monotonic() - _picked["at"] > PICKED_TTL:
+            try:
+                _set_picked(_cfg["client"].list_users())
+            except AuthentikError as e:
+                print(f"picked set: {e}", flush=True)
+                _picked["at"] = time.monotonic()
+                if _picked["ids"] is None:
+                    _picked["ids"] = set()
+        return _picked["ids"]
+
+
+def _session_cookie(header):
+    for part in (header or "").split(";"):
+        name, _, value = part.strip().partition("=")
+        if name == "authentik_session":
+            return value.strip()
+    return ""
+
+
+def session_valid(cookie):
+    """Cached positive answers only, keyed by a hash so the cookie itself is never kept."""
+    if not cookie:
+        return False
+    key = hashlib.sha256(cookie.encode()).hexdigest()
+    now = time.monotonic()
+    with _sessions_lock:
+        if _sessions.get(key, 0) > now:
+            return True
+    if not _cfg["client"].session_valid(cookie):
+        return False
+    with _sessions_lock:
+        if len(_sessions) >= SESSION_MAX:
+            for k in [k for k, t in _sessions.items() if t <= now] or list(_sessions)[:SESSION_MAX // 2]:
+                del _sessions[k]
+        _sessions[key] = now + SESSION_TTL
+    return True
 
 
 def _now():
@@ -98,14 +155,29 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, body, ctype, cache="public, max-age=86400", head=head)
             return True
         if path.startswith("/img/") and path.endswith(".png"):
-            aid = path[len("/img/"):-len(".png")]
-            if aid not in IDS:
-                self._send(404, "not found", head=head)
-            else:
-                self._send(200, FILES[aid].read_bytes(),
-                           "image/png", cache="public, max-age=86400", head=head)
+            self._image(path[len("/img/"):-len(".png")], head)
             return True
         return False
+
+    def _image(self, aid, head):
+        """LAN router (header set by Traefik) or the picker page: every image. Anyone else:
+        a picked image without login, every other one only with an Authentik session."""
+        if self.headers.get("X-Avatar-Access") == "lan" or (_cfg["secret"] and self._secret_ok()):
+            if aid not in IDS:
+                return self._send(404, "not found", head=head)
+            return self._send(200, FILES[aid].read_bytes(), "image/png", cache="public, max-age=86400", head=head)
+        if aid in IDS and aid in picked_ids():
+            return self._send(200, FILES[aid].read_bytes(), "image/png", cache="public, max-age=300", head=head)
+        try:
+            ok = session_valid(_session_cookie(self.headers.get("Cookie")))
+        except AuthentikError as e:
+            self.log_error("session check: %s", e)
+            return self._send(503, "Authentik unreachable", head=head)
+        if not ok:
+            return self._send(403, "forbidden", head=head)
+        if aid not in IDS:
+            return self._send(404, "not found", head=head)
+        return self._send(200, FILES[aid].read_bytes(), "image/png", cache="private, max-age=300", head=head)
 
     def do_HEAD(self):
         path = self.path.split("?", 1)[0]
@@ -160,6 +232,8 @@ class Handler(BaseHTTPRequestHandler):
                 pk = core.check_pick(GALLERY, users, _cfg["base"], caller, aid)
                 current = _cfg["client"].get_user(pk).get("attributes") or {}
                 _cfg["client"].set_attributes(pk, core.merged_attributes(current, _cfg["base"], aid))
+                with _picked_lock:
+                    _picked.update(ids=None, at=0.0)
                 if _cfg["queue"]:
                     try:
                         pickqueue.record(_cfg["queue"], caller, aid, _now())

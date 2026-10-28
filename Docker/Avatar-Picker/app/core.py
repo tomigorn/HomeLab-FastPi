@@ -34,6 +34,10 @@ def _holders(users, base):
     return held
 
 
+def picked_ids(users, base):
+    return set(_holders(users, base))
+
+
 def gallery_state(gallery, users, base, caller):
     """Gallery entries with status free / taken / mine. Never exposes who."""
     held = _holders(users, base)

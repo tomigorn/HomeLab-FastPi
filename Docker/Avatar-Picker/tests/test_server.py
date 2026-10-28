@@ -17,6 +17,10 @@ class FakeClient:
         for u in self.users:
             if u["pk"] == pk: return dict(u, attributes=dict(u["attributes"]))
         raise AuthentikError("no user")
+    def session_valid(self, cookie):
+        self.session_calls = getattr(self, "session_calls", 0) + 1
+        if self.fail: raise AuthentikError("down")
+        return cookie == "good"
     def set_attributes(self, pk, attrs):
         self.writes.append((pk, attrs))
         for u in self.users:
@@ -48,10 +52,10 @@ class ServerTest(unittest.TestCase):
     def test_health_and_image_public(self):
         self.start(FakeClient(self.users()))
         self.assertEqual(self.req("/healthz")[0], 200)
-        code, body = self.req("/img/owl.png")
+        code, body = self.req("/img/owl.png", headers={"X-Avatar-Access": "lan"})
         self.assertEqual(code, 200); self.assertTrue(body.startswith(b"\x89PNG"))
-        self.assertEqual(self.req("/img/../server.py")[0], 404)
-        self.assertEqual(self.req("/img/nope.png")[0], 404)
+        self.assertEqual(self.req("/img/../server.py", headers={"X-Avatar-Access": "lan"})[0], 404)
+        self.assertEqual(self.req("/img/nope.png", headers={"X-Avatar-Access": "lan"})[0], 404)
 
     def test_page_and_state_need_identity(self):
         self.start(FakeClient(self.users()))
@@ -134,7 +138,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("/api/state", user="me", headers=ok)[0], 200)
         self.assertEqual(self.req("/api/pick", user="me", body={"id": "owl"}, headers=ok)[0], 200)
         self.assertEqual(self.req("/healthz")[0], 200)
-        self.assertEqual(self.req("/img/owl.png")[0], 200)
+        self.assertEqual(self.req("/img/owl.png", headers={"X-Avatar-Access": "lan"})[0], 200)
 
     def test_non_ascii_username(self):
         users = [{"pk": 1, "username": "jürg", "attributes": {}}]
@@ -170,10 +174,10 @@ class ServerTest(unittest.TestCase):
         self.start(FakeClient(self.users()))
         code, body, h = self.raw("HEAD", "/healthz")
         self.assertEqual((code, body), (200, b"")); self.assertEqual(h["Content-Length"], "2")
-        code, body, h = self.raw("HEAD", "/img/owl.png")
+        code, body, h = self.raw("HEAD", "/img/owl.png", [("X-Avatar-Access", "lan")])
         self.assertEqual((code, body), (200, b"")); self.assertEqual(h["Content-Type"], "image/png")
         self.assertGreater(int(h["Content-Length"]), 0)
-        self.assertEqual(self.raw("HEAD", "/img/nope.png")[0], 404)
+        self.assertEqual(self.raw("HEAD", "/img/nope.png", [("X-Avatar-Access", "lan")])[0], 404)
 
     def test_favicons(self):
         """Tab icons are static, need no login or secret, and carry the right type."""
@@ -214,10 +218,84 @@ class ServerTest(unittest.TestCase):
         data = json.loads(self.req("/api/state", user="me")[1])
         self.assertEqual([a["id"] for a in data["avatars"]], ["owl", "here"])
         self.assertEqual([g["id"] for g in data["groups"]], ["a", "b"])
-        self.assertEqual(self.req("/img/here.png")[0], 200)  # served from img-local/
-        self.assertEqual(self.req("/img/gone.png")[0], 404)
+        self.assertEqual(self.req("/img/here.png", headers={"X-Avatar-Access": "lan"})[0], 200)  # served from img-local/
+        self.assertEqual(self.req("/img/gone.png", headers={"X-Avatar-Access": "lan"})[0], 404)
         self.assertEqual(self.req("/api/pick", user="me", body={"id": "gone"})[0], 400)
         self.assertEqual(self.req("/api/pick", user="me", body={"id": "here"})[0], 200)
+
+    GATED = {"X-Avatar-Access": "gated"}
+
+    def img(self, aid, headers=None, method="GET"):
+        return self.raw(method, f"/img/{aid}.png", list((headers or {}).items()))
+
+    def test_gated_picked_image_is_public(self):
+        """The login page shows the pending user's avatar before any session exists."""
+        self.start(FakeClient(self.users()))
+        code, body, h = self.img("fox", self.GATED)
+        self.assertEqual(code, 200); self.assertTrue(body.startswith(b"\x89PNG"))
+        self.assertEqual(h["Cache-Control"], "public, max-age=300")
+        self.assertEqual(self.img("fox", self.GATED, "HEAD")[0], 200)
+
+    def test_gated_unpicked_needs_session(self):
+        c = FakeClient(self.users()); self.start(c)
+        code, body, h = self.img("owl", self.GATED)
+        self.assertEqual(code, 403); self.assertEqual(h["Cache-Control"], "no-store")
+        self.assertEqual(self.img("owl", dict(self.GATED, Cookie="authentik_session=bad"))[0], 403)
+        code, body, h = self.img("owl", dict(self.GATED, Cookie="theme=x; authentik_session=good; y=1"))
+        self.assertEqual(code, 200); self.assertEqual(h["Cache-Control"], "private, max-age=300")
+
+    def test_gated_unknown_id_looks_like_unpicked(self):
+        self.start(FakeClient(self.users()))
+        self.assertEqual(self.img("nope", self.GATED)[0], 403)
+        self.assertEqual(self.img("nope", dict(self.GATED, Cookie="authentik_session=good"))[0], 404)
+
+    def test_missing_header_is_gated(self):
+        """Fail closed: only the LAN router's header (or the picker's secret) opens every image."""
+        self.start(FakeClient(self.users()), secret="s3cret")
+        self.assertEqual(self.img("owl")[0], 403)
+        self.assertEqual(self.img("owl", {"X-Avatar-Access": "LAN "})[0], 403)
+        self.assertEqual(self.img("fox")[0], 200)
+        self.assertEqual(self.img("owl", {"X-Avatar-Access": "lan"})[0], 200)
+        self.assertEqual(self.img("owl", {"X-Picker-Secret": "s3cret"})[0], 200)
+        self.assertEqual(self.img("owl", {"X-Picker-Secret": "bad"})[0], 403)
+
+    def test_pick_makes_image_public_at_once(self):
+        self.start(FakeClient(self.users()))
+        self.assertEqual(self.img("owl", self.GATED)[0], 403)
+        self.assertEqual(self.req("/api/pick", user="me", body={"id": "owl"})[0], 200)
+        self.assertEqual(self.img("owl", self.GATED)[0], 200)
+
+    def test_picked_set_is_cached_then_refreshed(self):
+        c = FakeClient(self.users()); self.start(c)
+        calls = []
+        orig = c.list_users
+        c.list_users = lambda: calls.append(1) or orig()
+        for _ in range(5):
+            self.img("fox", self.GATED)
+        self.assertEqual(len(calls), 1)
+        c.users[1]["attributes"] = {}  # unpicked outside the picker (admin UI)
+        server._picked["at"] -= server.PICKED_TTL + 1
+        self.assertEqual(self.img("fox", self.GATED)[0], 403)
+
+    def test_session_result_is_cached(self):
+        c = FakeClient(self.users()); self.start(c)
+        h = dict(self.GATED, Cookie="authentik_session=good")
+        for _ in range(5):
+            self.assertEqual(self.img("owl", h)[0], 200)
+        self.assertEqual(c.session_calls, 1)
+
+    def test_authentik_down_fails_closed(self):
+        c = FakeClient(self.users(), fail=True); self.start(c)
+        self.assertEqual(self.img("fox", self.GATED)[0], 403)
+        self.assertEqual(self.img("owl", dict(self.GATED, Cookie="authentik_session=good"))[0], 503)
+
+    def test_authentik_down_keeps_last_picked_set(self):
+        c = FakeClient(self.users()); self.start(c)
+        self.assertEqual(self.img("fox", self.GATED)[0], 200)
+        c.fail = True
+        server._picked["at"] -= server.PICKED_TTL + 1
+        self.assertEqual(self.img("fox", self.GATED)[0], 200)
+
 
 if __name__ == "__main__":
     unittest.main()
