@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-off: build the avatar gallery (37 rows, each a multiple of 9 avatars,
+"""One-off: build the avatar gallery (38 rows, each a multiple of 9 avatars,
 human-made art only, no AI art).
 
 Rows, in order (every row holds equal numbers of feminine, masculine and neutral
@@ -18,10 +18,11 @@ never appears in two rows (tests/test_gallery.py checks it):
   voxmachina  The Legend of Vox Machina, main cast (9) - LOCAL PACK
   tvshows     TV series, live action (36)       - LOCAL PACK
   muppets     Muppets & Sesame Street (18)      - LOCAL PACK
-  anime       Anime (63)                        - LOCAL PACK
+  anime       Anime (72)                        - LOCAL PACK
   pokemon     Pokemon (18, all "neutral")       - LOCAL PACK
   games       Video games (36)                  - LOCAL PACK
   retro       Retro games (9, all "neutral")    - LOCAL PACK
+  kingdomhearts Kingdom Hearts (18)             - LOCAL PACK (official renders via KHWiki)
   mario       Super Mario (18)                  - LOCAL PACK
   lego        LEGO minifigures (18)             - LOCAL PACK (BrickLink catalogue photos, cut out)
   dinosaurs   Dinosaurs (18, all "neutral")     - LOCAL PACK (TotalDino paleoart, Commons CC BY / CC BY-SA / CC0)
@@ -51,7 +52,7 @@ Local pack: the pop-culture rows are third-party copyrighted character art.
 They are written to app/img-local/ (gitignored: the repo is public) and marked
 "pack": "local" in gallery.json; the picker hides any entry whose image is
 missing, so a fresh clone works without them. Re-fetch them with
-`--only disney,animated,movies,lotr,harrypotter,heroes,tvcartoons,voxmachina,tvshows,muppets,anime,pokemon,games,retro,mario,lego,dinosaurs,animals,space,mythology,historic,pirates,memes`. Their source URLs are listed in
+`--only disney,animated,movies,lotr,harrypotter,heroes,tvcartoons,voxmachina,tvshows,muppets,anime,pokemon,games,retro,kingdomhearts,mario,lego,dinosaurs,animals,space,mythology,historic,pirates,memes`. Their source URLs are listed in
 LOCAL below and in LICENSES.md.
 
 All Commons rows except `classics` use original period artwork whose artist
@@ -108,6 +109,7 @@ GROUPS = [
     ("pokemon", "Pokémon"),
     ("games", "Video games"),
     ("retro", "Retro games"),
+    ("kingdomhearts", "Kingdom Hearts"),
     ("mario", "Super Mario"),
     ("lego", "LEGO"),
     ("dinosaurs", "Dinosaurs"),
@@ -453,6 +455,11 @@ OUTER_WILDS_PRESS = "https://www.mobiusdigitalgames.com/uploads/4/7/3/2/47328935
 FRIEREN = "https://frieren-anime.jp/wp-content/uploads/"
 DUNGEON = "https://delicious-in-dungeon.com/assets/character/"
 VOXMACHINA = "https://www.behindthevoiceactors.com/_img/chars/"
+# v1.12 sources: Square Enix's official Kingdom Hearts renders as hosted by KHWiki (khwiki.com), the official
+# Chiikawa Pocket site and the official Re:Zero anime site's character portraits
+KHWIKI = "https://kh.wiki.gallery/images/"
+CHIIKAWA_POCKET = "https://jp.chiikawa-pocket.com/ja/_next/static/media/"
+REZERO = "https://re-zero-anime.jp/tv/assets/character/n/"
 LOCAL = {
     # Disney & Pixar (27): Disney Animation and Pixar characters, 1937-2021
     "disney": [
@@ -852,6 +859,16 @@ LOCAL = {
         ("yakul", "Yakul", "neutral", "https://www.ghibli.jp/gallery/mononoke048.jpg", (1400, 80, 520)),
         ("soot-sprites", "Soot sprites", "neutral", "https://www.ghibli.jp/gallery/chihiro014.jpg", (900, 100, 600)),
         ("moro", "Moro", "neutral", "https://www.ghibli.jp/gallery/mononoke029.jpg", (525, 120, 900)),
+        # v1.12: Chiikawa's three leads and six more anime characters
+        ("emilia", "Emilia", "feminine", REZERO + "2.webp", (0, 0, 300)),
+        ("rem", "Rem", "feminine", REZERO + "4b.webp", (0, 0, 300)),
+        ("yor-forger", "Yor Forger", "feminine", WP + "en/a/a3/YorForgerinfobox.png", (12, 22, 105)),
+        ("subaru", "Subaru", "masculine", REZERO + "1c.webp", (0, 0, 300)),
+        ("killua", "Killua", "masculine", WP + "en/9/93/KilluaZoldyckManga.png", (20, 27, 117)),
+        ("zoro", "Zoro", "masculine", WP + "en/a/a4/Roronoa_Zoro.jpg", (70, 0, 125)),
+        ("chiikawa", "Chiikawa", "neutral", CHIIKAWA_POCKET + "Chiikawa.5b7b2f3d.png", (10, 57, 300)),
+        ("hachiware", "Hachiware", "neutral", CHIIKAWA_POCKET + "Hachiware.fb21cd3e.png", (10, 50, 300)),
+        ("usagi", "Usagi", "neutral", CHIIKAWA_POCKET + "Usagi.16a8a84d.png", (10, 23, 300)),
     ],
     # Pokemon (18): official artwork; vibe-exempt row (all neutral)
     "pokemon": [
@@ -928,6 +945,28 @@ LOCAL = {
          STEAM + "753640/ss_c624a6b8edca0d451605592edd927dbcc14917a8.1920x1080.jpg", (560, 150, 900)),
         ("we-were-here-explorer", "Explorer (We Were Here)", "neutral", STEAM + "865360/library_hero.jpg",
          (345, 0, 420)),
+    ],
+    # Kingdom Hearts (18, v1.12): official game renders (transparent), head and shoulders. The KH designs of
+    # Mickey, Donald and Goofy are left out: those characters are in Disney & Pixar / Classic cartoons already.
+    "kingdomhearts": [
+        ("kairi", "Kairi", "feminine", KHWIKI + "3/30/Kairi_KHII.png", (224, -30, 380)),
+        ("aqua", "Aqua", "feminine", KHWIKI + "c/c0/Aqua_KHBBSFM.png", (178, 60, 280)),
+        ("xion", "Xion", "feminine", KHWIKI + "c/c2/Xion_KHD.png", (290, -30, 680)),
+        ("namine", "Naminé", "feminine", KHWIKI + "d/d9/Namin%C3%A9_KHIII.png", (40, 0, 250)),
+        ("larxene", "Larxene", "feminine", KHWIKI + "9/9f/Larxene_KHD.png", (48, -48, 576)),
+        ("olette", "Olette", "feminine", KHWIKI + "c/c4/Olette_KHIII.png", (316, -13, 946)),
+        ("sora", "Sora", "masculine", KHWIKI + "e/ef/Sora_KHIII.png", (440, -30, 400)),
+        ("riku", "Riku", "masculine", KHWIKI + "7/75/Riku_KHIII.png", (584, -24, 387)),
+        ("roxas", "Roxas", "masculine", KHWIKI + "7/78/Roxas_KHD.png", (900, -60, 800)),
+        ("axel", "Axel", "masculine", KHWIKI + "2/28/Axel_KHD.png", (186, -40, 760)),
+        ("terra", "Terra", "masculine", KHWIKI + "a/ad/Terra_KHBBSFM.png", (283, 24, 272)),
+        ("ventus", "Ventus", "masculine", KHWIKI + "5/58/Ventus_KHBBSFM.png", (270, 160, 270)),
+        ("shadow-heartless", "Shadow (Heartless)", "neutral", KHWIKI + "d/de/Shadow_KHII.png", (121, -43, 485)),
+        ("dusk-nobody", "Dusk (Nobody)", "neutral", KHWIKI + "b/ba/Dusk_KHII.png", (65, -25, 330)),
+        ("moogle", "Moogle", "neutral", KHWIKI + "e/e9/Moogle_KHIII.png", (-27, -131, 670)),
+        ("chirithy", "Chirithy", "neutral", KHWIKI + "1/11/Chirithy_KHIII.png", (-18, -196, 816)),
+        ("meow-wow", "Meow Wow", "neutral", KHWIKI + "f/f0/Meow_Wow_%28Spirit%29_KH3D.png", (75, 47, 1140)),
+        ("kingdom-key", "Kingdom Key", "neutral", KHWIKI + "3/30/Kingdom_Key_KH.png", (-10, -10, 580)),
     ],
     # Super Mario (18): Nintendo's Super Mario world (moved out of Video games)
     "mario": [
@@ -1660,6 +1699,10 @@ LATER_V110 = ["spider-man-tobey", "spider-man-andrew", "gamora", "the-flash", "n
               "arctic-fox", "quokka", "koala", "penguin-chick", "hamster", "red-squirrel", "raccoon", "bunny",
               "clownfish", "earthrise", "apollo-11-crew", "artemis-ii-crew", "artemis-ii-launch", "orion",
               "earth-from-orion", "earthset", "far-side-of-the-moon", "eclipse-from-orion"]
+# v1.12: the Kingdom Hearts row and the Anime additions, colours after all of the above.
+LATER_V112 = ["kairi", "sora", "shadow-heartless", "aqua", "riku", "dusk-nobody", "xion", "roxas", "moogle", "namine",
+              "axel", "chirithy", "larxene", "terra", "meow-wow", "olette", "ventus", "kingdom-key", "emilia", "subaru",
+              "chiikawa", "rem", "killua", "hachiware", "yor-forger", "zoro", "usagi"]
 # v1.10: removed on the owner's request; each replacement takes the removed avatar's place and colour
 # (replacement -> removed id).
 REPLACES = {"sherlock": "tenth-doctor", "uss-enterprise": "dalek", "young-hee": "weeping-angel", "barney": "k9",
@@ -1869,8 +1912,9 @@ def main():
             if old == gid:
                 ids.insert(k, aid)
         return ids
-    later_all = LATER + LATER_V19 + LATER_V191 + LATER_V110
-    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19), ([], LATER_V191), ([], LATER_V110)):
+    later_all = LATER + LATER_V19 + LATER_V191 + LATER_V110 + LATER_V112
+    for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19), ([], LATER_V191), ([], LATER_V110),
+                         ([], LATER_V112)):
         for gid in order:
             for aid in colour_ids(gid):
                 if aid not in later_all and aid not in color_of:

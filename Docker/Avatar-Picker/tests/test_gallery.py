@@ -10,7 +10,7 @@ GROUPS = json.load(open(os.path.join(APP, "groups.json")))
 LOCAL_GROUPS = {"classics", "disney", "animated", "movies", "lotr", "tvcartoons", "tvshows", "anime",
                 "pokemon", "games", "mario", "lego", "dinosaurs", "memes",
                 "harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro",
-                "pirates", "voxmachina"}
+                "pirates", "voxmachina", "kingdomhearts"}
 # Rows added in v1.9 (all in the local pack, even the free and public-domain ones)
 NEW_ROWS = ["harrypotter", "heroes", "muppets", "animals", "space", "mythology", "historic", "retro", "pirates"]
 # Rows exempt from the f-m-n interleave: memes (mostly animals/objects), colours (no
@@ -27,9 +27,9 @@ FREE_VIBE_GROUPS = {"memes", "colours", "pokemon", "lotr", "dinosaurs", "harrypo
 # the rest, with the colours row last.
 # v1.9: Harry Potter and Marvel & DC after Lord of the Rings, Muppets after TV series, Retro games
 # after Video games, Animals and Space after Dinosaurs, Mythology, Historic figures and Pirates &
-# knights after Art classics. v1.10: Vox Machina after Cartoons.
+# knights after Art classics. v1.10: Vox Machina after Cartoons. v1.12: Kingdom Hearts after Retro games.
 ORDER = ["disney", "animated", "movies", "lotr", "harrypotter", "heroes", "tvcartoons", "voxmachina", "tvshows", "muppets",
-         "anime", "pokemon", "games", "retro", "mario", "lego", "dinosaurs", "animals", "space", "storybook",
+         "anime", "pokemon", "games", "retro", "kingdomhearts", "mario", "lego", "dinosaurs", "animals", "space", "storybook",
          "illustrated", "flatemoji", "paintings", "mythology", "historic", "pirates", "memes", "cartoon",
          "ukiyoe", "belleepoque", "fairytale", "comics", "swiss", "people3d", "pixel", "classics",
          "colours"]
@@ -42,12 +42,13 @@ LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "M
           "memes": "Memes", "cartoon": "Cartoon & sketch", "colours": "Colours",
           "harrypotter": "Harry Potter", "heroes": "Marvel & DC", "muppets": "Muppets & Sesame Street",
           "animals": "Animals", "space": "Space", "mythology": "Mythology", "historic": "Historic figures",
-          "retro": "Retro games", "pirates": "Pirates & knights", "voxmachina": "Vox Machina"}
+          "retro": "Retro games", "pirates": "Pirates & knights", "voxmachina": "Vox Machina",
+          "kingdomhearts": "Kingdom Hearts"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 63,
+SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 72,
          "pokemon": 18, "games": 36, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
          "colours": 18, "harrypotter": 18, "heroes": 27, "muppets": 18, "animals": 27, "space": 27,
-         "mythology": 18, "historic": 18, "retro": 9, "pirates": 9, "voxmachina": 9}
+         "mythology": 18, "historic": 18, "retro": 9, "pirates": 9, "voxmachina": 9, "kingdomhearts": 18}
 # One character, one row: entries that show the same character under a different
 # name or id map to a shared key here (e.g. the meme "Big Chungus" is Bugs Bunny);
 # every other entry's key is its name without a "(...)" qualifier. No two entries
@@ -162,6 +163,14 @@ COLOURS_V18 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1
 COLOURS_V19 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.9.0.json")))
 # Single additions (v1.7) and the row each one belongs to.
 ADDED = {"dipper-pines": "tvcartoons", "patrick-jane": "tvshows", "pochita": "anime"}
+# v1.12: a Kingdom Hearts row (KH designs of Mickey, Donald and Goofy left out: they are the Disney row's characters)
+# and three Chiikawa characters plus six more anime avatars (the Anime row grows 63 -> 72).
+KINGDOM_HEARTS = {"kairi", "aqua", "xion", "namine", "larxene", "olette", "sora", "riku", "roxas", "axel", "terra",
+                  "ventus", "shadow-heartless", "dusk-nobody", "moogle", "chirithy", "meow-wow", "kingdom-key"}
+CHIIKAWA = {"chiikawa", "hachiware", "usagi"}
+ANIME_V112 = CHIIKAWA | {"emilia", "rem", "yor-forger", "subaru", "killua", "zoro"}
+NEW_V112 = KINGDOM_HEARTS | ANIME_V112
+COLOURS_V111 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.11.0.json")))
 
 
 def character_key(a):
@@ -192,8 +201,8 @@ def png_size(path):
 class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
-        self.assertEqual(len(GROUPS), 37)
-        self.assertEqual(len(GALLERY), 558 + 144)  # 702
+        self.assertEqual(len(GROUPS), 38)
+        self.assertEqual(len(GALLERY), 585 + 144)  # 729
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -430,9 +439,48 @@ class GalleryTest(unittest.TestCase):
             for aid in ids:
                 self.assertEqual(rows.get(aid), group, aid)
         anime = [a["id"] for a in GALLERY if a["group"] == "anime"]
-        self.assertEqual(len(anime), 63)
+        self.assertGreaterEqual(len(anime), 63)
         self.assertLessEqual({"frieren", "fern", "stark", "himmel", "heiter", "eisen", "ubel"}, set(anime))
         self.assertLessEqual({"laios", "marcille", "chilchuck", "senshi", "falin", "izutsumi"}, set(anime))
+
+    def test_kingdom_hearts_row(self):
+        """Kingdom Hearts: 18 avatars in their own row right after Retro games, six of each vibe, all local pack."""
+        row = [a for a in GALLERY if a["group"] == "kingdomhearts"]
+        self.assertEqual({a["id"] for a in row}, KINGDOM_HEARTS)
+        ids = [g["id"] for g in GROUPS]
+        self.assertEqual(ids.index("kingdomhearts"), ids.index("retro") + 1)
+        self.assertTrue(all(a.get("pack") == "local" for a in row))
+        self.assertNotIn("kingdomhearts", FREE_VIBE_GROUPS)
+        self.assertEqual([a["id"] for a in row][:3], ["kairi", "sora", "shadow-heartless"])
+
+    def test_kingdom_hearts_leaves_disney_characters_alone(self):
+        """Mickey, Donald and Goofy stay Disney & Pixar / Classic cartoons avatars; no KH copy of them."""
+        keys = [character_key(a) for a in GALLERY]
+        for name in ("mickey mouse", "donald duck", "goofy", "king mickey"):
+            self.assertLessEqual(keys.count(name), 1, name)
+        row = {character_key(a) for a in GALLERY if a["group"] == "kingdomhearts"}
+        self.assertFalse(row & {"mickey mouse", "donald duck", "goofy", "king mickey", "mickey", "donald"})
+
+    def test_v112_anime_additions(self):
+        """v1.12: Chiikawa, Hachiware and Usagi (neutral) plus three feminine and three masculine anime avatars
+        join the end of the Anime row; the first 63 keep their order."""
+        anime = [a for a in GALLERY if a["group"] == "anime"]
+        self.assertEqual(len(anime), 72)
+        self.assertEqual({a["id"] for a in anime[63:]}, ANIME_V112)
+        self.assertFalse({a["id"] for a in anime[:63]} - set(COLOURS_V111))
+        for a in anime:
+            if a["id"] in CHIIKAWA:
+                self.assertEqual(a["vibe"], "neutral", a["id"])
+
+    def test_v111_colours_unchanged(self):
+        """v1.12: every v1.11.0 avatar keeps its colour, none disappears; new avatars take distinct colours."""
+        rows = {a["id"]: a["color"] for a in GALLERY}
+        self.assertEqual(set(COLOURS_V111) - set(rows), set())
+        for aid, colour in COLOURS_V111.items():
+            self.assertEqual(rows[aid], colour, aid)
+        self.assertEqual(set(rows) - set(COLOURS_V111), NEW_V112)
+        new = [rows[aid] for aid in NEW_V112]
+        self.assertEqual(len(set(new)), len(new))
 
     def test_thor_twice_on_purpose(self):
         """Marvel's Thor and the Norse god are different characters; each has its own key."""

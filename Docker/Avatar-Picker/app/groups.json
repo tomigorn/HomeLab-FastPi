@@ -56,6 +56,10 @@
     "label": "Retro games"
   },
   {
+    "id": "kingdomhearts",
+    "label": "Kingdom Hearts"
+  },
+  {
     "id": "mario",
     "label": "Super Mario"
   },

@@ -2921,6 +2921,93 @@
     "pack": "local"
   },
   {
+    "id": "emilia",
+    "name": "Emilia",
+    "file": "emilia.png",
+    "color": "#EFC6F1",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "subaru",
+    "name": "Subaru",
+    "file": "subaru.png",
+    "color": "#E6F1C6",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "chiikawa",
+    "name": "Chiikawa",
+    "file": "chiikawa.png",
+    "color": "#C6D9F1",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "rem",
+    "name": "Rem",
+    "file": "rem.png",
+    "color": "#F1C6CD",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "killua",
+    "name": "Killua",
+    "file": "killua.png",
+    "color": "#C6F1CB",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "hachiware",
+    "name": "Hachiware",
+    "file": "hachiware.png",
+    "color": "#D8C6F1",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "yor-forger",
+    "name": "Yor Forger",
+    "file": "yor-forger.png",
+    "color": "#F1E4C6",
+    "group": "anime",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "zoro",
+    "name": "Zoro",
+    "file": "zoro.png",
+    "color": "#C6F1F1",
+    "group": "anime",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "usagi",
+    "name": "Usagi",
+    "file": "usagi.png",
+    "color": "#F1C6E4",
+    "group": "anime",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
     "id": "pikachu",
     "name": "Pikachu",
     "file": "pikachu.png",
@@ -3531,6 +3618,186 @@
     "file": "inky.png",
     "color": "#C6F1E7",
     "group": "retro",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "kairi",
+    "name": "Kairi",
+    "file": "kairi.png",
+    "color": "#F1C6D2",
+    "group": "kingdomhearts",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "sora",
+    "name": "Sora",
+    "file": "sora.png",
+    "color": "#C6F1C6",
+    "group": "kingdomhearts",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "shadow-heartless",
+    "name": "Shadow (Heartless)",
+    "file": "shadow-heartless.png",
+    "color": "#D2C6F1",
+    "group": "kingdomhearts",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "aqua",
+    "name": "Aqua",
+    "file": "aqua.png",
+    "color": "#F1DFC6",
+    "group": "kingdomhearts",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "riku",
+    "name": "Riku",
+    "file": "riku.png",
+    "color": "#C6F1EB",
+    "group": "kingdomhearts",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "dusk-nobody",
+    "name": "Dusk (Nobody)",
+    "file": "dusk-nobody.png",
+    "color": "#F1C6E9",
+    "group": "kingdomhearts",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "xion",
+    "name": "Xion",
+    "file": "xion.png",
+    "color": "#DDF1C6",
+    "group": "kingdomhearts",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "roxas",
+    "name": "Roxas",
+    "file": "roxas.png",
+    "color": "#C6D0F1",
+    "group": "kingdomhearts",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "moogle",
+    "name": "Moogle",
+    "file": "moogle.png",
+    "color": "#F1C8C6",
+    "group": "kingdomhearts",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "namine",
+    "name": "Namin\u00e9",
+    "file": "namine.png",
+    "color": "#C6F1D4",
+    "group": "kingdomhearts",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "axel",
+    "name": "Axel",
+    "file": "axel.png",
+    "color": "#E1C6F1",
+    "group": "kingdomhearts",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "chirithy",
+    "name": "Chirithy",
+    "file": "chirithy.png",
+    "color": "#F1EDC6",
+    "group": "kingdomhearts",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "larxene",
+    "name": "Larxene",
+    "file": "larxene.png",
+    "color": "#C6E8F1",
+    "group": "kingdomhearts",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "terra",
+    "name": "Terra",
+    "file": "terra.png",
+    "color": "#F1C6DB",
+    "group": "kingdomhearts",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "meow-wow",
+    "name": "Meow Wow",
+    "file": "meow-wow.png",
+    "color": "#CFF1C6",
+    "group": "kingdomhearts",
+    "vibe": "neutral",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "olette",
+    "name": "Olette",
+    "file": "olette.png",
+    "color": "#CAC6F1",
+    "group": "kingdomhearts",
+    "vibe": "feminine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "ventus",
+    "name": "Ventus",
+    "file": "ventus.png",
+    "color": "#F1D6C6",
+    "group": "kingdomhearts",
+    "vibe": "masculine",
+    "pack": "local",
+    "square": true
+  },
+  {
+    "id": "kingdom-key",
+    "name": "Kingdom Key",
+    "file": "kingdom-key.png",
+    "color": "#C6F1E3",
+    "group": "kingdomhearts",
     "vibe": "neutral",
     "pack": "local",
     "square": true
