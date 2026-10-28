@@ -16,3 +16,6 @@ credentials.json
 /config/
 /data/
 __pycache__/
+
+# JS test dependencies
+node_modules/
