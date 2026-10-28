@@ -86,6 +86,7 @@ boot, Tools → Registration → Replace Key if the GUID changed.
 
 ## Operations
 
+- Listen backlog 64 (`request_queue_size`), same as Beefy-Waker.
 - Out-of-band wake if this container is down: `wakeonlan 60:be:b4:17:0d:e0` on fastpi.
 - **Timing/checking trap:** every `ssh tower` fires `/wake`, and because the
   probe is Nextcloud, the waker then resends magic packets every 20 s for 5 min

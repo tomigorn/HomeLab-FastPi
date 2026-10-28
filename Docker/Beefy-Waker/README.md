@@ -219,6 +219,7 @@ See [`docs/2026-06-26-power-management-review.md`](docs/2026-06-26-power-managem
 for the full adversarial review. The essentials:
 
 **Waking beefy**
+- Listen backlog 64 (`request_queue_size`): a burst of parallel requests (Jellyfin home rows) is accepted at once, not retried by the kernel after 1-2 s.
 - Automatic: any request to a beefy service routed through the `beefy-wake` middleware.
 - Manual: the wake page (`/wol`, or `/` + Wake button), or `wakeonlan 74:56:3c:96:79:a3`
   from fastpi (out-of-band fallback if this container is down).
