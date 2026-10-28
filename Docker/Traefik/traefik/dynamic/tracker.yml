@@ -46,6 +46,7 @@ http:
 
     # 403 for features that must stay off (Floppy README "Security"): unknown methods; shared Item
     # edits (#3); TMDB proxy (#4); comics (#5); server-URL integrations (#1); password login (#10).
+    # Encoded / \ % NUL in the path: Traefik matches the raw path but Django decodes it, so `/accounts/signup%2F` would slip past the prefixes above.
     # Open: GET of ABS cover art (signed token, image only, served from copies pushed by beefy's floppy-abs-push; Floppy holds no ABS key and never pulls).
     tracker-blocked:
       rule: >-
@@ -57,6 +58,7 @@ http:
         || (PathRegexp(`^/import/(audiobookshelf|kavita|komga|radarr|sonarr|mylar|kapowarr|storyteller|koreader|plex|koito|gpodder)(/|$)`) && !(Method(`GET`) && PathRegexp(`^/import/audiobookshelf/cover/[A-Za-z0-9_=:-]+$`)))
         || PathPrefix(`/jellyfin/`) || PathPrefix(`/seerr/`) || PathPrefix(`/settings/integrations/jellyseerr/`)
         || (Method(`POST`) && Path(`/accounts/login/`)) || PathPrefix(`/accounts/signup/`) || PathPrefix(`/accounts/password/`)
+        || PathRegexp(`(?i)%(2f|5c|25|00)|[\\\x00]`)
         )
       entryPoints: ["websecure"]
       priority: 29
