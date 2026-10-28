@@ -52,16 +52,24 @@ The bar Seerr has (requests.holy-grail.ch), on every ABR page and the All reques
 |---|---|
 | MyAnonamouse `searches` / `downloads` (`∞` = no limit) | Prowlarr history, last 24 h; limits per indexer in `abr-bar/limits.toml` (none for MAM) |
 | My requests `n/5 in 7 days`, red + "next free" when used up | importer `/my-quota`: the viewer's own count from the quota ledger, nobody else's |
-| Next renewal / due subscription | `abr-bar/limits.toml`; `seerr = true` takes the date from Seerr's list (beefy, cached by subscription-alerts) |
+| MAM unsatisfied `n/limit`, red `n at risk` | qBittorrent (read-only Web API, all torrents, MAM = tracker host `*.myanonamouse.net`): seeding time < 72 h and added within 30 days; class + limit in `abr-bar/limits.toml` `[mam]` (MAM rules.php "Unsatisfied torrents": User 50, Power User 100, VIP 150, above 200). No MAM call |
+| Next renewal / due subscription | `abr-bar/limits.toml`; `seerr = true` takes the date from Seerr's list (beefy, cached by subscription-alerts); `[mam] vip_expires` adds "MAM VIP" |
 | Library, Downloads: used/total, % (`df` numbers) | statvfs of `/mnt/seagate-black/library/audiobooks` and the qBittorrent + SABnzbd download folders; one chip per filesystem (same disk → "Library + Downloads") |
+
+Renewal colours: yellow ≤ 30 days, orange ≤ 7, red on the end date. MAM colours: green < 70 % of the limit, yellow 70–90 %, red ≥ 90 % or any risk.
+
+MAM rule (rules.php 2.5): every download seeds 72 h **in total within 30 days**. Approximation: qBittorrent's `seeding_time` is cumulative since the add (survives restarts), so "< 72 h and added < 30 days ago" = unsatisfied. Risks (red, names under **more**): `paused` (stopped/errored before 72 h), `removed` (gone from qBittorrent before 72 h; remembered in `/var/lib/abr-bar/mam-seen.json`, 0600, until 30 days after the add), `missed` (30 days over, still < 72 h). Next free = the seeding torrent closest to 72 h. qBittorrent down: chip "unavailable", rest unchanged.
+
+VIP end date: `vip_expires = "2027-01-31"` under `[mam]` in `abr-bar/limits.toml` (MAM profile date), picked up within a minute; `""` hides it. When the class changes, update `class` + `unsatisfied_limit` there.
 
 Disk colours: green < 70 %, yellow 70–80 %, red ≥ 80 % (both 1.8 TB HDDs; fastpi's disk alert fires at 85 %, so the bar warns first). Nothing is deleted automatically: torrents seed forever (MAM), the hint says so. Hints and disk names EN/DE (browser language).
 
 | Part | Where |
 |---|---|
-| collector | `scripts/abr_bar_usage.py`, `systemd/abr-bar-usage.{service,timer}` (every minute, user pi, Prowlarr key via `LoadCredential`, network only to the gate 10.24.32.2:9697) → `/var/lib/abr-bar/usage.json` (names and counts only) |
+| collector | `scripts/abr_bar_usage.py`, `systemd/abr-bar-usage.{service,timer}` (every minute, user pi, Prowlarr key + `mouse/secrets/qbit_pass` via `LoadCredential`, network only to the gate 10.24.32.2:9697 and qBittorrent 10.24.25.2:8080) → `/var/lib/abr-bar/usage.json` (names and counts only) |
 | served | books-proxy `/_hg/bar/usage.json` (mount `/var/lib/abr-bar`, ro), `/_hg/bar/my-quota.json` (→ importer, user from `X-authentik-username`), `/_hg/bar/bar.{js,css}`; config = `data-ib-*` on the injected `<script>` tag |
 | shared code | `books-proxy/www/bar/bar.{js,css}` and `abr-bar/indexer-bar-schema.md` are a vendored, unchanged copy of Seerr's `indexer-bar/www/bar.{js,css}` + `indexer-bar/schema.md` (HomeLab-BeefyServer, canonical). Never edit them here: change them on beefy (both test suites green), commit, then `scripts/sync-bar.sh` here. `--check` compares the sha256 with beefy's HEAD (beefy asleep = skipped, never woken); post-update check `books.bar-shared`. ABR wording (disk names, hints, note) lives in `abr_bar_usage.py` |
+| MAM chip | `books-proxy/www/mam.js` (ABR only, injected after `bar.js`): reads `usage.json` `mam` and adds the chip, the **more** section and the bar dot colour after each bar render; `bar.js` ignores the field. `mam` = {`ok`, `unsatisfied`, `limit`, `class`, `level`, `freesAt`, `risks[]` {`name`, `reason`, `seededHours`}, texts `label`/`hint`/`head`/`rule`/`risksHead`/`reasons` EN/DE} |
 
 Install: `sudo install -m 0644 systemd/abr-bar-usage.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now abr-bar-usage.timer`, then `docker compose up -d books-proxy` (the mount needs `/var/lib/abr-bar`).
 
@@ -86,7 +94,7 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
 | Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link, search; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel; `QUOTA_ASINS="6 ASINs"` also checks the limit (switch auto-download off first, delete the canary's requests after) |
 | Requests bar | `systemd/abr-bar-usage.timer`, see "Requests bar" |
-| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer`; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
+| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer`; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar + MAM chip: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
 
 ## Secrets (`secrets/`, 0400)
 
