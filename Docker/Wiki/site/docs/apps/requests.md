@@ -38,7 +38,7 @@ Every requested title that is not in Jellyfin yet shows an icon next to the stat
 | 🧭 | searched, nothing found yet; tonight's search (04:17) keeps looking |
 | 📅 | not released yet (with the expected date) |
 | spinning ring | downloading now, with the percent; "Importing…" right after |
-| ✅ | available in Jellyfin (or downloaded, Jellyfin shows it shortly) |
+| ✅ | available in Jellyfin (or downloaded: Requests catches up within a few minutes after the import, "Downloaded — in Jellyfin shortly") |
 | ◐ (half-filled circle) | partly available: released episodes still missing (the rest can show 🌙 🧭 📅, the magnifier or the spinning ring next to it); the status reads **Partially Available** in blue |
 | ✅📅 | series complete so far: everything released is there, the next episode or season is not out yet (status **Available so far**) |
 | ⚠️ | a download or import problem: an admin has a look (Requests / Activity) |
