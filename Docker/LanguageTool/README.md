@@ -43,7 +43,7 @@ cd ~/Projects/Docker/LanguageTool/Raspi/scripts
 ./lt-token.py add Filip-LinuxLaptop     # prints the link once: https://lang-tool.ddns.net/lt-<64 hex>
 ./lt-token.py list                      # labels only, never the links
 ./lt-token.py remove Filip-LinuxLaptop  # revoke
-./lt-token.py quiet                     # access log off for routers made before 2026-10-28 (new ones get it)
+./lt-token.py quiet                     # access log off for routers made before 2026-10-28 (new ones get it); keeps the file 0640 group 65026 so Traefik can read it (sudo chgrp)
 ```
 
 - Traefik picks the change up by itself (no restart); a backup of the old file goes to `~/backups/languagetool-token/` (mode 600, outside the repo).
