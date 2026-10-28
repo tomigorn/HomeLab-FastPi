@@ -16,6 +16,7 @@ from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import library
 from naming import Book, book_dir, language_folder, mam_language
 from ranking import for_abr, prefs_from_product
 
@@ -37,8 +38,9 @@ QUOTA_BOOKS = int(ENV("QUOTA_BOOKS", "5"))
 QUOTA_DAYS = int(ENV("QUOTA_DAYS", "7"))
 QUOTA_LEDGER = Path(ENV("QUOTA_LEDGER", "/data/quota.json"))
 # Only these neighbours on traefik_mouse may call these paths: the username header is trusted only from books-proxy, the .torrent carries the MAM passkey.
-CALLERS = {"/quota": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),), "/all-requests": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),),
-           "/my-quota": (ENV("BOOKS_PROXY_IP", "10.24.25.6"),),
+BOOKS_PROXY = (ENV("BOOKS_PROXY_IP", "10.24.25.6"),)
+CALLERS = {"/quota": BOOKS_PROXY, "/all-requests": BOOKS_PROXY, "/my-quota": BOOKS_PROXY,
+           "/library": BOOKS_PROXY, "/library-cover/": BOOKS_PROXY, "/sizes": BOOKS_PROXY,
            "/prowlarr/torrent": (ENV("ABR_IP", "10.24.25.4"), ENV("ABR_HOST", "audiobookrequest"))}
 ABR_URL = ENV("ABR_URL", "http://audiobookrequest:8000")
 PROVIDERS = {"com": ("audible", "us"), "de": ("audible.de", "de"), "co.uk": ("audible.uk", "uk")}
@@ -81,7 +83,8 @@ def _resolve(name):
 
 def caller_ok(path, client, resolve=_resolve):
     """ABR also calls over the egress network, whose address is dynamic: names are resolved per call."""
-    want = CALLERS.get(urllib.parse.urlsplit(path).path)
+    p = urllib.parse.urlsplit(path).path
+    want = CALLERS.get("/library-cover/" if p.startswith("/library-cover/") else p)
     if want is None:
         return True
     return any(client == w or (not w[0].isdigit() and client in resolve(w)) for w in want)
@@ -137,7 +140,7 @@ def _status(downloaded, job_state):
     return "open"
 
 
-def all_requests(wishlist, manual, jobs):
+def all_requests(wishlist, manual, jobs, sizes=None):
     """Everyone's requests for the read-only "All requests" page (owner 2026-10-27: with names), newest first."""
     state = {j.get("asin"): j.get("state") for j in jobs.values() if j.get("asin")}
     rows = []
@@ -145,10 +148,11 @@ def all_requests(wishlist, manual, jobs):
         b = w["book"]
         for r in w.get("requests") or []:
             rows.append({"title": b.get("title"), "author": ", ".join(b.get("authors") or []), "cover": b.get("cover_image"),
+                         "asin": b.get("asin"), "size": (sizes or {}).get(b.get("asin")),
                          "requested_by": r.get("user_username"), "requested": r.get("updated_at"),
                          "status": _status(b.get("downloaded"), state.get(b.get("asin")))})
     for m in manual:
-        rows.append({"title": m.get("title"), "author": ", ".join(m.get("authors") or []), "cover": None,
+        rows.append({"title": m.get("title"), "author": ", ".join(m.get("authors") or []), "cover": None, "asin": None, "size": None,
                      "requested_by": m.get("user_username"), "requested": m.get("updated_at"),
                      "status": _status(m.get("downloaded"), None)})
     return sorted(rows, key=lambda r: r["requested"] or "", reverse=True)
@@ -573,8 +577,12 @@ def all_requests_handler(handler):
         auth = {"Authorization": f"Bearer {REQUESTS.key}"}
         with lock:
             jobs = load()
+        try:
+            sizes = book_sizes()
+        except (urllib.error.URLError, ValueError, KeyError, OSError):
+            sizes = None
         body = json.dumps(all_requests(http_json(f"{ABR_URL}/api/requests", headers=auth) or [],
-                                       http_json(f"{ABR_URL}/api/requests/manual", headers=auth) or [], jobs)).encode()
+                                       http_json(f"{ABR_URL}/api/requests/manual", headers=auth) or [], jobs, sizes)).encode()
         status = 200
     except (urllib.error.URLError, ValueError) as e:
         log.error("all-requests: %s", e)
@@ -585,6 +593,95 @@ def all_requests_handler(handler):
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
+
+
+class AbsCache:
+    """ABS libraries, book items and users for the library page and sizes, fetched with the importer's ABS key (GET only), kept a few minutes."""
+    def __init__(self, abs_, ttl=300, users_ttl=60):
+        self.abs, self.ttl, self.users_ttl = abs_, ttl, users_ttl
+        self.lock = threading.Lock()
+        self.at, self.users_at, self.data, self.users_list = 0, 0, None, []
+
+    def books(self):
+        with self.lock:
+            if self.data is None or time.time() - self.at > self.ttl:
+                h = self.abs.headers()
+                libs = http_json(f"{ABS_URL}/api/libraries", headers=h)["libraries"]
+                items = {i: (http_json(f"{ABS_URL}/api/libraries/{i}/items?minified=1", headers=h, timeout=60) or {}).get("results", [])
+                         for i in book_library_ids(libs)}
+                self.data, self.at = (libs, items), time.time()
+            return self.data
+
+    def users(self):
+        with self.lock:
+            if time.time() - self.users_at > self.users_ttl:
+                self.users_list = (http_json(f"{ABS_URL}/api/users", headers=self.abs.headers()) or {}).get("users", [])
+                self.users_at = time.time()
+            return self.users_list
+
+
+ABS_CACHE = None
+
+
+def send_json(handler, status, obj):
+    body = json.dumps(obj).encode()
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def book_sizes():
+    libs, items = ABS_CACHE.books()
+    with lock:
+        jobs = load()
+    try:
+        torrents = QBIT.category()
+    except Exception as e:
+        log.warning("sizes: qBittorrent %s", type(e).__name__)
+        torrents = []
+    return library.sizes(items, jobs, torrents)
+
+
+def library_handler(handler):
+    """Library page: what the viewer's own ABS account may see (libraries, explicit, tags), no paths, keys or descriptions."""
+    try:
+        users = ABS_CACHE.users()
+        libs, items = ABS_CACHE.books()
+        send_json(handler, 200, library.listing(library.abs_user(users, handler.headers.get("X-authentik-username", "")), users, libs, items))
+    except (urllib.error.URLError, ValueError, KeyError, OSError) as e:
+        log.error("library: %s", type(e).__name__)
+        send_json(handler, 502, {"error": "Audiobookshelf not reachable"})
+
+
+def cover_handler(handler):
+    item = library.cover_id(urllib.parse.urlsplit(handler.path).path)
+    try:
+        user = library.abs_user(ABS_CACHE.users(), handler.headers.get("X-authentik-username", ""))
+        libs, items = ABS_CACHE.books()
+        if not item or item not in library.visible_ids(user, libs, items):
+            return handler.send_error(404)
+        req = urllib.request.Request(f"{ABS_URL}/api/items/{item}/cover?width=240&format=webp", headers=ABS_CACHE.abs.headers())
+        with urllib.request.urlopen(req, timeout=30) as r:
+            body, ctype = r.read(), r.headers.get("Content-Type", "image/webp")
+    except (urllib.error.URLError, ValueError, KeyError, OSError):
+        return handler.send_error(404)
+    handler.send_response(200)
+    handler.send_header("Content-Type", ctype if ctype.startswith("image/") else "application/octet-stream")
+    handler.send_header("Cache-Control", "private, max-age=86400")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def sizes_handler(handler):
+    try:
+        send_json(handler, 200, book_sizes())
+    except (urllib.error.URLError, ValueError, KeyError, OSError) as e:
+        log.error("sizes: %s", type(e).__name__)
+        send_json(handler, 502, {})
 
 
 quota_lock = threading.Lock()
@@ -675,6 +772,12 @@ class Handler(BaseHTTPRequestHandler):
             return abs_forward(self)
         if self.path == "/all-requests":
             return all_requests_handler(self)
+        if self.path == "/library":
+            return library_handler(self)
+        if self.path.startswith("/library-cover/"):
+            return cover_handler(self)
+        if self.path == "/sizes":
+            return sizes_handler(self)
         if self.path == "/quota":
             return quota(self)
         if self.path == "/my-quota":
@@ -719,9 +822,10 @@ def secret(path):
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    global QBIT
+    global QBIT, ABS_CACHE
     qbit = QBIT = Qbit(secret(ENV("QBIT_PASS_FILE")))
     abs_ = Abs(ENV("ABS_KEY_FILE"))
+    ABS_CACHE = AbsCache(abs_)
     REQUESTS.key = secret(ENV("ABR_KEY_FILE"))
     threading.Thread(target=poll, args=(qbit, abs_), daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", int(ENV("PORT", "8000"))), Handler).serve_forever()
