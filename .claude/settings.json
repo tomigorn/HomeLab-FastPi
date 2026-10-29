@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /home/pi/Projects/*)",
+      "Read(//mnt/seagate-red/sabnzbd/**)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/canary-verify.sh)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/canary-enable.sh)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/canary-disable.sh)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-apply.sh)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-bind.sh apply)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-bind.sh rollback)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-bind.sh status)",
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-engage-test.sh)"
+    ]
+  }
+}
