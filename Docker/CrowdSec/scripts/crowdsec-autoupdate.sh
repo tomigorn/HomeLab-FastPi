@@ -128,7 +128,7 @@ if [[ $(ver "$LATEST") > $(ver "$FROM") ]]; then
   # ---- update
   log "updating $FROM -> $LATEST"
   OLD_ID=$(docker inspect -f '{{.Image}}' crowdsec)
-  BK="$HOME/backups/pre-update/$(date +%F)/crowdsec-autoupdate"; mkdir -p "$BK"
+  BK="$HOME/backups/pre-update/$(date +%F)/crowdsec-autoupdate"; (umask 077; mkdir -p "$BK"); chmod 700 "$HOME/backups/pre-update" "${BK%/*}" "$BK"
   # Pull BEFORE stopping, so the only downtime is backup + start (~15 s).
   envset CROWDSEC_TAG "$LATEST" "$ENVF"
   if ! docker compose pull -q crowdsec; then
@@ -136,7 +136,7 @@ if [[ $(ver "$LATEST") > $(ver "$FROM") ]]; then
   # Stopped for the backup: the SQLite DB (no WAL) must not be copied mid-write.
   docker compose stop crowdsec >/dev/null 2>&1
   for v in "${VOLUMES[@]}"; do
-    if ! docker run --rm -v "$v":/from:ro -v "$BK":/to alpine tar czf "/to/vol-$v.tgz" -C /from .; then
+    if ! (umask 077; docker run --rm -v "$v":/from:ro alpine tar czf - -C /from . > "$BK/vol-$v.tgz"); then
       envset CROWDSEC_TAG "$FROM" "$ENVF"; docker compose up -d crowdsec >/dev/null 2>&1
       TO=$FROM; DETAIL="backup of $v failed, nothing changed"; finish 1; fi
   done
