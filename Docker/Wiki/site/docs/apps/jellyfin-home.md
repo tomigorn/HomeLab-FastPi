@@ -26,7 +26,7 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 | — | **Series Genres** | browse series genres |
 
 ## Popular movies and shows
-**Popular movies** and **Popular shows** (German: **Beliebte Filme** / **Beliebte Serien**) in the top bar, the side menu or, on the TV, the 🎬 / 📺 buttons next to search. Each opens a page with what streams in Switzerland right now, films or series only:
+**Popular movies** and **Popular shows** (German: **Beliebte Filme** / **Beliebte Serien**) in the top bar, the side menu or, on the TV, the 🎬 / 📺 buttons next to search. Each opens a page with what streams in Switzerland right now, films or series only. The TV apps show the same lists under **Collections & Trending** (see [Trending on the TV](jellyfin.md#trending-on-the-tv)):
 
 | Row | Source |
 |---|---|
