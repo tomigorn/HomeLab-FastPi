@@ -43,6 +43,9 @@ echo "    core.hooksPath=$(git -C "$REPO" config core.hooksPath)"
 echo "==> rkhunter, chkrootkit, Lynis (beefy: ssh beefy 'bash -s' < install-audit-tools.sh)"
 "$HERE"/install-audit-tools.sh
 
+echo "==> root-owned copy for security-access (root must not run pi-writable code)"
+"$REPO"/Docker/_global/install-root-scripts.sh
+
 echo "==> systemd units"
 sudo install -m 0644 "$HERE"/security-scan.service "$HERE"/security-scan.timer \
                      "$HERE"/security-image-scan.service "$HERE"/security-image-scan.timer \

@@ -34,6 +34,7 @@ Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits t
 Not covered: fastpi off or offline. That needs an external dead-man's switch; `AlertingHeartbeat` is only a monthly email.
 
 ```bash
+../_global/install-root-scripts.sh   # root runs a root-owned copy in /usr/local/libexec/fastpi; re-run after editing the script
 sudo cp container-exporter/systemd/container-exporter.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now container-exporter.timer
 python3 container-exporter/test_container_exporter.py
 docker run --rm --network none --entrypoint sh -v "$PWD/prometheus":/w:ro -w /w/tests prom/prometheus:v3.15.1 -c 'promtool test rules *.yml'   # glob expands inside the container
@@ -167,6 +168,7 @@ Rules `prometheus/rules/expiry.yml`, `prometheus/rules/disk-health.yml`, tests `
 | `SmartExporterStale` | fastpi not run for 2 h, beefy for 3 days, or a disk unreadable; `notify: digest` | info |
 
 ```bash
+../_global/install-root-scripts.sh   # smart_exporter.py runs as root from /usr/local/libexec/fastpi
 sudo install -m 0644 status-exporter/systemd/status-exporter*.{service,timer} smart-exporter/systemd/smart-exporter.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now status-exporter.timer status-exporter-daily.timer smart-exporter.timer
 python3 status-exporter/test_status_exporter.py && python3 smart-exporter/test_smart_exporter.py
 sudo systemctl start status-exporter-daily.service && cat /var/lib/node-exporter/textfile/status_domains.prom

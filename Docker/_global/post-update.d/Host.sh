@@ -8,3 +8,4 @@ check host.host-guard-persisted '^1$' "$(grep -c '^-A INPUT -i br-+ -j HOST-GUAR
 check host.backup-rest '^active append-only beefy-only$' "$(systemctl is-active beefy-backup-rest.service) $(systemctl show -p ExecStart --value beefy-backup-rest.service | grep -q -- '--append-only' && echo append-only || echo NOT-append-only) $([ "$(systemctl show -p IPAddressAllow --value beefy-backup-rest.service)" = 192.168.1.102/32 ] && echo beefy-only || echo open)"
 check host.backup-timers '^active active active$' "$(systemctl is-active fastpi-backup.timer fastpi-restore-test.timer beefy-repo-maint.timer | xargs)"
 check host.textfile-perms '^pi:65046 2775$' "$(stat -c '%U:%g %a' /var/lib/node-exporter/textfile)"
+check host.root-scripts '^0$' "$("$(dirname "${BASH_SOURCE[0]}")/../install-root-scripts.sh" --check)"

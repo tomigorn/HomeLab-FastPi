@@ -6,7 +6,7 @@ Documentation=file:///home/pi/Projects/Docker/grafana/README.md
 Type=oneshot
 # Root: SMART needs raw disk ioctls.
 StateDirectory=smart-exporter
-ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/smart-exporter/smart_exporter.py --host fastpi --out /var/lib/node-exporter/textfile/smart_fastpi.prom
+ExecStart=/usr/bin/python3 -I /usr/local/libexec/fastpi/smart_exporter.py --host fastpi --out /var/lib/node-exporter/textfile/smart_fastpi.prom
 TimeoutStartSec=5min
 Nice=10
 IOSchedulingClass=idle
@@ -21,3 +21,13 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX
+# Raw ATA/SCSI passthrough; DAC_OVERRIDE writes the pi-owned textfile dir.
+CapabilityBoundingSet=CAP_SYS_RAWIO CAP_SYS_ADMIN CAP_DAC_OVERRIDE

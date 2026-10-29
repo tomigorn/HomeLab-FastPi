@@ -6,7 +6,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 # root: /etc/sudoers and other users' authorized_keys are not readable by pi.
-ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py access
+ExecStart=/usr/bin/python3 -I /usr/local/libexec/fastpi/security_scan.py access
 TimeoutStartSec=120
 Nice=10
 IOSchedulingClass=idle
@@ -20,3 +20,13 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
+PrivateDevices=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
