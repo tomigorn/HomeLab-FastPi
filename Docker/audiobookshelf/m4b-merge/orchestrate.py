@@ -125,7 +125,7 @@ def wake_remote(timeout=420):
     try:
         import urllib.request
         urllib.request.urlopen(
-            urllib.request.Request(WAKER_URL, method="POST"), timeout=20).read()
+            urllib.request.Request(WAKER_URL, method="POST", headers={"X-Wake": "1"}), timeout=20).read()
     except Exception as e:
         print(f"    wake request failed: {e}", file=sys.stderr)
     deadline = time.time() + timeout
