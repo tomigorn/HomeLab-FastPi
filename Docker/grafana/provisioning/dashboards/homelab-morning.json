@@ -1,0 +1,2877 @@
+{
+ "uid": "homelab-morning",
+ "title": "Homelab — morning view",
+ "tags": [
+  "homelab",
+  "morning",
+  "fastpi",
+  "beefy"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "graphTooltip": 0,
+ "refresh": "5m",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "description": "One look in the morning: storage, downloads, requests, popular job, backups, security, certificates, domains, subscriptions, SMART, indexers. Docker/grafana/README.md 'Homelab — morning view'.",
+ "panels": [
+  {
+   "id": 2,
+   "type": "row",
+   "title": "At a glance",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Firing alerts",
+   "description": "Critical + warning alerts firing now (digest-only alerts excluded).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(ALERTS{alertstate=\"firing\",severity=~\"critical|warning\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Last backup",
+   "description": "Age of the last successful nightly restic backup (Docker/_global backup). Orange > 26 h, red > 50 h.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - backup_last_success_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 93600
+       },
+       {
+        "color": "red",
+        "value": 180000
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 1,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "Malware (last scans)",
+   "description": "Infected files found by the last ClamAV run on fastpi, beefy and tower (alert MalwareFound).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(clamav_infected_last_run) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 6,
+   "type": "stat",
+   "title": "Secrets leaked (repos)",
+   "description": "gitleaks findings in the public GitHub repos (daily scan).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(security_repo_leaks_total) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 1,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 7,
+   "type": "row",
+   "title": "Storage",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 8,
+   "type": "bargauge",
+   "title": "beefy tiers used",
+   "description": "ssd = both SSDs (mover keeps ≤ 70 %, from 80 % downloads go to the HDD); hdd = archive (imports stop at 90 %).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "1 - beefy_storage_avail_bytes / beefy_storage_size_bytes",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{branch}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.7
+       },
+       {
+        "color": "red",
+        "value": 0.8
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "basic",
+    "showUnfilled": true,
+    "valueMode": "color",
+    "namePlacement": "top",
+    "sizing": "auto",
+    "minVizHeight": 16,
+    "maxVizHeight": 24
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 6,
+    "w": 8,
+    "h": 5
+   }
+  },
+  {
+   "id": 9,
+   "type": "stat",
+   "title": "Mover last run",
+   "description": "Age of the last nightly SSD→HDD mover run (alert BeefyMoverNotRun > 50 h).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - beefy_mover_last_run_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 180000
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 6,
+    "w": 4,
+    "h": 5
+   }
+  },
+  {
+   "id": 10,
+   "type": "stat",
+   "title": "Mover moved",
+   "description": "Bytes moved SSD→HDD by the last run (0 = nothing needed).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "beefy_mover_moved_bytes",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 6,
+    "w": 4,
+    "h": 5
+   }
+  },
+  {
+   "id": 11,
+   "type": "stat",
+   "title": "HDD spin-ups / 24 h",
+   "description": "Start_Stop_Count rise of the cold HDD in the last 24 h (alert > 30).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "max(max_over_time(beefy_disk_smart_raw{disk=\"hdd\",attribute=\"Start_Stop_Count\"}[1d])) - max(min_over_time(beefy_disk_smart_raw{disk=\"hdd\",attribute=\"Start_Stop_Count\"}[1d]))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 10
+       },
+       {
+        "color": "red",
+        "value": 30
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 6,
+    "w": 4,
+    "h": 5
+   }
+  },
+  {
+   "id": 12,
+   "type": "stat",
+   "title": "Power cycles / 24 h",
+   "description": "beefy power cycles seen by the HDD in the last 24 h (planned wakes included).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "max(max_over_time(beefy_disk_smart_raw{disk=\"hdd\",attribute=\"Power_Cycle_Count\"}[1d])) - max(min_over_time(beefy_disk_smart_raw{disk=\"hdd\",attribute=\"Power_Cycle_Count\"}[1d]))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 6,
+    "w": 4,
+    "h": 5
+   }
+  },
+  {
+   "id": 13,
+   "type": "row",
+   "title": "Downloads and requests (beefy)",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 11,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 14,
+   "type": "stat",
+   "title": "Night queue waiting",
+   "description": "Night downloads paused, waiting for the low tariff (night-downloads.json).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "beefy_downloads_night_pending",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 15,
+   "type": "stat",
+   "title": "Active",
+   "description": "Requested titles downloading or importing now (request-state.json).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(beefy_downloads_queue{state=~\"downloading|importing\"})",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 12,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 16,
+   "type": "stat",
+   "title": "Problems",
+   "description": "Requested titles whose download has a problem (Radarr/Sonarr queue warning).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(beefy_downloads_queue{state=\"problem\"})",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 12,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 17,
+   "type": "stat",
+   "title": "Last night imported",
+   "description": "Files imported by Radarr + Sonarr in the last 22:00-06:00 window.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(beefy_downloads_night_imported)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "files",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 12,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 18,
+   "type": "stat",
+   "title": "Last night size",
+   "description": "Size of what was imported last night.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(beefy_downloads_night_imported_bytes)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 12,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 19,
+   "type": "stat",
+   "title": "Seerr requests",
+   "description": "Seerr /request/count: pending = waiting for approval, processing = approved and on its way, completed = available.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "beefy_requests{state=~\"pending|approved|processing|completed|declined\"}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{state}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 16,
+    "w": 24,
+    "h": 4
+   }
+  },
+  {
+   "id": 20,
+   "type": "stat",
+   "title": "Request badges",
+   "description": "Seerr badge states (request-state.json): can wait = night download, unreleased, no release found yet, search running.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "beefy_request_badges{state!=\"imported\"}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{state}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "purple",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 20,
+    "w": 24,
+    "h": 4
+   }
+  },
+  {
+   "id": 21,
+   "type": "row",
+   "title": "Jellyfin popular (Top 10 / Currently popular)",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 24,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 22,
+   "type": "stat",
+   "title": "Popular job last run",
+   "description": "Age of the last nightly Top-10/'Currently popular' run (jf_popular_last_run_timestamp_seconds, beefy Docker/Jellyfin popular job). n/a = the job exports no metrics yet.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - jf_popular_last_run_timestamp_seconds",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 129600
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 25,
+    "w": 8,
+    "h": 4
+   }
+  },
+  {
+   "id": 23,
+   "type": "stat",
+   "title": "Last run ok",
+   "description": "jf_popular_last_run_success (1 ok, 0 failed).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "jf_popular_last_run_success",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "failed",
+         "color": "red"
+        },
+        "1": {
+         "text": "ok",
+         "color": "green"
+        }
+       }
+      }
+     ],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 25,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "id": 24,
+   "type": "stat",
+   "title": "Items per list",
+   "description": "jf_popular_items{list}: titles in each list after the last run.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "jf_popular_items",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{list}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 25,
+    "w": 12,
+    "h": 4
+   }
+  },
+  {
+   "id": 25,
+   "type": "row",
+   "title": "Backups and security",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 29,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 26,
+   "type": "stat",
+   "title": "Backup status",
+   "description": "Result of the last nightly backup run.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "backup_last_status",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "failed",
+         "color": "red"
+        },
+        "1": {
+         "text": "ok",
+         "color": "green"
+        },
+        "2": {
+         "text": "skipped (beefy asleep)",
+         "color": "yellow"
+        }
+       }
+      }
+     ],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 27,
+   "type": "stat",
+   "title": "Backup added",
+   "description": "New data added to the repository by the last backup.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "backup_last_bytes_added",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 30,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 28,
+   "type": "stat",
+   "title": "Fixable CVEs (images)",
+   "description": "Trivy: fixable CRITICAL/HIGH vulnerabilities in running images, per host (weekly scan; details on dashboard updates-security).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (host) (security_image_vulnerabilities_fixable{severity=~\"CRITICAL|HIGH\"})",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{host}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 100
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 30,
+    "w": 12,
+    "h": 4
+   }
+  },
+  {
+   "id": 29,
+   "type": "row",
+   "title": "Certificates, domains and subscriptions",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 34,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 30,
+   "type": "table",
+   "title": "TLS certificates (days left)",
+   "description": "Certificate Traefik really serves for every routed hostname (nightly TLS check 05:50). Alerts: ≤ 21 d warning, ≤ 7 d critical, not valid = warning.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "(tls_cert_not_after_timestamp_seconds - time()) / 86400",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "B",
+     "expr": "tls_cert_verified",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true
+      },
+      "renameByName": {
+       "host": "Hostname",
+       "Value #A": "Days left",
+       "Value #B": "Valid"
+      },
+      "indexByName": {}
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Days left"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "red",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 7
+          },
+          {
+           "color": "green",
+           "value": 21
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Valid"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "✔",
+            "color": "green"
+           },
+           "0": {
+            "text": "✘",
+            "color": "red"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 60
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    },
+    "sortBy": [
+     {
+      "displayName": "Days left",
+      "desc": false
+     }
+    ]
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 12,
+    "h": 10
+   }
+  },
+  {
+   "id": 31,
+   "type": "table",
+   "title": "Domains",
+   "description": "RDAP, nightly. .ch publishes no end date: 'anniversary' = next registration anniversary (earliest the paid year ends), 'manual' = domains.toml. Alert ≤ 30 d.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "(domain_expiry_timestamp_seconds - time()) / 86400",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "B",
+     "expr": "domain_rdap_status_ok",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true
+      },
+      "renameByName": {
+       "domain": "Domain",
+       "source": "Date from",
+       "Value #A": "Days left",
+       "Value #B": "Status ok"
+      },
+      "indexByName": {}
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Days left"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "red",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 30
+          },
+          {
+           "color": "green",
+           "value": 60
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Status ok"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "✔",
+            "color": "green"
+           },
+           "0": {
+            "text": "✘",
+            "color": "red"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 35,
+    "w": 12,
+    "h": 4
+   }
+  },
+  {
+   "id": 32,
+   "type": "table",
+   "title": "DDNS hostnames",
+   "description": "Free No-IP hostnames: confirm the 30-day mail, or No-IP deletes them (deadline not readable from outside; alert when a name stops resolving).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "ddns_hostname_resolves",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "B",
+     "expr": "ddns_hostname_matches_wan",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true
+      },
+      "renameByName": {
+       "host": "Hostname",
+       "Value #A": "Resolves",
+       "Value #B": "Points home"
+      },
+      "indexByName": {}
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "Resolves|Points home"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "✔",
+            "color": "green"
+           },
+           "0": {
+            "text": "✘",
+            "color": "red"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 39,
+    "w": 12,
+    "h": 3
+   }
+  },
+  {
+   "id": 33,
+   "type": "table",
+   "title": "Subscriptions (days left)",
+   "description": "Seerr indexer-bar/limits.toml (via subscription-alerts cache) + MAM VIP (abr-bar/limits.toml). Telegram warnings come from subscription-alerts.py (30/7/0 days). Lifetime ones are not listed.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "(subscription_expiry_timestamp_seconds - time()) / 86400",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true
+      },
+      "renameByName": {
+       "name": "Service",
+       "kind": "Kind",
+       "Value": "Days left"
+      },
+      "indexByName": {}
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Days left"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "red",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 7
+          },
+          {
+           "color": "yellow",
+           "value": 30
+          },
+          {
+           "color": "green",
+           "value": 60
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    },
+    "sortBy": [
+     {
+      "displayName": "Days left",
+      "desc": false
+     }
+    ]
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 42,
+    "w": 12,
+    "h": 5
+   }
+  },
+  {
+   "id": 34,
+   "type": "row",
+   "title": "Disk health (SMART)",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 45,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 35,
+   "type": "table",
+   "title": "Disks",
+   "description": "smartctl -n standby every 30 min (fastpi; beefy while awake, pulled every 5 min). A parked disk is not woken: its last values stay, 'Asleep' = yes. Alerts: failing (critical), pending > 0, reallocated/uncorrectable/media errors rising, wear ≥ 80 %, temperature HDD 55 / SSD 65 / NVMe 75 °C.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "smart_healthy",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "B",
+     "expr": "smart_temperature_celsius",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "C",
+     "expr": "smart_wear_ratio",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "D",
+     "expr": "smart_reallocated_sectors",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "E",
+     "expr": "smart_pending_sectors",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "F",
+     "expr": "smart_media_errors",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "G",
+     "expr": "smart_power_on_hours",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "H",
+     "expr": "smart_power_cycles",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "I",
+     "expr": "smart_start_stop_count",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "refId": "J",
+     "expr": "smart_standby",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true
+      },
+      "renameByName": {
+       "host": "Host",
+       "disk": "Disk",
+       "Value #A": "Health",
+       "Value #B": "°C",
+       "Value #C": "Wear",
+       "Value #D": "Realloc",
+       "Value #E": "Pending",
+       "Value #F": "Media err",
+       "Value #G": "Hours",
+       "Value #H": "Power cycles",
+       "Value #I": "Start/stop",
+       "Value #J": "Asleep"
+      },
+      "indexByName": {}
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Health"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "OK",
+            "color": "green"
+           },
+           "0": {
+            "text": "FAILING",
+            "color": "red"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "°C"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "celsius"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "yellow",
+           "value": 50
+          },
+          {
+           "color": "red",
+           "value": 60
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Wear"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "percentunit"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "yellow",
+           "value": 0.5
+          },
+          {
+           "color": "red",
+           "value": 0.8
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Pending"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "red",
+           "value": 1
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Realloc"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 1
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Media err"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 1
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Asleep"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "💤 yes"
+           },
+           "0": {
+            "text": "no"
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 46,
+    "w": 24,
+    "h": 9
+   }
+  },
+  {
+   "id": 36,
+   "type": "row",
+   "title": "Indexer usage",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 55,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 37,
+   "type": "bargauge",
+   "title": "Limited indexers (used of limit)",
+   "description": "Indexers with a quota (Seerr bar on beefy, audiobook bar on fastpi), inside their window (rolling 24 h or calendar day).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "indexer_used / indexer_limit",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{host}} · {{indexer}} · {{kind}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.7
+       },
+       {
+        "color": "red",
+        "value": 0.9
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "displayMode": "basic",
+    "showUnfilled": true,
+    "valueMode": "color",
+    "namePlacement": "top",
+    "sizing": "auto",
+    "minVizHeight": 16,
+    "maxVizHeight": 24
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 56,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
+   "id": 38,
+   "type": "table",
+   "title": "All indexers (used in window)",
+   "description": "Searches (API + RSS) and grabs per indexer inside its window.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "indexer_used",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true
+      },
+      "renameByName": {
+       "host": "Host",
+       "indexer": "Indexer",
+       "kind": "Kind",
+       "Value": "Used"
+      },
+      "indexByName": {}
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 56,
+    "w": 12,
+    "h": 7
+   }
+  }
+ ],
+ "templating": {
+  "list": []
+ },
+ "annotations": {
+  "list": []
+ },
+ "links": [
+  {
+   "title": "Updates & security",
+   "type": "link",
+   "url": "/d/updates-security",
+   "icon": "dashboard"
+  }
+ ]
+}
