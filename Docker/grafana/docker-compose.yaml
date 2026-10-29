@@ -196,7 +196,7 @@ services:
 # Grafana #################################################
 # #########################################################
   grafana:
-    image: grafana/grafana:13.2.4   # switched from grafana-oss (abandoned at 13.0.2); OSS build, enterprise bundle dormant without a licence
+    image: grafana/grafana:13.2.5   # switched from grafana-oss (abandoned at 13.0.2); OSS build, enterprise bundle dormant without a licence
     container_name: grafana
     user: "65050:65050"   # dedicated; the image default 472:0 runs in root's group
     security_opt:
