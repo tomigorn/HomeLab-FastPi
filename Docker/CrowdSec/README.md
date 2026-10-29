@@ -94,7 +94,7 @@ Cardinality: about 350 series from the exporter, which is negligible next to the
    - **new major:** not installed. It reports `major_available` and waits for a human
      (read release notes, check plugin compatibility).
 2. **Update:** pull while still running -> stop -> tar both volumes to
-   `~/backups/pre-update/<date>/crowdsec-autoupdate/` (stopped, so the SQLite DB is
+   `~/backups/pre-update/<date>/crowdsec-autoupdate/` (owner-only 0700/0600, tar runs in a digest-pinned alpine; stopped, so the SQLite DB is
    consistent) -> set `CROWDSEC_TAG` in `.env` -> start. Downtime ~15 s, invisible
    thanks to the fail-open bouncer.
 3. **Verify:** container running with 0 restarts, `cscli lapi status` OK, bouncer pulled
