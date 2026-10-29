@@ -141,12 +141,24 @@ The steps above, automated for the routine cases (first used for the 2026-10-17
 CVE round, 20 projects, 1 automatic rollback):
 
 ```bash
+_global/scripts/update-project.sh <compose-dir> snapshot        # BEFORE you edit a tag/digest in compose or .env
+# edit the image ref, then:
 _global/scripts/update-project.sh <compose-dir> pull|build|recreate [backup paths...]
 ```
 
+Rollback safety:
+
+| What | How |
+|---|---|
+| compose + `.env` | snapshot of the files that define the image refs (`snapshot` mode before your edit, used within 12 h; else taken at the start) -> `~/backups/pre-update/<date>/<project>/compose-snapshot-*`; the rollback restores them |
+| old image | tagged `<repo>:rollback-<date>-<project>` before any pull/build/recreate, so `docker image prune` cannot take it; the newest `ROLLBACK_KEEP` (3) per repo and project stay; `image-cleanup.sh` keeps them 14 days |
+| tag ref | old tag re-pointed at the old image id |
+| digest ref (`@sha256:`) | restored compose names the old digest again; never re-tagged |
+| edited without `snapshot` | compose still names the new ref: the service is pinned to its rollback tag (`rollback-override.yaml`) and a `WARN` says to revert the edit, else the next `up -d` moves it |
+
 It snapshots the running image IDs, pulls (or `build --pull`s, or just recreates on an already-pulled image), then, only when backup paths are given, stops the services and tars the given bind dirs / `vol:<name>` volumes cold into `~/backups/pre-update/<date>/<project>/` (a live Postgres/SQLite/InfluxDB copy can be torn), starts them on the new image, waits 45 s, and requires every
 container to be running (and healthy if it has a healthcheck) with 0 restarts —
-otherwise it re-tags the old image IDs and recreates (automatic rollback).
+otherwise it restores compose/`.env`, re-tags the old image IDs and recreates on them (automatic rollback, table above).
 `SERVICES="a b"` limits the pull/build and the recreate (`--no-deps`) to those services, a forced-drill rollback too; the verify still covers every container of the project (keep gluetun out of it).
 For Traefik it first runs `Traefik/scripts/traefik-plugin-test.sh <new tag>` and stops, unchanged, if the local plugins fail on the new version.
 `CHECK='<shell command>'` adds a functional check after the container checks (retried 6 × 10 s; it runs inside the project folder, so use absolute paths; for the Authentik canary use `CHECK='sleep 35; bash /home/pi/Projects/Docker/Authentik/scripts/canary-verify.sh'`, because a retry within the same 30 s TOTP window is refused); `TEST_FORCE_FAIL=1` forces the rollback (drill). The rollback recreates only the changed or down services and is verified itself: exit 0 ok, 1 rolled back, 3 rollback did not verify.

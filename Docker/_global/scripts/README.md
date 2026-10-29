@@ -7,7 +7,7 @@
 | `host-output-guard.sh [--persist]` | HOST-OUT-GUARD: what the host itself (incl. host-network containers) may open on beefy (OUTPUT) |
 | `iptables-persist.sh` | writes `/etc/iptables/rules.v4/v6` with only those chains; never `netfilter-persistent save` |
 | `smoke-test.sh` | end-to-end checks, must stay green |
-| `update-project.sh`, `auto_update.py` | image updates |
+| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env + old image). Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
 | `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
 | `maintenance-silence.sh on [hours] [reason] \| off \| status` | Alertmanager silence for batch/upgrade work (crash loops, container down/unhealthy, file changes, reboots, own SSH logins), default 4 h, max 24 h; only touches its own silences. Test: `./test_maintenance_silence.sh` |
 | `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
@@ -25,7 +25,7 @@
 | What | `image-cleanup.sh`: removes images no container (running or stopped) uses, and build cache, both after 14 days. Never volumes, networks or containers. |
 | When | weekly `image-cleanup.timer`: fastpi Sun 05:30, beefy Sun 04:20 (inside the maintenance wake, never a wake of its own). Install: `_global/install-image-cleanup.sh` |
 | Unused clock | own state `/var/lib/image-cleanup/first-seen` (image ID, first seen unused). `prune --filter until` dates by build time, which would delete an image the day it was superseded |
-| Rollback | `update-project.sh` re-tags the previous image ID, so a superseded image stays 14 days. Kept always: images of any container, tags containing `rollback`, images referenced in the repo's compose files and scripts. First run: dangling images and older tags of a repo in use start their 14 days then |
+| Rollback | `update-project.sh` tags the previous image `<repo>:rollback-<date>-<project>`, so a superseded image stays 14 days. `:rollback-*` tags: kept 14 days from the date in the tag (else the tag time), then cleaned. Kept always: images of any container, other tags containing `rollback`, images referenced in the repo's compose files and scripts. First run: dangling images and older tags of a repo in use start their 14 days then |
 | Metrics | `docker_image_cleanup_{freed_bytes,removed_images,rollback_window_images,failed_images,last_run_timestamp_seconds}` in `image_cleanup.prom` |
 | By hand | `scripts/image-cleanup.sh --dry-run` lists what would go; `systemctl start image-cleanup.service` runs it (`KEEP_DAYS=7` env to change the age) |
 | Test | `scripts/test_image_cleanup.sh` (fake docker) |

@@ -91,7 +91,7 @@ sudo unattended-upgrade --dry-run --debug 2>&1 | grep -i 'allowed origins'
 
 ## beefy
 
-Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`: verbatim copies in beefy's `Docker/_global/scripts/` (change them here, run the tests, copy). Host differences come from the unit's environment and the script's location. beefy repo README "Image auto-update".
+Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`, `test_update_project.sh`, `image-cleanup.sh` (+ tests): verbatim copies in beefy's `Docker/_global/scripts/` (change them here, run the tests, copy). Host differences come from the unit's environment and the script's location. beefy repo README "Image auto-update".
 
 | Item | beefy |
 |---|---|
