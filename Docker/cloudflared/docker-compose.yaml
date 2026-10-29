@@ -7,7 +7,7 @@ services:
 # ---------------------------------------------------------
   cloudflared:
     container_name: cloudflared
-    image: cloudflare/cloudflared:2026.10.4   # pinned; bump deliberately (release notes: github.com/cloudflare/cloudflared/releases)
+    image: cloudflare/cloudflared:2026.10.5   # pinned; bump deliberately (release notes: github.com/cloudflare/cloudflared/releases)
     mem_limit: 256m
     # Metrics listen on all container interfaces but the port is NOT published; Prometheus reaches cloudflared:20241 over infra__cloudflare_default.
     # Protocol is left to cloudflared to negotiate (it picks http2 here).
