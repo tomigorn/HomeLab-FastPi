@@ -62,7 +62,7 @@ Open a title **you requested** → the card **My request** under the title (tap 
 
 Press **Save**; within 2 minutes the server applies it and searches again if quality or audio changed (subtitles only: no new download). If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
 
-## Sizes on the Requests page
+## Sizes
 Every request shows **Size** under Profile (German: **Grösse**).
 
 | You see | Means |
@@ -71,6 +71,8 @@ Every request shows **Size** under Profile (German: **Grösse**).
 | `22.9 GB · 5 of 6 episodes` | series: some episodes still missing |
 | `≈ 5.4 GB · in queue` | downloading or waiting for the night |
 | `—` | nothing downloaded yet |
+
+A title's page shows **Size** too, in the facts box under Status: films with their quality (`45.3 GB · 2160p HDR10`), series with episodes (`143.7 GB · 16 of 16 episodes`; hover or tap for each season).
 
 Sort by size: the **GB** box right of the sort → **Largest** or **Smallest** (all requests on one page). **Off** or picking Seerr's own sort brings the normal order back.
 
