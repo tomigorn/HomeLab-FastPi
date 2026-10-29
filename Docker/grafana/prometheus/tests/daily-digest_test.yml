@@ -123,3 +123,30 @@ tests:
         alertname: DailyDigest
         exp_alerts: []
 
+
+  - name: expiry and disks section only with something due
+    interval: 1m
+    input_series:
+      # at 1d5h30m (106200 s): cert 10 d left, cert 60 d left, domain 20 d, subscription 5 d and one ended, subscription 90 d
+      - series: 'tls_cert_not_after_timestamp_seconds{host="sso.holy-grail.ch"}'
+        values: '970200x1800'
+      - series: 'tls_cert_not_after_timestamp_seconds{host="far.holy-grail.ch"}'
+        values: '5290200x1800'
+      - series: 'domain_expiry_timestamp_seconds{domain="holy-grail.ch",source="anniversary"}'
+        values: '1834200x1800'
+      - series: 'subscription_expiry_timestamp_seconds{name="Eweka",kind="Usenet provider"}'
+        values: '538200x1800'
+      - series: 'subscription_expiry_timestamp_seconds{name="Old & Gone",kind="indexer"}'
+        values: '0x1800'
+      - series: 'subscription_expiry_timestamp_seconds{name="ProtonVPN Plus",kind="VPN"}'
+        values: '7882200x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="SmartPendingSectors",severity="warning",host="fastpi",disk="seagate-red"}'
+        values: '1x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Daily digest"
+              description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• none\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• ⏳ <b>SmartPendingSectors</b> · fastpi\n\n<b>🛡️ New fixable CVEs</b>\n• none\n\n<b>📦 Auto-updates</b>\n• no run in the last 24 h\n\n<b>💤 Awake</b> (24 h)\n\n<b>⏰ Expiry and disks</b> (needs attention)\n• 🔐 sso.holy-grail.ch: certificate ends in 10 d\n• 🌐 holy-grail.ch: renewal due in 20 d\n• 💳 Eweka: ends in 5 d\n• 💳 Old &amp; Gone: ended\n• 💽 fastpi seagate-red: SmartPendingSectors\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"

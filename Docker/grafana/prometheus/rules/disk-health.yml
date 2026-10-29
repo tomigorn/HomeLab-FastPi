@@ -1,0 +1,85 @@
+# SMART disk health of fastpi and beefy (README "Expiry and disk health").
+# Data: smart-exporter/smart_exporter.py every 30 min (fastpi: smart_fastpi.prom; beefy: its copy writes /var/lib/smart-exporter/smart_beefy.prom, pulled every 5 min by beefy-idle-pull.sh and kept while beefy sleeps).
+# smartctl -n standby never wakes a parked disk: its last values stay in the file with smart_standby=1, so counters are continuous; temperature only counts when read in the last hour.
+# Growth = the counter is higher than its lowest value of the last 24 h (holds one day per increase).
+# fastpi's NVMe temperature is HostNvmeHot (host-resources.yml), so it is left out here.
+# Tests: prometheus/tests/disk-health_test.yml
+groups:
+  - name: disk-health
+    rules:
+      - alert: SmartDiskFailing
+        expr: smart_healthy == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.host }} disk {{ $labels.disk }} fails its SMART health check"
+          description: "The drive reports its overall SMART health as FAILED: it expects to fail soon. Copy off what is not backed up and replace it. Details: <code>sudo smartctl -a</code> on {{ $labels.host }}."
+
+      - alert: SmartNvmeCriticalWarning
+        expr: smart_nvme_critical_warning > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.host }} NVMe {{ $labels.disk }} raises a critical warning"
+          description: "NVMe critical warning bits {{ $value }} (1 spare low, 2 temperature, 4 reliability degraded, 8 read-only, 16 backup failed). <code>sudo smartctl -a</code> on {{ $labels.host }}."
+
+      - alert: SmartPendingSectors
+        expr: smart_pending_sectors > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }} disk {{ $labels.disk }}: {{ $value }} pending sector(s)"
+          description: "Sectors the drive could not read and waits to remap. Often the first sign of a dying disk: check backups and watch for growth (SmartErrorsGrowing)."
+
+      - alert: SmartErrorsGrowing
+        expr: |-
+          label_replace(smart_reallocated_sectors > min_over_time(smart_reallocated_sectors[1d]), "counter", "reallocated sectors", "", "")
+            or label_replace(smart_offline_uncorrectable > min_over_time(smart_offline_uncorrectable[1d]), "counter", "offline uncorrectable", "", "")
+            or label_replace(smart_media_errors > min_over_time(smart_media_errors[1d]), "counter", "media errors", "", "")
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }} disk {{ $labels.disk }}: {{ $labels.counter }} rising ({{ $value }})"
+          description: "{{ $labels.counter }} grew in the last 24 h. A rising count means the surface or flash is wearing out: check backups, plan a replacement."
+
+      - alert: SmartWearHigh
+        expr: smart_wear_ratio >= 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }} SSD {{ $labels.disk }} is {{ $value | humanizePercentage }} worn"
+          description: "The drive's own wear indicator has used {{ $value | humanizePercentage }} of its rated endurance. Plan a replacement before 100 %."
+
+      - alert: SmartTemperatureHigh
+        expr: |-
+          (
+              (smart_temperature_celsius >= 55 and on(host, disk) smart_device_info{type="hdd"})
+            or (smart_temperature_celsius >= 65 and on(host, disk) smart_device_info{type="ssd"})
+            or (smart_temperature_celsius >= 75 and on(host, disk) smart_device_info{type="nvme"})
+          )
+            and on(host, disk) (time() - smart_last_read_timestamp_seconds < 3600)
+            unless on(host, disk) smart_device_info{host="fastpi", type="nvme"}
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }} disk {{ $labels.disk }} at {{ $value }} °C"
+          description: "Over the limit for its type (HDD 55, SATA SSD 65, NVMe 75 °C) for 30 min. Check airflow and fans on {{ $labels.host }}."
+
+      - alert: SmartExporterStale
+        expr: |-
+          (time() - smart_exporter_last_run_timestamp_seconds{host="fastpi"} > 7200)
+            or (time() - smart_exporter_last_run_timestamp_seconds{host!="fastpi"} > 3 * 86400)
+            or (smart_exporter_errors > 0)
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "SMART data of {{ $labels.host }} not current"
+          description: "smart-exporter did not run or could not read a disk: <code>journalctl -u smart-exporter -n 20</code> on {{ $labels.host }}. beefy's copy is pulled only while it is awake, so 3 days are allowed there."

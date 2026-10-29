@@ -1,0 +1,127 @@
+# promtool test rules tests/disk-health_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/disk-health.yml
+evaluation_interval: 1m
+tests:
+  - name: failing, pending, growth, wear
+    interval: 5m
+    input_series:
+      - series: 'smart_healthy{host="beefy",disk="hdd-cold"}'
+        values: '1x6 0x20'
+      - series: 'smart_nvme_critical_warning{host="beefy",disk="system"}'
+        values: '0x6 4x20'
+      - series: 'smart_pending_sectors{host="fastpi",disk="seagate-red"}'
+        values: '0x6 2x20'
+      - series: 'smart_reallocated_sectors{host="beefy",disk="hdd-cold"}'
+        values: '8x6 9x300'
+      - series: 'smart_media_errors{host="beefy",disk="system"}'
+        values: '0x500'
+      - series: 'smart_wear_ratio{host="beefy",disk="ssd-hot"}'
+        values: '0.79x6 0.8x20'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: SmartDiskFailing
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: SmartDiskFailing
+        exp_alerts:
+          - exp_labels: {severity: critical, host: beefy, disk: hdd-cold}
+            exp_annotations:
+              summary: "beefy disk hdd-cold fails its SMART health check"
+              description: "The drive reports its overall SMART health as FAILED: it expects to fail soon. Copy off what is not backed up and replace it. Details: <code>sudo smartctl -a</code> on beefy."
+      - eval_time: 45m
+        alertname: SmartNvmeCriticalWarning
+        exp_alerts:
+          - exp_labels: {severity: critical, host: beefy, disk: system}
+            exp_annotations:
+              summary: "beefy NVMe system raises a critical warning"
+              description: "NVMe critical warning bits 4 (1 spare low, 2 temperature, 4 reliability degraded, 8 read-only, 16 backup failed). <code>sudo smartctl -a</code> on beefy."
+      - eval_time: 45m
+        alertname: SmartPendingSectors
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, disk: seagate-red}
+            exp_annotations:
+              summary: "fastpi disk seagate-red: 2 pending sector(s)"
+              description: "Sectors the drive could not read and waits to remap. Often the first sign of a dying disk: check backups and watch for growth (SmartErrorsGrowing)."
+      - eval_time: 45m
+        alertname: SmartErrorsGrowing
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, disk: hdd-cold, counter: reallocated sectors}
+            exp_annotations:
+              summary: "beefy disk hdd-cold: reallocated sectors rising (9)"
+              description: "reallocated sectors grew in the last 24 h. A rising count means the surface or flash is wearing out: check backups, plan a replacement."
+      - eval_time: 26h
+        alertname: SmartErrorsGrowing
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: SmartWearHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, disk: ssd-hot}
+            exp_annotations:
+              summary: "beefy SSD ssd-hot is 80% worn"
+              description: "The drive's own wear indicator has used 80% of its rated endurance. Plan a replacement before 100 %."
+
+  - name: temperature per type, only when freshly read, fastpi nvme excluded
+    interval: 5m
+    input_series:
+      - series: 'smart_temperature_celsius{host="beefy",disk="hdd-cold"}'
+        values: '56x20'
+      - series: 'smart_device_info{host="beefy",disk="hdd-cold",model="m",type="hdd",transport="sata"}'
+        values: '1x20'
+      - series: 'smart_last_read_timestamp_seconds{host="beefy",disk="hdd-cold"}'
+        values: '0+300x20'
+      - series: 'smart_temperature_celsius{host="beefy",disk="ssd-hot"}'
+        values: '60x20'
+      - series: 'smart_device_info{host="beefy",disk="ssd-hot",model="m",type="ssd",transport="sata"}'
+        values: '1x20'
+      - series: 'smart_last_read_timestamp_seconds{host="beefy",disk="ssd-hot"}'
+        values: '0+300x20'
+      - series: 'smart_temperature_celsius{host="fastpi",disk="seagate-red"}'
+        values: '58x20'
+      - series: 'smart_device_info{host="fastpi",disk="seagate-red",model="m",type="hdd",transport="usb"}'
+        values: '1x20'
+      - series: 'smart_last_read_timestamp_seconds{host="fastpi",disk="seagate-red"}'
+        values: '0x20'
+      - series: 'smart_temperature_celsius{host="fastpi",disk="system"}'
+        values: '80x20'
+      - series: 'smart_device_info{host="fastpi",disk="system",model="m",type="nvme",transport="nvme"}'
+        values: '1x20'
+      - series: 'smart_last_read_timestamp_seconds{host="fastpi",disk="system"}'
+        values: '0+300x20'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: SmartTemperatureHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, disk: hdd-cold}
+            exp_annotations:
+              summary: "beefy disk hdd-cold at 56 °C"
+              description: "Over the limit for its type (HDD 55, SATA SSD 65, NVMe 75 °C) for 30 min. Check airflow and fans on beefy."
+          - exp_labels: {severity: warning, host: fastpi, disk: seagate-red}
+            exp_annotations:
+              summary: "fastpi disk seagate-red at 58 °C"
+              description: "Over the limit for its type (HDD 55, SATA SSD 65, NVMe 75 °C) for 30 min. Check airflow and fans on fastpi."
+      - eval_time: 95m
+        alertname: SmartTemperatureHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, disk: hdd-cold}
+            exp_annotations:
+              summary: "beefy disk hdd-cold at 56 °C"
+              description: "Over the limit for its type (HDD 55, SATA SSD 65, NVMe 75 °C) for 30 min. Check airflow and fans on beefy."
+
+  - name: exporter stale per host
+    interval: 5m
+    input_series:
+      - series: 'smart_exporter_last_run_timestamp_seconds{host="fastpi"}'
+        values: '0x100'
+      - series: 'smart_exporter_last_run_timestamp_seconds{host="beefy"}'
+        values: '0x100'
+      - series: 'smart_exporter_errors{host="fastpi"}'
+        values: '0x100'
+    alert_rule_test:
+      - eval_time: 5h
+        alertname: SmartExporterStale
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, host: fastpi}
+            exp_annotations:
+              summary: "SMART data of fastpi not current"
+              description: "smart-exporter did not run or could not read a disk: <code>journalctl -u smart-exporter -n 20</code> on fastpi. beefy's copy is pulled only while it is awake, so 3 days are allowed there."

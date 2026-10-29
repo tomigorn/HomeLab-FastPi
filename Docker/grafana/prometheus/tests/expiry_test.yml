@@ -1,0 +1,132 @@
+# promtool test rules tests/expiry_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/expiry.yml
+evaluation_interval: 1m
+tests:
+  - name: certificate warning and critical are exclusive, not-valid and probe failure
+    interval: 5m
+    input_series:
+      # 30 days left at t=0, falls with time
+      - series: 'tls_cert_not_after_timestamp_seconds{host="a.holy-grail.ch"}'
+        values: '2592000x4000'
+      - series: 'tls_cert_not_after_timestamp_seconds{host="b.holy-grail.ch"}'
+        values: '518400x200'
+      - series: 'tls_cert_verified{host="c.holy-grail.ch"}'
+        values: '0x40'
+      - series: 'tls_cert_probe_success{host="d.holy-grail.ch"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: TlsCertExpiringSoon
+        exp_alerts: []
+      - eval_time: 10d
+        alertname: TlsCertExpiringSoon
+        exp_alerts:
+          - exp_labels: {severity: warning, host: a.holy-grail.ch}
+            exp_annotations:
+              summary: "Certificate of a.holy-grail.ch ends in 20 days"
+              description: "Traefik serves a certificate for a.holy-grail.ch that ends in 20 days. Traefik renews 30 days ahead, so renewal is failing: <code>docker logs traefik 2>&amp;1 | grep -i acme</code> (DNS challenge = Cloudflare token, HTTP challenge = port 80 reachable)."
+      - eval_time: 2h
+        alertname: TlsCertExpiryCritical
+        exp_alerts:
+          - exp_labels: {severity: critical, host: b.holy-grail.ch}
+            exp_annotations:
+              summary: "Certificate of b.holy-grail.ch ends in 6 days"
+              description: "Traefik serves a certificate for b.holy-grail.ch that ends in 6 days (0 or less = expired, browsers refuse the site). Check the ACME errors: <code>docker logs traefik 2>&amp;1 | grep -i acme</code>."
+      - eval_time: 2h
+        alertname: TlsCertExpiringSoon
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: TlsCertNotValid
+        exp_alerts:
+          - exp_labels: {severity: warning, host: c.holy-grail.ch}
+            exp_annotations:
+              summary: "Certificate of c.holy-grail.ch does not verify"
+              description: "Traefik answers c.holy-grail.ch with a certificate that fails verification (wrong name, untrusted, e.g. Traefik's default certificate after a lost ACME store). Check: <code>openssl s_client -connect 127.0.0.1:443 -servername c.holy-grail.ch &lt;/dev/null | openssl x509 -noout -subject -issuer -enddate</code>."
+      - eval_time: 2h
+        alertname: TlsCertProbeFailed
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, host: d.holy-grail.ch}
+            exp_annotations:
+              summary: "No TLS handshake for d.holy-grail.ch"
+              description: "The nightly TLS check got no handshake from Traefik for d.holy-grail.ch (router gone or Traefik down at 05:50)."
+
+  - name: domains, status and ddns
+    interval: 5m
+    input_series:
+      - series: 'domain_expiry_timestamp_seconds{domain="holy-grail.ch",source="anniversary"}'
+        values: '2160000x40'
+      - series: 'domain_expiry_timestamp_seconds{domain="example.net",source="rdap"}'
+        values: '1728000x40'
+      - series: 'domain_expiry_timestamp_seconds{domain="far.ch",source="manual"}'
+        values: '90000000x40'
+      - series: 'domain_rdap_status_ok{domain="holy-grail.ch"}'
+        values: '0x40'
+      - series: 'domain_rdap_success{domain="holy-grail.ch"}'
+        values: '1x20'
+      - series: 'domain_exporter_last_run_timestamp_seconds'
+        values: '0x40'
+      - series: 'tls_cert_exporter_last_run_timestamp_seconds'
+        values: '0x40'
+      - series: 'ddns_hostname_resolves{host="a.ddns.net"}'
+        values: '0x40'
+      - series: 'ddns_hostname_matches_wan{host="b.ddns.net"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: DomainExpiringSoon
+        exp_alerts:
+          - exp_labels: {severity: warning, domain: holy-grail.ch, source: anniversary}
+            exp_annotations:
+              summary: "holy-grail.ch: renewal due in 25 days"
+              description: "The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end. Check auto-renew at the registrar; after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>."
+          - exp_labels: {severity: warning, domain: example.net, source: rdap}
+            exp_annotations:
+              summary: "example.net: registration ends in 20 days"
+              description: "The registration of example.net ends in 20 days (rdap). Renew it at the registrar."
+      - eval_time: 2h
+        alertname: DomainStatusProblem
+        exp_alerts:
+          - exp_labels: {severity: warning, domain: holy-grail.ch}
+            exp_annotations:
+              summary: "holy-grail.ch has a problem status in RDAP"
+              description: "The registry reports holy-grail.ch as inactive, on hold, in redemption or pending delete. Check it at the registrar now: DNS for every service depends on it."
+      - eval_time: 2h
+        alertname: DdnsHostnameNotResolving
+        exp_alerts:
+          - exp_labels: {severity: warning, host: a.ddns.net}
+            exp_annotations:
+              summary: "a.ddns.net no longer resolves"
+              description: "The DDNS hostname a.ddns.net has no address. A free No-IP hostname is deleted when its 30-day confirm mail is not answered: log in at No-IP and re-create or confirm it."
+      - eval_time: 2h
+        alertname: DdnsHostnameWrongAddress
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, host: b.ddns.net}
+            exp_annotations:
+              summary: "b.ddns.net does not point at the WAN address"
+              description: "b.ddns.net resolves, but not to fastpi's current WAN address (the DDNS updater has not caught up, or the hostname was taken over)."
+      - eval_time: 2h
+        alertname: StatusExporterStale
+        exp_alerts: []
+
+  - name: exporter stale after two days, failed rdap
+    interval: 5m
+    input_series:
+      - series: 'domain_exporter_last_run_timestamp_seconds'
+        values: '0x800'
+      - series: 'tls_cert_exporter_last_run_timestamp_seconds'
+        values: '0+300x8000'
+      - series: 'domain_rdap_success{domain="x.ch"}'
+        values: '0x800'
+    alert_rule_test:
+      - eval_time: 50h
+        alertname: StatusExporterStale
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, check: domains}
+            exp_annotations:
+              summary: "Expiry check domains not current"
+              description: "The nightly status-exporter-daily run did not deliver (domains): <code>journalctl -u status-exporter-daily -n 20</code>."
+          - exp_labels: {severity: info, notify: digest, check: rdap, domain: x.ch}
+            exp_annotations:
+              summary: "Expiry check rdap (x.ch) not current"
+              description: "The nightly status-exporter-daily run did not deliver (rdap): <code>journalctl -u status-exporter-daily -n 20</code>."

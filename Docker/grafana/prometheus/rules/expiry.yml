@@ -1,0 +1,102 @@
+# Expiry of TLS certificates, domain registrations and DDNS hostnames (README "Expiry and disk health").
+# Data: status-exporter/status_exporter.py, daily 05:50 (status-exporter-daily.timer): status_certs.prom (TLS handshake with Traefik per routed hostname) and status_domains.prom (RDAP + DDNS resolution). The files persist between runs, so for: 1h only filters a half-written start.
+# Subscriptions have their own Telegram warnings (_global/scripts/subscription-alerts.py) and no rule here; the daily digest lists the ones ending within 30 days.
+# Warning and critical on certificates use disjoint ranges, so a cert sends one message per level.
+# Tests: prometheus/tests/expiry_test.yml
+groups:
+  - name: expiry
+    rules:
+      - alert: TlsCertExpiringSoon
+        expr: (tls_cert_not_after_timestamp_seconds - time()) / 86400 <= 21 and (tls_cert_not_after_timestamp_seconds - time()) / 86400 > 7
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Certificate of {{ $labels.host }} ends in {{ $value | printf \"%.0f\" }} days"
+          description: >-
+            Traefik serves a certificate for {{ $labels.host }} that ends in {{ $value | printf "%.0f" }} days.
+            Traefik renews 30 days ahead, so renewal is failing: <code>docker logs traefik 2>&amp;1 | grep -i acme</code> (DNS challenge = Cloudflare token, HTTP challenge = port 80 reachable).
+
+      - alert: TlsCertExpiryCritical
+        expr: (tls_cert_not_after_timestamp_seconds - time()) / 86400 <= 7
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Certificate of {{ $labels.host }} ends in {{ $value | printf \"%.0f\" }} days"
+          description: >-
+            Traefik serves a certificate for {{ $labels.host }} that ends in {{ $value | printf "%.0f" }} days (0 or less = expired, browsers refuse the site).
+            Check the ACME errors: <code>docker logs traefik 2>&amp;1 | grep -i acme</code>.
+
+      - alert: TlsCertNotValid
+        expr: tls_cert_verified == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Certificate of {{ $labels.host }} does not verify"
+          description: >-
+            Traefik answers {{ $labels.host }} with a certificate that fails verification (wrong name, untrusted, e.g. Traefik's default certificate after a lost ACME store).
+            Check: <code>openssl s_client -connect 127.0.0.1:443 -servername {{ $labels.host }} &lt;/dev/null | openssl x509 -noout -subject -issuer -enddate</code>.
+
+      - alert: TlsCertProbeFailed
+        expr: tls_cert_probe_success == 0
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "No TLS handshake for {{ $labels.host }}"
+          description: "The nightly TLS check got no handshake from Traefik for {{ $labels.host }} (router gone or Traefik down at 05:50)."
+
+      - alert: DomainExpiringSoon
+        expr: (domain_expiry_timestamp_seconds - time()) / 86400 <= 30
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.domain }}: {{ if eq $labels.source \"anniversary\" }}renewal due{{ else }}registration ends{{ end }} in {{ $value | printf \"%.0f\" }} days"
+          description: >-
+            {{ if eq $labels.source "anniversary" }}The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end.
+            Check auto-renew at the registrar; after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>.{{ else }}The registration of {{ $labels.domain }} ends in {{ $value | printf "%.0f" }} days ({{ $labels.source }}). Renew it at the registrar.{{ end }}
+
+      - alert: DomainStatusProblem
+        expr: domain_rdap_status_ok == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.domain }} has a problem status in RDAP"
+          description: "The registry reports {{ $labels.domain }} as inactive, on hold, in redemption or pending delete. Check it at the registrar now: DNS for every service depends on it."
+
+      - alert: DdnsHostnameNotResolving
+        expr: ddns_hostname_resolves == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }} no longer resolves"
+          description: "The DDNS hostname {{ $labels.host }} has no address. A free No-IP hostname is deleted when its 30-day confirm mail is not answered: log in at No-IP and re-create or confirm it."
+
+      - alert: DdnsHostnameWrongAddress
+        expr: ddns_hostname_matches_wan == 0
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "{{ $labels.host }} does not point at the WAN address"
+          description: "{{ $labels.host }} resolves, but not to fastpi's current WAN address (the DDNS updater has not caught up, or the hostname was taken over)."
+
+      - alert: StatusExporterStale
+        expr: |-
+          label_replace(time() - tls_cert_exporter_last_run_timestamp_seconds > 2 * 86400, "check", "certs", "", "")
+            or label_replace(time() - domain_exporter_last_run_timestamp_seconds > 2 * 86400, "check", "domains", "", "")
+            or label_replace(domain_rdap_success == 0, "check", "rdap", "", "")
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "Expiry check {{ $labels.check }}{{ with $labels.domain }} ({{ . }}){{ end }} not current"
+          description: "The nightly status-exporter-daily run did not deliver ({{ $labels.check }}): <code>journalctl -u status-exporter-daily -n 20</code>."

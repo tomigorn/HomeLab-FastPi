@@ -1,7 +1,7 @@
 # Daily digest: one Telegram message at 06:30 local time with everything that does not page. Tests: prometheus/tests/daily-digest_test.yml
 # Alerts labelled notify: digest are routed to a null receiver (alertmanager.yml) and only show up here; non-critical alerts muted by the 22:00-07:00 quiet hours show up here too.
 # Alertmanager routes it to telegram-digest (no resolved message, no quiet hours); it fires 06:30-06:59, so each day is a new notification. Local time comes from homelab:local_utc_offset_hours (weekly-digest.yml).
-# Lists are capped (8 digest alerts, 6 others, 5 CVEs, 6 projects per host, 5 download events) to stay under Telegram's 4096 characters.
+# Lists are capped (8 digest alerts, 6 others, 5 CVEs, 6 projects per host, 5 download events, 4 certificates, 4 disk alerts) to stay under Telegram's 4096 characters.
 groups:
   - name: daily-digest
     rules:
@@ -46,5 +46,11 @@ groups:
 
             <b>🎬 Downloads</b> (beefy, handled automatically){{ range $i, $e := . | sortByLabel "title" | sortByLabel "kind" }}{{ if lt $i 5 }}
             • {{ if eq $e.Labels.kind "guard_removed" }}wrong release removed{{ else if eq $e.Labels.kind "failed" }}failed, re-searching{{ else if eq $e.Labels.kind "stalled" }}stalled, re-searching{{ else if eq $e.Labels.kind "indexer_recovered" }}indexers back{{ else if eq $e.Labels.kind "subtitle_repaired" }}subtitle repaired (broken characters fixed){{ else if eq $e.Labels.kind "subtitle_suspect" }}subtitle needs a look (suspicious characters){{ else }}{{ $e.Labels.kind }}{{ end }} · {{ $e.Labels.title | reReplaceAll "^(.{40}).+$" "$1…" | html }}{{ end }}{{ end }}{{ if gt (len .) 5 }}
-            • … {{ len . }} events in total{{ end }}{{ end }}
+            • … {{ len . }} events in total{{ end }}{{ end }}{{ with query `((tls_cert_not_after_timestamp_seconds - time()) / 86400 <= 21) or ((domain_expiry_timestamp_seconds - time()) / 86400 <= 30) or ((subscription_expiry_timestamp_seconds - time()) / 86400 <= 30) or ALERTS{alertstate="firing",alertname=~"Smart.+"}` }}
+
+            <b>⏰ Expiry and disks</b> (needs attention){{ range $i, $c := query `(tls_cert_not_after_timestamp_seconds - time()) / 86400 <= 21` | sortByLabel "host" }}{{ if lt $i 4 }}
+            • 🔐 {{ $c.Labels.host }}: certificate {{ if le $c.Value 0.0 }}expired{{ else }}ends in {{ $c.Value | printf "%.0f" }} d{{ end }}{{ end }}{{ end }}{{ range query `(domain_expiry_timestamp_seconds - time()) / 86400 <= 30` | sortByLabel "domain" }}
+            • 🌐 {{ .Labels.domain }}: {{ if eq .Labels.source "anniversary" }}renewal due{{ else }}registration ends{{ end }} in {{ .Value | printf "%.0f" }} d{{ end }}{{ range query `(subscription_expiry_timestamp_seconds - time()) / 86400 <= 30` | sortByLabel "name" }}
+            • 💳 {{ .Labels.name | html }}: {{ if le .Value 0.0 }}ended{{ else }}ends in {{ .Value | printf "%.0f" }} d{{ end }}{{ end }}{{ range $i, $a := query `ALERTS{alertstate="firing",alertname=~"Smart.+"}` | sortByLabel "disk" | sortByLabel "host" }}{{ if lt $i 4 }}
+            • 💽 {{ $a.Labels.host }}{{ with $a.Labels.disk }} {{ . }}{{ end }}: {{ $a.Labels.alertname }}{{ end }}{{ end }}{{ end }}
             <blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>
