@@ -9,3 +9,6 @@ check host.backup-rest '^active append-only beefy-only$' "$(systemctl is-active 
 check host.backup-timers '^active active active$' "$(systemctl is-active fastpi-backup.timer fastpi-restore-test.timer beefy-repo-maint.timer | xargs)"
 check host.textfile-perms '^pi:65046 2775$' "$(stat -c '%U:%g %a' /var/lib/node-exporter/textfile)"
 check host.root-scripts '^0$' "$("$(dirname "${BASH_SOURCE[0]}")/../install-root-scripts.sh" --check)"
+check host.beefy-repo-maint '^beefy-backup 0$' "$(systemctl show -p User --value beefy-repo-maint.service) $(sudo -n find /var/lib/beefy-backup ! -user beefy-backup | wc -l)"
+check host.backup-scripts '^0$' "$(for p in backup.sh:fastpi-backup restore-test.sh:fastpi-restore-test beefy-repo-maint.sh:beefy-repo-maint; do sudo -n cmp -s "$SMD/../5-Backup/${p%%:*}" "/usr/local/sbin/${p##*:}" || echo x; done | wc -l)"
+check host.backup-rest-nocreds '^-/run/credentials$' "$(systemctl show -p InaccessiblePaths --value beefy-backup-rest.service | grep -o -- '-/run/credentials')"

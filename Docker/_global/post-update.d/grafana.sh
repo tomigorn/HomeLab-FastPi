@@ -21,6 +21,7 @@ if want alertmanager; then
   check am.config '^True True True telegram\.tmpl$' "$(echo "$(curl -s -m 5 http://127.0.0.1:9093/api/v2/status | python3 -c 'import json,sys; c=json.load(sys.stdin)["config"]["original"]; print("quiet-hours" in c, "Europe/Zurich" in c, "templates/" in c)') $(docker exec alertmanager ls /etc/alertmanager/templates | xargs)")"
   check am.routes '^telegram critical null telegram-digest$' "$(for l in severity=warning severity=critical notify=digest alertname=DailyDigest; do docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X $l; done | xargs)"
   check am.routing-tests 'OK|passed' "$(python3 "$GFD/alertmanager/test_routing.py" "$GFD/alertmanager/alertmanager.yml" 2>&1 | tail -1)"
+  check am.intrusion-route '^telegram-and-email$' "$(docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=SshLoginOutsideLan source_class=other severity=warning)"
 fi
 if want blackbox-exporter blackbox-exporter-wan; then
   check blackbox.modules '^([1-9][0-9]*) \1$' "$(for c in blackbox-exporter blackbox-exporter-wan; do docker exec $c wget -qO- -T 5 http://127.0.0.1:9115/config | grep -cE '^    [a-z_0-9]+:$'; done | xargs)"

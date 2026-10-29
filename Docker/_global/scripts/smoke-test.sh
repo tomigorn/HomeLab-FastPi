@@ -110,7 +110,7 @@ running adguardhome portainer audiobookshelf prowlarr_mouse prowlarr-gate audiob
 check "prowlarr MAM rules, gate, seeding" '^OK MAM rules, gate and seed-forever hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
 check "books public -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -A 'Mozilla/5.0 smoke-test' --resolve books.holy-grail.ch:443:$(dig +short @1.1.1.1 books.holy-grail.ch | head -1) https://books.holy-grail.ch/ | cut -c1-60)"
 check "prowlarr UI closed to non-Traefik" '^403$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:9697/)"
-check "books-proxy serves Seerr link"  '^1$' "$(curl -s -m 5 http://10.24.25.6:8080/_hg/links.js | grep -c 'requests.holy-grail.ch')"
+check "books-proxy serves Seerr link"  '^1$' "$(docker exec books-proxy curl -s -m 5 http://127.0.0.1:8080/_hg/links.js | grep -c 'requests.holy-grail.ch')"
 check "importer /abs passes no POST"  '^404$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST http://10.24.25.5:8000/abs/api/libraries/x/scan)"
 check "importer health"            '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
 check "clamav-scan timer active"   '^active$' "$(systemctl is-active clamav-scan.timer)"
