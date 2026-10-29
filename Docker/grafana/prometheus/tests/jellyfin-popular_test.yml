@@ -21,7 +21,7 @@ tests:
         exp_alerts:
           - exp_labels: {severity: warning}
             exp_annotations:
-              summary: "Jellyfin Currently popular: last run failed"
+              summary: "Jellyfin Popular movies/shows: last run failed"
               description: "The run of 1970-01-01 00:10:00 +0000 UTC failed (12 title lookups failed); the lists from the last good run stay published. Look at <code>journalctl --user -u jellyfin-popular</code> on beefy (Seerr, Jellyfin or Prowlarr down?). Retries at the next run."
       - eval_time: 50m
         alertname: JellyfinPopularFailed
@@ -46,7 +46,7 @@ tests:
         exp_alerts:
           - exp_labels: {severity: warning}
             exp_annotations:
-              summary: "Jellyfin Currently popular: no run for 2d 2h 0m 0s"
+              summary: "Jellyfin Popular movies/shows: no run for 2d 2h 0m 0s"
               description: "The last run was 2d 2h 0m 0s ago. After 9 days the request backend refuses every request from the popular page. Check <code>systemctl --user list-timers jellyfin-popular.timer</code> on beefy and the beefy-idle-pull copy on fastpi."
       - eval_time: 50h
         alertname: JellyfinPopularFailed

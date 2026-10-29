@@ -1144,7 +1144,7 @@
   {
    "id": 21,
    "type": "row",
-   "title": "Jellyfin popular (Top 10 / Currently popular)",
+   "title": "Jellyfin popular (Top 10 / Popular movies & shows)",
    "collapsed": false,
    "gridPos": {
     "x": 0,
@@ -1158,7 +1158,7 @@
    "id": 22,
    "type": "stat",
    "title": "Popular job last run",
-   "description": "Age of the last nightly Top-10/'Currently popular' run (jf_popular_last_run_timestamp_seconds, beefy Docker/Jellyfin popular job). n/a = the job exports no metrics yet.",
+   "description": "Age of the last nightly Top-10/'Popular movies & shows' run (jf_popular_last_run_timestamp_seconds, beefy Docker/Jellyfin popular job). n/a = the job exports no metrics yet.",
    "datasource": {
     "type": "prometheus",
     "uid": "dfc6abdxzsem8a"

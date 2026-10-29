@@ -1,4 +1,4 @@
-# Alert rules for beefy's "Currently popular" job (Docker/Jellyfin scripts/popular.py, beefy repo): Netflix Top 10 + streaming lists and the request allow-list.
+# Alert rules for beefy's "Popular movies/shows" job (Docker/Jellyfin scripts/popular.py, beefy repo): Netflix Top 10 + streaming lists and the request allow-list.
 # Data: popular.py writes ~/.local/state/jellyfin-popular.prom after every run (04:39, and 22:20 when beefy is awake); Server/4-Security-Monitoring/beefy-idle-pull.sh copies it here. The copy stays while beefy sleeps.
 # Single titles that fail are skipped (jf_popular_errors); success 0 = the run failed or too many titles failed, and the published lists were kept. After 9 days without a good run the request backend refuses every request.
 # Tests: prometheus/tests/jellyfin-popular_test.yml
@@ -12,7 +12,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Jellyfin Currently popular: last run failed"
+          summary: "Jellyfin Popular movies/shows: last run failed"
           description: >-
             The run of {{ with query "jf_popular_last_run_timestamp_seconds" }}{{ . | first | value | humanizeTimestamp }}{{ end }} failed
             ({{ with query "jf_popular_errors" }}{{ . | first | value | printf "%.0f" }}{{ end }} title lookups failed); the lists from the last good run stay published.
@@ -25,7 +25,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Jellyfin Currently popular: no run for {{ $value | humanizeDuration }}"
+          summary: "Jellyfin Popular movies/shows: no run for {{ $value | humanizeDuration }}"
           description: >-
             The last run was {{ $value | humanizeDuration }} ago. After 9 days the request backend refuses every request from the popular page.
             Check <code>systemctl --user list-timers jellyfin-popular.timer</code> on beefy and the beefy-idle-pull copy on fastpi.
