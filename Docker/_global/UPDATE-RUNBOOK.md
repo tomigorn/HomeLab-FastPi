@@ -151,7 +151,7 @@ Rollback safety:
 | What | How |
 |---|---|
 | compose + `.env` | snapshot of the files that define the image refs (`snapshot` mode before your edit, used within 12 h; else taken at the start) -> `~/backups/pre-update/<date>/<project>/compose-snapshot-*`; the rollback restores them |
-| old image | tagged `<repo>:rollback-<date>-<project>` before any pull/build/recreate, so `docker image prune` cannot take it; the newest `ROLLBACK_KEEP` (3) per repo and project stay; `image-cleanup.sh` keeps them 14 days |
+| old image | tagged `rollback.invalid/<repo>:<date>-<project>` before any pull/build/recreate, so `docker image prune` cannot take it; the newest `ROLLBACK_KEEP` (3) per repo and project stay; `image-cleanup.sh` keeps them 14 days (see Rollback tags) |
 | tag ref | old tag re-pointed at the old image id |
 | digest ref (`@sha256:`) | restored compose names the old digest again; never re-tagged |
 | edited without `snapshot` | compose still names the new ref: the service is pinned to its rollback tag (`rollback-override.yaml`) and a `WARN` says to revert the edit, else the next `up -d` moves it |
@@ -165,6 +165,18 @@ For Traefik it first runs `Traefik/scripts/traefik-plugin-test.sh <new tag>` and
 After the container checks and CHECK it runs `post-update-check.sh <dir name>` when `post-update.d/<dir name>.sh` exists (registry: [CUSTOMIZATIONS.md](../CUSTOMIZATIONS.md)) and rolls back when a customization is missing; `POST_CHECK=0` skips it.
 It does NOT read release notes for you: majors and the stateful apps listed above
 still get the manual treatment.
+
+### Rollback tags
+
+| Rule | Why |
+|---|---|
+| One namespace: `rollback.invalid/<repo>:<date>-<project>` (`:` in a registry port becomes `-`, e.g. `rollback.invalid/lscr.io/linuxserver/prowlarr:2026-10-29-mouse`) | Cup reads only the first tag of an image and exits on a tag with no remote versions (crash loop, 2026-10-29); one prefix excludes them all |
+| `.invalid` registry host, not `local/rollback/` | Docker lists tags sorted by full name; `rollback.invalid/` sorts after `docker.io/`, `ghcr.io/`, `lscr.io/`, `quay.io/`, so an in-use image keeps its real tag first in Cup. `.invalid` never resolves: no accidental push or pull |
+| Cup: `images.exclude: ["rollback.invalid/"]` + `registries: {"rollback.invalid": {"ignore": true}}` in `Cup/cup.json`, `Cup/cup-agent.json`, beefy `Cup-Agent/cup.json` | Cup 3.6 `exclude` is a prefix match on the reference; the registry ignore stops its auth probe of the fake host (3 retries per start) |
+| Manual tags with `rollback` elsewhere in the name (`avatar-picker:v1.13.0-rollback`, `traefik-rollback:v3.7.16-20261027`) | kept forever by `image-cleanup.sh`; give them no registry digest or exclude them in Cup |
+| Old `<repo>:rollback-*` tags | `scripts/migrate-rollback-tags.sh [--dry-run]` re-tags them (tags only, never images; a tag a container runs by name is left alone) |
+
+Check: `post-update-check.sh Cup` (beefy: `Cup-Agent`): `cup.exclude-rollback`, `cup.rollback-tags-last`, `cup.no-crash-loop`.
 
 ---
 
