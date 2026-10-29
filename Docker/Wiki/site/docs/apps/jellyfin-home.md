@@ -12,7 +12,7 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 | | **Coming soon** | new episodes and films soon: **one card per series**, soonest week first, the most anticipated first within a week |
 | — | **My List ♥** | your favourites, as a coloured band |
 | New | **Recently Added** (films, series) | the newest additions |
-| | **Top 10 Shows in Switzerland** | Netflix's weekly Top 10 series in Switzerland, see [Currently popular](#currently-popular) |
+| | **Top 10 Shows in Switzerland** | Netflix's weekly Top 10 series in Switzerland, see [Popular movies and shows](#popular-movies-and-shows) |
 | — | **Studios** | browse by film studio (big studios, others once they have 2+ films) |
 | Your history | **Recently Watched Movies** | films you finished in the last 60 days |
 | | **Recently Watched TV Series & Collections** | only **fully finished** series and **complete** film collections, last 60 days |
@@ -25,14 +25,14 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 | | **Collections** | film collections (e.g. all Harry Potter films) |
 | — | **Series Genres** | browse series genres |
 
-## Currently popular
-**Currently popular** (German: **Gerade beliebt**) in the top bar, the side menu or, on the TV, the 📈 button next to search. It opens a page with what streams in Switzerland right now:
+## Popular movies and shows
+**Popular movies** and **Popular shows** (German: **Beliebte Filme** / **Beliebte Serien**) in the top bar, the side menu or, on the TV, the 🎬 / 📺 buttons next to search. Each opens a page with what streams in Switzerland right now, films or series only:
 
 | Row | Source |
 |---|---|
-| Top 10 Shows / Movies in Switzerland | Netflix's official weekly Top 10 for Switzerland (new every Tuesday) |
+| Top 10 Movies (or Shows) in Switzerland | Netflix's official weekly Top 10 for Switzerland (new every Tuesday) |
 | Netflix, Prime Video, Disney+, Apple TV+, Sky, Play Suisse, Paramount+, blue TV | most popular on that service in Switzerland (TMDB, data by JustWatch) |
-| Action, Comedy, Drama, … | most popular of the genre on those services |
+| Action, Comedy, Drama, … | most popular of the genre on those services (Horror and Romance: films only) |
 
 Every rank is shown; the card says what you can do:
 

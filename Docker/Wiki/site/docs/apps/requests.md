@@ -140,8 +140,8 @@ In the request dialog, **Advanced** is only needed in special cases. Leave the q
 
 Old and rare titles are moved to a more tolerant quality profile automatically.
 
-## From Jellyfin: Currently popular
-In Jellyfin, **Currently popular** (top bar or side menu) lists what is popular in Switzerland and is available. **🌙 Tonight** / **⚡ Now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days). See [Jellyfin home screen](jellyfin-home.md#currently-popular).
+## From Jellyfin: Popular movies and shows
+In Jellyfin, **Popular movies** / **Popular shows** (top bar or side menu) list what is popular in Switzerland and is available. **🌙 Tonight** / **⚡ Now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days). See [Jellyfin home screen](jellyfin-home.md#popular-movies-and-shows).
 
 ## What happens after a request
 Your request is searched for, downloaded (tonight, if **Can wait** is ticked) and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
