@@ -1,12 +1,51 @@
 """Run: python3 -m unittest discover -s Docker/Audiobook-Requests/importer"""
+import http.client
 import tempfile
+import threading
 import unittest
+from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
 
 import importer
 from naming import Book
 
 HASH = "a" * 40
+
+
+class Live:
+    """The real Handler on 127.0.0.1, port chosen by the OS."""
+
+    def __enter__(self):
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), importer.Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        return self
+
+    def __exit__(self, *exc):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def request(self, method, path, body=None, headers=None):
+        c = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=10)
+        try:
+            c.request(method, path, body=body, headers=headers or {})
+            r = c.getresponse()
+            return r.status, r.read()
+        finally:
+            c.close()
+
+    def headers_only(self, method, path, length):
+        c = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=10)
+        try:
+            c.putrequest(method, path)
+            c.putheader("Content-Length", str(length))
+            c.endheaders()
+            return c.getresponse().status
+        finally:
+            c.close()
+
+
+LOCAL_ABR = {"/abr": ("127.0.0.1",), "/prowlarr/": ("127.0.0.1",)}
 
 
 class ParseWebhookTest(unittest.TestCase):
@@ -292,6 +331,30 @@ class CallerTest(unittest.TestCase):
         resolve = {"audiobookrequest": ["10.24.26.2"]}.get
         self.assertTrue(importer.caller_ok("/prowlarr/torrent", "10.24.26.2", lambda n: resolve(n, [])))
         self.assertFalse(importer.caller_ok("/prowlarr/torrent", "10.24.26.3", lambda n: resolve(n, [])))
+
+    def test_webhook_and_prowlarr_posts_only_from_abr(self):
+        for path in ("/abr", "/prowlarr/api/v1/search", "/prowlarr/api/v1/indexer/1"):
+            self.assertTrue(importer.caller_ok(path, "10.24.25.4", method="POST"), path)
+            for other in ("10.24.25.6", "10.24.25.2", "10.24.25.1"):
+                self.assertFalse(importer.caller_ok(path, other, method="POST"), (path, other))
+
+    def test_webhook_from_abr_on_the_egress_network(self):
+        resolve = {"audiobookrequest": ["10.24.26.2"]}.get
+        self.assertTrue(importer.caller_ok("/abr", "10.24.26.2", lambda n: resolve(n, []), method="POST"))
+        self.assertFalse(importer.caller_ok("/abr", "10.24.26.3", lambda n: resolve(n, []), method="POST"))
+
+    def test_other_posts_unchanged(self):
+        self.assertTrue(importer.caller_ok("/abs/api/libraries/x/scan", "10.24.25.1", method="POST"))
+
+    def test_post_from_another_peer_is_refused_before_anything_runs(self):
+        with Live() as live:
+            self.assertEqual(live.request("POST", "/abr", b"{}")[0], 403)
+            self.assertEqual(live.request("POST", "/prowlarr/api/v1/search", b"{}")[0], 403)
+            self.assertEqual(live.request("POST", "/abs/api/libraries/x/scan", b"")[0], 404)
+
+    def test_post_from_abr_passes_the_gate(self):
+        with Live() as live, mock.patch.dict(importer.POST_CALLERS, LOCAL_ABR):
+            self.assertEqual(live.request("POST", "/abr", b"not json")[0], 400)
 
     def test_other_paths_unchanged(self):
         self.assertTrue(importer.caller_ok("/health", "10.24.25.1"))

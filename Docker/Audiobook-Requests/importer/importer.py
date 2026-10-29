@@ -37,11 +37,13 @@ PROXY_BASE = ENV("PROXY_BASE", "http://audiobook-importer:8000/prowlarr")
 QUOTA_BOOKS = int(ENV("QUOTA_BOOKS", "5"))
 QUOTA_DAYS = int(ENV("QUOTA_DAYS", "7"))
 QUOTA_LEDGER = Path(ENV("QUOTA_LEDGER", "/data/quota.json"))
-# Only these neighbours on traefik_mouse may call these paths: the username header is trusted only from books-proxy, the .torrent carries the MAM passkey.
+# Only these neighbours on traefik_mouse may call these paths (keys ending in / are prefixes): the username header is trusted only from books-proxy,
+# the .torrent carries the MAM passkey, webhook jobs and Prowlarr writes (the wedge setting) only from ABR.
 BOOKS_PROXY = (ENV("BOOKS_PROXY_IP", "10.24.25.6"),)
+ABR = (ENV("ABR_IP", "10.24.25.4"), ENV("ABR_HOST", "audiobookrequest"))
 CALLERS = {"/quota": BOOKS_PROXY, "/all-requests": BOOKS_PROXY, "/my-quota": BOOKS_PROXY,
-           "/library": BOOKS_PROXY, "/library-cover/": BOOKS_PROXY, "/sizes": BOOKS_PROXY,
-           "/prowlarr/torrent": (ENV("ABR_IP", "10.24.25.4"), ENV("ABR_HOST", "audiobookrequest"))}
+           "/library": BOOKS_PROXY, "/library-cover/": BOOKS_PROXY, "/sizes": BOOKS_PROXY, "/prowlarr/torrent": ABR}
+POST_CALLERS = {"/abr": ABR, "/prowlarr/": ABR}
 ABR_URL = ENV("ABR_URL", "http://audiobookrequest:8000")
 PROVIDERS = {"com": ("audible", "us"), "de": ("audible.de", "de"), "co.uk": ("audible.uk", "uk")}
 AUDIO = {".mp3", ".m4a", ".m4b", ".aac", ".flac", ".ogg", ".opus", ".wma", ".wav"}
@@ -81,10 +83,11 @@ def _resolve(name):
         return []
 
 
-def caller_ok(path, client, resolve=_resolve):
+def caller_ok(path, client, resolve=_resolve, method="GET"):
     """ABR also calls over the egress network, whose address is dynamic: names are resolved per call."""
     p = urllib.parse.urlsplit(path).path
-    want = CALLERS.get("/library-cover/" if p.startswith("/library-cover/") else p)
+    table = POST_CALLERS if method == "POST" else CALLERS
+    want = table.get(p) or next((v for k, v in table.items() if k.endswith("/") and p.startswith(k)), None)
     if want is None:
         return True
     return any(client == w or (not w[0].isdigit() and client in resolve(w)) for w in want)
@@ -790,6 +793,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
+        if not caller_ok(self.path, self.client_address[0], method="POST"):
+            return self.send_error(403)
         if self.path.startswith("/prowlarr/"):
             return forward(self, "POST")
         if self.path != "/abr":

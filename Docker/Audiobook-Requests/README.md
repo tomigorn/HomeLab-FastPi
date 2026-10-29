@@ -20,7 +20,7 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 | Container | uid | Network | Job |
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
-| `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`) |
+| `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR |
 | `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
 
 ## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
