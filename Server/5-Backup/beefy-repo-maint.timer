@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily retention of beefy's backup repo, after beefy's 04:26 backup and window
+Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
+
+[Timer]
+# local repo, beefy not needed; after the window (04:45), clear of clamav 05:00 and crowdsec 05:10
+OnCalendar=*-*-* 05:07:00 Europe/Zurich
+Persistent=false
+
+[Install]
+WantedBy=timers.target

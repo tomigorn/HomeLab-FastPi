@@ -1,0 +1,47 @@
+[Unit]
+Description=Append-only restic REST server for beefy's backup (TLS, only beefy may connect)
+Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=beefy-backup
+Group=beefy-backup
+# append-only: beefy can add snapshots but never delete or overwrite; forget/prune run on fastpi (beefy-repo-maint)
+ExecStart=/usr/local/bin/rest-server --path /var/lib/beefy-backup --listen 192.168.1.2:8009 --append-only --private-repos --htpasswd-file /etc/beefy-backup-rest/htpasswd --tls --tls-cert /etc/beefy-backup-rest/tls.crt --tls-key /etc/beefy-backup-rest/tls.key
+Restart=on-failure
+RestartSec=15
+StateDirectory=beefy-backup
+StateDirectoryMode=0700
+UMask=0077
+IPAddressDeny=any
+IPAddressAllow=192.168.1.102
+MemoryMax=384M
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=Retention, prune and check of beefy's append-only backup repo on fastpi
+Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/beefy-repo-maint
+TimeoutStartSec=3600
+Nice=10
+IOSchedulingClass=idle
+Environment=RESTIC_CACHE_DIR=/var/cache/restic
+CacheDirectory=restic
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/beefy-backup /var/lib/node-exporter/textfile
+PrivateTmp=yes
+PrivateNetwork=yes
