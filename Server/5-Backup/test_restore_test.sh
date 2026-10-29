@@ -10,6 +10,16 @@ mkdir -p "$T/bin"
 cat > "$T/bin/restic" <<'STUB'
 #!/usr/bin/env bash
 args=" $* "
+if [[ $args == *" -r $FAKE_BREPO "* ]]; then
+  echo "beefy $*" >> "$FAKE_LOG"
+  case "$args" in
+    *" check "*) exit "${FAKE_BCHECK_RC:-0}" ;;
+    *" snapshots "*) [[ -n ${FAKE_BEMPTY:-} ]] && { echo '[]'; exit 0; }; echo '[{"time":"2026-10-29T04:26:10+01:00","short_id":"beef0001"}]' ;;
+    *" restore "*) t=$(sed -E 's/.*--target ([^ ]+).*/\1/' <<<"$*"); cp -a "$FAKE_BSNAP/." "$t/" ;;
+    *) exit 1 ;;
+  esac
+  exit 0
+fi
 case "$args" in
   *" check "*) echo "check $*" >> "$FAKE_LOG"; exit "${FAKE_CHECK_RC:-0}" ;;
   *" snapshots "*) echo '[{"time":"2026-10-28T04:06:06.1+01:00","short_id":"885b536e"}]' ;;
@@ -24,7 +34,11 @@ cat > "$T/bin/docker" <<'STUB'
 echo "docker $*" >> "$FAKE_LOG"
 case "$1" in
   inspect) echo "postgres:18.6-alpine" ;;
-  run) echo "cid" ;;
+  run)
+    if [[ $* == *"pg_restore -l"* ]]; then
+      grep -q PGDMP || exit 1
+      printf '%s\n' "; Archive created" "1; 2615 2200 SCHEMA - public" "2; 1259 16390 TABLE public project"
+    else echo "cid"; fi ;;
   rm) ;;
   exec)
     case "$*" in
@@ -54,13 +68,21 @@ setup() {
     echo "Port 22" > "$T/live/etc/ssh/sshd_config"
     touch -d "$OLD" "$T/live/etc/ssh/sshd_config"
     touch "$T/up"
+    rm -rf "$T/bsnap"; B="$T/bsnap/var/lib/beefy-backup-staging"
+    for d in seerr/db/db.sqlite3 jellyfin/data/data/jellyfin.db radarr/radarr.db sonarr/sonarr.db; do
+        mkdir -p "$B/sqlite/srv/appdata/$(dirname "$d")"; sqlite3 "$B/sqlite/srv/appdata/$d" "create table t(x);"
+    done
+    mkdir -p "$B/dumps" "$T/bsnap/srv/appdata/dt5/.dependency-track/keys"
+    printf 'PGDMP fake' > "$B/dumps/dt5.pgdump"
+    echo '{"primaryKeyId":1,"key":[{"keyId":1}]}' > "$T/bsnap/srv/appdata/dt5/.dependency-track/keys/secret-management-kek.json"
 }
 run() {
-    env PATH="$T/bin:$PATH" FAKE_LOG="$T/log" FAKE_MSG="$T/msg" FAKE_SNAP="$T/snap" FAKE_READY="$T/ready" \
+    env PATH="$T/bin:$PATH" FAKE_BREPO="$T/brepo" FAKE_BSNAP="$T/bsnap" BREPO="$T/brepo" BPASS=/dev/null FAKE_LOG="$T/log" FAKE_MSG="$T/msg" FAKE_SNAP="$T/snap" FAKE_READY="$T/ready" \
         WORK_BASE="$T/work" PROM="$T/prom" OOB="$T/bin/oob" LIVE_ROOT="$T/live" \
         BEEFY_TCP="$T/up" LOCK="$T/lock" NOW="$(date -d 2026-10-29T04:33:00 +%s)" "$@" "$S" > "$T/out" 2>&1
 }
 status() { awk '/^backup_restore_test_last_status /{print $2}' "$T/prom"; }
+metric() { awk -v k="$1" '$1==k{print $2}' "$T/prom"; }
 
 setup; run; rc=$?
 [[ $rc == 0 && $(status) == 1 ]] && ok "healthy backup passes" || bad "healthy backup passes" "rc=$rc status=$(status) $(cat "$T/out")"
@@ -71,6 +93,29 @@ grep -q "docker rm -f" "$T/log" && ok "throwaway postgres removed" || bad "throw
 grep -q -- "--network none" "$T/log" && ok "throwaway postgres has no network" || bad "throwaway postgres has no network"
 grep -q "pg_isready -h 127.0.0.1" "$T/log" && ok "waits for the real server, not the init server on the socket" || bad "waits for the real server, not the init server on the socket"
 grep -q "backup_restore_test_snapshot_age_seconds 8" "$T/prom" && ok "snapshot age in metric" || bad "snapshot age in metric" "$(cat "$T/prom")"
+
+grep -q "beefy .*check --read-data-subset=5%" "$T/log" && ok "beefy repo checked 5%" || bad "beefy repo checked 5%"
+grep -q "Beefy: snapshot beef0001" "$T/msg" && grep -q "SQLite dumps: 4" "$T/msg" && ok "Telegram summary covers beefy" || bad "Telegram summary covers beefy" "$(cat "$T/msg")"
+grep -q "DT5 dump: 2 entries" "$T/msg" && grep -q "KEK ok" "$T/msg" && ok "DT5 dump listed and KEK valid" || bad "DT5 dump listed and KEK valid" "$(cat "$T/msg")"
+[[ $(metric backup_restore_test_beefy_status) == 1 && $(metric backup_restore_test_last_success_timestamp_seconds) -gt 0 ]] && ok "beefy status and last success in metrics" || bad "beefy status and last success in metrics" "$(cat "$T/prom")"
+
+setup; run FAKE_BCHECK_RC=1
+[[ $(status) == 0 && $(metric backup_restore_test_beefy_status) == 0 ]] && grep -q "beefy restic check" "$T/msg" && ok "failed beefy repo check reported" || bad "failed beefy repo check reported" "$(cat "$T/msg")"
+
+setup; echo garbage > "$T/bsnap/var/lib/beefy-backup-staging/sqlite/srv/appdata/radarr/radarr.db"; run
+[[ $(status) == 0 ]] && grep -q "radarr.db" "$T/msg" && ok "corrupt beefy SQLite dump reported" || bad "corrupt beefy SQLite dump reported" "$(cat "$T/msg")"
+
+setup; rm "$T/bsnap/var/lib/beefy-backup-staging/sqlite/srv/appdata/jellyfin/data/data/jellyfin.db"; run
+[[ $(status) == 0 ]] && grep -q "jellyfin.db missing" "$T/msg" && ok "missing Jellyfin dump reported" || bad "missing Jellyfin dump reported" "$(cat "$T/msg")"
+
+setup; echo broken > "$T/bsnap/var/lib/beefy-backup-staging/dumps/dt5.pgdump"; run
+[[ $(status) == 0 ]] && grep -q "DT5 dump" "$T/msg" && ok "unreadable DT5 dump reported" || bad "unreadable DT5 dump reported" "$(cat "$T/msg")"
+
+setup; echo '{}' > "$T/bsnap/srv/appdata/dt5/.dependency-track/keys/secret-management-kek.json"; run
+[[ $(status) == 0 ]] && grep -q "KEK" "$T/msg" && ok "invalid DT5 KEK reported" || bad "invalid DT5 KEK reported" "$(cat "$T/msg")"
+
+setup; run FAKE_BEMPTY=1
+[[ $(status) == 0 ]] && grep -q "no beefy snapshot" "$T/msg" && ok "empty beefy repo reported" || bad "empty beefy repo reported" "$(cat "$T/msg")"
 
 setup; run FAKE_CHECK_RC=1
 [[ $(status) == 0 ]] && grep -q "restic check" "$T/msg" && ok "failed restic check reported" || bad "failed restic check reported" "$(cat "$T/msg")"
@@ -92,7 +137,7 @@ setup; run FAKE_RESTORED="users|0"
 [[ $(status) == 0 ]] && ok "empty restored user table is a failure" || bad "empty restored user table is a failure"
 
 setup; rm "$T/up"; run
-[[ $(status) == 2 && ! -s $T/msg ]] && ok "beefy asleep: skipped, no message" || bad "beefy asleep: skipped, no message" "status=$(status)"
+[[ $(status) == 2 && $(metric backup_restore_test_beefy_status) == 1 ]] && grep -q "fastpi repo skipped" "$T/msg" && grep -q "Beefy: snapshot" "$T/msg" && ok "beefy asleep: fastpi repo skipped, beefy repo still tested" || bad "beefy asleep: fastpi repo skipped, beefy repo still tested" "status=$(status) b=$(metric backup_restore_test_beefy_status) $(cat "$T/msg") $(cat "$T/out")"
 
 echo "passed $PASS, failed $FAIL"
 [[ $FAIL == 0 ]]

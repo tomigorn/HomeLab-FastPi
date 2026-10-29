@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Monthly restore test of the fastpi restic backup: restic check, restore into scratch, SQLite and Authentik checks, Telegram summary. Runs as root from fastpi-restore-test.service; never touches live data.
+# Monthly restore test of both restic repos: fastpi's on beefy (check, restore, SQLite, live compare, Authentik) and beefy's on fastpi (check, restore sample, SQLite, DT5 dump, KEK). Telegram summary. Runs as root from fastpi-restore-test.service; never touches live data.
 set -uo pipefail
 
 CONF=/root/.config/restic
@@ -21,27 +21,49 @@ INCLUDES=(
     /home/pi/Projects/Server
     /etc/ssh /etc/systemd/system /etc/iptables
 )
+BREPO=${BREPO:-/var/lib/beefy-backup/beefy}
+BPASS=${BPASS:-/root/.config/restic/beefy-repo.pass}
+BSTAGE=/var/lib/beefy-backup-staging
+BINCLUDES=(
+    "$BSTAGE"
+    /etc/fstab
+    /home/buntu/Projects/Docker/docker-compose.yaml
+    /srv/appdata/jellyfin/data/plugins/configurations
+    /srv/appdata/dt5/.dependency-track/keys
+)
+BEXPECT=(seerr/db/db.sqlite3 jellyfin/data/data/jellyfin.db radarr/radarr.db sonarr/sonarr.db)
+KEK=/srv/appdata/dt5/.dependency-track/keys/secret-management-kek.json
 COUNTS="select 'users', count(*) from authentik_core_user union all select 'groups', count(*) from authentik_core_group union all select 'apps', count(*) from authentik_core_application"
 
 R() { restic -o sftp.command="$SSHC" "$@"; }
+RB() { restic -r "$BREPO" --password-file "$BPASS" --retry-lock 5m "$@"; }
 log() { echo "restore-test: $*"; }
 esc() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' <<<"$*"; }
 
 START=$(date +%s)
-STATUS=0 AGE=0 BYTES=0 RSECS=0
+STATUS=0 AGE=0 BYTES=0 RSECS=0 BSTATUS=0 BAGE=0 FASTPI_RUN=1 NDB=0 NCMP=0 NDIFF=0
 FAILS=() NOTES=()
 WORK="" PG=""
 fail() { FAILS+=("$(esc "$*")"); log "FAIL $*"; }
 note() { NOTES+=("$(esc "$*")"); log "$*"; }
 
 write_metric() {
-    local now; now=$(date +%s)
+    local now ok; now=$(date +%s)
+    ok=$(grep -s '^backup_restore_test_last_success_timestamp_seconds ' "$PROM" | awk '{print $2}')
+    [ "$STATUS" = 1 ] && ok=$now
     cat > "$PROM.tmp" <<EOM
 # TYPE backup_restore_test_last_run_timestamp_seconds gauge
 backup_restore_test_last_run_timestamp_seconds $now
 # TYPE backup_restore_test_last_status gauge
 # 1 ok, 0 failed, 2 skipped (beefy asleep)
 backup_restore_test_last_status $STATUS
+# TYPE backup_restore_test_last_success_timestamp_seconds gauge
+backup_restore_test_last_success_timestamp_seconds ${ok:-0}
+# TYPE backup_restore_test_beefy_status gauge
+# beefy's repo on fastpi: 1 ok, 0 failed
+backup_restore_test_beefy_status $BSTATUS
+# TYPE backup_restore_test_beefy_snapshot_age_seconds gauge
+backup_restore_test_beefy_snapshot_age_seconds $BAGE
 # TYPE backup_restore_test_snapshot_age_seconds gauge
 backup_restore_test_snapshot_age_seconds $AGE
 # TYPE backup_restore_test_restore_bytes gauge
@@ -61,12 +83,10 @@ cleanup() {
 trap cleanup EXIT
 trap 'log "terminated"; exit 1' TERM INT
 
-if ! timeout 5 bash -c "< $BEEFY_TCP" 2>/dev/null; then
-    log "beefy unreachable (asleep), skipped"; STATUS=2; exit 0
-fi
-exec 9>"$LOCK"
-flock -w 300 9 || { log "backup still running, skipped"; STATUS=2; exit 0; }
+umask 077
+WORK=$(mktemp -d "$WORK_BASE/fastpi-restore-test.XXXXXX")
 
+fastpi_part() {
 R check --read-data-subset=5% >/dev/null 2>&1 || fail "restic check --read-data-subset=5% failed"
 
 SNAP=$(R snapshots latest --tag nightly --host fastpi --json 2>/dev/null)
@@ -80,8 +100,6 @@ else
     [ "$AGE" -gt $((48*3600)) ] && note "latest snapshot is $((AGE/3600)) h old"
 fi
 
-umask 077
-WORK=$(mktemp -d "$WORK_BASE/fastpi-restore-test.XXXXXX")
 if [ -n "$STIME" ]; then
     inc=(); for p in "${INCLUDES[@]}"; do inc+=(--include "$p"); done
     t0=$(date +%s)
@@ -117,7 +135,6 @@ fi
 DUMP="$WORK$STAGE/dumps/authentik.pgdump"
 AK="not tested"
 if [ -s "$DUMP" ]; then
-    IMG=$(docker inspect -f '{{.Config.Image}}' authentik-postgresql 2>/dev/null)
     PG=restore-test-pg-$$
     if docker run -d --rm --name "$PG" --network none --memory 768m --mount type=tmpfs,destination=/var/lib/postgresql \
         -e POSTGRES_USER=rt -e POSTGRES_DB=rt -e POSTGRES_PASSWORD="$(head -c 18 /dev/urandom | base64)" "${IMG:-postgres:18-alpine}" >/dev/null; then
@@ -138,10 +155,56 @@ if [ -s "$DUMP" ]; then
 else
     fail "Authentik dump missing"
 fi
+}
 
-[ ${#FAILS[@]} -eq 0 ] && STATUS=1 || STATUS=0
+beefy_part() {
+    local before=${#FAILS[@]} snap bt db r rel n
+    RB check --read-data-subset=5% >/dev/null 2>&1 || fail "beefy restic check --read-data-subset=5% failed"
+    snap=$(RB snapshots latest --tag nightly --host beefy --json 2>/dev/null)
+    BSID=$(jq -r '.[0].short_id // empty' <<<"$snap" 2>/dev/null)
+    bt=$(jq -r '.[0].time // empty' <<<"$snap" 2>/dev/null)
+    if [ -z "$bt" ]; then fail "no beefy snapshot found"; BSTATUS=0; return; fi
+    BAGE=$(( ${NOW:-$(date +%s)} - $(date -d "$bt" +%s) ))
+    [ "$BAGE" -gt $((48*3600)) ] && note "latest beefy snapshot is $((BAGE/3600)) h old"
+    local inc=(); for p in "${BINCLUDES[@]}"; do inc+=(--include "$p"); done
+    mkdir -p "$WORK/beefy"
+    RB restore "$BSID" --target "$WORK/beefy" "${inc[@]}" >/dev/null 2>&1 || fail "beefy restic restore failed"
+    local B="$WORK/beefy$BSTAGE"
+    NBDB=0
+    while IFS= read -r -d '' db; do
+        NBDB=$((NBDB+1))
+        r=$(sqlite3 -readonly "$db" "pragma quick_check" 2>&1 | head -1)
+        [ "$r" = ok ] || fail "beefy SQLite ${db#"$B/sqlite"}: $r"
+    done < <(find "$B/sqlite" -type f -print0 2>/dev/null)
+    for rel in "${BEXPECT[@]}"; do [ -f "$B/sqlite/srv/appdata/$rel" ] || fail "beefy SQLite dump $rel missing"; done
+    NDT5=0
+    if [ -s "$B/dumps/dt5.pgdump" ]; then
+        n=$(docker run --rm -i --network none --memory 256m "${IMG:-postgres:18-alpine}" pg_restore -l < "$B/dumps/dt5.pgdump" 2>/dev/null | grep -vc '^;')
+        [ "${n:-0}" -gt 0 ] 2>/dev/null && NDT5=$n || fail "DT5 dump not readable by pg_restore"
+    else
+        fail "DT5 dump missing"
+    fi
+    if jq -e '(.primaryKeyId != null) and ((.key // []) | length > 0)' "$WORK/beefy$KEK" >/dev/null 2>&1; then KEKOK=ok; else KEKOK=bad; fail "DT5 KEK invalid or missing"; fi
+    [ ${#FAILS[@]} -eq "$before" ] && BSTATUS=1 || BSTATUS=0
+    log "beefy snapshot $BSID: $NBDB SQLite dumps, DT5 dump $NDT5 entries, KEK $KEKOK"
+}
+
+IMG=$(docker inspect -f '{{.Config.Image}}' authentik-postgresql 2>/dev/null)
+if ! timeout 5 bash -c "< $BEEFY_TCP" 2>/dev/null; then
+    FASTPI_RUN=0; note "fastpi repo skipped: beefy asleep"
+else
+    exec 9>"$LOCK"
+    if flock -w 300 9; then fastpi_part; else FASTPI_RUN=0; note "fastpi repo skipped: its backup still running"; fi
+fi
+beefy_part
+
+if [ ${#FAILS[@]} -gt 0 ]; then STATUS=0; elif [ "$FASTPI_RUN" = 0 ]; then STATUS=2; else STATUS=1; fi
 MB=$((BYTES/1048576))
-if [ "$STATUS" = 1 ]; then head="✅ <b>Backup restore test OK</b>"; else head="❌ <b>Backup restore test FAILED</b>"; fi
+case $STATUS in
+    1) head="✅ <b>Backup restore test OK</b>" ;;
+    2) head="⚠️ <b>Backup restore test: fastpi repo skipped</b>" ;;
+    *) head="❌ <b>Backup restore test FAILED</b>" ;;
+esac
 msg="$head
 
 • Snapshot ${SID:-none}, $((AGE/3600)) h old
@@ -149,7 +212,8 @@ msg="$head
 • Restored ${MB} MiB in ${RSECS} s
 • SQLite dumps: $NDB checked
 • Files compared with live: $NCMP, unexpected differences: $NDIFF
-• Authentik: $(esc "$AK")"
+• Authentik: $(esc "$AK")
+• Beefy: snapshot ${BSID:-none}, $((BAGE/3600)) h old; SQLite dumps: ${NBDB:-0} checked; DT5 dump: ${NDT5:-0} entries; KEK ${KEKOK:-bad}"
 for n in "${NOTES[@]}"; do msg+="
 • ⚠️ $n"; done
 for f in "${FAILS[@]}"; do msg+="
