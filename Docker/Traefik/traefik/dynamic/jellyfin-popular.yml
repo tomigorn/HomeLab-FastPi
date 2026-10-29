@@ -1,0 +1,22 @@
+# "Currently popular" request backend on beefy (HomeLab-BeefyServer Docker/Jellyfin README "Currently popular").
+# Same origin as Jellyfin, so the page calls it with the user's own Jellyfin token; the backend checks it with Jellyfin itself.
+# Only /hss-popular/ goes there; everything else on jellyfin.holy-grail.ch stays on jellyfin.yml.
+http:
+  routers:
+    jellyfin-popular:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathPrefix(`/hss-popular/`)"
+      entryPoints: ["websecure"]
+      priority: 15
+      service: jellyfin-popular
+      middlewares:
+        - jellyfin-wake@file
+        - default-rate-limit@file
+        - jellyfin-secure-headers@file
+      tls:
+        certResolver: cloudflare
+
+  services:
+    jellyfin-popular:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8097"
