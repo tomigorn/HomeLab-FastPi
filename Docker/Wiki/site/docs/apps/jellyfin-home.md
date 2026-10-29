@@ -46,6 +46,7 @@ Every rank is shown; the card says what you can do:
 - Everyone with a Jellyfin account may request here, no Requests login needed. **10 requests per person per 7 days**; the buttons say when the limit is reached.
 - A series is requested for the season shown on the card (e.g. **S4**).
 - On a computer or TV all 10 cards fit next to each other; on a phone swipe sideways.
+- On the TV the two buttons show only **🌙** and **⚡**; the line next to the row title says what they do.
 - The lists are refreshed every night; a title shows up in Jellyfin after its download. Details on requests: [Requesting films & series](requests.md).
 
 ## Add to My List
