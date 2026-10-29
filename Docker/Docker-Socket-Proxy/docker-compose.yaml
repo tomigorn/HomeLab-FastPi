@@ -26,7 +26,7 @@ services:
 # SOCKET PROXY - READ ONLY ################################
 # #########################################################
   socket-proxy-ro:
-    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-0.3.0}
+    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-v0.5.0}
     container_name: socket-proxy-ro
     restart: unless-stopped
     environment:
@@ -78,7 +78,7 @@ services:
 # SOCKET PROXY - AUTOHEAL (read + restart) ################
 # #########################################################
   socket-proxy-autoheal:
-    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-0.3.0}
+    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-v0.5.0}
     container_name: socket-proxy-autoheal
     restart: unless-stopped
     environment:
@@ -111,7 +111,7 @@ services:
 # SOCKET PROXY - PORT-UPDATER (named restarts) ############
 # #########################################################
   socket-proxy-portupdater:
-    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-0.3.0}
+    image: ${SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-v0.5.0}
     container_name: socket-proxy-portupdater
     restart: unless-stopped
     environment:
