@@ -1,4 +1,4 @@
-# Nightly restic backup of fastpi to beefy (Server/5-Backup). Metrics: backup.prom in the node-exporter textfile dir. Tests: tests/backup_test.yml
+# Backups (Server/5-Backup): fastpi → beefy (backup.prom), beefy → fastpi append-only repo (beefy-backup.prom, written on fastpi from the repo), monthly restore test of both (backup-restore-test.prom). Tests: tests/backup_test.yml
 groups:
   - name: backup
     rules:
@@ -10,3 +10,40 @@ groups:
         annotations:
           summary: "No successful fastpi backup for {{ $value | humanizeDuration }}"
           description: "journalctl -u fastpi-backup on fastpi. Status 2 = beefy was asleep at 04:06 (it is never woken for this), 0 = failed. Restore steps: Server/5-Backup/README.md"
+
+      - alert: BeefyBackupStale
+        expr: time() - beefy_backup_last_snapshot_timestamp_seconds > 36 * 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No beefy backup reached fastpi for {{ $value | humanizeDuration }}"
+          description: "journalctl -u beefy-backup on beefy (04:26), journalctl -u beefy-repo-maint on fastpi. Restore steps: Server/5-Backup/README.md"
+
+      - alert: BeefyBackupRepoMaintFailed
+        expr: beefy_backup_maint_last_status == 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Retention/prune/check of beefy's backup repo failed"
+          description: "journalctl -u beefy-repo-maint on fastpi (05:07). Server/5-Backup/README.md"
+
+      # 2 = fastpi repo skipped (beefy asleep at 04:33) is not a failure; Stale catches it repeating
+      - alert: BackupRestoreTestFailed
+        expr: backup_restore_test_last_status == 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Monthly backup restore test failed"
+          description: "journalctl -u fastpi-restore-test on fastpi; the Telegram summary names the failed step. Server/5-Backup/README.md"
+
+      - alert: BackupRestoreTestStale
+        expr: time() - backup_restore_test_last_success_timestamp_seconds > 40 * 86400
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No successful backup restore test for {{ $value | humanizeDuration }}"
+          description: "Runs first Tuesday 04:33 (fastpi-restore-test.timer). systemctl list-timers fastpi-restore-test; sudo systemctl start fastpi-restore-test. Server/5-Backup/README.md"

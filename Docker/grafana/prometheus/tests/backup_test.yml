@@ -19,3 +19,71 @@ tests:
             exp_annotations:
               summary: "No successful fastpi backup for 1d 14h 0m 0s"
               description: "journalctl -u fastpi-backup on fastpi. Status 2 = beefy was asleep at 04:06 (it is never woken for this), 0 = failed. Restore steps: Server/5-Backup/README.md"
+
+  - name: beefy backup on fastpi stale after 36 h
+    interval: 1h
+    input_series:
+      - series: 'beefy_backup_last_snapshot_timestamp_seconds{instance="node-exporter:9100"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 36h
+        alertname: BeefyBackupStale
+        exp_alerts: []
+      - eval_time: 37h
+        alertname: BeefyBackupStale
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "No beefy backup reached fastpi for 1d 13h 0m 0s"
+              description: "journalctl -u beefy-backup on beefy (04:26), journalctl -u beefy-repo-maint on fastpi. Restore steps: Server/5-Backup/README.md"
+
+  - name: beefy repo maintenance failure fires
+    interval: 1h
+    input_series:
+      - series: 'beefy_backup_maint_last_status{instance="node-exporter:9100"}'
+        values: '1 0'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: BeefyBackupRepoMaintFailed
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: BeefyBackupRepoMaintFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "Retention/prune/check of beefy's backup repo failed"
+              description: "journalctl -u beefy-repo-maint on fastpi (05:07). Server/5-Backup/README.md"
+
+  - name: failed restore test fires, skipped does not
+    interval: 1h
+    input_series:
+      - series: 'backup_restore_test_last_status{instance="node-exporter:9100"}'
+        values: '1 2 0'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: BackupRestoreTestFailed
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: BackupRestoreTestFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "Monthly backup restore test failed"
+              description: "journalctl -u fastpi-restore-test on fastpi; the Telegram summary names the failed step. Server/5-Backup/README.md"
+
+  - name: no successful restore test for 40 days
+    interval: 1d
+    input_series:
+      - series: 'backup_restore_test_last_success_timestamp_seconds{instance="node-exporter:9100"}'
+        values: '0x45'
+    alert_rule_test:
+      - eval_time: 40d
+        alertname: BackupRestoreTestStale
+        exp_alerts: []
+      - eval_time: 41d
+        alertname: BackupRestoreTestStale
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "No successful backup restore test for 41d 0h 0m 0s"
+              description: "Runs first Tuesday 04:33 (fastpi-restore-test.timer). systemctl list-timers fastpi-restore-test; sudo systemctl start fastpi-restore-test. Server/5-Backup/README.md"
