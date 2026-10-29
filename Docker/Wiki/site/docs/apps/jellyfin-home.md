@@ -9,7 +9,7 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 |---|---|---|
 | Keep watching | **Continue Watching** | what you started and didn't finish |
 | | **Next Up** | the next episode of series you are watching |
-| | **Coming soon** | new episodes and films soon: **one card per series**, soonest week first, the most anticipated first within a week |
+| | **Coming soon** | new episodes and films soon: **one card per series with its next episode** (e.g. S03E05 · Thu 5 Nov), soonest week first, the most anticipated first within a week. Already in Jellyfin (earlier episodes, the film): opens its page. Not yet: opens a details page (story, ratings, cast, trailer); it comes by itself |
 | — | **My List ♥** | your favourites, as a coloured band |
 | New | **Recently Added** (films, series) | the newest additions |
 | | **Top 10 Shows in Switzerland** | Netflix's weekly Top 10 series in Switzerland, see [Popular movies and shows](#popular-movies-and-shows) |
@@ -42,6 +42,8 @@ Every rank is shown; the card says what you can do:
 | dimmed poster, **1080p / 2160p available** | not here yet, but a good version exists | **🌙 Tonight** (downloads tonight, cheaper power) or **⚡ Now** (at once, daytime power price) |
 | dimmed, **🌙 / 🔍 / 📅 / ⬇️** | already requested: waiting for the night / searching / not released yet / downloading | nothing, it comes by itself |
 | grey, crossed out in red, **No release yet** | no good version found so far; checked again every night | nothing yet: the buttons appear by themselves once a release exists |
+
+Press the **poster** of a title that isn't here yet: a details page opens (story, IMDb / Rotten Tomatoes / TMDB, cast, trailer) with the same buttons. Trailer: press ▶; if it can't play here, **Open on YouTube**. Back / Esc closes the details, the list stays open.
 
 - Everyone with a Jellyfin account may request here, no Requests login needed. **10 requests per person per 7 days**; the buttons say when the limit is reached.
 - A series is requested for the season shown on the card (e.g. **S4**).
