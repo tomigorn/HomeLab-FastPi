@@ -74,6 +74,7 @@ Forward auth first (`authentik@file`), then the wake gate `http://192.168.1.2:90
 | `radarr`, `sonarr`, `prowlarr`, `bazarr`, `qbittorrent`, `sabnzbd` | `:7878`, `:8989`, `:9696`, `:6767`, `:8080`, `:8081` | LAN + VPN | `streaming-admins` |
 | `vpn-status-beefy` | `:8087` | LAN + VPN | `homelab-admins` |
 | `dt` (Dependency-Track, `dt.yml`) | `:8090` | public | `homelab-admins`, then DT's own Holy Grail login |
+| `jellyfin` `/hss-popular/` (`jellyfin-popular.yml`) | `:8097` "Currently popular" request backend | public | no forward auth: the backend checks the user's own Jellyfin token with Jellyfin (beefy `Docker/Jellyfin/README.md`) |
 
 `tracker.yml` (Floppy) is an allow-list, not a catch-all:
 
