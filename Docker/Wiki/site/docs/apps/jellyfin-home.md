@@ -41,7 +41,7 @@ Every rank is shown; the card says what you can do:
 | normal poster | it is in Jellyfin | the poster to watch it |
 | dimmed poster, **1080p / 2160p available** | not here yet, but a good version exists | **🌙 Tonight** (downloads tonight, cheaper power) or **⚡ Now** (at once, daytime power price) |
 | dimmed, **🌙 / 🔍 / 📅 / ⬇️** | already requested: waiting for the night / searching / not released yet / downloading | nothing, it comes by itself |
-| grey, **No release yet** | no good version found so far; checked again every night | nothing yet: the buttons appear by themselves once a release exists |
+| grey, crossed out in red, **No release yet** | no good version found so far; checked again every night | nothing yet: the buttons appear by themselves once a release exists |
 
 - Everyone with a Jellyfin account may request here, no Requests login needed. **10 requests per person per 7 days**; the buttons say when the limit is reached.
 - A series is requested for the season shown on the card (e.g. **S4**).
