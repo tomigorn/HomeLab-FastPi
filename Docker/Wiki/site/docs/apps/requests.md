@@ -62,6 +62,18 @@ Open a title **you requested** → the card **My request** under the title (tap 
 
 Press **Save**; within 2 minutes the server applies it and searches again if quality or audio changed (subtitles only: no new download). If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
 
+## Sizes on the Requests page
+Every request shows **Size** under Profile (German: **Grösse**).
+
+| You see | Means |
+|---|---|
+| `45.3 GB` | on the server |
+| `22.9 GB · 5 of 6 episodes` | series: some episodes still missing |
+| `≈ 5.4 GB · in queue` | downloading or waiting for the night |
+| `—` | nothing downloaded yet |
+
+Sort by size: the **GB** box right of the sort → **Largest** or **Smallest** (all requests on one page). **Off** or picking Seerr's own sort brings the normal order back.
+
 ## Search tips
 
 The search box understands four prefixes. Only one per search.
