@@ -87,3 +87,20 @@ tests:
             exp_annotations:
               summary: "No successful backup restore test for 41d 0h 0m 0s"
               description: "Runs first Tuesday 04:33 (fastpi-restore-test.timer). systemctl list-timers fastpi-restore-test; sudo systemctl start fastpi-restore-test. Server/5-Backup/README.md"
+
+  - name: future-dated beefy snapshot fires at once
+    interval: 1h
+    input_series:
+      - series: 'beefy_backup_future_snapshots{instance="node-exporter:9100"}'
+        values: '0 2'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: BeefyBackupSnapshotInFuture
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: BeefyBackupSnapshotInFuture
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100"}
+            exp_annotations:
+              summary: "2 snapshot(s) in beefy's backup repo dated more than 1 h ahead"
+              description: "Retention is paused until they are gone. Possible tampering from beefy: sudo restic -r /var/lib/beefy-backup/beefy --password-file /root/.config/restic/beefy-repo.pass snapshots, then forget the future ones by id. Server/5-Backup/README.md"

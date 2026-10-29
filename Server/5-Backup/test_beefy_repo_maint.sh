@@ -16,7 +16,8 @@ case " $* " in
   *" check "*) exit "${FAKE_CHECK_RC:-0}" ;;
   *" snapshots "*)
     [[ -n ${FAKE_EMPTY:-} ]] && { echo '[]'; exit 0; }
-    echo '[{"time":"2026-10-29T04:26:10.5+01:00","short_id":"aa","summary":{"total_bytes_processed":2000}},{"time":"2026-10-28T04:26:00+01:00","short_id":"bb","summary":{"total_bytes_processed":1000}}]' ;;
+    [[ -n ${FAKE_SNAPS:-} ]] && { echo "$FAKE_SNAPS"; exit 0; }
+    echo "[$GOOD]" ;;
   *) exit 1 ;;
 esac
 STUB
@@ -25,6 +26,8 @@ cat > "$T/bin/chown" <<'STUB'
 echo "chown $*" >> "$FAKE_LOG"
 STUB
 chmod +x "$T/bin/restic" "$T/bin/chown"
+export GOOD='{"time":"2026-10-29T04:26:10.5+01:00","hostname":"beefy","short_id":"aa","summary":{"total_bytes_processed":2000}},{"time":"2026-10-28T04:26:00+01:00","hostname":"beefy","short_id":"bb","summary":{"total_bytes_processed":1000}}'
+
 head -c 5000 /dev/zero > "$T/repo/pack"
 
 S="$HERE/beefy-repo-maint.sh"
@@ -36,7 +39,7 @@ m() { awk -v k="$1" '$1==k{print $2}' "$T/prom"; }
 
 run DOW=4; rc=$?
 [[ $rc == 0 && $(m beefy_backup_maint_last_status) == 1 ]] && ok "weekday run passes" || bad "weekday run passes" "rc=$rc $(cat "$T/out")"
-grep -q "forget --host beefy --keep-daily 7 --keep-weekly 4 --keep-monthly 6" "$T/log" && ok "retention 7d/4w/6m for beefy" || bad "retention 7d/4w/6m for beefy" "$(cat "$T/log")"
+grep -q "forget --host beefy --keep-within 30d --keep-daily 7 --keep-weekly 4 --keep-monthly 6" "$T/log" && ok "retention 30d floor + 7d/4w/6m for beefy" || bad "retention 30d floor + 7d/4w/6m for beefy" "$(cat "$T/log")"
 grep -q -- "--retry-lock" "$T/log" && ok "waits for a running backup's lock" || bad "waits for a running backup's lock"
 ! grep -q " prune" "$T/log" && ! grep -q " check" "$T/log" && ok "no prune or check on Thursday" || bad "no prune or check on Thursday"
 [[ $(m beefy_backup_last_snapshot_timestamp_seconds) == $(date -d 2026-10-29T04:26:10+01:00 +%s) ]] && ok "newest snapshot time in metric" || bad "newest snapshot time in metric" "$(cat "$T/prom")"
@@ -56,6 +59,22 @@ run DOW=4 FAKE_FORGET_RC=1
 
 run DOW=4 FAKE_EMPTY=1
 [[ $(m beefy_backup_maint_last_status) == 0 && $(m beefy_backup_last_snapshot_timestamp_seconds) == 0 ]] && ok "empty repo is a failure" || bad "empty repo is a failure" "$(cat "$T/prom")"
+
+numeric() { awk '!/^#/ && !($1 ~ /^beefy_backup_[a-z_]+$/ && $2 ~ /^[0-9]+$/ && NF == 2) {bad=1} END {exit bad}' "$T/prom"; }
+run DOW=4; numeric && [[ $(m beefy_backup_future_snapshots) == 0 ]] && ok "every metric line numeric, no future snapshots" || bad "every metric line numeric, no future snapshots" "$(cat "$T/prom")"
+
+FUT='{"time":"2099-01-01T00:00:00+01:00","hostname":"beefy","short_id":"ff","summary":{"total_bytes_processed":1}}'
+run DOW=7 FAKE_SNAPS="[$GOOD,$FUT]"; rc=$?
+! grep -q " forget" "$T/log" && ! grep -q " prune" "$T/log" && ok "future-dated snapshot: no forget, no prune" || bad "future-dated snapshot: no forget, no prune" "$(cat "$T/log")"
+[[ $rc != 0 && $(m beefy_backup_maint_last_status) == 0 && $(m beefy_backup_future_snapshots) == 1 ]] && ok "future-dated snapshot: status 0, counted" || bad "future-dated snapshot: status 0, counted" "rc=$rc $(cat "$T/prom")"
+[[ $(m beefy_backup_last_snapshot_timestamp_seconds) == $(date -d 2026-10-29T04:26:10+01:00 +%s) ]] && ok "future snapshot does not count as the newest" || bad "future snapshot does not count as the newest" "$(cat "$T/prom")"
+run DOW=4 FAKE_SNAPS="[$GOOD,${FUT/beefy/other}]"
+! grep -q " forget" "$T/log" && [[ $(m beefy_backup_future_snapshots) == 1 ]] && ok "future snapshot under another host name also refuses" || bad "future snapshot under another host name also refuses" "$(cat "$T/log")"
+SOON=$(date -d @$(( $(date +%s) + 1800 )) --iso-8601=seconds)
+run DOW=4 FAKE_SNAPS="[$GOOD,{\"time\":\"$SOON\",\"hostname\":\"beefy\",\"short_id\":\"cc\"}]"
+grep -q " forget" "$T/log" && [[ $(m beefy_backup_future_snapshots) == 0 ]] && ok "30 min clock skew tolerated" || bad "30 min clock skew tolerated" "$(cat "$T/prom")"
+run DOW=4 FAKE_SNAPS='[{"time":"not a time","hostname":"beefy","short_id":"zz"}]'; rc=$?
+numeric && [[ $rc != 0 && $(m beefy_backup_last_snapshot_timestamp_seconds) == 0 ]] && ! grep -q " forget" "$T/log" && ok "unparseable time: numeric metric, no forget" || bad "unparseable time: numeric metric, no forget" "rc=$rc $(cat "$T/prom" "$T/log")"
 
 echo "passed $PASS, failed $FAIL"
 [[ $FAIL == 0 ]]

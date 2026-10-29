@@ -29,6 +29,16 @@ groups:
           summary: "Retention/prune/check of beefy's backup repo failed"
           description: "journalctl -u beefy-repo-maint on fastpi (05:07). Server/5-Backup/README.md"
 
+      # Client-chosen snapshot times ahead of the clock would make time-based retention forget every real snapshot; beefy-repo-maint refuses forget while any exist. Routed as an intrusion sign (never muted).
+      - alert: BeefyBackupSnapshotInFuture
+        expr: beefy_backup_future_snapshots > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} snapshot(s) in beefy's backup repo dated more than 1 h ahead"
+          description: "Retention is paused until they are gone. Possible tampering from beefy: sudo restic -r /var/lib/beefy-backup/beefy --password-file /root/.config/restic/beefy-repo.pass snapshots, then forget the future ones by id. Server/5-Backup/README.md"
+
       # 2 = fastpi repo skipped (beefy asleep at 04:33) is not a failure; Stale catches it repeating
       - alert: BackupRestoreTestFailed
         expr: backup_restore_test_last_status == 0
