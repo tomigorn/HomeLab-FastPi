@@ -117,7 +117,7 @@ class ServerTest(unittest.TestCase):
 
     def raw(self, method, path, headers=(), body=b""):
         c = http.client.HTTPConnection("127.0.0.1", self.httpd.server_address[1], timeout=5)
-        c.putrequest(method, path)
+        c.putrequest(method, path, skip_accept_encoding=True)
         for k, v in headers:
             c.putheader(k, v)
         c.endheaders(body)
@@ -296,6 +296,74 @@ class ServerTest(unittest.TestCase):
         server._picked["at"] -= server.PICKED_TTL + 1
         self.assertEqual(self.img("fox", self.GATED)[0], 200)
 
+
+    def thumbs_app(self):
+        """Copy of the real gallery data plus a thumbs/ manifest for owl and fox."""
+        tmp = pathlib.Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, tmp)
+        for name in ("gallery.json", "groups.json", "img"):
+            src = pathlib.Path(server.APP) / name
+            (shutil.copytree if src.is_dir() else shutil.copy)(src, tmp / name)
+        (tmp / "thumbs").mkdir()
+        (tmp / "thumbs" / "thumbs.json").write_text(json.dumps({"owl": "0123456789", "fox": "abcdefabcd"}))
+        for aid, h in (("owl", "0123456789"), ("fox", "abcdefabcd")):
+            for w in (160, 320):
+                (tmp / "thumbs" / f"{aid}.{h}.{w}.webp").write_bytes(b"RIFF\0\0\0\0WEBP" + aid.encode())
+        server.load(tmp); self.addCleanup(server.load)
+
+    def test_state_carries_thumb_base(self):
+        self.thumbs_app(); self.start(FakeClient(self.users()))
+        av = {a["id"]: a for a in json.loads(self.req("/api/state", user="me")[1])["avatars"]}
+        self.assertEqual(av["owl"]["thumb"], "thumb/owl.0123456789")
+        self.assertNotIn("thumb", av["alice"])
+        self.assertEqual(av["owl"]["url"], BASE + "/img/owl.png")
+
+    def test_no_thumbs_without_manifest(self):
+        self.start(FakeClient(self.users()))
+        if not (pathlib.Path(server.APP) / "thumbs" / "thumbs.json").exists():
+            av = json.loads(self.req("/api/state", user="me")[1])["avatars"]
+            self.assertFalse(any("thumb" in a for a in av))
+
+    def test_thumb_for_the_picker_is_cached_for_a_year_privately(self):
+        self.thumbs_app(); self.start(FakeClient(self.users()), secret="s3cret")
+        code, body, h = self.raw("GET", "/thumb/owl.0123456789.320.webp", [("X-Picker-Secret", "s3cret")])
+        self.assertEqual(code, 200); self.assertTrue(body.startswith(b"RIFF"))
+        self.assertEqual(h["Content-Type"], "image/webp")
+        self.assertEqual(h["Cache-Control"], "private, max-age=31536000, immutable")
+        self.assertEqual(self.raw("HEAD", "/thumb/owl.0123456789.160.webp", [("X-Picker-Secret", "s3cret")])[0], 200)
+        for bad in ("owl.0000000000.160.webp", "owl.0123456789.640.webp", "nope.0123456789.160.webp",
+                    "..%2Fthumbs.json", "thumbs.json", "owl.0123456789.160.png"):
+            self.assertEqual(self.raw("GET", "/thumb/" + bad, [("X-Picker-Secret", "s3cret")])[0], 404, bad)
+
+    def test_thumb_access_follows_the_image_rules(self):
+        self.thumbs_app(); c = FakeClient(self.users()); self.start(c, secret="s3cret")
+        owl, fox = "/thumb/owl.0123456789.160.webp", "/thumb/fox.abcdefabcd.160.webp"
+        self.assertEqual(self.raw("GET", owl)[0], 403)
+        self.assertEqual(self.raw("GET", owl, [("X-Picker-Secret", "bad")])[0], 403)
+        code, _, h = self.raw("GET", fox, list(self.GATED.items()))
+        self.assertEqual((code, h["Cache-Control"]), (200, "public, max-age=300"))
+        code, _, h = self.raw("GET", owl, [("X-Avatar-Access", "gated"), ("Cookie", "authentik_session=good")])
+        self.assertEqual((code, h["Cache-Control"]), (200, "private, max-age=31536000, immutable"))
+        self.assertEqual(self.raw("GET", owl, [("X-Avatar-Access", "lan")])[0], 200)
+
+    def test_full_image_for_the_picker_is_private(self):
+        self.start(FakeClient(self.users()), secret="s3cret")
+        self.assertEqual(self.img("owl", {"X-Picker-Secret": "s3cret"})[2]["Cache-Control"], "private, max-age=86400")
+        self.assertEqual(self.img("owl", {"X-Avatar-Access": "lan"})[2]["Cache-Control"], "public, max-age=86400")
+
+    def test_page_and_state_gzip_when_asked(self):
+        import gzip
+        self.start(FakeClient(self.users()))
+        for path in ("/", "/api/state"):
+            code, body, h = self.raw("GET", path, [("X-authentik-username", "me"), ("Accept-Encoding", "gzip, br")])
+            self.assertEqual((code, h.get("Content-Encoding")), (200, "gzip"), path)
+            self.assertEqual(h["Vary"], "Accept-Encoding")
+            self.assertEqual(int(h["Content-Length"]), len(body))
+            plain = self.raw("GET", path, [("X-authentik-username", "me")])
+            self.assertNotIn("Content-Encoding", plain[2])
+            self.assertEqual(gzip.decompress(body), plain[1], path)
+            self.assertLess(len(body), len(plain[1]) / 2, path)
+        code, body, h = self.raw("HEAD", "/healthz", [("Accept-Encoding", "gzip")])
+        self.assertNotIn("Content-Encoding", h)
 
 if __name__ == "__main__":
     unittest.main()

@@ -42,6 +42,7 @@
   button.pill:hover{background:#262626;border-color:#555}
   .cur{min-width:0;flex:1 1 auto;padding-left:.3rem}
   @media(min-width:720px){.cur{flex:0 1 auto}}
+  .cur picture{display:flex;flex:none}
   .cur img{width:1.8rem;height:1.8rem;border-radius:50%;border:2px solid var(--accent);flex:none;object-fit:cover}
   .cur .lbl{color:var(--muted)}
   .cur .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis}
@@ -89,8 +90,9 @@
   @media(min-width:720px){.grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1.2rem;padding:.4rem .25rem}}
   button.av{background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit;border-radius:.6rem;
     scroll-margin-top:calc(var(--stick-h) + 1rem);scroll-margin-bottom:5rem;min-width:0}
+  button.av picture{display:block}
   button.av img{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:.5rem;border:3px solid transparent;
-    background:#222;transition:transform .15s,border-color .15s}
+    background:#222;background-clip:padding-box;transition:transform .15s,border-color .15s}
   button.av:hover:not(:disabled) img{transform:scale(1.06);border-color:#fff}
   button.av:focus-visible{outline:none}
   button.av:focus-visible img{border-color:#fff;box-shadow:0 0 0 2px #141414,0 0 0 4px #fff}
@@ -162,6 +164,8 @@ const HYPHENS = ["Pachy|cephalo|saurus", "Para|sauro|lophus", "Theri|zino|saurus
 const SHY = Object.fromEntries(HYPHENS.map(w => [w.replaceAll("|", ""), w.replaceAll("|", "\u00ad")]));
 const hyphenate = t => t.replace(/\p{L}{11,}/gu, w => SHY[w] || w);
 const fold = t => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const EAGER = 18;  // first two rows on a wide screen: fetched at once, the rest lazily
+const TILE = "(min-width: 720px) 170px, 30vw";
 let state = null, first = true, observer = null, activeId = null, lockId = null, lockTimer = 0, msgTimer = 0;
 const seen = new Set();  // sections currently inside the "active" band
 
@@ -181,8 +185,28 @@ async function load() {
   render(s);
 }
 
+function picture(a, sizes, eager) {
+  const p = document.createElement("picture");
+  if (a.thumb) {
+    const src = document.createElement("source");
+    src.type = "image/webp";
+    src.srcset = a.thumb + ".160.webp 160w, " + a.thumb + ".320.webp 320w";
+    src.sizes = sizes;
+    p.appendChild(src);
+  }
+  const img = document.createElement("img");
+  img.alt = a.name; img.width = 512; img.height = 512; img.decoding = "async";
+  img.loading = eager ? "eager" : "lazy";
+  if (eager) img.fetchPriority = "high";
+  if (a.color) img.style.backgroundColor = a.color;
+  img.src = "img/" + a.id + ".png";  // same-origin (behind the login)
+  p.appendChild(img);
+  return p;
+}
+
 function render(s) {
   const rows = $("rows"), list = $("ui-navlist");
+  let eager = EAGER;
   rows.textContent = ""; list.textContent = "";  // rebuilt from scratch: never duplicated
   for (const grp of s.groups) {
     const items = s.avatars.filter(x => x.group === grp.id);
@@ -201,9 +225,8 @@ function render(s) {
     b.disabled = a.status === "taken";
     b.title = a.status === "taken" ? a.name + " (taken)" : a.name;
     b.dataset.id = a.id; b.dataset.status = a.status; b.dataset.name = fold(a.name);
-    b.innerHTML = '<img alt="" loading="lazy" decoding="async" width="512" height="512"><span class="name"></span>';
-    b.querySelector("img").src = "img/" + a.id + ".png";  // same-origin (behind the login)
-    b.querySelector("img").alt = a.name;
+    b.innerHTML = '<span class="name"></span>';
+    b.prepend(picture(a, TILE, eager-- > 0));
     b.querySelector(".name").textContent = hyphenate(a.status === "taken" ? a.name + " · taken" : a.name);
     if (a.status === "mine") b.setAttribute("aria-current", "true");
     b.onclick = () => pick(a.id, a.name);
@@ -240,8 +263,10 @@ function renderCurrent(s) {
     el = document.createElement("button"); el.type = "button";
     el.className = "pill cur";
     el.title = "Show my current avatar";
-    el.innerHTML = '<img alt="" width="64" height="64" decoding="async"><span class="lbl">Yours:</span><span class="nm"></span><span class="go" aria-hidden="true">&#x2193;</span>';
-    el.querySelector("img").src = "img/" + mine.id + ".png";
+    el.innerHTML = '<span class="lbl">Yours:</span><span class="nm"></span><span class="go" aria-hidden="true">&#x2193;</span>';
+    const pic = picture(mine, "29px", true);
+    pic.querySelector("img").alt = "";
+    el.prepend(pic);
     el.querySelector(".nm").textContent = mine.name;
     el.setAttribute("aria-label", "Your current avatar: " + mine.name + ". Show it");
     el.onclick = () => showMine(mine.id);

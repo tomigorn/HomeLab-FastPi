@@ -1,5 +1,5 @@
 """Avatar picker: public gallery images + forward-auth protected picker/API."""
-import hashlib, hmac, json, os, pathlib, threading, time
+import gzip, hashlib, hmac, json, os, pathlib, re, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import core
@@ -11,12 +11,17 @@ APP = pathlib.Path(__file__).resolve().parent
 # app/img-local/; the rest are committed in app/img/.
 PACK_DIRS = {None: "img", "local": "img-local"}
 GALLERY, GROUPS, IDS, FILES = [], [], set(), {}
+# Gallery thumbnails built into the image (scripts/build_thumbs.py): id -> content hash, file name -> path.
+THUMBS, THUMB_FILES = {}, {}
+THUMB_RE = re.compile(r"[a-z0-9-]+\.[0-9a-f]{10}\.(160|320)\.webp")
+THUMB_CACHE = "private, max-age=31536000, immutable"
+GZIP_TYPES = ("text/html; charset=utf-8", "application/json")
 
 
 def load(app_dir=APP):
     """Load the gallery, hiding avatars (and then-empty rows) whose image file is
     missing - e.g. a fresh clone without the local pack."""
-    global GALLERY, GROUPS, IDS, FILES
+    global GALLERY, GROUPS, IDS, FILES, THUMBS, THUMB_FILES
     app_dir = pathlib.Path(app_dir)
     files = {}
     for g in json.loads((app_dir / "gallery.json").read_text()):
@@ -28,10 +33,20 @@ def load(app_dir=APP):
     GROUPS = [r for r in json.loads((app_dir / "groups.json").read_text()) if r["id"] in shown]
     IDS = set(files)
     FILES = {aid: path for aid, (_, path) in files.items()}
+    manifest = app_dir / "thumbs" / "thumbs.json"
+    THUMBS = {aid: h for aid, h in (json.loads(manifest.read_text()) if manifest.is_file() else {}).items()
+              if aid in IDS}
+    THUMB_FILES = {}
+    for aid, h in THUMBS.items():
+        for w in (160, 320):
+            name = f"{aid}.{h}.{w}.webp"
+            if (app_dir / "thumbs" / name).is_file():
+                THUMB_FILES[name] = (aid, app_dir / "thumbs" / name)
 
 
 load()
 INDEX = (APP / "static" / "index.html").read_bytes()
+INDEX_GZ = gzip.compress(INDEX, 9)
 # Tab icons: static, public like the images (they show no user data).
 ICONS = {"/favicon.svg": ("favicon.svg", "image/svg+xml"), "/favicon-32.png": ("favicon-32.png", "image/png"),
          "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png")}
@@ -117,8 +132,15 @@ class Handler(BaseHTTPRequestHandler):
             body, ctype = json.dumps(body).encode(), "application/json"
         elif isinstance(body, str):
             body = body.encode()
+        zipped = ctype in GZIP_TYPES and len(body) > 1024 and "gzip" in (self.headers.get("Accept-Encoding") or "")
+        if zipped:
+            body = INDEX_GZ if body is INDEX else gzip.compress(body, 6)
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        if ctype in GZIP_TYPES:
+            self.send_header("Vary", "Accept-Encoding")
+        if zipped:
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cache-Control", cache or "no-store")
@@ -155,19 +177,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, body, ctype, cache="public, max-age=86400", head=head)
             return True
         if path.startswith("/img/") and path.endswith(".png"):
-            self._image(path[len("/img/"):-len(".png")], head)
+            aid = path[len("/img/"):-len(".png")]
+            self._image(aid, FILES.get(aid), "image/png", head)
+            return True
+        if path.startswith("/thumb/"):
+            name = path[len("/thumb/"):]
+            aid, file = THUMB_FILES.get(name, (None, None)) if THUMB_RE.fullmatch(name) else (None, None)
+            self._image(aid or name.split(".", 1)[0], file, "image/webp", head, thumb=True)
             return True
         return False
 
-    def _image(self, aid, head):
+    def _image(self, aid, file, ctype, head, thumb=False):
         """LAN router (header set by Traefik) or the picker page: every image. Anyone else:
-        a picked image without login, every other one only with an Authentik session."""
-        if self.headers.get("X-Avatar-Access") == "lan" or (_cfg["secret"] and self._secret_ok()):
-            if aid not in IDS:
+        a picked image without login, every other one only with an Authentik session.
+        Thumbnail URLs carry a content hash, so outside a public cache they never expire."""
+        lan = self.headers.get("X-Avatar-Access") == "lan"
+        if lan or (_cfg["secret"] and self._secret_ok()):
+            if file is None:
                 return self._send(404, "not found", head=head)
-            return self._send(200, FILES[aid].read_bytes(), "image/png", cache="public, max-age=86400", head=head)
-        if aid in IDS and aid in picked_ids():
-            return self._send(200, FILES[aid].read_bytes(), "image/png", cache="public, max-age=300", head=head)
+            cache = THUMB_CACHE if thumb else ("public, max-age=86400" if lan else "private, max-age=86400")
+            return self._send(200, file.read_bytes(), ctype, cache=cache, head=head)
+        if file is not None and aid in picked_ids():
+            return self._send(200, file.read_bytes(), ctype, cache="public, max-age=300", head=head)
         try:
             ok = session_valid(_session_cookie(self.headers.get("Cookie")))
         except AuthentikError as e:
@@ -175,9 +206,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(503, "Authentik unreachable", head=head)
         if not ok:
             return self._send(403, "forbidden", head=head)
-        if aid not in IDS:
+        if file is None:
             return self._send(404, "not found", head=head)
-        return self._send(200, FILES[aid].read_bytes(), "image/png", cache="private, max-age=300", head=head)
+        return self._send(200, file.read_bytes(), ctype, cache=THUMB_CACHE if thumb else "private, max-age=300", head=head)
 
     def do_HEAD(self):
         path = self.path.split("?", 1)[0]
@@ -202,8 +233,11 @@ class Handler(BaseHTTPRequestHandler):
             except AuthentikError as e:
                 self.log_error("authentik: %s", e)
                 return self._send(503, {"error": "Authentik unreachable"})
-            return self._send(200, {"user": caller, "version": VERSION, "groups": GROUPS,
-                                    "avatars": core.gallery_state(GALLERY, users, _cfg["base"], caller)})
+            avatars = core.gallery_state(GALLERY, users, _cfg["base"], caller)
+            for a in avatars:
+                if a["id"] in THUMBS:
+                    a["thumb"] = f"thumb/{a['id']}.{THUMBS[a['id']]}"
+            return self._send(200, {"user": caller, "version": VERSION, "groups": GROUPS, "avatars": avatars})
         return self._send(404, "not found")
 
     def do_POST(self):

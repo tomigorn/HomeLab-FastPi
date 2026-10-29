@@ -61,8 +61,9 @@ class StaticPageTest(unittest.TestCase):
         self.assertIn("No avatars match", self.html)
 
     def test_lazy_images(self):
-        for attr in ('loading="lazy"', 'decoding="async"', 'width="512"', 'height="512"'):
-            self.assertIn(attr, self.html)
+        for prop in ('img.loading = eager ? "eager" : "lazy"', 'img.decoding = "async"', "img.width = 512",
+                     "img.height = 512"):
+            self.assertIn(prop, self.js)
 
     def test_buttons_present(self):
         self.assertTrue(self.find("button", id="ui-top"), "back-to-top button")
@@ -132,6 +133,28 @@ class StaticPageTest(unittest.TestCase):
         self.assertIn('querySelector(".name").textContent = hyphenate(', self.js)
         self.assertIn("\\u00ad", self.js)
 
+
+    def test_thumbnails_via_picture_with_png_fallback(self):
+        body = re.search(r"function picture\(a, sizes, eager\)\s*\{(.*?)\n\}", self.js, re.S)
+        self.assertIsNotNone(body, "picture() helper")
+        b = body.group(1)
+        self.assertIn('"image/webp"', b)
+        self.assertIn('".160.webp 160w, "', b)
+        self.assertIn('".320.webp 320w"', b)
+        self.assertIn(".sizes = sizes", b)
+        self.assertIn('"img/" + a.id + ".png"', b)  # full PNG for browsers without WebP or without thumbs
+        self.assertIn("a.color", b)  # tile colour while the image loads
+        self.assertIn('fetchPriority = "high"', b)
+        self.assertIn('"eager"', b)
+
+    def test_only_the_first_tiles_load_eagerly(self):
+        self.assertRegex(self.js, r"EAGER\s*=\s*\d+")
+        self.assertIn("eager--", self.js.replace("eager -= 1", "eager--"))
+
+    def test_tile_picture_reserves_its_square(self):
+        self.assertIn("display:block", self.css_rule("button.av picture"))
+        self.assertIn("aspect-ratio:1", self.css_rule("button.av img"))
+        self.assertIn("background-clip:padding-box", self.css_rule("button.av img"))  # colour stays off the border
 
 if __name__ == "__main__":
     unittest.main()
