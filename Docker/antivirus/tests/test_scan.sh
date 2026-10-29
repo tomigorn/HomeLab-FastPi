@@ -172,6 +172,13 @@ fresh "$T/red/movies/keep.mkv"
 run new > /dev/null
 assert_eq "only keep.mkv listed" "$T/red/movies/keep.mkv" "$(cat "$STATE/new.list")"
 
+echo "== new: SCAN_EXCLUDE_DIRS prunes an unreadable app dir"
+reset; marker; fresh "$T/red/appcfg/db/app.db"; fresh "$T/red/movies/keep.mkv"; chmod 000 "$T/red/appcfg/db"
+assert_eq "exits 0" 0 "$(SCAN_EXCLUDE_DIRS="$T/red/appcfg" run new)"
+assert_eq "only keep.mkv listed" "$T/red/movies/keep.mkv" "$(cat "$STATE/new.list")"
+assert_eq "scan_errors 0" 0 "$(metric clamav_scan_errors new)"
+chmod 755 "$T/red/appcfg/db"
+
 echo "== new: error keeps the marker"
 reset; marker; fresh "$T/red/movies/new.mkv"
 assert_eq "error exits 2" 2 "$(FAKE_FAIL=1 run new)"

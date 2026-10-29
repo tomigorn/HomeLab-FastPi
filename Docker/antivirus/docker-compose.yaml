@@ -59,6 +59,7 @@ services:
       - HOST=fastpi
       - SCAN_HOST=0   # the host root is scanned by clamav-hostscan, which has no network
       - SCAN_ROOTS=/scan/seagate-red /scan/seagate-black
+      - SCAN_EXCLUDE_DIRS=/scan/seagate-red/prowlarr   # Prowlarr config (uid 65054, 0750, holds API keys): app state, not downloads
       - QUARANTINE=/scan/seagate-red/antivirus-quarantine
       - STATE=/state
       - TEXTFILE=/textfile

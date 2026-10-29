@@ -26,7 +26,7 @@ usage: scan.sh new        files under \$SCAN_ROOTS changed since the last good r
        scan.sh restore <file in quarantine>  move back to its original path and never flag it again
 exit:  0 clean, 1 infected, 2 errors
 env:   SCAN_RESUME=1 (with USE_CLAMD=1) scans \`all\` in chunks only 22:00-06:00 and Sundays (local time), resuming where it stopped
-       USE_CLAMD=1 runs \`all\` through a private clamd (multiscan, all cores); SCAN_EXCLUDE_DIRS = directories \`all\` skips
+       USE_CLAMD=1 runs \`all\` through a private clamd (multiscan, all cores); SCAN_EXCLUDE_DIRS = directories `all` and `new` skip
 EOF
 	exit 2
 }
@@ -121,8 +121,9 @@ under_roots() {
 
 list_find() {
 	if [ -e "$STATE/last-run" ]; then since=$(stat -c %Y "$STATE/last-run"); else since=$(( $(date +%s) - 86400 )); fi
-	find $SCAN_ROOTS -xdev \
-		\( -path "$QUARANTINE" -o -path '*/quarantine' -o -path '*/.snapshots' -o -path '*/incomplete' -o -path '*/qBittorrent/logs' \) -prune -o \
+	set -- $SCAN_ROOTS -xdev \( -path "$QUARANTINE" -o -path '*/quarantine' -o -path '*/.snapshots' -o -path '*/incomplete' -o -path '*/qBittorrent/logs'
+	for d in $SCAN_EXCLUDE_DIRS; do set -- "$@" -o -path "$d"; done
+	find "$@" \) -prune -o \
 		-type f ! -name '*.part' ! -name '*.!qB' ! -name '*-wal' ! -name '*-shm' ! -name '*-journal' \
 		-exec stat -c '%Z %Y %n' {} + > "$STATE/find.out" 2> "$STATE/find.err"
 	VANISHED=$((VANISHED + $(grep -c 'No such file or directory$' "$STATE/find.err")))

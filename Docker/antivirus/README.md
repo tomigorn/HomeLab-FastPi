@@ -22,6 +22,8 @@ Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 | `docker compose run --rm clamav-hostscan` (nightly timer) | the host root, one filesystem, as `/host`, minus the exclude list (below), in resumable chunks | report only |
 | `docker exec clamav /scan.sh /scan/seagate-red/qbittorrent/downloads/<folder>` | the given files/folders | moved when under `/scan/...`, report only otherwise |
 
+- `new` and `all` in `clamav` skip `SCAN_EXCLUDE_DIRS=/scan/seagate-red/prowlarr`: Prowlarr's config (uid 65054, 0750, API keys), app state, not downloads. Unreadable for uid 65039 on purpose, so it made every `new` run exit 2.
+- The textfile dir must stay `pi:65046 2775` (all installers set it, `host.textfile-perms` checks it): else `clamav.prom` is not written.
 - Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`; in `clamav-hostscan` `/etc/x` = `/host/etc/x`.
 - "Changed" = ctime or mtime newer than the marker, so unpacked archives with old mtimes count. First run (no marker): the last 24 h.
 - Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, qBittorrent's own `*/qBittorrent/logs/*` (written 0600, unreadable to the scanner), `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
