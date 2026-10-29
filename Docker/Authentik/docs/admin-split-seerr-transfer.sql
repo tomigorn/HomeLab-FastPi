@@ -45,6 +45,7 @@ DELETE FROM session WHERE json_extract(json, '$.userId') = 1;
 SELECT 'user', id, username, jellyfinUsername, permissions, userType FROM "user" ORDER BY 2;
 SELECT 'link', userId, provider, username FROM linked_accounts ORDER BY 2;
 SELECT 'requests', requestedById, count(*) FROM media_request GROUP BY 2;
+-- Any foreign-key violation aborts before COMMIT (guard CHECK fails, .bail stops, nothing is committed).
+INSERT INTO guard SELECT (SELECT count(*) FROM pragma_foreign_key_check) = 0;
 COMMIT;
-PRAGMA foreign_key_check;
 PRAGMA integrity_check;
