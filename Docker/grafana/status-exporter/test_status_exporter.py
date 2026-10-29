@@ -109,6 +109,14 @@ class Subscriptions(unittest.TestCase):
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="MAM VIP",kind="MyAnonamouse class"}} {int(ex.local_midnight(dt.date(2027, 1, 27)))}', text)
         self.assertIn("subscription_list_updated_timestamp_seconds 1793000000", text)
 
+    def test_duplicates_once_earliest_expiry(self):
+        toml = self.TOML + '[[subscriptions]]\nname = "Eweka"\nkind = "Usenet provider"\nexpires = 2026-12-01\n[[subscriptions]]\nname = "MAM VIP"\nkind = "MyAnonamouse class"\nexpires = 2027-03-01\n'
+        text = ex.subscription_lines(toml, {"vip_expires": "2027-01-27"}, 1)
+        self.assertEqual(text.count('{name="Eweka",kind="Usenet provider"}'), 1)
+        self.assertEqual(text.count('{name="MAM VIP",kind="MyAnonamouse class"}'), 1)
+        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="Eweka",kind="Usenet provider"}} {int(ex.local_midnight(dt.date(2026, 11, 18)))}', text)
+        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="MAM VIP",kind="MyAnonamouse class"}} {int(ex.local_midnight(dt.date(2027, 1, 27)))}', text)
+
     def test_no_vip(self):
         self.assertNotIn("MAM VIP", ex.subscription_lines(self.TOML, {"vip_expires": ""}, 1))
 

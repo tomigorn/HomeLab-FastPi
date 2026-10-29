@@ -242,13 +242,16 @@ def subscription_lines(seerr_toml: str, mam: dict, updated: float) -> str:
     subs = list(tomllib.loads(seerr_toml).get("subscriptions") or [])
     if (mam or {}).get("vip_expires"):
         subs.append({"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date.fromisoformat(mam["vip_expires"])})
-    out = []
+    # one series per label set (node-exporter rejects the whole file on a duplicate); the earliest expiry wins
+    lifetime, expiry = {}, {}
     for s in subs:
         lab = f'name="{esc(s["name"])}",kind="{esc(s.get("kind", ""))}"'
         if s.get("lifetime"):
-            out.append(f"subscription_lifetime{{{lab}}} 1")
+            lifetime[lab] = 1
         elif isinstance(s.get("expires"), dt.date):
-            out.append(f"subscription_expiry_timestamp_seconds{{{lab}}} {int(local_midnight(s['expires']))}")
+            expiry[lab] = min(expiry.get(lab, s["expires"]), s["expires"])
+    out = [f"subscription_lifetime{{{lab}}} 1" for lab in lifetime]
+    out += [f"subscription_expiry_timestamp_seconds{{{lab}}} {int(local_midnight(d))}" for lab, d in expiry.items()]
     out.append(f"subscription_list_updated_timestamp_seconds {int(updated)}")
     return "\n".join(out) + "\n"
 
