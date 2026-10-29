@@ -38,6 +38,8 @@ STATE=${STATE_DIR:-/var/lib/crowdsec-autoupdate}
 PROM=${TEXTFILE_DIR:-/var/lib/node-exporter/textfile}/crowdsec_autoupdate.prom
 IMAGE=crowdsecurity/crowdsec
 VOLUMES=(crowdsec_crowdsec_config crowdsec_crowdsec_data)
+# Volume backup/restore helper, pinned: it runs as root with the CrowdSec volumes mounted. Bump the digest by hand.
+TAR_IMAGE=alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 TRAEFIK_HOST=home.holy-grail.ch      # any public route; probed via Traefik's container IP
 BAN_TEST_IP=203.0.113.250             # TEST-NET-3: never a real client
 CLEAN_TEST_IP=203.0.113.251
@@ -136,7 +138,7 @@ if [[ $(ver "$LATEST") > $(ver "$FROM") ]]; then
   # Stopped for the backup: the SQLite DB (no WAL) must not be copied mid-write.
   docker compose stop crowdsec >/dev/null 2>&1
   for v in "${VOLUMES[@]}"; do
-    if ! (umask 077; docker run --rm -v "$v":/from:ro alpine tar czf - -C /from . > "$BK/vol-$v.tgz"); then
+    if ! (umask 077; docker run --rm -v "$v":/from:ro "$TAR_IMAGE" tar czf - -C /from . > "$BK/vol-$v.tgz"); then
       envset CROWDSEC_TAG "$FROM" "$ENVF"; docker compose up -d crowdsec >/dev/null 2>&1
       TO=$FROM; DETAIL="backup of $v failed, nothing changed"; finish 1; fi
   done
@@ -157,7 +159,7 @@ if [[ $(ver "$LATEST") > $(ver "$FROM") ]]; then
   docker tag "$OLD_ID" "$IMAGE:$FROM"
   docker compose stop crowdsec
   for v in "${VOLUMES[@]}"; do
-    docker run --rm -v "$v":/to -v "$BK":/from:ro alpine sh -c "find /to -mindepth 1 -delete && tar xzf /from/vol-$v.tgz -C /to"
+    docker run --rm -v "$v":/to -v "$BK":/from:ro "$TAR_IMAGE" sh -c "find /to -mindepth 1 -delete && tar xzf /from/vol-$v.tgz -C /to"
   done
   START=$(date +%s)
   docker compose up -d --force-recreate crowdsec 2>&1 | tail -2
