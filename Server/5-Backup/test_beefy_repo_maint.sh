@@ -9,7 +9,7 @@ bad() { FAIL=$((FAIL+1)); echo "  FAIL $1 ${2:-}"; }
 mkdir -p "$T/bin" "$T/repo"
 cat > "$T/bin/restic" <<'STUB'
 #!/usr/bin/env bash
-echo "restic $*" >> "$FAKE_LOG"
+echo "restic $*" >> "$FAKE_LOG"; echo "pf ${RESTIC_PASSWORD_FILE:-}" >> "$FAKE_LOG"
 case " $* " in
   *" forget "*) exit "${FAKE_FORGET_RC:-0}" ;;
   *" prune "*) exit "${FAKE_PRUNE_RC:-0}" ;;
@@ -45,7 +45,7 @@ grep -q -- "--retry-lock" "$T/log" && ok "waits for a running backup's lock" || 
 [[ $(m beefy_backup_last_snapshot_timestamp_seconds) == $(date -d 2026-10-29T04:26:10+01:00 +%s) ]] && ok "newest snapshot time in metric" || bad "newest snapshot time in metric" "$(cat "$T/prom")"
 [[ $(m beefy_backup_last_snapshot_bytes) == 2000 && $(m beefy_backup_snapshots) == 2 ]] && ok "snapshot size and count" || bad "snapshot size and count" "$(cat "$T/prom")"
 [[ $(m beefy_backup_repo_bytes) -ge 5000 ]] && ok "repo size" || bad "repo size" "$(cat "$T/prom")"
-grep -q "chown -R beefy-backup:beefy-backup $T/repo" "$T/log" && ok "repo handed back to the REST server user" || bad "repo handed back to the REST server user" "$(cat "$T/log")"
+! grep -q "^chown" "$T/log" && ok "no chown: runs as the REST server user" || bad "no chown: runs as the REST server user" "$(cat "$T/log")"
 
 run DOW=7
 grep -q " prune" "$T/log" && ok "prune on Sunday" || bad "prune on Sunday"
@@ -75,6 +75,12 @@ run DOW=4 FAKE_SNAPS="[$GOOD,{\"time\":\"$SOON\",\"hostname\":\"beefy\",\"short_
 grep -q " forget" "$T/log" && [[ $(m beefy_backup_future_snapshots) == 0 ]] && ok "30 min clock skew tolerated" || bad "30 min clock skew tolerated" "$(cat "$T/prom")"
 run DOW=4 FAKE_SNAPS='[{"time":"not a time","hostname":"beefy","short_id":"zz"}]'; rc=$?
 numeric && [[ $rc != 0 && $(m beefy_backup_last_snapshot_timestamp_seconds) == 0 ]] && ! grep -q " forget" "$T/log" && ok "unparseable time: numeric metric, no forget" || bad "unparseable time: numeric metric, no forget" "rc=$rc $(cat "$T/prom" "$T/log")"
+
+run DOW=4 RUN_UID=0; rc=$?
+[[ $rc != 0 && ! -s $T/log && ! -e $T/prom ]] && ok "refuses to run as root (root-owned repo files)" || bad "refuses to run as root" "rc=$rc $(cat "$T/out" "$T/log" 2>/dev/null)"
+mkdir -p "$T/cred"; echo pw > "$T/cred/beefy-repo.pass"
+rm -f "$T/log"; env PATH="$T/bin:$PATH" FAKE_LOG="$T/log" REPO="$T/repo" PROM="$T/prom" CREDENTIALS_DIRECTORY="$T/cred" DOW=4 "$S" >/dev/null 2>&1
+grep -qx "pf $T/cred/beefy-repo.pass" "$T/log" && ok "password from the systemd credential" || bad "password from the systemd credential" "$(cat "$T/log")"
 
 echo "passed $PASS, failed $FAIL"
 [[ $FAIL == 0 ]]

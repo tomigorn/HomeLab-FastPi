@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Retention, prune and check of beefy's append-only restic repo on fastpi, plus its metrics (beefy-backup.prom). Runs as root from beefy-repo-maint.service and hands the repo back to the REST server user; beefy itself cannot delete anything.
+# Retention, prune and check of beefy's append-only restic repo on fastpi, plus its metrics (beefy-backup.prom). Runs from beefy-repo-maint.service as the REST server user beefy-backup (password as a systemd credential), so every file it writes stays readable for rest-server; beefy itself cannot delete anything.
 set -uo pipefail
 REPO=${REPO:-/var/lib/beefy-backup/beefy}
 PROM=${PROM:-/var/lib/node-exporter/textfile/beefy-backup.prom}
-OWNER=${OWNER:-beefy-backup:beefy-backup}
-export RESTIC_PASSWORD_FILE=${RESTIC_PASSWORD_FILE:-/root/.config/restic/beefy-repo.pass}
+export RESTIC_PASSWORD_FILE=${RESTIC_PASSWORD_FILE:-${CREDENTIALS_DIRECTORY:-/run/credentials/beefy-repo-maint.service}/beefy-repo.pass}
 export RESTIC_REPOSITORY=$REPO
 DOW=${DOW:-$(date +%u)}
 R() { restic --retry-lock 20m "$@"; }
 log() { echo "beefy-repo-maint: $*"; }
+if [ "${RUN_UID:-$(id -u)}" = 0 ]; then log "not as root (root-owned repo files break beefy's backups): sudo systemctl start beefy-repo-maint"; exit 2; fi
 
 STATUS=0 ERRORS=0 LAST=0 LBYTES=0 COUNT=0 RBYTES=0 FUTURE=0
 NOW=${NOW:-$(date +%s)}
@@ -74,7 +74,6 @@ if [ -n "$NEWEST" ]; then
 else
     log "no beefy snapshot with a valid time in the repo"; ERRORS=$((ERRORS+1))
 fi
-chown -R "$OWNER" "$REPO" || { log "chown failed"; ERRORS=$((ERRORS+1)); }
 RBYTES=$(du -sb "$REPO" 2>/dev/null | awk '{print $1}'); RBYTES=${RBYTES:-0}
 
 [ "$ERRORS" -eq 0 ] && STATUS=1

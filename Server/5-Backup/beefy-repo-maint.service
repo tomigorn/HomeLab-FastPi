@@ -4,15 +4,43 @@ Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
 
 [Service]
 Type=oneshot
+# same user as rest-server: lock, index and pack files stay readable for it, no chown afterwards
+User=beefy-backup
+Group=beefy-backup
 ExecStart=/usr/local/sbin/beefy-repo-maint
+LoadCredential=beefy-repo.pass:/root/.config/restic/beefy-repo.pass
 TimeoutStartSec=3600
 Nice=10
 IOSchedulingClass=idle
-Environment=RESTIC_CACHE_DIR=/var/cache/restic
-CacheDirectory=restic
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/var/lib/beefy-backup /var/lib/node-exporter/textfile
-PrivateTmp=yes
+Environment=RESTIC_CACHE_DIR=/var/cache/beefy-repo-maint PROM=/var/lib/beefy-repo-maint/beefy-backup.prom
+CacheDirectory=beefy-repo-maint
+StateDirectory=beefy-repo-maint
+# beefy-backup cannot write the textfile dir: root publishes the metric, also after a failed run
+ExecStopPost=+/bin/sh -c 'f=/var/lib/node-exporter/textfile/beefy-backup.prom; install -m 0644 -o root -g pi /var/lib/beefy-repo-maint/beefy-backup.prom "$f.tmp" && mv "$f.tmp" "$f"'
+UMask=0077
+ReadWritePaths=/var/lib/beefy-backup
 PrivateNetwork=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources

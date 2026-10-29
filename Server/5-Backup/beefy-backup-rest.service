@@ -21,6 +21,8 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=
 ProtectSystem=strict
+# same user as beefy-repo-maint: never see its repo password credential
+InaccessiblePaths=-/run/credentials
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
