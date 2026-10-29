@@ -9,8 +9,8 @@ HERE="$REPO/Server/4-Security-Monitoring"
 
 echo "==> state and metric directories"
 sudo install -d -o pi -g pi -m 0755 /var/lib/security-scan
-# node-exporter reads this directory; the scan writes to it as the pi user.
-sudo install -d -o pi -g pi -m 0755 /var/lib/node-exporter/textfile
+# node-exporter reads this directory; pi and the gid-65046 writers (clamav-scan) write to it (docs/container-hardening.md).
+sudo install -d -o pi -g 65046 -m 2775 /var/lib/node-exporter/textfile
 # Dependency-Track feed: own Trivy cache, API key (team fastpi-scanner, README "Dependency-Track") in secrets/
 sudo install -d -o pi -g pi -m 0755 /var/lib/security-scan/trivy-cache-dt
 sudo install -d -o pi -g pi -m 0700 /var/lib/security-scan/secrets
