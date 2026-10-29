@@ -10,9 +10,10 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "${OOB_ENV:-$here/../secrets/oob-alert.env}"
 
+# The URL (with the bot token) goes in through a curl config on stdin, never in argv (/proc/*/cmdline).
 api() {
-  curl -sS --fail --max-time 20 --doh-url https://1.1.1.1/dns-query \
-    "https://api.telegram.org/bot$(cat "$TOKEN_FILE")/$1" "${@:2}"
+  printf 'url = "https://api.telegram.org/bot%s/%s"\n' "$(< "$TOKEN_FILE")" "$1" |
+    curl -sS --fail --max-time 20 --doh-url https://1.1.1.1/dns-query -K - "${@:2}"
 }
 
 chat="$CHAT_ID"
