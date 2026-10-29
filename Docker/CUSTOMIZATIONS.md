@@ -197,7 +197,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Waker app (listen backlog 64 via `Server.request_queue_size`) | `app/` | `docker compose up -d --build` | `waker.status`: → up; `waker.version`: page vs app/VERSION → same | base image |
+| Waker app (listen backlog 64 via `Server.request_queue_size`) | `app/` | `docker compose up -d --build` | `waker.status`: → up; `waker.version`: page vs app/VERSION → same; `waker.ssh-user`: passwd name of the container uid → waker (the `/history` ssh needs it) | base image; a uid change in compose without the `Dockerfile` |
 | Night downloads poll/wake (both `User=pi`), maintenance wake, idle pull (also copies beefy storage + mover metrics) | `night-downloads-wake/`, `maintenance-wake/`, `Server/4-Security-Monitoring/beefy-idle-pull.*` | copy units to /etc/systemd/system, enable | `waker.timers`: → four active; `waker.units-installed`: → same same same; `waker.night-wake-user`: wake unit runs as pi, not root → pi | none |
 | ssh wake hooks | ~/.ssh/config Match exec | by hand | `waker.ssh-hooks`: → 2 | none |
 

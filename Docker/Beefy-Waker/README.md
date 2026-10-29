@@ -165,7 +165,7 @@ curl -s http://127.0.0.1:9001/history | python3 -c \
 |------|---------|
 | `app/waker.py` | Gate + status/wake/history endpoints + the manual page. Stdlib only. |
 | `app/VERSION` | App version (semver) shown in the page footer. **Bump on each user-facing change.** |
-| `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`). |
+| `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`), passwd user `waker` = compose uid 65005 (ssh refuses an unknown uid), pip removed (stdlib-only app; pip's vendored libs were the only HIGH CVEs). |
 | `docker-compose.yaml` | Builds the image, host network, runs the script. |
 | `.env` | MAC, broadcast, probe, port, countdown, ssh user, history cutoff (no secrets). |
 | `secrets/` | Read-only history SSH key + `known_hosts` (gitignored). |
@@ -300,7 +300,7 @@ This project only **wakes** beefy. beefy decides when to **sleep itself** via th
 (`Server/8-Idle-Watcher.md`) — it powers off after sustained inactivity, and the
 WoL here brings it back.
 
-**Rebuild** (`beefy-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
+**Rebuild** (`beefy-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly. The image has no pip (removed in the `Dockerfile`).
 
 ## Nightly maintenance wake
 
