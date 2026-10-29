@@ -71,6 +71,29 @@ groups:
           summary: "{{ $labels.host }} disk {{ $labels.disk }} at {{ $value }} °C"
           description: "Over the limit for its type (HDD 55, SATA SSD 65, NVMe 75 °C) for 30 min. Check airflow and fans on {{ $labels.host }}."
 
+      # Parked disks are never woken, so a disk that is always in standby (or a USB bridge that always answers "standby") would never be checked. Two rules, one name: last read older than 14 days, or never read and parked for 14 days.
+      - alert: SmartDiskUnchecked
+        expr: smart_standby == 1 and on(host, disk) (time() - smart_last_read_timestamp_seconds > 14 * 86400)
+        for: 1h
+        labels:
+          severity: warning
+          notify: digest
+          reason: last read too old
+        annotations:
+          summary: "{{ $labels.host }} disk {{ $labels.disk }}: no SMART reading for 14 days"
+          description: "The disk was parked (standby) at every smart-exporter run, so SmartDiskFailing and the error alerts cannot see it. Read it once while it is spun up: <code>sudo smartctl -a /dev/sdX</code> after accessing a file on it, or check the USB bridge passes standby queries through."
+
+      - alert: SmartDiskUnchecked
+        expr: smart_standby == 1 unless on(host, disk) smart_last_read_timestamp_seconds
+        for: 14d
+        labels:
+          severity: warning
+          notify: digest
+          reason: never read
+        annotations:
+          summary: "{{ $labels.host }} disk {{ $labels.disk }}: no SMART reading for 14 days"
+          description: "The disk was parked (standby) at every smart-exporter run, so SmartDiskFailing and the error alerts cannot see it. Read it once while it is spun up: <code>sudo smartctl -a /dev/sdX</code> after accessing a file on it, or check the USB bridge passes standby queries through."
+
       - alert: SmartExporterStale
         expr: |-
           (time() - smart_exporter_last_run_timestamp_seconds{host="fastpi"} > 7200)

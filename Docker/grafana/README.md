@@ -106,6 +106,15 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `BeefyWakeLoop` | > 60 up/down changes in 24 h (planned wakes give 7-41), holds 6 h after it drops below; one message per episode |
 | `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): one message per episode, no repeat, no resolved message; "awake since" is the boot time; hours awake per day are in the daily digest. Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
 
+## Jellyfin Currently popular
+
+`prometheus/rules/jellyfin-popular.yml`, test `prometheus/tests/jellyfin-popular_test.yml`. Source: beefy `Docker/Jellyfin/scripts/popular.py` → `jellyfin-popular.prom` (copied by `beefy-idle-pull`).
+
+| Alert | When |
+|---|---|
+| `JellyfinPopularFailed` | `jf_popular_last_run_success == 0` for 10 min (run failed or too many title lookups failed; lists of the last good run stay), warning |
+| `JellyfinPopularStale` | no run for more than 2 days, for 1 h (after 9 days the request backend refuses everything), warning |
+
 ## beefy storage and mover
 
 `prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The mover counters are only written on runs with the SSD tier >= 70 % (absent otherwise); `beefy_disk_smart_raw` comes from `smartctl -n standby`, so series have gaps. `ssd` = both SSDs combined. The daily digest shows SSD/HDD used %, SSD TB written, HDD start/stops and power cycles of the last 24 h and, after a run that moved something, titles, GB and SSD before -> after.
@@ -166,6 +175,7 @@ Rules `prometheus/rules/expiry.yml`, `prometheus/rules/disk-health.yml`, tests `
 | `SmartWearHigh` | wear indicator ≥ 80 % (NVMe percentage used, SSD normalized wear) | warning |
 | `SmartTemperatureHigh` | freshly read (< 1 h) and HDD ≥ 55, SATA SSD ≥ 65, NVMe ≥ 75 °C for 30 min (fastpi NVMe: `HostNvmeHot`) | warning |
 | `SmartExporterStale` | fastpi not run for 2 h, beefy for 3 days, or a disk unreadable; `notify: digest` | info |
+| `SmartDiskUnchecked` | a parked disk (standby at every run, never woken) with no SMART reading for 14 days: last read older than 14 days, or never read and parked 14 days (`for: 14d`); `notify: digest` | warning |
 
 ```bash
 ../_global/install-root-scripts.sh   # smart_exporter.py runs as root from /usr/local/libexec/fastpi
@@ -183,7 +193,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | At a glance | `ALERTS` (critical + warning), `backup_last_success_timestamp_seconds`, `clamav_infected_last_run`, `security_repo_leaks_total` |
 | Storage | `beefy_storage_*`, `beefy_mover_*`, `beefy_disk_smart_raw` (HDD start/stop, power cycles per 24 h) |
 | Downloads and requests | `beefy_downloads_night_pending`, `beefy_downloads_queue{state}`, `beefy_downloads_night_imported{,_bytes}{app}` (last 22:00-06:00 window), `beefy_requests{state}` (Seerr `/request/count`), `beefy_request_badges{state}` (request-state.json) |
-| Jellyfin popular | `jf_popular_last_run_timestamp_seconds`, `jf_popular_last_run_success` (0/1), `jf_popular_items{list}`: written by the beefy popular job to `/home/buntu/.local/state/jellyfin-popular.prom` (the pull copies it only when it has a `jf_popular_last_run_timestamp_seconds ` line) |
+| Jellyfin popular | `jf_popular_last_run_timestamp_seconds`, `jf_popular_last_run_success` (0/1), `jf_popular_errors`, `jf_popular_items{list}`: written by the beefy popular job to `/home/buntu/.local/state/jellyfin-popular.prom` (the pull copies it only when it has a `jf_popular_last_run_timestamp_seconds ` line) |
 | Backups and security | `backup_last_status`, `backup_last_bytes_added`, `security_image_vulnerabilities_fixable` |
 | Certificates, domains, subscriptions | `tls_cert_*`, `domain_*`, `ddns_*`, `subscription_expiry_timestamp_seconds` |
 | Disk health | `smart_*` per host and disk |
@@ -204,7 +214,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |
 | other info | Telegram, no resolved | at once, muted 22:00-07:00, repeat 7 d |
 | `BeefyWakeLoop`, `TowerWakeLoop`, `RootkitWarning`, `SecurityScanStale`, `ClamavScanStale`, `BeefyAwakeLong` | Telegram, no resolved | once per episode, muted 22:00-07:00 |
-| label `notify: digest` (40 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`, expiry/SMART exporter health) | no message (`null`), listed in `DailyDigest` | daily 06:30 |
+| label `notify: digest` (50 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`, expiry/SMART exporter health) | no message (`null`), listed in `DailyDigest` | daily 06:30 |
 | label `notify: weekly` (`ContainerImageUpdatesAvailable`, `UnraidUpdateAvailable`, `CriticalImageVulnerabilities`) | no message, figures in `WeeklyUpdateDigest` | Monday 05:00 |
 | `DailyDigest`, `WeeklyUpdateDigest` | `telegram-digest` | 06:30 daily, Monday 05:00, never muted |
 | `AlertNotificationsFailing{integration="telegram"}` | email | at once |

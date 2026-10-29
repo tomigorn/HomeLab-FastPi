@@ -125,3 +125,34 @@ tests:
             exp_annotations:
               summary: "SMART data of fastpi not current"
               description: "smart-exporter did not run or could not read a disk: <code>journalctl -u smart-exporter -n 20</code> on fastpi. beefy's copy is pulled only while it is awake, so 3 days are allowed there."
+
+  - name: parked disk never read for 14 days, or last read over 14 days ago
+    interval: 5m
+    input_series:
+      - series: 'smart_standby{host="fastpi",disk="never"}'
+        values: '1x5000'
+      - series: 'smart_standby{host="fastpi",disk="old"}'
+        values: '1x5000'
+      - series: 'smart_last_read_timestamp_seconds{host="fastpi",disk="old"}'
+        values: '0x5000'
+      - series: 'smart_standby{host="fastpi",disk="fresh"}'
+        values: '1x5000'
+      - series: 'smart_last_read_timestamp_seconds{host="fastpi",disk="fresh"}'
+        values: '0+300x5000'
+      - series: 'smart_standby{host="fastpi",disk="awake"}'
+        values: '0x5000'
+    alert_rule_test:
+      - eval_time: 13d
+        alertname: SmartDiskUnchecked
+        exp_alerts: []
+      - eval_time: 15d
+        alertname: SmartDiskUnchecked
+        exp_alerts:
+          - exp_labels: {severity: warning, notify: digest, reason: never read, host: fastpi, disk: never}
+            exp_annotations:
+              summary: "fastpi disk never: no SMART reading for 14 days"
+              description: "The disk was parked (standby) at every smart-exporter run, so SmartDiskFailing and the error alerts cannot see it. Read it once while it is spun up: <code>sudo smartctl -a /dev/sdX</code> after accessing a file on it, or check the USB bridge passes standby queries through."
+          - exp_labels: {severity: warning, notify: digest, reason: last read too old, host: fastpi, disk: old}
+            exp_annotations:
+              summary: "fastpi disk old: no SMART reading for 14 days"
+              description: "The disk was parked (standby) at every smart-exporter run, so SmartDiskFailing and the error alerts cannot see it. Read it once while it is spun up: <code>sudo smartctl -a /dev/sdX</code> after accessing a file on it, or check the USB bridge passes standby queries through."
