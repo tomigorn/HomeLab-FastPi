@@ -87,6 +87,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
+| Samba on `lo`+`eth0` only (smbd/nmbd `interfaces`, wsdd2 `-i eth0`, avahi `allow-interfaces`), encryption required | `mouse/docker-compose.yaml` samba env (`SAMBA_GLOBAL_CONFIG_*`, `WSDD2_PARAMETERS`, `AVAHI_INTERFACES`) | `docker compose up -d --no-deps samba` | `mouse.samba-lan-only`: → none Yes required | the image renaming its env options (`:latest`) |
 | Prowlarr MAM rules, seed forever | Prowlarr DB + qBittorrent prefs | `sudo python3 scripts/prowlarr-setup.py` | `mouse.prowlarr-setup`: prowlarr-setup.py --check → OK MAM rules, gate and seed-forever hold | indexer field renames |
 | prowlarr-gate (only Traefik gets the UI), Prowlarr digest pin | `prowlarr-gate/nginx.conf`, `docker-compose.yaml` | `docker compose up -d prowlarr-gate` | `mouse.prowlarr-gate`: UI from the host → 403; `mouse.prowlarr-pin`: → 2.7.0.5723-ls166@sha256 | host config resetting bindAddress |
 | gluetun lo guard: only prowlarr-gate (uid 65057) and Prowlarr (65054) reach 127.0.0.1:9696, qBit/SAB/Mousehole refused (S-05) | `gluetun/post-rules.txt` mounted at `/iptables/post-rules.txt` | `docker compose up -d gluetun` (restarts the netns stack) | `mouse.prowlarr-lo-guard`: qBittorrent → 9696 = 000, gate → 9696 ok | gluetun post-rules path/format, container uids, iptables owner match |

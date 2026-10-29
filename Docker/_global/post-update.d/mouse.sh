@@ -37,3 +37,7 @@ fi
 if want mousehole; then
   check mouse.mousehole-mam '"ok"' "$(curl -s -m 5 http://127.0.0.1:5010/health)"
 fi
+if want samba; then
+  # Host network: discovery and file service only on lo + eth0, never on a Docker bridge (D-14); encryption enforced.
+  check mouse.samba-lan-only '^none Yes required$' "$(sudo -n ss -Hlntup 2>&1 | grep -E 'smbd|nmbd|wsdd2|avahi-daemon' | awk '{print $5}' | grep -E '%(br-|docker|veth)|^172\.' | xargs | sed 's/^$/none/') $(docker exec samba testparm -s -v 2>/dev/null | sed -n 's/^[[:space:]]*server smb encrypt = //p;s/^[[:space:]]*bind interfaces only = //p' | xargs)"
+fi

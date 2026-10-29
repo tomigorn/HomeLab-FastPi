@@ -56,9 +56,15 @@ services:
       SAMBA_CONF_LOG_LEVEL: 1
 
       # --- Security ---
-      SAMBA_CONF_SERVER_MIN_PROTOCOL: SMB2
-      SAMBA_CONF_SERVER_MAX_PROTOCOL: SMB3
-      SAMBA_CONF_SMB_ENCRYPT: required
+      # The image only reads a few SAMBA_CONF_* names; any other global option needs SAMBA_GLOBAL_CONFIG_ (_SPACE_ = space).
+      SAMBA_GLOBAL_CONFIG_server_SPACE_min_SPACE_protocol: SMB2
+      SAMBA_GLOBAL_CONFIG_server_SPACE_max_SPACE_protocol: SMB3
+      SAMBA_GLOBAL_CONFIG_server_SPACE_smb_SPACE_encrypt: required
+      # Host network: smbd, nmbd, wsdd2 and avahi would otherwise listen and announce on every Docker bridge.
+      SAMBA_GLOBAL_CONFIG_interfaces: lo,eth0   # no spaces: the entrypoint word-splits the values
+      SAMBA_GLOBAL_CONFIG_bind_SPACE_interfaces_SPACE_only: "yes"
+      WSDD2_PARAMETERS: -i eth0
+      AVAHI_INTERFACES: eth0
 
       # --- SHARE ---
       SAMBA_VOLUME_CONFIG_mouse: |

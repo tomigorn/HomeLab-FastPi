@@ -15,6 +15,8 @@ The Audiobookshelf library is `library/audiobooks` (inside `admin_books`).
 
 Connect: `\\fastpi\mouse`, `smb://fastpi.homelab/mouse` (same for `admin_books`, `books`).
 
+Host network, but smbd/nmbd, wsdd2 (Windows discovery) and avahi (`_smb._tcp`, Finder) only on `lo` + `eth0`, not on the Docker bridges. SMB2 minimum, encryption required (`server smb encrypt = required`). Global options go through `SAMBA_GLOBAL_CONFIG_*`: the image ignores most `SAMBA_CONF_*` names. Check: `mouse.samba-lan-only`.
+
 ## Web UIs (Holy Grail SSO, LAN + VPN only)
 | App | URL | Group | Shell recovery |
 |---|---|---|---|
