@@ -7,6 +7,8 @@ tests:
   - name: winter Monday 05:00 CET is 04:00 UTC
     interval: 1m
     input_series:
+      - series: 'download_integrity_corrupt_total{host="beefy",client="sabnzbd"}'
+        values: '3x6200'
       - series: 'security_pending_updates{host="fastpi",type="all"}'
         values: '5x6200'
       - series: 'security_pending_updates{host="fastpi",type="security"}'
@@ -92,6 +94,7 @@ tests:
 
                 <b>Antivirus</b> (last new-files scan)
                 • fastpi: 1h 0m 0s ago, 0 infected
+                • corrupt downloads caught this week: 0
 
                 <b>Rootkit</b> (new findings)
                 • beefy/chkrootkit: 0
@@ -141,6 +144,7 @@ tests:
 
                 <b>Antivirus</b> (last new-files scan)
                 • no data
+                • corrupt downloads caught this week: no data
 
                 <b>Rootkit</b> (new findings)
                 • no data
@@ -173,6 +177,7 @@ tests:
 
                 <b>Antivirus</b> (last new-files scan)
                 • no data
+                • corrupt downloads caught this week: no data
 
                 <b>Rootkit</b> (new findings)
                 • no data

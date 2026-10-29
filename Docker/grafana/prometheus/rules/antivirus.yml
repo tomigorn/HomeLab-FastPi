@@ -1,6 +1,7 @@
 # ClamAV scans on fastpi, beefy and tower (Docker/antivirus, scan.sh; beefy also its download hook and background queue, clamav-hook.py).
 # fastpi writes clamav.prom itself; beefy and tower are pulled by Server/4-Security-Monitoring/security_scan.py (av group, 04:20 for beefy, 05:40 and 05:50) into clamav_<host>.prom, together with the hit list as security_av_infected_info.
 # Quarantined hits come from each host's quarantine index.txt (security_scan.py avhits, every 15 min, beefy/tower only while awake): one series per hit for 24 h from when fastpi first saw it.
+# Corrupt downloads (beefy download-integrity.py, run by the SABnzbd/qBittorrent completion hooks): security_scan.py pulls download-integrity.prom as download_integrity_beefy.prom and the last 24 h of download-integrity-hits.tsv as download_integrity_hit_info (every 15 min while beefy is up, 04:20 nightly).
 # Tests: prometheus/tests/antivirus_test.yml
 groups:
   - name: antivirus
@@ -73,3 +74,47 @@ groups:
           description: >-
             freshclam in the clamav container has not updated the database for over 7 days.
             Check: docker logs clamav.
+
+  - name: download-integrity
+    rules:
+      # increase() misses a series whose first sample is already 1, so a counter that appeared within the last day counts too.
+      # Normal route (warning: Telegram, muted 22:00-07:00, no resolved). Titles and reasons come from the hit list, which keeps 24 h.
+      - alert: DownloadCorrupt
+        expr: >-
+          (sum by (host, client) (increase(download_integrity_corrupt_total[1d])) > 0)
+          or
+          (sum by (host, client) (download_integrity_corrupt_total) > 0 unless on (host, client) sum by (host, client) (download_integrity_corrupt_total offset 1d))
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: corrupt download from {{ $labels.client }}"
+          description: >-
+            The integrity check found damaged data (zeroed blocks, truncated or unreadable file) in a download from {{ $labels.client }}, nothing was imported.
+            {{ with query (printf "download_integrity_hit_info{host='%s',client='%s'}" $labels.host $labels.client) }}{{ range $i, $h := . }}{{ if $i }}; {{ end }}{{ $h.Labels.title | html }}: {{ $h.Labels.file | html }} ({{ $h.Labels.reason | html }}){{ end }}.{{ else }}No details collected yet (hit list is pulled every 15 min).{{ end }}
+            Full list: /var/lib/clamav-scan/textfile/download-integrity-hits.tsv on {{ $labels.host }}.
+
+      - alert: DownloadIntegrityErrors
+        expr: sum by (host, client) (increase(download_integrity_errors_total[1d])) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }}: the integrity check of {{ $labels.client }} downloads failed {{ $value | printf \"%.0f\" }} time(s)"
+          description: >-
+            The check could not read or verify files, so those downloads were not proven intact.
+            Check: the hook output in docker logs of {{ $labels.client }} on {{ $labels.host }}, and download-integrity.py (Docker/Antivirus/hook).
+
+      # for: 2d, so the first days after the hook is deployed (no download checked yet, no file) stay quiet. The pulled file stays on fastpi while beefy sleeps, so the series only vanish when the checker never wrote a file or the pull broke (a failed pull itself is SecurityScanStale, subject dlint-beefy).
+      - alert: DownloadIntegrityMetricsMissing
+        expr: >-
+          absent_over_time(download_integrity_checked_total{host="beefy"}[3d])
+          and on() (max_over_time(probe_success{job="blackbox-beefy"}[3d]) == 1)
+        for: 2d
+        labels:
+          severity: info
+        annotations:
+          summary: "beefy: no download integrity metrics for 3 days"
+          description: >-
+            beefy was up but fastpi has no download_integrity_checked_total: the check does not run (hook not installed), writes no file, or security_scan.py cannot pull it.
+            Check: ls /var/lib/clamav-scan/textfile/download-integrity.prom on beefy, then journalctl -u security-av-hits on fastpi.

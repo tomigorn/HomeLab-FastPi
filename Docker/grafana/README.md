@@ -207,6 +207,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 |---|---|---|
 | `severity=critical` (edge, DNS, endpoints, disk/RAM critical, rollback failed, secret leak) | `critical`: Telegram + email, with resolved | at once, any time, repeat 12 h |
 | `MalwareQuarantined`, `MalwareFound` | Telegram + email, no resolved | at once, any time |
+| `DownloadCorrupt` (warning), `DownloadIntegrityErrors`, `DownloadIntegrityMetricsMissing` (info) | Telegram, no resolved | muted 22:00-07:00, text lists title, file, reason (`rules/antivirus.yml`) |
 | `ContainerDown` of traefik, cloudflared, crowdsec, adguard*, authentik* | Telegram + email, no resolved | at once, any time |
 | Intrusion signs: `SshLoginOutsideLan` (unknown source), `SshLoginUnexpectedUser`, `SecurityFileChanged`, `BeefyBackupSnapshotInFuture` | Telegram + email, no resolved | at once, any time (never muted) |
 | `AlertingHeartbeat` | email | every 28 days |

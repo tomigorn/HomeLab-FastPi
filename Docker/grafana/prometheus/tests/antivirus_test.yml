@@ -158,3 +158,83 @@ tests:
             exp_annotations:
               summary: "tower: ClamAV signatures are 8d 2h 26m 40s old"
               description: "freshclam in the clamav container has not updated the database for over 7 days. Check: docker logs clamav."
+
+  - name: a corrupt download fires once with titles and reasons from the hit list
+    interval: 1m
+    input_series:
+      - series: 'download_integrity_corrupt_total{host="beefy",client="sabnzbd"}'
+        values: '0x100 1x1000'
+      - series: 'download_integrity_corrupt_total{host="beefy",client="qbittorrent"}'
+        values: '0x1100'
+      - series: 'download_integrity_hit_info{host="beefy",client="sabnzbd",title="Some Show S01",file="a.mkv",reason="8 MiB zero block"}'
+        values: '1x1100'
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: DownloadCorrupt
+        exp_alerts: []
+      - eval_time: 105m
+        alertname: DownloadCorrupt
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, client: sabnzbd}
+            exp_annotations:
+              summary: "beefy: corrupt download from sabnzbd"
+              description: "The integrity check found damaged data (zeroed blocks, truncated or unreadable file) in a download from sabnzbd, nothing was imported. Some Show S01: a.mkv (8 MiB zero block). Full list: /var/lib/clamav-scan/textfile/download-integrity-hits.tsv on beefy."
+
+  - name: a counter that first appears already at 1 still fires
+    interval: 1m
+    input_series:
+      - series: 'download_integrity_corrupt_total{host="beefy",client="sabnzbd"}'
+        values: '_x60 1x300'
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: DownloadCorrupt
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, client: sabnzbd}
+            exp_annotations:
+              summary: "beefy: corrupt download from sabnzbd"
+              description: "The integrity check found damaged data (zeroed blocks, truncated or unreadable file) in a download from sabnzbd, nothing was imported. No details collected yet (hit list is pulled every 15 min). Full list: /var/lib/clamav-scan/textfile/download-integrity-hits.tsv on beefy."
+
+  - name: integrity check errors fire, a flat counter does not
+    interval: 1m
+    input_series:
+      - series: 'download_integrity_errors_total{host="beefy",client="sabnzbd"}'
+        values: '0x30 2x60'
+      - series: 'download_integrity_errors_total{host="beefy",client="qbittorrent"}'
+        values: '5x90'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: DownloadIntegrityErrors
+        exp_alerts:
+          - exp_labels: {severity: info, host: beefy, client: sabnzbd}
+            exp_annotations:
+              summary: "beefy: the integrity check of sabnzbd downloads failed 2 time(s)"
+              description: "The check could not read or verify files, so those downloads were not proven intact. Check: the hook output in docker logs of sabnzbd on beefy, and download-integrity.py (Docker/Antivirus/hook)."
+
+  - name: missing metrics fire only while beefy was up
+    interval: 1h
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy"}'
+        values: '0x40 1x40'
+    alert_rule_test:
+      - eval_time: 30h
+        alertname: DownloadIntegrityMetricsMissing
+        exp_alerts: []
+      - eval_time: 100h
+        alertname: DownloadIntegrityMetricsMissing
+        exp_alerts:
+          - exp_labels: {severity: info, host: beefy}
+            exp_annotations:
+              summary: "beefy: no download integrity metrics for 3 days"
+              description: "beefy was up but fastpi has no download_integrity_checked_total: the check does not run (hook not installed), writes no file, or security_scan.py cannot pull it. Check: ls /var/lib/clamav-scan/textfile/download-integrity.prom on beefy, then journalctl -u security-av-hits on fastpi."
+
+  - name: present metrics keep the missing alert quiet
+    interval: 1h
+    input_series:
+      - series: 'probe_success{job="blackbox-beefy"}'
+        values: '1x100'
+      - series: 'download_integrity_checked_total{host="beefy",client="sabnzbd"}'
+        values: '4x100'
+    alert_rule_test:
+      - eval_time: 90h
+        alertname: DownloadIntegrityMetricsMissing
+        exp_alerts: []
