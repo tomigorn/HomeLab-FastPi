@@ -26,5 +26,19 @@ for want in \
 done
 ! grep -qx "path /home/pi/backups" <<<"$L" && ok "rest of ~/backups stays out" || bad "rest of ~/backups stays out"
 
+# A second run while one holds the lock leaves the running backup's stage alone and reports status 3.
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+mkdir -p "$T/stage"; touch "$T/stage/dump"
+ENVS=(STAGE="$T/stage" PROM="$T/prom" LOCK="$T/lock" BEEFY_TCP=/dev/tcp/127.0.0.1/9)
+exec 8>"$T/lock"; flock 8
+env "${ENVS[@]}" "$HERE/backup.sh" > "$T/out" 2>&1; rc=$?
+[[ $rc == 0 && -e $T/stage/dump ]] && ok "second instance keeps the running stage" || bad "second instance keeps the running stage" "rc=$rc $(cat "$T/out")"
+grep -qx 'backup_last_status 3' "$T/prom" && ok "already running is status 3" || bad "already running is status 3" "$(cat "$T/prom" 2>/dev/null)"
+exec 8>&-
+printf '%s\n' 'backup_last_success_timestamp_seconds 1234' > "$T/prom"
+env "${ENVS[@]}" "$HERE/backup.sh" > "$T/out" 2>&1; rc=$?
+[[ $rc == 0 && ! -e $T/stage ]] && grep -qx 'backup_last_status 2' "$T/prom" && ok "lock owner with beefy asleep: status 2, stage removed" || bad "lock owner with beefy asleep: status 2, stage removed" "rc=$rc $(cat "$T/out" "$T/prom")"
+grep -qx 'backup_last_success_timestamp_seconds 1234' "$T/prom" && ok "last success kept" || bad "last success kept"
+
 echo "passed $PASS, failed $FAIL"
 [[ $FAIL == 0 ]]

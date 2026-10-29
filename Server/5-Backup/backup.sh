@@ -4,9 +4,10 @@
 set -uo pipefail
 
 CONF=/root/.config/restic
-STAGE=/var/lib/fastpi-backup-staging
-PROM=/var/lib/node-exporter/textfile/backup.prom
-BEEFY_IP=192.168.1.102
+STAGE=${STAGE:-/var/lib/fastpi-backup-staging}
+PROM=${PROM:-/var/lib/node-exporter/textfile/backup.prom}
+LOCK=${LOCK:-/run/fastpi-backup.lock}
+BEEFY_TCP=${BEEFY_TCP:-/dev/tcp/192.168.1.102/22}
 export RESTIC_PASSWORD_FILE=$CONF/fastpi.pass
 export RESTIC_REPOSITORY=sftp:buntu@beefy.homelab:/home/buntu/backups/fastpi-restic
 export RESTIC_CACHE_DIR=/var/cache/restic
@@ -86,7 +87,7 @@ backup_last_run_timestamp_seconds $now
 # TYPE backup_last_success_timestamp_seconds gauge
 backup_last_success_timestamp_seconds ${ok:-0}
 # TYPE backup_last_status gauge
-# 1 ok, 0 failed, 2 skipped (beefy asleep)
+# 1 ok, 0 failed, 2 skipped (beefy asleep), 3 skipped (a backup already running)
 backup_last_status $STATUS
 # TYPE backup_last_bytes_processed gauge
 backup_last_bytes_processed $BYTES
@@ -97,14 +98,14 @@ backup_last_errors $ERRORS
 EOM
     chmod 644 "$PROM.tmp"; mv "$PROM.tmp" "$PROM"
 }
+# the stage belongs to the lock owner: take the lock before the cleanup trap exists
+exec 9>"$LOCK"
+if ! flock -n 9; then log "already running"; STATUS=3; write_metric; exit 0; fi
 cleanup() { rm -rf "$STAGE"; write_metric; }
 trap cleanup EXIT
 trap 'log "terminated"; exit 1' TERM INT
 
-exec 9>/run/fastpi-backup.lock
-flock -n 9 || { log "already running"; STATUS=2; exit 0; }
-
-if ! timeout 5 bash -c "</dev/tcp/$BEEFY_IP/22" 2>/dev/null; then
+if ! timeout 5 bash -c "< $BEEFY_TCP" 2>/dev/null; then
     log "beefy unreachable (asleep), skipped"
     STATUS=2
     exit 0

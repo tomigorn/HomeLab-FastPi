@@ -20,10 +20,10 @@ restic, encrypted, deduplicated, both ways. fastpi → beefy below; beefy → fa
 | Password | `/root/.config/restic/fastpi.pass` (root 600). **Keep a copy off fastpi (password manager); without it the backup is unreadable** |
 | Hosts file | `/root/.config/restic/known_hosts` pins beefy's host key |
 | Retention | 7 daily, 4 weekly, 6 monthly; prune Sunday; `check --read-data-subset=1/10` Wednesday |
-| Metrics | `backup.prom` (textfile): last success, status (1 ok, 0 failed, 2 skipped), bytes, errors. Alert `BackupStale` > 36 h |
+| Metrics | `backup.prom` (textfile): last success, status (1 ok, 0 failed, 2 skipped: beefy asleep, 3 skipped: a backup already running; a second run never touches the running one's stage), bytes, errors. Alert `BackupStale` > 36 h |
 | Restore test | `restore-test.sh` via `fastpi-restore-test.timer`, first Tuesday of the month 04:33 (see below) |
 | Install | `./install.sh` (restic 0.19.1 and rest-server 0.14.0 pinned by sha256, scripts to `/usr/local/sbin/`, units, timers) |
-| Tests | `./test_backup.sh` (what is backed up, `backup.sh --list`), `./test_restore_test.sh`, `./test_beefy_repo_maint.sh` |
+| Tests | `./test_backup.sh` (what is backed up, `backup.sh --list`; lock and stage of a second run), `./test_restore_test.sh`, `./test_beefy_repo_maint.sh` |
 
 ### Contents (`./backup.sh --list`)
 - Consistent dumps: Authentik Postgres (`pg_dump -Fc`), SQLite `.backup` of Home Assistant recorder + zigbee, Grafana, Audiobookshelf, Stonks, Bitwarden, wg-easy, wg-chores, CrowdSec, Audiobook-Requests, SABnzbd history, Prowlarr (mouse). Restored under `/var/lib/fastpi-backup-staging/{dumps,sqlite/<original path>}` inside the snapshot; the live DB files are excluded.

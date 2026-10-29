@@ -1433,6 +1433,10 @@
         "2": {
          "text": "skipped (beefy asleep)",
          "color": "yellow"
+        },
+        "3": {
+         "text": "skipped (already running)",
+         "color": "blue"
         }
        }
       }
