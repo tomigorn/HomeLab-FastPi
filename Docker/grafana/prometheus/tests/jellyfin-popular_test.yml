@@ -1,0 +1,53 @@
+# promtool test rules tests/jellyfin-popular_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/jellyfin-popular.yml
+evaluation_interval: 1m
+tests:
+  - name: a failed run warns after 10m and clears after a good run
+    interval: 5m
+    input_series:
+      - series: 'jf_popular_last_run_success'
+        values: '1x2 0x6 1x6'
+      - series: 'jf_popular_last_run_timestamp_seconds'
+        values: '0x2 600x12'
+      - series: 'jf_popular_errors'
+        values: '0x2 12x6 0x6'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: JellyfinPopularFailed
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: JellyfinPopularFailed
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Jellyfin Currently popular: last run failed"
+              description: "The run of 1970-01-01 00:10:00 +0000 UTC failed (12 title lookups failed); the lists from the last good run stay published. Look at <code>journalctl --user -u jellyfin-popular</code> on beefy (Seerr, Jellyfin or Prowlarr down?). Retries at the next run."
+      - eval_time: 50m
+        alertname: JellyfinPopularFailed
+        exp_alerts: []
+      - eval_time: 50m
+        alertname: JellyfinPopularStale
+        exp_alerts: []
+
+  - name: no run for more than two days warns after 1h
+    interval: 5m
+    input_series:
+      - series: 'jf_popular_last_run_success'
+        values: '1x700'
+      - series: 'jf_popular_last_run_timestamp_seconds'
+        values: '0x700'
+    alert_rule_test:
+      - eval_time: 48h
+        alertname: JellyfinPopularStale
+        exp_alerts: []
+      - eval_time: 50h
+        alertname: JellyfinPopularStale
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Jellyfin Currently popular: no run for 2d 2h 0m 0s"
+              description: "The last run was 2d 2h 0m 0s ago. After 9 days the request backend refuses every request from the popular page. Check <code>systemctl --user list-timers jellyfin-popular.timer</code> on beefy and the beefy-idle-pull copy on fastpi."
+      - eval_time: 50h
+        alertname: JellyfinPopularFailed
+        exp_alerts: []
