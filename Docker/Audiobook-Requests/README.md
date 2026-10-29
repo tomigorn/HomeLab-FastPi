@@ -21,7 +21,7 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
 | `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`) |
-| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints |
+| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
 
 ## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
 
@@ -42,7 +42,7 @@ Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is 
 
 ## All requests page
 
-`https://books.holy-grail.ch/_hg/requests/` (link "All requests" in ABR's navbar), read-only, same login as ABR: everyone's requests with **who requested** (owner 2026-10-27), date, size, cover and status (open / downloading / in library); sort newest / largest / smallest. Data: importer `GET /all-requests` (ABR's request list + the importer's job states + sizes), served by books-proxy as `/_hg/requests/data.json`; page in ABR's theme (`books-proxy/www/requests/`).
+`https://books.holy-grail.ch/_hg/requests/` (link "All requests" in ABR's navbar), read-only, same login as ABR: everyone's requests with **who requested** (owner 2026-10-27), date, size, cover and status (open / downloading / in library); sort newest / largest / smallest. Data: importer `GET /all-requests` (ABR's request list + the importer's job states + sizes), served by books-proxy as `/_hg/requests/data.json` (ABR session needed, like the bar); page in ABR's theme (`books-proxy/www/requests/`).
 
 ## Sizes on ABR's lists
 
