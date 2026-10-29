@@ -124,7 +124,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | Blackbox modules (LAN + WAN) | `blackbox/blackbox.yml` | restart | `blackbox.modules`: module count both exporters → n n | config schema |
 | Telegraf docker input → InfluxDB, InfluxDB 2.x pin | `telegraf/telegraf.conf`, `docker-compose.yaml` | restart | `telegraf.writes`: output errors in 5 min → 0; `influxdb.v2-pin`: /health → v2.9.1 pass | influxdb:latest is v3 |
 | node-exporter textfile collector (security, backups, scans) | `docker-compose.yaml` | restart | `node.textfile-collector`: scrape error, files → 0 n | flag rename |
-| Host jobs: container exporter, usage collector | `container-exporter/systemd/`, `usage-collector/systemd/` | README install lines | `grafana.host-timers`: → active active; `grafana.container-exporter`: last success → under 3 min | none |
+| Host jobs: container exporter, usage collector, status exporter (certs, domains, subscriptions, indexers), SMART exporter | `container-exporter/systemd/`, `usage-collector/systemd/`, `status-exporter/systemd/`, `smart-exporter/systemd/` (+ `smartmontools` apt package) | README install lines | `grafana.host-timers`: → active ×5; `grafana.container-exporter`: last success → under 3 min; `grafana.status-exporter`: certs run under 2 days, hosts with a handshake → yes n; `grafana.smart-exporter`: fastpi run under 2 h, unreadable disks → yes 0 | smartctl JSON keys (smartmontools upgrade) |
 
 ## Portainer
 
