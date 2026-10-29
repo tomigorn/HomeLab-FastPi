@@ -314,7 +314,7 @@ WoL here brings it back.
 | Unit | When | Does |
 |---|---|---|
 | `beefy-night-downloads-poll.timer` | every 5 min | Waker `/status` up: `ssh beefy-direct cat ~/.local/state/movie-downloads/night-downloads.json` → `/var/lib/beefy-night-downloads/state.json`. Asleep: nothing, cache kept (never wakes) |
-| `beefy-night-downloads-wake.timer` | 22:05 | beefy down and cached `pending > 0`: runs `beefy-maintenance-wake` (Waker gate, wakeonlan fallback). beefy's boot run resumes the downloads |
+| `beefy-night-downloads-wake.timer` | 22:05 | beefy down and cached `pending > 0`: runs `beefy-maintenance-wake` (Waker gate, wakeonlan fallback). beefy's boot run resumes the downloads. Cache older than 24 h (`BND_MAX_AGE`): ignored and logged "cache stale", no wake |
 
 Why a pull: beefy grabs only while awake and stays up ≥ 15 min after, so a 5-min poll always sees the last count before it sleeps; beefy needs no access to fastpi.
 

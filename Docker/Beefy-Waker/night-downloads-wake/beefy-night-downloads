@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Wakes beefy at 22:05 only when downloads wait for the night (HomeLab-BeefyServer Docker/Movie-Downloads README "Can wait: downloads at night").
 `poll` (every 5 min): while the Waker sees beefy up, copies its night-downloads.json over ssh beefy-direct (never wakes it); asleep = cache kept.
-`wake [--dry-run]` (22:05): beefy down and the last known pending count > 0 = the maintenance wake script sends the WoL; beefy's own boot run resumes the downloads.
+`wake [--dry-run]` (22:05): beefy down and the last known pending count > 0 = the maintenance wake script sends the WoL; beefy's own boot run resumes the downloads. A cache older than BND_MAX_AGE (24 h) is ignored, so a stale count cannot wake beefy every night.
 Usage: beefy-night-downloads poll | wake [--dry-run]"""
 import json
 import os
 import pathlib
 import subprocess
 import sys
+import time
 import urllib.request
 
 WAKER_STATUS = os.environ.get("BND_WAKER_STATUS", "http://192.168.1.2:9001/status")
 REMOTE = os.environ.get("BND_REMOTE", ".local/state/movie-downloads/night-downloads.json")
 CACHE = pathlib.Path(os.environ.get("BND_CACHE", "/var/lib/beefy-night-downloads/state.json"))
 WAKE = os.environ.get("BND_WAKE", "/usr/local/sbin/beefy-maintenance-wake")
+MAX_AGE = int(os.environ.get("BND_MAX_AGE", str(24 * 3600)))
 
 
 class FetchError(Exception):
@@ -53,8 +55,13 @@ def wake_if_waiting(is_up, wake, cache, dry_run=False, **_):
     if is_up():
         print("beefy is up: its own 22:05 timer resumes the downloads")
         return 0
-    d = valid(pathlib.Path(cache).read_text()) if pathlib.Path(cache).exists() else None
+    cache = pathlib.Path(cache)
+    d = valid(cache.read_text()) if cache.exists() else None
     pending = d["pending"] if d else 0
+    age = time.time() - cache.stat().st_mtime if d else 0
+    if pending > 0 and age > MAX_AGE:
+        print(f"cache stale ({age / 3600:.0f} h since the last poll, {pending} pending, last seen {d.get('updated', '?')}): ignored, beefy stays off", file=sys.stderr)
+        return 0
     if pending <= 0:
         print(f"no downloads waiting ({'no state yet' if d is None else 'last seen ' + str(d.get('updated', '?'))}): beefy stays off")
         return 0

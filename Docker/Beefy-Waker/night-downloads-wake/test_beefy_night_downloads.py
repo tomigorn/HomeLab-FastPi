@@ -3,8 +3,12 @@
 Usage: python3 test_beefy_night_downloads.py"""
 import importlib.machinery
 import importlib.util
+import contextlib
+import io
 import json
+import os
 import pathlib
+import time
 import tempfile
 import unittest
 
@@ -83,6 +87,23 @@ class Wake(Base):
         self.cache.write_text('{"pending": 3}')
         self.assertEqual(bnd.wake_if_waiting(dry_run=True, **self.env(False)), 0)
         self.assertNotIn("wake", self.calls)
+
+    def test_cache_older_than_a_day_is_ignored_and_logged(self):
+        self.cache.write_text('{"pending": 2}')
+        old = time.time() - 25 * 3600
+        os.utime(self.cache, (old, old))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(bnd.wake_if_waiting(**self.env(False)), 0)
+        self.assertNotIn("wake", self.calls)
+        self.assertIn("stale", err.getvalue())
+
+    def test_cache_from_today_still_wakes(self):
+        self.cache.write_text('{"pending": 2}')
+        recent = time.time() - 23 * 3600
+        os.utime(self.cache, (recent, recent))
+        self.assertEqual(bnd.wake_if_waiting(**self.env(False)), 0)
+        self.assertIn("wake", self.calls)
 
     def test_failed_wake_fails_the_unit(self):
         self.cache.write_text('{"pending": 1}')
