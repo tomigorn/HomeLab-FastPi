@@ -4,8 +4,13 @@
   "theme": "default",
   "socket": "none",
   "ignore_update_type": "none",
+  "registries": {
+    "rollback.invalid": { "ignore": true }
+  },
   "images": {
-    "exclude": [],
+    "exclude": [
+      "rollback.invalid/"
+    ],
     "extra": []
   },
   "servers": {

@@ -182,6 +182,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | No socket, agents per host, 172.24.0.1 bind, forward auth | `cup.json`, `cup-agent.json`, `docker-compose.yaml` | `docker compose up -d` | `cup.config`: → socket none, servers beefy, fastpi; `cup.api-servers`: API lists beefy and fastpi; `cup.bind-172`: LAN :8000 → 000; `cup.forward-auth`: → sso | config schema version |
+| Rollback tags excluded: `images.exclude` `rollback.invalid/` + `registries.rollback.invalid.ignore` (UPDATE-RUNBOOK.md "Rollback tags") | `cup.json`, `cup-agent.json` | `docker restart cup-agent-fastpi Cup` | `cup.exclude-rollback`: → both files; `cup.rollback-tags-last`: in-use image with a rollback tag first → 0; `cup.no-crash-loop`: → stable over 12 s | exclude semantics (3.6: prefix match on the reference, only the first tag is read) |
 
 ## Avatar-Picker
 

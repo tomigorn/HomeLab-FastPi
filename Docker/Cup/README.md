@@ -22,6 +22,8 @@ Cup reads no socket itself (`"socket": "none"`); every host, fastpi included, is
 
 An image built here (`build:` in compose) has no registry copy, so Cup cannot track it. Its base image is listed in `images.extra` of the agent config (`cup-agent.json` on fastpi, `Docker/Cup-Agent/cup.json` on beefy) instead, so a new base shows up as an update. An `extra` entry must be a versioned tag or already on the host (`alpine:latest` is not accepted if not pulled: the agent crash-loops). On beefy the local images are in `images.exclude`, which stops their "Unauthorized" errors; fastpi's have no digest and never appear.
 
+Rollback tags (`rollback.invalid/<repo>:<date>-<project>`, made by `update-project.sh`) are excluded with one prefix in all three configs; without it Cup exits on "no remote version tags" and restarts in a loop. Details: `_global/UPDATE-RUNBOOK.md` "Rollback tags". After editing a config: `docker restart cup-agent-fastpi`, then `docker restart Cup`, then `_global/scripts/post-update-check.sh Cup`.
+
 | Host | Local image | Base (tracked) | Rebuild |
 |---|---|---|---|
 | fastpi | languagetool-local | `erikvl87/languagetool:6.8` | `Docker/LanguageTool/README.md` |
