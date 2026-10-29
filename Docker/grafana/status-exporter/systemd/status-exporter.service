@@ -1,0 +1,22 @@
+[Unit]
+Description=Subscription and indexer-bar figures for Prometheus (file reads only)
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/status-exporter/status_exporter.py subscriptions indexers
+TimeoutStartSec=60
+Nice=10
+PrivateNetwork=true
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

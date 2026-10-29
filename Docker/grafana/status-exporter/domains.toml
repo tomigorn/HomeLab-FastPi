@@ -1,0 +1,9 @@
+# Domains and DDNS hostnames watched by status_exporter.py domains (README "Expiry and disk health"). No secrets: the repo is public.
+
+# Registered domains, checked over RDAP. .ch RDAP publishes no end date: without `expires` the next registration anniversary is used (the earliest the paid year can end).
+# After a renewal for several years, set the real end date from the registrar: expires = 2029-09-12 (no quotes).
+[domains."holy-grail.ch"]
+
+# Free DDNS hostnames (No-IP). No-IP sends a confirm mail every 30 days and deletes an unconfirmed free hostname; the deadline is not readable from outside, so the check is "still resolves, to the WAN address".
+[ddns."lang-tool.ddns.net"]
+[ddns."wg-aemtli.ddns.net"]

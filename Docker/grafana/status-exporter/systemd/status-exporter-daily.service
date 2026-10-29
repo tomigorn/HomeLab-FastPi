@@ -1,0 +1,23 @@
+[Unit]
+Description=TLS certificate, domain (RDAP) and DDNS checks for Prometheus
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/status-exporter/status_exporter.py certs domains
+TimeoutStartSec=5min
+Nice=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

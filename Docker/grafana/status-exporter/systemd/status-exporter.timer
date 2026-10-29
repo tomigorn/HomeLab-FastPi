@@ -1,0 +1,11 @@
+[Unit]
+Description=Subscription and indexer-bar figures every 5 minutes (file reads only)
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

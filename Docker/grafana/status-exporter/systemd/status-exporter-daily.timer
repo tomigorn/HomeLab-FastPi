@@ -1,0 +1,11 @@
+[Unit]
+Description=TLS certificate, domain and DDNS checks daily 05:50 (low tariff, outside the DST hour and the nightly jobs)
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Timer]
+OnCalendar=*-*-* 05:50:00 Europe/Zurich
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
