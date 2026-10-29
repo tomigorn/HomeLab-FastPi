@@ -1,7 +1,9 @@
 """Run: python3 -m unittest discover -s Docker/Audiobook-Requests/importer"""
 import unittest
+from unittest import mock
 
 import importer
+from test_importer import Live
 import library
 
 LIBS = [{"id": "en", "name": "[EN] Audiobooks", "mediaType": "book"}, {"id": "de", "name": "[DE] Hörbücher", "mediaType": "book"},
@@ -81,7 +83,39 @@ class Sizes(unittest.TestCase):
     def test_abs_size_by_asin_then_the_torrent_size_while_downloading(self):
         jobs = {"h1": {"asin": "A1", "hash": "h1", "state": "done"}, "h9": {"asin": "A9", "hash": "h9", "state": "pending"}}
         torrents = [{"hash": "h9", "size": 555}, {"hash": "h1", "size": 999}]
-        self.assertEqual(library.sizes(ITEMS, jobs, torrents), {"A1": 100, "A9": 555})
+        self.assertEqual(library.sizes(ITEMS, jobs, torrents, {"1", "2", "3", "4"}), {"A1": 100, "A9": 555})
+
+    def test_only_books_the_viewer_may_see(self):
+        items = {"en": [item("1", asin="A1"), item("2", asin="A2", explicit=True)], "de": [item("4", lib="de", asin="A4", size=300)]}
+        jobs = {"h2": {"asin": "A2", "hash": "h2", "state": "pending"}, "h9": {"asin": "A9", "hash": "h9", "state": "pending"}}
+        torrents = [{"hash": "h2", "size": 777}, {"hash": "h9", "size": 555}]
+        self.assertEqual(library.sizes(items, jobs, torrents, {"1"}), {"A1": 100, "A9": 555})
+        self.assertEqual(library.sizes(items, jobs, torrents, set()), {"A9": 555})
+
+    def test_all_requests_sizes_are_the_viewers_too(self):
+        with Live() as live, mock.patch.dict(importer.CALLERS, {"/all-requests": ("127.0.0.1",)}), \
+                mock.patch.object(importer, "book_sizes", return_value={}) as sizes, \
+                mock.patch.object(importer, "http_json", return_value=[]), mock.patch.object(importer, "load", return_value={}):
+            self.assertEqual(live.request("GET", "/all-requests", headers={"X-authentik-username": "jane"})[0], 200)
+        sizes.assert_called_once_with("jane")
+
+    def test_sizes_endpoint_uses_the_viewers_abs_account(self):
+        class Cache:
+            def users(self):
+                return [user("jane", explicit=False)]
+
+            def books(self):
+                return LIBS, {"en": [item("1", asin="A1"), item("3", asin="A3", explicit=True)]}
+
+        class Qbit:
+            def category(self):
+                return []
+
+        with mock.patch.object(importer, "ABS_CACHE", Cache()), mock.patch.object(importer, "QBIT", Qbit(), create=True), \
+                mock.patch.object(importer, "load", return_value={}):
+            self.assertEqual(importer.book_sizes("jane"), {"A1": 100})
+            self.assertEqual(importer.book_sizes("nobody"), {})
+            self.assertEqual(importer.book_sizes(""), {})
 
 
 class AllRequestsSize(unittest.TestCase):

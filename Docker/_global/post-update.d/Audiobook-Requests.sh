@@ -40,7 +40,7 @@ print("ok" if m.get("ok") else "not-ok", "%s/%s" % (m.get("unsatisfied"), m.get(
 fi
 if want importer; then
   check importer.health '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
-  check importer.library '^True 0 [1-9][0-9]*$' "$(echo $(docker exec books-proxy wget -q -O - --header 'X-authentik-username: post-update-nobody' http://audiobook-importer:8000/library | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["noAbsUser"], d["count"])' 2>&1 | tail -1) $(docker exec books-proxy wget -q -O - http://audiobook-importer:8000/sizes | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>&1 | tail -1))"
+  check importer.library '^True 0 dict$' "$(echo $(docker exec books-proxy wget -q -O - --header 'X-authentik-username: post-update-nobody' http://audiobook-importer:8000/library | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["noAbsUser"], d["count"])' 2>&1 | tail -1) $(docker exec books-proxy wget -q -O - --header 'X-authentik-username: post-update-nobody' http://audiobook-importer:8000/sizes | python3 -c 'import json,sys; print(type(json.load(sys.stdin)).__name__)' 2>&1 | tail -1))"
   check importer.abs-readonly-gate '^404$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST http://10.24.25.5:8000/abs/api/libraries/x/scan)"
   check importer.callers '^403 403 403 403 403 403$' "$(for p in /quota /all-requests /prowlarr/torrent /library /library-cover/x /sizes; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://10.24.25.5:8000$p"; done | xargs)"
   check importer.post-callers '^403 403$' "$(for p in /abr /prowlarr/api/v1/search; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' -X POST -d '{}' "http://10.24.25.5:8000$p"; done | xargs)"

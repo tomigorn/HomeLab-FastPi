@@ -46,7 +46,7 @@ Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is 
 
 ## Sizes on ABR's lists
 
-ABR's Requests and Downloaded tabs get a **Size** column after "Length (hrs)"; clicking it sorts largest → smallest → ABR's order (remembered per browser). `books-proxy/www/sizes.js` (injected) only adds cells and re-orders the existing rows, so ABR's htmx buttons keep working; after an htmx swap it re-applies. Size per ASIN: the Audiobookshelf item (after import and merge), else the qBittorrent torrent while it downloads; `–` = unknown (no ASIN in ABS). Data: importer `GET /sizes` → `/_hg/sizes.json` (ABR session needed).
+ABR's Requests and Downloaded tabs get a **Size** column after "Length (hrs)"; clicking it sorts largest → smallest → ABR's order (remembered per browser). `books-proxy/www/sizes.js` (injected) only adds cells and re-orders the existing rows, so ABR's htmx buttons keep working; after an htmx swap it re-applies. Size per ASIN: the Audiobookshelf item (after import and merge), else the qBittorrent torrent while it downloads; `–` = unknown (no ASIN in ABS, or a book the viewer's ABS account may not see: same rules as the Library page, also for the All requests page). Data: importer `GET /sizes` (viewer = `X-authentik-username`) → `/_hg/sizes.json` (ABR session needed).
 
 ## Library page
 

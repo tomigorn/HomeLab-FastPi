@@ -61,17 +61,21 @@ def visible_ids(user, libs, items_by_lib):
     return {it["id"] for it in visible(user, libs, items_by_lib)} if user else set()
 
 
-def sizes(items_by_lib, jobs, torrents):
-    """ASIN -> bytes: the ABS item (after import and merge), else the torrent while it still downloads."""
-    out = {}
+def sizes(items_by_lib, jobs, torrents, allowed):
+    """ASIN -> bytes: the ABS item (after import and merge) if its id is in allowed, else the torrent while it still downloads.
+    An ASIN of an ABS item outside allowed is left out entirely."""
+    out, in_abs = {}, set()
     for items in items_by_lib.values():
         for it in items:
             asin = ((it.get("media") or {}).get("metadata") or {}).get("asin")
-            if asin and asin not in out:
+            if not asin:
+                continue
+            in_abs.add(asin)
+            if asin not in out and it.get("id") in allowed:
                 out[asin] = it.get("size") or (it.get("media") or {}).get("size")
     by_hash = {t.get("hash"): t.get("size") for t in torrents}
     for j in jobs.values():
-        if j.get("asin") and j["asin"] not in out and j.get("state") in ACTIVE and by_hash.get(j.get("hash")):
+        if j.get("asin") and j["asin"] not in in_abs and j.get("state") in ACTIVE and by_hash.get(j.get("hash")):
             out[j["asin"]] = by_hash[j["hash"]]
     return out
 

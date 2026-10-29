@@ -581,7 +581,7 @@ def all_requests_handler(handler):
         with lock:
             jobs = load()
         try:
-            sizes = book_sizes()
+            sizes = book_sizes(handler.headers.get("X-authentik-username", ""))
         except (urllib.error.URLError, ValueError, KeyError, OSError):
             sizes = None
         body = json.dumps(all_requests(http_json(f"{ABR_URL}/api/requests", headers=auth) or [],
@@ -636,8 +636,10 @@ def send_json(handler, status, obj):
     handler.wfile.write(body)
 
 
-def book_sizes():
+def book_sizes(username):
+    """Sizes for ABR's lists, limited to the books the viewer's ABS account may see (like the library page)."""
     libs, items = ABS_CACHE.books()
+    allowed = library.visible_ids(library.abs_user(ABS_CACHE.users(), username), libs, items)
     with lock:
         jobs = load()
     try:
@@ -645,7 +647,7 @@ def book_sizes():
     except Exception as e:
         log.warning("sizes: qBittorrent %s", type(e).__name__)
         torrents = []
-    return library.sizes(items, jobs, torrents)
+    return library.sizes(items, jobs, torrents, allowed)
 
 
 def library_handler(handler):
@@ -681,7 +683,7 @@ def cover_handler(handler):
 
 def sizes_handler(handler):
     try:
-        send_json(handler, 200, book_sizes())
+        send_json(handler, 200, book_sizes(handler.headers.get("X-authentik-username", "")))
     except (urllib.error.URLError, ValueError, KeyError, OSError) as e:
         log.error("sizes: %s", type(e).__name__)
         send_json(handler, 502, {})
