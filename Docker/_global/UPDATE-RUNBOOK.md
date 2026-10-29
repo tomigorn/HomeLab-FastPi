@@ -46,10 +46,10 @@ grep _IMAGE_TAG .env        # e.g. CUP_IMAGE_TAG=v3.5.1
 
 ### 2. Back up data  ← the part Cup skips
 First figure out what's stateful (bind-mounts like `./data` / `./config`, named volumes, or a DB).
-Then use the matching recipe. Back up into a gitignored `backups/` dir:
+Then use the matching recipe. Back up into a gitignored `backups/` dir, owner-only (backups hold DBs and secrets; `umask 077` makes every file below 0600):
 
 ```bash
-mkdir -p backups
+umask 077; mkdir -p backups && chmod 700 backups
 ```
 
 **a) Bind-mounted dir** (`./data`, `./config`) — stop the stack first for a consistent copy:
@@ -60,8 +60,7 @@ tar czf "backups/data-$(date +%F).tgz" data config 2>/dev/null
 
 **b) Named volume:**
 ```bash
-docker run --rm -v <volume_name>:/from -v "$PWD/backups":/to alpine \
-  tar czf "/to/<volume_name>-$(date +%F).tgz" -C /from .
+docker run --rm -v <volume_name>:/from:ro alpine tar czf - -C /from . > "backups/<volume_name>-$(date +%F).tgz"   # written by you, not by root in the container
 ```
 
 **c) Database — do a real dump, not a file copy of a live DB:**
@@ -156,7 +155,7 @@ Rollback safety:
 | digest ref (`@sha256:`) | restored compose names the old digest again; never re-tagged |
 | edited without `snapshot` | compose still names the new ref: the service is pinned to its rollback tag (`rollback-override.yaml`) and a `WARN` says to revert the edit, else the next `up -d` moves it |
 
-It snapshots the running image IDs, pulls (or `build --pull`s, or just recreates on an already-pulled image), then, only when backup paths are given, stops the services and tars the given bind dirs / `vol:<name>` volumes cold into `~/backups/pre-update/<date>/<project>/` (a live Postgres/SQLite/InfluxDB copy can be torn), starts them on the new image, waits 45 s, and requires every
+It snapshots the running image IDs, pulls (or `build --pull`s, or just recreates on an already-pulled image), then, only when backup paths are given, stops the services and tars the given bind dirs / `vol:<name>` volumes cold into `~/backups/pre-update/<date>/<project>/` (owner-only: `umask 077`, dirs 0700, files 0600; a live Postgres/SQLite/InfluxDB copy can be torn), starts them on the new image, waits 45 s, and requires every
 container to be running (and healthy if it has a healthcheck) with 0 restarts —
 otherwise it restores compose/`.env`, re-tags the old image IDs and recreates on them (automatic rollback, table above).
 `SERVICES="a b"` limits the pull/build and the recreate (`--no-deps`) to those services, a forced-drill rollback too; the verify still covers every container of the project (keep gluetun out of it).
