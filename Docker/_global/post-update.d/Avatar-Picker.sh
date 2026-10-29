@@ -15,6 +15,19 @@ except urllib.error.HTTPError as e:
     print(e.code, e.read().decode()[:60])
 PY
 )"
+  check avatar.thumbs '^([1-9][0-9]*)/\1 thumbs, private immutable, gzip$' "$(docker exec -i avatar-picker python - 2>&1 <<'PY' | tail -1
+import sys, urllib.request
+sys.path.insert(0, "/app")
+import server
+s = open("/run/secrets/picker_secret").read().strip()
+aid, h = next(iter(sorted(server.THUMBS.items())), ("-", "-"))
+r = urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:8080/thumb/{aid}.{h}.320.webp", headers={"X-Picker-Secret": s}), timeout=5)
+cc = "private immutable" if r.headers["Cache-Control"] == server.THUMB_CACHE else r.headers["Cache-Control"]
+z = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/", headers={"X-Picker-Secret": s, "X-authentik-username": "post-update-check", "Accept-Encoding": "gzip"}), timeout=5).headers["Content-Encoding"]
+ok = sum(f"{a}.{x}.{w}.webp" in server.THUMB_FILES for a, x in server.THUMBS.items() for w in (160, 320)) == 2 * len(server.THUMBS)
+print(f"{len(server.THUMBS) if ok else 'missing files'}/{len(server.IDS)} thumbs, {cc}, {z}")
+PY
+)"
   check avatar.secret-required '^403$' "$(docker exec avatar-picker python -c 'import urllib.request as u, urllib.error as e
 try: u.urlopen(u.Request("http://127.0.0.1:8080/api/state", headers={"X-authentik-username": "post-update-check"}), timeout=5); print(200)
 except e.HTTPError as x: print(x.code)' 2>&1 | tail -1)"

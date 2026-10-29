@@ -79,4 +79,13 @@ Secrets in `secrets/` (gitignored): `authentik_token` (service account `avatar-p
 API token), `picker_secret` (the header Traefik adds), `jellyfin_api_key`, `ha_token`, `nextcloud_users.json` (host sync only, not mounted into the container). Rotate them with `scripts/rotate-secrets.sh token-new` (check a pick) then `token-finish`, and `scripts/rotate-secrets.sh header`; nothing is printed and nobody has to log in again. Gallery sources and licences:
 `LICENSES.md`; the gallery is built by `scripts/build-gallery.py` (`--missing` renders only new images). Tab icon: `app/static/favicon.svg` (the SSO dashboard's Avatar Picker icon); `scripts/build-favicon.py` renders the PNGs.
 
+**Gallery speed:** the page shows 160/320 px WebP thumbnails (`<picture>` + `srcset`, full PNG as fallback), built into the image by `scripts/build_thumbs.py` (Dockerfile stage `thumbs`, Pillow pinned by hash). URLs carry a content hash (`/thumb/<id>.<hash>.<w>.webp`), so they are cached `private, max-age=31536000, immutable`; same access rules as the full images. Page and `/api/state` are gzipped. Full PNGs and their URLs (Authentik, Jellyfin, Seerr, HA) are unchanged.
+
+| | before (v1.12.0) | after |
+|---|---|---|
+| bytes, all 729 images | 158 MB | 8 MB |
+| bytes, first screen | 28.5 MB | 1.2 MB |
+| first screen, 20 Mbit/s | 3.6 s | 0.9 s |
+| scroll whole page, 20 Mbit/s | 62 s | 8 s |
+
 **Rebuild** (`avatar-picker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
