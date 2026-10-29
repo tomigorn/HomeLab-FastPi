@@ -196,6 +196,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | `severity=critical` (edge, DNS, endpoints, disk/RAM critical, rollback failed, secret leak) | `critical`: Telegram + email, with resolved | at once, any time, repeat 12 h |
 | `MalwareQuarantined`, `MalwareFound` | Telegram + email, no resolved | at once, any time |
 | `ContainerDown` of traefik, cloudflared, crowdsec, adguard*, authentik* | Telegram + email, no resolved | at once, any time |
+| Intrusion signs: `SshLoginOutsideLan` (unknown source), `SshLoginUnexpectedUser`, `SecurityFileChanged`, `BeefyBackupSnapshotInFuture` | Telegram + email, no resolved | at once, any time (never muted) |
 | `AlertingHeartbeat` | email | every 28 days |
 | `DeadMansSwitch` | healthchecks.io webhook (it alerts by Telegram + email) | every 4 min |
 | other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |

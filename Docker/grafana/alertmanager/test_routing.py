@@ -31,8 +31,10 @@ CASES = [
     ({"alertname": "ContainerDown", "severity": "warning", "name": "authentik-server"}, "telegram-and-email", False),
     ({"alertname": "ContainerDown", "severity": "warning", "name": "jellyfin"}, "telegram", True),
     ({"alertname": "ContainerCrashLooping", "severity": "warning", "name": "authentik-server"}, "telegram", True),
-    ({"alertname": "SecurityFileChanged", "severity": "warning"}, "telegram", True),
-    ({"alertname": "SshLoginOutsideLan", "severity": "warning", "source_class": "other"}, "telegram", True),
+    ({"alertname": "SecurityFileChanged", "severity": "warning", "host": "fastpi"}, "telegram-and-email", False),
+    ({"alertname": "SshLoginOutsideLan", "severity": "warning", "source_class": "other"}, "telegram-and-email", False),
+    ({"alertname": "SshLoginUnexpectedUser", "severity": "warning", "user": "mallory"}, "telegram-and-email", False),
+    ({"alertname": "BeefyBackupSnapshotInFuture", "severity": "warning"}, "telegram-and-email", False),
     ({"alertname": "SshLoginOutsideLan", "severity": "warning", "source_class": "vpn", "notify": "digest"}, "null", None),
     ({"alertname": "SecurityScanFailing", "severity": "warning", "notify": "digest"}, "null", None),
     ({"alertname": "NewFixableImageVulnerability", "severity": "info", "notify": "digest"}, "null", None),
@@ -53,6 +55,7 @@ CASES = [
     ({"alertname": "SyntheticCheck", "severity": "critical", "test": "batch"}, "telegram-test", False),
 ]
 
+INTRUSION = ("SshLoginOutsideLan", "SshLoginUnexpectedUser", "SecurityFileChanged", "BeefyBackupSnapshotInFuture")
 MAIL_RECEIVERS = {"critical", "telegram-and-email", "malware", "heartbeat", "email"}
 
 
@@ -120,7 +123,7 @@ class Routing(unittest.TestCase):
         for labels, rcv, _ in CASES:
             if rcv in mailed and "test" not in labels:
                 self.assertTrue(labels.get("severity") in ("critical", "heartbeat") or labels["alertname"].startswith("Malware")
-                                or labels["alertname"] in ("ContainerDown", "AlertNotificationsFailing"), labels)
+                                or labels["alertname"] in ("ContainerDown", "AlertNotificationsFailing") + INTRUSION, labels)
 
     def test_resolved_only_for_critical(self):
         for r in self.cfg["receivers"]:

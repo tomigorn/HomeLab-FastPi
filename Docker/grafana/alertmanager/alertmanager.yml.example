@@ -44,6 +44,7 @@ time_intervals:
 # Channels (prometheus/rules label notify, Docker/grafana/README.md "Alert routing"):
 #   critical             Telegram + email, with resolved, any time
 #   malware, heartbeat   email (+ Telegram for malware), any time
+#   intrusion            Telegram + email, any time (SSH login from unknown source/user, changed key/sudo/sshd file, future-dated beefy snapshot)
 #   warning / info       Telegram only, no resolved, muted 22:00-07:00
 #   notify=digest|weekly no message: listed in the 06:30 DailyDigest or the Monday WeeklyUpdateDigest
 route:
@@ -97,6 +98,12 @@ route:
       receiver: telegram-and-email
       group_by: ['alertname', 'host']
       repeat_interval: 168h
+
+    # Intrusion signs (security-posture.yml, backup.yml): email + Telegram at once, never muted, so a 23:00 login does not wait for the 06:30 digest. vpn/tunnel logins carry notify=digest and stop above.
+    - matchers:
+        - alertname=~"SshLoginOutsideLan|SshLoginUnexpectedUser|SecurityFileChanged|BeefyBackupSnapshotInFuture"
+      receiver: telegram-and-email
+      group_by: ['alertname', 'host']
 
     # A failing Telegram must not be reported over Telegram: email only.
     - matchers:
