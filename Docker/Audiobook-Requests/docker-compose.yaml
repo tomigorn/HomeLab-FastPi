@@ -8,7 +8,7 @@ services:
   # Request UI: https://books.holy-grail.ch (public, Holy Grail forward auth + OIDC login, group streaming-requesters), behind books-proxy.
   # Searches through prowlarr_mouse (Docker/mouse, gluetun netns) over traefik_mouse; Prowlarr sends grabs to qbittorrent_mouse, category abr.
   abr:
-    image: markbeep/audiobookrequest:1.10.8@sha256:f039f88c6e08cec72038685991a26696d3c57d4acc1b319d6cc9f9ddb1e1dda1
+    image: markbeep/audiobookrequest:1.11.0@sha256:628080b8bc71d057927ec26109eb3135f5ce6678a541077cb5b8d13fbe9fca43
     container_name: audiobookrequest
     user: "65055:65055"
     mem_limit: 256m
