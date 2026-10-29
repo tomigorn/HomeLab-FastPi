@@ -39,7 +39,7 @@ Every rank is shown; the card says what you can do:
 | Card | Means | Press |
 |---|---|---|
 | normal poster | it is in Jellyfin | the poster to watch it |
-| dimmed poster, **1080p / 2160p available** | not here yet, but a good version exists | **🌙 Tonight** (downloads tonight, cheaper power) or **⚡ Now** (at once, daytime power price) |
+| dimmed poster, **1080p / 2160p available** | not here yet, but a good version exists | **🌙 Download tonight** (lower electricity cost) or **⚡ Download now** (at once, daytime electricity price) |
 | dimmed, **🌙 / 🔍 / 📅 / ⬇️** | already requested: waiting for the night / searching / not released yet / downloading | nothing, it comes by itself |
 | grey, with a red banner **Not able to download** (German: Nicht herunterladbar) | no good version found so far; checked again every night | nothing yet: the buttons appear by themselves once a release exists |
 
