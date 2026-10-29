@@ -199,7 +199,13 @@ quarantine_links() {
 # clamd_new: the list split over NEW_PARALLEL clamdscan clients of the running clamd (one file per clamd thread)
 clamd_new() {
 	rm -f "$STATE"/new.part.*
-	awk -v n="$NEW_PARALLEL" -v d="$STATE/new.part" '{ print > (d "." (NR - 1) % n) }' "$1"
+	# over MAXBYTES: clamd streams over TCP and refuses those as errors; clamscan skips them (counted in SKIPPED)
+	while IFS= read -r f; do
+		[ "$(stat -c %s "$f" 2> /dev/null || echo 0)" -gt "$MAXBYTES" ] || printf '%s\n' "$f"
+	done < "$1" > "$STATE/new.fit"
+	[ -s "$STATE/new.fit" ] || { rm -f "$STATE/new.fit"; echo "Scanned files: 0" >> "$LOG"; return; }
+	awk -v n="$NEW_PARALLEL" -v d="$STATE/new.part" '{ print > (d "." (NR - 1) % n) }' "$STATE/new.fit"
+	rm -f "$STATE/new.fit"
 	pids=
 	for c in "$STATE"/new.part.*; do
 		clamdscan -c "$CLAMD_RUNNING_CONF" -i --move="$QUARANTINE" --file-list="$c" > "$c.log" 2>&1 &
