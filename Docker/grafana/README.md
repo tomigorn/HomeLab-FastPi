@@ -14,6 +14,7 @@ Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits t
 | fastpi — system (CPU, RAM, disk) | `rYdddlPWk` | node-exporter full view (Prometheus) |
 | fastpi — Pi hardware (temperature, throttling) | `sF7d-FHZz` | Pi telemetry (InfluxDB) |
 | LanguageTool — usage watch | `languagetool-watch` | LanguageTool usage |
+| Homelab — morning view | `homelab-morning` | one phone-sized look: storage, downloads, requests, popular job, backups, security, certs, domains, subscriptions, SMART, indexers (see Homelab — morning view) |
 | Usage per user | `usage-per-user` | Seerr requests, Jellyfin plays, Audiobookshelf listening per user (see Usage per user) |
 
 ## Container and reboot alerts
@@ -133,6 +134,59 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 The textfile stays on fastpi while beefy sleeps, so the series do not go stale; details in `HomeLab-BeefyServer` `Docker/Movie-Downloads/README.md`, "Swiss German not found alert".
 
+## Expiry and disk health
+
+Rules `prometheus/rules/expiry.yml`, `prometheus/rules/disk-health.yml`, tests `prometheus/tests/expiry_test.yml`, `disk-health_test.yml`. The daily digest gets a section **⏰ Expiry and disks** only when something is due: certs ≤ 21 d, domains ≤ 30 d, subscriptions ≤ 30 d, firing `Smart*` alerts.
+
+| Job | Runs | Writes | Source |
+|---|---|---|---|
+| `status-exporter-daily.timer` (pi) | 05:50 Europe/Zurich, `Persistent` | `status_certs.prom`, `status_domains.prom` | TLS handshake with Traefik `127.0.0.1:443` (SNI) for every hostname routed with a `certResolver` in `Traefik/traefik/dynamic`; RDAP for `status-exporter/domains.toml`; DDNS names resolved and compared with the WAN address (`1.1.1.1/cdn-cgi/trace`) |
+| `status-exporter.timer` (pi) | every 5 min, file reads only | `status_subscriptions.prom`, `status_indexers_fastpi.prom` | `/var/lib/subscription-alerts/limits.toml` + `[mam] vip_expires` of `Audiobook-Requests/abr-bar/limits.toml`; `/var/lib/abr-bar/usage.json` |
+| `smart-exporter.timer` (root) | every 30 min | `smart_fastpi.prom` | `smartctl -n standby -j -a` per disk: a parked disk is skipped, never woken; its last values stay (`smart_standby 1`). Disks named by mountpoint (`/` = `system`) |
+| beefy `smart-exporter.timer` / `media-metrics.timer` | 30 / 5 min while awake | `smart_beefy.prom`, `beefy_media.prom` | verbatim copy of `smart_exporter.py`; `Movie-Downloads/scripts/media-metrics.py`; pulled by `beefy-idle-pull.sh`, kept while beefy sleeps |
+
+- A TLS handshake runs no Traefik middleware: wake-gated routes (Jellyfin, Seerr, Nextcloud) are checked without waking beefy/tower. Traefik's own `traefik_tls_certs_not_after` lists every cert in the ACME store, including ones no router uses any more; the alerts use only the served certs.
+- `.ch` RDAP (rdap.nic.ch) has no end date: `source="anniversary"` = next registration anniversary, the earliest the paid year can end. After a renewal for several years set `expires = YYYY-MM-DD` in `domains.toml` (`source="manual"`).
+- No-IP free hostnames (`lang-tool.ddns.net`, `wg-aemtli.ddns.net`) need the 30-day confirm mail; the deadline is not readable from outside, so the alert is "stops resolving".
+- Subscriptions: no rule, `subscription-alerts.py` sends the Telegram warnings; the dashboard and digest show days left.
+
+| Alert | Fires when | Severity |
+|---|---|---|
+| `TlsCertExpiringSoon` / `TlsCertExpiryCritical` | served cert ends in 7-21 d / ≤ 7 d, for 1 h | warning / critical |
+| `TlsCertNotValid` | served cert does not verify (wrong name, Traefik default cert) | warning |
+| `TlsCertProbeFailed` | no handshake for a routed hostname; `notify: digest` | info |
+| `DomainExpiringSoon` | registration end (or anniversary) ≤ 30 d | warning |
+| `DomainStatusProblem` | RDAP status inactive / hold / redemption / pending delete | warning |
+| `DdnsHostnameNotResolving` / `DdnsHostnameWrongAddress` | DDNS name has no address / not the WAN address (`notify: digest`) | warning / info |
+| `StatusExporterStale` | certs or domains not run for 2 days, or an RDAP lookup failed; `notify: digest` | info |
+| `SmartDiskFailing` / `SmartNvmeCriticalWarning` | SMART overall health FAILED / NVMe critical warning bits | critical |
+| `SmartPendingSectors` | pending sectors > 0 | warning |
+| `SmartErrorsGrowing` | reallocated, offline-uncorrectable or media errors above their 24 h minimum | warning |
+| `SmartWearHigh` | wear indicator ≥ 80 % (NVMe percentage used, SSD normalized wear) | warning |
+| `SmartTemperatureHigh` | freshly read (< 1 h) and HDD ≥ 55, SATA SSD ≥ 65, NVMe ≥ 75 °C for 30 min (fastpi NVMe: `HostNvmeHot`) | warning |
+| `SmartExporterStale` | fastpi not run for 2 h, beefy for 3 days, or a disk unreadable; `notify: digest` | info |
+
+```bash
+sudo install -m 0644 status-exporter/systemd/status-exporter*.{service,timer} smart-exporter/systemd/smart-exporter.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now status-exporter.timer status-exporter-daily.timer smart-exporter.timer
+python3 status-exporter/test_status_exporter.py && python3 smart-exporter/test_smart_exporter.py
+sudo systemctl start status-exporter-daily.service && cat /var/lib/node-exporter/textfile/status_domains.prom
+```
+
+## Homelab — morning view
+
+Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), rows of stat tiles and small tables that stack to one column on a phone.
+
+| Row | Metrics |
+|---|---|
+| At a glance | `ALERTS` (critical + warning), `backup_last_success_timestamp_seconds`, `clamav_infected_last_run`, `security_repo_leaks_total` |
+| Storage | `beefy_storage_*`, `beefy_mover_*`, `beefy_disk_smart_raw` (HDD start/stop, power cycles per 24 h) |
+| Downloads and requests | `beefy_downloads_night_pending`, `beefy_downloads_queue{state}`, `beefy_downloads_night_imported{,_bytes}{app}` (last 22:00-06:00 window), `beefy_requests{state}` (Seerr `/request/count`), `beefy_request_badges{state}` (request-state.json) |
+| Jellyfin popular | `jf_popular_last_run_timestamp_seconds`, `jf_popular_last_run_success` (0/1), `jf_popular_items{list}`: written by the beefy popular job to `/home/buntu/.local/state/jellyfin-popular.prom` (the pull copies it only when it has a `jf_popular_last_run_timestamp_seconds ` line) |
+| Backups and security | `backup_last_status`, `backup_last_bytes_added`, `security_image_vulnerabilities_fixable` |
+| Certificates, domains, subscriptions | `tls_cert_*`, `domain_*`, `ddns_*`, `subscription_expiry_timestamp_seconds` |
+| Disk health | `smart_*` per host and disk |
+| Indexer usage | `indexer_used`, `indexer_limit` (`host` beefy = Seerr bar, fastpi = audiobook bar) |
+
 ## Alert routing
 
 `alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`, same structure). Telegram layout: `alertmanager/templates/telegram.tmpl` (directory mount, edits live after an `amtool`-checked reload). Edit the live file in place (same inode), then `docker exec alertmanager amtool check-config /etc/alertmanager/alertmanager.yml && docker kill -s HUP alertmanager`.
@@ -147,14 +201,14 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 | other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |
 | other info | Telegram, no resolved | at once, muted 22:00-07:00, repeat 7 d |
 | `BeefyWakeLoop`, `TowerWakeLoop`, `RootkitWarning`, `SecurityScanStale`, `ClamavScanStale`, `BeefyAwakeLong` | Telegram, no resolved | once per episode, muted 22:00-07:00 |
-| label `notify: digest` (36 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`) | no message (`null`), listed in `DailyDigest` | daily 06:30 |
+| label `notify: digest` (40 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`, expiry/SMART exporter health) | no message (`null`), listed in `DailyDigest` | daily 06:30 |
 | label `notify: weekly` (`ContainerImageUpdatesAvailable`, `UnraidUpdateAvailable`, `CriticalImageVulnerabilities`) | no message, figures in `WeeklyUpdateDigest` | Monday 05:00 |
 | `DailyDigest`, `WeeklyUpdateDigest` | `telegram-digest` | 06:30 daily, Monday 05:00, never muted |
 | `AlertNotificationsFailing{integration="telegram"}` | email | at once |
 | any label `test=…` | `telegram-test`, marked 🧪, never email | only when sent on purpose |
 
 - **Quiet hours** (`time_intervals: quiet-hours`, Europe/Zurich, DST-safe): muted sends are dropped; a group still firing at 07:00 is sent then, one that fired and cleared overnight is in the digest.
-- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy SSD/HDD used % and the last mover run, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`, kinds `guard_removed` `failed` `stalled` `indexer_recovered` `subtitle_repaired` `subtitle_suspect` shown as plain text, unknown kinds raw). Lists capped (8/6/5/6/5) to stay under 4096 characters.
+- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy SSD/HDD used % and the last mover run, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`, kinds `guard_removed` `failed` `stalled` `indexer_recovered` `subtitle_repaired` `subtitle_suspect` shown as plain text, unknown kinds raw), and only when something is due the expiry and disk section (see Expiry and disk health). Lists capped (8/6/5/6/5/4) to stay under 4096 characters.
 - **New alert rule:** pick its line above; give it `notify: digest` if it needs no action today.
 - **Maintenance:** `Docker/_global/scripts/maintenance-silence.sh on [hours] [reason]` before batch or upgrade work, `off` after: silences ContainerCrashLooping, ContainerDown, ContainerUnhealthy, SecurityFileChanged, HostRebooted, SshLoginOutsideLan; the digest still lists them.
 - **Tests:** no separate test chat exists, so 🧪 messages go to the alert group, only when sent on purpose (a POSTed alert with a `test` label, `oob-alert.sh --test`). To check the path without a message: `oob-alert.sh --check`.
