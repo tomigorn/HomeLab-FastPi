@@ -297,7 +297,7 @@ services:
   # In gluetun's netns so MAM sees the VPN IP. Listens on 127.0.0.1:9696 only; prowlarr-gate (:9697) is the way in. UI: https://prowlarr-audiobooks.holy-grail.ch (auth External = Holy Grail).
   # MAM rules: search type active, EN+DE, UseFreeleechWedge on (fl=1 only for grabs not free already, owner 2026-10-26), no RSS; check with scripts/prowlarr-setup.py --check after every update (smoke-test does).
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:2.6.5.5623-ls165@sha256:b3b00047ed20f6ce2b16780145cb6a0acb51c9e28ea6aa6f5dcd33c7034f1797
+    image: lscr.io/linuxserver/prowlarr:2.7.0.5723-ls166@sha256:04be30163fbaf48d6aeee7b5893c9f6614ffbad6d853971df0d6dcdf01c7f104
     container_name: prowlarr_mouse
     mem_limit: 384m
     security_opt:
