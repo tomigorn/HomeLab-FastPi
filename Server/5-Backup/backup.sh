@@ -12,6 +12,65 @@ export RESTIC_REPOSITORY=sftp:buntu@beefy.homelab:/home/buntu/backups/fastpi-res
 export RESTIC_CACHE_DIR=/var/cache/restic
 SSHC="ssh -i $CONF/beefy_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 -o UserKnownHostsFile=$CONF/known_hosts -o StrictHostKeyChecking=yes buntu@beefy.homelab -s sftp"
 ERRF=/run/fastpi-backup.err
+D=/home/pi/Projects/Docker
+V=/var/lib/docker/volumes
+SQLITE_DBS=(
+    "$D/Home-Assistant/config/home-assistant_v2.db"
+    "$D/Home-Assistant/config/zigbee.db"
+    "$D/WireguardVPN/wg-easy-v15/wg-easy.db"
+    "$D/audiobookshelf/audiobookshelf/config/absdatabase.sqlite"
+    "$D/Stonks/data/stonks.db"
+    "$D/bitwarden/data/db.sqlite3"
+    "$V/monitoring__grafana_grafana_data/_data/grafana.db"
+    "$V/crowdsec_crowdsec_data/_data/crowdsec.db"
+    "$V/wg-chores_wgchores-data/_data/wgchores.db"
+    "$D/Audiobook-Requests/config/db.sqlite"
+    /mnt/seagate-red/sabnzbd/config/admin/history1.db
+    /mnt/seagate-red/prowlarr/config/prowlarr.db
+)
+EXCLUDES=(
+    --exclude '/home/pi/Projects/Docker/*/node_modules'
+    --exclude '/home/pi/Projects/Docker/Traefik/traefik/logs'
+    --exclude '/home/pi/Projects/Docker/Authentik/backups'
+    --exclude '/home/pi/Projects/Docker/Home-Assistant/config/home-assistant.log*'
+    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/config/absdatabase.sqlite.*'
+    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/cache'
+    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/logs'
+    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/tmp'
+    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/streams'
+    --exclude '/home/pi/Projects/Docker/Stonks/data/backups'
+    --exclude "$V/adguard_adguardhome-data/_data/data/querylog.json*"
+    --exclude "$V/adguard_adguardhome-data/_data/data/stats.db"
+    --exclude '/var/lib/security-scan/trivy-cache'
+    --exclude '/var/lib/security-scan/sbom'
+    --exclude '/var/lib/security-scan/mirrors'
+    --exclude '/mnt/seagate-red/sabnzbd/config/Downloads'
+    --exclude '/mnt/seagate-red/sabnzbd/config/logs'
+    --exclude '/mnt/seagate-red/qbittorrent/config/qBittorrent/logs'
+    --exclude '/mnt/seagate-red/prowlarr/config/logs'
+    --exclude '/mnt/seagate-red/prowlarr/config/logs.db*'
+)
+PATHS=(
+    "$STAGE"
+    /home/pi/Projects /home/pi/landingpage /home/pi/HomeLab-Unraid-Tower /home/pi/.ssh
+    /home/pi/.claude/CLAUDE.md /home/pi/.claude/machine.md /home/pi/.claude/settings.json /home/pi/.claude/settings.local.json
+    /home/pi/.claude/skills /home/pi/.claude/projects/-home-pi/memory
+    /etc/ssh /etc/sudoers.d /etc/sysctl.d /etc/iptables /etc/docker /etc/systemd/system /etc/fstab /etc/cron.d /etc/hosts
+    /var/lib/security-scan
+    /mnt/seagate-red/qbittorrent/config /mnt/seagate-red/sabnzbd/config /mnt/seagate-red/prowlarr/config
+    /home/pi/backups/tower-flash /var/lib/abr-bar
+    "$V/crowdsec_crowdsec_config/_data" "$V/adguard_adguardhome-data/_data" "$V/docker_portainer_data/_data"
+    "$V/mouse_mousehole/_data" "$V/mouse_port-updater-data/_data" "$V/mouse_gluetun-data/_data"
+    "$V/monitoring__grafana_alertmanager_data/_data"
+)
+
+if [ "${1:-}" = --list ]; then
+    for db in "${SQLITE_DBS[@]}"; do echo "sqlite $db"; done
+    for p in "${PATHS[@]}"; do echo "path $p"; done
+    for ((i=1; i<${#EXCLUDES[@]}; i+=2)); do echo "exclude ${EXCLUDES[i]}"; done
+    exit 0
+fi
+
 R() { restic -o sftp.command="$SSHC" "$@"; }
 
 log() { echo "backup: $*"; }
@@ -53,19 +112,6 @@ fi
 
 umask 077
 rm -rf "$STAGE"; install -d -m 700 "$STAGE" "$STAGE/sqlite" "$STAGE/dumps"
-D=/home/pi/Projects/Docker
-V=/var/lib/docker/volumes
-SQLITE_DBS=(
-    "$D/Home-Assistant/config/home-assistant_v2.db"
-    "$D/Home-Assistant/config/zigbee.db"
-    "$D/WireguardVPN/wg-easy-v15/wg-easy.db"
-    "$D/audiobookshelf/audiobookshelf/config/absdatabase.sqlite"
-    "$D/Stonks/data/stonks.db"
-    "$D/bitwarden/data/db.sqlite3"
-    "$V/monitoring__grafana_grafana_data/_data/grafana.db"
-    "$V/crowdsec_crowdsec_data/_data/crowdsec.db"
-    "$V/wg-chores_wgchores-data/_data/wgchores.db"
-)
 EXCL=(--exclude-caches)
 for db in "${SQLITE_DBS[@]}"; do
     [ -f "$db" ] || { log "missing $db"; ERRORS=$((ERRORS+1)); continue; }
@@ -75,41 +121,12 @@ for db in "${SQLITE_DBS[@]}"; do
     fi
     EXCL+=(--exclude "$db" --exclude "$db-wal" --exclude "$db-shm")
 done
+EXCL+=("${EXCLUDES[@]}")
 
 if ! docker exec authentik-postgresql sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$STAGE/dumps/authentik.pgdump" || [ ! -s "$STAGE/dumps/authentik.pgdump" ]; then
     log "authentik pg_dump failed"; ERRORS=$((ERRORS+1))
 fi
 
-EXCL+=(
-    --exclude '/home/pi/Projects/Docker/*/node_modules'
-    --exclude '/home/pi/Projects/Docker/Traefik/traefik/logs'
-    --exclude '/home/pi/Projects/Docker/Authentik/backups'
-    --exclude '/home/pi/Projects/Docker/Home-Assistant/config/home-assistant.log*'
-    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/config/absdatabase.sqlite.*'
-    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/cache'
-    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/logs'
-    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/tmp'
-    --exclude '/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/metadata/streams'
-    --exclude '/home/pi/Projects/Docker/Stonks/data/backups'
-    --exclude "$V/adguard_adguardhome-data/_data/data/querylog.json*"
-    --exclude "$V/adguard_adguardhome-data/_data/data/stats.db"
-    --exclude '/var/lib/security-scan/trivy-cache'
-    --exclude '/var/lib/security-scan/sbom'
-    --exclude '/var/lib/security-scan/mirrors'
-    --exclude '/mnt/seagate-red/sabnzbd/config/Downloads'
-    --exclude '/mnt/seagate-red/sabnzbd/config/logs'
-    --exclude '/mnt/seagate-red/qbittorrent/config/qBittorrent/logs'
-)
-PATHS=(
-    "$STAGE"
-    /home/pi/Projects /home/pi/landingpage /home/pi/HomeLab-Unraid-Tower /home/pi/.ssh
-    /home/pi/.claude/CLAUDE.md /home/pi/.claude/machine.md /home/pi/.claude/settings.json /home/pi/.claude/settings.local.json
-    /home/pi/.claude/skills /home/pi/.claude/projects/-home-pi/memory
-    /etc/ssh /etc/sudoers.d /etc/sysctl.d /etc/iptables /etc/docker /etc/systemd/system /etc/fstab /etc/cron.d /etc/hosts
-    /var/lib/security-scan
-    /mnt/seagate-red/qbittorrent/config /mnt/seagate-red/sabnzbd/config
-    "$V/crowdsec_crowdsec_config/_data" "$V/adguard_adguardhome-data/_data" "$V/docker_portainer_data/_data"
-)
 EXISTING=(); for p in "${PATHS[@]}"; do [ -e "$p" ] && EXISTING+=("$p"); done
 
 OUT=$(R backup --json --one-file-system --host fastpi --tag nightly "${EXCL[@]}" "${EXISTING[@]}" 2>"$ERRF")
