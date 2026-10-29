@@ -955,6 +955,17 @@ def _repo(ref: str) -> str:
     return ref.rsplit(":", 1)[0] if ":" in ref.rsplit("/", 1)[-1] else ref
 
 
+def image_ref(ref: str) -> str:
+    """repo:tag@sha256:x -> repo@sha256:x: an image pulled by digest has no local tag to inspect."""
+    base, at, digest = ref.partition("@")
+    return f"{_repo(base)}@{digest}" if at else ref
+
+
+def running_refs_cmd(d: str) -> str:
+    """Shell: the reference each running container was created from; `docker ps` cuts the digest off a pinned tag@digest."""
+    return f"{d} ps -q | xargs -r {d} inspect -f '{{{{.Config.Image}}}}' | sort -u"
+
+
 # Compose project dirs of the running containers on a remote host, with the FROM lines of the Dockerfiles in them (one level deep), read once while the host is awake.
 LOCAL_BASES: dict[str, dict[str, list[str]]] = {}
 
@@ -972,12 +983,12 @@ def read_local_bases(host: str) -> dict[str, list[str]]:
 def running_images(host: str) -> list[str]:
     if host in REMOTE_SCAN_HOSTS:
         return running_image_digests(host)
-    cmd = f"{docker_cmd(host)} ps --format '{{{{.Image}}}}'"
-    r = run(["docker", "ps", "--format", "{{.Image}}"], timeout=120) if host == "fastpi" else ssh(host, cmd)
+    cmd = running_refs_cmd(docker_cmd(host))
+    r = run(["sh", "-c", cmd], timeout=120) if host == "fastpi" else ssh(host, cmd)
     if r.returncode != 0:
         raise RuntimeError(f"docker ps on {host}: {r.stderr.strip()[:200]}")
     seen, out = set(), []
-    for line in r.stdout.split():
+    for line in map(image_ref, r.stdout.split()):
         if line and line not in seen:
             seen.add(line)
             out.append(line)
@@ -997,7 +1008,7 @@ REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
 
 def running_image_digests(host: str) -> list[str]:
     d = docker_cmd(host)
-    cmd = (f"for i in $({d} ps --format '{{{{.Image}}}}' | sort -u); do "
+    cmd = (f"for i in $({running_refs_cmd(d)}); do "
            f"{d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{else}}}}'\"$i\"'{{{{end}}}}' \"$i\"; done")
     r = ssh(host, cmd, timeout=120)
     if r.returncode != 0:
@@ -1866,7 +1877,7 @@ def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: s
         named = digest if _IMAGE_ID_RE.fullmatch(ref) and digest else ref
         name, version = dt_project(host, named)
         if DT_HOSTS.get(host) is None:
-            key, src = img["id"], ref
+            key, src = img["id"], image_ref(ref)
         elif digest and digest not in local:
             key = src = digest
         elif b := bases_of.get(_repo(ref)):
@@ -1878,6 +1889,22 @@ def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: s
             seen.add((name, version))
             plan.append((name, version, key, src))
     return plan, skipped
+
+
+def dt_host(host: str, dt, images: list[dict], bases: dict[str, list[str]], build_sbom, os_entry) -> list:
+    """collect_dt of one host; a digest the registry refused this run (a fresh local build) is planned again on its base image, not a night later."""
+    def local():
+        return set(_load_json(STATE / "dt-local.json") or [])
+    known = local()
+    while True:
+        plan, skipped = dt_plan(host, images, bases, known)
+        samples = collect_dt(host, dt, plan, build_sbom, os_entry)
+        if local() <= known:
+            break
+        known = local()
+    for ref in skipped:
+        print(f"  dt {host}: {ref} built locally, no base image known, skipped", file=sys.stderr)
+    return samples
 
 
 def dt_os_project(host: str, os_release: str) -> tuple[str, str]:
@@ -1998,7 +2025,7 @@ def dt_reachable() -> bool:
 
 def dt_images(host: str) -> tuple[list[dict], dict[str, list[str]]]:
     d = docker_cmd(host)
-    cmd = (f"{d} ps --format '{{{{.Image}}}}' | sort -u | while read -r i; do "
+    cmd = (f"{running_refs_cmd(d)} | while read -r i; do "
            f"echo \"$i|$({d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{end}}}}|{{{{.Id}}}}' \"$i\")\"; done")
     r = run(["sh", "-c", cmd], timeout=120) if host == "fastpi" else ssh(host, cmd, timeout=120)
     if r.returncode != 0:
@@ -2287,10 +2314,7 @@ def main() -> int:
                 if floor := resource_floor():
                     raise NoData(f"resource floor: {floor}")
                 images, bases = dt_images(host)
-                plan, skipped = dt_plan(host, images, bases, set(_load_json(STATE / "dt-local.json") or []))
-                for ref in skipped:
-                    print(f"  dt {host}: {ref} built locally, no base image known, skipped", file=sys.stderr)
-                return collect_dt(host, dt, plan, lambda k, src: dt_image_sbom(host, k, src), dt_os_entry(host))
+                return dt_host(host, dt, images, bases, lambda k, src: dt_image_sbom(host, k, src), dt_os_entry(host))
             guarded(f"dt-{host}", _dt, host=host)
 
         def _vex():

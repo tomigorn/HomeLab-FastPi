@@ -1577,6 +1577,47 @@ def test_dt_plan_digest_the_registry_refused_uses_the_base_image():
     assert plan[0][2] == "clamav-local@sha256:cc"
 
 
+def test_image_ref_drops_the_tag_of_a_digest_pinned_reference():
+    from security_scan import image_ref
+    assert image_ref("nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5") == "nginxinc/nginx-unprivileged@sha256:b5"
+    assert image_ref("localhost:5000/x:1@sha256:aa") == "localhost:5000/x@sha256:aa"
+    assert image_ref("localhost:5000/x@sha256:aa") == "localhost:5000/x@sha256:aa"
+    assert image_ref("traefik:v3") == "traefik:v3"
+
+
+def test_running_refs_cmd_reads_the_full_reference_of_each_container():
+    from security_scan import running_refs_cmd
+    cmd = running_refs_cmd("sudo docker")
+    assert "sudo docker ps -q" in cmd and "xargs -r sudo docker inspect" in cmd and "{{.Config.Image}}" in cmd and "sort -u" in cmd
+
+
+def test_dt_plan_local_host_scans_a_digest_pinned_image_by_digest():
+    from security_scan import dt_plan
+    imgs = [{"ref": "nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5", "digest": "nginxinc/nginx-unprivileged@sha256:b5", "id": "sha256:66"}]
+    plan, _ = dt_plan("fastpi", imgs, {})
+    assert plan == [("fastpi/nginxinc/nginx-unprivileged", "1.31.7-alpine", "sha256:66", "nginxinc/nginx-unprivileged@sha256:b5")]
+
+
+def test_dt_host_uploads_the_base_in_the_same_run_when_the_registry_refuses_a_digest():
+    import json
+    from security_scan import dt_host
+    d = _tmp_dirs()
+    dt = FakeDt([])
+    imgs = [{"ref": "jellyfin-local:12", "digest": "jellyfin-local@sha256:dd", "id": "sha256:77"}]
+    built = []
+
+    def sbom(key, src):
+        built.append(src)
+        if src == "jellyfin-local@sha256:dd":
+            (d / "state" / "dt-local.json").write_text(json.dumps([key]))
+            return None
+        return b"{}"
+    samples = dt_host("beefy", dt, imgs, {"jellyfin-local": ["lscr.io/linuxserver/jellyfin:12"]}, sbom, None)
+    assert built == ["jellyfin-local@sha256:dd", "lscr.io/linuxserver/jellyfin:12"]
+    assert dt.uploads == [("beefy/jellyfin-local", "12 (base lscr.io/linuxserver/jellyfin:12)")]
+    assert ("security_dt_sbom_failed", {"host": "beefy"}, 0) in samples
+
+
 def test_parse_os_dump_splits_files_and_drops_missing_ones():
     from security_scan import parse_os_dump
     text = "=== /etc/os-release\nID=ubuntu\n=== /etc/lsb-release\nDISTRIB_ID=Ubuntu\n=== /etc/missing\n=== /var/lib/dpkg/status\nPackage: a\n\nPackage: b\n"

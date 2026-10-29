@@ -58,6 +58,7 @@ DT itself: `HomeLab-BeefyServer` `Docker/Dependency-Track/README.md` (beefy `192
 |---|---|
 | Project | `<host>/<repository without registry>`, version = tag (digest-only refs: `sha256:<12 hex>`, local beefy builds: `<tag> (base <image>)`), child of the parent project `<host>` (aggregates its children); OS: `<host>/os`, version `<id> <version_id>` |
 | Upload | `PUT /api/v1/bom` (autoCreate, isLatest), only when the image id/digest (OS: dpkg status hash) changed or the project is missing in DT; `dt-index.json` |
+| Image list | each container's `Config.Image` (`docker ps` drops the digest of a pinned `tag@sha256`, and an image pulled by digest has no local tag); fastpi scans `repo@sha256` refs by digest. A beefy digest the registry refuses (fresh local build, kept in `dt-local.json`) is uploaded via its base image in the same run |
 | SBOM cache | `/var/lib/security-scan/sbom-dt/` by image id/digest (same key = same content); own Trivy cache `trivy-cache-dt` (no vuln DB needed; Java DB = the image scan's copy, mounted read-only) |
 | Stale | projects under `<host>/` that the host no longer runs are **deleted** (not deactivated: DT data is derived, the next upload recreates it; inactive projects would pile up one per old tag). Only for a host whose image list was read this run |
 | Asleep | TCP probe of DT first; closed = NoData, beefy is never woken (`DT_URL`, env `SECSCAN_DT_URL`) |
