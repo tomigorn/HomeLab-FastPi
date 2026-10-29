@@ -26,8 +26,10 @@ Install / reinstall the units (both timers): `Docker/antivirus/install.sh`.
 - The textfile dir must stay `pi:65046 2775` (all installers set it, `host.textfile-perms` checks it): else `clamav.prom` is not written.
 - Paths are as seen in the container: `/mnt/seagate-red/x` = `/scan/seagate-red/x`; in `clamav-hostscan` `/etc/x` = `/host/etc/x`.
 - "Changed" = ctime or mtime newer than the marker, so unpacked archives with old mtimes count. First run (no marker): the last 24 h.
-- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/incomplete/*`, qBittorrent's own `*/qBittorrent/logs/*` (written 0600, unreadable to the scanner), `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
+- Skipped by `new`: the quarantine, `*/quarantine/*`, `*/.snapshots/*`, `*/.recyclebin/*` (the arrs' deleted files), `*/.clamav-queue/*` (beefy: the completion queue scans those links), `*/incomplete/*`, qBittorrent's own `*/qBittorrent/logs/*` (written 0600, unreadable to the scanner), `*.part`, `*.!qB`, SQLite `*-wal`, `*-shm`, `*-journal`.
 - A file deleted between listing and scanning (clamscan `No such file or directory` + `Can't access file`) is not an error: counted in `clamav_files_vanished`. Unreadable files and other failures stay errors.
+- Hardlinks: `new` scans one path per inode (a seeding torrent and its library import are one file); an infected inode is quarantined under every path (one `index.txt` line each, so `restore` works per path).
+- `NEW_CLAMD=1` (beefy): `new` goes through the container's running clamd (`CLAMD_RUNNING_CONF`, default `/etc/clamav/clamd.conf`), `NEW_PARALLEL` (4) `clamdscan` clients at once, no second signature load; clamd unreachable = plain `clamscan`.
 - Exit codes: `0` clean, `1` infected, `2` errors. On errors `new` keeps its marker, so the next run retries the same files.
 - The quarantine folder must exist: when seagate-red is not mounted every run fails with exit 2 instead of scanning an empty mountpoint.
 - Files over 2 GiB (most films) are size-skipped by ClamAV itself (`--max-filesize=2047M`, its real limit); counted in `clamav_files_skipped_large`.
@@ -129,7 +131,7 @@ API key: file `secrets/vt_api_key` (owner `65014`, mode `0400`, read via `VT_API
 
 ## Settings (env in `docker-compose.yaml`)
 
-`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `SCAN_RESUME`, `CHUNK_FILES`, `PASS_DAYS` (Weekly host scan: scope), `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `USE_CLAMD`, `SCAN_EXCLUDE_DIRS` (see Weekly host scan), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
+`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `NEW_CLAMD`, `NEW_PARALLEL`, `CLAMD_RUNNING_CONF`, `SCAN_RESUME`, `CHUNK_FILES`, `PASS_DAYS` (Weekly host scan: scope), `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `USE_CLAMD`, `SCAN_EXCLUDE_DIRS` (see Weekly host scan), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
 
 ## Tests
 

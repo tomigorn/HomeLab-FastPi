@@ -14,6 +14,9 @@ CLAMD_CONF=${CLAMD_CONF:-/tmp/clamd-hostscan.conf}
 CLAMD_SOCK=${CLAMD_SOCK:-/tmp/clamd-hostscan.sock}
 CLAMD_THREADS=${CLAMD_THREADS:-$(nproc 2>/dev/null || echo 4)}
 CLAMD_WAIT=${CLAMD_WAIT:-600}
+NEW_CLAMD=${NEW_CLAMD:-0}
+NEW_PARALLEL=${NEW_PARALLEL:-4}
+CLAMD_RUNNING_CONF=${CLAMD_RUNNING_CONF:-/etc/clamav/clamd.conf}
 SCAN_RESUME=${SCAN_RESUME:-0}
 CHUNK_FILES=${CHUNK_FILES:-20000}
 PASS_DAYS=${PASS_DAYS:-6}
@@ -27,6 +30,8 @@ usage: scan.sh new        files under \$SCAN_ROOTS changed since the last good r
 exit:  0 clean, 1 infected, 2 errors
 env:   SCAN_RESUME=1 (with USE_CLAMD=1) scans \`all\` in chunks only 22:00-06:00 and Sundays (local time), resuming where it stopped
        USE_CLAMD=1 runs \`all\` through a private clamd (multiscan, all cores); SCAN_EXCLUDE_DIRS = directories `all` and `new` skip
+       NEW_CLAMD=1 runs \`new\` through the container's running clamd (\$CLAMD_RUNNING_CONF), NEW_PARALLEL (4) clamdscan at once; clamd down = clamscan
+       \`new\` scans one path per inode (hardlinks); an infected inode is quarantined under every path
 EOF
 	exit 2
 }
@@ -121,13 +126,18 @@ under_roots() {
 
 list_find() {
 	if [ -e "$STATE/last-run" ]; then since=$(stat -c %Y "$STATE/last-run"); else since=$(( $(date +%s) - 86400 )); fi
-	set -- $SCAN_ROOTS -xdev \( -path "$QUARANTINE" -o -path '*/quarantine' -o -path '*/.snapshots' -o -path '*/incomplete' -o -path '*/qBittorrent/logs'
+	# .recyclebin: the arrs' deleted files; .clamav-queue: links the completion queue scans itself
+	set -- $SCAN_ROOTS -xdev \( -path "$QUARANTINE" -o -path '*/quarantine' -o -path '*/.snapshots' -o -path '*/.recyclebin' -o -path '*/.clamav-queue' -o -path '*/incomplete' -o -path '*/qBittorrent/logs'
 	for d in $SCAN_EXCLUDE_DIRS; do set -- "$@" -o -path "$d"; done
 	find "$@" \) -prune -o \
 		-type f ! -name '*.part' ! -name '*.!qB' ! -name '*-wal' ! -name '*-shm' ! -name '*-journal' \
-		-exec stat -c '%Z %Y %n' {} + > "$STATE/find.out" 2> "$STATE/find.err"
+		-exec stat -c '%Z %Y %d:%i %n' {} + > "$STATE/find.out" 2> "$STATE/find.err"
 	VANISHED=$((VANISHED + $(grep -c 'No such file or directory$' "$STATE/find.err")))
-	awk -v s="$since" '$1 > s || $2 > s { sub(/^[0-9]+ [0-9]+ /, ""); print }' "$STATE/find.out"
+	# one path per inode; the other links go to new.links as "<scanned path> TAB <link>"
+	awk -v s="$since" -v links="$STATE/new.links" '$1 > s || $2 > s {
+		k = $3; p = $0; sub(/^[0-9]+ [0-9]+ [0-9]+:[0-9]+ /, "", p)
+		if (k in seen) { print seen[k] "\t" p > links; next }
+		seen[k] = p; print p }' "$STATE/find.out"
 	grep -v 'No such file or directory$' "$STATE/find.err" | sed 's/^/ERROR: /' >> "$LOG"
 	! grep -qv 'No such file or directory$' "$STATE/find.err"
 }
@@ -170,8 +180,44 @@ list_btrfs() {
 	return 0
 }
 
+# quarantine_links: every other link of an infected, moved file follows it into quarantine (else the library or seeding copy stays)
+quarantine_links() {
+	[ -s "$STATE/new.links" ] || return 0
+	awk '/ FOUND$/ { sub(/ FOUND$/, ""); i = match($0, /: [^:]*$/); print substr($0, 1, i - 1) "\t" substr($0, i + 2) }' "$LOG" > "$STATE/new.found"
+	while IFS="$TAB" read -r hit sig; do
+		grep -qF "$hit: moved to " "$LOG" || continue
+		awk -F '\t' -v h="$hit" '$1 == h { print $2 }' "$STATE/new.links" | while IFS= read -r l; do
+			[ -e "$l" ] || continue
+			base=${l##*/}; dest=$QUARANTINE/$base; n=1
+			while [ -e "$dest" ]; do dest=$(printf '%s/%s.%03d' "$QUARANTINE" "$base" "$n"); n=$((n + 1)); done
+			mv "$l" "$dest" && printf '%s: %s FOUND\n%s: moved to '\''%s'\''\n' "$l" "$sig" "$l" "$dest" >> "$LOG"
+		done
+	done < "$STATE/new.found"
+	rm -f "$STATE/new.found"
+}
+
+# clamd_new: the list split over NEW_PARALLEL clamdscan clients of the running clamd (one file per clamd thread)
+clamd_new() {
+	rm -f "$STATE"/new.part.*
+	awk -v n="$NEW_PARALLEL" -v d="$STATE/new.part" '{ print > (d "." (NR - 1) % n) }' "$1"
+	pids=
+	for c in "$STATE"/new.part.*; do
+		clamdscan -c "$CLAMD_RUNNING_CONF" -i --move="$QUARANTINE" --file-list="$c" > "$c.log" 2>&1 &
+		pids="$pids $!"
+	done
+	for p in $pids; do
+		wait "$p"
+		r=$?
+		[ "$r" -gt "$RC" ] && RC=$r
+	done
+	cat "$STATE"/new.part.*.log >> "$LOG"
+	rm -f "$STATE"/new.part.*
+	echo "Scanned files: $((LISTED - SKIPPED))" >> "$LOG"
+}
+
 run_new() {
 	list=$STATE/new.list
+	: > "$STATE/new.links"
 	touch "$STATE/last-run.next"
 	sleep 1  # busybox find -newer compares whole seconds
 	if [ "$SCAN_BTRFS" = 1 ]; then list_btrfs > "$list.all" || RC=2; else list_find > "$list.all" || RC=2; fi
@@ -186,7 +232,14 @@ run_new() {
 	mv "$list.x" "$list"
 	LISTED=$(wc -l < "$list" | tr -d ' ')
 	SKIPPED=$(while IFS= read -r f; do stat -c %s "$f"; done < "$list" 2>/dev/null | awk -v m="$MAXBYTES" '$1 > m { n++ } END { print n + 0 }')
-	[ "$LISTED" -gt 0 ] && clam --file-list="$list" -i --move="$QUARANTINE" $LIMITS
+	[ "$LISTED" -gt 0 ] || return 0
+	if [ "$NEW_CLAMD" = 1 ] && clamdscan -c "$CLAMD_RUNNING_CONF" --ping 1 > /dev/null 2>&1; then
+		clamd_new "$list"
+	else
+		[ "$NEW_CLAMD" = 1 ] && echo "scan.sh new: clamd not reachable, scanning with clamscan" >> "$LOG"
+		clam --file-list="$list" -i --move="$QUARANTINE" $LIMITS
+	fi
+	quarantine_links
 }
 
 write_clamd_conf() {

@@ -79,13 +79,14 @@ while :; do sleep 0.1; done
 EOF
 cat > "$T/bin/clamdscan" <<'EOF'
 #!/bin/sh
-ARGS_SEEN="$*"; conf=; ping=0; targets=; multi=0
+ARGS_SEEN="$*"; conf=; ping=0; targets=; multi=0; move=
 while [ $# -gt 0 ]; do
   case $1 in
     -c) conf=$2; shift ;;
     --config-file=*) conf=${1#*=} ;;
     --ping) ping=1; shift ;;
     --multiscan) multi=1 ;;
+    --move=*) move=${1#*=} ;;
     --file-list=*) targets="$targets
 $(cat "${1#*=}")" ;;
     -*) ;;
@@ -109,7 +110,8 @@ while IFS= read -r re; do grep -Ev "$re" "$files" > "$files.x"; mv "$files.x" "$
 while IFS= read -r f; do
   [ -n "$(find "$f" -size +2000k)" ] && continue
   [ "$f" = "$FAKE_DENY" ] && { echo "$f: Access denied. ERROR"; errors=$((errors+1)); continue; }
-  grep -q EICAR-STANDARD-ANTIVIRUS-TEST-FILE "$f" && { infected=$((infected+1)); echo "$f: Eicar-Test-Signature FOUND"; }
+  grep -q EICAR-STANDARD-ANTIVIRUS-TEST-FILE "$f" && { infected=$((infected+1)); echo "$f: Eicar-Test-Signature FOUND"
+    [ -n "$move" ] && mv "$f" "$move/" && echo "$f: moved to '$move/${f##*/}'"; }
 done < "$files"
 printf '\n----------- SCAN SUMMARY -----------\nInfected files: %s\n' "$infected"
 [ "$errors" -gt 0 ] && echo "Total errors: $errors"
@@ -167,7 +169,7 @@ assert_eq "files_listed 0" 0 "$(metric clamav_files_listed new)"
 
 echo "== new: excludes"
 reset; marker
-for p in antivirus-quarantine/x.exe some/quarantine/x.exe .snapshots/s1/x.exe qbittorrent/incomplete/x.exe qbittorrent/config/qBittorrent/logs/qbittorrent.log.bak3 movies/a.part movies/b.!qB sonarr/logs.db-wal sonarr/logs.db-shm sonarr/logs.db-journal; do fresh "$T/red/$p"; done
+for p in antivirus-quarantine/x.exe some/quarantine/x.exe .snapshots/s1/x.exe .recyclebin/Show/x.mkv .clamav-queue/job1/0001 qbittorrent/incomplete/x.exe qbittorrent/config/qBittorrent/logs/qbittorrent.log.bak3 movies/a.part movies/b.!qB sonarr/logs.db-wal sonarr/logs.db-shm sonarr/logs.db-journal; do fresh "$T/red/$p"; done
 fresh "$T/red/movies/keep.mkv"
 run new > /dev/null
 assert_eq "only keep.mkv listed" "$T/red/movies/keep.mkv" "$(cat "$STATE/new.list")"
@@ -225,6 +227,44 @@ assert_eq "clean run exits 0" 0 "$(run new)"
 assert_eq "infected_last_run back to 0" 0 "$(metric clamav_infected_last_run new)"
 assert_eq "infected_total kept" 2 "$(metric clamav_infected_total)"
 assert_grep "last-infected kept after a clean run" evil2.exe "$STATE/last-infected.txt"
+
+echo "== new: hardlinks are scanned once"
+reset; marker
+fresh "$T/red/torrents/a.mkv"; mkdir -p "$T/red/movies/A"; ln "$T/red/torrents/a.mkv" "$T/red/movies/A/a.mkv"; fresh "$T/red/movies/b.mkv"
+assert_eq "exits 0" 0 "$(run new)"
+assert_eq "two of three paths listed (one per inode)" 2 "$(wc -l < "$STATE/new.list" | tr -d ' ')"
+assert_eq "files_scanned 2" 2 "$(metric clamav_files_scanned new)"
+
+echo "== new: an infected inode is quarantined under every path"
+reset; marker
+fresh "$T/red/torrents/evil.mkv" "x $SIG x"; mkdir -p "$T/red/movies/E" "$T/black/books"; ln "$T/red/torrents/evil.mkv" "$T/red/movies/E/evil.mkv"
+assert_eq "hit exits 1" 1 "$(run new)"
+[ ! -e "$T/red/torrents/evil.mkv" ] && [ ! -e "$T/red/movies/E/evil.mkv" ] && ok "no path left outside quarantine" || bad "no path left outside quarantine" "$(find "$T/red" -name 'evil*')"
+assert_eq "both links in quarantine" 2 "$(find "$QUARANTINE" -name 'evil.mkv*' | wc -l | tr -d ' ')"
+assert_eq "an index line per path" 2 "$(grep -c "evil.mkv${TAB}Eicar" "$QUARANTINE/index.txt")"
+assert_grep "the second link's own path indexed" "$TAB$T/red/movies/E/evil.mkv${TAB}Eicar" "$QUARANTINE/index.txt"
+assert_eq "restore of the second link works" 0 "$(run restore "$(find "$QUARANTINE" -name 'evil.mkv.*' | head -1)")"
+
+echo "== new through the running clamd: parallel clamdscan, same reporting"
+reset; marker
+printf 'LocalSocket %s\n' "$T/run.sock" > "$T/run.conf"; : > "$T/run.sock"
+for i in 1 2 3 4 5; do fresh "$T/red/movies/m$i.mkv"; done; fresh "$T/black/books/bad.exe" "$SIG"
+rm -f "$T/scanned"
+assert_eq "hit exits 1" 1 "$(FAKE_SCANNED="$T/scanned" NEW_CLAMD=1 NEW_PARALLEL=3 CLAMD_RUNNING_CONF="$T/run.conf" run new)"
+[ -e "$FAKE_LOG" ] && bad "clamscan not used" "$(cat "$FAKE_LOG")" || ok "clamscan not used"
+assert_eq "three clamdscan runs" 3 "$(grep -c -- "-c $T/run.conf -i --move=$QUARANTINE --file-list=" "$FAKE_CLAMD_LOG")"
+assert_eq "every listed file scanned once" 6 "$(sort -u "$T/scanned" | grep -c .)"
+[ -e "$QUARANTINE/bad.exe" ] && ok "infected moved" || bad "infected moved"
+assert_eq "files_scanned 6" 6 "$(metric clamav_files_scanned new)"
+assert_eq "infected_last_run 1" 1 "$(metric clamav_infected_last_run new)"
+assert_eq "scan_errors 0" 0 "$(metric clamav_scan_errors new)"
+advanced "marker advanced"
+
+echo "== new through clamd: clamd down falls back to clamscan"
+reset; marker; fresh "$T/red/movies/a.mkv"; rm -f "$T/run.sock"
+assert_eq "exits 0" 0 "$(NEW_CLAMD=1 CLAMD_RUNNING_CONF="$T/run.conf" run new)"
+assert_grep "clamscan used" "--file-list=$STATE/new.list" "$FAKE_LOG"
+assert_grep "says so" "clamd not reachable" "$T/out"
 
 echo "== prom file"
 reset; marker; fresh "$T/red/movies/new.mkv"
