@@ -44,6 +44,7 @@ ABR = (ENV("ABR_IP", "10.24.25.4"), ENV("ABR_HOST", "audiobookrequest"))
 CALLERS = {"/quota": BOOKS_PROXY, "/all-requests": BOOKS_PROXY, "/my-quota": BOOKS_PROXY,
            "/library": BOOKS_PROXY, "/library-cover/": BOOKS_PROXY, "/sizes": BOOKS_PROXY, "/prowlarr/torrent": ABR}
 POST_CALLERS = {"/abr": ABR, "/prowlarr/": ABR}
+MAX_BODY = 1024 * 1024
 ABR_URL = ENV("ABR_URL", "http://audiobookrequest:8000")
 PROVIDERS = {"com": ("audible", "us"), "de": ("audible.de", "de"), "co.uk": ("audible.uk", "uk")}
 AUDIO = {".mp3", ".m4a", ".m4b", ".aac", ".flac", ".ogg", ".opus", ".wma", ".wav"}
@@ -760,6 +761,9 @@ def abs_forward(handler):
                 status, body = r.status, r.read()
     except urllib.error.HTTPError as e:
         status, body = e.code, b"{}"
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+        log.warning("abs: %s", type(e).__name__)
+        status, body = 502, b"{}"
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
@@ -797,12 +801,21 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not caller_ok(self.path, self.client_address[0], method="POST"):
             return self.send_error(403)
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            length = -1
+        if length < 0:
+            self.close_connection = True
+            return self.send_error(400, "bad Content-Length")
+        if length > MAX_BODY:
+            self.close_connection = True
+            return self.send_error(413)
         if self.path.startswith("/prowlarr/"):
             return forward(self, "POST")
         if self.path != "/abr":
             return self.send_error(404)
         try:
-            length = int(self.headers.get("Content-Length", 0))
             job = parse_webhook(json.loads(self.rfile.read(min(length, 65536))))
         except (ValueError, json.JSONDecodeError) as e:
             return self.send_error(400, str(e))

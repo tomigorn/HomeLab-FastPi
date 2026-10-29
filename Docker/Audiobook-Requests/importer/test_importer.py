@@ -411,3 +411,27 @@ class AllRequestsTest(unittest.TestCase):
         manual = [{"title": "M", "authors": ["A"], "user_username": "jane", "updated_at": "2026-10-22T10:00:00", "downloaded": False}]
         rows = importer.all_requests([], manual, {})
         self.assertEqual([(r["title"], r["requested_by"], r["status"], r["cover"]) for r in rows], [("M", "jane", "open", None)])
+
+
+class AbsForwardErrorsTest(unittest.TestCase):
+    def test_abs_down_is_a_502_not_a_reset(self):
+        with Live() as live, mock.patch.object(importer, "ABS_URL", "http://127.0.0.1:1"):
+            self.assertEqual(live.request("GET", "/abs/api/libraries")[0], 502)
+            self.assertEqual(live.request("GET", "/abs/api/libraries/x/search?q=a")[0], 502)
+
+    def test_abs_timeout_is_a_502(self):
+        with Live() as live, mock.patch.object(importer.urllib.request, "urlopen", side_effect=TimeoutError()):
+            self.assertEqual(live.request("GET", "/abs/api/libraries")[0], 502)
+
+
+class PostBodyLimitTest(unittest.TestCase):
+    def test_body_over_one_mb_is_refused_unread(self):
+        with Live() as live, mock.patch.dict(importer.POST_CALLERS, LOCAL_ABR):
+            for path in ("/abr", "/prowlarr/api/v1/search"):
+                self.assertEqual(live.headers_only("POST", path, 1024 * 1024 + 1), 413, path)
+
+    def test_bad_content_length_is_a_400(self):
+        with Live() as live, mock.patch.dict(importer.POST_CALLERS, LOCAL_ABR):
+            for path in ("/abr", "/prowlarr/api/v1/search"):
+                for bad in ("abc", "-5"):
+                    self.assertEqual(live.headers_only("POST", path, bad), 400, (path, bad))

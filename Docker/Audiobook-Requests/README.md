@@ -20,7 +20,7 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 | Container | uid | Network | Job |
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
-| `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR |
+| `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR; POST bodies over 1 MB → 413 |
 | `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
 
 ## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
@@ -98,7 +98,7 @@ Install: `sudo install -m 0644 systemd/abr-bar-usage.* /etc/systemd/system/ && s
 
 After the copy (and the merge) the importer scans the language library, then `POST /api/items/<id>/match` (Audible of the request's region, by ASIN: details, cover, narrators, series, genres) and matches every author (description + picture; when the first Audible author ASIN has no picture it tries the other ASINs of the same name). Once per job (`matched` in `data/jobs.json`).
 
-ABR's own "already in library" badge (search results show it, the request button is disabled): ABR's Audiobookshelf URL is `http://audiobook-importer:8000/abs`, which passes only GETs with ABR's read-only key and asks **every** language library (ABR itself knows one). ABR's scan-after-grab POST ends there (404), the importer scans. Checked: this key gets 403 on item PATCH, item match and library scan.
+ABR's own "already in library" badge (search results show it, the request button is disabled): ABR's Audiobookshelf URL is `http://audiobook-importer:8000/abs`, which passes only GETs with ABR's read-only key and asks **every** language library (ABR itself knows one). ABR's scan-after-grab POST ends there (404), the importer scans. ABS unreachable or slow → 502. Checked: this key gets 403 on item PATCH, item match and library scan.
 
 Caveat: the match uses the requested Audible edition; the MAM upload can be another edition (other narrator/year).
 
