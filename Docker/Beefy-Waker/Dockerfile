@@ -1,4 +1,4 @@
-FROM python:3.13-alpine
+FROM python:3.13-alpine@sha256:8bcfa47b04b853a17aaf909362b847b2112fd6ec4105ea553ef9a43bafbb5916
 # openssh-client: the /history endpoint fetches beefy's boot list over a
 # locked-down, read-only forced-command SSH key (journalctl --list-boots only).
 # A real user with the compose uid (65005) is needed so the ssh client has a passwd entry (it refuses

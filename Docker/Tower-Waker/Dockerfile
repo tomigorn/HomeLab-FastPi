@@ -1,4 +1,4 @@
-FROM python:3.13-alpine
+FROM python:3.13-alpine@sha256:8bcfa47b04b853a17aaf909362b847b2112fd6ec4105ea553ef9a43bafbb5916
 # openssh-client is carried over from Beefy-Waker, where /history fetches the
 # boot list over a locked-down read-only forced-command SSH key. It is UNUSED on
 # tower: Unraid is not systemd and has no journal, so /history cannot work and the

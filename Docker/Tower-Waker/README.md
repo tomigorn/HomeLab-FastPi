@@ -106,4 +106,4 @@ boot, Tools → Registration → Replace Key if the GUID changed.
   2026-10-14 tower runs a perpetual **Starter** key (`Starter.key`; OS updates
   until 2027-10-14). Keep exactly one `.key` file in `/boot/config/`.
 
-**Rebuild** (`tower-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly. The image has no pip (removed in the `Dockerfile`).
+**Rebuild** (`tower-waker:local`, FROM `python:3.13-alpine@sha256:…`, pinned by digest, A-30): set the `FROM` digest to the current one (`docker buildx imagetools inspect python:3.13-alpine`, first `Digest:`), then `docker compose up -d --build` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly. The image has no pip (removed in the `Dockerfile`).

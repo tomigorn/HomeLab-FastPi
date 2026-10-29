@@ -301,7 +301,7 @@ This project only **wakes** beefy. beefy decides when to **sleep itself** via th
 (`Server/8-Idle-Watcher.md`) — it powers off after sustained inactivity, and the
 WoL here brings it back.
 
-**Rebuild** (`beefy-waker:local`, FROM `python:3.13-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly. The image has no pip (removed in the `Dockerfile`).
+**Rebuild** (`beefy-waker:local`, FROM `python:3.13-alpine@sha256:…`, pinned by digest, A-30): set the `FROM` digest to the current one (`docker buildx imagetools inspect python:3.13-alpine`, first `Digest:`), then `docker compose up -d --build` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly. The image has no pip (removed in the `Dockerfile`).
 
 ## Nightly maintenance wake
 
