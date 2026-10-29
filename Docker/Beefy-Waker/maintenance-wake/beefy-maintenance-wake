@@ -35,7 +35,7 @@ log "beefy is down; requesting wake"
 # Prefer the Beefy-Waker gate: it is the established mechanism and the only place
 # that knows how the WoL packet should be formed.
 woke=0
-if curl -fsS --max-time 15 -X POST "$WAKER_URL/wake" >/dev/null 2>&1; then
+if curl -fsS --max-time 15 -X POST -H 'X-Wake: 1' "$WAKER_URL/wake" >/dev/null 2>&1; then
     log "wake requested via the Beefy-Waker gate"
     woke=1
 else

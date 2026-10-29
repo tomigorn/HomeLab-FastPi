@@ -87,6 +87,7 @@ boot, Tools → Registration → Replace Key if the GUID changed.
 ## Operations
 
 - Listen backlog 64 (`request_queue_size`), same as Beefy-Waker.
+- `POST /wake` and `/nc/wake` need header `X-Wake: 1`, and a browser `Origin` must be this host, else 403 (CSRF guard, same as Beefy-Waker). ssh hook: `Match host tower exec "curl -fsS -m 5 -X POST -H X-Wake:1 http://192.168.1.2:9002/wake"`.
 - Out-of-band wake if this container is down: `wakeonlan 60:be:b4:17:0d:e0` on fastpi.
 - **Timing/checking trap:** every `ssh tower` fires `/wake`, and because the
   probe is Nextcloud, the waker then resends magic packets every 20 s for 5 min

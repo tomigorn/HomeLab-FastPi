@@ -318,7 +318,7 @@ class JellyfinWakePageTest(unittest.TestCase):
         self.assertNotIn("__GIVEUP__", body)
 
     def test_wake_logs_authentik_user(self):
-        status, _ = self.req("POST", "/jf/wake", {"X-Authentik-Username": "alice"})
+        status, _ = self.req("POST", "/jf/wake", {"X-Authentik-Username": "alice", "X-Wake": "1"})
         self.assertEqual(status, 200)
         self.assertIn("jf wake by alice", sys.stdout.getvalue())
 
@@ -343,7 +343,7 @@ class JellyfinWakePageTest(unittest.TestCase):
         status, _ = self.req("GET", "/jf/wake")
         self.assertEqual(status, 405)
         self.send_wol.assert_not_called()
-        status, body = self.req("POST", "/jf/wake")
+        status, body = self.req("POST", "/jf/wake", {"X-Wake": "1"})
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {"sent": True})
         self.send_wol.assert_called_once()
@@ -354,6 +354,84 @@ class JellyfinWakePageTest(unittest.TestCase):
             status, _ = self.req("GET", p)
             self.assertEqual(status, 404, p)
 
+
+
+class WakeCsrfTest(unittest.TestCase):
+    """POST /wake and /jf/wake need the X-Wake header, and a browser Origin must be this host."""
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def setUp(self):
+        waker._campaign_running = False
+        mock.patch("sys.stdout", io.StringIO()).start()
+        self.send_wol = mock.patch.object(waker, "send_wol").start()
+        mock.patch.object(waker, "_wake_campaign").start()
+        self.addCleanup(mock.patch.stopall)
+        self.addCleanup(setattr, waker, "_campaign_running", False)
+
+    def post(self, path, headers):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("POST", path, headers=headers)
+        r = c.getresponse()
+        body = r.read().decode()
+        c.close()
+        return r.status, body
+
+    def test_post_without_header_refused(self):
+        for p in ("/wake", "/jf/wake"):
+            status, _ = self.post(p, {})
+            self.assertEqual(status, 403, p)
+        self.send_wol.assert_not_called()
+
+    def test_cross_site_form_post_refused(self):
+        for p in ("/wake", "/jf/wake"):
+            status, _ = self.post(p, {"Origin": "https://evil.example.com",
+                                      "Content-Type": "application/x-www-form-urlencoded"})
+            self.assertEqual(status, 403, p)
+        self.send_wol.assert_not_called()
+
+    def test_header_with_foreign_origin_refused(self):
+        for origin in ("https://evil.example.com", "null", "http://beefy-wol.fastpi.homelab.evil.example.com"):
+            status, _ = self.post("/wake", {"X-Wake": "1", "Origin": origin,
+                                            "Host": "beefy-wol.fastpi.homelab"})
+            self.assertEqual(status, 403, origin)
+        self.send_wol.assert_not_called()
+
+    def test_wrong_header_value_refused(self):
+        status, _ = self.post("/wake", {"X-Wake": "yes"})
+        self.assertEqual(status, 403)
+        self.send_wol.assert_not_called()
+
+    def test_script_with_header_and_no_origin_wakes(self):
+        status, body = self.post("/wake", {"X-Wake": "1"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"sent": True})
+        self.send_wol.assert_called_once()
+
+    def test_page_with_same_origin_wakes(self):
+        for host in ("beefy-wol.fastpi.homelab", "192.168.1.2:9001"):
+            scheme = "http" if ":" in host else "https"
+            status, _ = self.post("/wake", {"X-Wake": "1", "Host": host, "Origin": f"{scheme}://{host}"})
+            self.assertEqual(status, 200, host)
+        status, _ = self.post("/jf/wake", {"X-Wake": "1", "Host": "jellyfin.holy-grail.ch",
+                                           "Origin": "https://jellyfin.holy-grail.ch"})
+        self.assertEqual(status, 200)
+
+    def test_pages_send_the_header(self):
+        for p in ("/", "/jf/"):
+            c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+            c.request("GET", p)
+            body = c.getresponse().read().decode()
+            c.close()
+            self.assertIn("'X-Wake': '1'", body, p)
 
 
 class JellyfinReadinessTest(unittest.TestCase):

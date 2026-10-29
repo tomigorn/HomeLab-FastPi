@@ -19,6 +19,7 @@ Endpoints:
   GET  /wol       same page but auto-fires WoL on load (countdown)
   GET  /status    JSON {"up": true|false}   (TCP-probes tower)
   POST /wake      fire the WoL magic packet; JSON {"sent": true|false}
+                  needs header X-Wake: 1, and a browser Origin must be this host (CSRF), else 403
   GET  /gate      forwardAuth gate (200 up / 503 + page down); ?port= override
   GET  /history   boot/sleep timeline — INERT ON TOWER, see below
 
@@ -165,7 +166,7 @@ NC_PAGE = """<!doctype html>
 <script>
 const base = "/tower-wake/";
 let left = __COUNTDOWN__, waited = 0;
-fetch(base + "wake", {method: "POST"}).catch(() => {});
+fetch(base + "wake", {method: "POST", headers: {"X-Wake": "1"}}).catch(() => {});
 const tick = setInterval(() => {
   left = Math.max(0, left - 1); waited++;
   document.getElementById("n").textContent = left > 0 ? left : "\u2026";
@@ -275,7 +276,7 @@ function startWaking(){
   countEl.textContent = '~' + TOTAL + 's';
   subEl.textContent = 'Magic packet sent. Checking when it answers\\u2026';
   show('waiting');
-  fetch('/wake', {method:'POST'}).catch(()=>{});
+  fetch('/wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
   if(!countTimer) countTimer = setInterval(tick, 1000);
 }
 async function poll(){
@@ -463,6 +464,17 @@ def is_up(host, port):
         return False
 
 
+def wake_request_allowed(headers):
+    """CSRF guard: a cross-site page cannot add X-Wake without a CORS preflight, which the waker never answers."""
+    if headers.get("X-Wake") != "1":
+        return False
+    origin = headers.get("Origin")
+    if origin is None:
+        return True
+    host = (headers.get("Host") or "").lower()
+    return bool(host) and urlparse(origin).netloc.lower() == host
+
+
 class Handler(BaseHTTPRequestHandler):
     timeout = 10        # per-request socket timeout: drop slow/never-finishing
                         # clients so they can't pin a worker thread (the server is
@@ -516,6 +528,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "POST":   # POST-only: avoid drive-by GET/<img> wakes
             self._send(405, "application/json",
                        json.dumps({"error": "POST only"}).encode())
+            return
+        if not wake_request_allowed(self.headers):
+            self._send(403, "application/json",
+                       json.dumps({"error": "needs X-Wake: 1 from this origin"}).encode())
             return
         try:
             wake()
@@ -626,6 +642,10 @@ class Handler(BaseHTTPRequestHandler):
         # Reached only through Authentik (Traefik /tower-wake/ router).
         if self.command != "POST":
             self._send(405, "application/json", json.dumps({"error": "POST only"}).encode())
+            return
+        if not wake_request_allowed(self.headers):
+            self._send(403, "application/json",
+                       json.dumps({"error": "needs X-Wake: 1 from this origin"}).encode())
             return
         user = (self.headers.get("X-Authentik-Username") or "?")[:64]
         try:

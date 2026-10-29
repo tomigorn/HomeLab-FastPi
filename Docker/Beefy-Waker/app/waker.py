@@ -18,12 +18,13 @@ Endpoints:
   GET  /wol       same page but auto-fires WoL on load (countdown)
   GET  /status    JSON {"up": true|false}   (TCP-probes beefy)
   POST /wake      fire the WoL magic packet; JSON {"sent": true|false}
+                  needs header X-Wake: 1, and a browser Origin must be this host (CSRF), else 403
   GET  /gate      forwardAuth gate (200 up / 503 + page down); ?port= override
                   ?policy=jellyfin: browsers get a sign-in page instead of a wake; logs "observe {...}"
   GET  /jf/       public booting page (behind Authentik at /beefy-wake/)
   GET  /jf/status JSON {"up": ...} = Jellyfin's /health says Healthy (JELLYFIN_PORT)
   GET  /jf/public-info  relay/cache of Jellyfin's /System/Info/Public (apps' connect check)
-  POST /jf/wake   same as /wake
+  POST /jf/wake   same as /wake (same X-Wake/Origin rule)
 
 Config via env (see .env):
   WAKER_LISTEN_PORT  port to listen on (host network)        default 9001
@@ -214,7 +215,7 @@ async function poll(){
 }
 (async () => {
   if(await isUp()){ location.replace('/web/'); return; }
-  fetch(BASE + 'wake', {method:'POST'}).catch(()=>{});
+  fetch(BASE + 'wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
   ticker = setInterval(tick, 1000);
   setTimeout(giveUp, GIVEUP_MS);
   setTimeout(poll, 2000);
@@ -310,7 +311,7 @@ function startWaking(){
   countEl.textContent = '~' + TOTAL + 's';
   subEl.textContent = 'Magic packet sent. Checking when it answers\\u2026';
   show('waiting');
-  fetch('/wake', {method:'POST'}).catch(()=>{});
+  fetch('/wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
   if(!countTimer) countTimer = setInterval(tick, 1000);
 }
 async function poll(){
@@ -685,6 +686,17 @@ def jellyfin_decision(up, headers):
     return "wake"
 
 
+def wake_request_allowed(headers):
+    """CSRF guard: a cross-site page cannot add X-Wake without a CORS preflight, which the waker never answers."""
+    if headers.get("X-Wake") != "1":
+        return False
+    origin = headers.get("Origin")
+    if origin is None:
+        return True
+    host = (headers.get("Host") or "").lower()
+    return bool(host) and urlparse(origin).netloc.lower() == host
+
+
 class Handler(BaseHTTPRequestHandler):
     timeout = 10        # per-request socket timeout: drop slow/never-finishing
                         # clients so they can't pin a worker thread (the server is
@@ -809,6 +821,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(405, "application/json",
                        json.dumps({"error": "POST only"}).encode())
             return
+        if not wake_request_allowed(self.headers):
+            self._send(403, "application/json",
+                       json.dumps({"error": "needs X-Wake: 1 from this origin"}).encode())
+            return
         try:
             wake()
             self.log_message("manual wake -> sent WoL to %s via %s", MAC, BROADCAST)
@@ -823,6 +839,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "POST":
             self._send(405, "application/json",
                        json.dumps({"error": "POST only"}).encode())
+            return
+        if not wake_request_allowed(self.headers):
+            self._send(403, "application/json",
+                       json.dumps({"error": "needs X-Wake: 1 from this origin"}).encode())
             return
         user = (self.headers.get("X-Authentik-Username") or "?")[:64]
         try:

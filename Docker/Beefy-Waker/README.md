@@ -124,7 +124,7 @@ Both show the collapsed **beefy history** panel and the app version in the foote
 | GET | `/` | State + manual wake page (HTML) — shows beefy's status + a Wake button; does **not** auto-wake |
 | GET | `/wol` | Same page, but **auto-fires** WoL on load (countdown) |
 | GET | `/status` | `{"up": true\|false}` — TCP-probes beefy |
-| POST | `/wake` | Fire the WoL magic packet → `{"sent": …}` |
+| POST | `/wake` | Fire the WoL magic packet → `{"sent": …}`. Needs header `X-Wake: 1`; a browser `Origin` must be this host, else 403 (CSRF guard, D-11). Same for `/jf/wake` |
 | GET | `/history` | beefy's boot/sleep timeline (JSON) — fetched from its journal |
 | GET | `/gate` | forwardAuth gate; `?port=` override (host is hard-wired to beefy) |
 
@@ -248,7 +248,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.3.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.4.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box
@@ -261,7 +261,7 @@ Add this to your client's `~/.ssh/config`:
 
 ```sshconfig
 # Fire the Wake-on-LAN (via the waker) before connecting, then SSH straight to beefy.
-Match host beefy exec "curl -fsSk -X POST https://beefy-wol.fastpi.homelab/wake"
+Match host beefy exec "curl -fsSk -X POST -H X-Wake:1 https://beefy-wol.fastpi.homelab/wake"
 
 Host beefy
     HostName beefy.homelab               # beefy's own name -> 192.168.1.102 (nothing hidden)
@@ -284,7 +284,8 @@ wake URL.
   hands clients **AdGuard** (`192.168.1.2`) as DNS, which resolves `beefy.homelab` ->
   `192.168.1.102` and `beefy-wol.fastpi.homelab` -> `192.168.1.2` — verified on LAN and VPN.
 - If a client can't resolve the `.homelab` names, use the IP form for the wake:
-  `Match host beefy exec "curl -fsS -X POST http://192.168.1.2:9001/wake"` (and drop the `-k`).
+  `Match host beefy exec "curl -fsS -X POST -H X-Wake:1 http://192.168.1.2:9001/wake"` (and drop the `-k`).
+- Without `-H X-Wake:1` the waker answers 403 and nothing wakes (since v1.4.0).
 
 **Behaviour:** an interactive `ssh beefy` keeps beefy awake (the idle-watcher counts it busy); a
 one-off `ssh beefy '<cmd>'` wakes, runs, and lets it sleep again ~15 min later. The wake fires on
