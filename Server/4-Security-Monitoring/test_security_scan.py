@@ -17,6 +17,7 @@ from security_scan import (  # noqa: E402
     NoData,
     classify_secret_file,
     collect_av,
+    collect_download_integrity,
     collect_media,
     collect_updates,
     audit_samples,
@@ -1850,6 +1851,57 @@ def test_idle_pull_rejects_garbage():
     assert not dest.exists()
 
 
+# beefy's download-integrity.py: counters per client in a textfile, one TSV line per corrupt file (time, client, title, path, reason).
+DL_PROM = ('# TYPE download_integrity_corrupt_total counter\n'
+           'download_integrity_corrupt_total{host="beefy",client="sabnzbd"} 2\n'
+           'download_integrity_errors_total{host="beefy",client="sabnzbd"} 0\n')
+DL_NOW = 1793000000.0
+
+
+def _dl_line(age_s, title="Some Show S01", reason="8 MiB zero block"):
+    import datetime
+    t = datetime.datetime.fromtimestamp(DL_NOW - age_s).astimezone().isoformat(timespec="seconds")
+    return f"{t}\tsabnzbd\t{title}\t/scan/complete/{title}/a.mkv\t{reason}\n"
+
+
+def test_download_integrity_republishes_the_metrics_and_filters_foreign_lines():
+    d = _tmp_dirs()
+    files = {"dlprom": DL_PROM + "other_metric 1\n", "dlhits": ""}
+    collect_download_integrity("beefy", lambda what: files[what], DL_NOW)
+    out = (d / "textfile" / "download_integrity_beefy.prom").read_text()
+    assert "download_integrity_corrupt_total" in out and "other_metric" not in out
+
+
+def test_download_integrity_missing_metrics_file_is_no_data_and_keeps_the_old_one():
+    d = _tmp_dirs()
+    (d / "textfile" / "download_integrity_beefy.prom").write_text("old\n")
+    try:
+        collect_download_integrity("beefy", lambda what: None, DL_NOW)
+        assert False, "NoData expected"
+    except security_scan.NoData:
+        pass
+    assert (d / "textfile" / "download_integrity_beefy.prom").read_text() == "old\n"
+
+
+def test_download_integrity_recent_hits_become_info_series_old_ones_drop():
+    _tmp_dirs()
+    files = {"dlprom": DL_PROM, "dlhits": _dl_line(3600) + _dl_line(90000, title="Old") + "garbage\n"}
+    samples = collect_download_integrity("beefy", lambda what: files[what], DL_NOW)
+    assert len(samples) == 1
+    name, labels, value = samples[0]
+    assert name == "download_integrity_hit_info"
+    assert labels["title"] == "Some Show S01" and labels["client"] == "sabnzbd" and labels["file"] == "a.mkv"
+    assert labels["reason"] == "8 MiB zero block" and labels["host"] == "beefy"
+    assert abs(value - (DL_NOW - 3600)) < 1
+
+
+def test_download_integrity_hit_list_is_capped_and_missing_hits_file_is_fine():
+    _tmp_dirs()
+    many = "".join(_dl_line(60 * i) for i in range(30))
+    assert len(collect_download_integrity("beefy", lambda w: DL_PROM if w == "dlprom" else many, DL_NOW)) == 20
+    assert collect_download_integrity("beefy", lambda w: DL_PROM if w == "dlprom" else None, DL_NOW) == []
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
@@ -1863,4 +1915,3 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(fns) - bad}/{len(fns)} passed")
     sys.exit(1 if bad else 0)
-

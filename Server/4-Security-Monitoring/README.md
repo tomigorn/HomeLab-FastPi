@@ -166,6 +166,16 @@ Login alerts (`SshLoginOutsideLan`, `SshLoginUnexpectedUser`) stay up for an hou
 | Title (inferred) | folder below `complete/` or `downloads/`, else the parent folder |
 | Telegram | route `MalwareQuarantined` → receiver `malware` (email + `tg.malware`, no resolved), one message per host batch |
 
+**Corrupt downloads.** beefy's `download-integrity.py` (SABnzbd/qBittorrent completion, Movie-Downloads README "Download integrity") writes `download-integrity.prom` and `download-integrity-hits.tsv` (time, client, title, path, reason) next to the ClamAV files. `security_scan.py` pulls both like the hit list (`AV_PATHS["beefy"]` `dlprom`/`dlhits`, 04:20 and every 15 min while beefy is up, never wakes it): counters as `download_integrity_beefy.prom`, the last 24 h of corrupt files as `download_integrity_hit_info` (max 20). A missing file is "no data", old figures stay. Subject `dlint-beefy`.
+
+| Alert | Fires on | Route |
+|---|---|---|
+| `DownloadCorrupt` | `increase(download_integrity_corrupt_total[1d]) > 0` (title, file, reason in the text) | warning: Telegram, muted 22:00-07:00 |
+| `DownloadIntegrityErrors` | `increase(download_integrity_errors_total[1d]) > 0` | info: Telegram |
+| `DownloadIntegrityMetricsMissing` | no `download_integrity_checked_total` for 3 days while beefy was up, held 2 days (quiet until the first download is checked) | info: Telegram |
+
+The Monday digest lists "corrupt downloads caught this week".
+
 **MalwareFound is "last report-only run had hits"**, `max by (host, mode) (clamav_infected_last_run{mode!~"new|hook|queue"}) > 0` (modes `all`, `path`), not `increase()` of the counter: a counter reset (the EICAR test) read as a hit. Quarantining modes are left to `MalwareQuarantined` (one alert per hit). It clears with the next clean run of that mode. `for: 45m`, so the 04:20 (beefy) or 05:40 pull has put the hit list (`security_av_infected_info`, max 20) into the description first. A missing remote `clamav.prom` is "no data": old file kept, no error. Gap: a `new` hit whose move failed is in neither (scan errors then alert, `ClamavScanErrors`).
 
 **The digest fires on Monday 05:00 local all year.** Prometheus knows only UTC; `homelab:local_utc_offset_hours` (2 from the last Sunday in March to the last Sunday in October, else 1) shifts the clock. Its own Alertmanager route `telegram-digest` sends no resolved message.

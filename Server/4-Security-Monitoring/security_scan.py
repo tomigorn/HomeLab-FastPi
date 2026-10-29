@@ -1387,6 +1387,9 @@ AV_PATHS = {
               "infected": "/var/lib/clamav-scan/last-infected.txt",
               # clamav-hook.py: time, mode (hook/queue), title, path, signature of each hit it quarantined
               "hits": "/var/lib/clamav-scan/textfile/clamav-hits.tsv",
+              # download-integrity.py (SABnzbd/qBittorrent completion): counters per client, and time, client, title, path, reason of each corrupt file
+              "dlprom": "/var/lib/clamav-scan/textfile/download-integrity.prom",
+              "dlhits": "/var/lib/clamav-scan/textfile/download-integrity-hits.tsv",
               # the SSD branch, not the /srv/video union (same file): reading it never spins up the HDD
               "index": "/srv/.disks/ssd-hot/quarantine/index.txt"},
     "tower": {"prom": "/mnt/data/appdata/clamav/textfile/clamav.prom",
@@ -1431,6 +1434,41 @@ def collect_av(host: str, fetch) -> list:
             write_atomic(TEXTFILE / f"clamav_hook_{host}.prom", hook)
     return [("security_av_infected_info", {"host": host, "path": p, "signature": sig}, 1)
             for p, sig in hits[:AV_HIT_LIMIT]]
+
+
+DL_HIT_LIMIT = 20
+DL_HIT_WINDOW = 86400
+
+
+def collect_download_integrity(host: str, fetch, now: float | None = None) -> list:
+    """Republish a host's download-integrity.prom as download_integrity_<host>.prom, plus its last 24 h of corrupt files as info series.
+
+    `fetch(what)` returns "dlprom" / "dlhits" text, or None when the file does not exist (no download checked yet).
+    """
+    now = time.time() if now is None else now
+    raw = fetch("dlprom")
+    if raw is None:
+        raise NoData(f"no download-integrity.prom on {host} yet")
+    prom = filter_exposition(raw, prefix="download_integrity_")
+    if not prom:
+        raise NoData(f"download-integrity.prom on {host} has no download_integrity_ samples")
+    write_atomic(TEXTFILE / f"download_integrity_{host}.prom", prom)
+    hits = []
+    for line in (fetch("dlhits") or "").splitlines():
+        f = line.split("\t")
+        if len(f) != 5 or not f[3]:
+            continue
+        try:
+            ts = datetime.datetime.fromisoformat(f[0]).timestamp()
+        except ValueError:
+            continue
+        if 0 <= now - ts < DL_HIT_WINDOW:
+            hits.append((ts, f))
+    hits.sort(key=lambda h: h[0], reverse=True)
+    return [("download_integrity_hit_info",
+             {"host": host, "client": f[1], "title": f[2].strip(), "file": f[3].rsplit("/", 1)[-1], "path": f[3],
+              "reason": f[4].strip(), "time": _hit_time_label(ts)}, ts)
+            for ts, f in hits[:DL_HIT_LIMIT]]
 
 
 def parse_quarantine_index(text: str) -> list[dict]:
@@ -2155,6 +2193,7 @@ HELPS = {
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
     "clamav_quarantine_hit_first_seen_timestamp_seconds": "One series per quarantined ClamAV hit (index.txt) first seen in the last 24 h, newest 20; value = when fastpi first saw it.",
     "clamav_quarantine_hits_24h": "Quarantined ClamAV hits (index.txt, not restored) first seen in the last 24 h, by mode (scan, hook, queue).",
+    "download_integrity_hit_info": "One series per corrupt download (download-integrity.py) of the last 24 h, newest 20; value = when it was found.",
     "security_dt_projects": "Dependency-Track projects of the host (running images + OS) after the last upload run.",
     "security_dt_uploads": "SBOMs uploaded to Dependency-Track in the last run (new or changed images).",
     "security_dt_sbom_failed": "Images whose SBOM could not be built in the last run (retried next run).",
@@ -2286,6 +2325,8 @@ def main() -> int:
                 return collect_av(host, lambda what: fetch_nowake(host, AV_PATHS[host][what]))
             guarded(f"av-{host}", _av, host=host)
             guarded(f"avhits-{host}", lambda host=host: collect_av_hits(host, lambda what: fetch_nowake(host, AV_PATHS[host][what])), host=host)
+            if "dlprom" in AV_PATHS[host]:
+                guarded(f"dlint-{host}", lambda host=host: collect_download_integrity(host, lambda what: fetch_nowake(host, AV_PATHS[host][what])), host=host)
 
     if only and "avhits" in only:
         # Every 15 min (security-av-hits.timer): beefy and tower only while the Waker sees them up, and never through a waking ssh alias.
@@ -2295,6 +2336,12 @@ def main() -> int:
                     raise NoData(f"{host} asleep, skipped")
                 return collect_av_hits(host, lambda what: fetch_file(host, AV_PATHS[host][what], wake=False))
             guarded(f"avhits-{host}", _hits, host=host)
+            if "dlprom" in AV_PATHS[host]:
+                def _dl(host=host):
+                    if not host_awake(host):
+                        raise NoData(f"{host} asleep, skipped")
+                    return collect_download_integrity(host, lambda what: fetch_file(host, AV_PATHS[host][what], wake=False))
+                guarded(f"dlint-{host}", _dl, host=host)
 
     if want("media"):
         for host in MEDIA_PATHS:
