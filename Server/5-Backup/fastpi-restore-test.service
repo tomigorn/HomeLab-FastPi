@@ -1,0 +1,14 @@
+[Unit]
+Description=Monthly restore test of the fastpi restic backup
+Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/fastpi-restore-test
+# the beefy window ends 04:45
+TimeoutStartSec=660
+Nice=10
+IOSchedulingClass=idle
+CacheDirectory=restic

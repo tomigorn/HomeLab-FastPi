@@ -13,7 +13,8 @@ if [ "$(restic version 2>/dev/null | awk '{print $2}')" != "$V" ]; then
     rm -rf "$tmp"
 fi
 sudo install -m 0750 -o root -g root "$HERE/backup.sh" /usr/local/sbin/fastpi-backup
-sudo install -m 0644 "$HERE/fastpi-backup.service" "$HERE/fastpi-backup.timer" /etc/systemd/system/
+sudo install -m 0750 -o root -g root "$HERE/restore-test.sh" /usr/local/sbin/fastpi-restore-test
+sudo install -m 0644 "$HERE/fastpi-backup.service" "$HERE/fastpi-backup.timer" "$HERE/fastpi-restore-test.service" "$HERE/fastpi-restore-test.timer" /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now fastpi-backup.timer
-systemctl list-timers fastpi-backup.timer --no-pager
+sudo systemctl enable --now fastpi-backup.timer fastpi-restore-test.timer
+systemctl list-timers fastpi-backup.timer fastpi-restore-test.timer --no-pager

@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly fastpi backup restore test inside beefy's maintenance window
+Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
+
+[Timer]
+# first Tuesday of the month 04:33, after the 04:06 backup, before the 04:45 end of beefy's window; never wakes beefy
+OnCalendar=Tue *-*-01..07 04:33:00 Europe/Zurich
+Persistent=false
+
+[Install]
+WantedBy=timers.target
