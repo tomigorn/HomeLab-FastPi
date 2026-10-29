@@ -11,6 +11,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 FILE = os.environ.get("LT_TOKEN_FILE", "/home/pi/Projects/Docker/Traefik/traefik/dynamic/languagetool-token.yml")
@@ -55,17 +56,22 @@ def _write(text):
     bak = os.path.join(BACKUP_DIR, f"languagetool-token.yml.{time.strftime('%Y%m%d-%H%M%S')}")
     shutil.copy2(FILE, bak)
     os.chmod(bak, 0o600)
-    tmp = os.path.join(os.path.dirname(FILE), ".languagetool-token.tmp")
-    with open(tmp, "w") as f:
-        f.write(text)
     st = os.stat(FILE)
-    os.chmod(tmp, st.st_mode & 0o777)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(FILE), prefix=".languagetool-token.", suffix=".tmp")
     try:
-        os.chown(tmp, -1, st.st_gid)
-    except PermissionError:
-        # Traefik reads the 0640 file through its own group, which pi is not in.
-        subprocess.run(["sudo", "-n", "chgrp", str(st.st_gid), tmp], check=True)
-    os.replace(tmp, FILE)
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        try:
+            os.chown(tmp, -1, st.st_gid)
+        except PermissionError:
+            # Traefik reads the 0640 file through its own group, which pi is not in.
+            subprocess.run(["sudo", "-n", "chgrp", str(st.st_gid), tmp], check=True)
+        os.chmod(tmp, st.st_mode & 0o777)
+        os.replace(tmp, FILE)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def add(label):

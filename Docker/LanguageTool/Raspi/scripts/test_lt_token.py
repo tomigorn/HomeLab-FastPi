@@ -82,8 +82,36 @@ class LtToken(unittest.TestCase):
         finally:
             self.lt.os.chown = real_chown
         gid = self.file.stat().st_gid
-        self.assertEqual(calls, [(".languagetool-token.tmp", -1, gid)])
-        self.assertEqual(sudo, [["sudo", "-n", "chgrp", str(gid), str(self.file.parent / ".languagetool-token.tmp")]])
+        self.assertEqual(len(calls), 1)
+        self.assertRegex(calls[0][0], r"^\.languagetool-token\..+\.tmp$")
+        self.assertEqual(calls[0][1:], (-1, gid))
+        self.assertEqual(sudo, [["sudo", "-n", "chgrp", str(gid), str(self.file.parent / calls[0][0])]])
+
+    def test_temp_file_is_private_until_it_replaces_the_file(self):
+        modes = []
+        real_chown = self.lt.os.chown
+        def chown(path, uid, gid):
+            modes.append(os.stat(path).st_mode & 0o777)
+        self.lt.os.chown = chown
+        try:
+            self.lt.add("Filip-LinuxLaptop")
+        finally:
+            self.lt.os.chown = real_chown
+        self.assertEqual(modes, [0o600])
+        self.assertEqual(self.file.stat().st_mode & 0o777, 0o640)
+
+    def test_failed_write_leaves_no_temp_file(self):
+        real_replace = self.lt.os.replace
+        def boom(a, b):
+            raise OSError("disk full")
+        self.lt.os.replace = boom
+        try:
+            with self.assertRaises(OSError):
+                self.lt.add("Filip-LinuxLaptop")
+        finally:
+            self.lt.os.replace = real_replace
+        self.assertEqual(sorted(p.name for p in Path(self.dir.name).iterdir()), ["backups", "languagetool-token.yml"])
+        self.assertEqual(self.file.read_text(), BASE)
 
     def test_tokens_are_unique(self):
         a = self.lt.add("Filip-LinuxLaptop")
