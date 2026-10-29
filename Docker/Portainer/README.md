@@ -50,6 +50,8 @@ the data volume is `docker_portainer_data`, and a new project name would orphan 
 cd /home/pi/Projects/Docker/Portainer && docker compose up -d
 ```
 
+Socket proxy and socat are pinned by digest (A-30), same values as `Docker-Socket-Proxy` (`SOCKET_PROXY_TAG` in `.env`, socat in the compose file); update them together. Check `portainer.image-pin`.
+
 ## Recovery (Authentik down, server shell only)
 
 - `ssh -L 9443:127.0.0.1:9443 fastpi`, then `https://localhost:9443/#!/internal-auth`

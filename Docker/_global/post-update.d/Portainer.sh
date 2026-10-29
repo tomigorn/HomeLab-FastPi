@@ -5,5 +5,11 @@ if want portainer; then
   check portainer.localhost-only '^000$' "$(curl -sk -m 5 -o /dev/null -w '%{http_code}' https://192.168.1.2:9443/api/status)"
 fi
 if want socket-proxy; then
+  check portainer.image-pin '^pinned 2/2, running = pin 2/2$' "$(docker compose --project-directory "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../Portainer" && pwd)" config --format json 2>/dev/null | python3 -c 'import json, subprocess, sys
+s = {k: v for k, v in json.load(sys.stdin)["services"].items() if k in sys.argv[1:]}
+i = lambda *a: subprocess.run(["docker", *a], capture_output=True, text=True).stdout.strip()
+p = sum("@sha256:" in v["image"] for v in s.values())
+r = sum(i("image", "inspect", "-f", "{{.Id}}", v["image"]) == i("inspect", "-f", "{{.Image}}", v["container_name"]) != "" for v in s.values())
+print(f"pinned {p}/{len(s)}, running = pin {r}/{len(s)}")' socket-proxy socket-proxy-unix)"   # A-30
   check portainer.proxy-readonly '^EXEC=0 POST=0$' "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' portainer-socket-proxy | grep -E '^(POST|EXEC)=' | sort | xargs)"
 fi
