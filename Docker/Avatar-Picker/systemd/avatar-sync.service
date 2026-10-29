@@ -3,6 +3,8 @@ Description=Push avatar picks to Jellyfin, Seerr, Home Assistant, Nextcloud (wak
 Documentation=file:///home/pi/Projects/Docker/Avatar-Picker/README.md
 After=network-online.target
 Wants=network-online.target
+# Failures retry forever (with backoff), never give up on a pick.
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
@@ -10,7 +12,12 @@ User=pi
 Group=pi
 ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/Avatar-Picker/scripts/avatar-sync.py
 SuccessExitStatus=75
-ExecStopPost=+/bin/sh -c 'if [ "$${EXIT_STATUS}" = 75 ]; then systemctl start avatar-sync.timer; else systemctl stop avatar-sync.timer; fi'
+# 75 = pending: 5-min retry timer; 0 = in sync: timer off; an error or timeout restarts the service itself (1, 2, 4 ... 60 min).
+ExecStopPost=+/bin/sh -c 'if [ "$${EXIT_STATUS}" = 75 ]; then systemctl start avatar-sync.timer; elif [ "$${SERVICE_RESULT}" = success ]; then systemctl stop avatar-sync.timer; fi'
+Restart=on-failure
+RestartSec=1min
+RestartSteps=6
+RestartMaxDelaySec=1h
 StateDirectory=avatar-sync
 TimeoutStartSec=600
 NoNewPrivileges=true

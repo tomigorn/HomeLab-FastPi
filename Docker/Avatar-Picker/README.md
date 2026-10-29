@@ -48,6 +48,7 @@ The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each
 |---|---|
 | right after a pick (and at boot) | `avatar-sync.path` (queue changed) starts `avatar-sync.service` (user `pi`) |
 | every 5 min, only while something is pending | exit 75 = pending: the service starts `avatar-sync.timer`; exit 0 (all applied) stops it. Nothing runs on a schedule when everything is in sync |
+| after an error or timeout (also at boot) | `Restart=on-failure` with backoff 1, 2, 4 … 60 min, forever (`StartLimitIntervalSec=0`); the retry timer is left as it is |
 
 No firewall change: only ssh, which HOST-OUT-GUARD already allows, and HA on `127.0.0.1:8123`. On container start, picks made before the queue existed are backfilled.
 
