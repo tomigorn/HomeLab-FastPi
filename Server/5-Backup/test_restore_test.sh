@@ -95,6 +95,7 @@ grep -q "pg_isready -h 127.0.0.1" "$T/log" && ok "waits for the real server, not
 grep -q "backup_restore_test_snapshot_age_seconds 8" "$T/prom" && ok "snapshot age in metric" || bad "snapshot age in metric" "$(cat "$T/prom")"
 
 grep -q "beefy .*check --read-data-subset=5%" "$T/log" && ok "beefy repo checked 5%" || bad "beefy repo checked 5%"
+n=$(grep -c '^beefy ' "$T/log"); [[ $n -ge 3 && $(grep '^beefy ' "$T/log" | grep -c -- '--no-lock') == "$n" ]] && ok "beefy repo read without lock files (rest-server user cannot read root's)" || bad "beefy repo read without lock files" "$(grep '^beefy ' "$T/log")"
 grep -q "Beefy: snapshot beef0001" "$T/msg" && grep -q "SQLite dumps: 4" "$T/msg" && ok "Telegram summary covers beefy" || bad "Telegram summary covers beefy" "$(cat "$T/msg")"
 grep -q "DT5 dump: 2 entries" "$T/msg" && grep -q "KEK ok" "$T/msg" && ok "DT5 dump listed and KEK valid" || bad "DT5 dump listed and KEK valid" "$(cat "$T/msg")"
 [[ $(metric backup_restore_test_beefy_status) == 1 && $(metric backup_restore_test_last_success_timestamp_seconds) -gt 0 ]] && ok "beefy status and last success in metrics" || bad "beefy status and last success in metrics" "$(cat "$T/prom")"

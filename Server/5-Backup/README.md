@@ -77,7 +77,7 @@ restic restore latest --target /restore --include /var/lib/beefy-backup-staging 
 Then copy to beefy and follow beefy `Server/10-Backup.md` "Restore". fastpi lost: beefy's data is still live on beefy; set up again with `setup-beefy-repo.sh`.
 
 ## Monthly restore test
-`restore-test.sh` (root, never touches live data), first Tuesday 04:33 inside beefy's window. fastpi's repo: beefy asleep or the backup still running after 5 min = that part skipped (status 2). beefy's repo is local and always tested.
+`restore-test.sh` (root, never touches live data), first Tuesday 04:33 inside beefy's window. fastpi's repo: beefy asleep or the backup still running after 5 min = that part skipped (status 2). beefy's repo is local and always tested, read-only with `--no-lock` (root-owned lock files would be unreadable for rest-server and fail a concurrent beefy backup).
 
 | Step | Fails when |
 |---|---|

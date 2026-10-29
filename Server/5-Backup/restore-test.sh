@@ -36,7 +36,8 @@ KEK=/srv/appdata/dt5/.dependency-track/keys/secret-management-kek.json
 COUNTS="select 'users', count(*) from authentik_core_user union all select 'groups', count(*) from authentik_core_group union all select 'apps', count(*) from authentik_core_application"
 
 R() { restic -o sftp.command="$SSHC" "$@"; }
-RB() { restic -r "$BREPO" --password-file "$BPASS" --retry-lock 5m "$@"; }
+# read-only and lock-free: root-owned lock files would be unreadable for rest-server (user beefy-backup) and fail a concurrent beefy backup
+RB() { restic -r "$BREPO" --password-file "$BPASS" --no-lock "$@"; }
 log() { echo "restore-test: $*"; }
 esc() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' <<<"$*"; }
 
