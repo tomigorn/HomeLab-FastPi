@@ -13,6 +13,8 @@ All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), time
 | `security-av` | 04:20, 05:40, 06:40 | 04:20, 05:40, 05:50 |
 | `clamav-hostscan` (whole-host ClamAV, `Docker/antivirus/README.md`) | Sun 01:30, ran ~12 h into the day | timer 22:30 nightly, scans only 22:00-06:00 and all day Sunday, idle priority, resumes where it stopped (one pass a week, ~289 000 files; stops at 06:00 without waiting for 02:00-03:00, DST-safe) |
 | `fastpi-restore-test` | new | first Tuesday of the month 04:33, inside beefy's 03:58-04:45 window, never wakes beefy (`Server/5-Backup/README.md` "Monthly restore test") |
+| `beefy-repo-maint` | new | 05:07 daily: retention of beefy's backup repo on fastpi (local, beefy not needed), prune Sunday, check Wednesday (`Server/5-Backup/README.md` "beefy → fastpi") |
+| `beefy-backup` (beefy) | new | 04:26 on beefy: backup to fastpi's append-only server, inside the window (`HomeLab-BeefyServer`, `Server/10-Backup.md`) |
 | `beefy-night-downloads-wake` | new | 22:05, wakes beefy only when downloads wait for the night (`Docker/Beefy-Waker/README.md` "Night downloads wake") |
 | `night-search` (beefy) | new | 04:17 on beefy: episodes aired and films released recently without a file, plus 5+5 cutoff-unmet titles, max 200 Treasure Maps searches (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Upgrades") |
 | `subtitle-check` (beefy) | new | 04:21 on beefy: subtitles changed since the last run (SSD only) checked for broken encoding, unambiguous ones repaired; findings reach the 06:30 digest through the queue-watchdog file (`beefy_watchdog.prom`, kinds `subtitle_repaired`, `subtitle_suspect`) (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Subtitle check") |
