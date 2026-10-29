@@ -1,0 +1,23 @@
+[Unit]
+Description=SMART disk health textfile exporter (never wakes a spun-down disk)
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Service]
+Type=oneshot
+# Root: SMART needs raw disk ioctls.
+StateDirectory=smart-exporter
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/smart-exporter/smart_exporter.py --host fastpi --out /var/lib/node-exporter/textfile/smart_fastpi.prom
+TimeoutStartSec=5min
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+PrivateNetwork=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
