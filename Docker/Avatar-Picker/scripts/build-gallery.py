@@ -8,7 +8,7 @@ row looks mixed - the memes, colours, Pokemon, Lord of the Rings, Dinosaurs, Har
 Muppets, Animals, Space, Historic figures, Retro games and Vox Machina rows are exempt). One character
 never appears in two rows (tests/test_gallery.py checks it):
 
-  disney      Disney & Pixar (27)               - LOCAL PACK (see below)
+  disney      Disney & Pixar (36)               - LOCAL PACK (see below)
   animated    Animated films, other studios (27) - LOCAL PACK
   movies      Movies, live action (27)          - LOCAL PACK (in-character stills/posters)
   lotr        Lord of the Rings, the films' major cast (27) - LOCAL PACK (film stills)
@@ -461,7 +461,7 @@ KHWIKI = "https://kh.wiki.gallery/images/"
 CHIIKAWA_POCKET = "https://jp.chiikawa-pocket.com/ja/_next/static/media/"
 REZERO = "https://re-zero-anime.jp/tv/assets/character/n/"
 LOCAL = {
-    # Disney & Pixar (27): Disney Animation and Pixar characters, 1937-2021
+    # Disney & Pixar (36): Disney Animation and Pixar characters, 1937-2021
     "disney": [
         ("elsa", "Elsa", "feminine", DISNEY + "ct_frozen_elsa_18466_22a50822_ad6090d1.jpeg", (40, 20, 520)),
         ("anna", "Anna", "feminine", DISNEY + "ct_frozen_anna_18466_6775584b_520ae44b.jpeg", (40, 20, 520)),
@@ -497,6 +497,17 @@ LOCAL = {
         ("thumper", "Thumper", "neutral", WP + "en/a/ab/Thumper_%28Bambi_character%29.png", (0, -19, 298)),
         ("sisu", "Sisu", "neutral", WP + "en/a/aa/Disney_Sisu.png", (31, -12, 217)),
         ("rex", "Rex", "neutral", DISNEY + "t_toystory_rex_characterimage_v3_646b6daa.jpeg", (120, 20, 400)),
+        # v1.14: The Incredibles (Mr. Incredible is above), Remy and Nemo; Disney's official character portraits
+        ("elastigirl", "Elastigirl", "feminine",
+         DISNEY + "open-uri20150422-20810-1lgd3tr_6ad74569_fd2d4516.jpeg", (50, 20, 480)),
+        ("violet-parr", "Violet Parr", "feminine", DISNEY + "image_bc9e857a_87965896.jpeg", (60, 20, 460)),
+        ("edna-mode", "Edna Mode", "feminine", DISNEY + "image_10ed8756_b8c35868.jpeg", (80, 10, 520)),
+        ("dash", "Dash", "masculine", DISNEY + "image_a06c7e90_26231a4a.jpeg", (30, 20, 450)),
+        ("frozone", "Frozone", "masculine", DISNEY + "image_a5c03c59_9c038c80.jpeg", (80, 5, 470)),
+        ("syndrome", "Syndrome", "masculine", DISNEY + "image_7b7a8d9b_f6933087.jpeg", (120, 0, 440)),
+        ("jack-jack", "Jack-Jack", "neutral", DISNEY + "image_6f7ba04e_91041330.jpeg", (45, 0, 510)),
+        ("remy", "Remy", "neutral", DISNEY + "open-uri20150422-20810-f3qxzs_4923c203.jpeg", (10, 20, 520)),
+        ("nemo", "Nemo", "neutral", DISNEY + "open-uri20150608-27674-1kgirxf_da0eb59f.jpeg", (420, 110, 660)),
     ],
     # Animated films (27): other studios - DreamWorks, Illumination, Sony, Warner, Aardman, Laika, Blue Sky, Fox/Don Bluth, Netflix, Cartoon Saloon
     "animated": [
@@ -1703,6 +1714,8 @@ LATER_V110 = ["spider-man-tobey", "spider-man-andrew", "gamora", "the-flash", "n
 LATER_V112 = ["kairi", "sora", "shadow-heartless", "aqua", "riku", "dusk-nobody", "xion", "roxas", "moogle", "namine",
               "axel", "chirithy", "larxene", "terra", "meow-wow", "olette", "ventus", "kingdom-key", "emilia", "subaru",
               "chiikawa", "rem", "killua", "hachiware", "yor-forger", "zoro", "usagi"]
+# v1.14: The Incredibles, Remy and Nemo at the end of the Disney & Pixar row, colours after all of the above.
+LATER_V114 = ["elastigirl", "dash", "jack-jack", "violet-parr", "frozone", "remy", "edna-mode", "syndrome", "nemo"]
 # v1.10: removed on the owner's request; each replacement takes the removed avatar's place and colour
 # (replacement -> removed id).
 REPLACES = {"sherlock": "tenth-doctor", "uss-enterprise": "dalek", "young-hee": "weeping-angel", "barney": "k9",
@@ -1912,9 +1925,9 @@ def main():
             if old == gid:
                 ids.insert(k, aid)
         return ids
-    later_all = LATER + LATER_V19 + LATER_V191 + LATER_V110 + LATER_V112
+    later_all = LATER + LATER_V19 + LATER_V191 + LATER_V110 + LATER_V112 + LATER_V114
     for order, later in ((COLOR_ORDER, LATER), (COLOR_ORDER_V19, LATER_V19), ([], LATER_V191), ([], LATER_V110),
-                         ([], LATER_V112)):
+                         ([], LATER_V112), ([], LATER_V114)):
         for gid in order:
             for aid in colour_ids(gid):
                 if aid not in later_all and aid not in color_of:

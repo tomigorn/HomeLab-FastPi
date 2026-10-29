@@ -257,6 +257,87 @@
     "pack": "local"
   },
   {
+    "id": "elastigirl",
+    "name": "Elastigirl",
+    "file": "elastigirl.png",
+    "color": "#D8F1C6",
+    "group": "disney",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "dash",
+    "name": "Dash",
+    "file": "dash.png",
+    "color": "#C6CBF1",
+    "group": "disney",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "jack-jack",
+    "name": "Jack-Jack",
+    "file": "jack-jack.png",
+    "color": "#F1CDC6",
+    "group": "disney",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "violet-parr",
+    "name": "Violet Parr",
+    "file": "violet-parr.png",
+    "color": "#C6F1DA",
+    "group": "disney",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "frozone",
+    "name": "Frozone",
+    "file": "frozone.png",
+    "color": "#E6C6F1",
+    "group": "disney",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "remy",
+    "name": "Remy",
+    "file": "remy.png",
+    "color": "#EFF1C6",
+    "group": "disney",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
+    "id": "edna-mode",
+    "name": "Edna Mode",
+    "file": "edna-mode.png",
+    "color": "#C6E2F1",
+    "group": "disney",
+    "vibe": "feminine",
+    "pack": "local"
+  },
+  {
+    "id": "syndrome",
+    "name": "Syndrome",
+    "file": "syndrome.png",
+    "color": "#F1C6D6",
+    "group": "disney",
+    "vibe": "masculine",
+    "pack": "local"
+  },
+  {
+    "id": "nemo",
+    "name": "Nemo",
+    "file": "nemo.png",
+    "color": "#C9F1C6",
+    "group": "disney",
+    "vibe": "neutral",
+    "pack": "local"
+  },
+  {
     "id": "fiona",
     "name": "Fiona",
     "file": "fiona.png",

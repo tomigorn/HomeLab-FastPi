@@ -45,7 +45,7 @@ LABELS = {"disney": "Disney & Pixar", "animated": "Animated films", "movies": "M
           "retro": "Retro games", "pirates": "Pirates & knights", "voxmachina": "Vox Machina",
           "kingdomhearts": "Kingdom Hearts"}
 # Row sizes (every row is a multiple of 9)
-SIZES = {"disney": 27, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 72,
+SIZES = {"disney": 36, "animated": 27, "movies": 27, "lotr": 27, "tvcartoons": 36, "tvshows": 36, "anime": 72,
          "pokemon": 18, "games": 36, "mario": 18, "lego": 18, "dinosaurs": 18, "flatemoji": 18, "paintings": 18, "memes": 18,
          "colours": 18, "harrypotter": 18, "heroes": 27, "muppets": 18, "animals": 27, "space": 27,
          "mythology": 18, "historic": 18, "retro": 9, "pirates": 9, "voxmachina": 9, "kingdomhearts": 18}
@@ -171,6 +171,11 @@ CHIIKAWA = {"chiikawa", "hachiware", "usagi"}
 ANIME_V112 = CHIIKAWA | {"emilia", "rem", "yor-forger", "subaru", "killua", "zoro"}
 NEW_V112 = KINGDOM_HEARTS | ANIME_V112
 COLOURS_V111 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.11.0.json")))
+# v1.14: The Incredibles join the Disney & Pixar row (27 -> 36): the Parr family, Frozone, Edna Mode and Syndrome
+# (Mr. Incredible was already in the row), plus Remy and Nemo as the third neutral pair.
+INCREDIBLES = {"elastigirl", "violet-parr", "edna-mode", "dash", "frozone", "syndrome", "jack-jack"}
+DISNEY_V114 = ["elastigirl", "dash", "jack-jack", "violet-parr", "frozone", "remy", "edna-mode", "syndrome", "nemo"]
+COLOURS_V113 = json.load(open(os.path.join(os.path.dirname(__file__), "colours-v1.13.0.json")))
 
 
 def character_key(a):
@@ -202,7 +207,7 @@ class GalleryTest(unittest.TestCase):
     def test_flat_list_and_counts(self):
         self.assertIsInstance(GALLERY, list)
         self.assertEqual(len(GROUPS), 38)
-        self.assertEqual(len(GALLERY), 585 + 144)  # 729
+        self.assertEqual(len(GALLERY), 594 + 144)  # 738
         for gid, n in SIZES.items():
             self.assertEqual(sum(a["group"] == gid for a in GALLERY), n, gid)
 
@@ -478,8 +483,42 @@ class GalleryTest(unittest.TestCase):
         self.assertEqual(set(COLOURS_V111) - set(rows), set())
         for aid, colour in COLOURS_V111.items():
             self.assertEqual(rows[aid], colour, aid)
-        self.assertEqual(set(rows) - set(COLOURS_V111), NEW_V112)
+        self.assertEqual(set(rows) - set(COLOURS_V111), NEW_V112 | set(DISNEY_V114))
         new = [rows[aid] for aid in NEW_V112]
+        self.assertEqual(len(set(new)), len(new))
+
+    def test_v114_incredibles_in_disney_row(self):
+        """v1.14: the Incredibles (and Remy and Nemo) join the end of the Disney & Pixar row, f-m-n balanced;
+        the first 27 keep their order and Mr. Incredible stays where he was."""
+        disney = [a for a in GALLERY if a["group"] == "disney"]
+        self.assertEqual(len(disney), 36)
+        self.assertEqual([a["id"] for a in disney[27:]], DISNEY_V114)
+        self.assertFalse({a["id"] for a in disney[:27]} - set(COLOURS_V113))
+        self.assertLessEqual(INCREDIBLES | {"mr-incredible"}, {a["id"] for a in disney})
+        self.assertTrue(all(a.get("pack") == "local" for a in disney[27:]))
+        self.assertNotIn("disney", FREE_VIBE_GROUPS)
+        self.assertNotIn("incredibles", {g["id"] for g in GROUPS})
+        vibes = [a["vibe"] for a in disney[27:]]
+        self.assertEqual([vibes.count(v) for v in ("feminine", "masculine", "neutral")], [3, 3, 3])
+
+    def test_v114_one_incredible_each(self):
+        """Every Incredibles character appears once in the whole gallery (Mr. Incredible is not added again)."""
+        keys = [character_key(a) for a in GALLERY]
+        for name in ("mr. incredible", "elastigirl", "violet parr", "dash", "jack-jack", "frozone", "edna mode",
+                     "syndrome", "remy", "nemo"):
+            self.assertEqual(keys.count(name), 1, name)
+        names = {a["name"].lower() for a in GALLERY}
+        self.assertFalse(names & {"bob parr", "helen parr", "dash parr", "jack-jack parr",
+                                  "lucius best", "buddy pine", "incrediboy"})
+
+    def test_v113_colours_unchanged(self):
+        """v1.14: every v1.13.0 avatar keeps its colour, none disappears; the nine new ones take distinct colours."""
+        rows = {a["id"]: a["color"] for a in GALLERY}
+        self.assertEqual(set(COLOURS_V113) - set(rows), set())
+        for aid, colour in COLOURS_V113.items():
+            self.assertEqual(rows[aid], colour, aid)
+        self.assertEqual(set(rows) - set(COLOURS_V113), set(DISNEY_V114))
+        new = [rows[aid] for aid in DISNEY_V114]
         self.assertEqual(len(set(new)), len(new))
 
     def test_thor_twice_on_purpose(self):
