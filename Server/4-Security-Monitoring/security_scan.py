@@ -389,11 +389,17 @@ def render_metrics(samples: list[tuple[str, dict[str, str], float]], helps: dict
     Emits each HELP/TYPE once, before that metric's first sample, which the
     exposition format requires - node-exporter sets node_textfile_scrape_error=1
     and drops the WHOLE file if this is wrong, so a formatting slip here is
-    silent loss of every metric in the file, not just one.
+    silent loss of every metric in the file, not just one. For the same
+    reason a repeated label set is dropped (the first sample wins).
     """
     lines: list[str] = []
     seen: set[str] = set()
+    series: set[tuple] = set()
     for name, labels, value in samples:
+        key = (name, tuple(sorted((labels or {}).items())))
+        if key in series:
+            continue
+        series.add(key)
         if name not in seen:
             seen.add(name)
             lines.append(f"# HELP {name} {helps.get(name, name)}")
@@ -1470,7 +1476,7 @@ def hit_mode(host: str, path: str, nightly_paths: set) -> str:
 
 
 def _hit_time_label(ts: float) -> str:
-    return datetime.datetime.fromtimestamp(ts).strftime("%a, %d %b %Y %H:%M")
+    return datetime.datetime.fromtimestamp(ts).strftime("%a, %d %b %Y %H:%M:%S")
 
 
 def collect_av_hits(host: str, fetch, now: float | None = None) -> list:

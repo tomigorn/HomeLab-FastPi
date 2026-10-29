@@ -306,6 +306,12 @@ def test_render_emits_help_and_type_once_per_metric():
     assert 'm{a="1"} 1' in out and 'm{a="2"} 2' in out
 
 
+def test_render_drops_duplicate_label_sets():
+    # node-exporter rejects the whole file on a duplicate series; the first one wins.
+    out = render_metrics([("m", {"a": "1", "b": "2"}, 1), ("m", {"b": "2", "a": "1"}, 9), ("m", {"a": "3"}, 3)], {})
+    assert out.count('m{a="1",b="2"}') == 1 and 'm{a="1",b="2"} 1' in out and 'm{a="3"} 3' in out
+
+
 def test_render_puts_help_before_first_sample():
     # node-exporter discards the entire file if HELP follows a sample, which
     # would silently drop every metric here, not just the malformed one.
@@ -515,7 +521,7 @@ def test_av_hits_new_line_gives_one_series_with_its_details():
     assert series == [("clamav_quarantine_hit_first_seen_timestamp_seconds",
                        {"host": "beefy", "mode": "queue", "title": "Some.Show.S01", "file": "Some.Show.S01E01.mkv",
                         "path": "/scan/ssd-hot/torrents/complete/Some.Show.S01/Some.Show.S01E01.mkv",
-                        "signature": "Win.Trojan.X-1", "time": "Tue, 27 Oct 2026 10:00"}, LATER)]
+                        "signature": "Win.Trojan.X-1", "time": "Tue, 27 Oct 2026 10:00:00"}, LATER)]
     assert (d / "state" / "av-hits-seen-beefy.json").exists()
 
 
