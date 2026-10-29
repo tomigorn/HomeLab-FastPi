@@ -21,8 +21,8 @@ def item(i, lib="en", asin=None, size=100, tags=(), explicit=False, title=None, 
 ITEMS = {"en": [item("1", asin="A1"), item("2", tags=["kids"]), item("3", explicit=True)], "de": [item("4", lib="de", size=300)]}
 
 
-def user(name, type_="user", libs=(), all_libs=True, all_tags=True, tags=(), not_tags=False, explicit=True):
-    return {"username": name, "type": type_, "isActive": True, "librariesAccessible": list(libs), "itemTagsSelected": list(tags),
+def user(name, type_="user", libs=(), all_libs=True, all_tags=True, tags=(), not_tags=False, explicit=True, oidc=True):
+    return {"username": name, "type": type_, "isActive": True, "hasOpenIDLink": oidc, "librariesAccessible": list(libs), "itemTagsSelected": list(tags),
             "token": "SECRET-TOKEN", "email": "x@example.com",
             "permissions": {"accessAllLibraries": all_libs, "accessAllTags": all_tags, "selectedTagsNotAccessible": not_tags,
                             "accessExplicitContent": explicit}}
@@ -39,6 +39,15 @@ class Visibility(unittest.TestCase):
         self.assertIsNone(library.abs_user(users, "JANE"))
         self.assertIsNone(library.abs_user(users, ""))
         self.assertIsNone(library.abs_user([{**user("off"), "isActive": False}], "off"))
+
+    def test_only_accounts_created_by_the_holy_grail_login(self):
+        self.assertIsNone(library.abs_user([user("local", oidc=False)], "local"))
+        self.assertIsNone(library.abs_user([{k: v for k, v in user("old").items() if k != "hasOpenIDLink"}], "old"))
+        self.assertEqual(library.abs_user([user("adm", "admin")], "adm")["username"], "adm")
+
+    def test_never_the_root_account(self):
+        self.assertIsNone(library.abs_user([user("root", "root")], "root"))
+        self.assertIsNone(library.abs_user([user("root", "root", oidc=False)], "root"))
 
     def test_all_access_sees_every_book_library(self):
         self.assertEqual(ids(library.visible(user("a"), LIBS, ITEMS)), ["1", "2", "3", "4"])

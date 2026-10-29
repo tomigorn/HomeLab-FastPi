@@ -56,7 +56,7 @@ Placement: a books-proxy page under `/_hg/` like All requests, not inside ABR: A
 
 | Part | Where |
 |---|---|
-| data | importer `GET /library` (viewer = `X-authentik-username`, set by Traefik forward auth; ABS username = the same Holy Grail `preferred_username`, matched exactly) → `/_hg/library/data.json`; covers `GET /library-cover/<id>` (only items the viewer may see, 240 px webp) → `/_hg/library/cover/<id>`. Both need an ABR session (`auth_request`) |
+| data | importer `GET /library` (viewer = `X-authentik-username`, set by Traefik forward auth; ABS username = the same Holy Grail `preferred_username`, matched exactly, only ABS accounts linked to the Holy Grail login (`hasOpenIDLink`), never the root account; a local ABS account counts as no account) → `/_hg/library/data.json`; covers `GET /library-cover/<id>` (only items the viewer may see, 240 px webp) → `/_hg/library/cover/<id>`. Both need an ABR session (`auth_request`) |
 | ABS access | importer's key `audiobook-importer` (ABS admin, GET only here): `/api/libraries`, `/api/libraries/<id>/items?minified=1`, `/api/users` (permissions; tokens and mails never leave the importer); cached 5 min (users 1 min). Keys never reach the browser |
 | no ABS account yet | the page says to open Audiobookshelf once (Holy Grail login creates it) |
 | page | `books-proxy/www/library/` (`index.html`, `library.js`) |

@@ -7,10 +7,12 @@ ACTIVE = ("pending", "unbound", "merge-wait")
 
 
 def abs_user(users, username):
-    """The viewer's ABS account: ABS usernames come from the same Holy Grail login (preferred_username), matched exactly."""
+    """The viewer's ABS account: ABS usernames come from the same Holy Grail login (preferred_username), matched exactly.
+    Only accounts linked to that login (hasOpenIDLink), never root: a local ABS account with the same name is not the viewer."""
     if not username:
         return None
-    return next((u for u in users if u.get("username") == username and u.get("isActive", True)), None)
+    return next((u for u in users if u.get("username") == username and u.get("isActive", True)
+                 and u.get("hasOpenIDLink") is True and u.get("type") != "root"), None)
 
 
 def can_see(user, it):
