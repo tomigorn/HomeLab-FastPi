@@ -476,7 +476,7 @@ def file_gate(path, missing):
 
 
 def http_post_json(url):
-    with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"), timeout=10) as r:
+    with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST", headers={"X-Wake": "1"}), timeout=10) as r:
         return json.load(r)
 
 

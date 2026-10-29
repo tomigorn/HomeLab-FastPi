@@ -209,6 +209,20 @@ class Waker(unittest.TestCase):
                                post=lambda url: {"sent": True}, sleep=lambda s: None, clock=lambda: next(clock))
         self.assertEqual(wake(), "beefy not ready after 180 s")
 
+    def test_post_sends_the_waker_csrf_header(self):
+        seen = {}
+        class H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                seen.update(method=self.command, wake=self.headers.get("X-Wake"))
+                body = b'{"sent": true}'
+                self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+            def log_message(self, *a):
+                pass
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), H); self.addCleanup(srv.server_close)
+        threading.Thread(target=srv.handle_request, daemon=True).start()
+        self.assertEqual(sync.http_post_json(f"http://127.0.0.1:{srv.server_address[1]}/wake"), {"sent": True})
+        self.assertEqual(seen, {"method": "POST", "wake": "1"})
+
     def test_waker_down_or_packet_not_sent(self):
         def down(url):
             raise OSError("refused")
