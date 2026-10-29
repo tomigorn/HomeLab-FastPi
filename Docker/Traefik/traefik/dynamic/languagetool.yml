@@ -20,6 +20,8 @@ http:
       service: noop@internal
       middlewares:
         - languagetool-cors
+      observability:
+        accessLogs: false
       tls:
         certResolver: le
 
