@@ -34,7 +34,7 @@ The pick is stored in Authentik (`attributes.avatar`, the source of truth). Each
 | Authentik | yes (source) | the picker writes `attributes.avatar`; tenant avatars `attributes.avatar,initials` |
 | Jellyfin (beefy) | yes | `ssh -L` (beefy-direct) to `127.0.0.1:8096`, user by name (case-insensitive), `POST /UserImage` with the PNG. Key `secrets/jellyfin_api_key` (Jellyfin API key `avatar-sync`). Also `picture` claim at login |
 | Seerr (beefy) | yes | API cannot set an avatar: `scripts/seerr-avatar.py` over ssh on stdin, runs as Seerr's uid 65109. User = `linked_accounts` (provider `holy-grail`). Jellyfin-linked: new `avatarVersion` + empty cache (follows Jellyfin, runs after it). OIDC user: new URL if the old one is a picker URL |
-| Home Assistant | yes | websocket `person/update` `picture` = picker URL. Person = id `slug(username)` (`tomigorn-admin` → `tomigorn_admin`) or name equal to the username. Token `secrets/ha_token` (600, long-lived token of `tomigorn-admin`); no file = target inactive, active on the next run once it exists |
+| Home Assistant | yes | websocket `person/update` `picture` = picker URL. Person = id `slug(username)` (`jane-admin` → `jane_admin`) or name equal to the username. Token `secrets/ha_token` (600, long-lived token of `jane-admin`); no file = target inactive, active on the next run once it exists |
 | Nextcloud (tower) | prepared, inactive | `ssh tower-direct` → `docker exec -u www-data nextcloud php` → `IAvatarManager` with the PNG on stdin; only while tower's waker says up. Active once `secrets/nextcloud_users.json` (`{"<username>": "<Nextcloud uid = Authentik user uuid>"}`) exists. Until then: `picture` claim at login |
 | Audiobookshelf | no | no user pictures |
 | AudioBookRequest | no | user model has no picture |
@@ -60,7 +60,7 @@ python3 scripts/avatar-sync.py --reconcile             # repair: push every pick
 python3 scripts/avatar-sync.py --check ha              # HA pictures vs picks: ok n/n
 ```
 
-Install (once): `sudo install -d -o 65002 -g 65002 data && sudo cp systemd/avatar-sync* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable avatar-sync.service && sudo systemctl enable --now avatar-sync.path`. Jellyfin key: on beefy `POST /Auth/Keys?app=avatar-sync`, token into `secrets/jellyfin_api_key` (600). HA token: HA as `tomigorn-admin` → Profile → Security → Long-lived access tokens → Create, into `secrets/ha_token` (600).
+Install (once): `sudo install -d -o 65002 -g 65002 data && sudo cp systemd/avatar-sync* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable avatar-sync.service && sudo systemctl enable --now avatar-sync.path`. Jellyfin key: on beefy `POST /Auth/Keys?app=avatar-sync`, token into `secrets/jellyfin_api_key` (600). HA token: HA as `jane-admin` → Profile → Security → Long-lived access tokens → Create, into `secrets/ha_token` (600).
 
 Nextcloud, once tower is cleared (provider `Nextcloud` sends `sub` = user uuid; `--mapping-uid=sub`):
 
