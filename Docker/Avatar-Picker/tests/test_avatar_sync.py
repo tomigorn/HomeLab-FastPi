@@ -281,7 +281,7 @@ class FakeJellyfin(BaseHTTPRequestHandler):
 
 class Jellyfin(unittest.TestCase):
     def setUp(self):
-        FakeJellyfin.users = [{"Name": "Tomigorn", "Id": "abc123"}, {"Name": "other", "Id": "def456"}]
+        FakeJellyfin.users = [{"Name": "Jane", "Id": "abc123"}, {"Name": "other", "Id": "def456"}]
         FakeJellyfin.posts = []
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), FakeJellyfin)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
@@ -289,7 +289,7 @@ class Jellyfin(unittest.TestCase):
         self.jf = sync.Jellyfin(f"http://127.0.0.1:{self.httpd.server_address[1]}", "k3y")
 
     def test_find_user_by_name_ignores_case(self):
-        self.assertEqual(self.jf.user_id("tomigorn"), "abc123")
+        self.assertEqual(self.jf.user_id("jane"), "abc123")
         self.assertIsNone(self.jf.user_id("nobody"))
 
     def test_set_image_posts_base64_png(self):
@@ -302,7 +302,7 @@ class Jellyfin(unittest.TestCase):
 
     def test_wrong_key_is_a_sync_error(self):
         with self.assertRaises(sync.SyncError):
-            sync.Jellyfin(self.jf.base, "bad").user_id("tomigorn")
+            sync.Jellyfin(self.jf.base, "bad").user_id("jane")
 
 
 class Pushes(unittest.TestCase):
@@ -350,17 +350,17 @@ class Pushes(unittest.TestCase):
 
     def test_ha_person_by_slug_of_the_username(self):
         ha = self.Ha([{"id": "admin", "name": "admin", "picture": None},
-                      {"id": "tomigorn", "name": "Tomigorn", "picture": BASE + "/img/fox.png"},
-                      {"id": "tomigorn_admin", "name": "Tomigorn (admin)", "picture": None}])
+                      {"id": "jane", "name": "Jane", "picture": BASE + "/img/fox.png"},
+                      {"id": "jane_admin", "name": "Jane (admin)", "picture": None}])
         push = sync.ha_push(ha, BASE, self.dirs)
-        self.assertEqual(push("tomigorn", "creeper"), "picture set")
-        self.assertEqual(push("tomigorn-admin", "creeper"), "picture set")
-        self.assertEqual(ha.updates, [("tomigorn", BASE + "/img/creeper.png"), ("tomigorn_admin", BASE + "/img/creeper.png")])
+        self.assertEqual(push("jane", "creeper"), "picture set")
+        self.assertEqual(push("jane-admin", "creeper"), "picture set")
+        self.assertEqual(ha.updates, [("jane", BASE + "/img/creeper.png"), ("jane_admin", BASE + "/img/creeper.png")])
 
     def test_ha_person_by_name_unchanged_and_missing(self):
-        ha = self.Ha([{"id": "person_7", "name": "Alezauron", "picture": BASE + "/img/creeper.png"}])
+        ha = self.Ha([{"id": "person_7", "name": "john", "picture": BASE + "/img/creeper.png"}])
         push = sync.ha_push(ha, BASE, self.dirs)
-        self.assertEqual(push("alezauron", "creeper"), "unchanged")
+        self.assertEqual(push("john", "creeper"), "unchanged")
         self.assertEqual(push("nobody", "creeper"), "no person")
         self.assertEqual(ha.updates, [])
 
@@ -426,7 +426,7 @@ def ws_server_read(conn):
 class FakeHa:
     def __init__(self, token="t0k", persons=None, ping_first=False):
         self.token, self.ping_first = token, ping_first
-        self.persons = persons or [{"id": "tomigorn", "name": "Tomigorn", "user_id": "u1", "picture": None}]
+        self.persons = persons or [{"id": "jane", "name": "Jane", "user_id": "u1", "picture": None}]
         self.received = []
         self.sock = socket.socket(); self.sock.bind(("127.0.0.1", 0)); self.sock.listen(1)
         self.port = self.sock.getsockname()[1]
@@ -478,13 +478,13 @@ class HomeAssistant(unittest.TestCase):
         fake = FakeHa(ping_first=True)
         with sync.ha_client("127.0.0.1", fake.port, "t0k") as ha:
             persons = ha.persons()
-            ha.set_picture("tomigorn", BASE + "/img/creeper.png")
-        self.assertIn("tomigorn", [p["id"] for p in persons])
+            ha.set_picture("jane", BASE + "/img/creeper.png")
+        self.assertIn("jane", [p["id"] for p in persons])
         self.assertGreater(len(persons), 400)
         self.assertEqual(fake.received[0], {"type": "auth", "access_token": "t0k"})
         self.assertIn({"type": "pong"}, fake.received)
         upd = [m for m in fake.received if m["type"] == "person/update"][0]
-        self.assertEqual({k: upd[k] for k in ("person_id", "picture")}, {"person_id": "tomigorn", "picture": BASE + "/img/creeper.png"})
+        self.assertEqual({k: upd[k] for k in ("person_id", "picture")}, {"person_id": "jane", "picture": BASE + "/img/creeper.png"})
 
     def test_bad_token_is_a_sync_error_without_the_token(self):
         fake = FakeHa(token="right")
@@ -509,11 +509,11 @@ class HomeAssistant(unittest.TestCase):
 
 class Check(unittest.TestCase):
     def test_reports_in_sync_and_mismatched_persons(self):
-        persons = [{"id": "tomigorn", "name": "Tomigorn", "picture": BASE + "/img/creeper.png"},
-                   {"id": "tomigorn_admin", "name": "Tomigorn (admin)", "picture": BASE + "/img/fox.png"}]
-        picks = {"tomigorn": "creeper", "tomigorn-admin": "colour-pink", "nobody": "owl"}
-        self.assertEqual(sync.ha_check(persons, picks, BASE), "mismatch tomigorn-admin")
-        picks["tomigorn-admin"] = "fox"
+        persons = [{"id": "jane", "name": "Jane", "picture": BASE + "/img/creeper.png"},
+                   {"id": "jane_admin", "name": "Jane (admin)", "picture": BASE + "/img/fox.png"}]
+        picks = {"jane": "creeper", "jane-admin": "colour-pink", "nobody": "owl"}
+        self.assertEqual(sync.ha_check(persons, picks, BASE), "mismatch jane-admin")
+        picks["jane-admin"] = "fox"
         self.assertEqual(sync.ha_check(persons, picks, BASE), "ok 2/2")
 
 

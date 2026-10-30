@@ -166,7 +166,7 @@ class Abs(unittest.TestCase):
             c = sqlite3.connect(p)
             c.execute("create table users (id text, username text, token text)")
             c.execute("create table playbackSessions (id text, userId text, timeListening real, createdAt text)")
-            c.execute("insert into users values ('u1','alezauron','SECRET')")
+            c.execute("insert into users values ('u1','john','SECRET')")
             c.executemany("insert into playbackSessions values (?,?,?,?)", [
                 ("s1", "u1", 600.7, "2026-10-17 09:04:33.467 +00:00"),
                 ("s2", "gone", 5, "2026-10-17 10:00:00.000 +00:00"),
@@ -175,9 +175,9 @@ class Abs(unittest.TestCase):
             c.commit()
             c.close()
             rows = uc.abs_sessions(p)
-            self.assertEqual([(r["user"], r["seconds"]) for r in rows], [("alezauron", 600)])
+            self.assertEqual([(r["user"], r["seconds"]) for r in rows], [("john", 600)])
             lines = uc.abs_lines(rows)
-            self.assertEqual(lines[0], "abs_listen,user=alezauron sessions=1i,seconds=600i 1792227873467000000")
+            self.assertEqual(lines[0], "abs_listen,user=john sessions=1i,seconds=600i 1792227873467000000")
             self.assertNotIn("SECRET", str(rows))
 
 
