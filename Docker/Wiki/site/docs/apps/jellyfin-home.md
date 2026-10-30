@@ -51,6 +51,8 @@ Press the **poster** of a title that isn't here yet: a details page opens (story
 - On the TV the two buttons show only **🌙** and **⚡**; the line next to the row title says what they do.
 - The lists are refreshed every night; a title shows up in Jellyfin after its download. Details on requests: [Requesting films & series](requests.md).
 
+
+**▶ Play on TV:** films and series you already have show a **▶ Play on TV** button (Popular, Top 10, Coming soon). It starts them on your TV; open Moonfin on the TV first. Series continue where you stopped.
 ## Add to My List
 Open a film or series and press the **heart** button. It shows up under **My List ♥**. Press the heart again to remove it.
 
