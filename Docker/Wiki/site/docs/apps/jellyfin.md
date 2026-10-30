@@ -49,7 +49,7 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
 Open **Media** (Android TV: **My media**) → **Collections & Trending**. Pick a list (Top 10 Switzerland, Coming soon, a service or genre), then a title. Under **Version** (Apple TV: **⋯** next to Play) choose **⬇ Download movie now** or **🌙 Download movie tonight · lower power cost**, then press **Play** and let the 10-second clip run to the end. **Back** cancels. Titles you already have sit at the end of a list and play normally.
 
 ## Samsung TV: install the app yourself
-Use this when Jellyfin is **not in the Samsung app store** on your TV, or the store app says the **server version is not supported**. Tested on a 2021 Samsung TV (Tizen 6.0) with the app version 12.2. A reinstall takes about 15 minutes.
+Use this when Jellyfin is **not in the Samsung app store** on your TV, or the store app says the **server version is not supported**. Looking for [Moonfin](moonfin.md#samsung-tv-tizen) instead? Same steps, with Moonfin's own files. Tested on a 2021 Samsung TV (Tizen 6.0) with the app version 12.2. A reinstall takes about 15 minutes.
 
 | | |
 |---|---|
