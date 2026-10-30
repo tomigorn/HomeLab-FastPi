@@ -1,7 +1,7 @@
 # FastPi Phase-2 Hardening Runbook
 
 **Started:** 2026-06-07
-**Owner agent + user:** tomigorn
+**Owner agent + user:** the owner
 **Single source of truth.** Update the STATUS pointer and COMMAND LOG *before* running each operational command, so a crashed/closed session can resume from exactly here.
 
 Related: incident root-cause is in agent memory `pi-host-freeze-and-hardening.md`.
