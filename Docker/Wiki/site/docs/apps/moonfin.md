@@ -121,3 +121,10 @@ Use this when Google Play still has an older version. Download page: https://git
 | No auto-update | A file install is not updated by Google Play. The app tells you when a new version is out: download the new APK and install it the same way (servers and sign-in are kept). |
 | *App not installed* | The Play version and the GitHub file are signed with different keys. **Uninstall the Play version first**; you sign in again afterwards (Quick Connect). |
 | Switch back | To return to Play updates, uninstall the file version and install from Play. |
+
+## 7. Playback problems on Apple TV
+| Problem | Try this |
+|---|---|
+| Subtitles flicker (appear and disappear) | Switch the subtitle track off and on again, or pick another track (tracks built into the film are steadier than separate subtitle files). From Moonfin 2.8: **Settings → Playback → Player → Video player → Standard**. Known Moonfin issue on Apple TV with separate SRT files |
+| Picture sluggish or judders | Apple TV **Settings → Video and Audio → Match Content → Match Frame Rate: On**. Apple TV cannot pass DTS through; it decodes it itself, which is fine in most films |
+| No sound for the first seconds | Normal: the TV and soundbar switch to the film's picture and sound format. Jump back 10 seconds if needed |
