@@ -43,6 +43,8 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
 !!! tip "App can't connect?"
     Opening an app also wakes a sleeping server. Wait a minute and try again.
 
+**Recommended app on TVs and phones: [Moonfin](moonfin.md)** (home rows like the web, requests with 🌙 Tonight / ⚡ Now). The steps below are for the official Jellyfin apps.
+
 ### Trending on the TV
 Open **Media** (Android TV: **My media**) → **Collections & Trending**. Pick a list (Top 10 Switzerland, Coming soon, a service or genre), then a title. Under **Version** (Apple TV: **⋯** next to Play) choose **⬇ Download movie now** or **🌙 Download movie tonight · lower power cost**, then press **Play** and let the 10-second clip run to the end. **Back** cancels. Titles you already have sit at the end of a list and play normally.
 

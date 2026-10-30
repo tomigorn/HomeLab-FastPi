@@ -34,6 +34,7 @@ nav:
   - Getting started: getting-started.md
   - Watching (Jellyfin): apps/jellyfin.md
   - Home screen: apps/jellyfin-home.md
+  - Moonfin app (TV & phone): apps/moonfin.md
   - Skip intro & credits: apps/skip-buttons.md
   - Requesting films & series: apps/requests.md
   - Audio & subtitles: audio-subtitles.md
