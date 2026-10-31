@@ -98,7 +98,7 @@ Cardinality: about 350 series from the exporter, which is negligible next to the
    consistent) -> set `CROWDSEC_TAG` in `.env` -> start. Downtime ~15 s, invisible
    thanks to the fail-open bouncer.
 3. **Verify:** container running with 0 restarts, `cscli lapi status` OK, bouncer pulled
-   after the restart, a test ban on 203.0.113.250 (TEST-NET) returns 403 through
+   after the restart, a test ban on 203.0.113.250 (TEST-NET, sent as `Cf-Connecting-Ip` because the realip middleware overwrites X-Forwarded-For) returns 403 through
    Traefik, a clean TEST-NET IP is not refused, and the public route is not 404/5xx/000.
 4. **Rollback** if any check fails: old tag back in `.env`, old image id re-tagged,
    **volumes restored from the backup just taken** (a new version may migrate the DB
@@ -183,7 +183,7 @@ Docker/_global/scripts/smoke-test.sh                                     # "boun
 git add -A Docker/Traefik/traefik/plugins-local && git commit -m "Traefik: update CrowdSec bouncer plugin to ${V#v}"
 ```
 
-v1.8.1 is installed (updated 2026-10-19 from v1.7.1, same config keys; backup of the
+v1.8.2 is installed (2026-10-31 from v1.8.1; v1.8.1 came 2026-10-19 from v1.7.1, same config keys; backup of the
 old tree is a git revert away).
 
 ## Threat data refresh
