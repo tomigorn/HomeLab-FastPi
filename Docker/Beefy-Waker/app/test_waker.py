@@ -958,3 +958,106 @@ class BrowserSubresourceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StreamAuthTest(unittest.TestCase):
+    """/stream-auth: forwardAuth for Jellyfin stream URLs, which Jellyfin itself serves without a token."""
+
+    class Stub(http.server.BaseHTTPRequestHandler):
+        calls = []
+        def do_GET(self):
+            type(self).calls.append((self.path, self.headers.get("Authorization")))
+            ok = self.path == "/System/Info" and self.headers.get("Authorization") == 'MediaBrowser Token="good0123"'
+            self.send_response(200 if ok else 401)
+            self.send_header("Content-Length", "2"); self.end_headers(); self.wfile.write(b"{}")
+        def log_message(self, *a): pass
+
+    @classmethod
+    def setUpClass(cls):
+        cls.jf = ThreadingHTTPServer(("127.0.0.1", 0), cls.Stub)
+        threading.Thread(target=cls.jf.serve_forever, daemon=True).start()
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        for s in (cls.srv, cls.jf):
+            s.shutdown(); s.server_close()
+
+    def setUp(self):
+        self.Stub.calls.clear()
+        waker._stream_auth_cache.clear()
+        mock.patch.object(waker, "PROBE_HOST", "127.0.0.1").start()
+        mock.patch.object(waker, "JELLYFIN_PORT", self.jf.server_address[1]).start()
+        self.out = io.StringIO(); mock.patch("sys.stdout", self.out).start()
+        self.addCleanup(mock.patch.stopall)
+
+    URI = "/Videos/abc/stream?static=true"
+
+    def req(self, headers):
+        h = {"X-Forwarded-Uri": self.URI, "X-Forwarded-Method": "GET"}
+        h.update(headers)
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("GET", "/stream-auth", headers=h)
+        r = c.getresponse(); r.read(); c.close()
+        return r.status
+
+    def test_no_token_is_401_without_asking_jellyfin(self):
+        self.assertEqual(self.req({}), 401)
+        self.assertEqual(self.Stub.calls, [])
+
+    def test_valid_token_in_each_place_passes(self):
+        for h in ({"Authorization": 'MediaBrowser Client="Android TV", Device="x", Token="good0123"'},
+                  {"X-Emby-Authorization": 'MediaBrowser Client="Swiftfin", Token="good0123"'},
+                  {"X-Emby-Token": "good0123"},
+                  {"X-MediaBrowser-Token": "good0123"},
+                  {"X-Forwarded-Uri": self.URI + "&api_key=good0123"},
+                  {"X-Forwarded-Uri": self.URI + "&ApiKey=good0123"},
+                  {"X-Forwarded-Uri": "/Videos/abc/master.m3u8?API_KEY=good0123"}):
+            waker._stream_auth_cache.clear()
+            self.assertEqual(self.req(h), 200, h)
+        self.assertTrue(all(c == ("/System/Info", 'MediaBrowser Token="good0123"') for c in self.Stub.calls))
+
+    def test_wrong_token_is_401(self):
+        self.assertEqual(self.req({"X-Emby-Token": "bad01234"}), 401)
+        self.assertEqual(self.req({"X-Forwarded-Uri": self.URI + "&api_key=bad01234"}), 401)
+
+    def test_malformed_token_is_401_without_asking_jellyfin(self):
+        self.assertEqual(self.req({"X-Emby-Token": 'good0123", Evil="1'}), 401)
+        self.assertEqual(self.Stub.calls, [])
+
+    def test_valid_token_is_cached(self):
+        for _ in range(3):
+            self.assertEqual(self.req({"X-Emby-Token": "good0123"}), 200)
+        self.assertEqual(len(self.Stub.calls), 1)
+
+    def test_cache_expires(self):
+        with mock.patch.object(waker, "STREAM_AUTH_CACHE_SECONDS", 0):
+            self.assertEqual(self.req({"X-Emby-Token": "good0123"}), 200)
+            self.assertEqual(self.req({"X-Emby-Token": "good0123"}), 200)
+        self.assertEqual(len(self.Stub.calls), 2)
+
+    def test_rejected_token_is_not_cached_as_valid(self):
+        self.assertEqual(self.req({"X-Emby-Token": "bad01234"}), 401)
+        self.assertEqual(self.req({"X-Emby-Token": "bad01234"}), 401)
+
+    def test_jellyfin_unreachable_is_503(self):
+        s = socket.socket(); s.bind(("127.0.0.1", 0)); dead = s.getsockname()[1]; s.close()
+        with mock.patch.object(waker, "JELLYFIN_PORT", dead):
+            self.assertEqual(self.req({"X-Emby-Token": "good0123"}), 503)
+
+    def test_cors_preflight_passes(self):
+        self.assertEqual(self.req({"X-Forwarded-Method": "OPTIONS"}), 200)
+
+    def test_token_never_logged(self):
+        self.req({"X-Emby-Token": "good0123"})
+        self.req({"X-Forwarded-Uri": self.URI + "&api_key=bad01234"})
+        self.assertNotIn("good0123", self.out.getvalue())
+        self.assertNotIn("bad01234", self.out.getvalue())
+
+    def test_cache_is_bounded(self):
+        with mock.patch.object(waker, "STREAM_AUTH_CACHE_MAX", 2):
+            for t in ("good0123", "bad01234", "bad05678", "bad09999"):
+                self.req({"X-Emby-Token": t})
+            self.assertLessEqual(len(waker._stream_auth_cache), 2)

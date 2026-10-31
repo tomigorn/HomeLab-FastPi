@@ -81,6 +81,17 @@ scanners can occupy them while beefy sleeps, and apps then get the pre-1.3.0
 instant 503 until a slot frees.
 `observe` lines gain `held` (seconds held), `cached` and `sec_fetch_dest`.
 
+**Stream auth (v1.5.0, B-03):** Jellyfin serves `/Videos/<id>/stream?static=true` without a token. Traefik router `jellyfin-stream` (stream/HLS paths) runs the wake gate, then `GET /stream-auth`:
+
+| Request | Answer |
+|---|---|
+| token in `Authorization` / `X-Emby-Authorization` (`Token="…"`), `X-Emby-Token`, `X-MediaBrowser-Token`, or `api_key`/`ApiKey` in the URL, Jellyfin `/System/Info` accepts it | 200 (cached 60 s as a hash, max 512) |
+| no or malformed token, or Jellyfin refuses it | 401 |
+| Jellyfin not answering | 503 |
+| CORS preflight (`X-Forwarded-Method: OPTIONS`) | 200 |
+
+Tokens are never logged. Rollback: remove router `jellyfin-stream` from `Traefik/traefik/dynamic/jellyfin.yml`.
+
 **`observe` log:** one redacted JSON line per Jellyfin request while beefy is down,
 plus `/System/Info/Public` while up; never tokens or query values. Read it with:
 
@@ -248,7 +259,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.4.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.5.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box

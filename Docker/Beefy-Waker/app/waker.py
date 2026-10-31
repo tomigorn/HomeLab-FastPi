@@ -25,6 +25,7 @@ Endpoints:
   GET  /jf/status JSON {"up": ...} = Jellyfin's /health says Healthy (JELLYFIN_PORT)
   GET  /jf/public-info  relay/cache of Jellyfin's /System/Info/Public (apps' connect check)
   POST /jf/wake   same as /wake (same X-Wake/Origin rule)
+  GET  /stream-auth forwardAuth for Jellyfin stream URLs: 200 when the request's token is valid in Jellyfin, else 401
 
 Config via env (see .env):
   WAKER_LISTEN_PORT  port to listen on (host network)        default 9001
@@ -50,6 +51,8 @@ import subprocess
 import sys
 import threading
 import time
+import hashlib
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -676,6 +679,71 @@ def fetch_public_info(host, port, timeout=3.0):
     return None
 
 
+# Jellyfin serves /Videos/<id>/stream?static=true without any token (found 2026-10-31,
+# B-03), so Traefik asks /stream-auth first. Valid tokens are remembered (as a hash) for
+# a minute: a player fires a range request per chunk.
+STREAM_AUTH_CACHE_SECONDS = 60.0
+STREAM_AUTH_CACHE_MAX = 512
+_stream_auth_cache = {}
+_stream_auth_lock = threading.Lock()
+_TOKEN_RE = re.compile(r'(?i)(?:^|[\s,])Token="([^"]*)"')
+_TOKEN_OK = re.compile(r"^[A-Za-z0-9._-]{8,256}$")
+
+
+def stream_token(headers):
+    """The Jellyfin token from any place Jellyfin reads one; None if absent or malformed."""
+    found = None
+    for name in ("Authorization", "X-Emby-Authorization"):
+        m = _TOKEN_RE.search(headers.get(name) or "")
+        if m:
+            found = m.group(1)
+            break
+    if found is None:
+        found = headers.get("X-Emby-Token") or headers.get("X-MediaBrowser-Token")
+    if found is None:
+        _, query = _forwarded_path_query(headers)
+        try:
+            q = parse_qs(query, max_num_fields=50)
+        except ValueError:
+            q = {}
+        for k, v in q.items():
+            if k.lower() in ("api_key", "apikey") and v:
+                found = v[0]
+                break
+    if found is None or not _TOKEN_OK.match(found):
+        return None
+    return found
+
+
+def check_stream_token(token, timeout=3.0):
+    """True/False = Jellyfin accepts/refuses the token; None = Jellyfin did not answer."""
+    key = hashlib.sha256(token.encode()).hexdigest()
+    now = time.monotonic()
+    with _stream_auth_lock:
+        if _stream_auth_cache.get(key, 0) > now:
+            return True
+    req = urllib.request.Request("http://%s:%d/System/Info" % (PROBE_HOST, JELLYFIN_PORT),
+                                 headers={"Authorization": 'MediaBrowser Token="%s"' % token})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            ok = r.status == 200
+    except urllib.error.HTTPError as e:
+        if e.code not in (401, 403):
+            return None
+        ok = False
+    except Exception:
+        return None
+    if ok:
+        with _stream_auth_lock:
+            if len(_stream_auth_cache) >= STREAM_AUTH_CACHE_MAX:
+                for k in [k for k, t in _stream_auth_cache.items() if t <= now] or list(_stream_auth_cache):
+                    del _stream_auth_cache[k]
+                    if len(_stream_auth_cache) < STREAM_AUTH_CACHE_MAX:
+                        break
+            _stream_auth_cache[key] = now + STREAM_AUTH_CACHE_SECONDS
+    return ok
+
+
 def jellyfin_decision(up, headers):
     if up:
         return "pass"
@@ -732,6 +800,8 @@ class Handler(BaseHTTPRequestHandler):
             self._jf_wake()
         elif path == "/jf/public-info":
             self._jf_public_info()
+        elif path == "/stream-auth":
+            self._stream_auth()
         else:
             self.send_error(404)
 
@@ -957,6 +1027,19 @@ class Handler(BaseHTTPRequestHandler):
             self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
         else:
             self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+
+    def _stream_auth(self):
+        if (self.headers.get("X-Forwarded-Method") or "").upper() == "OPTIONS":
+            self._send(200, "text/plain", b"")
+            return
+        token = stream_token(self.headers)
+        ok = check_stream_token(token) if token else False
+        if ok is None:
+            self._send(503, "text/plain", b"jellyfin unavailable", retry_after=5)
+        elif ok:
+            self._send(200, "text/plain", b"")
+        else:
+            self._send(401, "text/plain", b"unauthorized")
 
     def _send(self, status, ctype, body, retry_after=None, cors=False):
         self.send_response(status)
