@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 31 October 2026
 
+**Subtitle sources in the bar.** The bar above Requests now also shows the subtitle providers: SubDL ≈ searches/2000 and downloads/50 per day, OpenSubtitles downloads; red with the retry time when paused. Resets at 01:00. [The indexer bar](apps/requests.md#the-indexer-bar-at-the-top)
+
 **Remove from Continue watching.** Not interested anymore? On the website, point at the title in **Continue watching** and click the **crossed-out eye** (phone: tap it top right), with 5 s **Undo**. Only the resume point is cleared; watched status, favourites, My List and Next up stay. In Moonfin: long press → **Hide from Continue Watching** (also clears the play history). [Remove from Continue watching](apps/jellyfin-home.md#remove-from-continue-watching)
 
 **Play on TV: one subtle TV icon everywhere.** Top 10 and Popular cards of titles you own now have it too. [Play on TV](apps/jellyfin-home.md#play-on-tv)
