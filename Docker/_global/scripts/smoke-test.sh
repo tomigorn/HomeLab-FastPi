@@ -160,6 +160,7 @@ PY
 echo "== Tracker (Floppy on beefy; containers + backup in the beefy section)"
 check "tracker -> sso"             'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/ | cut -c1-60)"
 check "tracker /go -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve tracker.holy-grail.ch:443:192.168.1.2 https://tracker.holy-grail.ch/go/tmdb/movie/603 | cut -c1-60)"
+check "tracker covers + youtube-player -> sso" '^sso\.holy-grail\.ch/application/o/authorize/ sso\.holy-grail\.ch/application/o/authorize/$' "$(for p in /covers/smoke "/youtube-player?v=dQw4w9WgXcQ"; do curl -sk -m 10 -o /dev/null -w '%{redirect_url}\n' --resolve tracker.holy-grail.ch:443:192.168.1.2 "https://tracker.holy-grail.ch$p" | cut -c9-50; done | tr '\n' ' ' | sed 's/ $//')"
 check "tracker OIDC discovery"     '^200$' "$(http https://sso.holy-grail.ch/application/o/tracker-login/.well-known/openid-configuration)"
 # Floppy's token URLs (webhooks, calendar, Stremio, ListenBrainz) are refused for everyone: the token is a full API key.
 check "tracker token URLs LAN 403" '^403 403 403 403$' "$(for p in /webhook/jellyfin/smoke /calendar/download/smoke /stremio-addon/smoke/manifest.json /apis/listenbrainz/1/validate-token; do curl -sk -m 10 -o /dev/null -w '%{http_code} ' -X POST --resolve tracker.holy-grail.ch:443:192.168.1.2 "https://tracker.holy-grail.ch$p"; done | sed 's/ $//')"
@@ -215,7 +216,7 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   check "portainer agent"          'portainer/agent:2\.45\.3 Up' "$(grep portainer <<<"$r")"
   for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
   for s in floppy floppy-redis; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
-  check "floppy version"           'floppy:26\.10\.22 ' "$(grep '^floppy ' <<<"$r")"
+  check "floppy version"           'floppy:26\.10\.29 ' "$(grep '^floppy ' <<<"$r")"
   check "floppy snapshot < 2 days" '^floppybackup=yes$' "$(grep floppybackup= <<<"$r")"
 else skip "beefy" "asleep - not woken"; fi
 
