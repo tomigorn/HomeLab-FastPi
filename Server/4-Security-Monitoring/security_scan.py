@@ -280,8 +280,6 @@ def compose_images(text: str, env: dict[str, str], built: set | None = None) -> 
 
 CODE_SKIP = ("Docker/_Deprecated/", )
 CODE_SKIP_FILES = ("Docker/docker-compose.yaml", )
-# Dockerfiles that patch their FROM base (security updates): the base as such runs nowhere, the built image is scanned nightly.
-PATCHED_BASE_DOCKERFILES = ("Docker/Movie-Downloads/flaresolverr/Dockerfile", )
 
 
 def code_image_refs(files: dict[str, str]) -> tuple[list[str], int]:
@@ -298,7 +296,7 @@ def code_image_refs(files: dict[str, str]) -> tuple[list[str], int]:
             r, u = compose_images(text, env, built)
             refs.update(r)
             unresolved += u
-        elif base.startswith("Dockerfile") and path not in PATCHED_BASE_DOCKERFILES:
+        elif base.startswith("Dockerfile"):
             refs.update(dockerfile_bases(text))
     return sorted(refs - built), unresolved
 

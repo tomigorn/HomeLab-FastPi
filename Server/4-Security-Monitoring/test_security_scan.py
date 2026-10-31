@@ -2004,13 +2004,13 @@ def test_collect_images_falls_back_to_the_base_when_the_tar_scan_fails():
     assert "ghcr.io/flaresolverr/flaresolverr@sha256:c8 (base of a local image)" in text
 
 
-def test_code_image_refs_leaves_out_the_base_a_dockerfile_patches():
+def test_code_image_refs_skips_a_variable_base_and_keeps_literal_ones():
     files = {
-        "Docker/Movie-Downloads/flaresolverr/Dockerfile": "FROM ghcr.io/flaresolverr/flaresolverr@sha256:c8\nRUN apt-get --only-upgrade install chromium\n",
+        "Docker/Movie-Downloads/flaresolverr/Dockerfile": "ARG FLARESOLVERR_BASE=ghcr.io/flaresolverr/flaresolverr:latest\nFROM ${FLARESOLVERR_BASE}\nRUN apt-get update\n",
         "Docker/Other/Dockerfile": "FROM alpine:3.22\n",
     }
     assert code_image_refs(files) == (["alpine:3.22"], 0)
-    files["Docker/Other/Dockerfile"] += "FROM ghcr.io/flaresolverr/flaresolverr@sha256:c8\n"
+    files["Docker/Movie-Downloads/flaresolverr/Dockerfile"] = "FROM ghcr.io/flaresolverr/flaresolverr@sha256:c8\n"
     assert code_image_refs(files)[0] == ["alpine:3.22", "ghcr.io/flaresolverr/flaresolverr@sha256:c8"]
 
 
