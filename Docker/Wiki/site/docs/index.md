@@ -18,6 +18,7 @@ Everything you need to watch, request and listen, with one login.
 
 - :material-television-play: **[Watching](apps/jellyfin.md)**: films and series in the browser or on your TV
 - :material-home-variant: **[Home screen](apps/jellyfin-home.md)**: what each row shows
+- :material-cellphone-play: **[Moonfin app](apps/moonfin.md)**: TV and phone app, install and sign in
 - :material-skip-next: **[Skip buttons](apps/skip-buttons.md)**: skip intros and credits
 - :material-translate: **[Audio & subtitles](audio-subtitles.md)**: original language, switching tracks
 
