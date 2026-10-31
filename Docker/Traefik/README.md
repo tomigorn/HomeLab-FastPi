@@ -32,9 +32,7 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 
 Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%5C` `%00` (`%25 %3B %3F %23` stay allowed, they occur in file names); `langtool` refuses all seven. Check: `traefik.encoded-chars`.
 
-`requests.holy-grail.ch` sends `Content-Security-Policy-Report-Only` (`dynamic/requests.yml`): watch the browser console for `violates the following Content Security Policy`, then switch to `contentSecurityPolicy`. Expected and harmless: the `'unsafe-eval'` report from Zod 4's `Function("")` probe (try/catch, falls back to non-JIT parsing), so `'unsafe-eval'` stays out.
-
-Enforcing is blocked on a verified browser run: the SSO canary is in no group, so it gets `Permission denied` on `requests` (2026-10-31). To verify, add a non-admin test user to `streaming-requesters`, load the main Seerr pages, collect `securitypolicyviolation` events (only Zod's `unsafe-eval` allowed), then switch the header.
+`requests.holy-grail.ch` enforces a `Content-Security-Policy` (`dynamic/requests.yml`, verified 2026-10-31 with a logged-in canary in `streaming-requesters` over discover, movie, TV, requests, search, profile). Only violation: Zod 4's `Function("")` probe (`unsafe-eval`, try/catch, falls back to non-JIT parsing), so `'unsafe-eval'` stays out. Re-test: add the canary with `Authentik/scripts/canary-groups.sh add streaming-requesters`, enable it, run a Playwright probe, then `remove` + `canary-disable.sh`. The Download-now toggle is not covered (a plain Seerr user gets 403 on `/_download-now/`).
 
 | Service | Host | Entrypoint | Login |
 |---|---|---|---|
