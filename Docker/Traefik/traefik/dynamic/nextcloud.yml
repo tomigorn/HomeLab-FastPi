@@ -141,6 +141,7 @@ http:
     nextcloud-wake:
       forwardAuth:
         address: "http://192.168.1.2:9002/gate?port=8080&policy=nextcloud"
+        maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
     nextcloud-wake-page-rewrite:
       replacePathRegex:

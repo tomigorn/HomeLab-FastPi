@@ -36,6 +36,7 @@ http:
     vpn-status-beefy-wake:
       forwardAuth:
         address: "http://192.168.1.2:9001/gate?port=8087"
+        maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 
     # Shared with vpn-status-mouse.yml. Both pages are self-contained (inline JS/CSS, same-origin /api/*).

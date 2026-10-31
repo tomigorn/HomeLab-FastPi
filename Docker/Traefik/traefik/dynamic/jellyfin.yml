@@ -168,6 +168,7 @@ http:
     jellyfin-wake:
       forwardAuth:
         address: "http://192.168.1.2:9001/gate?port=8096&policy=jellyfin"
+        maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 
     jellyfin-web-no-conditional:

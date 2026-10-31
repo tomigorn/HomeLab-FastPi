@@ -63,6 +63,7 @@ http:
     qbittorrent-wake:
       forwardAuth:
         address: "http://192.168.1.2:9001/gate?port=8080"
+        maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 
     # qBittorrent's CSRF check rejects ANY request (even a plain GET /) whose Referer
