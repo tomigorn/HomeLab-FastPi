@@ -280,6 +280,8 @@ def compose_images(text: str, env: dict[str, str], built: set | None = None) -> 
 
 CODE_SKIP = ("Docker/_Deprecated/", )
 CODE_SKIP_FILES = ("Docker/docker-compose.yaml", )
+# Dockerfiles that patch their FROM base (security updates): the base as such runs nowhere, the built image is scanned nightly.
+PATCHED_BASE_DOCKERFILES = ("Docker/Movie-Downloads/flaresolverr/Dockerfile", )
 
 
 def code_image_refs(files: dict[str, str]) -> tuple[list[str], int]:
@@ -296,7 +298,7 @@ def code_image_refs(files: dict[str, str]) -> tuple[list[str], int]:
             r, u = compose_images(text, env, built)
             refs.update(r)
             unresolved += u
-        elif base.startswith("Dockerfile"):
+        elif base.startswith("Dockerfile") and path not in PATCHED_BASE_DOCKERFILES:
             refs.update(dockerfile_bases(text))
     return sorted(refs - built), unresolved
 
@@ -893,6 +895,16 @@ def ssh(host: str, cmd: str, timeout: int = 300, wake: bool = True) -> subproces
     ], timeout=timeout)
 
 
+def ssh_to_file(host: str, cmd: str, dest: Path, timeout: int = 1800) -> subprocess.CompletedProcess:
+    """ssh() with stdout streamed into a file as bytes (a tar), stderr as text."""
+    with open(dest, "wb") as out:
+        r = subprocess.run([
+            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+            "-o", "StrictHostKeyChecking=accept-new", ssh_alias(host), cmd,
+        ], stdout=out, stderr=subprocess.PIPE, timeout=timeout)
+    return subprocess.CompletedProcess(r.args, r.returncode, "", r.stderr.decode(errors="replace"))
+
+
 def host_reachable(host: str) -> bool:
     return ssh(host, "true", timeout=30).returncode == 0
 
@@ -972,6 +984,12 @@ def running_refs_cmd(d: str) -> str:
     return f"{d} ps -q | xargs -r {d} inspect -f '{{{{.Config.Image}}}}' | sort -u"
 
 
+def image_lines_cmd(d: str) -> str:
+    """Shell: `ref|repo digest|image id` per running image (parse_image_lines)."""
+    return (f"{running_refs_cmd(d)} | while read -r i; do "
+            f"echo \"$i|$({d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{end}}}}|{{{{.Id}}}}' \"$i\")\"; done")
+
+
 # Compose project dirs of the running containers on a remote host, with the FROM lines of the Dockerfiles in them (one level deep), read once while the host is awake.
 LOCAL_BASES: dict[str, dict[str, list[str]]] = {}
 
@@ -984,6 +1002,68 @@ def read_local_bases(host: str) -> dict[str, list[str]]:
     if r.returncode != 0:
         raise RuntimeError(f"local base images on {host}: {r.stderr.strip()[:200]}")
     return parse_local_bases(r.stdout)
+
+
+def parse_built_images(text: str) -> set[str]:
+    """`## <compose file>` headers each followed by that file's text -> the image: names of its build: services."""
+    built: set[str] = set()
+    for section in re.split(r"^## .*$", text, flags=re.M):
+        compose_images(section, {}, built)
+    return built
+
+
+def read_built_images(host: str) -> set[str]:
+    d = docker_cmd(host)
+    cmd = (f"{d} ps --format '{{{{.Label \"com.docker.compose.project.config_files\"}}}}' | tr ',' '\\n' | sort -u | "
+           "while read -r f; do [ -n \"$f\" ] || continue; echo \"## $f\"; cat \"$f\" 2>/dev/null; done; true")
+    r = ssh(host, cmd, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"compose files on {host}: {r.stderr.strip()[:200]}")
+    return parse_built_images(r.stdout)
+
+
+def local_builds(images: list[dict], built: set[str]) -> list[dict]:
+    """Images built on the host: a compose build: service's image, or no repo digest (with the containerd store a local build has one too)."""
+    repos = {_repo(b) for b in built}
+    return [i for i in images if not i["digest"] or _repo(i["ref"]) in repos]
+
+
+def local_images_dir() -> Path:
+    return STATE / "local-images"
+
+
+def docker_save(host: str, ref: str, dest: Path) -> bool:
+    r = ssh_to_file(host, f"{docker_cmd(host)} save {shlex.quote(ref)}", dest)
+    if r.returncode != 0:
+        print(f"  export failed on {host}: {ref} ({r.stderr.strip()[-160:]})", file=sys.stderr)
+    return r.returncode == 0
+
+
+def export_local_images(host: str, images: list[dict], save=docker_save) -> dict[str, str]:
+    """`docker save` each local image once per image id into local-images/<host>/<id>.tar; tars of ids no longer running are removed. -> {image id: path below local-images/}"""
+    d = local_images_dir() / host
+    d.mkdir(parents=True, exist_ok=True)
+    out = {}
+    for img in images:
+        name = img["id"].removeprefix("sha256:") + ".tar"
+        tar = d / name
+        if not tar.exists():
+            tmp = d / f".{name}.part"
+            try:
+                ok = save(host, img["ref"], tmp)
+            except (OSError, subprocess.SubprocessError) as e:
+                print(f"  export failed on {host}: {img['ref']} ({e})", file=sys.stderr)
+                ok = False
+            if not ok:
+                tmp.unlink(missing_ok=True)
+                continue
+            tmp.rename(tar)
+        out[img["id"]] = f"{host}/{name}"
+    keep = {p.rsplit("/", 1)[1] for p in out.values()}
+    for f in d.iterdir():
+        if f.name not in keep:
+            f.unlink()
+    return out
 
 
 def running_images(host: str) -> list[str]:
@@ -1008,19 +1088,26 @@ def running_images(host: str) -> list[str]:
 # copy is only accurate if it is the SAME image, so running_image_digests()
 # resolves each running container to its repo digest (repo@sha256:...), and the
 # scan pins the platform because fastpi is arm64 and tower is amd64.
-# beefy joined 2026-10-19: it is up until about 04:45, so after reading its digest list over ssh nothing more may need beefy. A locally built image (no registry copy) is not scanned itself: its Dockerfile base images are (LOCAL_BASES), and it is counted in security_images_local_only only when no base is known.
+# beefy joined 2026-10-19: it is up until about 04:45, so everything that needs beefy happens with the digest list, nothing later.
+# A locally built image (no registry copy) is exported with `docker save` once per image id (LOCAL_TARS) and Trivy scans that tar; when the export or the tar scan fails, its Dockerfile base images are scanned instead (LOCAL_BASES), and it is counted in security_images_local_only only when no base is known.
 REMOTE_SCAN_HOSTS = {"tower": "linux/amd64", "beefy": "linux/amd64"}
+# host -> {listed image: (its reference, tar below local-images/)}
+LOCAL_TARS: dict[str, dict[str, tuple[str, str]]] = {}
 
 
 def running_image_digests(host: str) -> list[str]:
-    d = docker_cmd(host)
-    cmd = (f"for i in $({running_refs_cmd(d)}); do "
-           f"{d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{else}}}}'\"$i\"'{{{{end}}}}' \"$i\"; done")
-    r = ssh(host, cmd, timeout=120)
+    r = ssh(host, image_lines_cmd(docker_cmd(host)), timeout=120)
     if r.returncode != 0:
         raise RuntimeError(f"docker ps on {host}: {r.stderr.strip()[:200]}")
+    images = parse_image_lines(r.stdout)
     LOCAL_BASES[host] = read_local_bases(host)
-    return sorted({line.strip() for line in r.stdout.splitlines() if line.strip()})
+    try:
+        tars = export_local_images(host, local_builds(images, read_built_images(host)))
+    except Exception as e:  # noqa: BLE001
+        print(f"  local image export on {host}: {e}", file=sys.stderr)
+        tars = {}
+    LOCAL_TARS[host] = {i["digest"] or i["ref"]: (i["ref"], tars[i["id"]]) for i in images if i["id"] in tars}
+    return sorted({i["digest"] or i["ref"] for i in images})
 
 
 # Per-host Trivy wiring. Each host already runs a strictly read-only Docker
@@ -1040,12 +1127,21 @@ TRIVY_HOSTS = {
 }
 
 
+def _local_images_mount() -> str:
+    try:
+        local_images_dir().mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return f"{local_images_dir()}:/local-images:ro"
+
+
 def _trivy_cmd(host: str, args: list[str], *, attach_proxy: bool) -> list[str]:
     """Build a Trivy invocation; it always runs on fastpi."""
     if host in REMOTE_SCAN_HOSTS:   # runs on fastpi, needs the internet, no socket
         return ["docker", "run", "--rm",
                 "-v", f"{TRIVY_HOSTS['fastpi']['cache']}:/root/.cache/trivy",
                 "-v", _vex_mount(),
+                "-v", _local_images_mount(),
                 TRIVY_IMAGE, *args]
     cfg = TRIVY_HOSTS[host]
     net = ["--network", cfg["network"], "-e", f"DOCKER_HOST={cfg['docker_host']}"] if attach_proxy else []
@@ -1143,38 +1239,51 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     platform = REMOTE_SCAN_HOSTS.get(host)
     src = ["--image-src", "remote", "--platform", platform] if platform else ["--image-src", "docker"]
     bases_of = {_repo(k): v for k, v in LOCAL_BASES.get(host, {}).items()}
+    tars = LOCAL_TARS.get(host, {})
     queue = [(i, False) for i in images]
     seen = set(images)
+
+    def to_bases(image: str) -> None:
+        bases = bases_of.get(_repo(image), [])
+        for b in bases:
+            if b not in seen:
+                seen.add(b)
+                queue.append((b, True))
+        if not bases:
+            local_only.append(image)
+
     while queue:
         image, is_base = queue.pop(0)
-        if platform and not is_base and image_only_local(image):
-            bases = bases_of.get(_repo(image), [])
-            for b in bases:
-                if b not in seen:
-                    seen.add(b)
-                    queue.append((b, True))
-            if not bases:
-                local_only.append(image)
-            continue
-        r = _trivy_run(host, [
-            "image", *src, "--scanners", "vuln",
-            "--skip-db-update", "--skip-java-db-update",
-            "--quiet", "--format", "json", *vex_args(host, image),
-            "--timeout", "10m", image,
-        ], attach_proxy=not platform, timeout=1200)
-        if r.returncode != 0 or not r.stdout.strip():
-            if platform and not is_base and image_only_local(image, r.stderr):
-                bases = bases_of.get(_repo(image), [])
-                for b in bases:
-                    if b not in seen:
-                        seen.add(b)
-                        queue.append((b, True))
-                if not bases:
-                    local_only.append(image)
+        label = f"{image} (base of a local image)" if is_base else image
+        if not is_base and image in tars:
+            ref, tar = tars[image]
+            r = _trivy_run(host, [
+                "image", "--input", f"/local-images/{tar}", "--scanners", "vuln",
+                "--skip-db-update", "--skip-java-db-update",
+                "--quiet", "--format", "json", *vex_args(host, ref), "--timeout", "10m",
+            ], attach_proxy=False, timeout=1200)
+            if r.returncode != 0 or not r.stdout.strip():
+                print(f"  tar scan failed on {host}: {ref} ({r.stderr.strip()[-160:]}), scanning its base images", file=sys.stderr)
+                to_bases(image)
                 continue
-            unscannable += 1
-            print(f"  unscannable on {host}: {image} ({r.stderr.strip()[-160:]})", file=sys.stderr)
+            image, label = ref, f"{ref} (local build)"
+        elif platform and not is_base and image_only_local(image):
+            to_bases(image)
             continue
+        else:
+            r = _trivy_run(host, [
+                "image", *src, "--scanners", "vuln",
+                "--skip-db-update", "--skip-java-db-update",
+                "--quiet", "--format", "json", *vex_args(host, image),
+                "--timeout", "10m", image,
+            ], attach_proxy=not platform, timeout=1200)
+            if r.returncode != 0 or not r.stdout.strip():
+                if platform and not is_base and image_only_local(image, r.stderr):
+                    to_bases(image)
+                    continue
+                unscannable += 1
+                print(f"  unscannable on {host}: {image} ({r.stderr.strip()[-160:]})", file=sys.stderr)
+                continue
         try:
             report = json.loads(r.stdout)
             counts = parse_trivy(report)
@@ -1188,7 +1297,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
         for vid, pkg, sev in fixable_findings(report):
             IMAGE_FINDINGS.setdefault(host, {})[f"{image}|{vid}|{pkg}"] = sev
         detail.append((counts.get("CRITICAL", 0), counts.get("HIGH", 0),
-                       fixable.get("CRITICAL", 0), f"{image} (base of a local image)" if is_base else image))
+                       fixable.get("CRITICAL", 0), label))
         for k, v in counts.items():
             totals[k] = totals.get(k, 0) + v
         for k, v in fixable.items():
@@ -1909,11 +2018,14 @@ def parse_image_lines(text: str) -> list[dict]:
     return out
 
 
-def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: set = frozenset()) -> tuple[list[tuple[str, str, str, str]], list[str]]:
+def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: set = frozenset(),
+            tars: dict[str, str] | None = None) -> tuple[list[tuple[str, str, str, str]], list[str]]:
     """Running images -> [(project, version, cache key, Trivy source)] and the images that cannot be scanned (local build, no base known).
 
     local: repo digests the registry refused (built on the host; a digest alone does not tell).
+    tars: image id -> its tar below local-images/, exported by the nightly image scan.
     """
+    tars = tars or {}
     plan, skipped, seen = [], [], set()
     bases_of = {_repo(k): v for k, v in bases.items()}
     for img in images:
@@ -1922,6 +2034,8 @@ def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: s
         name, version = dt_project(host, named)
         if DT_HOSTS.get(host) is None:
             key, src = img["id"], image_ref(ref)
+        elif img["id"] in tars:
+            key, src = img["id"], f"/local-images/{tars[img['id']]}"
         elif digest and digest not in local:
             key = src = digest
         elif b := bases_of.get(_repo(ref)):
@@ -1935,13 +2049,13 @@ def dt_plan(host: str, images: list[dict], bases: dict[str, list[str]], local: s
     return plan, skipped
 
 
-def dt_host(host: str, dt, images: list[dict], bases: dict[str, list[str]], build_sbom, os_entry) -> list:
+def dt_host(host: str, dt, images: list[dict], bases: dict[str, list[str]], build_sbom, os_entry, tars: dict[str, str] | None = None) -> list:
     """collect_dt of one host; a digest the registry refused this run (a fresh local build) is planned again on its base image, not a night later."""
     def local():
         return set(_load_json(STATE / "dt-local.json") or [])
     known = local()
     while True:
-        plan, skipped = dt_plan(host, images, bases, known)
+        plan, skipped = dt_plan(host, images, bases, known, tars)
         samples = collect_dt(host, dt, plan, build_sbom, os_entry)
         if local() <= known:
             break
@@ -2068,9 +2182,7 @@ def dt_reachable() -> bool:
 
 
 def dt_images(host: str) -> tuple[list[dict], dict[str, list[str]]]:
-    d = docker_cmd(host)
-    cmd = (f"{running_refs_cmd(d)} | while read -r i; do "
-           f"echo \"$i|$({d} image inspect -f '{{{{if .RepoDigests}}}}{{{{index .RepoDigests 0}}}}{{{{end}}}}|{{{{.Id}}}}' \"$i\")\"; done")
+    cmd = image_lines_cmd(docker_cmd(host))
     r = run(["sh", "-c", cmd], timeout=120) if host == "fastpi" else ssh(host, cmd, timeout=120)
     if r.returncode != 0:
         raise RuntimeError(f"image list on {host}: {r.stderr.strip()[:200]}")
@@ -2078,7 +2190,20 @@ def dt_images(host: str) -> tuple[list[dict], dict[str, list[str]]]:
     return parse_image_lines(r.stdout), bases
 
 
-def _trivy_sbom_cmd(args: list[str], *, socket_proxy: bool = False, rootfs: Path | None = None) -> list[str]:
+def local_image_tars(host: str) -> dict[str, str]:
+    """Tars the nightly image scan exported for a host: image id -> path below local-images/."""
+    d = local_images_dir() / host
+    return {f"sha256:{f.stem}": f"{host}/{f.name}" for f in d.glob("*.tar")} if d.is_dir() else {}
+
+
+def dt_sbom_args(host: str, src: str) -> list[str]:
+    platform = DT_HOSTS.get(host)
+    if src.startswith("/local-images/"):
+        return ["image", "--input", src]
+    return ["image", "--image-src", "remote", "--platform", platform, src] if platform else ["image", "--image-src", "docker", src]
+
+
+def _trivy_sbom_cmd(args: list[str], *, socket_proxy: bool = False, rootfs: Path | None = None, local_images: bool = False) -> list[str]:
     cmd = ["docker", "run", "--rm"]
     if socket_proxy:
         cmd += ["--network", TRIVY_HOSTS["fastpi"]["network"], "-e", f"DOCKER_HOST={TRIVY_HOSTS['fastpi']['docker_host']}"]
@@ -2087,12 +2212,14 @@ def _trivy_sbom_cmd(args: list[str], *, socket_proxy: bool = False, rootfs: Path
             "-v", f"{TRIVY_HOSTS['fastpi']['cache']}/java-db:/root/.cache/trivy/java-db:ro"]
     if rootfs:
         cmd += ["-v", f"{rootfs}:/rootfs:ro"]
+    if local_images:
+        cmd += ["-v", _local_images_mount()]
     return cmd + [TRIVY_IMAGE, args[0], "--format", "cyclonedx", "--quiet", "--skip-db-update",
                   "--skip-java-db-update", "--timeout", "15m", *args[1:]]
 
 
-def _trivy_sbom(args: list[str], *, socket_proxy: bool = False, rootfs: Path | None = None) -> tuple[bytes | None, str]:
-    r = run(_trivy_sbom_cmd(args, socket_proxy=socket_proxy, rootfs=rootfs), timeout=1800)
+def _trivy_sbom(args: list[str], *, socket_proxy: bool = False, rootfs: Path | None = None, local_images: bool = False) -> tuple[bytes | None, str]:
+    r = run(_trivy_sbom_cmd(args, socket_proxy=socket_proxy, rootfs=rootfs, local_images=local_images), timeout=1800)
     if r.returncode != 0 or not r.stdout.strip().startswith("{"):
         print(f"  dt sbom failed {args[-1]}: {r.stderr.strip()[-200:]}", file=sys.stderr)
         return None, r.stderr
@@ -2107,8 +2234,7 @@ def dt_image_sbom(host: str, key: str, src: str) -> bytes | None:
     if f.exists() and not key.startswith("base:"):
         return f.read_bytes()
     platform = DT_HOSTS.get(host)
-    args = ["image", "--image-src", "remote", "--platform", platform, src] if platform else ["image", "--image-src", "docker", src]
-    bom, err = _trivy_sbom(args, socket_proxy=platform is None)
+    bom, err = _trivy_sbom(dt_sbom_args(host, src), socket_proxy=platform is None, local_images=src.startswith("/local-images/"))
     if bom:
         write_atomic(f, bom.decode())
     elif platform and "@sha256:" in key and _REGISTRY_MISSING_RE.search(err):
@@ -2367,7 +2493,8 @@ def main() -> int:
                 if floor := resource_floor():
                     raise NoData(f"resource floor: {floor}")
                 images, bases = dt_images(host)
-                return dt_host(host, dt, images, bases, lambda k, src: dt_image_sbom(host, k, src), dt_os_entry(host))
+                return dt_host(host, dt, images, bases, lambda k, src: dt_image_sbom(host, k, src), dt_os_entry(host),
+                               local_image_tars(host) if DT_HOSTS.get(host) else None)
             guarded(f"dt-{host}", _dt, host=host)
 
         def _vex():

@@ -1902,6 +1902,137 @@ def test_download_integrity_hit_list_is_capped_and_missing_hits_file_is_fine():
     assert collect_download_integrity("beefy", lambda w: DL_PROM if w == "dlprom" else None, DL_NOW) == []
 
 
+# --- local images of remote hosts: exported once, scanned from the tar ------
+
+def test_parse_built_images_reads_build_services_of_compose_files():
+    from security_scan import parse_built_images
+    text = ("## /srv/Antivirus/docker-compose.yaml\nservices:\n  clamav:\n    build: ./clamav\n    image: clamav-local:latest\n"
+            "## /srv/Media/docker-compose.yaml\nservices:\n  radarr:\n    image: lscr.io/linuxserver/radarr:6\n"
+            "  flaresolverr:\n    build: ./flaresolverr   # see Dockerfile\n    image: flaresolverr-local:v3.5.2\n")
+    assert parse_built_images(text) == {"clamav-local:latest", "flaresolverr-local:v3.5.2"}
+
+
+def test_local_builds_are_the_compose_built_images_and_those_without_digest():
+    from security_scan import local_builds
+    imgs = [{"ref": "flaresolverr-local:v3.5.2", "digest": "flaresolverr-local@sha256:c3", "id": "sha256:c3"},
+            {"ref": "lscr.io/linuxserver/radarr@sha256:08", "digest": "lscr.io/linuxserver/radarr@sha256:08", "id": "sha256:08"},
+            {"ref": "mystery:1", "digest": "", "id": "sha256:44"}]
+    assert [i["ref"] for i in local_builds(imgs, {"flaresolverr-local:v3.5.2"})] == ["flaresolverr-local:v3.5.2", "mystery:1"]
+
+
+def test_export_local_images_saves_once_per_id_and_drops_tars_no_longer_running():
+    from security_scan import export_local_images
+    d = _tmp_dirs()
+    tars = d / "state" / "local-images" / "beefy"
+    tars.mkdir(parents=True)
+    (tars / "aa.tar").write_bytes(b"cached")
+    (tars / "old.tar").write_bytes(b"gone")
+    saved = []
+
+    def save(host, ref, dest):
+        saved.append((host, ref, dest.parent == tars, dest.name.endswith(".tar")))
+        dest.write_bytes(b"tar")
+        return True
+    imgs = [{"ref": "a-local:1", "digest": "", "id": "sha256:aa"}, {"ref": "b-local:1", "digest": "", "id": "sha256:bb"}]
+    got = export_local_images("beefy", imgs, save)
+    assert got == {"sha256:aa": "beefy/aa.tar", "sha256:bb": "beefy/bb.tar"}
+    assert [s[1] for s in saved] == ["b-local:1"] and all(s[2] for s in saved)
+    assert sorted(p.name for p in tars.iterdir()) == ["aa.tar", "bb.tar"] and (tars / "aa.tar").read_bytes() == b"cached"
+
+
+def test_export_local_images_failed_save_leaves_no_tar_and_no_entry():
+    from security_scan import export_local_images
+    d = _tmp_dirs()
+
+    def save(host, ref, dest):
+        dest.write_bytes(b"half")
+        return False
+    assert export_local_images("beefy", [{"ref": "a-local:1", "digest": "", "id": "sha256:aa"}], save) == {}
+    assert list((d / "state" / "local-images" / "beefy").iterdir()) == []
+
+
+def test_trivy_cmd_of_remote_hosts_mounts_the_exported_images_read_only():
+    _tmp_dirs()
+    cmd = security_scan._trivy_cmd("beefy", ["image", "x"], attach_proxy=False)
+    assert f"{security_scan.STATE / 'local-images'}:/local-images:ro" in cmd
+
+
+def _collect_with(trivy, tars, bases):
+    import subprocess
+    saved = (security_scan._trivy_run, security_scan.download_trivy_db)
+    calls = []
+
+    def fake(host, args, **kw):
+        calls.append(args)
+        return trivy(args) or subprocess.CompletedProcess(args, 1, "", "UNAUTHORIZED")
+    security_scan._trivy_run, security_scan.download_trivy_db = fake, lambda host: None
+    security_scan.LOCAL_TARS["beefy"] = tars
+    security_scan.LOCAL_BASES["beefy"] = bases
+    try:
+        security_scan.collect_images("beefy", ["flaresolverr-local@sha256:c3"])
+    finally:
+        security_scan._trivy_run, security_scan.download_trivy_db = saved
+        security_scan.LOCAL_TARS.pop("beefy", None)
+        security_scan.LOCAL_BASES.pop("beefy", None)
+    return calls, (security_scan.STATE / "image-cves-beefy.txt").read_text()
+
+
+def test_collect_images_scans_the_exported_tar_of_a_local_image_not_its_base():
+    import json
+    import subprocess
+    _tmp_dirs()
+    rep = json.dumps(_report(("CVE-1", "chromium", "CRITICAL", "156")))
+    calls, text = _collect_with(
+        lambda a: subprocess.CompletedProcess(a, 0, rep, "") if "--input" in a else None,
+        {"flaresolverr-local@sha256:c3": ("flaresolverr-local:v3.5.2", "beefy/c3.tar")},
+        {"flaresolverr-local:v3.5.2": ["ghcr.io/flaresolverr/flaresolverr@sha256:c8"]})
+    assert len(calls) == 1 and calls[0][calls[0].index("--input") + 1] == "/local-images/beefy/c3.tar"
+    assert "--image-src" not in calls[0]
+    assert "flaresolverr-local:v3.5.2 (local build)" in text and "ghcr.io/flaresolverr" not in text
+
+
+def test_collect_images_falls_back_to_the_base_when_the_tar_scan_fails():
+    import json
+    import subprocess
+    _tmp_dirs()
+    rep = json.dumps(_report())
+    calls, text = _collect_with(
+        lambda a: subprocess.CompletedProcess(a, 0, rep, "") if a[-1].startswith("ghcr.io/") else None,
+        {"flaresolverr-local@sha256:c3": ("flaresolverr-local:v3.5.2", "beefy/c3.tar")},
+        {"flaresolverr-local:v3.5.2": ["ghcr.io/flaresolverr/flaresolverr@sha256:c8"]})
+    assert "--input" in calls[0] and calls[-1][-1] == "ghcr.io/flaresolverr/flaresolverr@sha256:c8"
+    assert "ghcr.io/flaresolverr/flaresolverr@sha256:c8 (base of a local image)" in text
+
+
+def test_code_image_refs_leaves_out_the_base_a_dockerfile_patches():
+    files = {
+        "Docker/Movie-Downloads/flaresolverr/Dockerfile": "FROM ghcr.io/flaresolverr/flaresolverr@sha256:c8\nRUN apt-get --only-upgrade install chromium\n",
+        "Docker/Other/Dockerfile": "FROM alpine:3.22\n",
+    }
+    assert code_image_refs(files) == (["alpine:3.22"], 0)
+    files["Docker/Other/Dockerfile"] += "FROM ghcr.io/flaresolverr/flaresolverr@sha256:c8\n"
+    assert code_image_refs(files)[0] == ["alpine:3.22", "ghcr.io/flaresolverr/flaresolverr@sha256:c8"]
+
+
+def test_dt_plan_remote_local_image_with_an_exported_tar_is_planned_from_the_tar():
+    from security_scan import dt_plan
+    imgs = [{"ref": "flaresolverr-local:v3.5.2", "digest": "flaresolverr-local@sha256:c3", "id": "sha256:c3"},
+            {"ref": "clamav-local:latest", "digest": "clamav-local@sha256:cc", "id": "sha256:cc"}]
+    plan, _ = dt_plan("beefy", imgs, {"clamav-local": ["alpine:3.22"]}, local={"clamav-local@sha256:cc"},
+                      tars={"sha256:c3": "beefy/c3.tar"})
+    assert plan == [("beefy/flaresolverr-local", "v3.5.2", "sha256:c3", "/local-images/beefy/c3.tar"),
+                    ("beefy/clamav-local", "latest (base alpine:3.22)", "base:alpine:3.22", "alpine:3.22")]
+
+
+def test_dt_sbom_of_an_exported_tar_reads_it_through_the_read_only_mount():
+    from security_scan import _trivy_sbom_cmd, dt_sbom_args
+    _tmp_dirs()
+    assert dt_sbom_args("beefy", "/local-images/beefy/c3.tar") == ["image", "--input", "/local-images/beefy/c3.tar"]
+    assert dt_sbom_args("beefy", "x@sha256:1") == ["image", "--image-src", "remote", "--platform", "linux/amd64", "x@sha256:1"]
+    cmd = _trivy_sbom_cmd(dt_sbom_args("beefy", "/local-images/beefy/c3.tar"), local_images=True)
+    assert f"{security_scan.STATE / 'local-images'}:/local-images:ro" in cmd and cmd[-1] == "/local-images/beefy/c3.tar"
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
