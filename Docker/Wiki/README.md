@@ -1,6 +1,6 @@
 # Wiki
 
-"Holy Grail Guide": how-to pages for friends (Jellyfin, Requests, audio & subtitles, audiobooks, tracker, profile picture). English, MkDocs Material, no external requests (`theme.font: false`).
+"Holy Grail Guide": how-to pages for friends (Jellyfin, Requests, audio & subtitles, audiobooks, tracker, profile picture) and a "What's new" page. English, MkDocs Material, no external requests (`theme.font: false`).
 
 - **URL:** https://wiki.holy-grail.ch (Holy Grail SSO, any logged-in user)
 - **Server:** one `caddy:alpine` container serving `www/` read-only, uid 65053
@@ -14,6 +14,11 @@ $EDITOR site/docs/apps/jellyfin.md   # pages: site/docs, menu: site/mkdocs.yml
 ```
 
 `build.sh` runs the pinned `squidfunk/mkdocs-material` image (uid 65053, no capabilities, read-only) with `mkdocs build --strict`: a broken link fails the build. Bump `IMAGE` in `build.sh` to update.
+
+## Rules
+
+- **Every user-visible change gets an entry in `site/docs/whats-new.md`** (same change): date heading, newest first, 1–3 lines with what's new, where to click, a link to the detail page; a screenshot where useful (`site/docs/assets/whats-new/`, no personal data: no real names, usernames, mail addresses).
+- Menu: sections in `site/mkdocs.yml` `nav` (Start, Watching, Requesting, Audiobooks, Your account, About). Moving a page between sections keeps its URL; renaming a file changes it.
 
 ## Files
 

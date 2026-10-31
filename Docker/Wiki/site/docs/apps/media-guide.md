@@ -23,7 +23,7 @@ Quick Connect in 3 steps: the TV shows a code â†’ on your laptop open Jellyfin â
 | subtitles | set your language once: [Audio & subtitles](../audio-subtitles.md) |
 | skip an intro | press **Skip intro**: [Skip buttons](skip-buttons.md) |
 
-- **Play on TV** is on Popular, Top 10 and Coming soon cards. Soon also on every title page and in the player as **Continue on TV**.
+- **Play on TV** (the TV icon) is on every card, title page and episode row. In the player, **Continue on TV** moves the film to the TV at the same second.
 - It only lists TVs where **Moonfin is open**. Open the app on the TV first.
 
 ## 3. Finding something new

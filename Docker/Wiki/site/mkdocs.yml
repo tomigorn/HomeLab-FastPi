@@ -30,18 +30,25 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 nav:
-  - Home: index.md
-  - Getting started: getting-started.md
-  - How to use the media stack: apps/media-guide.md
-  - Watching (Jellyfin): apps/jellyfin.md
-  - Home screen: apps/jellyfin-home.md
-  - Moonfin app (TV & phone): apps/moonfin.md
-  - Skip intro & credits: apps/skip-buttons.md
-  - Requesting films & series: apps/requests.md
-  - Audio & subtitles: audio-subtitles.md
-  - Audiobooks: apps/audiobookshelf.md
-  - Requesting audiobooks: apps/audiobook-requests.md
-  - Watch history (Tracker): apps/tracker.md
-  - Profile picture: apps/profile-picture.md
-  - Our machines: apps/machines.md
-  - Help & FAQ: help.md
+  - Start:
+      - Home: index.md
+      - Getting started: getting-started.md
+      - How to use the media stack: apps/media-guide.md
+      - What's new: whats-new.md
+  - Watching:
+      - Watching (Jellyfin): apps/jellyfin.md
+      - Home screen: apps/jellyfin-home.md
+      - Moonfin app (TV & phone): apps/moonfin.md
+      - Skip intro & credits: apps/skip-buttons.md
+      - Audio & subtitles: audio-subtitles.md
+  - Requesting:
+      - Films & series: apps/requests.md
+      - Audiobooks: apps/audiobook-requests.md
+  - Audiobooks:
+      - Listening (Audiobookshelf): apps/audiobookshelf.md
+  - Your account:
+      - Profile picture: apps/profile-picture.md
+      - Watch history (Tracker): apps/tracker.md
+  - About:
+      - Our machines: apps/machines.md
+      - Help & FAQ: help.md
