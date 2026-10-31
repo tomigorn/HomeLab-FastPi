@@ -650,3 +650,5 @@ Details: [Traefik README, Client IPs](../Traefik/README.md#client-ips). If Traef
 ## Test-account workflow
 
 `canary-test` is disabled and groupless by default. To test a logged-in app: `scripts/canary-groups.sh add <group>` (allow-list: `streaming-requesters`, `streaming-users`), `scripts/canary-enable.sh`, run the test, then `scripts/canary-groups.sh remove <group>`, reset any app-side permission raised for the test (e.g. a Seerr permission bit), `scripts/canary-disable.sh` (also clears all groups), and check with `canary-groups.sh list`. Only the canary, never other users, flows, stages or policies.
+
+Jellyfin `canary-test` is disabled at rest; a disabled user fails at the OIDC callback. Before a Jellyfin test enable it, at the end disable it: one change at a time, never parallel to a session logout (that crashed Jellyfin once, 2026-10-31).
