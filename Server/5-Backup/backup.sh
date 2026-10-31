@@ -53,7 +53,7 @@ EXCLUDES=(
 )
 PATHS=(
     "$STAGE"
-    /home/pi/Projects /home/pi/landingpage /home/pi/HomeLab-Unraid-Tower /home/pi/.ssh
+    /home/pi/Projects /home/pi/notes /home/pi/landingpage /home/pi/HomeLab-Unraid-Tower /home/pi/.ssh
     /home/pi/.claude/CLAUDE.md /home/pi/.claude/machine.md /home/pi/.claude/settings.json /home/pi/.claude/settings.local.json
     /home/pi/.claude/skills /home/pi/.claude/projects/-home-pi/memory
     /etc/ssh /etc/sudoers.d /etc/sysctl.d /etc/iptables /etc/docker /etc/systemd/system /etc/fstab /etc/cron.d /etc/hosts

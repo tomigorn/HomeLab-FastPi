@@ -27,7 +27,7 @@ restic, encrypted, deduplicated, both ways. fastpi → beefy below; beefy → fa
 
 ### Contents (`./backup.sh --list`)
 - Consistent dumps: Authentik Postgres (`pg_dump -Fc`), SQLite `.backup` of Home Assistant recorder + zigbee, Grafana, Audiobookshelf, Stonks, Bitwarden, wg-easy, wg-chores, CrowdSec, Audiobook-Requests, SABnzbd history, Prowlarr (mouse). Restored under `/var/lib/fastpi-backup-staging/{dumps,sqlite/<original path>}` inside the snapshot; the live DB files are excluded.
-- `/home/pi/Projects` (compose, `.env`, `secrets/`, Traefik acme + dynamic config, HA config), landingpage, Unraid repo, `~/.ssh`, `~/.claude` rules + skills + memory
+- `/home/pi/Projects` (compose, `.env`, `secrets/`, Traefik acme + dynamic config, HA config), `/home/pi/notes` (private notes, own git repo), landingpage, Unraid repo, `~/.ssh`, `~/.claude` rules + skills + memory
 - `/etc`: ssh, sudoers.d, sysctl.d, iptables, docker, systemd/system, fstab, cron.d, hosts
 - `/var/lib/security-scan` (no trivy cache), CrowdSec config, AdGuard data (no querylog), Portainer data
 - Audiobook downloaders on the Seagate disk: `/mnt/seagate-red/qbittorrent/config` (torrent list + resume data, settings) and `/mnt/seagate-red/sabnzbd/config` (no unfinished `Downloads/`, no logs), since 2026-10-25; `/mnt/seagate-red/prowlarr/config` (no logs), since 2026-10-29

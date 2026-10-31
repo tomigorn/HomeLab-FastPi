@@ -20,6 +20,7 @@ for want in \
     "path $V/monitoring__grafana_alertmanager_data/_data" \
     "path /var/lib/abr-bar" \
     "path /home/pi/Projects" \
+    "path /home/pi/notes" \
     "exclude /mnt/seagate-red/prowlarr/config/logs" \
     "exclude /mnt/seagate-red/prowlarr/config/logs.db*"; do
     grep -qxF "$want" <<<"$L" && ok "plan: $want" || bad "plan: $want"
