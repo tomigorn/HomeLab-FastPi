@@ -112,7 +112,7 @@ You don't need to choose anything: the server picks the best version automatical
 | 3 | **HDR** | at the same resolution, HDR beats non-HDR whatever the languages; 4K without HDR still beats 1080p HDR |
 | 4 | **Languages** | original + English + German › original + English › original + German › original only |
 | 5 | Picture and sound | Atmos/DTS:X › lossless (TrueHD = DTS-HD MA = FLAC = PCM, all equal) › DD+ Atmos › DD+ › DD/DTS › AAC; known good groups; fixed re-releases (REPACK) |
-| 6 | Not counted | extra languages, file size, season packs |
+| 6 | Small extras (only between otherwise equal versions) | bonus material included (+Extras, featurettes) › a full season pack › each extra dub; never beats rows 2–5, never replaces a file on its own; file size never counts |
 
 Also counted:
 
