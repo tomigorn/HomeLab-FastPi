@@ -51,6 +51,17 @@ Set this once and Jellyfin turns on subtitles by itself whenever the film plays 
 
 Want full subtitles? Never pick **Forced**. With subtitle mode **Smart** (above) Jellyfin picks the right one by itself.
 
+### Translated subtitles
+Missing German or English subtitles? If no human-made subtitle turns up within about two days, one is machine-translated at night from the best subtitle the title has (English or German first, then the original language). The translation runs on our own server, nothing is sent out.
+
+| Track name | What it is |
+|---|---|
+| **German (translated)** / **English (translated)** | machine translation, same timing as its source; can sound clumsy |
+| … **(translated) - Hearing Impaired** | translated from an SDH subtitle, so it has sound cues ([MUSIK]) too |
+
+- A human subtitle always wins: as soon as one is found, it replaces the translation (the translated track disappears the next morning).
+- Forced subtitles are never translated.
+
 ## Switching audio or subtitles
 | Where | Audio | Subtitles |
 |---|---|---|
