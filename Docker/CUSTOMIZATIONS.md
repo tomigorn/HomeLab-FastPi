@@ -230,6 +230,12 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Static site served read-only from www/ (built by build.sh), 404 page | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `wiki.caddyfile`: caddy validate → Valid configuration; `wiki.site`: index → 200 + bytes; `wiki.not-found`: unknown path → 404 | caddy directive changes (auto-updated) |
 
+## Notes
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Private site served read-only from `$NOTES_DIR/www` (content outside this repo, built by `build.sh`); Authentik app `notes` bound to one user, no group | `Caddyfile`, `.env` `NOTES_DIR`, `../Authentik/scripts/provision-notes-sso.py` | `docker compose up -d --force-recreate`; SSO: the provision script | `notes.caddyfile`: Valid configuration; `notes.site`: index → 200 + bytes; `notes.forward-auth`: → sso | caddy directive changes (auto-updated) |
+
 ## Server-Specs
 
 | Customization | Where | Reapply | Verify | Update can break |

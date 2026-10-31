@@ -1,0 +1,46 @@
+http:
+  routers:
+    # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
+    notes-outpost:
+      rule: "Host(`notes.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    notes:
+      rule: "Host(`notes.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: notes
+      middlewares:
+        - authentik@file
+        - default-rate-limit@file
+        - notes-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # NOTE: authentication is Authentik forward auth (authentik@file); application "notes" is bound to one user only (provision-notes-sso.py).
+    notes-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        contentSecurityPolicy: "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+        customResponseHeaders:
+          Server: ""
+          Cache-Control: "private, no-store"
+          X-Robots-Tag: "noindex, nofollow"
+
+  services:
+    notes:
+      loadBalancer:
+        servers:
+          - url: "http://notes:80"
+        passHostHeader: true

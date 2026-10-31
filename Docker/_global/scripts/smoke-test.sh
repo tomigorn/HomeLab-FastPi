@@ -106,7 +106,7 @@ check "containers expected but down" '^0$' "$(curl -s -m 5 -G --data-urlencode '
 check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]}; w={"ContainerDown","ContainerCrashLooping","ContainerUnhealthy","ContainerExporterStale","HostRebooted","HostRebootedUnclean"}; print("ok" if w<=n else "missing " + " ".join(sorted(w-n)))')"
 
 echo "== Apps on fastpi"
-running adguardhome portainer audiobookshelf prowlarr_mouse prowlarr-gate audiobookrequest audiobook-importer books-proxy homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
+running adguardhome portainer audiobookshelf prowlarr_mouse prowlarr-gate audiobookrequest audiobook-importer books-proxy homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki notes backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker
 check "prowlarr MAM rules, gate, seeding" '^OK MAM rules, gate and seed-forever hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
 check "books public -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -A 'Mozilla/5.0 smoke-test' --resolve books.holy-grail.ch:443:$(dig +short @1.1.1.1 books.holy-grail.ch | head -1) https://books.holy-grail.ch/ | cut -c1-60)"
 check "prowlarr UI closed to non-Traefik" '^403$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:9697/)"
@@ -138,6 +138,7 @@ check "stonks"                     '^(200|30[23])$' "$(http https://stonks.holy-
 check "claude-mockups -> sso"      '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 https://claude-mockups.holy-grail.ch/ | cut -c1-60)"
 check "server-specs -> sso"       '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve specs.holy-grail.ch:443:192.168.1.2 https://specs.holy-grail.ch/ | cut -c1-60)"
 check "wiki -> sso"              '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve wiki.holy-grail.ch:443:192.168.1.2 https://wiki.holy-grail.ch/ | cut -c1-60)"
+check "notes -> sso"             '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve notes.holy-grail.ch:443:192.168.1.2 https://notes.holy-grail.ch/ | cut -c1-60)"
 check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 -X POST --data '{}' https://claude-mockups.holy-grail.ch/_inbox/submit | cut -c1-40)"
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
 check "tower waker v1.3.0"         '1\.3\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"

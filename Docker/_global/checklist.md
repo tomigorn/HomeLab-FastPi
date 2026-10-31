@@ -41,6 +41,7 @@ tell them apart.
 | Server-Specs | ❌ | ❌ | | |  |
 | Audiobook-Requests | ❌ | ❌ | | |  |
 | Wiki | ❌ | ❌ | | |  |
+| Notes | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 
