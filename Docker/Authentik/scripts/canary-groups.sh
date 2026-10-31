@@ -2,7 +2,7 @@
 # Add/remove/list groups of the SSO test canary only, from a fixed allow-list. Usage: canary-groups.sh add|remove|list [group...]
 set -euo pipefail
 cd /home/pi/Projects/Docker/Authentik
-ALLOWED="streaming-requesters"
+ALLOWED="streaming-requesters streaming-users"
 action="${1:-list}"; shift || true
 for g in "$@"; do
   case " $ALLOWED " in *" $g "*) ;; *) echo "group not allowed: $g" >&2; exit 2;; esac
