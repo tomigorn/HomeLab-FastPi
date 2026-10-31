@@ -8,7 +8,7 @@
 # per-user Floppy account.
 #
 # Allow-list: the catch-all router only matches the URL prefixes the web UI uses
-# (Floppy 26.10.22). Anything else (REST API, OAuth device server, health, new
+# (Floppy 26.10.29, incl. covers = hash-named local cover files, youtube-player = GET embed page). Anything else (REST API, OAuth device server, health, new
 # upstream features) has no router and gets Traefik's 404. After a Floppy update,
 # compare the prefixes with HomeLab-Beefy Docker/Floppy README "Edge allow-list".
 #
@@ -114,7 +114,7 @@ http:
     tracker:
       rule: >-
         Host(`tracker.holy-grail.ch`) && (Path(`/`) || Path(`/serviceworker.js`) || PathPrefix(`/api/cache-status/`)
-        || PathRegexp(`^/(accounts|bulk|bulk_delete_by_import_source|bulk_delete_by_media_type|calendar|cancel_import_run|cancel_pending_import|checkin|clear_all_caches|clear_discover_cache|clear_history_cache|clear_search_cache|clear_statistics_cache|collection|create|create_export_schedule|delete_export_schedule|delete_import_schedule|details|discover|episode_bulk_save|episode_drop|episode_save|episodes|export|history|history_modal|home|image-cache|import|jsi18n|library|list|list_item_toggle|lists|lists_modal|matches|media|media_delete|media_rewatch|media_save|medialist|music|notifications|person|podcast|progress|progress_edit|providers|regenerate_token|reload_calendar|retry|rollback_import_run|saved-views|select2|settings|setup|static|statistics|studio|sync|tag_bulk_toggle|tag_create|tag_delete|tag_item_toggle|tags|tags_modal|test_notification|tmdb|track_modal|tv|update-episode-score|update-score|update_group_scrobbled_anime|user|wetrakr)(/|$)`))
+        || PathRegexp(`^/(accounts|bulk|bulk_delete_by_import_source|bulk_delete_by_media_type|calendar|cancel_import_run|cancel_pending_import|checkin|clear_all_caches|clear_discover_cache|clear_history_cache|clear_search_cache|clear_statistics_cache|collection|covers|create|create_export_schedule|delete_export_schedule|delete_import_schedule|details|discover|episode_bulk_save|episode_drop|episode_save|episodes|export|history|history_modal|home|image-cache|import|jsi18n|library|list|list_item_toggle|lists|lists_modal|matches|media|media_delete|media_rewatch|media_save|medialist|music|notifications|person|podcast|progress|progress_edit|providers|regenerate_token|reload_calendar|retry|rollback_import_run|saved-views|select2|settings|setup|static|statistics|studio|sync|tag_bulk_toggle|tag_create|tag_delete|tag_item_toggle|tags|tags_modal|test_notification|tmdb|track_modal|tv|update-episode-score|update-score|update_group_scrobbled_anime|user|wetrakr|youtube-player)(/|$)`))
       entryPoints: ["websecure"]
       priority: 1
       service: tracker
