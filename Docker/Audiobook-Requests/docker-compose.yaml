@@ -99,7 +99,7 @@ services:
 # #########################################################
   # Copies finished abr torrents (never moves: they keep seeding) into LANG/Author/[Series]/NN - Title, then scans ABS.
   importer:
-    image: python:3.13-alpine@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741
+    image: python:3.13-alpine@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
     container_name: audiobook-importer
     user: "65056:65056"
     group_add:
