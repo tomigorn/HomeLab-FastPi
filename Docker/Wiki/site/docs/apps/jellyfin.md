@@ -129,6 +129,12 @@ Your watch progress and favourites live on the server, so a reinstall loses noth
 
 Tools: [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) · [jellyfin-tizen-builds](https://github.com/jeppevinkel/jellyfin-tizen-builds) · [install-jellyfin-tizen](https://github.com/Georift/install-jellyfin-tizen). Community projects, not made by Samsung.
 
+## Skip intros automatically
+By default you get a **Skip Intro** button. To skip without pressing:
+
+1. Browser: profile picture → **Settings** → **Playback** → **Media Segment Actions** → Intro / Outro Segments → **Skip** ("Ask To Skip" = button).
+2. Moonfin, on each TV: **Settings** → **Playback** → **Skipping & Autoplay** → Intro Segments → **Skip**.
+
 ## Rating and tracking
 - **Heart** = favourite, and you can mark things **played**. The TV and phone apps have no star ratings.
 - In the browser, film and series pages have a **Rate in Tracker** link: see [Watch history](tracker.md).
