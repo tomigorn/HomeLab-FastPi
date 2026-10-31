@@ -60,7 +60,7 @@ http:
         permissionsPolicy: "camera=(), microphone=(), geolocation=()"
         # S-16: enforced 2026-10-31 after a logged-in browser run (only violation was the harmless Zod probe).
         # Expected report, no 'unsafe-eval' on purpose: Zod 4 probes Function("") in try/catch and parses without JIT when eval is refused.
-        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org https://plex.tv https://*.plex.tv https://gravatar.com https://*.gravatar.com; font-src 'self' data:; connect-src 'self'; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://sso.holy-grail.ch; frame-ancestors 'self'"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://sso.holy-grail.ch/avatar-img/ https://image.tmdb.org https://plex.tv https://*.plex.tv https://gravatar.com https://*.gravatar.com; font-src 'self' data:; connect-src 'self'; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://sso.holy-grail.ch; frame-ancestors 'self'"
         customResponseHeaders:
           Server: ""
 
