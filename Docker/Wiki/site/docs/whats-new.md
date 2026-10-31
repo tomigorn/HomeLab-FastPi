@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 31 October 2026
 
+**Remove from Continue watching.** Not interested anymore? On the website, point at the title in **Continue watching** and click the **crossed-out eye** (phone: tap it top right), with 5 s **Undo**. Only the resume point is cleared; watched status, favourites, My List and Next up stay. In Moonfin: long press → **Hide from Continue Watching** (also clears the play history). [Remove from Continue watching](apps/jellyfin-home.md#remove-from-continue-watching)
+
 **Play on TV: one subtle TV icon everywhere.** Top 10 and Popular cards of titles you own now have it too. [Play on TV](apps/jellyfin-home.md#play-on-tv)
 
 **▶ Play on TV, everywhere.** Open Moonfin on your TV. In Jellyfin on the website, tap the **TV icon** on any card, title page or episode row and pick your TV. In the player it is called **Continue on TV**: the TV carries on at the same second. [Play on TV](apps/jellyfin-home.md#play-on-tv)

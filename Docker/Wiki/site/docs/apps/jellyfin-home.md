@@ -63,6 +63,22 @@ Tap the TV icon on a title page, a card, an episode row or in the player, then p
 
 Top 10 and Popular cards of titles you own show the same small TV icon as other cards (on hover, or tap the round icon on a phone). Coming soon cards have none: tap the card to open the show.
 
+### Remove from Continue watching
+
+#### Jellyfin website
+1. Home (or Movies / Shows tab), row "Continue watching".
+2. Computer: point at the title, click the crossed-out eye. Phone: tap the crossed-out eye top right on the picture.
+3. The title disappears. Changed your mind? Tap "Undo" in the message at the bottom (5 seconds).
+
+Only the resume point is cleared. Watched status, favourites, My List and Next Up stay as they are.
+
+#### Moonfin (TV and phone app)
+1. Home, row "Continue watching".
+2. Hold OK (remote) or press and hold (phone) on the title.
+3. Choose "Hide from Continue Watching".
+
+Note: in Moonfin this also clears the play history of that title, and an episode hides the whole series from "Continue watching" until you watch it again. If you only want to drop it from the row, use the website.
+
 ### Add to My List
 Open a film or series and press the **heart** button. It shows up under **My List ♥**. Press the heart again to remove it.
 
