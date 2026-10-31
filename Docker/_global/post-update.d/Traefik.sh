@@ -2,7 +2,7 @@
 TR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../Traefik" && pwd)
 tcode() { curl -sk -m 10 -o /dev/null -w '%{http_code}' "$@"; }
 if want traefik; then
-  check traefik.version-pin '^3\.7\.16$' "$(docker exec traefik traefik version 2>/dev/null | awk '/Version:/{print $2}')"
+  check traefik.version-pin '^3\.7\.17$' "$(docker exec traefik traefik version 2>/dev/null | awk '/Version:/{print $2}')"
   check traefik.local-plugins 'crowdsec-bouncer.*realip' "$(docker logs traefik 2>&1 | grep 'Plugins loaded' | tail -1 | grep -o 'plugins=.*')"
   check traefik.config-reload '^[1-9]' "$(docker exec traefik wget -qO- -T 5 http://127.0.0.1:8080/metrics 2>/dev/null | awk '/^traefik_config_last_reload_success /{print $2}')"
   check traefik.authentik-ip '^10\.24\.15\.3$' "$(docker inspect -f '{{(index .NetworkSettings.Networks "traefik_authentik").IPAddress}}' traefik)"

@@ -17,7 +17,7 @@ Everything changed on a service beyond its stock image: plugins, injected script
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Pinned tag, plugin test before a bump | `docker-compose.yaml`, `scripts/traefik-plugin-test.sh` | `update-project.sh Traefik pull` runs the test first | `traefik.version-pin`: traefik version → 3.7.16 | a new tag rejecting the plugins or the experimental block |
+| Pinned tag, plugin test before a bump | `docker-compose.yaml`, `scripts/traefik-plugin-test.sh` | `update-project.sh Traefik pull` runs the test first | `traefik.version-pin`: traefik version → 3.7.17 | a new tag rejecting the plugins or the experimental block |
 | Local plugins realip + crowdsec bouncer (no registry download) | `traefik/plugins-local/`, `experimental.localPlugins` in `traefik/traefik.yml` | `docker compose up -d` | `traefik.local-plugins`: "Plugins loaded" log line → crowdsec-bouncer, realip; `traefik.config-reload`: last reload success metric set | Yaegi changes: plugin fails to load, websecure invalid, every route 404 |
 | Real client IP in X-Forwarded-For | `dynamic/real-ip.yml`, entrypoint middlewares | file reload | `traefik.real-ip`: spoofed XFF on the public sso path, Authentik logs the real IP → real | middleware order or forwardedHeaders semantics |
 | CrowdSec bouncer, fail open | `dynamic/crowdsec.yml` | file reload | `traefik.crowdsec-bouncer`: CAPI IP / clean IP as Cf-Connecting-Ip → 403 200; `traefik.bouncer-fail-open`: crowdsecMode, updateMaxFailure → stream -1 | plugin API change |
