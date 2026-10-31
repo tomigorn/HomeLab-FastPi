@@ -52,3 +52,5 @@ nav:
   - About:
       - Our machines: apps/machines.md
       - Help & FAQ: help.md
+extra_css:
+  - assets/css/nav.css
