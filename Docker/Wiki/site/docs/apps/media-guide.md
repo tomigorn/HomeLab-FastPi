@@ -64,7 +64,7 @@ Every path at a glance: [When will it download?](requests.md#when-will-it-downlo
 - **Search tips:** type `imdb:tt0111161` for an exact title, or `matrix year:1999` to narrow by year.
 - **Download now:** open a title you requested → **⚡ Download now**.
 - **All requests:** the **Requests** page shows everyone's, marked **via Jellyfin**, **via Moonfin** or **via TV**.
-- **Status pills** (e.g. Waiting for the night, Downloading, Available): all icons in [Requesting](requests.md#can-wait-download-tonight).
+- **Status pills** (e.g. Waiting for the night, Downloading, Available): all icons in [Requesting](requests.md#status-icons).
 
 ### Limits
 
@@ -84,7 +84,7 @@ The server picks the best one by itself (4K before 1080p, original language plus
 
 | Problem | What to do |
 |---|---|
-| The title isn't there yet | check the card or [Requests](requests.md#can-wait-download-tonight): 🌙 waits for tonight, 🔍 is searching, 📅 is not released yet |
+| The title isn't there yet | check the card or [Requests](requests.md#status-icons): 🌙 waits for tonight, 🔍 is searching, 📅 is not released yet |
 | It says "requested" for a long time | nothing to do, it comes by itself; **⚡ Download now** speeds it up |
 | Wrong subtitle track | pick another while playing; never choose **Forced** for full subtitles: [Audio & subtitles](../audio-subtitles.md) |
 | No TV in the Play on TV list | open **Moonfin on the TV** first, then try again |

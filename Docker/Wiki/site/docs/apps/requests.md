@@ -15,7 +15,50 @@ Looking for an audiobook? Use the **Audiobooks** entry in the menu (after Series
 !!! info "The media server sleeps"
     Requests runs on the media server. If it is asleep you see a **"Requests is starting"** page: wait about a minute and it opens by itself (reload if it doesn't). If your browser shows the "asleep, sign in to start" page instead, log in and wait, see [Watching](jellyfin.md).
 
-## When will it download?
+## Requesting
+
+### Search tips
+The search box understands four prefixes. Only one per search.
+
+| Type this | Finds |
+|---|---|
+| `imdb:tt0111161` | the film or series with that IMDb number |
+| `tmdb:278` | the TMDB number |
+| `tvdb:81189` | a series by its TheTVDB number |
+| `matrix year:1999` | a title, narrowed to one year (good for remakes) |
+
+!!! tip "Where do I find the IMDb number?"
+    It's in the IMDb address: `imdb.com/title/`**`tt0111161`**`/`. Type it with the prefix: `imdb:tt0111161`.
+
+### Browsing with filters
+**Discover → Movies** (or **Series**) → filter icon (top right):
+
+- **Release date** from/to
+- **Genres**, **Keywords** (and keywords to exclude)
+- **Original language**
+- **Streaming services** available in Switzerland (Netflix, Disney+, …)
+- **Runtime**, **TMDB user score** + **minimum votes**, **age rating**, **status** (series)
+
+!!! example "Example"
+    German-language comedies since 2015, score at least 7, on Netflix CH: Original language *German* · Genres *Comedy* · Release date from *2015* · TMDB user score *7–10*, minimum votes *200* · Streaming services *Netflix*.
+
+### From Jellyfin: Popular movies and shows
+In Jellyfin, **Popular movies** / **Popular shows** (top bar or side menu) list what is popular in Switzerland and is available. **🌙 Download tonight** / **⚡ Download now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days). Pressing a poster opens its details with the same 🌙 / ⚡ buttons. See [Jellyfin home screen](jellyfin-home.md#popular-movies-and-shows). On the TV: pick 🌙 tonight or ⬇ now as the version and let the 10-second clip run to the end; Back cancels. The same 10 requests per week apply as on the web.
+
+### Advanced options
+In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default (**4K preferred · older versions allowed**).
+
+| You want | Choose |
+|---|---|
+| a must-have audio language | Tags: `audio-<language>`. A hard filter: nothing is downloaded without that audio |
+| Swiss German (Mundart) | Tags: `audio-swiss-german`. Only Swiss German, any quality; if none exists nothing is downloaded |
+| extra subtitles | Tags: `subs-<language>`, on top of English, German and the original language |
+
+Old and rare titles are moved to a more tolerant quality profile automatically.
+
+## When it downloads
+
+### When will it download?
 The search always runs at once. Only the download waits for the night: **22:00-06:00, and all Sunday** (cheaper power).
 
 | You pick | Download starts |
@@ -30,7 +73,9 @@ The search always runs at once. Only the download waits for the night: **22:00-0
 
 "Tonight" usually starts at 22:05, when the server is woken for waiting downloads; otherwise around 4 in the morning, when it wakes for its night jobs. A download still running at 06:00 pauses (unless it finishes within 15 minutes) and continues the next night.
 
-## Can wait: download tonight
+**At night:** films download in parallel, series one after another, episodes in order.
+
+### Can wait: download tonight
 The request dialog has a checkbox, **ticked by default**: **Can wait, download tonight (cheaper power)**.
 
 | Box | What happens |
@@ -42,6 +87,7 @@ Untick it only when you want to watch it soon.
 
 A title waiting for the night shows **Waiting for the night 🌙** instead of a stuck 0 %. That is normal.
 
+### Status icons
 Every requested title that is not in Jellyfin yet shows an icon next to the status and on the poster (hover, or tap on the phone, shows what it means):
 
 | Icon | Means |
@@ -58,14 +104,17 @@ Every requested title that is not in Jellyfin yet shows an icon next to the stat
 | ✅📅 | series complete so far: everything released is there, the next episode or season is not out yet (status **Available so far**) |
 | ⚠️ | a download or import problem: an admin has a look (Requests / Activity) |
 
-**At night:** films download in parallel, series one after another, episodes in order.
+### Download now
+Open a title **you requested** → **⚡ Download now** (next to the request button). It starts the waiting download at once, at the higher daytime power price. Titles other people requested have no button; admins see it on every title.
 
-!!! info "Download now"
-    Open a title **you requested** → **⚡ Download now** (next to the request button). It starts the waiting download at once, at the higher daytime power price. Titles other people requested have no button; admins see it on every title.
+Nothing grabbed yet: it searches first. **🔍 Searching…** shows while the search runs (several searches run one after the other). Found → **✅ Downloading**. Nothing found → **🧭 No release found yet**: the title goes back to the night queue (🌙) and tonight's search keeps looking; **⚡ Search again** tries once more.
 
-    Nothing grabbed yet: it searches first. **🔍 Searching…** shows while the search runs (several searches run one after the other). Found → **✅ Downloading**. Nothing found → **🧭 No release found yet**: the title goes back to the night queue (🌙) and tonight's search keeps looking; **⚡ Search again** tries once more.
+### What happens after a request
+Your request is searched for, downloaded (tonight, if **Can wait** is ticked) and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
 
-## My request: see and change it
+## Your requests
+
+### My request: see and change it
 Open a title **you requested** → the card **My request** under the title (tap to open).
 
 | You can | How |
@@ -77,7 +126,10 @@ Open a title **you requested** → the card **My request** under the title (tap 
 
 Press **Save**; within 2 minutes the server applies it and searches again if quality or audio changed (subtitles only: no new download). If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
 
-## Sizes
+### Who requested what
+Everyone in the household sees all requests on the **Requests** page, with who asked for it. Requests from Jellyfin (🌙/⚡ on Popular, Moonfin, the TV placeholders) are made under your own Seerr account and marked **via Jellyfin**, **via Moonfin** or **via TV**. Without a Seerr account they appear under "Jellyfin popular" with your name in the marker.
+
+### Sizes
 Every request shows **Size** under Profile (German: **Grösse**).
 
 | You see | Means |
@@ -91,33 +143,9 @@ A title's page shows **Size** too, in the facts box under Status: films with the
 
 Sort by size: the **GB** box right of the sort → **Largest** or **Smallest** (all requests on one page). **Off** or picking Seerr's own sort brings the normal order back.
 
-## Search tips
-
-The search box understands four prefixes. Only one per search.
-
-| Type this | Finds |
-|---|---|
-| `imdb:tt0111161` | the film or series with that IMDb number |
-| `tmdb:278` | the TMDB number |
-| `tvdb:81189` | a series by its TheTVDB number |
-| `matrix year:1999` | a title, narrowed to one year (good for remakes) |
-
-!!! tip "Where do I find the IMDb number?"
-    It's in the IMDb address: `imdb.com/title/`**`tt0111161`**`/`. Type it with the prefix: `imdb:tt0111161`.
-
-## Browsing with filters
-**Discover → Movies** (or **Series**) → filter icon (top right):
-
-- **Release date** from/to
-- **Genres**, **Keywords** (and keywords to exclude)
-- **Original language**
-- **Streaming services** available in Switzerland (Netflix, Disney+, …)
-- **Runtime**, **TMDB user score** + **minimum votes**, **age rating**, **status** (series)
-
-!!! example "Example"
-    German-language comedies since 2015, score at least 7, on Netflix CH: Original language *German* · Genres *Comedy* · Release date from *2015* · TMDB user score *7–10*, minimum votes *200* · Streaming services *Netflix*.
-
 ## Which version gets downloaded
+
+### Priority order
 You don't need to choose anything: the server picks the best version automatically, in this order.
 
 | Order | What counts | Example |
@@ -129,7 +157,7 @@ You don't need to choose anything: the server picks the best version automatical
 | 5 | Picture and sound | Atmos/DTS:X › lossless (TrueHD = DTS-HD MA = FLAC = PCM, all equal) › DD+ Atmos › DD+ › DD/DTS › AAC; known good groups; fixed re-releases (REPACK) |
 | 6 | Small extras (only between otherwise equal versions) | bonus material included (+Extras, featurettes) › a full season pack › each extra dub; never beats rows 2–5, never replaces a file on its own; file size never counts |
 
-Also counted:
+### Also counted
 
 | Rule | What it means for you |
 |---|---|
@@ -137,6 +165,7 @@ Also counted:
 | Torrents need at least **5 seeders** (old & rare titles: 1) | rare old films can take longer, or may not be found |
 | **Usenet** is preferred when everything else is equal | |
 
+### Upgrades and editions
 A film you already have is replaced only when the new version looks or sounds better (never just bigger, never for an extra dub), until it is 4K HDR with the original language and English (for English films: with German; anime: 1080p with original + English); after that it stays. German-only dubs are never downloaded.
 
 If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically.
@@ -146,27 +175,9 @@ If the server grabbed the wrong film (same title, different year), it notices an
 
 **Special editions:** longer cuts (Extended, Director's Cut, Uncut, …) are preferred whenever the same quality and languages exist; films you already have are upgraded once, at night (cheaper power). Language and quality always win.
 
-## Advanced options
-In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default (**4K preferred · older versions allowed**).
-
-| You want | Choose |
-|---|---|
-| a must-have audio language | Tags: `audio-<language>`. A hard filter: nothing is downloaded without that audio |
-| Swiss German (Mundart) | Tags: `audio-swiss-german`. Only Swiss German, any quality; if none exists nothing is downloaded |
-| extra subtitles | Tags: `subs-<language>`, on top of English, German and the original language |
-
-Old and rare titles are moved to a more tolerant quality profile automatically.
-
-## From Jellyfin: Popular movies and shows
-In Jellyfin, **Popular movies** / **Popular shows** (top bar or side menu) list what is popular in Switzerland and is available. **🌙 Download tonight** / **⚡ Download now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days). Pressing a poster opens its details with the same 🌙 / ⚡ buttons. See [Jellyfin home screen](jellyfin-home.md#popular-movies-and-shows). On the TV: pick 🌙 tonight or ⬇ now as the version and let the 10-second clip run to the end; Back cancels. The same 10 requests per week apply as on the web.
-
-## Who requested what
-Everyone in the household sees all requests on the **Requests** page, with who asked for it. Requests from Jellyfin (🌙/⚡ on Popular, Moonfin, the TV placeholders) are made under your own Seerr account and marked **via Jellyfin**, **via Moonfin** or **via TV**. Without a Seerr account they appear under "Jellyfin popular" with your name in the marker.
-
-## What happens after a request
-Your request is searched for, downloaded (tonight, if **Can wait** is ticked) and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
-
 ## The indexer bar at the top
+
+### What the bar shows
 A thin bar at the top of every Requests page shows how much of the search services (indexers) is used up. **more** opens the full list; click **Indexers** to make the bar smaller.
 
 | You see | Means |
@@ -180,6 +191,8 @@ A thin bar at the top of every Requests page shows how much of the search servic
 | `usage unavailable` | the numbers can't be read right now; requests still work |
 | `SSD 2.9/14 TB 20 %` | the fast disks (both SSDs together) where new downloads land; green under 70 %, yellow 70–80 %, red from 80 % |
 | `HDD 0.5/27 TB 2 %` | the big archive disk; green under 80 %, yellow 80–90 %, red from 90 % |
+
+### Storage and limits
 
 - **Storage:** point at SSD or HDD (or open **more**) for the free space and the rule. From 70 % the SSDs are tidied up at night: titles nobody watched or added for 30 days move to the HDD (down to 60 %). They stay in the library and still play, the first seconds may just take a little longer. From 90 % on the HDD no new downloads are imported.
 
