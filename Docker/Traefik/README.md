@@ -34,6 +34,8 @@ Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%
 
 `requests.holy-grail.ch` sends `Content-Security-Policy-Report-Only` (`dynamic/requests.yml`): watch the browser console for `violates the following Content Security Policy`, then switch to `contentSecurityPolicy`. Expected and harmless: the `'unsafe-eval'` report from Zod 4's `Function("")` probe (try/catch, falls back to non-JIT parsing), so `'unsafe-eval'` stays out.
 
+Enforcing is blocked on a verified browser run: the SSO canary is in no group, so it gets `Permission denied` on `requests` (2026-10-31). To verify, add a non-admin test user to `streaming-requesters`, load the main Seerr pages, collect `securitypolicyviolation` events (only Zod's `unsafe-eval` allowed), then switch the header.
+
 | Service | Host | Entrypoint | Login |
 |---|---|---|---|
 | LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
