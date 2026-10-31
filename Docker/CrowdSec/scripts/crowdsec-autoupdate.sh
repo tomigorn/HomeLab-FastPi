@@ -78,9 +78,9 @@ bouncer_last_pull() { cs bouncers list -o json 2>/dev/null | python3 -c '
 import json,sys,datetime as d
 ts=[d.datetime.fromisoformat(b["last_pull"].replace("Z","+00:00")).timestamp() for b in json.load(sys.stdin) if b.get("last_pull")]
 print(int(max(ts)) if ts else 0)'; }
-probe() { # probe <client-ip> -> HTTP code as Traefik answers that (forwarded) client
+probe() { # probe <client-ip> -> HTTP code Traefik gives that client (realip reads it from Cf-Connecting-Ip)
   local tip; tip=$(docker inspect traefik -f '{{(index .NetworkSettings.Networks "traefik_proxy").IPAddress}}')
-  curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "$TRAEFIK_HOST:443:$tip" -H "X-Forwarded-For: $1" "https://$TRAEFIK_HOST/"; }
+  curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "$TRAEFIK_HOST:443:$tip" -H "Cf-Connecting-Ip: $1" "https://$TRAEFIK_HOST/"; }
 
 verify() { # verify <since-epoch>; prints failures, returns non-zero on any
   local since=$1 bad=0 st i
