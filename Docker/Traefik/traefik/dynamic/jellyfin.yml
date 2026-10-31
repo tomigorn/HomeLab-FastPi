@@ -133,6 +133,21 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Stream URLs need a valid Jellyfin token (B-03, 2026-10-31): Jellyfin serves /Videos/<id>/stream?static=true without one.
+    # The waker's /stream-auth reads the token wherever Jellyfin does (Authorization, X-Emby-Authorization, X-Emby-Token, X-MediaBrowser-Token, api_key/ApiKey in the URL) and asks Jellyfin; OPTIONS passes.
+    # Wake gate first, so a signed-in client still boots beefy; the check needs Jellyfin up.
+    jellyfin-stream:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/(videos|audio)/[^/]+/(stream|main|master|hls|live)`)"
+      entryPoints: ["websecure"]
+      priority: 5
+      service: jellyfin
+      middlewares:
+        - jellyfin-wake
+        - jellyfin-stream-auth
+        - jellyfin-secure-headers
+      tls:
+        certResolver: cloudflare
+
     # Web client files: File Transformation (Plugin Pages, Home Screen Sections) rewrites them but keeps the
     # original ETag, so a cached copy revalidates to 304 forever. Cloudflare's edge kept a pre-plugin
     # main.jellyfin.bundle.js (no userpluginsettings route: "Modular Home" errored for every public user,
@@ -169,6 +184,12 @@ http:
       forwardAuth:
         address: "http://192.168.1.2:9001/gate?port=8096&policy=jellyfin"
         maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
+        trustForwardHeader: false
+
+    jellyfin-stream-auth:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/stream-auth"
+        maxResponseBodySize: 4096
         trustForwardHeader: false
 
     jellyfin-web-no-conditional:
