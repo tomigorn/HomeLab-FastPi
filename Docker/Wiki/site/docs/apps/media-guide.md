@@ -58,6 +58,8 @@ Not here yet? Ask for it. Pick one way:
 | Electricity | cheaper | daytime price |
 | Choose it | default, when you can wait | when you want to watch soon |
 
+Every path at a glance: [When will it download?](requests.md#when-will-it-download).
+
 ### On requests.holy-grail.ch
 - **Search tips:** type `imdb:tt0111161` for an exact title, or `matrix year:1999` to narrow by year.
 - **Download now:** open a title you requested → **⚡ Download now**.

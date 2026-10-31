@@ -15,6 +15,21 @@ Looking for an audiobook? Use the **Audiobooks** entry in the menu (after Series
 !!! info "The media server sleeps"
     Requests runs on the media server. If it is asleep you see a **"Requests is starting"** page: wait about a minute and it opens by itself (reload if it doesn't). If your browser shows the "asleep, sign in to start" page instead, log in and wait, see [Watching](jellyfin.md).
 
+## When will it download?
+The search always runs at once. Only the download waits for the night: **22:00-06:00, and all Sunday** (cheaper power).
+
+| You pick | Download starts |
+|---|---|
+| Requests: **Can wait** ticked (default) | tonight |
+| Requests: **Can wait** unticked | at once |
+| Jellyfin **Popular**: 🌙 Download tonight / ⚡ Download now | tonight / at once |
+| Moonfin: **🌙 Tonight** / **⚡ Now** | tonight / at once |
+| **⚡ Download now** on a title you requested, later | at once (searches first if nothing was found yet) |
+| Later episodes and upgrades | always at night, also after ⚡ |
+| Nothing found yet (🧭) | searched again every night at 04:17, downloads at night when found |
+
+"Tonight" usually starts at 22:05, when the server is woken for waiting downloads; otherwise around 4 in the morning, when it wakes for its night jobs. A download still running at 06:00 pauses (unless it finishes within 15 minutes) and continues the next night.
+
 ## Can wait: download tonight
 The request dialog has a checkbox, **ticked by default**: **Can wait, download tonight (cheaper power)**.
 
