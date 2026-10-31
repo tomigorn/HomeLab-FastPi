@@ -646,3 +646,7 @@ Authentik takes the **leftmost** `X-Forwarded-For` entry, and only from a truste
 | Traefik `real-ip@file` | XFF = one real client IP | an internet client can no longer prepend a fake IP (before 2026-10-24 it could: fake audit log, dodge or abuse the reputation lockout) |
 
 Details: [Traefik README, Client IPs](../Traefik/README.md#client-ips). If Traefik's IP ever changes, update both, or every login shows Traefik's IP and the reputation policy lumps all users together.
+
+## Test-account workflow
+
+`canary-test` is disabled and groupless by default. To test a logged-in app: `scripts/canary-groups.sh add <group>` (allow-list inside), `scripts/canary-enable.sh`, run the test, then `scripts/canary-groups.sh remove <group>`, reset any app-side permission raised for the test (e.g. a Seerr permission bit), `scripts/canary-disable.sh` (also clears all groups), and check with `canary-groups.sh list`. Only the canary, never other users, flows, stages or policies.
