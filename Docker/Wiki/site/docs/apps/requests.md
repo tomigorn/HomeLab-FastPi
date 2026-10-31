@@ -111,18 +111,18 @@ You don't need to choose anything: the server picks the best version automatical
 | 2 | **Resolution and source** | 4K before 1080p; 4K Blu-ray › 4K web |
 | 3 | **HDR** | at the same resolution, HDR beats non-HDR whatever the languages; 4K without HDR still beats 1080p HDR |
 | 4 | **Languages** | original + English + German › original + English › original + German › original only |
-| 5 | Source, release group, sound | Atmos, lossless audio, known good groups |
-| 6 | **Extra languages** (Spanish, …) | only a tie-break: a clean Apple TV / Netflix release beats a dub-heavy one |
+| 5 | Picture and sound | Atmos/DTS:X › lossless (TrueHD = DTS-HD MA = FLAC = PCM, all equal) › DD+ Atmos › DD+ › DD/DTS › AAC; known good groups; fixed re-releases (REPACK) |
+| 6 | Not counted | extra languages, file size, season packs |
 
 Also counted:
 
 | Rule | What it means for you |
 |---|---|
-| **Complete season packs** are preferred over single episodes of the same quality | a season may arrive as one big download: fewer, faster downloads |
+| A **remux** (untouched disc copy, largest) is the last resort | good encodes look the same at a fraction of the size, so they win |
 | Torrents need at least **5 seeders** (old & rare titles: 1) | rare old films can take longer, or may not be found |
 | **Usenet** is preferred when everything else is equal | |
 
-A film that is already there is replaced by a better version (also one with better audio or an extra language) until it is 4K HDR with the original language and English (for English films: with German; anime: 1080p with original + English); after that it stays. German-only dubs are never downloaded.
+A film you already have is replaced only when the new version looks or sounds better (never just bigger, never for an extra dub), until it is 4K HDR with the original language and English (for English films: with German; anime: 1080p with original + English); after that it stays. German-only dubs are never downloaded.
 
 If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically.
 
