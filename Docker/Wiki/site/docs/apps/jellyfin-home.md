@@ -55,6 +55,8 @@ Press the **poster** of a title that isn't here yet: a details page opens (story
 
 Tap the TV icon on a title page, a card, an episode row or in the player, then pick your TV from the list (open Moonfin on the TV first). In the player it is called **Continue on TV**: the TV carries on where you are and the browser stops. Series continue where you stopped.
 
+Top 10 and Popular cards of titles you own show the same small TV icon as other cards (on hover, or tap the round icon on a phone). Coming soon cards have none: tap the card to open the show.
+
 ## Add to My List
 Open a film or series and press the **heart** button. It shows up under **My List ♥**. Press the heart again to remove it.
 

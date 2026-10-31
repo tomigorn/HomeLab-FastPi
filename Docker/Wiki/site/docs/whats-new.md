@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 31 October 2026
 
+**Play on TV: one subtle TV icon everywhere.** Top 10 and Popular cards of titles you own now have it too. [Play on TV](apps/jellyfin-home.md#play-on-tv)
+
 **▶ Play on TV, everywhere.** Open Moonfin on your TV. In Jellyfin on the website, tap the **TV icon** on any card, title page or episode row and pick your TV. In the player it is called **Continue on TV**: the TV carries on at the same second. [Play on TV](apps/jellyfin-home.md#play-on-tv)
 
 ![Play on menu on a Continue Watching card](assets/whats-new/play-on-tv-card.jpg){ loading=lazy }
