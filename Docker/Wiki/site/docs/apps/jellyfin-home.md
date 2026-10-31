@@ -26,7 +26,9 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 | — | **Series Genres** | browse series genres |
 
 ## Popular movies and shows
-**Popular movies** and **Popular shows** (German: **Beliebte Filme** / **Beliebte Serien**) in the top bar, the side menu or, on the TV, the 🎬 / 📺 buttons next to search. Each opens a page with what streams in Switzerland right now, films or series only. The TV apps show the same lists under **Collections & Trending** (see [Trending on the TV](jellyfin.md#trending-on-the-tv)):
+**Popular movies** and **Popular shows** (German: **Beliebte Filme** / **Beliebte Serien**) in the top bar, the side menu or, on the TV, the 🎬 / 📺 buttons next to search. Each opens a page with what streams in Switzerland right now, films or series only. The TV apps show the same lists under **Collections & Trending** (see [Trending on the TV](jellyfin.md#trending-on-the-tv)).
+
+### What the lists show
 
 | Row | Source |
 |---|---|
@@ -34,6 +36,7 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 | Netflix, Prime Video, Disney+, Apple TV+, Sky, Play Suisse, Paramount+, blue TV | most popular on that service in Switzerland (TMDB, data by JustWatch) |
 | Action, Comedy, Drama, … | most popular of the genre on those services (Horror and Romance: films only) |
 
+### The cards
 Every rank is shown; the card says what you can do:
 
 | Card | Means | Press |
@@ -45,19 +48,22 @@ Every rank is shown; the card says what you can do:
 
 Press the **poster** of a title that isn't here yet: a details page opens (story, IMDb / Rotten Tomatoes / TMDB, cast, trailer) with the same buttons. Trailer: press ▶; if it can't play here, **Open on YouTube**. Back / Esc closes the details, the list stays open.
 
+### Requesting from here
+
 - Everyone with a Jellyfin account may request here, no Requests login needed. **10 requests per person per 7 days**; the buttons say when the limit is reached.
 - A series is requested for the season shown on the card (e.g. **S4**).
 - On a computer or TV all 10 cards fit next to each other; on a phone swipe sideways.
 - On the TV the two buttons show only **🌙** and **⚡**; the line next to the row title says what they do.
 - The lists are refreshed every night; a title shows up in Jellyfin after its download. Details on requests: [Requesting films & series](requests.md).
 
-## Play on TV
+## On a title
 
+### Play on TV
 Tap the TV icon on a title page, a card, an episode row or in the player, then pick your TV from the list (open Moonfin on the TV first). In the player it is called **Continue on TV**: the TV carries on where you are and the browser stops. Series continue where you stopped.
 
 Top 10 and Popular cards of titles you own show the same small TV icon as other cards (on hover, or tap the round icon on a phone). Coming soon cards have none: tap the card to open the show.
 
-## Add to My List
+### Add to My List
 Open a film or series and press the **heart** button. It shows up under **My List ♥**. Press the heart again to remove it.
 
 ## Row not updating?

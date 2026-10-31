@@ -10,10 +10,12 @@ The Tracker (Floppy) keeps your ratings, history and want-lists for films, serie
 !!! info "The media server sleeps"
     The Tracker runs on the media server. If it is asleep, log in and wait about a minute on the waiting page.
 
-## Rate from Jellyfin
+## Linked apps
+
+### Rate from Jellyfin
 In the Jellyfin browser, film and series pages have a **Rate in Tracker** link next to the IMDb/TMDB links. It opens the title in the Tracker. The TV and phone apps don't have the link.
 
-## Automatic tracking
+### Automatic tracking
 Audiobookshelf is linked automatically; Jellyfin is linked per person by the admin.
 
 | Link | What it does |
@@ -24,11 +26,11 @@ Audiobookshelf is linked automatically; Jellyfin is linked per person by the adm
 
 Audiobookshelf syncs by itself after your first Tracker login (same username in both). Jellyfin watches: sign in to the Tracker once, then ask the admin to link you.
 
+## On your phone
+Open the address in your phone's browser → menu → **Install app** / **Add to Home screen**.
+
 ## Not available
 | What | Why |
 |---|---|
 | Comics | switched off for safety |
 | Other integrations (set up by you) | switched off for safety, ask the admin instead |
-
-## On your phone
-Open the address in your phone's browser → menu → **Install app** / **Add to Home screen**.

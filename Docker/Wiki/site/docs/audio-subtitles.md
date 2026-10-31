@@ -1,6 +1,8 @@
 # Audio & subtitles
 
-## Which version do we get?
+## Audio
+
+### Which version do we get?
 We always keep the **original language**, plus German and English audio when a release has them. Ranking, best first:
 
 | Rank | Audio in the file |
@@ -16,14 +18,15 @@ Picture quality (resolution, HDR) is decided **before** languages; extra languag
 
 **Subtitles:** English, German and the original language, each synced to the original voices.
 
-## What plays by default?
+### What plays by default?
 Jellyfin starts with the **original language** (the track is labelled **(Original)**), unless you've set a preferred audio language in your profile and that language exists for the title. Tracks you pick yourself are remembered per film or episode.
 
 !!! tip "Set your subtitle language once"
     Jellyfin web or phone app: profile → **Settings** → **Subtitles** → **Preferred subtitle language**. Without it, subtitles only appear for forced parts.
 
-## Subtitles automatically when the audio isn't your language
+## Subtitles
 
+### Subtitles automatically when the audio isn't your language
 Set this once and Jellyfin turns on subtitles by itself whenever the film plays in another language:
 
 1. Open Jellyfin in the browser → your **profile icon** (top right) → **Settings** → **Subtitles**.
@@ -39,8 +42,7 @@ Set this once and Jellyfin turns on subtitles by itself whenever the film plays 
 !!! info
     This is saved in your profile, so it works on your TV and phone apps too. Jellyfin allows one subtitle language. Set **Playback → Preferred audio language** the same way if you want a dub in your language whenever one exists.
 
-## Which subtitle track is which?
-
+### Which subtitle track is which?
 | Track name | Shows |
 |---|---|
 | **English**, **German**, … | everything spoken |
@@ -50,7 +52,6 @@ Set this once and Jellyfin turns on subtitles by itself whenever the film plays 
 Want full subtitles? Never pick **Forced**. With subtitle mode **Smart** (above) Jellyfin picks the right one by itself.
 
 ## Switching audio or subtitles
-
 | Where | Audio | Subtitles |
 |---|---|---|
 | Browser, Android and iPhone apps | film page: **Audio** dropdown under Play; while playing: **Audio** button in the bottom bar | while playing: subtitle button in the bottom bar |

@@ -2,7 +2,7 @@
 
 Moonfin is an app for our Jellyfin server. Same login as Jellyfin, plus requests inside the app.
 
-## 1. Install
+## Install {#1-install}
 
 | Device | How |
 |---|---|
@@ -13,7 +13,7 @@ Moonfin is an app for our Jellyfin server. Same login as Jellyfin, plus requests
 ### Samsung TV (Tizen)
 Baby steps below. The same Developer Mode and Apps2Samsung steps are in the Jellyfin guide with more detail and troubleshooting: [Samsung TV: install the app yourself](jellyfin.md#samsung-tv-install-the-app-yourself). It needs a Windows PC on the **same home network** as the TV, only for installing and updating.
 
-**A. Note the two IP addresses**
+#### A. Note the two IP addresses
 
 | Device | Where |
 |---|---|
@@ -22,7 +22,7 @@ Baby steps below. The same Developer Mode and Apps2Samsung steps are in the Jell
 
 Turn **off any VPN** on the PC during the install.
 
-**B. Developer Mode on the TV**
+#### B. Developer Mode on the TV
 1. On the TV open the **Apps** screen (home bar).
 2. Type **1 2 3 4 5** with the number keys. The remote's on-screen keypad often does not work: use the **SmartThings** phone app (your TV → Remote → number keypad) or a USB keyboard.
 3. In the *Developer Mode* window switch **Developer mode** to **On**.
@@ -32,7 +32,7 @@ Turn **off any VPN** on the PC during the install.
 
 Developer Mode has no timer on Samsung: once installed, Moonfin stays.
 
-**C. Install with Apps2Samsung (Windows)**
+#### C. Install with Apps2Samsung (Windows)
 1. Open https://github.com/Apps2Samsung/Apps2Samsung/releases/latest (no GitHub account needed). Only download from there or https://apps2samsung.com.
 2. Under **Assets** download `Apps2Samsung-v<version>-win-x64.msi` (the `win-x64.zip` works too: *Extract All*, run the program inside).
 3. Open it. If a blue box says **Windows protected your PC**: **More info → Run anyway**. Then start **Apps2Samsung** from the Start menu.
@@ -53,40 +53,16 @@ Developer Mode has no timer on Samsung: once installed, Moonfin stays.
 6. Click **Install** and wait 1-2 minutes. The TV may ask to allow the connection: accept.
 7. On the TV: **Apps** → **Moonfin**. To put it on the home row: highlight it, hold **Enter**, **Move**.
 
-**D. First start:** enter the server `https://jellyfin.holy-grail.ch`, then [sign in with Quick Connect](#2-sign-in-quick-connect-all-devices-incl-samsung) and, for requests, [Code for TV](#4-samsung-requests-sign-in-with-code-for-tv).
+#### D. First start
+Enter the server `https://jellyfin.holy-grail.ch`, then [sign in with Quick Connect](#2-sign-in-quick-connect-all-devices-incl-samsung) and, for requests, [Code for TV](#4-samsung-requests-sign-in-with-code-for-tv).
 
-**Update later:** repeat C with the newest release (B only if the Apps screen no longer says DEVELOP MODE or the PC IP changed: enter the new IP in Developer Mode, restart the TV). Installing over the old app keeps the server and sign-in on the TV. If it fails with *Author certificate not match*, delete Moonfin on the TV (highlight, hold Enter, **Delete**) and install again; you sign in once more.
+#### Update later
+Repeat C with the newest release (B only if the Apps screen no longer says DEVELOP MODE or the PC IP changed: enter the new IP in Developer Mode, restart the TV). Installing over the old app keeps the server and sign-in on the TV. If it fails with *Author certificate not match*, delete Moonfin on the TV (highlight, hold Enter, **Delete**) and install again; you sign in once more.
 
 !!! note "Store versions can lag"
-    The Apple TV and Google Play versions may be older than the newest GitHub release. Version **2.8** adds rank order in collections; if your store version is older, install the file from GitHub (Samsung below, Android further down).
+    The Apple TV and Google Play versions may be older than the newest GitHub release. Version **2.8** adds rank order in collections; if your store version is older, install the file from GitHub (Samsung above, Android below).
 
-## 2. Sign in (Quick Connect, all devices incl. Samsung)
-1. Open Moonfin, enter the server URL: `https://jellyfin.holy-grail.ch`
-2. Choose **Quick Connect**. A code is shown.
-3. On a phone or PC: Jellyfin web > your **profile** > **Quick Connect** > enter the code > confirm.
-4. The app signs in by itself.
-
-## 3. Requests in Moonfin
-1. Open a movie or show, press **Request**.
-2. Open **Advanced** and pick when it should download:
-
-| Pick | Meaning |
-|---|---|
-| 🌙 Tonight | Downloads at night, lower power cost. Default. |
-| ⚡ Now | Downloads in the daytime, higher price. |
-
-3. Submit.
-
-Limit: **10 requests per person per 7 days**. At the limit you see **"Request limit reached"** and Submit is greyed out.
-
-## 4. Samsung: requests sign-in with "Code for TV"
-The Samsung app signs in to Jellyfin with Quick Connect like the others, but its **requests** sign-in needs a username and password. Use a one-time code instead of a password:
-1. On a phone or PC: Jellyfin web → **Popular movies** or **Popular shows** → **Code for TV** (top right).
-2. On the TV: Moonfin **Settings → Requests sign-in → Jellyfin account**.
-3. Enter your Jellyfin **username**, and the **code** as the password (upper/lower case, spaces and dashes don't matter).
-4. The code works once and expires after 10 minutes. Get a new one if it fails.
-
-## 5. Update to version 2.8 or newer
+### Update to version 2.8 or newer {#5-update-to-version-28-or-newer}
 From 2.8, collections show in rank order.
 
 | Device | How |
@@ -96,7 +72,7 @@ From 2.8, collections show in rank order.
 | Samsung TV | Install the newest release again with Apps2Samsung ([Samsung steps](#samsung-tv-tizen), part C) |
 | Android TV / phone, newer than Play | [Install the APK from GitHub](#6-android-install-a-newer-version-from-github) |
 
-## 6. Android: install a newer version from GitHub
+### Android: install a newer version from GitHub {#6-android-install-a-newer-version-from-github}
 Use this when Google Play still has an older version. Download page: https://github.com/Moonfin-Client/Moonfin-Core/releases/latest (**Assets**).
 
 | Device | File |
@@ -122,7 +98,35 @@ Use this when Google Play still has an older version. Download page: https://git
 | *App not installed* | The Play version and the GitHub file are signed with different keys. **Uninstall the Play version first**; you sign in again afterwards (Quick Connect). |
 | Switch back | To return to Play updates, uninstall the file version and install from Play. |
 
-## 7. Playback problems on Apple TV
+## Sign in
+
+### Quick Connect (all devices incl. Samsung) {#2-sign-in-quick-connect-all-devices-incl-samsung}
+1. Open Moonfin, enter the server URL: `https://jellyfin.holy-grail.ch`
+2. Choose **Quick Connect**. A code is shown.
+3. On a phone or PC: Jellyfin web > your **profile** > **Quick Connect** > enter the code > confirm.
+4. The app signs in by itself.
+
+### Samsung: requests sign-in with "Code for TV" {#4-samsung-requests-sign-in-with-code-for-tv}
+The Samsung app signs in to Jellyfin with Quick Connect like the others, but its **requests** sign-in needs a username and password. Use a one-time code instead of a password:
+1. On a phone or PC: Jellyfin web → **Popular movies** or **Popular shows** → **Code for TV** (top right).
+2. On the TV: Moonfin **Settings → Requests sign-in → Jellyfin account**.
+3. Enter your Jellyfin **username**, and the **code** as the password (upper/lower case, spaces and dashes don't matter).
+4. The code works once and expires after 10 minutes. Get a new one if it fails.
+
+## Requests in Moonfin {#3-requests-in-moonfin}
+1. Open a movie or show, press **Request**.
+2. Open **Advanced** and pick when it should download:
+
+| Pick | Meaning |
+|---|---|
+| 🌙 Tonight | Downloads at night, lower power cost. Default. |
+| ⚡ Now | Downloads in the daytime, higher price. |
+
+3. Submit.
+
+Limit: **10 requests per person per 7 days**. At the limit you see **"Request limit reached"** and Submit is greyed out.
+
+## Playback problems on Apple TV {#7-playback-problems-on-apple-tv}
 | Problem | Try this |
 |---|---|
 | Subtitles flicker (appear and disappear) | Switch the subtitle track off and on again, or pick another track (tracks built into the film are steadier than separate subtitle files). From Moonfin 2.8: **Settings → Playback → Player → Video player → Standard**. Known Moonfin issue on Apple TV with separate SRT files |

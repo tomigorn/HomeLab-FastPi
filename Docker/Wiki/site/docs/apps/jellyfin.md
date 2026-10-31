@@ -4,7 +4,9 @@
 
 **Server version:** Jellyfin **12.2** (October 2026). TV and phone apps must be made for version **12**: an older app (10.x) can't connect.
 
-## On the laptop/PC in the browser
+## Sign in
+
+### On the laptop/PC in the browser
 1. Open the address.
 2. Press **Sign In with Holy Grail**. There is no password field in Jellyfin itself: your Holy Grail account is the only login.
 3. Pick something and press play.
@@ -21,7 +23,7 @@
 !!! info "The media server sleeps"
     To save power the media server sleeps when nobody uses it. If it is asleep, your browser shows an **"asleep, sign in to start"** page instead. Log in with Holy Grail and a waiting page starts the server and sends you on to Jellyfin when it's ready, after about a minute. Just wait on the page.
 
-## On your TV or phone (apps)
+### On your TV or phone (apps)
 The apps can't show the Holy Grail login page, so you connect them with **Quick Connect**.
 
 1. Install the **Jellyfin** app. Official apps exist for these:
@@ -44,9 +46,6 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
     Opening an app also wakes a sleeping server. Wait a minute and try again.
 
 **Recommended app on TVs and phones: [Moonfin](moonfin.md)** (home rows like the web, requests with 🌙 Tonight / ⚡ Now). The steps below are for the official Jellyfin apps.
-
-### Trending on the TV
-Open **Media** (Android TV: **My media**) → **Collections & Trending**. Pick a list (Top 10 Switzerland, Coming soon, a service or genre), then a title. Under **Version** (Apple TV: **⋯** next to Play) choose **⬇ Download movie now** or **🌙 Download movie tonight · lower power cost**, then press **Play** and let the 10-second clip run to the end. **Back** cancels. Titles you already have sit at the end of a list and play normally.
 
 ## Samsung TV: install the app yourself
 Use this when Jellyfin is **not in the Samsung app store** on your TV, or the store app says the **server version is not supported**. Looking for [Moonfin](moonfin.md#samsung-tv-tizen) instead? Same steps, with Moonfin's own files. Tested on a 2021 Samsung TV (Tizen 6.0) with the app version 12.2. A reinstall takes about 15 minutes.
@@ -129,12 +128,17 @@ Your watch progress and favourites live on the server, so a reinstall loses noth
 
 Tools: [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) · [jellyfin-tizen-builds](https://github.com/jeppevinkel/jellyfin-tizen-builds) · [install-jellyfin-tizen](https://github.com/Georift/install-jellyfin-tizen). Community projects, not made by Samsung.
 
-## Skip intros automatically
+## Using Jellyfin
+
+### Trending on the TV
+Open **Media** (Android TV: **My media**) → **Collections & Trending**. Pick a list (Top 10 Switzerland, Coming soon, a service or genre), then a title. Under **Version** (Apple TV: **⋯** next to Play) choose **⬇ Download movie now** or **🌙 Download movie tonight · lower power cost**, then press **Play** and let the 10-second clip run to the end. **Back** cancels. Titles you already have sit at the end of a list and play normally.
+
+### Skip intros automatically
 By default you get a **Skip Intro** button. To skip without pressing:
 
 1. Browser: profile picture → **Settings** → **Playback** → **Media Segment Actions** → Intro / Outro Segments → **Skip** ("Ask To Skip" = button).
 2. Moonfin, on each TV: **Settings** → **Playback** → **Skipping & Autoplay** → Intro Segments → **Skip**.
 
-## Rating and tracking
+### Rating and tracking
 - **Heart** = favourite, and you can mark things **played**. The TV and phone apps have no star ratings.
 - In the browser, film and series pages have a **Rate in Tracker** link: see [Watch history](tracker.md).
