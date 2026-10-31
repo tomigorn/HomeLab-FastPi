@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly avatar picker token rotation check (Tue 22:47, low tariff)
+
+[Timer]
+OnCalendar=Tue *-*-* 22:47:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

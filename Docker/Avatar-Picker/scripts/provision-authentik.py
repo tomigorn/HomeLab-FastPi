@@ -2,6 +2,10 @@
 # Run: docker compose -f Docker/Authentik/docker-compose.yaml exec -T server ak shell < this file
 # Prints the API token as "TOKEN=..." on stdout - redirect it into secrets/authentik_token,
 # never into git.
+from datetime import timedelta
+
+from django.utils.timezone import now
+
 from authentik.core.models import Application, Token, TokenIntents, User, UserTypes
 from authentik.outposts.models import Outpost
 from authentik.providers.proxy.models import ProxyMode, ProxyProvider
@@ -18,10 +22,11 @@ for codename in ("view_user", "change_user"):
     role.assign_perms(f"authentik_core.{codename}")
 role.users.add(sa)  # 2026.8: roles bind directly to users
 
-# 2. non-expiring API token
+# 2. API token, 365 days; scripts/rotate-secrets.sh token-auto renews it
 tok, _ = Token.objects.get_or_create(
     identifier="avatar-picker-api",
-    defaults={"user": sa, "intent": TokenIntents.INTENT_API, "expiring": False,
+    defaults={"user": sa, "intent": TokenIntents.INTENT_API, "expiring": True,
+              "expires": now() + timedelta(days=365),
               "description": "Avatar picker - writes attributes.avatar"},
 )
 
