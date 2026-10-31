@@ -145,6 +145,9 @@ Old and rare titles are moved to a more tolerant quality profile automatically.
 ## From Jellyfin: Popular movies and shows
 In Jellyfin, **Popular movies** / **Popular shows** (top bar or side menu) list what is popular in Switzerland and is available. **🌙 Download tonight** / **⚡ Download now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days). Pressing a poster opens its details with the same 🌙 / ⚡ buttons. See [Jellyfin home screen](jellyfin-home.md#popular-movies-and-shows). On the TV: pick 🌙 tonight or ⬇ now as the version and let the 10-second clip run to the end; Back cancels. The same 10 requests per week apply as on the web.
 
+## Who requested what
+Everyone in the household sees all requests on the **Requests** page, with who asked for it. Requests from Jellyfin (🌙/⚡ on Popular, Moonfin, the TV placeholders) are made under your own Seerr account and marked **via Jellyfin**, **via Moonfin** or **via TV**. Without a Seerr account they appear under "Jellyfin popular" with your name in the marker.
+
 ## What happens after a request
 Your request is searched for, downloaded (tonight, if **Can wait** is ticked) and added to Jellyfin, with audio and subtitles as described in [Audio & subtitles](../audio-subtitles.md). Rare films can take longer to find, or may not be found at all.
 
