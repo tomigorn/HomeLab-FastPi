@@ -21,6 +21,8 @@ markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
+  - toc:
+      toc_depth: 3
   - tables
   - pymdownx.details
   - pymdownx.superfences
@@ -54,3 +56,4 @@ nav:
       - Help & FAQ: help.md
 extra_css:
   - assets/css/nav.css
+  - assets/css/toc.css
