@@ -39,6 +39,16 @@ Set this once and Jellyfin turns on subtitles by itself whenever the film plays 
 !!! info
     This is saved in your profile, so it works on your TV and phone apps too. Jellyfin allows one subtitle language. Set **Playback → Preferred audio language** the same way if you want a dub in your language whenever one exists.
 
+## Which subtitle track is which?
+
+| Track name | Shows |
+|---|---|
+| **English**, **German**, … | everything spoken |
+| … **Hearing Impaired** / SDH | everything spoken + sound cues ([music]) and speaker names |
+| … **Forced** | only what is *not* spoken in that language (foreign dialogue, signs); exists only when the audio is in that language |
+
+Want full subtitles? Never pick **Forced**. With subtitle mode **Smart** (above) Jellyfin picks the right one by itself.
+
 ## Switching audio or subtitles
 
 | Where | Audio | Subtitles |
