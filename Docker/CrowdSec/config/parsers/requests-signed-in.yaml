@@ -1,0 +1,7 @@
+# A Seerr request that reached the backend has passed Authentik, so it is a signed-in requester: its page bursts (one API call per request card) are not a crawl.
+name: local/requests-signed-in
+description: "Ignore Seerr traffic that passed Authentik forward auth"
+whitelist:
+  reason: "signed-in Seerr requester"
+  expression:
+    - "evt.Meta.traefik_router_name == 'requests@file' && evt.Parsed.traefik_server_url not in ['', '-']"

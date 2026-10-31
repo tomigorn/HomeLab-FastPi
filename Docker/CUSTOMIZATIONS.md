@@ -166,6 +166,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | Collections, Traefik log acquisition | `docker-compose.yaml` COLLECTIONS, `config/acquis.yaml` | `docker compose up -d` | `cs.collections`: traefik, http-cve, base-http-scenarios → ok; `cs.acquis-traefik`: acquisition metrics → 1+ | hub renames |
+| Signed-in Seerr traffic whitelisted (parser `local/requests-signed-in`: router `requests@file` with a backend = passed Authentik) | `config/parsers/requests-signed-in.yaml`, mounted in `docker-compose.yaml` | `docker compose up -d --force-recreate` | `cs.requests-signed-in`: `tests/test_requests_whitelist.sh` → 4 PASS | Traefik parser field renames (`traefik_router_name`, `traefik_server_url`), router renamed |
 | Home IP allowlist (LAPI DB) | README "Home IP allowlist" | cscli allowlists add home | `cs.allowlist-home`: → is allowlisted | DB migration |
 | LAPI + bouncer, exporter + autoupdate timers | `systemd/` | `install.sh` | `cs.lapi`: → successfully; `cs.bouncer-pull`: → under 10 min; `cs.units`: → active active | none |
 

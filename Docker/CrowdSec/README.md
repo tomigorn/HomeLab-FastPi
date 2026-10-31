@@ -267,3 +267,15 @@ docker exec crowdsec cscli allowlists add home <new-ip> -d "home WAN IP"
 
 The smoke test check "crowdsec home IP allowlisted" fails when the current home IP
 (`lang-tool.ddns.net`) is no longer the allowlisted one.
+
+## Signed-in Seerr requesters are never counted (2026-10-31)
+
+Seerr's Requests page fires one API call per request card (~40 at once), which trips `crowdsecurity/http-crawl-non_statics` (40 distinct paths); download-now's 403 on titles the user has not requested ("no button", by design) then adds `http-probing`. On 2026-10-31 that banned a friend's two IPs for 4 h and locked him out of every holy-grail site, SSO included.
+
+| | |
+|---|---|
+| Rule | `config/parsers/requests-signed-in.yaml` (`local/requests-signed-in`, s02-enrich whitelist) |
+| Whitelisted | router `requests@file` **and** a backend URL in the log line, i.e. Authentik let it through |
+| Still counted | everything a middleware answers on that router (302 to login, bouncer 403, wake-gate 503), all other routers |
+| Test | `tests/test_requests_whitelist.sh` (runs `cscli explain` on the live engine) |
+| Unban someone | `docker exec crowdsec cscli decisions delete --ip <ip>` (exact IP) |

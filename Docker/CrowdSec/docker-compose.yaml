@@ -33,6 +33,7 @@ services:
       - /home/pi/Projects/Docker/Traefik/traefik/logs:/var/log/traefik:ro
       - ./config/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
       - crowdsec_config:/etc/crowdsec
+      - ./config/parsers/requests-signed-in.yaml:/etc/crowdsec/parsers/s02-enrich/requests-signed-in.yaml:ro
       - crowdsec_data:/var/lib/crowdsec/data
     networks:
       - crowdsec
