@@ -1,0 +1,30 @@
+# Authentik service API tokens (Docker/Avatar-Picker/scripts/rotate-secrets.sh token-auto, weekly timer avatar-token-rotate): the timer rotates a token 45 days before it expires, so these fire only when that broke. Data: authentik_tokens.prom. Tests: tests/authentik-tokens_test.yml
+groups:
+  - name: authentik-tokens
+    rules:
+      - alert: AuthentikTokenExpiringSoon
+        expr: (authentik_token_expires_timestamp_seconds - time() < 30 * 86400) and on(identifier) authentik_token_expires_timestamp_seconds > 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Authentik token {{ $labels.identifier }} expires in {{ $value | humanizeDuration }}"
+          description: "The weekly rotation did not renew it. Run <code>Docker/Avatar-Picker/scripts/rotate-secrets.sh token-rotate</code> on fastpi; log: <code>journalctl -u avatar-token-rotate</code>."
+
+      - alert: AuthentikTokenRotationFailed
+        expr: authentik_token_rotation_success == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Authentik token {{ $labels.identifier }}: rotation failed"
+          description: "The old token was put back. <code>journalctl -u avatar-token-rotate</code> on fastpi, then <code>rotate-secrets.sh token-rotate</code>."
+
+      - alert: AuthentikTokenCheckStale
+        expr: time() - authentik_token_check_timestamp_seconds > 9 * 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Authentik token {{ $labels.identifier }}: no rotation check for {{ $value | humanizeDuration }}"
+          description: "The weekly timer did not run. <code>systemctl list-timers avatar-token-rotate.timer</code> on fastpi."

@@ -1,0 +1,54 @@
+# promtool test rules tests/authentik-tokens_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/authentik-tokens.yml
+evaluation_interval: 1m
+tests:
+  - name: a token 29 days from expiry warns, 31 days and never-expiring do not
+    interval: 1m
+    input_series:
+      - series: 'authentik_token_expires_timestamp_seconds{identifier="soon"}'
+        values: '2505600x200'
+      - series: 'authentik_token_expires_timestamp_seconds{identifier="later"}'
+        values: '2678400x200'
+      - series: 'authentik_token_expires_timestamp_seconds{identifier="never"}'
+        values: '0x200'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: AuthentikTokenExpiringSoon
+        exp_alerts:
+          - exp_labels: {severity: warning, identifier: soon}
+            exp_annotations:
+              summary: "Authentik token soon expires in 4w 0d 22h 0m 0s"
+              description: "The weekly rotation did not renew it. Run <code>Docker/Avatar-Picker/scripts/rotate-secrets.sh token-rotate</code> on fastpi; log: <code>journalctl -u avatar-token-rotate</code>."
+  - name: a failed rotation warns after 10m
+    interval: 5m
+    input_series:
+      - series: 'authentik_token_rotation_success{identifier="avatar-picker-api"}'
+        values: '1 0x4'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AuthentikTokenRotationFailed
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AuthentikTokenRotationFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, identifier: avatar-picker-api}
+            exp_annotations:
+              summary: "Authentik token avatar-picker-api: rotation failed"
+              description: "The old token was put back. <code>journalctl -u avatar-token-rotate</code> on fastpi, then <code>rotate-secrets.sh token-rotate</code>."
+  - name: no check for 10 days is stale
+    interval: 1m
+    input_series:
+      - series: 'authentik_token_check_timestamp_seconds{identifier="avatar-picker-api"}'
+        values: '0x15000'
+    alert_rule_test:
+      - eval_time: 8d
+        alertname: AuthentikTokenCheckStale
+        exp_alerts: []
+      - eval_time: 10d
+        alertname: AuthentikTokenCheckStale
+        exp_alerts:
+          - exp_labels: {severity: warning, identifier: avatar-picker-api}
+            exp_annotations:
+              summary: "Authentik token avatar-picker-api: no rotation check for 1w 3d 0h 0m 0s"
+              description: "The weekly timer did not run. <code>systemctl list-timers avatar-token-rotate.timer</code> on fastpi."

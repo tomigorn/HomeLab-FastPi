@@ -115,6 +115,16 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `JellyfinPopularFailed` | `jf_popular_last_run_success == 0` for 10 min (run failed or too many title lookups failed; lists of the last good run stay), warning |
 | `JellyfinPopularStale` | no run for more than 2 days, for 1 h (after 9 days the request backend refuses everything), warning |
 
+## Authentik service tokens
+
+`prometheus/rules/authentik-tokens.yml`, test `prometheus/tests/authentik-tokens_test.yml`. Source: `Avatar-Picker/scripts/rotate-secrets.sh token-auto` (timer `avatar-token-rotate`, Tue 22:47) writes `authentik_tokens.prom`; it rotates the token 45 days before expiry.
+
+| Alert | When |
+|---|---|
+| `AuthentikTokenExpiringSoon` | token expires in < 30 days, for 1 h (rotation did not run or failed), warning |
+| `AuthentikTokenRotationFailed` | `authentik_token_rotation_success == 0` for 10 min (old token put back), warning |
+| `AuthentikTokenCheckStale` | no check for more than 9 days, for 1 h, warning |
+
 ## beefy storage and mover
 
 `prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The mover counters are only written on runs with the SSD tier >= 70 % (absent otherwise); `beefy_disk_smart_raw` comes from `smartctl -n standby`, so series have gaps. `ssd` = both SSDs combined. The daily digest shows SSD/HDD used %, SSD TB written, HDD start/stops and power cycles of the last 24 h and, after a run that moved something, titles, GB and SSD before -> after.
