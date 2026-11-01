@@ -121,7 +121,8 @@ API key: file `secrets/vt_api_key` (owner `65014`, mode `0400`, read via `VT_API
 | `clamav_files_scanned` | host, mode |
 | `clamav_scan_errors` | host, mode |
 | `clamav_files_vanished` (deleted before the scan reached them) | host, mode |
-| `clamav_infected_last_run` | host, mode |
+| `clamav_infected_last_run` (without EICAR self-tests: `MalwareFound` never fires on one) | host, mode |
+| `clamav_test_hits_last_run` (EICAR `Eicar-Test-Signature`, `TEST_SIG`: still reported, quarantined and exit 1) | host, mode |
 | `clamav_files_skipped_large` (over 2047M, not scanned) | host, mode |
 | `clamav_infected_total` (counter, persisted) | host |
 | `clamav_signature_age_seconds` (from the daily DB build time) | host |
