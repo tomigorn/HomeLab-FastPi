@@ -4,7 +4,6 @@
   lt-token.py list                  labels only, never tokens
   lt-token.py remove <Person-Device>
   lt-token.py quiet                 turn the access log off for routers made before that was the default
-  lt-token.py hosts                 rewrite every router to the current host list (after LT_HOSTS changed)
 Edits the gitignored Traefik/traefik/dynamic/languagetool-token.yml (Traefik reloads it by itself)."""
 import os
 import re
@@ -16,11 +15,7 @@ import tempfile
 import time
 
 FILE = os.environ.get("LT_TOKEN_FILE", "/home/pi/Projects/Docker/Traefik/traefik/dynamic/languagetool-token.yml")
-# First = the one new links name; the others keep working (lang-tool.ddns.net until its users moved).
-HOSTS = os.environ.get("LT_HOSTS", "minerva-lt.duckdns.org,lang-tool.ddns.net").split(",")
-HOST = HOSTS[0]
-HOST_RULE = " || ".join(f"Host(`{h}`)" for h in HOSTS)
-HOST_RULE = f"({HOST_RULE})" if len(HOSTS) > 1 else HOST_RULE
+HOST = os.environ.get("LT_HOST", "lang-tool.ddns.net")
 BACKUP_DIR = os.environ.get("LT_BACKUP_DIR", "/home/pi/backups/languagetool-token")
 LABEL_RE = re.compile(r"^[A-Za-z0-9]+(-[A-Za-z0-9]+)+$")
 MW_HEADER = "\n  middlewares:\n"
@@ -29,7 +24,7 @@ MW_HEADER = "\n  middlewares:\n"
 def router(label, token):
     return f"""
     languagetool-token-{label}:
-      rule: "{HOST_RULE} && PathPrefix(`/lt-{token}`)"
+      rule: "Host(`{HOST}`) && PathPrefix(`/lt-{token}`)"
       entryPoints: ["langtool"]
       priority: 5
       service: languagetool
@@ -124,15 +119,6 @@ def quiet():
     return count
 
 
-def hosts():
-    text = open(FILE).read()
-    new, count = re.subn(r'^(      rule: ")(?!' + re.escape(HOST_RULE) + r' && )[^"]*?( && PathPrefix\(`/lt-[0-9a-zA-Z]+`\)")$',
-                         lambda m: m.group(1) + HOST_RULE + m.group(2), text, flags=re.M)
-    if count:
-        _write(new)
-    return count
-
-
 def main(argv):
     if argv[:1] == ["list"]:
         print("\n".join(labels(open(FILE).read())))
@@ -140,8 +126,6 @@ def main(argv):
         print(add(argv[1]))
     elif argv[:1] == ["quiet"]:
         print(f"{quiet()} router(s) changed")
-    elif argv[:1] == ["hosts"]:
-        print(f"{hosts()} router(s) changed")
     elif argv[:1] == ["remove"] and len(argv) == 2:
         remove(argv[1])
         print(f"removed {argv[1]}")

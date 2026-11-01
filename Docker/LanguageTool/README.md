@@ -23,7 +23,7 @@ Two layers:
 
 | Where | URL                                    | When used                    |
 |-------|----------------------------------------|------------------------------|
-| Pi    | `https://minerva-lt.duckdns.org/lt-<TOKEN>` | phone, work laptop, anywhere (personal token); the old host `lang-tool.ddns.net` with the same token still works until its users moved |
+| Pi    | `https://lang-tool.ddns.net/lt-<TOKEN>` | phone, work laptop, anywhere (personal token) |
 | Mac   | `http://localhost:8010`                | browser extension on the Mac |
 
 Read `REVIEW.md` first — it explains what changed from the original plan
@@ -40,15 +40,14 @@ One link per person and device; the label is `Person-Device` or `Person-Device-C
 
 ```bash
 cd ~/Projects/Docker/LanguageTool/Raspi/scripts
-./lt-token.py add Filip-LinuxLaptop     # prints the link once: https://minerva-lt.duckdns.org/lt-<64 hex>
+./lt-token.py add Filip-LinuxLaptop     # prints the link once: https://lang-tool.ddns.net/lt-<64 hex>
 ./lt-token.py list                      # labels only, never the links
 ./lt-token.py remove Filip-LinuxLaptop  # revoke
-./lt-token.py hosts                     # after LT_HOSTS in lt-token.py changed (e.g. lang-tool.ddns.net dropped): rewrites every router
 ./lt-token.py quiet                     # access log off for routers made before 2026-10-28 (new ones get it); keeps the file 0640 group 65026 so Traefik can read it (sudo chgrp)
 ```
 
 - Traefik picks the change up by itself (no restart); a backup of the old file goes to `~/backups/languagetool-token/` (mode 600, outside the repo).
-- Test the new link: `curl -s -o /dev/null -w '%{http_code}\n' https://minerva-lt.duckdns.org/lt-<token>/check --data 'language=en-GB&text=This is a tset.'` → `200`.
+- Test the new link: `curl -s -o /dev/null -w '%{http_code}\n' https://lang-tool.ddns.net/lt-<token>/check --data 'language=en-GB&text=This is a tset.'` → `200`.
 - Send the link privately (it is the password). Never commit it: it lives only in the gitignored `Traefik/traefik/dynamic/languagetool-token.yml`.
 - Tests: `python3 Raspi/scripts/test_lt_token.py`.
 

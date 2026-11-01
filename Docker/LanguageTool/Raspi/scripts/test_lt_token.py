@@ -50,10 +50,9 @@ class LtToken(unittest.TestCase):
 
     def test_add_prints_url_and_adds_router_and_middleware(self):
         url = self.lt.add("Filip-LinuxLaptop")
-        m = re.fullmatch(r"https://minerva-lt\.duckdns\.org/lt-([0-9a-f]{64})", url)
+        m = re.fullmatch(r"https://lang-tool\.ddns\.net/lt-([0-9a-f]{64})", url)
         self.assertTrue(m)
         text = self.file.read_text()
-        self.assertIn(f"rule: \"(Host(`minerva-lt.duckdns.org`) || Host(`lang-tool.ddns.net`)) && PathPrefix(`/lt-{m.group(1)}`)\"", text)
         self.assertEqual(self.lt.labels(text), ["Anna-Laptop", "Filip-LinuxLaptop"])
         self.assertIn(f"PathPrefix(`/lt-{m.group(1)}`)", text)
         self.assertIn(f'regex: "^/lt-{m.group(1)}/', text)
@@ -152,24 +151,6 @@ class LtToken(unittest.TestCase):
         self.assertNotIn("accessLogs", text.split("\n  middlewares:\n")[1])
         self.assertEqual(self.lt.quiet(), 0)
         self.assertEqual(self.file.read_text(), text)
-
-    def test_hosts_rewrites_every_router_to_the_current_hosts_once(self):
-        self.lt.add("Filip-LinuxLaptop")
-        self.file.write_text(self.file.read_text().replace("(Host(`minerva-lt.duckdns.org`) || Host(`lang-tool.ddns.net`))", "Host(`lang-tool.ddns.net`)"))
-        self.assertEqual(self.lt.hosts(), 2)
-        text = self.file.read_text()
-        self.assertEqual(text.count("rule: \"(Host(`minerva-lt.duckdns.org`) || Host(`lang-tool.ddns.net`)) && PathPrefix(`/lt-"), 2)
-        self.assertIn("PathPrefix(`/lt-aaaa`)", text)
-        self.assertEqual(self.lt.hosts(), 0)
-
-    def test_single_host_has_no_parentheses(self):
-        os.environ["LT_HOSTS"] = "minerva-lt.duckdns.org"
-        try:
-            lt = load(self.file)
-        finally:
-            del os.environ["LT_HOSTS"]
-        self.assertEqual(lt.hosts(), 1)
-        self.assertIn('rule: "Host(`minerva-lt.duckdns.org`) && PathPrefix(`/lt-aaaa`)"', self.file.read_text())
 
 
 if __name__ == "__main__":
