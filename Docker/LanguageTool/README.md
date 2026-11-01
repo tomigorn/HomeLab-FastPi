@@ -125,6 +125,7 @@ Tags: <https://hub.docker.com/r/erikvl87/languagetool/tags>. Never `:latest`.
 
 The thin image also runs `apk upgrade` at build (Alpine curl/openssl/ca-certificates fixes the upstream tag lacks). Docker caches that layer, so new Alpine patches need a build without cache:
 `docker compose -f Raspi/docker-compose.yaml build --pull --no-cache && docker compose -f Raspi/docker-compose.yaml up -d`, then `test.sh`.
+Last no-cache rebuild: 2026-11-01 (openjdk17 17.0.20 → 17.0.21 fixes; rollback image `rollback.invalid/languagetool-local:2026-11-01-languagetool`).
 
 The Pi runs a thin local image (`languagetool-local`, see `Raspi/Dockerfile`) as a
 dedicated uid 65038: the upstream image's uid 100 is the host's `messagebus` (D-Bus)
