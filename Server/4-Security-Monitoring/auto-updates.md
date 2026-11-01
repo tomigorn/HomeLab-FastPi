@@ -37,11 +37,13 @@ Only the digest behind the tag written in the repo moves, so the repo stays the 
 | What | `rebuild_local.py`, list `Docker/_global/rebuild-local.conf` (keys documented there). One entry per night or two, serialized (lock), RAM floor 1.2 GB available + 15 GB disk before the build and before the recreate |
 | Images | Mon tower-waker, beefy-waker · Tue avatar-picker · Wed m4b-auto-merge, mouse-port-updater · Thu clamav-local, virustotal-local · Fri languagetool-local · Sat backdrop-carousel, stonks · Sun wg-chores, wg-chores-sqliteweb |
 | Steps | digest-pinned `FROM` → pin set to the tag's current digest · `build --pull --no-cache` · fingerprint (image Env, apk/dpkg/Python packages, build context): unchanged → old image kept, nothing restarts · tests in the new image (`unittest`, `test`) · `update-project.sh recreate` (container checks, `check`, post-update check, rollback to the previous image) · moved pin committed (that file only, never pushed) |
+| Guard | optional `guard` (shell) before the build and before the recreate; non-zero = `deferred` (no alert, next week), e.g. beefy's Jellyfin while someone plays |
 | Failure | old image back on its tag, pin reverted, Telegram (oob-alert.sh); the Monday digest lists failed ones or none successful in 15 days |
 | Metrics | `rebuild_local_result{project,result,reason}`, `rebuild_local_last_ok_timestamp_seconds`, `rebuild_local_last_run_timestamp_seconds` in `rebuild_local.prom` |
 | By hand | `python3 Docker/_global/scripts/rebuild_local.py [--dry-run] <project>` (named = any weekday; `REBUILD_FORCE=1` recreates an unchanged image, `TEST_FORCE_FAIL=1` = rollback drill; as pi set `REBUILD_STATE`/`REBUILD_TEXTFILE` to a scratch dir or run `sudo systemctl start rebuild-local`) |
 | Install | `sudo install -m 0644 Docker/_global/systemd/rebuild-local.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now rebuild-local.timer` |
 | Test | `python3 Docker/_global/scripts/test_rebuild_local.py` |
+| beefy | same script, own list `Docker/_global/rebuild-local.conf` in the beefy repo, timer 04:27 in the maintenance window (Mon Antivirus, Sat Jellyfin); Seerr and FlareSolverr keep their own rebuild timers |
 | Not covered | LoyaltyCards-Sync (parked), Jenkins (stopped); pinned version bumps (`erikvl87/languagetool:6.8` → 6.9) stay manual (Cup) |
 
 ## Switches

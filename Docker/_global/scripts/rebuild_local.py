@@ -16,6 +16,7 @@ Usage: rebuild_local.py [--dry-run] [project ...]   (named projects run whatever
 Env: REBUILD_CONF / REBUILD_STATE / REBUILD_TEXTFILE (paths), REBUILD_HOST (label, default short hostname),
      REBUILD_DEADLINE (HH:MM local: no new entry starts in the two hours from then), TEST_FORCE_FAIL=1 (update-project.sh rollback drill),
      REBUILD_FORCE=1 (recreate even when the fingerprint is unchanged)
+Conf key guard: shell command run before the build and again before the recreate; non-zero = deferred to next week (no alert), e.g. someone is playing
 """
 import fcntl
 import hashlib
@@ -40,7 +41,7 @@ TEXTFILE = Path(os.environ.get("REBUILD_TEXTFILE", "/var/lib/node-exporter/textf
 HOST = os.environ.get("REBUILD_HOST") or socket.gethostname().split(".")[0]
 DEADLINE = os.environ.get("REBUILD_DEADLINE", "")
 DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-KEYS = {"project": "", "day": "", "services": [], "build": "", "context": "", "test": "", "unittest": "", "check": "", "backups": []}
+KEYS = {"project": "", "day": "", "services": [], "build": "", "context": "", "test": "", "unittest": "", "check": "", "backups": [], "guard": ""}
 MIN_AVAILABLE_MB = int(os.environ.get("REBUILD_MIN_AVAILABLE_MB", "1200"))
 MIN_DISK_GB = 15
 FAILED = ("build_failed", "test_failed", "rolled_back", "rollback_failed", "error", "skipped")
@@ -63,6 +64,17 @@ def parse_conf(text: str) -> list[dict]:
             raise ValueError(f"bad day {item.get('day')!r} for {row['project']}")
         rows.append(row)
     return rows
+
+
+def guard_reason(cmd: str, cwd: Path) -> str:
+    """'' when the guard passes (or there is none), else why it did not (its last output line)."""
+    if not cmd:
+        return ""
+    r = sh(["bash", "-c", cmd], cwd=cwd, timeout=1800)
+    if r.returncode == 0:
+        return ""
+    lines = (r.stdout + r.stderr).strip().splitlines()
+    return lines[-1][-200:] if lines else f"guard failed (rc={r.returncode})"
 
 
 def due(row: dict, today: str, only: set) -> bool:
@@ -276,7 +288,7 @@ def retag(old: dict[str, tuple[str, str]]) -> None:
 
 
 def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
-    """-> (result, reason). result: updated | unchanged | build_failed | test_failed | rolled_back | rollback_failed | error | skipped."""
+    """-> (result, reason). result: updated | unchanged | deferred | build_failed | test_failed | rolled_back | rollback_failed | error | skipped."""
     d = project_dir(row["project"])
     config = compose_config(d)
     if not config:
@@ -303,6 +315,11 @@ def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
             if not dry:
                 f.write_text(new)
     log("  before: " + ", ".join(f"{s}={r} {i[7:19]}" for s, (r, i) in old.items()))
+    if (busy := guard_reason(row["guard"], d)):
+        for f, (text, _) in pins.items():
+            if not dry:
+                f.write_text(text)
+        return "deferred", busy
     if dry:
         return "dry_run", ""
 
@@ -362,6 +379,10 @@ def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
         retag(old)
         revert_pins()
         return "skipped", floor
+    if (busy := guard_reason(row["guard"], d)):
+        retag(old)
+        revert_pins()
+        return "deferred", busy
     uenv = dict(os.environ, SERVICES=" ".join(old), CHECK=row["check"])
     r = subprocess.run([str(SCRIPTS / "update-project.sh"), str(d), "recreate", *row["backups"]],
                        env=uenv, text=True, capture_output=True, timeout=2700)

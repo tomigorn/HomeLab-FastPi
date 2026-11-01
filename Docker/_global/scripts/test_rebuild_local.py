@@ -13,6 +13,7 @@ from rebuild_local import (  # noqa: E402
     due,
     fingerprint,
     from_refs,
+    guard_reason,
     image_env,
     parse_conf,
     project_dir,
@@ -27,7 +28,7 @@ def test_parse_conf_reads_entries_with_defaults():
                       '[[image]]\nproject = "/srv/Stonks"\nday = "sat"\nservices = ["stonks"]\n'
                       'build = "docker build -t stonks:latest /x"\ncontext = "/x"\nunittest = "python -m unittest"\ncheck = "curl -sf http://x/"\n')
     assert rows[0] == {"project": "Tower-Waker", "day": "Mon", "services": [], "build": "", "context": "",
-                       "test": "", "unittest": "", "check": "", "backups": []}
+                       "test": "", "unittest": "", "check": "", "backups": [], "guard": ""}
     assert rows[1]["day"] == "Sat" and rows[1]["services"] == ["stonks"] and rows[1]["context"] == "/x"
 
 
@@ -39,6 +40,13 @@ def test_parse_conf_refuses_bad_day_and_unknown_keys():
         except ValueError:
             continue
         raise AssertionError(bad)
+
+
+def test_guard_reason_empty_when_ok_else_last_output_line():
+    assert guard_reason("", Path("/")) == ""
+    assert guard_reason("true", Path("/")) == ""
+    assert guard_reason("echo checking; echo 1 playing now; exit 1", Path("/")) == "1 playing now"
+    assert guard_reason("exit 3", Path("/")) == "guard failed (rc=3)"
 
 
 def test_due_by_weekday_or_named():
