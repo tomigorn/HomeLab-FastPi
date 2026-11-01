@@ -170,7 +170,7 @@ fastpi's two USB disks (`seagate-black` Expansion `0bc2:231a`, `seagate-red` One
 
 - A TLS handshake runs no Traefik middleware: wake-gated routes (Jellyfin, Seerr, Nextcloud) are checked without waking beefy/tower. Traefik's own `traefik_tls_certs_not_after` lists every cert in the ACME store, including ones no router uses any more; the alerts use only the served certs.
 - `.ch` RDAP (rdap.nic.ch) has no end date: `source="anniversary"` = next registration anniversary. holy-grail.ch has its paid end date in `domains.toml` (`expires`, `source="manual"`; GoDaddy, renewed yearly; Cloudflare only does the DNS): a set date warns through `subscription-alerts.py` (Telegram) and shows with the subscriptions, `DomainExpiringSoon` covers only domains without one. After each renewal update `expires`.
-- DuckDNS `minerva-lt.duckdns.org` replaces `lang-tool.ddns.net` (no confirm mail). No-IP free hostnames (`lang-tool.ddns.net`, `wg-aemtli.ddns.net`) need the 30-day confirm mail; the deadline is not readable from outside, so the alert is "stops resolving".
+- No-IP free hostnames (`lang-tool.ddns.net`, `wg-aemtli.ddns.net`) need the 30-day confirm mail; the deadline is not readable from outside, so the alert is "stops resolving".
 - Subscriptions: no rule, `subscription-alerts.py` sends the Telegram warnings; the dashboard and digest show days left.
 
 | Alert | Fires when | Severity |

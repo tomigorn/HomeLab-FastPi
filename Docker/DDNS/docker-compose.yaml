@@ -5,7 +5,6 @@ services:
 # #########################################################
 # DuckDNS #################################################
 # #########################################################
-  # DuckDNS names: hermes-vpn (WireGuard), minerva-lt (LanguageTool, replaces lang-tool.ddns.net 2026-11-01).
   duckdns:
     image: lscr.io/linuxserver/duckdns:latest
     container_name: duckdns
@@ -37,7 +36,6 @@ services:
 # #########################################################
 # No-IP ###################################################
 # #########################################################
-  # No-IP: wg-aemtli.ddns.net (WG-Chores stays on No-IP, owner decision 2026-11-01; needs the 30-day No-IP confirmation) and lang-tool.ddns.net until the LanguageTool users moved to minerva-lt.duckdns.org.
   noip:
     image: ghcr.io/noipcom/noip-duc:latest
     container_name: noip
