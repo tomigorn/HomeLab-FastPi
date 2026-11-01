@@ -21,7 +21,7 @@
 
 | Tier | Projects | Behaviour |
 |---|---|---|
-| `auto` | Claude-Mockups, Wiki, Server-Specs (static caddy), M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
+| `auto` | Claude-Mockups, Wiki, Server-Specs, Notes (static caddy), M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
 | `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup, Audiobook-Requests (digest-pinned) | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
 | `notify`, custom builds | Avatar-Picker, M4b-Auto-Merge, BackdropCarousel, Stonks, LanguageTool/Raspi | never pulled (`build:` or a local tag): reported as `local_build` (quiet); rebuilt weekly by `rebuild-local`, see "Local builds" |
 | `edge` | Authentik, Traefik, WireguardVPN, CrowdSec (engine/hub also by `crowdsec-autoupdate`), Beefy-Waker, Tower-Waker | like notify (machine.md: owner's yes) |
