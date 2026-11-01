@@ -66,6 +66,8 @@ MemoryMax=2G
 WantedBy=default.target
 ```
 
+Drop-in `claude-remote.service.d/scratch.conf` moves the session scratch off the RAM-backed `/tmp` at each start (`Server/8-Claude-Scratch/README.md`).
+
 ### What makes it "always available"
 
 - **`enabled`** — symlinked into `default.target.wants`, so it starts at user login / boot.

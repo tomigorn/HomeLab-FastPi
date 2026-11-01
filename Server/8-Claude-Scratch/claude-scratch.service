@@ -1,0 +1,13 @@
+[Unit]
+Description=Claude Code scratch /tmp/claude-1000 on the NVMe (bind mount, keeps the RAM-backed /tmp small)
+Documentation=file:///home/pi/Projects/Server/8-Claude-Scratch/README.md
+After=tmp.mount local-fs.target
+Requires=tmp.mount
+Before=user@1000.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/libexec/fastpi/claude-scratch.sh
+
+[Install]
+WantedBy=multi-user.target

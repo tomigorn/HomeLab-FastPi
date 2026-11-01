@@ -8,6 +8,7 @@ DEST=${ROOT_SCRIPTS_DEST:-/usr/local/libexec/fastpi}
 SCRIPTS=(
   Docker/grafana/container-exporter/container_exporter.py
   Docker/grafana/smart-exporter/smart_exporter.py
+  Server/8-Claude-Scratch/claude-scratch.sh
   Server/4-Security-Monitoring/security_scan.py
 )
 if [[ ${1:-} == --check ]]; then
