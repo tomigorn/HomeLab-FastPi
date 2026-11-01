@@ -2,7 +2,7 @@
 #
 # https://qbittorrent-audiobooks.holy-grail.ch/   (LAN/VPN only, no public DNS record)
 #
-# Traefik reaches gluetun_mouse over traefik_mouse (internal, only these two). qBittorrent keeps its login
+# Traefik reaches gluetun_mouse over traefik_mouse (internal; gluetun admits only Traefik, the importer and the host, see mouse/gluetun/post-rules.txt). qBittorrent keeps its login
 # but bypasses it for Traefik alone: Options -> WebUI -> "Bypass authentication for clients in whitelisted
 # IP subnets" = 10.24.25.3/32. Reverse-proxy support stays OFF, so qBit checks the socket peer, not X-Forwarded-For.
 #

@@ -239,6 +239,7 @@ services:
       - gluetun-data:/tmp/gluetun
       - ./secrets/gluetun:/gluetun
       # S-05: only prowlarr-gate (65057) and Prowlarr itself (65054) may reach 127.0.0.1:9696; qBit/SAB/Mousehole are refused.
+      # A-06: chain MOUSE-ETH1 filters NEW traffic from traefik_mouse per source and port, rest dropped.
       - ./gluetun/post-rules.txt:/iptables/post-rules.txt:ro
     logging:
       driver: "json-file"
@@ -248,7 +249,7 @@ services:
     networks:
       mouse_network:
         ipv4_address: 10.24.32.2
-      # Traefik (10.24.25.3) reaches qBittorrent :8080 and SABnzbd :8081 here, nothing else on this network (H-2).
+      # Only Traefik .3 (8080/8081/9697), the importer .5 (8080/9697) and the host .1 (8080) get in here; ABR .4 and books-proxy .6 are dropped (post-rules.txt).
       traefik_mouse:
         ipv4_address: 10.24.25.2
 

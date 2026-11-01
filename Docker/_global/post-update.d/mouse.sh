@@ -24,6 +24,7 @@ fi
 if want gluetun; then
   check mouse.gluetun-pin ':v3\.41\.3$' "$(docker inspect -f '{{.Config.Image}}' gluetun_mouse)"
   check mouse.gluetun-server '^SERVER_HOSTNAMES=node-ch-07\.protonvpn\.net VPN_PORT_FORWARDING=on$' "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' gluetun_mouse | grep -E '^(SERVER_HOSTNAMES|VPN_PORT_FORWARDING)=' | sort | xargs)"
+  check mouse.eth1-guard '^ok blocked$' "$(docker exec audiobook-importer python3 -c "import socket;socket.create_connection(('10.24.25.2',8080),3);print('ok')" 2>/dev/null) $(docker exec audiobookrequest python3 -c "import socket;s=socket.socket();s.settimeout(3);print('open' if s.connect_ex(('10.24.25.2',5010))==0 else 'blocked')" 2>/dev/null)"
   check mouse.gluetun-control-auth '^401 401$' "$(echo "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:8000/v1/portforward) $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:8000/v1/vpn/status)")"
   check mouse.vpn-egress '^vpn$' "$(h=$(curl -s -m 8 https://ifconfig.me/ip); q=$(docker exec qbittorrent_mouse wget -qO- -T 8 https://ifconfig.me/ip 2>/dev/null); [[ -n $q && -n $h && $q != "$h" ]] && echo vpn || echo "home or none")"
 fi

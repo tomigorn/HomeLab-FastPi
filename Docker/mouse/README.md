@@ -25,7 +25,8 @@ Host network, but smbd/nmbd, wsdd2 (Windows discovery) and avahi (`_smb._tcp`, F
 | VPN status | https://vpn-status-mouse.holy-grail.ch | `homelab-admins` | `ssh -L 8087:127.0.0.1:8087 fastpi` |
 | Prowlarr (audiobooks) | https://prowlarr-audiobooks.holy-grail.ch | `streaming-admins` | `docker exec prowlarr_mouse curl -s 127.0.0.1:9696/ping`; no other way in (gate below); config `/mnt/seagate-red/prowlarr/config` |
 
-- Traefik reaches gluetun over `traefik_mouse` (internal, Traefik `10.24.25.3`, gluetun `10.24.25.2`). Routes: `Traefik/traefik/dynamic/{qbittorrent,sabnzbd}-audiobooks.yml`.
+- Traefik reaches gluetun over `traefik_mouse` (internal, Traefik `10.24.25.3`, gluetun `10.24.25.2`). Routes: `Traefik/traefik/dynamic/{qbittorrent,sabnzbd,prowlarr}-audiobooks.yml`.
+- gluetun eth1 allow-list (`gluetun/post-rules.txt`, chain `MOUSE-ETH1`): Traefik → 8080/8081/9697, importer `.5` → 8080/9697, host `.1` → 8080 (abr-bar-usage); everything else from `traefik_mouse` dropped. Counters: `docker exec gluetun_mouse iptables -L MOUSE-ETH1 -n -v`.
 - qBittorrent: auth bypass only for `10.24.25.3/32` (Options → WebUI), reverse-proxy support off.
 - `sabnzbd.ini` (edit only while stopped): `local_ranges = 10.24.32.0/24, 192.168.1.0/24, 10.24.25.3/32, 10.24.5.5/32`, `host_whitelist` += `sabnzbd-audiobooks.holy-grail.ch`, `[misc]` username/password set (SABnzbd login in front of the UI as a second layer; values only in the file).
 
