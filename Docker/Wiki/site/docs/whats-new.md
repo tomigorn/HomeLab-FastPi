@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, where to click, and the page with the details.
 
+## 1 November 2026
+
+**Admins: no weekly request limit.** Jellyfin admins are no longer held to the 10 requests per 7 days from Popular and the TV; their requests still count toward the 30 per day for everyone. [Requests](apps/requests.md)
+
 ## 31 October 2026
 
 **Translated subtitles.** No German or English subtitle after two days? A machine-translated one appears, labelled **German (translated)** / **English (translated)**, and is replaced automatically when a human one is found. [Translated subtitles](audio-subtitles.md#translated-subtitles)

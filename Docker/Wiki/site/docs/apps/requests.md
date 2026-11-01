@@ -43,7 +43,7 @@ The search box understands four prefixes. Only one per search.
     German-language comedies since 2015, score at least 7, on Netflix CH: Original language *German* · Genres *Comedy* · Release date from *2015* · TMDB user score *7–10*, minimum votes *200* · Streaming services *Netflix*.
 
 ### From Jellyfin: Popular movies and shows
-In Jellyfin, **Popular movies** / **Popular shows** (top bar or side menu) list what is popular in Switzerland and is available. **🌙 Download tonight** / **⚡ Download now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days). Pressing a poster opens its details with the same 🌙 / ⚡ buttons. See [Jellyfin home screen](jellyfin-home.md#popular-movies-and-shows). On the TV: pick 🌙 tonight or ⬇ now as the version and let the 10-second clip run to the end; Back cancels. The same 10 requests per week apply as on the web.
+In Jellyfin, **Popular movies** / **Popular shows** (top bar or side menu) list what is popular in Switzerland and is available. **🌙 Download tonight** / **⚡ Download now** on a card makes the same request as here, without signing in to Requests (any Jellyfin account, 10 per 7 days; Jellyfin admins have no own limit, only the 30 per day for everyone). Pressing a poster opens its details with the same 🌙 / ⚡ buttons. See [Jellyfin home screen](jellyfin-home.md#popular-movies-and-shows). On the TV: pick 🌙 tonight or ⬇ now as the version and let the 10-second clip run to the end; Back cancels. The same limits apply as on the web.
 
 ### Advanced options
 In the request dialog, **Advanced** is only needed in special cases. Leave the quality profile on the default (**4K preferred · older versions allowed**).
