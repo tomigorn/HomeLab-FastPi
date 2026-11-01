@@ -18,7 +18,7 @@ tests:
         exp_alerts:
           - exp_labels: {severity: warning, identifier: soon}
             exp_annotations:
-              summary: "Authentik token soon expires in 4w 0d 22h 0m 0s"
+              summary: "Authentik token soon expires in 28d 22h 0m 0s"
               description: "The weekly rotation did not renew it. Run <code>Docker/Avatar-Picker/scripts/rotate-secrets.sh token-rotate</code> on fastpi; log: <code>journalctl -u avatar-token-rotate</code>."
   - name: a failed rotation warns after 10m
     interval: 5m
@@ -50,5 +50,5 @@ tests:
         exp_alerts:
           - exp_labels: {severity: warning, identifier: avatar-picker-api}
             exp_annotations:
-              summary: "Authentik token avatar-picker-api: no rotation check for 1w 3d 0h 0m 0s"
+              summary: "Authentik token avatar-picker-api: no rotation check for 10d 0h 0m 0s"
               description: "The weekly timer did not run. <code>systemctl list-timers avatar-token-rotate.timer</code> on fastpi."
