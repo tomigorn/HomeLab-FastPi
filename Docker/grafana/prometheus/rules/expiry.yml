@@ -50,7 +50,7 @@ groups:
           description: "The nightly TLS check got no handshake from Traefik for {{ $labels.host }} (router gone or Traefik down at 05:50)."
 
       - alert: DomainExpiringSoon
-        expr: (domain_expiry_timestamp_seconds - time()) / 86400 <= 30
+        expr: (domain_expiry_timestamp_seconds{source!="manual"} - time()) / 86400 <= 30
         for: 1h
         labels:
           severity: warning
@@ -58,7 +58,7 @@ groups:
           summary: "{{ $labels.domain }}: {{ if eq $labels.source \"anniversary\" }}renewal due{{ else }}registration ends{{ end }} in {{ $value | printf \"%.0f\" }} days"
           description: >-
             {{ if eq $labels.source "anniversary" }}The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end.
-            Check auto-renew at the registrar; after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>.{{ else }}The registration of {{ $labels.domain }} ends in {{ $value | printf "%.0f" }} days ({{ $labels.source }}). Renew it at the registrar.{{ end }}
+            Check auto-renew at the registrar (holy-grail.ch: GoDaddy, Cloudflare only does the DNS); after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>.{{ else }}The registration of {{ $labels.domain }} ends in {{ $value | printf "%.0f" }} days ({{ $labels.source }}). Renew it at the registrar (holy-grail.ch: GoDaddy).{{ end }}
 
       - alert: DomainStatusProblem
         expr: domain_rdap_status_ok == 0
@@ -67,7 +67,7 @@ groups:
           severity: warning
         annotations:
           summary: "{{ $labels.domain }} has a problem status in RDAP"
-          description: "The registry reports {{ $labels.domain }} as inactive, on hold, in redemption or pending delete. Check it at the registrar now: DNS for every service depends on it."
+          description: "The registry reports {{ $labels.domain }} as inactive, on hold, in redemption or pending delete. Check it at the registrar now (holy-grail.ch: GoDaddy, Cloudflare only does the DNS): DNS for every service depends on it."
 
       - alert: DdnsHostnameNotResolving
         expr: ddns_hostname_resolves == 0

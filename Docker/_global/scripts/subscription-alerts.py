@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Telegram warnings for the subscription deadlines in Seerr's indexer-bar/limits.toml (beefy). See README "Subscription alerts".
+"""Telegram warnings for the subscription deadlines in Seerr's indexer-bar/limits.toml (beefy) and the domains with a set end date in grafana/status-exporter/domains.toml. See README "Subscription alerts".
 Stages per end date: yellow <= 30 days left, orange <= 7, red on the end date, red "expired yesterday" the day after. Each stage once per (service, end date); a renewed date starts fresh.
 beefy sleeps, so the list is cached on fastpi: refreshed over ssh when beefy answers (never woken), the cache is never deleted.
 Usage: subscription-alerts.py [--test]"""
@@ -24,6 +24,8 @@ STALE_DAYS = 7
 EMOJI = {"yellow": "🟡", "orange": "🟠", "red": "🔴", "expired": "🔴"}
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+DOMAINS_TOML = Path(os.environ.get("DOMAINS_TOML", HERE.parent.parent / "grafana" / "status-exporter" / "domains.toml"))
+DOMAIN_HOWTO = "set the new date (<code>expires</code>) in <code>grafana/status-exporter/domains.toml</code> (fastpi)."
 HOWTO = "After renewing: set the new date (<code>expires</code>) in <code>indexer-bar/limits.toml</code> (Seerr, beefy). The bar and these warnings follow within a minute."
 
 
@@ -52,6 +54,20 @@ def parse_subscriptions(text):
         if "name" not in s or not (s.get("lifetime") or isinstance(s.get("expires"), dt.date)):
             raise ValueError(f"subscription {s.get('name')!r}: needs expires or lifetime")
     return subs
+
+
+def domain_kind(c):
+    return "domain" + (f", {c['registrar']}" if c.get("registrar") else "") + (f" (DNS {c['dns']})" if c.get("dns") else "")
+
+
+def domain_subscriptions(text):
+    out = []
+    for d, c in (tomllib.loads(text).get("domains") or {}).items():
+        if isinstance((c or {}).get("expires"), dt.date):
+            where = f"Renew {d} at {c['registrar']}" + (f" ({c['renew']})" if c.get("renew") else "") if c.get("registrar") else f"Renew {d} at its registrar"
+            dns = f"; {c['dns']} only does the DNS" if c.get("dns") else ""
+            out.append({"name": d, "kind": domain_kind(c), "expires": c["expires"], "howto": f"{where}{dns}. Then {DOMAIN_HOWTO}"})
+    return out
 
 
 def key(s):
@@ -106,7 +122,8 @@ def render(group, cache_age_days):
     age = int(cache_age_days)
     if is_stale(cache_age_days):
         lines.append(f"⚠️ Subscription list is {age} days old (beefy not reachable)")
-    details = HOWTO + (f"\nSubscription list is {age} day{'' if age == 1 else 's'} old." if 1 <= age and not is_stale(cache_age_days) else "")
+    howto = "\n".join(([HOWTO] if any("howto" not in s for s in items) else []) + [s["howto"] for s in items if "howto" in s])
+    details = howto + (f"\nSubscription list is {age} day{'' if age == 1 else 's'} old." if 1 <= age and not is_stale(cache_age_days) else "")
     lines += ["", f"<blockquote expandable>{details}</blockquote>"]
     return "\n".join(lines)
 
@@ -150,20 +167,29 @@ def send_oob(msg):
     return subprocess.run([str(OOB), msg]).returncode == 0
 
 
-def run(state_dir, fetch, send, today, now):
+def run(state_dir, fetch, send, today, now, domains_text=None):
     cache, state_file = state_dir / "limits.toml", state_dir / "state.json"
     state_dir.mkdir(parents=True, exist_ok=True)
     refresh_cache(cache, fetch)
+    errors, subs, age = 0, [], 0
     if not cache.exists():
         print("subscription-alerts: no cached list and beefy not reachable", file=sys.stderr)
-        return 1
-    age = cache_age_days(cache, now)
-    if is_stale(age):
-        print(f"subscription-alerts: cached list is {int(age)} days old (beefy not reachable)", file=sys.stderr)
+        errors = 1
+    else:
+        age = cache_age_days(cache, now)
+        if is_stale(age):
+            print(f"subscription-alerts: cached list is {int(age)} days old (beefy not reachable)", file=sys.stderr)
+        try:
+            subs = parse_subscriptions(cache.read_text())
+        except ValueError as e:
+            print(f"subscription-alerts: cached list unusable: {e}", file=sys.stderr)
+            errors = 1
     try:
-        subs = parse_subscriptions(cache.read_text())
-    except ValueError as e:
-        print(f"subscription-alerts: cached list unusable: {e}", file=sys.stderr)
+        subs += domain_subscriptions(DOMAINS_TOML.read_text() if domains_text is None else domains_text)
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        print(f"subscription-alerts: domains.toml unusable: {e}", file=sys.stderr)
+        errors = 1
+    if not subs:
         return 1
     try:
         state = json.loads(state_file.read_text())
@@ -177,9 +203,10 @@ def run(state_dir, fetch, send, today, now):
         else:
             failed += 1
             print(f"subscription-alerts: send failed for {g['stage']} {g['expires']}", file=sys.stderr)
-    prune(state, subs)
+    if not errors:
+        prune(state, subs)
     state_file.write_text(json.dumps(state, indent=1, sort_keys=True))
-    return 1 if failed else 0
+    return 1 if failed or errors else 0
 
 
 def main():

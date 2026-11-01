@@ -51,12 +51,14 @@ tests:
               summary: "No TLS handshake for d.holy-grail.ch"
               description: "The nightly TLS check got no handshake from Traefik for d.holy-grail.ch (router gone or Traefik down at 05:50)."
 
-  - name: domains, status and ddns
+  - name: domains, status and ddns (a set end date warns through subscription-alerts.py, not here)
     interval: 5m
     input_series:
       - series: 'domain_expiry_timestamp_seconds{domain="holy-grail.ch",source="anniversary"}'
         values: '2160000x40'
       - series: 'domain_expiry_timestamp_seconds{domain="example.net",source="rdap"}'
+        values: '1728000x40'
+      - series: 'domain_expiry_timestamp_seconds{domain="near.ch",source="manual"}'
         values: '1728000x40'
       - series: 'domain_expiry_timestamp_seconds{domain="far.ch",source="manual"}'
         values: '90000000x40'
@@ -79,18 +81,18 @@ tests:
           - exp_labels: {severity: warning, domain: holy-grail.ch, source: anniversary}
             exp_annotations:
               summary: "holy-grail.ch: renewal due in 25 days"
-              description: "The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end. Check auto-renew at the registrar; after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>."
+              description: "The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end. Check auto-renew at the registrar (holy-grail.ch: GoDaddy, Cloudflare only does the DNS); after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>."
           - exp_labels: {severity: warning, domain: example.net, source: rdap}
             exp_annotations:
               summary: "example.net: registration ends in 20 days"
-              description: "The registration of example.net ends in 20 days (rdap). Renew it at the registrar."
+              description: "The registration of example.net ends in 20 days (rdap). Renew it at the registrar (holy-grail.ch: GoDaddy)."
       - eval_time: 2h
         alertname: DomainStatusProblem
         exp_alerts:
           - exp_labels: {severity: warning, domain: holy-grail.ch}
             exp_annotations:
               summary: "holy-grail.ch has a problem status in RDAP"
-              description: "The registry reports holy-grail.ch as inactive, on hold, in redemption or pending delete. Check it at the registrar now: DNS for every service depends on it."
+              description: "The registry reports holy-grail.ch as inactive, on hold, in redemption or pending delete. Check it at the registrar now (holy-grail.ch: GoDaddy, Cloudflare only does the DNS): DNS for every service depends on it."
       - eval_time: 2h
         alertname: DdnsHostnameNotResolving
         exp_alerts:

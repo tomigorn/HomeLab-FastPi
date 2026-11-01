@@ -4,7 +4,7 @@
   certs          TLS handshake with Traefik (127.0.0.1:443, SNI) for every hostname routed with a certResolver in Traefik/traefik/dynamic: the cert users really get, its end date and whether it verifies. A TLS handshake runs no middleware, so wake-gated routes never wake beefy/tower.
   domains        RDAP (no account, no paid API) for the domains in domains.toml: registration end, status. .ch RDAP has no end date: a date set in domains.toml wins, else the next registration anniversary (a .ch registration runs in whole years from it, so an active domain is paid at least until then).
                  Also resolves the DDNS hostnames in domains.toml and compares them with the WAN address (Cloudflare's /cdn-cgi/trace).
-  subscriptions  the subscription list cached by subscription-alerts.py (Seerr limits.toml) + MAM VIP from Audiobook-Requests/abr-bar/limits.toml.
+  subscriptions  the subscription list cached by subscription-alerts.py (Seerr limits.toml) + MAM VIP from Audiobook-Requests/abr-bar/limits.toml + domains with a set end date in domains.toml.
   indexers       the audiobook indexer bar's usage.json (Audiobook-Requests).
 A failed source leaves its old file in place; each file carries its own timestamp for the staleness alerts.
 Usage: status_exporter.py certs|domains|subscriptions|indexers [...]"""
@@ -238,8 +238,10 @@ def run_domains() -> int:
 
 # --- subscriptions ---------------------------------------------------------
 
-def subscription_lines(seerr_toml: str, mam: dict, updated: float) -> str:
+def subscription_lines(seerr_toml: str, mam: dict, updated: float, domains: dict | None = None) -> str:
     subs = list(tomllib.loads(seerr_toml).get("subscriptions") or [])
+    subs += [{"name": d, "kind": "domain" + (f", {c['registrar']}" if c.get("registrar") else "") + (f" (DNS {c['dns']})" if c.get("dns") else ""), "expires": c["expires"]}
+             for d, c in (domains or {}).items() if isinstance((c or {}).get("expires"), dt.date)]
     if (mam or {}).get("vip_expires"):
         subs.append({"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date.fromisoformat(mam["vip_expires"])})
     # one series per label set (node-exporter rejects the whole file on a duplicate); the earliest expiry wins
@@ -260,7 +262,7 @@ def run_subscriptions() -> int:
     with open(ABR_LIMITS, "rb") as f:
         mam = tomllib.load(f).get("mam") or {}
     write_atomic(TEXTFILE_DIR / "status_subscriptions.prom",
-                 subscription_lines(SUBS_CACHE.read_text(), mam, SUBS_CACHE.stat().st_mtime))
+                 subscription_lines(SUBS_CACHE.read_text(), mam, SUBS_CACHE.stat().st_mtime, tomllib.loads(DOMAINS.read_text()).get("domains")))
     return 0
 
 

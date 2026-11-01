@@ -252,6 +252,39 @@ def test_run_without_any_cache_is_an_error_not_a_crash():
         assert run(d, lambda: None, lambda m: True, D(2026, 10, 26)) == 1
 
 
+DOMAINS = """
+[domains."holy-grail.ch"]
+expires = 2027-02-17
+registrar = "GoDaddy"
+renew = "yearly at godaddy.com"
+dns = "Cloudflare"
+
+[domains."anniversary-only.ch"]
+
+[ddns."x.ddns.net"]
+"""
+
+
+def test_domains_with_a_set_end_date_are_subscriptions():
+    assert sa.domain_subscriptions(DOMAINS) == [{"name": "holy-grail.ch", "kind": "domain, GoDaddy (DNS Cloudflare)", "expires": D(2027, 2, 17),
+                                                 "howto": "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com); Cloudflare only does the DNS. Then set the new date (<code>expires</code>) in <code>grafana/status-exporter/domains.toml</code> (fastpi)."}]
+
+
+def test_run_warns_for_a_domain_with_its_own_howto():
+    sent = []
+    with tempfile.TemporaryDirectory() as d:
+        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2027, 1, 20), time.time(), DOMAINS) == 0
+        assert len(sent) == 1 and "holy-grail.ch ends in 28 days" in sent[0] and "· domain, GoDaddy (DNS Cloudflare)" in sent[0]
+        assert "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com)" in sent[0] and "limits.toml" not in sent[0]
+
+
+def test_run_domain_warns_even_without_the_beefy_list():
+    sent = []
+    with tempfile.TemporaryDirectory() as d:
+        assert sa.run(Path(d), lambda: None, lambda m: sent.append(m) or True, D(2027, 2, 12), time.time(), DOMAINS) == 1
+        assert len(sent) == 1 and "holy-grail.ch ends in 5 days" in sent[0]
+
+
 def test_test_message():
     m = sa.test_message()
     assert m.split("\n")[0].startswith("🧪 <b>Test: ")

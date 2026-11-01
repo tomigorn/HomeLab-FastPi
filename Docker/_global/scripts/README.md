@@ -34,7 +34,7 @@
 ## subscription-alerts
 | | |
 |---|---|
-| What | `subscription-alerts.py`: reads the `[[subscriptions]]` of Seerr's `indexer-bar/limits.toml` (beefy), sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts |
+| What | `subscription-alerts.py`: reads the `[[subscriptions]]` of Seerr's `indexer-bar/limits.toml` (beefy) and the domains with `expires` in `grafana/status-exporter/domains.toml` (holy-grail.ch: GoDaddy, yearly, paid until 2027-02-17; Cloudflare only DNS), sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts |
 | Stages | 🟡 ≤ 30 days left, 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"). Same colours as the Seerr bar. Services on the same end date and stage share one message |
 | Once | each stage once per (service, end date) in `/var/lib/subscription-alerts/state.json`. Renewal = change `expires`: the new date starts fresh, the old date's warnings are dropped. First run late (e.g. 23 days left) sends only the current stage. A failed send is retried at the next run |
 | When | `subscription-alerts.timer` daily 05:37 Europe/Zurich (low-power hours, outside the DST hour and the nightly jobs), 5 min after boot, catch-up if missed. fastpi only, beefy is never woken |

@@ -117,6 +117,12 @@ class Subscriptions(unittest.TestCase):
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="Eweka",kind="Usenet provider"}} {int(ex.local_midnight(dt.date(2026, 11, 18)))}', text)
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="MAM VIP",kind="MyAnonamouse class"}} {int(ex.local_midnight(dt.date(2027, 1, 27)))}', text)
 
+    def test_domains_with_a_set_end_date(self):
+        doms = {"holy-grail.ch": {"expires": dt.date(2027, 2, 17), "registrar": "GoDaddy", "dns": "Cloudflare"}, "other.ch": {}}
+        text = ex.subscription_lines(self.TOML, {}, 1, doms)
+        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="holy-grail.ch",kind="domain, GoDaddy (DNS Cloudflare)"}} {int(ex.local_midnight(dt.date(2027, 2, 17)))}', text)
+        self.assertNotIn("other.ch", text)
+
     def test_no_vip(self):
         self.assertNotIn("MAM VIP", ex.subscription_lines(self.TOML, {"vip_expires": ""}, 1))
 
