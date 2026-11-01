@@ -82,7 +82,7 @@ Cause of the old 12 h run (2026-10-25/26): the whole root filesystem (1.45 M fil
 - Weekly cadence: a finished pass (`all.finished`) blocks a new one for 6 days; the next pass starts at the following 22:30 and builds a fresh list.
 - Alerts: `clamav.prom` `mode="all"` is rewritten after every session: `clamav_files_listed` = pass size, `clamav_files_scanned` = done so far, `clamav_infected_last_run` = hits of the whole pass (`all.pass-hits`, reset when a new pass starts), so `MalwareFound` stays up across nights. Exit 1 only for hits found in that session.
 - Pass in progress: `cat /var/lib/clamav-scan/all.done` of `wc -l < /var/lib/clamav-scan/all.list`. Restart a pass early: `rm /var/lib/clamav-scan/all.finished`; throw away progress: `rm /var/lib/clamav-scan/all.list`.
-- Settings: `SCAN_RESUME`, `CHUNK_FILES`, `PASS_DAYS` (6); test hook `SCAN_NOW_FILE`.
+- Settings: `SCAN_RESUME`, `CHUNK_FILES`, `PASS_DAYS` (6), `SCAN_WINDOW` (`22:00-06:00`, may wrap midnight; beefy `04:07-04:40`), `SCAN_SUNDAY` (1 = all of Sunday too; beefy 0); test hook `SCAN_NOW_FILE`.
 
 ## Results
 
@@ -132,7 +132,7 @@ API key: file `secrets/vt_api_key` (owner `65014`, mode `0400`, read via `VT_API
 
 ## Settings (env in `docker-compose.yaml`)
 
-`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `NEW_CLAMD`, `NEW_PARALLEL`, `CLAMD_RUNNING_CONF`, `SCAN_RESUME`, `CHUNK_FILES`, `PASS_DAYS` (Weekly host scan: scope), `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `USE_CLAMD`, `SCAN_EXCLUDE_DIRS` (see Weekly host scan), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
+`SCAN_ROOTS`, `QUARANTINE`, `STATE`, `TEXTFILE`, `HOST`; optional `NEW_CLAMD`, `NEW_PARALLEL`, `CLAMD_RUNNING_CONF`, `SCAN_RESUME`, `CHUNK_FILES`, `PASS_DAYS`, `SCAN_WINDOW`, `SCAN_SUNDAY` (Weekly host scan: scope), `SCAN_HOST=0` (`all` without `/host`; set in `clamav`, in `clamav-hostscan` `SCAN_ROOTS=/host`), `USE_CLAMD`, `SCAN_EXCLUDE_DIRS` (see Weekly host scan), `SCAN_BTRFS=1` (tower: `btrfs subvolume find-new` instead of `find`), `DB_DIR`.
 
 ## Tests
 
