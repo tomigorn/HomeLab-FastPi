@@ -26,6 +26,19 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Admin UI and admin-only API: LAN/VPN only (review D-03). Flows, user UI, OIDC and outposts stay public via the router above.
+    authentik-admin:
+      rule: "Host(`sso.holy-grail.ch`) && (PathPrefix(`/if/admin/`) || PathPrefix(`/api/v3/admin/`) || PathPrefix(`/api/v3/rbac/`) || PathPrefix(`/api/v3/policies/`) || PathPrefix(`/api/v3/providers/`) || PathPrefix(`/api/v3/propertymappings/`) || PathPrefix(`/api/v3/outposts/`) || PathPrefix(`/api/v3/crypto/`) || PathPrefix(`/api/v3/managed/`) || (PathPrefix(`/api/v3/events/`) && !PathPrefix(`/api/v3/events/notifications/`)))"
+      entryPoints: ["websecure"]
+      priority: 40
+      service: authentik
+      middlewares:
+        - local-networks@file
+        - default-rate-limit@file
+        - authentik-secure-headers
+      tls:
+        certResolver: cloudflare
+
   middlewares:
     authentik-secure-headers:
       headers:

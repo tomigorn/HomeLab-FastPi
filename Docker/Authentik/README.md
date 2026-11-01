@@ -67,6 +67,7 @@ that bypasses this IdP (see the Nextcloud project docs).
 - `authentik-postgresql` — PostgreSQL 16 (data in the `database` named volume)
 - `authentik-server` — web UI + API (ingress over `traefik_authentik`, shared only with Traefik; other apps cannot reach :9000)
 - `authentik-worker` — background tasks, including sending email
+- Admin UI + admin API (`authentik-admin` router in `Traefik/traefik/dynamic/sso.yml`) only from LAN/VPN (D-03); flows, user UI, OIDC and outposts stay public
 
 No Redis (current Authentik does not require it). All `AUTHENTIK_*` / `PG_*`
 config — including the email settings — is read from `.env` via `env_file`.

@@ -8,6 +8,7 @@ if want traefik; then
   check traefik.authentik-ip '^10\.24\.15\.3$' "$(docker inspect -f '{{(index .NetworkSettings.Networks "traefik_authentik").IPAddress}}' traefik)"
   check traefik.forward-auth 'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve traefik.holy-grail.ch:443:192.168.1.2 https://traefik.holy-grail.ch/dashboard/ | cut -c1-60)"
   check traefik.local-networks '403' "$(docker exec claude-mockups wget -q -S -T 8 --no-check-certificate --header 'Host: grafana.holy-grail.ch' -O /dev/null https://172.24.255.3/ 2>&1 | grep -m1 -o 'HTTP/[0-9.]* [0-9]*')"
+  check traefik.sso-admin-local '^403 200$' "$(tcode --resolve sso.holy-grail.ch:443:$(dig +short @1.1.1.1 sso.holy-grail.ch | grep -E '^[0-9.]+$' | head -1) https://sso.holy-grail.ch/if/admin/) $(tcode --resolve sso.holy-grail.ch:443:192.168.1.2 https://sso.holy-grail.ch/if/admin/)"
   check traefik.real-ip '^real$' "$(ip=$(dig +short @1.1.1.1 sso.holy-grail.ch | head -1); curl -s -m 8 -o /dev/null --resolve "sso.holy-grail.ch:443:$ip" -H 'X-Forwarded-For: 203.0.113.77' https://sso.holy-grail.ch/-/health/live/; sleep 1
     r=$(docker logs --since 15s authentik-server 2>&1 | grep 'health/live' | grep -o '"remote":"[^"]*"' | tail -1 | cut -d'"' -f4)
     case $r in 203.0.113.77) echo spoofed ;; 172.*|10.*|192.168.*|"") echo "proxy ${r:-none}" ;; *) echo real ;; esac)"
