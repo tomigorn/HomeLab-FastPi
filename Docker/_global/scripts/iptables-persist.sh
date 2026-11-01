@@ -32,5 +32,5 @@ write() { # tool out chains...
   echo "persisted to $out"
 }
 
-write iptables /etc/iptables/rules.v4 DOCKER-USER HOST-GUARD HOST-OUT-GUARD
+write iptables /etc/iptables/rules.v4 DOCKER-USER HOST-GUARD HOST-LAN-GUARD HOST-OUT-GUARD
 write ip6tables /etc/iptables/rules.v6 HOST-GUARD6

@@ -5,6 +5,7 @@ check host.security-units-installed '^0$' "$(n=0; for f in "$SMD"/security-*.ser
 check host.security-scan-fresh '^none$' "$(curl -s -m 5 http://127.0.0.1:9093/api/v2/alerts | python3 -c 'import json,sys; a=sorted({x["labels"]["alertname"] for x in json.load(sys.stdin) if x["labels"]["alertname"] in ("SecurityScanStale","ClamavScanStale","ContainerExporterStale")}); print(" ".join(a) or "none")')"
 check host.auto-update-timer '^active active$' "$(systemctl is-active auto-update.timer image-cleanup.timer | xargs)"
 check host.host-guard-persisted '^1$' "$(grep -c '^-A INPUT -i br-+ -j HOST-GUARD$' /etc/iptables/rules.v4 2>/dev/null || sudo -n grep -c '^-A INPUT -i br-+ -j HOST-GUARD$' /etc/iptables/rules.v4)"
+check host.lan-guard '^1 1$' "$(sudo -n iptables -C INPUT -i eth0 -j HOST-LAN-GUARD 2>/dev/null && echo 1 || echo 0) $(sudo -n grep -c '^-A INPUT -i eth0 -j HOST-LAN-GUARD$' /etc/iptables/rules.v4)"
 check host.backup-rest '^active append-only beefy-only$' "$(systemctl is-active beefy-backup-rest.service) $(systemctl show -p ExecStart --value beefy-backup-rest.service | grep -q -- '--append-only' && echo append-only || echo NOT-append-only) $([ "$(systemctl show -p IPAddressAllow --value beefy-backup-rest.service)" = 192.168.1.102/32 ] && echo beefy-only || echo open)"
 check host.backup-timers '^active active active$' "$(systemctl is-active fastpi-backup.timer fastpi-restore-test.timer beefy-repo-maint.timer | xargs)"
 check host.textfile-perms '^pi:65046 2775$' "$(stat -c '%U:%g %a' /var/lib/node-exporter/textfile)"

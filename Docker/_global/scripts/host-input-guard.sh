@@ -3,7 +3,7 @@
 #
 # Traffic that enters from a Docker bridge (docker0, br-*) and is addressed to the host hits INPUT: DNS to AdGuard, Traefik → host-network services, docker-proxy hairpins (VPN peers → 192.168.1.2:443), cloudflared → sshd. Without this guard every container and VPN peer reaches every host listener (sshd, samba, AdGuard admin, HA, go2rtc, wakers).
 # Only the flows below are allowed from bridges, by source and port; everything else from a bridge is dropped.
-# VPN peers reach only SSH, DNS, the web apps (80/443 via Traefik + SSO) and ping: the owner rarely uses the VPN, ask before opening more. LAN (eth0) and loopback are not matched; OUTPUT to beefy is host-output-guard.sh.
+# VPN peers reach only SSH, DNS, the web apps (80/443 via Traefik + SSO) and ping: the owner rarely uses the VPN, ask before opening more. LAN (eth0/wlan0) gets HOST-LAN-GUARD: only the LAN_TCP/LAN_UDP lists, multicast, ping and beefy → 8009; loopback is not matched; OUTPUT to beefy is host-output-guard.sh.
 # IPv6: no Docker network has IPv6; bridges get established + ICMPv6 only, eth0 accepts NEW only from link-local/ULA (no exposure if the ISP ever enables global IPv6).
 #
 # Idempotent: rebuilds HOST-GUARD / HOST-GUARD6 and their INPUT hooks on every run. The hooks never reference Docker's chains, so rules.v4/v6 restore at boot before Docker starts.
@@ -17,6 +17,11 @@ CLOUDFLARED=172.20.0.0/16   # infra__cloudflare_default — tunnel route termina
 DNS=53
 TRAEFIK_EP=80,443,8443                          # Traefik's published entrypoints (docker-proxy hairpin from traefik_proxy)
 TRAEFIK_BACKENDS=3000,8123,9001,9002            # AdGuard admin, Home Assistant, beefy/tower wakers (host network)
+
+LAN=192.168.1.0/24
+BEEFY=192.168.1.102/32
+LAN_TCP=22,53,80,139,443,445,3702,5355,8123,8443,9001,9002   # D-02: AdGuard UI 3000 and go2rtc 18555 stay Traefik/host-only
+LAN_UDP=53,137,138,3702,5353,5355,51820
 
 v4() {
   iptables -N HOST-GUARD 2>/dev/null || true
@@ -51,10 +56,29 @@ v6() {
   done
 }
 
+lan() {
+  iptables -N HOST-LAN-GUARD 2>/dev/null || true
+  iptables -F HOST-LAN-GUARD
+  iptables -A HOST-LAN-GUARD -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+  iptables -A HOST-LAN-GUARD -p icmp -j RETURN
+  iptables -A HOST-LAN-GUARD -s "$LAN" -m pkttype --pkt-type multicast -j RETURN
+  iptables -A HOST-LAN-GUARD -s "$LAN" -m pkttype --pkt-type broadcast -j RETURN
+  iptables -A HOST-LAN-GUARD -s "$LAN" -p tcp -m multiport --dports $LAN_TCP -j RETURN
+  iptables -A HOST-LAN-GUARD -s "$LAN" -p udp -m multiport --dports $LAN_UDP -j RETURN
+  iptables -A HOST-LAN-GUARD -s "$BEEFY" -p tcp --dport 8009 -j RETURN
+  iptables -A HOST-LAN-GUARD -m limit --limit 6/min --limit-burst 20 -j LOG --log-prefix "host-lan-guard drop: " --log-level 6
+  iptables -A HOST-LAN-GUARD -j DROP
+  for i in eth0 wlan0; do
+    iptables -C INPUT -i "$i" -j HOST-LAN-GUARD 2>/dev/null || iptables -I INPUT -i "$i" -j HOST-LAN-GUARD
+  done
+}
+
 v4
+lan
 v6
 echo "HOST-GUARD rules applied:"
 iptables -L HOST-GUARD -n -v --line-numbers
+iptables -L HOST-LAN-GUARD -n -v --line-numbers
 ip6tables -L HOST-GUARD6 -n -v --line-numbers
 
 if [ "${1:-}" = --persist ]; then
