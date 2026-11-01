@@ -12,3 +12,6 @@ dns = "Cloudflare"
 # Free DDNS hostnames (No-IP). No-IP sends a confirm mail every 30 days and deletes an unconfirmed free hostname; the deadline is not readable from outside, so the check is "still resolves, to the WAN address".
 [ddns."lang-tool.ddns.net"]
 [ddns."wg-aemtli.ddns.net"]
+
+# DuckDNS (no confirm mail; the duckdns container keeps it updated). Replaces lang-tool.ddns.net.
+[ddns."minerva-lt.duckdns.org"]
