@@ -102,4 +102,4 @@ rebuild it on a fresh checkout:
 - beefy is always used, by design. It gets woken if it is asleep and idles back
   off afterwards.
 
-**Rebuild** (`m4b-auto-merge:local`, FROM `python:3.12-alpine`): `docker compose up -d --build --pull` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
+**Rebuild** (`m4b-auto-merge:local`, FROM `python:3.12-alpine`): `docker compose up -d --build --pull`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, tests and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py M4b-Auto-Merge`.

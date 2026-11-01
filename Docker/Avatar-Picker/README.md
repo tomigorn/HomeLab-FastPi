@@ -91,4 +91,4 @@ API token), `picker_secret` (the header Traefik adds), `jellyfin_api_key`, `ha_t
 | first screen, 20 Mbit/s | 3.6 s | 0.9 s |
 | scroll whole page, 20 Mbit/s | 62 s | 8 s |
 
-**Rebuild** (`avatar-picker:local`, FROM `python:3.13-alpine@sha256:…`, pinned by digest, A-30): set the `FROM` digest to the current one (`docker buildx imagetools inspect python:3.13-alpine`, first `Digest:`), then `docker compose up -d --build` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
+**Rebuild** (`avatar-picker:local`, FROM `python:3.13-alpine@sha256:…`, pinned by digest, A-30): set the `FROM` digest to the current one (`docker buildx imagetools inspect python:3.13-alpine`, first `Digest:`), then `docker compose up -d --build`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, tests and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py Avatar-Picker`.

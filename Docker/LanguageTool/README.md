@@ -121,7 +121,7 @@ in `Raspi/Dockerfile` (`FROM`) and `MacOS/docker-compose.yaml`, then on the Pi
 `docker compose -f Raspi/docker-compose.yaml up -d --build`, then run `test.sh`.
 Tags: <https://hub.docker.com/r/erikvl87/languagetool/tags>. Never `:latest`.
 
-**Rebuild** (`languagetool-local`, FROM the pinned tag): the same `up -d --build` after Cup shows a newer `erikvl87/languagetool` tag.
+**Rebuild** (`languagetool-local`, FROM the pinned tag): the same `up -d --build` after Cup shows a newer `erikvl87/languagetool` tag. Within the tag the weekly `rebuild-local` (Fri, `Server/4-Security-Monitoring/auto-updates.md` "Local builds") does the no-cache rebuild, `test.sh` (post-update check) and the rollback.
 
 The thin image also runs `apk upgrade` at build (Alpine curl/openssl/ca-certificates fixes the upstream tag lacks). Docker caches that layer, so new Alpine patches need a build without cache:
 `docker compose -f Raspi/docker-compose.yaml build --pull --no-cache && docker compose -f Raspi/docker-compose.yaml up -d`, then `test.sh`.

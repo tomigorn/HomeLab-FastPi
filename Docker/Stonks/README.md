@@ -11,5 +11,7 @@ the `stonks:latest` image this compose runs.
    `cd ~/Documents/development/Stonks && docker build -t stonks:latest .`
 3. `docker compose up -d`
 
+Weekly rebuild (Sat, fresh base, the code repo's tests in the new image, rollback): `rebuild-local`, `Server/4-Security-Monitoring/auto-updates.md` "Local builds".
+
 Data persists in `./data/stonks.db` (gitignored). Routing is handled by Traefik
 (`stonks.holy-grail.ch`).

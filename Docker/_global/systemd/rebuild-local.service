@@ -1,0 +1,22 @@
+[Unit]
+Description=Weekly rebuild of the locally built images with tests, verification and rollback (Docker/_global/rebuild-local.conf)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/auto-updates.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+SupplementaryGroups=docker
+StateDirectory=rebuild-local
+Environment=HOME=/home/pi
+Environment=REBUILD_DEADLINE=01:45
+ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/_global/scripts/rebuild_local.py
+# one or two builds a night (LanguageTool, WG-Chores ~10-20 min) plus recreate, checks and a possible rollback
+TimeoutStartSec=10800
+Nice=10
+IOSchedulingClass=idle
+# Builds, commits a moved base pin and drives docker, which is root-equivalent anyway: no ProtectHome.
+NoNewPrivileges=true
+PrivateTmp=true

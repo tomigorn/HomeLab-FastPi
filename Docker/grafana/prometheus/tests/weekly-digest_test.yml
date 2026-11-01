@@ -103,14 +103,18 @@ tests:
                 • fastpi: 64
 
 
-  # First Monday of the month (5 Jan = 4d) lists the custom builds; the Monday after (12 Jan = 11d) does not.
-  - name: monthly rebuild reminder only on the first Monday
+  # Only failed local rebuilds (or none successful in 15 days) are listed; a good one is not.
+  - name: rebuild section lists failed local rebuilds only
     interval: 1m
     input_series:
-      - series: 'auto_update_result{host="fastpi",project="Avatar-Picker",tier="notify",ref="avatar-picker:local",result="local_build"}'
+      - series: 'rebuild_local_result{host="fastpi",project="Avatar-Picker",result="unchanged",reason=""}'
         values: '1x17000'
-      - series: 'auto_update_result{host="fastpi",project="Stonks",tier="notify",ref="stonks:latest",result="local_build"}'
+      - series: 'rebuild_local_last_ok_timestamp_seconds{host="fastpi",project="Avatar-Picker"}'
+        values: '300000x17000'
+      - series: 'rebuild_local_result{host="fastpi",project="Stonks",result="test_failed",reason="x"}'
         values: '1x17000'
+      - series: 'rebuild_local_last_ok_timestamp_seconds{host="fastpi",project="Stonks"}'
+        values: '300000x17000'
       - series: 'auto_update_result{host="fastpi",project="Wiki",tier="auto",ref="caddy:alpine",result="current"}'
         values: '1x17000'
     alert_rule_test:
@@ -127,42 +131,8 @@ tests:
                 <b>Images</b> (Cup)
                 • no data
 
-                <b>Rebuild</b> (monthly, custom builds: refresh the base image)
-                • fastpi: Avatar-Picker
-                • fastpi: Stonks
-
-                <b>Fixable critical CVEs</b>
-                • no data
-
-                <b>Unraid</b>
-                • no data
-                • plugins: none
-
-                <b>CrowdSec</b>
-                • no data
-                • bouncer plugin no data
-
-                <b>Antivirus</b> (last new-files scan)
-                • no data
-                • corrupt downloads caught this week: no data
-
-                <b>Rootkit</b> (new findings)
-                • no data
-
-                <b>Lynis</b>
-                • no data
-      - eval_time: 11d4h
-        alertname: WeeklyUpdateDigest
-        exp_alerts:
-          - exp_labels: {severity: info}
-            exp_annotations:
-              summary: "Weekly update digest"
-              description: |-
-                <b>Apt</b> (all / security)
-                • no data
-
-                <b>Images</b> (Cup)
-                • no data
+                <b>Rebuild</b> (weekly local builds: failed or no success in 15 days)
+                • fastpi: Stonks (test_failed)
 
                 <b>Fixable critical CVEs</b>
                 • no data

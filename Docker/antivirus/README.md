@@ -143,7 +143,7 @@ docker run --rm --entrypoint sh -v "$PWD/Docker/antivirus:/src:ro" clamav-local:
 
 Changing `scan.sh` or `hostscan.sh` needs a rebuild: `docker compose up -d --build clamav` (the hostscan uses the same image).
 
-**Rebuild** (`clamav-local` FROM `alpine:latest`, `virustotal-local` FROM `python:3.12-alpine`): `docker compose up -d --build --pull clamav virustotal` when Cup shows an update for the base or the security scan lists a fixable base CVE, otherwise monthly.
+**Rebuild** (`clamav-local` FROM `alpine:latest`, `virustotal-local` FROM `python:3.12-alpine`): `docker compose up -d --build --pull clamav virustotal`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, tests and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py antivirus`.
 
 ## Retired: download watcher
 

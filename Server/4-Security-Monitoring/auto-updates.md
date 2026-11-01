@@ -10,6 +10,7 @@
 | `security-image-scan.timer` → `images` | 04:10 | running digests on fastpi, beefy, tower (registry copy, no pull on tower) | existed; now also diffs findings |
 | `NewFixableImageVulnerability` | on a new finding | no message of its own (`notify: digest`): the 06:30 daily digest lists fixable CRITICAL/HIGH findings first seen in 24 h, grouped per CVE | **enabled** |
 | `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf` | **enabled** (auto tier) |
+| `rebuild-local.timer` → `Docker/_global/scripts/rebuild_local.py` | 23:23, each image on its weekday | local builds in `Docker/_global/rebuild-local.conf`, see "Local builds" | **enabled** |
 | beefy: same script, own `auto-update.conf` | 04:12 | see [beefy](#beefy) | **enabled** (auto tier) |
 | `AutoUpdateNightly` | hour after the run | no message of its own (`notify: digest`): the 06:30 daily digest lists per host what was updated / rolled back / held / waiting; failures and rollbacks keep their own alerts | **enabled** |
 | `AutoUpdateRollbackFailed` | at once | email + Telegram; the script also pages via `oob-alert.sh` (bypasses the edge) | **enabled** |
@@ -22,12 +23,26 @@
 |---|---|---|
 | `auto` | Claude-Mockups, Wiki, Server-Specs (static caddy), M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
 | `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup, Audiobook-Requests (digest-pinned) | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
-| `notify`, custom builds | Avatar-Picker, M4b-Auto-Merge, BackdropCarousel, Stonks, LanguageTool/Raspi | never pulled (`build:` or a local tag): reported as `local_build`; the Monday digest of the first week of the month lists them as the rebuild reminder (base image refresh) |
+| `notify`, custom builds | Avatar-Picker, M4b-Auto-Merge, BackdropCarousel, Stonks, LanguageTool/Raspi | never pulled (`build:` or a local tag): reported as `local_build` (quiet); rebuilt weekly by `rebuild-local`, see "Local builds" |
 | `edge` | Authentik, Traefik, WireguardVPN, CrowdSec (engine/hub also by `crowdsec-autoupdate`), Beefy-Waker, Tower-Waker | like notify (machine.md: owner's yes) |
 | `edge-auto` | cloudflared, adguard (owner 2026-10-25) | like auto, check = canary / DNS / public route; failed rollback → OOB page |
 | not listed | LoyaltyCards, LoyaltyCards-Sync, bitwarden (parked), Jenkins (stopped), tower | untouched; `test_auto_update.py` fails when a compose project is neither in the conf nor in its `UNMANAGED` list |
 
 Only the digest behind the tag written in the repo moves, so the repo stays the truth. Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
+
+## Local builds (rebuild-local)
+
+| | |
+|---|---|
+| What | `rebuild_local.py`, list `Docker/_global/rebuild-local.conf` (keys documented there). One entry per night or two, serialized (lock), RAM floor 1.2 GB available + 15 GB disk before the build and before the recreate |
+| Images | Mon tower-waker, beefy-waker · Tue avatar-picker · Wed m4b-auto-merge, mouse-port-updater · Thu clamav-local, virustotal-local · Fri languagetool-local · Sat backdrop-carousel, stonks · Sun wg-chores, wg-chores-sqliteweb |
+| Steps | digest-pinned `FROM` → pin set to the tag's current digest · `build --pull --no-cache` · fingerprint (image Env, apk/dpkg/Python packages, build context): unchanged → old image kept, nothing restarts · tests in the new image (`unittest`, `test`) · `update-project.sh recreate` (container checks, `check`, post-update check, rollback to the previous image) · moved pin committed (that file only, never pushed) |
+| Failure | old image back on its tag, pin reverted, Telegram (oob-alert.sh); the Monday digest lists failed ones or none successful in 15 days |
+| Metrics | `rebuild_local_result{project,result,reason}`, `rebuild_local_last_ok_timestamp_seconds`, `rebuild_local_last_run_timestamp_seconds` in `rebuild_local.prom` |
+| By hand | `python3 Docker/_global/scripts/rebuild_local.py [--dry-run] <project>` (named = any weekday; `REBUILD_FORCE=1` recreates an unchanged image, `TEST_FORCE_FAIL=1` = rollback drill; as pi set `REBUILD_STATE`/`REBUILD_TEXTFILE` to a scratch dir or run `sudo systemctl start rebuild-local`) |
+| Install | `sudo install -m 0644 Docker/_global/systemd/rebuild-local.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now rebuild-local.timer` |
+| Test | `python3 Docker/_global/scripts/test_rebuild_local.py` |
+| Not covered | LoyaltyCards-Sync (parked), Jenkins (stopped); pinned version bumps (`erikvl87/languagetool:6.8` → 6.9) stay manual (Cup) |
 
 ## Switches
 
@@ -106,7 +121,5 @@ Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`, `test_update_
 
 ## Not covered yet
 
-- Local builds (Avatar-Picker, Stonks, wakers, M4b-Auto-Merge, BackdropCarousel, LanguageTool): base-image CVEs are detected; the rebuild is manual (`update-project.sh <dir> build`; Stonks: its `redeploy.sh`), prompted by the first-Monday digest.
-- LanguageTool is a local build of a pinned base (`FROM erikvl87/languagetool:6.8`), so it cannot be `auto`: there is no digest to pull.
 - Auto rows without a customization check yet (`post-update.d`): M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport (`NO_CHECK_YET` in the test); they roll back on the `CHECK` command only.
 - Pinned version bumps: Cup + Monday digest, by hand.

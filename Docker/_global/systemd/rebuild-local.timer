@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly run of the weekly local image rebuilds (each image on its own weekday)
+Documentation=file:///home/pi/Projects/Server/4-Security-Monitoring/auto-updates.md
+
+[Timer]
+# 23:23: low tariff, after the 22:05/22:30 jobs, done long before 02:00 and the 03:10 auto-update; the weekday of each image is in rebuild-local.conf
+OnCalendar=*-*-* 23:23:00 Europe/Zurich
+Persistent=false
+
+[Install]
+WantedBy=timers.target
