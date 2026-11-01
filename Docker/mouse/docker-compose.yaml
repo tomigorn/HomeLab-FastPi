@@ -150,7 +150,8 @@ services:
       - ALL
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal-mouse
-      - AUTOHEAL_INTERVAL=3600
+      # 5 min: Prowlarr and its gate detect a lost gluetun netns by healthcheck (no eth0) and must be back within minutes, not an hour
+      - AUTOHEAL_INTERVAL=300
       - AUTOHEAL_START_PERIOD=0
       # Talks to socket-proxy-autoheal over TCP instead of mounting the real
       # socket, which is root on the host. That proxy allows container list/inspect plus
@@ -318,6 +319,7 @@ services:
     depends_on:
       gluetun:
         condition: service_healthy
+        restart: true   # compose restarts it with gluetun
     environment:
       - TZ=Europe/Zurich
     volumes:
@@ -327,7 +329,8 @@ services:
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:9696/ping"]
+      # eth0 gone = gluetun restarted and left this container in its old, loopback-only netns (lo still answers /ping): unhealthy, autoheal restarts it into the new one
+      test: ["CMD-SHELL", "grep -q 'eth0:' /proc/net/dev && curl -fsS -o /dev/null http://127.0.0.1:9696/ping"]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -366,8 +369,10 @@ services:
     depends_on:
       gluetun:
         condition: service_healthy
+        restart: true
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9697/ping"]
+      # eth0 check: see prowlarr
+      test: ["CMD-SHELL", "grep -q 'eth0:' /proc/net/dev && wget -q -O /dev/null http://127.0.0.1:9697/ping"]
       interval: 60s
       timeout: 10s
       retries: 3
