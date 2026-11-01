@@ -39,6 +39,8 @@ Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%
 | LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
 | WG-Chores | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | outside SSO, owner's choice, app's household code; never route `wg-chores-sqliteweb` |
 
+No-IP stays for `lang-tool.ddns.net` and `wg-aemtli.ddns.net` (owner 2026-11-01: URLs can't change); needs the 30-day No-IP confirmation.
+
 ## Networks (H-2, 2026-10-25)
 
 Public apps and crown jewels have their own network, shared only with Traefik (`traefik_<app>`, defined in `docker-compose.yaml`, Traefik `.3` on each). Traefik's default route and published ports stay on `traefik_proxy` (`gw_priority`, 172.24.255.3). Pinned: Authentik trusts `10.24.15.3`, Portainer `10.24.7.7`, VPN NAT `10.24.5.5`. Full list: `../_global/docs/container-hardening.md`. `traefik_mouse` (10.24.25.0/28, gluetun_mouse `.2`, ABR `.4`, importer `.5`, books-proxy `.6`) is created by hand, not by this compose. Other apps are still on `traefik_proxy`.

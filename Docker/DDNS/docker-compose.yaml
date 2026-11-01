@@ -36,6 +36,7 @@ services:
 # #########################################################
 # No-IP ###################################################
 # #########################################################
+  # No-IP stays for lang-tool.ddns.net and wg-aemtli.ddns.net (owner 2026-11-01: URLs can't change); needs the 30-day No-IP confirmation.
   noip:
     image: ghcr.io/noipcom/noip-duc:latest
     container_name: noip
