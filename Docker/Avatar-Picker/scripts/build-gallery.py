@@ -477,7 +477,7 @@ LOCAL = {
          WP + "en/9/94/Simba_%28_Disney_character_-_adult%29.png",
          (22, -8, 178)),
         ("genie", "Genie", "masculine", WP + "en/0/0c/The_Genie_Aladdin.png", (55, -10, 170)),
-        ("mr-incredible", "Mr. Incredible", "masculine", WP + "en/2/22/Mr._Incredible.png", (62, -2, 124)),
+        ("mr-incredible", "Mr. Incredible", "masculine", WP + "en/2/22/Mr._Incredible.png", (90, -8, 90)),
         ("carl", "Carl", "masculine", WP + "en/9/9f/Carl_from_Up_2009.png", (41, -10, 165)),
         ("donald-duck", "Donald Duck", "masculine",
          WP + "en/a/a5/Donald_Duck_angry_transparent_background.png",
