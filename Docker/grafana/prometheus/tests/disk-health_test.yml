@@ -141,6 +141,16 @@ tests:
         values: '0+300x5000'
       - series: 'smart_standby{host="fastpi",disk="awake"}'
         values: '0x5000'
+      # listed as "no SMART possible" (README): never alerts, read or not
+      - series: 'smart_standby{host="fastpi",disk="seagate-black"}'
+        values: '1x5000'
+      - series: 'smart_standby{host="fastpi",disk="seagate-red"}'
+        values: '1x5000'
+      - series: 'smart_last_read_timestamp_seconds{host="fastpi",disk="seagate-red"}'
+        values: '0x5000'
+      # same name on another host is not covered by the fastpi list
+      - series: 'smart_standby{host="beefy",disk="seagate-black"}'
+        values: '1x5000'
     alert_rule_test:
       - eval_time: 13d
         alertname: SmartDiskUnchecked
@@ -148,6 +158,10 @@ tests:
       - eval_time: 15d
         alertname: SmartDiskUnchecked
         exp_alerts:
+          - exp_labels: {severity: warning, notify: digest, reason: never read, host: beefy, disk: seagate-black}
+            exp_annotations:
+              summary: "beefy disk seagate-black: no SMART reading for 14 days"
+              description: "The disk was parked (standby) at every smart-exporter run, so SmartDiskFailing and the error alerts cannot see it. Read it once while it is spun up: <code>sudo smartctl -a /dev/sdX</code> after accessing a file on it, or check the USB bridge passes standby queries through."
           - exp_labels: {severity: warning, notify: digest, reason: never read, host: fastpi, disk: never}
             exp_annotations:
               summary: "fastpi disk never: no SMART reading for 14 days"

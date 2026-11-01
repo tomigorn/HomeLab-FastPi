@@ -166,7 +166,14 @@ Rules `prometheus/rules/expiry.yml`, `prometheus/rules/disk-health.yml`, tests `
 | `smart-exporter.timer` (root) | every 30 min | `smart_fastpi.prom` | `smartctl -n standby -j -a` per disk: a parked disk is skipped, never woken; its last values stay (`smart_standby 1`). Disks named by mountpoint (`/` = `system`) |
 | beefy `smart-exporter.timer` / `media-metrics.timer` | 30 / 5 min while awake | `smart_beefy.prom`, `beefy_media.prom` | verbatim copy of `smart_exporter.py`; `Movie-Downloads/scripts/media-metrics.py`; pulled by `beefy-idle-pull.sh`, kept while beefy sleeps |
 
-fastpi's two USB disks (`seagate-black` Expansion `0bc2:231a`, `seagate-red` One Touch `0bc2:ab53`) give no SMART: the kernel's `uas` driver blocks ATA pass-through for every Seagate enclosure (`US_FL_NO_ATA_1X`, `uas-detect.h`), so every `-d` type fails and `-n standby` reads them as asleep (2026-11-01). They show `smart_standby 1` and `SmartDiskUnchecked` fires from ~2026-11-12 as the reminder. Possible fix (owner decision, needs a reboot, the kernel calls these bridges' pass-through broken): append `usb-storage.quirks=0bc2:231a:,0bc2:ab53:` to `/boot/firmware/cmdline.txt`; check after the reboot: `sudo smartctl -d sat -H /dev/sda`.
+fastpi's two USB disks (`seagate-black` Expansion `0bc2:231a`, `seagate-red` One Touch `0bc2:ab53`) give no SMART: the kernel's `uas` driver blocks ATA pass-through for every Seagate enclosure (`US_FL_NO_ATA_1X`, `uas-detect.h`), so every `-d` type fails and `-n standby` reads them as asleep (2026-11-01). They show `smart_standby 1` and are listed below, so `SmartDiskUnchecked` stays silent for them. Possible fix (owner decision, needs a reboot, the kernel calls these bridges' pass-through broken): append `usb-storage.quirks=0bc2:231a:,0bc2:ab53:` to `/boot/firmware/cmdline.txt`; check after the reboot: `sudo smartctl -d sat -H /dev/sda`.
+
+**No SMART possible** (`homelab:smart_impossible` in `prometheus/rules/disk-health.yml`, keep both in sync; `SmartDiskUnchecked` ignores these, a new or unlisted disk still alerts):
+
+| Host | Disk | Reason |
+|---|---|---|
+| fastpi | `seagate-black` | Seagate Expansion USB (`0bc2:231a`): `uas` blocks ATA pass-through, fix needs a kernel quirk + reboot (not done) |
+| fastpi | `seagate-red` | Seagate One Touch USB (`0bc2:ab53`): same |
 
 - A TLS handshake runs no Traefik middleware: wake-gated routes (Jellyfin, Seerr, Nextcloud) are checked without waking beefy/tower. Traefik's own `traefik_tls_certs_not_after` lists every cert in the ACME store, including ones no router uses any more; the alerts use only the served certs.
 - `.ch` RDAP (rdap.nic.ch) has no end date: `source="anniversary"` = next registration anniversary. holy-grail.ch has its paid end date in `domains.toml` (`expires`, `source="manual"`; GoDaddy, renewed yearly; Cloudflare only does the DNS): a set date warns through `subscription-alerts.py` (Telegram) and shows with the subscriptions, `DomainExpiringSoon` covers only domains without one. After each renewal update `expires`.
@@ -188,7 +195,7 @@ fastpi's two USB disks (`seagate-black` Expansion `0bc2:231a`, `seagate-red` One
 | `SmartWearHigh` | wear indicator ≥ 80 % (NVMe percentage used, SSD normalized wear) | warning |
 | `SmartTemperatureHigh` | freshly read (< 1 h) and HDD ≥ 55, SATA SSD ≥ 65, NVMe ≥ 75 °C for 30 min (fastpi NVMe: `HostNvmeHot`) | warning |
 | `SmartExporterStale` | fastpi not run for 2 h, beefy for 3 days, or a disk unreadable; `notify: digest` | info |
-| `SmartDiskUnchecked` | a parked disk (standby at every run, never woken) with no SMART reading for 14 days: last read older than 14 days, or never read and parked 14 days (`for: 14d`); `notify: digest` | warning |
+| `SmartDiskUnchecked` | a parked disk (standby at every run, never woken) with no SMART reading for 14 days: last read older than 14 days, or never read and parked 14 days (`for: 14d`); not for disks under "No SMART possible"; `notify: digest` | warning |
 
 ```bash
 ../_global/install-root-scripts.sh   # smart_exporter.py runs as root from /usr/local/libexec/fastpi

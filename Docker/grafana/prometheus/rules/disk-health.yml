@@ -71,9 +71,9 @@ groups:
           summary: "{{ $labels.host }} disk {{ $labels.disk }} at {{ $value }} °C"
           description: "Over the limit for its type (HDD 55, SATA SSD 65, NVMe 75 °C) for 30 min. Check airflow and fans on {{ $labels.host }}."
 
-      # Parked disks are never woken, so a disk that is always in standby (or a USB bridge that always answers "standby") would never be checked. Two rules, one name: last read older than 14 days, or never read and parked for 14 days.
+      # Parked disks are never woken, so a disk that is always in standby (or a USB bridge that always answers "standby") would never be checked. Two rules, one name: last read older than 14 days, or never read and parked for 14 days. Disks in homelab:smart_impossible (README "No SMART possible") are left out.
       - alert: SmartDiskUnchecked
-        expr: smart_standby == 1 and on(host, disk) (time() - smart_last_read_timestamp_seconds > 14 * 86400)
+        expr: (smart_standby == 1 and on(host, disk) (time() - smart_last_read_timestamp_seconds > 14 * 86400)) unless on(host, disk) homelab:smart_impossible
         for: 1h
         labels:
           severity: warning
@@ -84,7 +84,7 @@ groups:
           description: "The disk was parked (standby) at every smart-exporter run, so SmartDiskFailing and the error alerts cannot see it. Read it once while it is spun up: <code>sudo smartctl -a /dev/sdX</code> after accessing a file on it, or check the USB bridge passes standby queries through."
 
       - alert: SmartDiskUnchecked
-        expr: smart_standby == 1 unless on(host, disk) smart_last_read_timestamp_seconds
+        expr: (smart_standby == 1 unless on(host, disk) smart_last_read_timestamp_seconds) unless on(host, disk) homelab:smart_impossible
         for: 14d
         labels:
           severity: warning
@@ -106,3 +106,11 @@ groups:
         annotations:
           summary: "SMART data of {{ $labels.host }} not current"
           description: "smart-exporter did not run or could not read a disk: <code>journalctl -u smart-exporter -n 20</code> on {{ $labels.host }}. beefy's copy is pulled only while it is awake, so 3 days are allowed there."
+
+  # Disks where SMART cannot be read at all (README "No SMART possible", one entry per disk with the reason). SmartDiskUnchecked ignores them; a new disk still alerts.
+  - name: smart-impossible
+    rules:
+      - record: homelab:smart_impossible
+        expr: label_replace(label_replace(label_replace(vector(1), "host", "fastpi", "", ""), "disk", "seagate-black", "", ""), "reason", "Seagate USB enclosure, uas blocks ATA pass-through", "", "")
+      - record: homelab:smart_impossible
+        expr: label_replace(label_replace(label_replace(vector(1), "host", "fastpi", "", ""), "disk", "seagate-red", "", ""), "reason", "Seagate USB enclosure, uas blocks ATA pass-through", "", "")
