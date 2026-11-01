@@ -15,6 +15,7 @@ from rebuild_local import (  # noqa: E402
     from_refs,
     guard_reason,
     image_env,
+    pinned_tags,
     parse_conf,
     project_dir,
     project_name,
@@ -77,6 +78,11 @@ FROM scratch
 
 def test_from_refs_skips_stages_and_scratch():
     assert from_refs(DOCKERFILE) == ["python:3.13-alpine@sha256:aaaa", "alpine:3.24"]
+
+
+def test_pinned_tags_skips_digest_only_refs():
+    text = DOCKERFILE + "FROM ghcr.io/linuxserver/mods@sha256:cccc AS opencl\nFROM registry:5000/x/y:1.2@sha256:dddd\n"
+    assert pinned_tags(text) == {"python:3.13-alpine", "registry:5000/x/y:1.2"}
 
 
 def test_bump_pins_rewrites_only_moved_digests():

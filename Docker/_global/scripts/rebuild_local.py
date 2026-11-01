@@ -108,6 +108,12 @@ def from_refs(dockerfile: str) -> list[str]:
     return refs
 
 
+def pinned_tags(dockerfile: str) -> set[str]:
+    """name:tag of every digest-pinned base; a digest-only ref has no tag to follow."""
+    names = {r.split("@", 1)[0] for r in from_refs(dockerfile) if "@sha256:" in r}
+    return {n for n in names if ":" in n.rsplit("/", 1)[-1]}
+
+
 def bump_pins(dockerfile: str, current: dict[str, str]) -> tuple[str, list[str]]:
     """Replace name:tag@sha256:old by the tag's current digest. current: name:tag -> digest ('' = unknown, left alone)."""
     bumped = []
@@ -301,7 +307,7 @@ def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
     pins: dict[Path, tuple[str, list[str]]] = {}
     for f in files:
         text = f.read_text()
-        tags = {r.split("@", 1)[0] for r in from_refs(text) if "@sha256:" in r}
+        tags = pinned_tags(text)
         if not tags:
             continue
         dirty = git(f, "status", "--porcelain", "--", f.name).stdout.strip()
