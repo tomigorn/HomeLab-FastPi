@@ -241,3 +241,26 @@ tests:
       - eval_time: 40m
         alertname: HostOomKill
         exp_alerts: []
+
+  - name: /tmp (RAM-backed tmpfs) over 80 % used warns, other tmpfs are ignored
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/tmp"}'
+        values: '100x40'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/tmp"}'
+        values: '30x10 15x30'
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '100x40'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostTmpFull
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: HostTmpFull
+        exp_alerts:
+          - exp_labels: {severity: warning, job: raspberry-pi, instance: "node-exporter:9100", device: tmpfs, fstype: tmpfs, mountpoint: /tmp}
+            exp_annotations:
+              summary: "fastpi: /tmp is 85% full (RAM-backed)"
+              description: "Over 80% for 5 min. /tmp is tmpfs: what is in it lives in RAM and pushes the host into swap. Find it: sudo du -xh --max-depth=3 /tmp | sort -h | tail. Large clones and downloads belong on disk (~/.cache/claude-work)."

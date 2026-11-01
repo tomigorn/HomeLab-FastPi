@@ -48,6 +48,7 @@ docker kill -s HUP prometheus   # reload rules
 | Alert | Fires when | Severity |
 |---|---|---|
 | `HostFilesystemSpaceLow` / `…Critical` | < 15% free for 30 min / < 5% for 5 min | warning / critical |
+| `HostTmpFull` | `/tmp` (RAM-backed tmpfs) over 80% used for 5 min | warning |
 | `HostFilesystemFillingUp` | < 40% free and the 6 h trend hits 0 within 24 h, for 1 h | warning |
 | `HostFilesystemReadOnly` | a disk is mounted read-only for 2 min | critical |
 | `HostInodesLow` / `…Critical` | < 10% inodes free for 30 min / < 5% for 5 min | warning / critical |

@@ -31,6 +31,18 @@ groups:
             Under 5% free: writes (downloads, Prometheus TSDB, container logs) start failing when it is full.
             Find it: sudo du -xh --max-depth=2 {{ $labels.mountpoint }} | sort -h | tail; docker system df.
 
+      - alert: HostTmpFull
+        expr: >-
+          100 * (1 - node_filesystem_avail_bytes{job="raspberry-pi",mountpoint="/tmp"} / node_filesystem_size_bytes) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: /tmp is {{ $value | printf \"%.0f\" }}% full (RAM-backed)"
+          description: >-
+            Over 80% for 5 min. /tmp is tmpfs: what is in it lives in RAM and pushes the host into swap.
+            Find it: sudo du -xh --max-depth=3 /tmp | sort -h | tail. Large clones and downloads belong on disk (~/.cache/claude-work).
+
       - alert: HostFilesystemFillingUp
         expr: >-
           (100 * node_filesystem_avail_bytes{job="raspberry-pi",fstype=~"ext4|xfs|btrfs|vfat"} / node_filesystem_size_bytes < 40)
