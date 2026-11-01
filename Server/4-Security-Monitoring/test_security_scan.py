@@ -1399,6 +1399,15 @@ def test_updates_republishes_only_this_hosts_samples_without_help():
     assert out.count("# TYPE auto_update_result gauge") == 1
 
 
+def test_updates_republishes_rebuild_local_under_its_own_name():
+    d = _tmp_dirs()
+    prom = ('# TYPE rebuild_local_result gauge\nrebuild_local_result{host="beefy",project="Antivirus",result="unchanged",reason=""} 1\n'
+            'rebuild_local_result{host="fastpi",project="X",result="updated",reason=""} 1\nauto_update_omitted{host="beefy"} 0\n')
+    assert collect_updates("beefy", lambda: prom, "rebuild_local") == []
+    out = (d / "textfile" / "rebuild_local_beefy.prom").read_text()
+    assert 'project="Antivirus"' in out and 'host="fastpi"' not in out and "auto_update_" not in out
+
+
 def test_updates_missing_or_foreign_only_file_is_no_data_and_keeps_old_file():
     d = _tmp_dirs()
     (d / "textfile" / "auto_update_beefy.prom").write_text("old\n")

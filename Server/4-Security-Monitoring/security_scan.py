@@ -1694,22 +1694,24 @@ def collect_media(host: str, fetch) -> list:
 
 # beefy's nightly image auto-update (Docker/_global/scripts/auto_update.py, the same file as fastpi's); alerts: grafana/prometheus/rules/auto-updates.yml.
 UPDATES_PATHS = {"beefy": "/var/lib/auto-update/textfile/auto_update.prom"}
+# beefy's weekly local rebuilds (rebuild_local.py, 04:27): pulled at 04:20, so a result shows the next morning
+REBUILD_PATHS = {"beefy": "/var/lib/auto-update/textfile/rebuild_local.prom"}
 
 
-def collect_updates(host: str, fetch) -> list:
-    """Republish a host's auto_update.prom as auto_update_<host>.prom.
+def collect_updates(host: str, fetch, name: str = "auto_update") -> list:
+    """Republish a host's <name>.prom (auto_update or rebuild_local) as <name>_<host>.prom.
 
     Only samples labelled host="<host>" pass, so they can never collide with fastpi's own auto_update.prom (one duplicate series breaks node-exporter's whole textfile collector). HELP is dropped (auto_update.py writes none): node-exporter rejects a family whose files disagree on HELP.
     """
     raw = fetch()
     if raw is None:
-        raise NoData(f"no auto_update.prom on {host} yet")
+        raise NoData(f"no {name}.prom on {host} yet")
     mine = f'host="{host}"'
-    keep = [ln for ln in filter_exposition(raw, prefix="auto_update_").splitlines()
+    keep = [ln for ln in filter_exposition(raw, prefix=f"{name}_").splitlines()
             if ln.startswith("# TYPE ") or (not ln.startswith("#") and mine in ln.split("}", 1)[0])]
     if not any(not ln.startswith("#") for ln in keep):
-        raise NoData(f"auto_update.prom on {host} has no samples for host {host}")
-    write_atomic(TEXTFILE / f"auto_update_{host}.prom", "\n".join(keep) + "\n")
+        raise NoData(f"{name}.prom on {host} has no samples for host {host}")
+    write_atomic(TEXTFILE / f"{name}_{host}.prom", "\n".join(keep) + "\n")
     return []
 
 
@@ -2474,6 +2476,8 @@ def main() -> int:
     if want("updates"):
         for host in UPDATES_PATHS:
             guarded(f"updates-{host}", lambda host=host: collect_updates(host, lambda: fetch_nowake(host, UPDATES_PATHS[host])), host=host)
+        for host in REBUILD_PATHS:
+            guarded(f"rebuild-{host}", lambda host=host: collect_updates(host, lambda: fetch_nowake(host, REBUILD_PATHS[host]), "rebuild_local"), host=host)
 
     if only and "code" in only:
         for repo in CODE_REPOS:

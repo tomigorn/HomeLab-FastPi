@@ -43,7 +43,7 @@ Only the digest behind the tag written in the repo moves, so the repo stays the 
 | By hand | `python3 Docker/_global/scripts/rebuild_local.py [--dry-run] <project>` (named = any weekday; `REBUILD_FORCE=1` recreates an unchanged image, `TEST_FORCE_FAIL=1` = rollback drill; as pi set `REBUILD_STATE`/`REBUILD_TEXTFILE` to a scratch dir or run `sudo systemctl start rebuild-local`) |
 | Install | `sudo install -m 0644 Docker/_global/systemd/rebuild-local.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now rebuild-local.timer` |
 | Test | `python3 Docker/_global/scripts/test_rebuild_local.py` |
-| beefy | same script, own list `Docker/_global/rebuild-local.conf` in the beefy repo, timer 04:27 in the maintenance window (Mon Antivirus, Sat Jellyfin); Seerr and FlareSolverr keep their own rebuild timers |
+| beefy | same script, own list `Docker/_global/rebuild-local.conf` in the beefy repo, timer 04:27 in the maintenance window (Mon Antivirus, Sat Jellyfin); Seerr and FlareSolverr keep their own rebuild timers; results come to fastpi as `rebuild_local_beefy.prom` (security-av pull 04:20, so the next morning) |
 | Not covered | LoyaltyCards-Sync (parked), Jenkins (stopped); pinned version bumps (`erikvl87/languagetool:6.8` → 6.9) stay manual (Cup) |
 
 ## Switches
