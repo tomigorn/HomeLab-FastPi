@@ -19,7 +19,9 @@ from rebuild_local import (  # noqa: E402
     parse_conf,
     project_dir,
     project_name,
+    parse_env,
     render_prom,
+    rollback_tag,
     update_result,
 )
 
@@ -137,6 +139,19 @@ def test_render_prom_lists_every_project_with_its_last_result():
     assert 'rebuild_local_last_ok_timestamp_seconds{host="fastpi",project="Stonks"} 50' in text
     assert 'rebuild_local_last_run_timestamp_seconds{host="fastpi"} 300' in text
     assert "# HELP" not in text
+
+
+def test_rollback_tag_matches_update_project():
+    assert rollback_tag("clamav-local:latest", "antivirus", "2026-11-02") == "rollback.invalid/clamav-local:2026-11-02-antivirus"
+    assert rollback_tag("registry:5000/x/y:1.2@sha256:dd", "p", "2026-11-02") == "rollback.invalid/registry-5000/x/y:2026-11-02-p"
+    assert rollback_tag("lscr.io/linuxserver/jellyfin", "jellyfin", "2026-11-07") == "rollback.invalid/lscr.io/linuxserver/jellyfin:2026-11-07-jellyfin"
+
+
+def test_parse_env_tolerates_missing_image_output():
+    assert parse_env('["PATH=/usr/bin"]\n') == ["PATH=/usr/bin"]
+    assert parse_env("\n") is None
+    assert parse_env("") is None
+    assert parse_env("null") is None
 
 
 if __name__ == "__main__":

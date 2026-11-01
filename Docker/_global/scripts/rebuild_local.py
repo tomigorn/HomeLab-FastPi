@@ -271,8 +271,26 @@ def context_listing(files: list[Path]) -> str:
     return "\n".join(out)
 
 
+def parse_env(out: str) -> list | None:
+    try:
+        env = json.loads(out)
+    except ValueError:
+        return None
+    return env if isinstance(env, list) else None
+
+
+def rollback_tag(ref: str, proj: str, date: str) -> str:
+    """Same name update-project.sh gives the image it replaces."""
+    repo = ref.split("@", 1)[0]
+    if ":" in repo.rsplit("/", 1)[-1]:
+        repo = repo.rsplit(":", 1)[0]
+    return f"rollback.invalid/{repo.replace(':', '-')}:{date}-{proj}"
+
+
 def image_fingerprint(image: str, context: str) -> str:
-    env = json.loads(sh(["docker", "image", "inspect", "-f", "{{json .Config.Env}}", image]).stdout or "[]") or []
+    env = parse_env(sh(["docker", "image", "inspect", "-f", "{{json .Config.Env}}", image]).stdout)
+    if env is None:
+        return ""
     r = sh(["docker", "run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "sh", image, "-c", PACKAGES_SH], timeout=180)
     return fingerprint(env, r.stdout if r.returncode == 0 else "", context)
 
@@ -336,6 +354,15 @@ def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
     if (floor := resources_ok()):
         revert_pins()
         return "skipped", floor
+    gone = [s for s, (_, img) in old.items() if sh(["docker", "image", "inspect", img]).returncode != 0]
+    if gone:
+        revert_pins()
+        return "error", f"running image of {', '.join(gone)} is no longer in the image store, no rollback possible: recreate by hand"
+    # containerd image store: the old image vanishes once the build moves its tag, so pin it first
+    date = time.strftime("%Y-%m-%d")
+    for ref, img in old.values():
+        if not ref.startswith("sha256:"):
+            sh(["docker", "tag", img, rollback_tag(ref, config.get("name", d.name.lower()), date)])
     cmd = row["build"] or "docker compose build --pull --no-cache " + " ".join(services)
     t0 = time.time()
     r = sh(["bash", "-c", cmd], cwd=d, timeout=5400, env=dict(os.environ, DOCKER_BUILDKIT="1"))
