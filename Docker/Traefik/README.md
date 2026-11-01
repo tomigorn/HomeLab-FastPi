@@ -36,8 +36,8 @@ Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%
 
 | Service | Host | Entrypoint | Login |
 |---|---|---|---|
-| LanguageTool | `minerva-lt.duckdns.org` (DuckDNS), old `lang-tool.ddns.net` until its users moved | `langtool` | per-person token URL |
-| WG-Chores | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | outside SSO, owner's choice, app's household code; never route `wg-chores-sqliteweb`. Stays on No-IP `wg-aemtli.ddns.net` (owner decision 2026-11-01); needs the 30-day No-IP confirmation |
+| LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
+| WG-Chores | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | outside SSO, owner's choice, app's household code; never route `wg-chores-sqliteweb` |
 
 ## Networks (H-2, 2026-10-25)
 

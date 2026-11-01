@@ -2,7 +2,7 @@
 # EXAMPLE / TEMPLATE for dynamic/languagetool-token.yml (the real file is
 # gitignored because it contains live access tokens).
 #
-# LanguageTool is served on minerva-lt.duckdns.org and lang-tool.ddns.net (direct ingress + Let's Encrypt,
+# LanguageTool is served on lang-tool.ddns.net (direct ingress + Let's Encrypt,
 # see languagetool.yml). The browser add-on CANNOT send Basic-Auth, so each
 # person gets an unguessable token in the URL path. One router per person —
 # the router NAME is the human label (Person-Device-Client). Revoke someone by
@@ -21,7 +21,7 @@
 http:
   routers:
     languagetool-token-<LABEL>:
-      rule: "(Host(`minerva-lt.duckdns.org`) || Host(`lang-tool.ddns.net`)) && PathPrefix(`/REPLACE_WITH_TOKEN`)"
+      rule: "Host(`lang-tool.ddns.net`) && PathPrefix(`/REPLACE_WITH_TOKEN`)"
       entryPoints: ["websecure", "langtool"]
       priority: 5
       service: languagetool           # defined in languagetool.yml
