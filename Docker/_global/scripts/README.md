@@ -14,6 +14,7 @@
 | `maintenance-silence.sh on [hours] [reason] \| off \| status` | Alertmanager silence for batch/upgrade work (crash loops, container down/unhealthy, file changes, reboots, own SSH logins), default 4 h, max 24 h; only touches its own silences. Test: `./test_maintenance_silence.sh` |
 | `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
 | `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
+| `ctest.sh` | throwaway test container that cannot change anything, see below |
 
 ## host-input-guard
 - New host port needed by a container or the VPN: add it to the port lists in the script, `sudo ./host-input-guard.sh --persist`.
@@ -44,6 +45,17 @@
 | By hand | `systemctl start subscription-alerts.service` then `journalctl -u subscription-alerts -n 5`; `scripts/subscription-alerts.py --test` sends one 🧪 test message |
 | Renew | change `expires` in `Seerr/indexer-bar/limits.toml` on beefy and commit (next beefy-reachable run picks it up; to force: the command above) |
 | Test | `python3 scripts/test_subscription_alerts.py` |
+
+## ctest
+| | |
+|---|---|
+| What | `ctest.sh [-v HOST_DIR[:CONTAINER_DIR]]... [-w DIR] [-e NAME=VALUE]... [--entrypoint CMD] IMAGE [ARG...]`: one-off test run, safe to allow without a prompt |
+| Always | `--rm`, `--network=none`, `--read-only`, `/tmp` tmpfs 256 MB, user 65534, `--cap-drop=ALL`, `no-new-privileges`, `--pull=never` (only local images), 1 GB RAM, 2 CPUs, 256 pids |
+| Mounts | read-only only, resolved path must be under `~/Projects` or `~/Documents/development` (`CTEST_ROOTS`); symlinks out, the docker socket and any other option are refused |
+| Timeout | `CTEST_TIMEOUT` seconds (default 600), then the container is killed, exit 124 |
+| Example | `ctest.sh -v ~/Projects/Docker/grafana/prometheus:/p -w /p --entrypoint promtool prom/prometheus:v3.15.1 test rules tests/backup_test.yml` |
+| Allow | `Bash(/home/pi/Projects/Docker/_global/scripts/ctest.sh *)` |
+| Test | `./test_ctest.sh` (fake docker) |
 
 ## mam-points
 | | |
