@@ -1,0 +1,26 @@
+{# Decisions of packages/plug_watch.yaml. command_age = seconds since Home Assistant last called rest_command.plug_<plug>_on/off, none when never. #}
+
+{# alert | ordered | ignore for a debounced relay change #}
+{% macro relay_verdict(from_state, to_state, command_age) -%}
+{%- if from_state not in ['on', 'off'] or to_state not in ['on', 'off'] or from_state == to_state -%}ignore
+{%- elif command_age is number and command_age <= 120 -%}ordered
+{%- else -%}alert
+{%- endif -%}
+{%- endmacro %}
+
+{# drop when a running server (> 15 W) reads < 1 W one poll later #}
+{% macro power_drop(from_w, to_w) -%}
+{%- set f = from_w | float(-1) -%}
+{%- set t = to_w | float(-1) -%}
+{%- if f > 15 and 0 <= t < 1 -%}drop{%- endif -%}
+{%- endmacro %}
+
+{# relay | ordered | clean | hard_off | unknown for a power drop; port_alive = last alive answer of the server's watched port (open, refused) #}
+{% macro power_verdict(relay, command_age, port_alive) -%}
+{%- if relay != 'on' -%}relay
+{%- elif command_age is number and command_age <= 120 -%}ordered
+{%- elif port_alive == 'refused' -%}clean
+{%- elif port_alive == 'open' -%}hard_off
+{%- else -%}unknown
+{%- endif -%}
+{%- endmacro %}

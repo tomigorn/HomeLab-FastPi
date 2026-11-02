@@ -340,6 +340,33 @@ its `config/packages/plug_<p>.yaml` (3 references), then `docker compose restart
 > auto-updates on IP change — but the device entry then lives in `.storage`
 > (not committed). We chose YAML + static lease to keep everything in git.
 
+## Plug watch (Telegram alerts)
+
+`config/packages/plug_watch.yaml`, decisions in `config/custom_templates/plug_watch.jinja`, sent as alerts to Alertmanager (`127.0.0.1:9093`, route + layout `tg.power` in `Docker/grafana/alertmanager/`): Telegram at once, any time, one message per event.
+
+| Alert | Fires when | Not when |
+|---|---|---|
+| 🔌 `PlugSwitchedUnexpectedly` (all 3 plugs) | relay on↔off, held 30 s, and HA called no `rest_command.plug_<p>_on/off` in the 120 s before | HA switched it (toggle, automation, script, Developer Tools); poll failures (`unavailable`) and glitches under 30 s |
+| ⚡ `ServerPowerLost` (tower) | power > 15 W → < 1 W in one poll, relay still on, Nextcloud `:8080` still **open** at the cut (hard off) or never seen since HA started ("possibly a clean shutdown") | `:8080` answered **refused** before the cut (Unraid stops Docker first = clean shutdown); relay off (that is the relay alert) |
+
+- Every clean S5 shutdown looks the same at the plug: one 0.0 W poll, then standby (beefy 0–1.4 W, tower ~2.8 W). The tower incident of 2026-11-02 00:44 had exactly that shape, so power alone cannot tell clean from hard off.
+- **beefy has no power alert:** it powers off ~15×/day and has no port that is safe to poll every few seconds (`:22` trips sshd's PerSourcePenalties against fastpi, the Docker ports keep its idle watcher awake). A cut relay still alerts.
+- **FastPi:** its relay going off kills HA itself; nothing can alert from here (the host's unclean-reboot alert covers it).
+- Every decision is written to the logbook ("Plug watch"), alerts or not: `power 31.0 -> 0.0 W …: clean`.
+
+| Entity | Purpose |
+|---|---|
+| `sensor.<p>_plug_last_command` | when HA last called the plug's `rest_command` |
+| `sensor.<p>_plug_relay_stable` | relay on/off held 30 s (sampled every 5 s) |
+| `sensor.tower_nextcloud_port` | `open` / `refused` / `down`, TCP connect every 5 s |
+| `sensor.tower_nextcloud_port_last_alive` | last `open` or `refused` |
+
+```bash
+python3 tests/test_plug_watch.py                                   # decision macros
+# 🧪 whole path (two 🧪 Telegram messages, nothing switched): HA > Settings > Automations > "Plug watch: 🧪 test alert" > Run, or
+curl -X POST "http://127.0.0.1:8123/api/webhook/$(sudo grep -oP 'plug_watch_test_webhook: \K\S+' config/secrets.yaml)"
+```
+
 ## Server uptime
 
 `config/packages/uptime.yaml` derives **whether each server is up** purely from

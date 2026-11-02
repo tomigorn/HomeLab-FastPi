@@ -118,6 +118,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | Proxy trust | `config/.storage/http` | UI Network, or edit with HA stopped | `ha.http-trust`: → True [172.24.0.0/16]; `ha.via-traefik`: → 200 | storage migration dropping keys (400 on every request) |
 | Zigbee dongle by-id | `docker-compose.yaml` | `docker compose up -d` | `ha.zigbee-device`: /dev/ttyUSB0 → ok | none |
 | Person pictures = Avatar-Picker picks (websocket `person/update`, token `Avatar-Picker/secrets/ha_token`) | HA `.storage/person` | `python3 Avatar-Picker/scripts/avatar-sync.py --reconcile` | `ha.person-pictures`: pictures vs picks → ok n/n | websocket person API change |
+| Plug watch: Telegram alert on a relay switch without an HA command or tower power lost without shutdown (alerts POSTed to Alertmanager, route `telegram-power`) | `config/packages/plug_watch.yaml`, `config/custom_templates/plug_watch.jinja`, `grafana/alertmanager/` | `docker compose restart`; Alertmanager: README grafana "Alert routing" | `ha.plug-watch`: 3 automations on, relay-stable sensors on/off; `ha.plug-watch-route`: ServerPowerLost → telegram-power | template/command_line/webhook trigger schema change (check_config); `call_service` event or `this` in trigger templates removed |
 
 ## grafana (monitoring stack)
 
