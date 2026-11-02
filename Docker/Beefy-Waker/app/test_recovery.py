@@ -17,15 +17,26 @@ class FakePlug:
     def __init__(self):
         self.relay_state = True
         self.fail_set = False
+        self.stuck_on = False
+        self.readback_none = False
+        self.raise_on = None
         self.unreachable = False
         self.calls = []
 
     def relay(self):
         self.calls.append(("relay",))
+        if self.raise_on == "relay":
+            raise OSError("boom")
+        if self.readback_none and self.calls.count(("set", False)):
+            return None
         return None if self.unreachable else self.relay_state
 
     def set(self, on):
         self.calls.append(("set", on))
+        if self.raise_on == "set":
+            raise OSError("boom")
+        if self.stuck_on and not on:
+            return True
         if self.unreachable or self.fail_set:
             return False
         self.relay_state = on
@@ -46,15 +57,32 @@ class RecoveryTest(unittest.TestCase):
         self.wols = []
         self.alerts = []
         self.snaps = []
+        self.probe_log = []
+        self.metrics_fail = False
+        self.alert_fail = False
         self.rec = Recovery(
-            probe=lambda port: port in self.up_from and self.clock.now >= self.up_from[port],
+            probe=self._probe,
             send_wol=lambda: self.wols.append(self.clock.now),
             plug=self.plug,
-            alert=lambda *a: self.alerts.append(a),
-            write_metrics=self.snaps.append,
+            alert=self._alert,
+            write_metrics=self._metrics,
             clock=self.clock,
             wall=lambda: 1000.0 + self.clock.now,
         )
+
+    def _probe(self, port):
+        self.probe_log.append((self.clock.now, port))
+        return port in self.up_from and self.clock.now >= self.up_from[port]
+
+    def _alert(self, *a):
+        self.alerts.append(a)
+        if self.alert_fail:
+            raise OSError("alert down")
+
+    def _metrics(self, snap):
+        if self.metrics_fail:
+            raise OSError("disk full")
+        self.snaps.append(snap)
 
     def run_to(self, t):
         while self.clock.now < t:
@@ -73,7 +101,7 @@ class RecoveryTest(unittest.TestCase):
         self.rec.start(8096, True, "jane", "Jellyfin")
         self.run_to(39)
         self.assertEqual(self.phase(), "waking")
-        self.run_to(40)
+        self.run_to(45)
         self.assertEqual(self.phase(), "idle")
         self.assertEqual(self.alerts, [])
         self.assertEqual(self.plug.calls, [])
@@ -109,7 +137,7 @@ class RecoveryTest(unittest.TestCase):
     def test_recovers_after_power_cycle(self):
         self.up_from = {22: 200}
         self.rec.start(8096, True, "jane", "Jellyfin")
-        self.run_to(200)
+        self.run_to(205)
         self.assertEqual(self.phase(), "idle")
         self.assertEqual(len(self.alerts), 1)
         self.assertEqual(self.alerts[0][0], "BeefyWakeRecovered")
@@ -249,6 +277,85 @@ class RecoveryTest(unittest.TestCase):
         snap = self.rec.snapshot()
         self.assertEqual(snap["campaigns"], {"0": 1, "1": 0})
         self.assertIn("campaign", snap["last"])
+
+
+    def test_service_down_not_recovered_by_ssh_alone(self):
+        self.up_from = {22: 40}
+        self.rec.start(5055, True, "jane", "Seerr")
+        self.run_to(400)
+        self.assertEqual(self.phase(), "broken")
+        self.assertEqual(len(self.alerts), 1)
+        self.up_from[5055] = 500
+        self.run_to(560)
+        self.assertEqual(self.phase(), "idle")
+        self.assertEqual([a[0] for a in self.alerts], ["BeefyWakeFailed", "BeefyWakeRecovered"])
+
+    def test_metrics_failure_never_blocks_alert_or_cut(self):
+        self.metrics_fail = True
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(120)
+        self.assertEqual(self.plug.sets(), [False])
+        self.run_to(285)
+        self.assertEqual(self.phase(), "broken")
+        self.assertEqual(len(self.alerts), 1)
+
+    def test_plug_exception_is_plug_unreachable(self):
+        for which in ("relay", "set"):
+            self.setUp()
+            self.plug.raise_on = which
+            self.rec.start(8096, True)
+            self.run_to(125)
+            self.assertEqual(self.phase(), "broken", which)
+            self.assertEqual(self.rec.status()["reason"], "plug_unreachable", which)
+            self.assertEqual(self.alerts[0][0], "BeefyWakeFailed")
+
+    def test_alert_exception_swallowed_state_advances(self):
+        self.alert_fail = True
+        self.rec.start(8096, True)
+        self.run_to(285)
+        self.assertEqual(self.phase(), "broken")
+        self.assertEqual(len(self.alerts), 1)
+
+    def test_one_power_cycle_per_latch_even_after_recovery(self):
+        self.up_from = {22: 200}
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(205)
+        self.assertEqual(self.phase(), "idle")
+        self.up_from = {}
+        self.clock.now = 3800
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(3800 + 130)
+        self.assertEqual(self.plug.sets(), [False, True])
+        self.assertEqual(self.phase(), "broken")
+        self.assertEqual(self.rec.status()["reason"], "no_boot")
+        self.assertEqual([a[0] for a in self.alerts], ["BeefyWakeRecovered", "BeefyWakeFailed"])
+
+    def test_probes_at_most_every_5s(self):
+        self.rec.start(8096, True)
+        self.run_to(100)
+        times = [t for t, p in self.probe_log if p == 22]
+        self.assertGreater(len(times), 10)
+        self.assertTrue(all(b - a >= 5 for a, b in zip(times, times[1:])))
+
+    def test_plug_left_on_when_off_readback_wrong(self):
+        self.plug.stuck_on = True
+        self.rec.start(8096, True)
+        self.run_to(125)
+        self.assertEqual(self.plug.sets(), [False, True])
+        self.assertEqual(self.rec.status()["reason"], "plug_unreachable")
+
+    def test_plug_left_on_when_off_readback_fails(self):
+        self.plug.readback_none = True
+        self.rec.start(8096, True)
+        self.run_to(125)
+        self.assertEqual(self.plug.sets(), [False, True])
+        self.assertEqual(self.phase(), "broken")
+
+    def test_seconds_left_during_service_wait(self):
+        self.up_from = {22: 40}
+        self.rec.start(5055, True)
+        self.run_to(100)
+        self.assertEqual(self.rec.status()["seconds_left"], 200)
 
 
 if __name__ == "__main__":

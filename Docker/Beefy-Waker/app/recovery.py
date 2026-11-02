@@ -20,13 +20,13 @@ REASON_TEXT = {
 class Recovery:
     def __init__(self, probe, send_wol, plug, alert, write_metrics, clock=time.monotonic, wall=time.time,
                  host_port=22, t1=120, off_seconds=15, settle=5, t2=150, service_wait=300,
-                 resend=20, window=300, latch=21600, watch_interval=30):
+                 resend=20, window=300, latch=21600, watch_interval=30, probe_interval=5):
         self.probe, self.send_wol, self.plug = probe, send_wol, plug
         self.alert, self.write_metrics = alert, write_metrics
         self.clock, self.wall, self.host_port = clock, wall, host_port
         self.t1, self.off_seconds, self.settle, self.t2 = t1, off_seconds, settle, t2
         self.service_wait, self.resend, self.window = service_wait, resend, window
-        self.latch, self.watch_interval = latch, watch_interval
+        self.latch, self.watch_interval, self.probe_interval = latch, watch_interval, probe_interval
         self._lock = threading.Lock()
         self._step_lock = threading.Lock()
         self.phase = "idle"
@@ -36,6 +36,7 @@ class Recovery:
         self.failures = {r: 0 for r in REASONS}
         self.recoveries = {"power_cycle": 0, "broken": 0}
         self.last = {}
+        self.last_cycle_t = None
         self._reset_campaign()
 
     def _reset_campaign(self):
@@ -46,6 +47,8 @@ class Recovery:
         self.host_up = False
         self.sub = ""
         self.off_t = self.on_t = self.t2_deadline = self.broken_t = 0.0
+        self.probe_t = float('-inf')
+        self.svc_ok = False
 
     def start(self, port, signed_in, user="", service=""):
         now = self.clock()
@@ -75,6 +78,8 @@ class Recovery:
             left = None
             if self.phase == "waking" and self.armed and not self.host_up:
                 left = self.start_t + self.t1 - now
+            elif self.phase == "waking" and self.armed and self.host_up:
+                left = self.start_t + self.service_wait - now
             elif self.phase == "power_cycle" and self.sub == "off":
                 left = self.off_t + self.off_seconds + self.t2 - now
             elif self.phase == "power_cycle" or self.phase == "retrying":
@@ -100,10 +105,37 @@ class Recovery:
             time.sleep(1)
 
     def _emit(self):
-        self.write_metrics(self.snapshot())
+        try:
+            self.write_metrics(self.snapshot())
+        except Exception as e:
+            print(f"recovery metrics write failed: {e!r}", file=sys.stderr, flush=True)
+
+    def _alert(self, *args):
+        try:
+            self.alert(*args)
+        except Exception as e:
+            print(f"recovery alert failed: {e!r}", file=sys.stderr, flush=True)
+
+    def _relay(self):
+        try:
+            return self.plug.relay()
+        except Exception:
+            return None
+
+    def _set(self, on):
+        try:
+            return bool(self.plug.set(on))
+        except Exception:
+            return False
 
     def _host_answers(self, ports):
         return self.probe(self.host_port) or any(self.probe(p) for p in ports)
+
+    def _probe_due(self, now):
+        if now - self.probe_t < self.probe_interval:
+            return False
+        self.probe_t = now
+        return True
 
     def step(self):
         with self._step_lock:
@@ -122,24 +154,25 @@ class Recovery:
     def _resend(self, now):
         if now - self.last_wol >= self.resend:
             self.send_wol()
-            self.last_wol = now
+            with self._lock:
+                self.last_wol = now
 
     def _step_waking(self, now):
         with self._lock:
             ports = list(self.ports)
             host_up = self.host_up
-        if not host_up:
-            host_up = self._host_answers(ports)
-            if host_up:
-                with self._lock:
-                    self.host_up = True
+            armed_ports = [p for p, a in self.ports.items() if a]
+        if self._probe_due(now):
+            if not host_up:
+                host_up = self._host_answers(ports)
+                if host_up:
+                    with self._lock:
+                        self.host_up = True
+            self.svc_ok = host_up and any(self.probe(p) for p in armed_ports)
         with self._lock:
             armed, elapsed = self.armed, now - self.start_t
-            armed_ports = [p for p, a in self.ports.items() if a]
         if host_up:
-            if not armed:
-                return self._to_idle()
-            if any(self.probe(p) for p in armed_ports):
+            if not armed or self.svc_ok:
                 return self._to_idle()
             if elapsed >= self.service_wait:
                 return self._to_broken("service_down", now)
@@ -150,15 +183,26 @@ class Recovery:
             return self._resend(now)
         if elapsed < self.t1:
             return self._resend(now)
-        relay = self.plug.relay()
+        if self._host_answers(ports):
+            with self._lock:
+                self.host_up = True
+            self.probe_t = float('-inf')
+            return
+        if self.last_cycle_t is not None and now - self.last_cycle_t < self.latch:
+            return self._to_broken("no_boot", now)
+        relay = self._relay()
         if relay is None:
             return self._to_broken("plug_unreachable", now)
         if not relay:
             return self._to_broken("plug_off", now)
         with self._lock:
             self.phase, self.sub, self.off_t = "power_cycle", "off", now
+            self.last_cycle_t = now
         self._emit()
-        if not self.plug.set(False) or self.plug.relay() is not False:
+        if not self._set(False):
+            return self._to_broken("plug_unreachable", now)
+        if self._relay() is not False:
+            self._set(True)
             return self._to_broken("plug_unreachable", now)
 
     def _step_power_cycle(self, now):
@@ -167,7 +211,7 @@ class Recovery:
         if sub == "off":
             if now - off_t < self.off_seconds:
                 return
-            if not self.plug.set(True) or self.plug.relay() is not True:
+            if not self._set(True) or self._relay() is not True:
                 return self._to_broken("plug_unreachable", now)
             with self._lock:
                 self.sub, self.on_t, self.t2_deadline = "on", now, now + self.t2
@@ -183,22 +227,30 @@ class Recovery:
     def _step_retrying(self, now):
         with self._lock:
             ports, deadline = list(self.ports), self.t2_deadline
-        if self._host_answers(ports):
-            return self._to_idle("power_cycle", now)
         if now >= deadline:
+            if self._host_answers(ports):
+                return self._to_idle("power_cycle", now)
             return self._to_broken("no_boot", now)
+        if self._probe_due(now) and self._host_answers(ports):
+            return self._to_idle("power_cycle", now)
         self._resend(now)
 
     def _step_broken(self, now):
         with self._lock:
             ports, broken_t, last_watch = list(self.ports), self.broken_t, self.last_watch
+            reason = self.reason
+            armed_ports = [p for p, a in self.ports.items() if a]
         if now - broken_t >= self.latch:
             return self._to_idle()
         if now - last_watch < self.watch_interval:
             return
         with self._lock:
             self.last_watch = now
-        if self._host_answers(ports):
+        if reason == "service_down":
+            back = any(self.probe(p) for p in armed_ports)
+        else:
+            back = self._host_answers(ports)
+        if back:
             self._to_idle("broken", now)
 
     def _details(self, now):
@@ -216,8 +268,8 @@ class Recovery:
             self.phase, self.reason, self.broken_t, self.last_watch = "broken", reason, now, now
             self.failures[reason] += 1
             self.last["failure"] = self.wall()
+        self._alert("BeefyWakeFailed", "critical", f"Beefy wake failed: {REASON_TEXT[reason]}", details)
         self._emit()
-        self.alert("BeefyWakeFailed", "critical", f"Beefy wake failed: {REASON_TEXT[reason]}", details)
 
     def _to_idle(self, recovered=None, now=0.0):
         details = self._details(now) if recovered else ""
@@ -227,6 +279,6 @@ class Recovery:
                 self.recoveries[recovered] += 1
                 self.last["recovery"] = self.wall()
             self._reset_campaign()
-        self._emit()
         if recovered:
-            self.alert("BeefyWakeRecovered", "info", f"Beefy is back after {recovered.replace('_', ' ')}", details)
+            self._alert("BeefyWakeRecovered", "info", f"Beefy is back after {recovered.replace('_', ' ')}", details)
+        self._emit()
