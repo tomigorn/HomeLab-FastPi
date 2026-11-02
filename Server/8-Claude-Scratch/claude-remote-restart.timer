@@ -1,0 +1,10 @@
+[Unit]
+Description=04:00 daily: restart Claude Code Remote Control once no session is busy
+
+[Timer]
+# Persistent catches up if the Pi was off at 04:00.
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

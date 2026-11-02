@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily restart of Claude Code Remote Control (pick up updates, reclaim memory) - postponed in 15-min steps while any session is busy
+Wants=claude-remote.service
+# Retry indefinitely while busy
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/claude-remote-safe-restart
+# Script exits 75 when a session is busy -> try again in 15 min, until idle
+Restart=on-failure
+RestartSec=15min

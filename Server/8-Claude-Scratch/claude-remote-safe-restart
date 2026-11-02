@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Daily (04:00, via claude-remote-restart.timer) restart of claude-remote.service to pick
+# up updates and reclaim memory -- but ONLY when no session is busy, so long-running
+# (overnight) tasks are never killed. If busy, exits 75 and systemd retries every 15 min
+# (Restart=on-failure in claude-remote-restart.service) until everything is idle.
+#
+# Restart is BLOCKED when: any transcript was written in the last IDLE_MIN minutes
+#                          (a session is chatting/thinking/using tools), or any process
+#                          other than claude itself runs in the service cgroup
+#                          (a tool command / background job is still going).
+# Writes claude_remote_restart.prom (node-exporter textfile): when the deferral started and
+# what blocks it; ClaudeRemoteRestartBlocked alerts after a day.
+# DRY_RUN=1 prints the decision without restarting or writing metrics.
+# Exit 0 = restarted (or nothing to do), 75 = deferred (busy).
+set -euo pipefail
+
+SERVICE=claude-remote.service
+IDLE_MIN=${IDLE_MIN:-30}
+TRANSCRIPTS="$HOME/.claude/projects"
+PROC_ROOT=${PROC_ROOT:-/proc}
+CGROUP_ROOT=${CGROUP_ROOT:-/sys/fs/cgroup}
+TEXTFILE=${TEXTFILE:-/var/lib/node-exporter/textfile}
+PROM="$TEXTFILE/claude_remote_restart.prom"
+
+log() { echo "claude-remote-safe-restart: $*"; }
+label() { local s=${1//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "${s//$'\n'/ }"; }
+
+write_metrics() {  # $1 deferred_since (0 = not deferred), $2 reason, $3 blocker
+  [[ "${DRY_RUN:-0}" == 1 ]] && return 0
+  local tmp="$PROM.$$"
+  {
+    echo "# HELP claude_remote_restart_deferred_since_timestamp_seconds When the daily claude-remote restart was first deferred (0 = not deferred)."
+    echo "# TYPE claude_remote_restart_deferred_since_timestamp_seconds gauge"
+    echo "claude_remote_restart_deferred_since_timestamp_seconds{reason=\"$(label "$2")\",blocker=\"$(label "$3")\"} $1"
+    echo "# HELP claude_remote_restart_last_run_timestamp_seconds Last run of the restart guard."
+    echo "# TYPE claude_remote_restart_last_run_timestamp_seconds gauge"
+    echo "claude_remote_restart_last_run_timestamp_seconds $(date +%s)"
+  } > "$tmp"
+  mv "$tmp" "$PROM"
+}
+
+defer() {  # $1 reason, $2 blocker, $3 log message
+  local since
+  since=$(awk '/^claude_remote_restart_deferred_since_timestamp_seconds/ {print $NF}' "$PROM" 2>/dev/null || true)
+  [[ "$since" =~ ^[0-9]+$ && "$since" != 0 ]] || since=$(date +%s)
+  write_metrics "$since" "$1" "$2"
+  log "deferred ($reason): $3; retrying in 15 min"
+  exit 75
+}
+
+main_pid=$(systemctl --user show -p MainPID --value "$SERVICE")
+if [[ -z "$main_pid" || "$main_pid" == 0 ]]; then
+  log "service not running; nothing to do (systemd Restart=always handles it)"
+  exit 0
+fi
+
+running=$(basename "$(readlink -f "$PROC_ROOT/$main_pid/exe")")
+installed=$(basename "$(readlink -f "$HOME/.local/bin/claude")")
+reason="daily restart, running $running, installed $installed"
+
+# --- Is anything busy? ---
+recent=$(find "$TRANSCRIPTS" -name '*.jsonl' -mmin -"$IDLE_MIN" 2>/dev/null | wc -l)
+if (( recent > 0 )); then
+  defer sessions "$recent active" "$recent session(s) active in last ${IDLE_MIN}min"
+fi
+
+cgroup=$CGROUP_ROOT$(cut -d: -f3 "$PROC_ROOT/$main_pid/cgroup")
+busy=()
+while read -r pid; do
+  exe=$(readlink "$PROC_ROOT/$pid/exe" 2>/dev/null) || continue
+  [[ "$exe" == "$HOME"/.local/share/claude/versions/* ]] && continue
+  busy+=("$pid:$(tr '\0' ' ' <"$PROC_ROOT/$pid/cmdline" 2>/dev/null | sed 's/ $//' | cut -c1-80)")
+done < "$cgroup/cgroup.procs"
+if (( ${#busy[@]} > 0 )); then
+  defer processes "${busy[0]#*:}" "${#busy[@]} tool process(es) running: ${busy[*]}"
+fi
+
+if [[ "${DRY_RUN:-0}" == 1 ]]; then
+  log "DRY_RUN: would restart now ($reason)"
+  exit 0
+fi
+write_metrics 0 "" ""
+log "all idle; restarting ($reason)"
+systemctl --user restart "$SERVICE"

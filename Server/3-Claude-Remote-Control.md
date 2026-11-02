@@ -87,44 +87,7 @@ Drop-in `claude-remote.service.d/scratch.conf` moves the session scratch off the
 
 ### Nightly restart timer
 
-A oneshot service + timer restart Remote Control every night at 04:00. This is the
-standard "just restart it" mitigation for the three long-uptime risks above (memory
-growth, silent OAuth-refresh stalls, running a stale binary after a manual update).
-
-**`~/.config/systemd/user/claude-remote-restart.service`**
-
-```ini
-[Unit]
-Description=Nightly restart of Claude Code Remote Control (reclaim memory, refresh auth, pick up updates)
-Wants=claude-remote.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/systemctl --user restart claude-remote.service
-```
-
-**`~/.config/systemd/user/claude-remote-restart.timer`**
-
-```ini
-[Unit]
-Description=Nightly restart timer for Claude Code Remote Control
-
-[Timer]
-# Every day at 04:00 local time; Persistent catches up if the Pi was off at 04:00.
-OnCalendar=*-*-* 04:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable + inspect:
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now claude-remote-restart.timer
-systemctl --user list-timers claude-remote-restart.timer
-```
+Daily 04:00 restart (memory growth, silent OAuth-refresh stalls, stale binary after a manual update), postponed in 15-min steps while any session is busy. Units, guard script and alert: `Server/8-Claude-Scratch/README.md` ("Restart guard"); install with `Server/8-Claude-Scratch/install.sh`.
 
 ---
 
@@ -191,12 +154,11 @@ auth + MFA).
 mkdir -p ~/.config/systemd/user
 # write the three unit files above:
 #   ~/.config/systemd/user/claude-remote.service
-#   ~/.config/systemd/user/claude-remote-restart.service
-#   ~/.config/systemd/user/claude-remote-restart.timer
 loginctl enable-linger pi
 systemctl --user daemon-reload
 systemctl --user enable --now claude-remote.service
-systemctl --user enable --now claude-remote-restart.timer
+Server/8-Claude-Scratch/install.sh   # restart guard + timer, scratch mount
+systemctl --user start claude-remote-restart.timer
 systemctl --user status claude-remote.service
 systemctl --user list-timers claude-remote-restart.timer
 ```
