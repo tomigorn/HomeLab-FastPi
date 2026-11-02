@@ -10,7 +10,15 @@
       "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-bind.sh apply)",
       "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-bind.sh rollback)",
       "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-bind.sh status)",
-      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-engage-test.sh)"
+      "Bash(bash /home/pi/Projects/Docker/Authentik/scripts/lockout-engage-test.sh)",
+      "Bash(bash /usr/local/libexec/fastpi/ctest.sh *)",
+      "Bash(/home/pi/Projects/Docker/_global/scripts/post-update-check.sh *)",
+      "Bash(/home/pi/Projects/Docker/_global/scripts/smoke-test.sh)",
+      "Bash(/home/pi/Projects/Docker/_global/scripts/smoke-test.sh *)",
+      "Bash(/home/pi/Projects/Docker/Claude-Mockups/wait-for-answer.sh *)",
+      "Bash(python3 /home/pi/reports/_web/mkreport.py *)",
+      "Write(//home/pi/Projects/Docker/Claude-Mockups/www/**)",
+      "Edit(//home/pi/Projects/Docker/Claude-Mockups/www/**)"
     ]
   }
 }
