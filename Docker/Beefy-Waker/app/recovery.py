@@ -179,6 +179,7 @@ class Recovery:
                     "failures": dict(self.failures), "recoveries": dict(self.recoveries), "last": dict(self.last)}
 
     def run(self):
+        self._emit()
         while True:
             try:
                 self.step()

@@ -277,6 +277,18 @@ class RecoveryTest(unittest.TestCase):
                 phases.append(s["phase"])
         self.assertEqual(phases, ["waking", "power_cycle", "retrying", "broken"])
 
+    def test_run_writes_idle_metrics_before_first_step(self):
+        class Stop(BaseException):
+            pass
+
+        def step():
+            raise Stop
+
+        self.rec.step = step
+        with self.assertRaises(Stop):
+            self.rec.run()
+        self.assertEqual([s["phase"] for s in self.snaps], ["idle"])
+
     def test_snapshot_counts(self):
         self.rec.start(22, False)
         self.rec.start(8096, True)
