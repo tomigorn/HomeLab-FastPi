@@ -24,14 +24,14 @@ tests:
           - exp_labels: {severity: warning}
             exp_annotations:
               summary: "Jellyfin stutter on beefy"
-              description: "Incidents in the last 15 min: stall on TV (1). Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
+              description: "Incidents in the last 15 min: see report. Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
       - eval_time: 33m
         alertname: JellyfinPlaybackStutter
         exp_alerts:
           - exp_labels: {severity: warning}
             exp_annotations:
               summary: "Jellyfin stutter on beefy"
-              description: "Incidents in the last 15 min: see report. Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
+              description: "Incidents in the last 15 min: stall on TV (1). Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
       - eval_time: 36m
         alertname: JellyfinPlaybackStutter
         exp_alerts: []
