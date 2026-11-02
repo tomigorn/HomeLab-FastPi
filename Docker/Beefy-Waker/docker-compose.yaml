@@ -21,6 +21,8 @@ services:
       # read-only forced-command key (journalctl --list-boots only) for /history
       - ./secrets/beefy-history:/key:ro
       - ./secrets/known_hosts:/known_hosts:ro
+      # node-exporter textfile dir: wake recovery metrics (beefy_wake.prom)
+      - /var/lib/node-exporter/textfile:/textfile
     command: ["python", "/app/waker.py"]
     # Liveness probe for observability (docker ps shows healthy/unhealthy). NOTE:
     # plain compose does NOT auto-restart on unhealthy — restart:unless-stopped only
@@ -35,6 +37,7 @@ services:
     # packet (SO_BROADCAST is unprivileged), reads the mounted key, and runs ssh —
     # none of which need root or any capability. uid 1000 owns app/secrets on the host.
     user: "65005:65005"      # dedicated uid (not pi's 1000); secrets chowned to match
+    group_add: ["65046"]     # textfile dir group (setgid), so the metrics file can be written
     cap_drop:
       - ALL
     mem_limit: 64m

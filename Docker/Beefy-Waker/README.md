@@ -105,6 +105,45 @@ rule (jellyfin-web clients send their first connect check without the Jellyfin h
 
 Design: `docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
 
+## Wake recovery (v1.6.0)
+
+A signed-in wake that does not come up gets one hard power-cycle via beefy's plug, then a Telegram alarm. Code: `app/recovery.py`. Design: `docs/superpowers/specs/2026-11-02-wake-recovery-design.md`.
+
+| Phase | Starts | Ends |
+|---|---|---|
+| `waking` | first wake packet | host answers → `idle`; 120 s nothing on `:22` / service port → `power_cycle` (signed-in only) |
+| `power_cycle` | T1, armed | plug off (read back), 15 s, plug on, wake packets every 20 s → `retrying` |
+| `retrying` | plug back on | host answers → `idle` + `BeefyWakeRecovered`; 150 s nothing → `broken` |
+| `broken` | T2 failed, plug off on purpose, plug unreachable, or host up but service not ready 300 s after start | beefy answers (→ `BeefyWakeRecovered`) or 6 h latch ends |
+
+Never a power cut while beefy answers; at most one per 6 h.
+
+**Who may escalate** (anyone else only sends a plain wake packet):
+
+| Source | Signed in when |
+|---|---|
+| `/gate?…&signed_in=1` | flag in the Traefik middleware address (10 gates after `authentik@file`), `X-Authentik-Username` set, peer = Traefik (`TRUSTED_PROXY`) |
+| `POST /jf/wake` | `X-Authentik-Username` set, peer = Traefik |
+
+The LAN route `beefy-wol.fastpi.homelab` blanks `X-Authentik-*` (`beefy-wol-strip-authentik`).
+
+**Alarms** (POST to Alertmanager, route `telegram-power`, never muted):
+
+| alertname | Severity | When |
+|---|---|---|
+| `BeefyWakeFailed` 🆘 | critical | `broken` reached, once per episode |
+| `BeefyWakeRecovered` ✅ | info | up after a power-cycle or after `broken` |
+
+**Metrics:** `/var/lib/node-exporter/textfile/beefy_wake.prom` (rewritten at start and on every change): `beefy_wake_phase{phase}`, `beefy_wake_campaigns_total{signed_in}`, `beefy_wake_power_cycles_total`, `beefy_wake_failures_total{reason}`, `beefy_wake_recoveries_total{after}`, `beefy_wake_last_event_timestamp_seconds{event}`. Grafana: row "beefy wake" + annotations on `homelab-morning`.
+
+**Test:**
+```sh
+(cd app && python3 -m unittest -q)                     # state machine, arming, pages
+curl -s http://192.168.1.2:9001/status                  # phase, seconds_left, reason
+cat /var/lib/node-exporter/textfile/beefy_wake.prom
+../_global/scripts/post-update-check.sh Beefy-Waker     # beefy-waker.recovery
+```
+
 ## 2. Manual LAN wake page (`/` and `/wol`)
 
 Open **`https://beefy-wol.fastpi.homelab/`** in a browser:
@@ -134,7 +173,7 @@ Both show the collapsed **beefy history** panel and the app version in the foote
 |--------|------|---------|
 | GET | `/` | State + manual wake page (HTML) — shows beefy's status + a Wake button; does **not** auto-wake |
 | GET | `/wol` | Same page, but **auto-fires** WoL on load (countdown) |
-| GET | `/status` | `{"up": true\|false}` — TCP-probes beefy |
+| GET | `/status` | `{"up": …, "phase": …, "seconds_left": …, "reason": …}` — TCP-probes beefy + wake recovery phase |
 | POST | `/wake` | Fire the WoL magic packet → `{"sent": …}`. Needs header `X-Wake: 1`; a browser `Origin` must be this host, else 403 (CSRF guard, D-11). Same for `/jf/wake` |
 | GET | `/history` | beefy's boot/sleep timeline (JSON) — fetched from its journal |
 | GET | `/gate` | forwardAuth gate; `?port=` override (host is hard-wired to beefy) |
@@ -175,6 +214,7 @@ curl -s http://127.0.0.1:9001/history | python3 -c \
 | File | Purpose |
 |------|---------|
 | `app/waker.py` | Gate + status/wake/history endpoints + the manual page. Stdlib only. |
+| `app/recovery.py` | Wake recovery state machine, myStrom plug, alert POST, textfile writer. |
 | `app/VERSION` | App version (semver) shown in the page footer. **Bump on each user-facing change.** |
 | `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`), passwd user `waker` = compose uid 65005 (ssh refuses an unknown uid), pip removed (stdlib-only app; pip's vendored libs were the only HIGH CVEs). |
 | `docker-compose.yaml` | Builds the image, host network, runs the script. |
@@ -223,6 +263,10 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `WAKE_COUNTDOWN` | Manual page countdown seconds (typical cold boot). Default `60`. |
 | `BEEFY_SSH_USER` | SSH user for the `/history` boot-list fetch. Default `buntu`. |
 | `BEEFY_HISTORY_SINCE` | Hide boots that started before this epoch-µs cutoff (`0` = show all). See "Starting the history fresh" below. |
+| `TRUSTED_PROXY` | Traefik's IP; only its requests count as signed in. `172.24.255.3` |
+| `BEEFY_PLUG` | beefy's myStrom plug. `http://192.168.1.152` |
+| `ALERTMANAGER_URL` | Where wake alarms go. `http://127.0.0.1:9093` |
+| `WAKE_METRICS` | Textfile in the container. `/textfile/beefy_wake.prom` |
 
 ## Operations & known limitations
 
@@ -259,7 +303,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.5.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.6.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box
