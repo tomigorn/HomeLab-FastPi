@@ -144,6 +144,7 @@ _global/scripts/update-project.sh <compose-dir> snapshot        # BEFORE you edi
 # edit the image ref, then:
 _global/scripts/update-project.sh <compose-dir> pull|build|recreate [backup paths...]
 ```
+`recreate` always force-recreates (a change only in bind-mounted code is invisible to compose).
 
 Rollback safety:
 
