@@ -13,6 +13,7 @@ Everything that runs on fastpi: Docker stacks under `Docker/`, server docs under
   - `.gitignore`: ignores `.env` and every sensitive file or folder, per the sample.
 - Traefik config lives in `Docker/Traefik/traefik/dynamic/` and hot-reloads; Traefik fails closed, so check `docker logs traefik` after every change. `local-networks@file` is the single definition of "home + VPN"; `authentik@file` is the login gate.
 - After changes: `Docker/_global/scripts/smoke-test.sh` must stay green.
+- One-off test containers (promtool, pytest in an image, …) only through `Docker/_global/scripts/ctest.sh` (no network, read-only, no prompt), never a bare `docker run`.
 
 ## Project review checklist (`Docker/_global/checklist.md`)
 - Columns: `Project | Reviewed | Deployed | Image / Tag Version | my update performed date | Tag`.
