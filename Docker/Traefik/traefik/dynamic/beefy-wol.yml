@@ -18,7 +18,16 @@ http:
       service: beefy-wol
       middlewares:
         - local-networks@file
+        - beefy-wol-strip-authentik
       tls: {}                       # default self-signed cert; no certResolver
+
+  middlewares:
+    # No login on this route: blank the headers the Waker trusts as "signed in" (wake recovery, Beefy-Waker 1.6.0).
+    beefy-wol-strip-authentik:
+      headers:
+        customRequestHeaders:
+          X-Authentik-Username: ""
+          X-Authentik-Groups: ""
 
   services:
     beefy-wol:
