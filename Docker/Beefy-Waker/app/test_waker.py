@@ -23,6 +23,24 @@ os.environ.setdefault("BEEFY_PROBE_HOST", "127.0.0.1")
 import waker  # noqa: E402
 
 
+class FakeRecovery:
+    """Stands in for waker.RECOVERY: records start() calls and sends the packet like the real one."""
+
+    def __init__(self):
+        self.calls = []
+        self.running = False
+
+    def start(self, port, signed_in, user="", service=""):
+        waker.send_wol(waker.MAC, waker.BROADCAST)
+        self.calls.append((port, signed_in, user, service))
+
+    def in_progress(self):
+        return self.running
+
+    def status(self):
+        return {"phase": "waking" if self.running else "idle", "seconds_left": None, "reason": ""}
+
+
 class ListenBacklogTest(unittest.TestCase):
     def test_backlog_absorbs_bursts(self):
         self.assertGreaterEqual(waker.Server.request_queue_size, 64)
@@ -107,18 +125,17 @@ class JellyfinGateTest(unittest.TestCase):
         cls.srv.server_close()
 
     def setUp(self):
-        waker._campaign_running = False
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
         self.out = io.StringIO()
         p_out = mock.patch("sys.stdout", self.out)
         p_wol = mock.patch.object(waker, "send_wol")
-        p_camp = mock.patch.object(waker, "_wake_campaign")   # no background thread
         self.send_wol = p_wol.start()
-        p_out.start(); p_camp.start()
+        p_out.start()
         mock.patch.object(waker, "HOLD_SECONDS", 0.2).start()   # don't hold 25 s per test
         mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
         mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()   # deadline rule uses it
         self.addCleanup(mock.patch.stopall)
-        self.addCleanup(setattr, waker, "_campaign_running", False)
 
     def gate(self, up, headers, policy="jellyfin"):
         with mock.patch.object(waker, "is_up", return_value=up), \
@@ -166,7 +183,7 @@ class JellyfinGateTest(unittest.TestCase):
         self.send_wol.assert_called_once()
 
     def test_down_wake_in_progress_browser_gets_starting_page_no_new_wake(self):
-        waker._campaign_running = True
+        self.recovery.running = True
         status, body = self.gate(False, self.BROWSER)
         self.assertEqual(status, 503)
         self.assertIn("Waking up beefy", body)
@@ -230,7 +247,7 @@ class JellyfinGateTest(unittest.TestCase):
         self.send_wol.assert_not_called()
 
     def test_app_during_campaign_is_starting_no_wake(self):
-        waker._campaign_running = True
+        self.recovery.running = True
         status, body = self.gate(False, self.APP)
         self.assertEqual(status, 503)
         self.assertIn("Waking up beefy", body)
@@ -296,12 +313,11 @@ class JellyfinWakePageTest(unittest.TestCase):
         cls.srv.server_close()
 
     def setUp(self):
-        waker._campaign_running = False
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
         mock.patch("sys.stdout", io.StringIO()).start()
         self.send_wol = mock.patch.object(waker, "send_wol").start()
-        mock.patch.object(waker, "_wake_campaign").start()
         self.addCleanup(mock.patch.stopall)
-        self.addCleanup(setattr, waker, "_campaign_running", False)
 
     def req(self, method, path, headers=None):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -336,7 +352,7 @@ class JellyfinWakePageTest(unittest.TestCase):
         with mock.patch.object(waker, "is_jellyfin_ready", return_value=True) as ready:
             status, body = self.req("GET", "/jf/status")
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body), {"up": True})
+        self.assertTrue(json.loads(body)["up"])
         ready.assert_called_once_with(waker.PROBE_HOST, waker.JELLYFIN_PORT)
 
     def test_wake_is_post_only(self):
@@ -370,12 +386,11 @@ class WakeCsrfTest(unittest.TestCase):
         cls.srv.server_close()
 
     def setUp(self):
-        waker._campaign_running = False
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
         mock.patch("sys.stdout", io.StringIO()).start()
         self.send_wol = mock.patch.object(waker, "send_wol").start()
-        mock.patch.object(waker, "_wake_campaign").start()
         self.addCleanup(mock.patch.stopall)
-        self.addCleanup(setattr, waker, "_campaign_running", False)
 
     def post(self, path, headers):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -517,16 +532,15 @@ class JellyfinHoldTest(unittest.TestCase):
         cls.srv.server_close()
 
     def setUp(self):
-        waker._campaign_running = False
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
         self.out = io.StringIO()
         mock.patch("sys.stdout", self.out).start()
         self.send_wol = mock.patch.object(waker, "send_wol").start()
-        mock.patch.object(waker, "_wake_campaign").start()
         mock.patch.object(waker, "is_up", return_value=False).start()
         mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
         mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()   # deadline rule uses it
         self.addCleanup(mock.patch.stopall)
-        self.addCleanup(setattr, waker, "_campaign_running", False)
 
     APP = {"Accept": "application/json", "X-Forwarded-Uri": "/System/Info",
            "Authorization": 'MediaBrowser Client="Android TV", Token="S"'}
@@ -565,7 +579,7 @@ class JellyfinHoldTest(unittest.TestCase):
         self.assertLess(dt, 2)
 
     def test_starting_is_held_too_without_new_wake(self):
-        waker._campaign_running = True
+        self.recovery.running = True
         ready = iter([False, False, True] + [True] * 50)
         with mock.patch.object(waker, "is_jellyfin_ready", side_effect=lambda h, p: next(ready)), \
              mock.patch.object(waker, "HOLD_SECONDS", 2):
@@ -610,7 +624,7 @@ class JellyfinHoldTest(unittest.TestCase):
         self.assertEqual(waker._clamp_hold_slots("x"), 16)
 
     def test_subresource_while_starting_is_not_held(self):
-        waker._campaign_running = True
+        self.recovery.running = True
         hdr = {"Accept": "*/*", "Sec-Fetch-Dest": "script", "X-Forwarded-Uri": "/web/main.js"}
         with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
              mock.patch.object(waker, "HOLD_SECONDS", 5):
@@ -622,7 +636,7 @@ class JellyfinHoldTest(unittest.TestCase):
         self.assertEqual(self.observed()[0]["held"], 0)
 
     def test_browser_is_not_held_while_starting(self):
-        waker._campaign_running = True
+        self.recovery.running = True
         with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
              mock.patch.object(waker, "HOLD_SECONDS", 5):
             t0 = time.monotonic()
@@ -691,7 +705,8 @@ class PublicInfoTest(unittest.TestCase):
             s.shutdown(); s.server_close()
 
     def setUp(self):
-        waker._campaign_running = False
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
         waker._public_info = None
         self.cache = tempfile.NamedTemporaryFile(delete=False); self.cache.close()
         os.unlink(self.cache.name)
@@ -700,7 +715,6 @@ class PublicInfoTest(unittest.TestCase):
         mock.patch.object(waker, "JELLYFIN_PORT", self.jf.server_address[1]).start()
         self.out = io.StringIO(); mock.patch("sys.stdout", self.out).start()
         self.send_wol = mock.patch.object(waker, "send_wol").start()
-        mock.patch.object(waker, "_wake_campaign").start()
         mock.patch.object(waker, "is_up", return_value=False).start()
         mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
         mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()   # deadline rule uses it
@@ -832,7 +846,7 @@ class PublicInfoTest(unittest.TestCase):
         self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
 
     def test_browser_navigation_while_starting_is_not_held(self):
-        waker._campaign_running = True
+        self.recovery.running = True
         with mock.patch.object(waker, "is_jellyfin_ready", return_value=False), \
              mock.patch.object(waker, "HOLD_SECONDS", 5):
             t0 = time.monotonic()
@@ -902,15 +916,14 @@ class BrowserSubresourceTest(unittest.TestCase):
         cls.srv.shutdown(); cls.srv.server_close()
 
     def setUp(self):
-        waker._campaign_running = False
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
         self.out = io.StringIO(); mock.patch("sys.stdout", self.out).start()
         self.send_wol = mock.patch.object(waker, "send_wol").start()
-        mock.patch.object(waker, "_wake_campaign").start()
         mock.patch.object(waker, "is_up", return_value=False).start()
         mock.patch.object(waker, "is_jellyfin_ready", return_value=False).start()
         mock.patch.object(waker, "HOLD_SECONDS", 5).start()
         self.addCleanup(mock.patch.stopall)
-        self.addCleanup(setattr, waker, "_campaign_running", False)
 
     def gate(self, headers):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
@@ -1061,3 +1074,144 @@ class StreamAuthTest(unittest.TestCase):
             for t in ("good0123", "bad01234", "bad05678", "bad09999"):
                 self.req({"X-Emby-Token": t})
             self.assertLessEqual(len(waker._stream_auth_cache), 2)
+
+
+class SignedInWakeTest(unittest.TestCase):
+    """Only a signed-in request behind Traefik may arm recovery (plug power-cycle + alarm)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), waker.Handler)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def setUp(self):
+        self.recovery = FakeRecovery()
+        mock.patch.object(waker, "RECOVERY", self.recovery).start()
+        mock.patch.object(waker, "TRUSTED_PROXY", "127.0.0.1").start()
+        self.out = io.StringIO()
+        mock.patch("sys.stdout", self.out).start()
+        self.send_wol = mock.patch.object(waker, "send_wol").start()
+        mock.patch.object(waker, "is_up", return_value=False).start()
+        mock.patch.object(waker, "is_jellyfin_ready", return_value=False).start()
+        mock.patch.object(waker, "HOLD_SECONDS", 0.2).start()
+        mock.patch.object(waker, "HOLD_POLL_SECONDS", 0.05).start()
+        mock.patch.object(waker, "PROBE_TIMEOUT", 0.01).start()
+        self.addCleanup(mock.patch.stopall)
+
+    def req(self, method, path, headers=None):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request(method, path, headers=headers or {})
+        r = c.getresponse()
+        body = r.read().decode()
+        c.close()
+        return r.status, body
+
+    USER = {"X-Authentik-Username": "jane"}
+    APP = {"Accept": "application/json", "X-Authentik-Username": "jane"}
+
+    def test_gate_signed_in_flag_and_header_arms(self):
+        status, _ = self.req("GET", "/gate?port=5055&signed_in=1", self.USER)
+        self.assertEqual(status, 503)
+        self.assertEqual(self.recovery.calls, [(5055, True, "jane", "Seerr")])
+
+    def test_gate_flag_without_header_does_not_arm(self):
+        for headers in ({}, {"X-Authentik-Username": "  "}):
+            self.recovery.calls.clear()
+            self.req("GET", "/gate?port=5055&signed_in=1", headers)
+            self.assertEqual([c[1] for c in self.recovery.calls], [False], headers)
+
+    def test_gate_header_without_flag_does_not_arm(self):
+        self.req("GET", "/gate?port=5055", self.USER)
+        self.req("GET", "/gate?port=8096&policy=jellyfin", self.APP)
+        self.assertEqual([c[1] for c in self.recovery.calls], [False, False])
+
+    def test_jellyfin_gate_never_arms_even_with_flag(self):
+        self.req("GET", "/gate?port=8096&policy=jellyfin&signed_in=1", self.APP)
+        self.assertEqual([c[1] for c in self.recovery.calls], [False])
+
+    def test_gate_flag_from_untrusted_peer_does_not_arm(self):
+        with mock.patch.object(waker, "TRUSTED_PROXY", "10.9.9.9"):
+            self.req("GET", "/gate?port=5055&signed_in=1", self.USER)
+        self.assertEqual([c[1] for c in self.recovery.calls], [False])
+
+    def test_gate_unknown_port_service_name(self):
+        self.req("GET", "/gate?port=4321&signed_in=1", self.USER)
+        self.assertEqual(self.recovery.calls, [(4321, True, "jane", "port 4321")])
+
+    def test_service_names(self):
+        self.assertEqual(waker.service_name(8096), "Jellyfin")
+        self.assertEqual(waker.service_name(8087), "VPN status")
+        self.assertEqual(waker.service_name(1), "port 1")
+
+    def test_jf_wake_signed_in(self):
+        self.req("POST", "/jf/wake", {"X-Wake": "1", "X-Authentik-Username": "jane"})
+        self.req("POST", "/jf/wake", {"X-Wake": "1"})
+        self.assertEqual(self.recovery.calls, [(waker.JELLYFIN_PORT, True, "jane", "Jellyfin"),
+                                               (waker.JELLYFIN_PORT, False, "", "Jellyfin")])
+
+    def test_jf_wake_from_untrusted_peer_does_not_arm(self):
+        with mock.patch.object(waker, "TRUSTED_PROXY", "10.9.9.9"):
+            self.req("POST", "/jf/wake", {"X-Wake": "1", "X-Authentik-Username": "jane"})
+        self.assertEqual([c[1] for c in self.recovery.calls], [False])
+
+    def test_lan_wake_never_armed(self):
+        self.req("POST", "/wake", {"X-Wake": "1", "X-Authentik-Username": "jane"})
+        self.assertEqual([c[1] for c in self.recovery.calls], [False])
+
+    def test_public_info_never_armed(self):
+        self.req("GET", "/jf/public-info", self.APP)
+        self.assertEqual([c[1] for c in self.recovery.calls], [False])
+
+    def test_status_has_phase_fields(self):
+        self.recovery.status = lambda: {"phase": "power_cycle", "seconds_left": 42, "reason": ""}
+        for p in ("/status", "/jf/status"):
+            _, body = self.req("GET", p)
+            self.assertEqual(json.loads(body), {"up": False, "phase": "power_cycle",
+                                                "seconds_left": 42, "reason": ""}, p)
+
+    def test_wol_send_failure_is_logged(self):
+        self.send_wol.side_effect = OSError("network down")
+        status, _ = self.req("GET", "/gate?port=5055&signed_in=1", self.USER)
+        self.assertEqual(status, 503)
+        self.assertIn("WoL send failed", self.out.getvalue())
+
+    def test_wake_in_progress_follows_recovery(self):
+        self.assertFalse(waker.wake_in_progress())
+        self.recovery.running = True
+        self.assertTrue(waker.wake_in_progress())
+
+
+class RecoveryWiringTest(unittest.TestCase):
+    def test_module_recovery_uses_configured_timings(self):
+        r = waker.RECOVERY
+        self.assertIsInstance(r, waker.Recovery)
+        self.assertEqual((r.resend, r.window, r.host_port),
+                         (waker.WAKE_RETRY_INTERVAL, waker.WAKE_RETRY_WINDOW, waker.PROBE_PORT))
+        self.assertEqual(waker.TRUSTED_PROXY, os.environ.get("TRUSTED_PROXY", "172.24.255.3"))
+
+    def test_alert_binds_url_and_description(self):
+        with mock.patch.object(waker, "post_alert", return_value=True) as pa:
+            waker.alert("BeefyWakeFailed", "critical", "s", "d")
+        url, name, sev, summary, details, desc = pa.call_args[0]
+        self.assertEqual((url, name, sev, summary, details), (waker.ALERTMANAGER_URL, "BeefyWakeFailed", "critical", "s", "d"))
+        self.assertIn("journalctl --list-boots", desc)
+        with mock.patch.object(waker, "post_alert", return_value=True) as pa:
+            waker.alert("BeefyWakeRecovered", "info", "s", "d")
+        self.assertIn("journalctl -b -1", pa.call_args[0][5])
+
+    def test_wake_delegates_to_recovery(self):
+        fake = mock.Mock()
+        with mock.patch.object(waker, "RECOVERY", fake):
+            waker.wake(5055, True, "jane", "Seerr")
+            waker.wake()
+        self.assertEqual(fake.start.call_args_list,
+                         [mock.call(5055, True, "jane", "Seerr"), mock.call(waker.PROBE_PORT, False, "", "")])
+
+    def test_import_starts_no_recovery_thread(self):
+        self.assertFalse(any(t.name == "wake-recovery" for t in threading.enumerate()))

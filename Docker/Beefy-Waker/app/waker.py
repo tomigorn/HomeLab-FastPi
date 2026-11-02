@@ -40,6 +40,11 @@ Config via env (see .env):
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
   WAKE_RETRY_INTERVAL seconds between magic-packet resends       default 20
   WAKE_RETRY_WINDOW  stop resending after this many seconds   default 300
+  TRUSTED_PROXY      Traefik's peer IP (signed-in wakes only)  default 172.24.255.3
+  BEEFY_PLUG         beefy's myStrom plug (recovery)         default http://192.168.1.152
+  ALERTMANAGER_URL   where wake alarms go                    default http://127.0.0.1:9093
+  WAKE_METRICS       Prometheus textfile for wake metrics    default /textfile/beefy_wake.prom
+  WAKE_T1, WAKE_T2   recovery deadlines (live test only)     default 120, 150
 
 Stdlib only; no dependencies.
 """
@@ -56,6 +61,8 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
+
+from recovery import MyStromPlug, Recovery, post_alert, write_textfile
 
 LISTEN_PORT = int(os.environ.get("WAKER_LISTEN_PORT", "9001"))
 # Bind address. Default all-interfaces; set WAKER_BIND to the LAN IP so the raw
@@ -76,10 +83,16 @@ HISTORY_SINCE = int(os.environ.get("BEEFY_HISTORY_SINCE", "0"))
 
 WAKE_UDP_PORT = 9     # UDP port magic packets are sent to
 
-# How the retry campaign behaves. A single packet is not enough — see wake().
+# Resend timing of a wake campaign (Recovery's resend and unarmed window).
 WAKE_RETRY_INTERVAL = int(os.environ.get("WAKE_RETRY_INTERVAL", "20"))  # seconds between resends
 WAKE_RETRY_WINDOW = int(os.environ.get("WAKE_RETRY_WINDOW", "300"))     # give up after this long
 PROBE_TIMEOUT = 1.0   # seconds per TCP probe
+TRUSTED_PROXY = os.environ.get("TRUSTED_PROXY", "172.24.255.3")
+BEEFY_PLUG = os.environ.get("BEEFY_PLUG", "http://192.168.1.152")
+ALERTMANAGER_URL = os.environ.get("ALERTMANAGER_URL", "http://127.0.0.1:9093")
+WAKE_METRICS = os.environ.get("WAKE_METRICS", "/textfile/beefy_wake.prom")
+WAKE_T1 = int(os.environ.get("WAKE_T1", "120"))
+WAKE_T2 = int(os.environ.get("WAKE_T2", "150"))
 # Public URL prefix of the signed-in wake page (Traefik rewrites it to /jf/).
 PUBLIC_WAKE_PREFIX = "/beefy-wake"
 JELLYFIN_PORT = int(os.environ.get("JELLYFIN_PORT", "8096"))
@@ -397,62 +410,49 @@ def send_wol(mac, broadcast):
         s.sendto(pkt, (broadcast, WAKE_UDP_PORT))
 
 
-# --- wake campaign -------------------------------------------------------
-# One magic packet is not enough. A machine that has just been told to power off
-# keeps ignoring packets until it actually reaches S5, and that window is both
-# long and variable: measured on tower 2026-08-16, three packets across
-# 20:54-20:57 UTC did nothing while a fourth at 20:59 woke it instantly — yet an
-# earlier cycle the same day woke from the first packet in ~34 s. A fixed
-# "wait, then send once" cannot cover a window that moves, so instead we resend
-# until the host actually answers.
-#
-# Without this the failure is silent and expensive: the packet is UDP, nothing
-# acknowledges it, and the user just sees a page that never loads.
-#
-# Runs on a background thread so the HTTP request returns straight away — the
-# gate has to serve its 503 "waking up" page without blocking on any of this.
-_campaign_lock = threading.Lock()
-_campaign_running = False
+# --- wake recovery -------------------------------------------------------
+# One magic packet is not enough (a host still powering off ignores packets), so
+# Recovery resends until beefy answers. Only a signed-in wake may escalate to a
+# plug power-cycle and an alarm; see recovery.py.
+SERVICE_NAMES = {8096: "Jellyfin", 5055: "Seerr", 7878: "Radarr", 8989: "Sonarr", 9696: "Prowlarr",
+                 6767: "Bazarr", 8081: "SABnzbd", 8080: "qBittorrent", 8090: "Dependency-Track",
+                 8012: "Tracker", 8087: "VPN status"}
+ALERT_DESCRIPTIONS = {
+    "BeefyWakeFailed": "Check beefy's screen and the beefy plug in Home Assistant; history: journalctl --list-boots on beefy. The wake page shows the broken message for 6 h or until beefy answers.",
+    "BeefyWakeRecovered": "beefy answers again. If it needed a power cut, look for the cause: journalctl -b -1 on beefy.",
+}
 
 
-def _wake_campaign():
-    """Resend the magic packet until the host answers or the window expires."""
-    global _campaign_running
-    try:
-        deadline = time.monotonic() + WAKE_RETRY_WINDOW
-        while time.monotonic() < deadline:
-            time.sleep(WAKE_RETRY_INTERVAL)
-            if is_up(PROBE_HOST, PROBE_PORT):
-                return
-            try:
-                send_wol(MAC, BROADCAST)
-            except OSError:
-                pass          # transient send error — keep trying until the window ends
-    finally:
-        with _campaign_lock:
-            _campaign_running = False
+def service_name(port):
+    return SERVICE_NAMES.get(port, "port %d" % port)
 
 
-def wake():
-    """Send a packet now, then keep resending in the background until it is up.
+def alert(alertname, severity, summary, details):
+    return post_alert(ALERTMANAGER_URL, alertname, severity, summary, details, ALERT_DESCRIPTIONS[alertname])
 
-    Single-flight on purpose: the gate is called for EVERY asset on a page, so
-    without the guard one page load would spawn dozens of identical threads.
-    monotonic() is used rather than wall-clock so an NTP correction cannot cut
-    the window short or extend it forever.
-    """
-    global _campaign_running
-    send_wol(MAC, BROADCAST)          # raises on failure, as the callers expect
-    with _campaign_lock:
-        if _campaign_running:
-            return
-        _campaign_running = True
-    threading.Thread(target=_wake_campaign, daemon=True).start()
+
+RECOVERY = Recovery(
+    probe=lambda port: is_up(PROBE_HOST, port),
+    send_wol=lambda: send_wol(MAC, BROADCAST),
+    plug=MyStromPlug(BEEFY_PLUG),
+    alert=alert,
+    write_metrics=lambda snap: write_textfile(WAKE_METRICS, snap),
+    host_port=PROBE_PORT, t1=WAKE_T1, t2=WAKE_T2,
+    resend=WAKE_RETRY_INTERVAL, window=WAKE_RETRY_WINDOW)
+
+
+def wake(port=PROBE_PORT, signed_in=False, user="", service=""):
+    """Send a packet now (raises on failure) and start or join the single recovery campaign."""
+    RECOVERY.start(port, signed_in, user, service)
 
 
 def wake_in_progress():
-    with _campaign_lock:
-        return _campaign_running
+    return RECOVERY.in_progress()
+
+
+def is_signed_in(handler, flagged):
+    return (flagged and handler.client_address[0] == TRUSTED_PROXY
+            and (handler.headers.get("X-Authentik-Username") or "").strip() != "")
 
 
 def is_browser_navigation(headers):
@@ -795,7 +795,7 @@ class Handler(BaseHTTPRequestHandler):
             self._jf_page()
         elif path == "/jf/status":
             up = is_jellyfin_ready(PROBE_HOST, JELLYFIN_PORT)
-            self._send(200, "application/json", json.dumps({"up": up}).encode())
+            self._send(200, "application/json", json.dumps({"up": up, **RECOVERY.status()}).encode())
         elif path == "/jf/wake":
             self._jf_wake()
         elif path == "/jf/public-info":
@@ -846,7 +846,7 @@ class Handler(BaseHTTPRequestHandler):
         elif decision != "signin":
             if decision == "wake":
                 try:
-                    wake()
+                    wake(JELLYFIN_PORT, service="Jellyfin")
                     self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
                                      PROBE_HOST, JELLYFIN_PORT, MAC, BROADCAST)
                 except Exception as e:
@@ -884,7 +884,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _status(self):
         up = is_up(PROBE_HOST, PROBE_PORT)
-        self._send(200, "application/json", json.dumps({"up": up}).encode())
+        self._send(200, "application/json", json.dumps({"up": up, **RECOVERY.status()}).encode())
 
     def _wake(self):
         if self.command != "POST":   # POST-only: avoid drive-by GET/<img> wakes
@@ -914,10 +914,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send(403, "application/json",
                        json.dumps({"error": "needs X-Wake: 1 from this origin"}).encode())
             return
-        user = (self.headers.get("X-Authentik-Username") or "?")[:64]
+        user = (self.headers.get("X-Authentik-Username") or "").strip()[:64]
+        signed_in = is_signed_in(self, True)
         try:
-            wake()
-            self.log_message("jf wake by %s -> sent WoL to %s via %s", user, MAC, BROADCAST)
+            wake(JELLYFIN_PORT, signed_in, user if signed_in else "", "Jellyfin")
+            self.log_message("jf wake by %s -> sent WoL to %s via %s", user or "?", MAC, BROADCAST)
             sent = True
         except Exception as e:
             self.log_message("WoL send failed: %s", e)
@@ -982,11 +983,12 @@ class Handler(BaseHTTPRequestHandler):
         if up:
             self._send(200, "text/plain", b"")
             return
-        self._wake_and_wait_page(port)
+        self._wake_and_wait_page(port, is_signed_in(self, q.get("signed_in", [""])[0] == "1"))
 
-    def _wake_and_wait_page(self, port):
+    def _wake_and_wait_page(self, port, signed_in):
+        user = (self.headers.get("X-Authentik-Username") or "").strip()[:64] if signed_in else ""
         try:
-            wake()
+            wake(port, signed_in, user, service_name(port))
             self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
                              PROBE_HOST, port, MAC, BROADCAST)
         except Exception as e:
@@ -1006,7 +1008,7 @@ class Handler(BaseHTTPRequestHandler):
         started = getattr(self, "_started", time.monotonic())
         if decision == "wake":
             try:
-                wake()
+                wake(port, service=service_name(port))
                 self.log_message("beefy down (%s:%d) - sent WoL to %s via %s",
                                  PROBE_HOST, port, MAC, BROADCAST)
             except Exception as e:
@@ -1069,6 +1071,7 @@ def main():
         sys.exit("missing required env: %s" % ", ".join(missing))
     magic_packet(MAC)  # validate MAC format at startup
     _load_public_info()
+    threading.Thread(target=RECOVERY.run, name="wake-recovery", daemon=True).start()
     srv = Server((BIND, LISTEN_PORT), Handler)
     print("beefy-waker listening on %s:%d - page=/ gate=/gate, wake %s via %s, probe %s:%d"
           % (BIND, LISTEN_PORT, MAC, BROADCAST, PROBE_HOST, PROBE_PORT), flush=True)
