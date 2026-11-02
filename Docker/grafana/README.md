@@ -172,7 +172,7 @@ fastpi's two USB disks (`seagate-black` Expansion `0bc2:231a`, `seagate-red` One
 
 | Host | Disk | Reason |
 |---|---|---|
-| fastpi | `seagate-black` | Seagate Expansion USB (`0bc2:231a`): `uas` blocks ATA pass-through, fix needs a kernel quirk + reboot (not done) |
+| fastpi | `seagate-black` | Seagate Expansion USB (`0bc2:231a`): `uas` blocks ATA pass-through (every `smartctl -d` type tried 2026-11-02, `-d scsi` gives no values); a `usb-storage` quirk + reboot would fix it: **not done, owner decision 2026-11-02** |
 | fastpi | `seagate-red` | Seagate One Touch USB (`0bc2:ab53`): same |
 
 - A TLS handshake runs no Traefik middleware: wake-gated routes (Jellyfin, Seerr, Nextcloud) are checked without waking beefy/tower. Traefik's own `traefik_tls_certs_not_after` lists every cert in the ACME store, including ones no router uses any more; the alerts use only the served certs.
