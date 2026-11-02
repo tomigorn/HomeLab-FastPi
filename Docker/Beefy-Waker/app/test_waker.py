@@ -29,6 +29,8 @@ class FakeRecovery:
     def __init__(self):
         self.calls = []
         self.running = False
+        self.phase = None
+        self.seconds_left = None
 
     def start(self, port, signed_in, user="", service=""):
         waker.send_wol(waker.MAC, waker.BROADCAST)
@@ -38,7 +40,8 @@ class FakeRecovery:
         return self.running
 
     def status(self):
-        return {"phase": "waking" if self.running else "idle", "seconds_left": None, "reason": ""}
+        phase = self.phase or ("waking" if self.running else "idle")
+        return {"phase": phase, "seconds_left": self.seconds_left, "reason": ""}
 
 
 class ListenBacklogTest(unittest.TestCase):
@@ -99,6 +102,9 @@ class ServerTest(unittest.TestCase):
         for path in ("/", "/wol"):
             _, body = self.req("GET", path)
             self.assertIn(expected, body)
+
+    def test_version_is_1_6_0(self):
+        self.assertEqual(waker.VERSION, "1.6.0")
 
     def test_handler_has_request_timeout(self):
         # a slow / never-finishing client must not tie up a worker thread forever
@@ -170,6 +176,44 @@ class JellyfinGateTest(unittest.TestCase):
         self.assertIn("/beefy-wake/", body)
         self.assertIn("Sign in", body)
         self.send_wol.assert_not_called()
+
+    TITLE_RETRY = "Taking longer than it should"
+    TITLE_BROKEN = "The server can't be started right now"
+
+    def test_gate_page_broken_copy(self):
+        self.recovery.phase = "broken"
+        status, body = self.gate(False, self.APP, policy="")
+        self.assertEqual(status, 503)
+        self.assertIn(self.TITLE_BROKEN, body)
+        self.assertIn("The admin has been notified", body)
+
+    def test_gate_page_retry_copy(self):
+        self.recovery.phase, self.recovery.seconds_left = "retrying", 90
+        status, body = self.gate(False, self.APP, policy="")
+        self.assertEqual(status, 503)
+        self.assertIn(self.TITLE_RETRY, body)
+        self.assertIn("90", body)
+
+    def test_gate_page_retry_copy_without_seconds(self):
+        self.recovery.phase = "power_cycle"
+        _, body = self.gate(False, self.APP, policy="")
+        self.assertIn(self.TITLE_RETRY, body)
+        self.assertNotIn("about", body)
+
+    def test_gate_page_waking_unchanged(self):
+        _, body = self.gate(False, self.APP, policy="")
+        self.assertIn("Waking up beefy", body)
+
+    def test_signin_page_broken_while_latched(self):
+        self.recovery.phase = "broken"
+        _, body = self.gate(False, self.BROWSER)
+        self.assertIn("The admin has been notified", body)
+        self.assertNotIn("Sign in to start it", body)
+
+    def test_signin_page_normal_when_not_broken(self):
+        self.recovery.phase = "retrying"
+        _, body = self.gate(False, self.BROWSER)
+        self.assertIn("Sign in to start it", body)
 
     def test_down_app_still_wakes(self):
         status, body = self.gate(False, self.APP)
@@ -327,11 +371,24 @@ class JellyfinWakePageTest(unittest.TestCase):
         c.close()
         return r.status, body
 
-    def test_page_gives_up_eventually(self):
+    def test_jf_page_has_no_client_giveup(self):
         _, body = self.req("GET", "/jf/")
-        self.assertIn(str(waker.WAKE_RETRY_WINDOW + 60), body)
         self.assertIn("Try again", body)
         self.assertNotIn("__GIVEUP__", body)
+        self.assertNotIn("giveUp", body)
+
+    def test_jf_page_has_recovery_copy(self):
+        _, body = self.req("GET", "/jf/")
+        for t in ("Taking longer than it should",
+                  "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more",
+                  "The server can't be started right now",
+                  "Something seems to be broken, or maintenance work is going on. The admin has been notified. Please try again later."):
+            self.assertIn(t, body)
+
+    def test_lan_page_has_recovery_copy(self):
+        _, body = self.req("GET", "/")
+        self.assertIn("Taking longer than it should", body)
+        self.assertIn("The admin has been notified", body)
 
     def test_wake_logs_authentik_user(self):
         status, _ = self.req("POST", "/jf/wake", {"X-Authentik-Username": "alice", "X-Wake": "1"})

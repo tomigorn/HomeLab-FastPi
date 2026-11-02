@@ -48,6 +48,7 @@ Config via env (see .env):
 
 Stdlib only; no dependencies.
 """
+import html
 import json
 import os
 import re
@@ -110,13 +111,15 @@ def _read_version():
 
 VERSION = _read_version()
 
-# Simple auto-refresh page returned by the forwardAuth gate (/gate) on a miss.
-WAKING_PAGE = b"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="5">
-<title>Waking beefy...</title>
-<style>
+# Phase copy shared by every waiting page (the JF and LAN pages carry the same text in their JS).
+RETRY_TITLE = "Taking longer than it should"
+RETRY_TEXT = ("The server didn't start normally, so it is being restarted the hard way "
+              "(power off and on). Trying once more\u2026")
+BROKEN_TITLE = "The server can't be started right now"
+BROKEN_TEXT = ("Something seems to be broken, or maintenance work is going on. "
+               "The admin has been notified. Please try again later.")
+
+_CARD_CSS = """
   html,body{height:100%;margin:0}
   body{display:flex;align-items:center;justify-content:center;
        font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
@@ -124,28 +127,6 @@ WAKING_PAGE = b"""<!doctype html>
   .spin{width:3rem;height:3rem;margin:0 auto 1.5rem;border:4px solid #30363d;
         border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
   @keyframes s{to{transform:rotate(360deg)}}
-  h1{font-size:1.3rem;margin:.5rem 0}
-  p{color:#8b949e;margin:.25rem 0}
-</style></head>
-<body><div class="card">
-  <div class="spin"></div>
-  <h1>Waking up beefy...</h1>
-  <p>A magic packet is on its way. This page refreshes automatically.</p>
-  <p>The server should be ready in under a minute.</p>
-</div></body></html>"""
-
-# Shown by the gate (policy=jellyfin) to a BROWSER while beefy is asleep. It does
-# NOT wake beefy: anonymous page loads were how internet scanners kept booting it.
-# The button goes to the Authentik-protected wake page instead.
-SIGNIN_PAGE = b"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jellyfin is asleep</title>
-<style>
-  html,body{height:100%;margin:0}
-  body{display:flex;align-items:center;justify-content:center;
-       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
-  .card{text-align:center;max-width:28rem;padding:2rem}
   .moon{font-size:3rem;line-height:1;margin:0 auto 1rem}
   h1{font-size:1.3rem;margin:.5rem 0}
   p{color:#8b949e;margin:.25rem 0}
@@ -153,14 +134,64 @@ SIGNIN_PAGE = b"""<!doctype html>
        padding:.9rem 2.2rem;margin:1.2rem 0 .4rem;border-radius:.7rem;
        background:#238636;color:#fff}
   .btn:hover{background:#2ea043}
-</style></head>
+"""
+
+
+def _esc(x):
+    return html.escape(str(x), quote=False)
+
+
+def _phase_copy():
+    # (title, [paragraphs], spinner) for the current phase; None title = the page's normal text
+    st = RECOVERY.status()
+    phase, left = st.get("phase"), st.get("seconds_left")
+    if phase == "broken":
+        return BROKEN_TITLE, [BROKEN_TEXT], False
+    if phase in ("power_cycle", "retrying"):
+        paras = [RETRY_TEXT]
+        if isinstance(left, int):
+            paras.append("About %d s to go." % max(0, left))
+        return RETRY_TITLE, paras, True
+    return None, [], True
+
+
+def _card_page(title, body_html, refresh=False):
+    meta = '<meta http-equiv="refresh" content="5">' if refresh else ""
+    return ("""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+%s<title>%s</title>
+<style>%s</style></head>
 <body><div class="card">
-  <div class="moon">&#128164;</div>
-  <h1>Jellyfin is asleep</h1>
-  <p>The media server sleeps to save power.</p>
-  <a class="btn" href="/beefy-wake/">Sign in to start it</a>
-  <p>It takes about a minute to start after you sign in.</p>
-</div></body></html>"""
+%s
+</div></body></html>""" % (meta, _esc(title), _CARD_CSS, body_html)).encode()
+
+
+def waking_page():
+    # Auto-refresh page returned by the forwardAuth gate (/gate) on a miss.
+    title, paras, spin = _phase_copy()
+    if title is None:
+        title, paras = "Waking up beefy...", [
+            "A magic packet is on its way. This page refreshes automatically.",
+            "The server should be ready in under a minute."]
+    body = ('<div class="spin"></div>\n  ' if spin else "") + "<h1>%s</h1>" % _esc(title)
+    body += "".join("\n  <p>%s</p>" % _esc(t) for t in paras)
+    return _card_page(title, body, refresh=True)
+
+
+def signin_page():
+    # Shown by the gate (policy=jellyfin) to a BROWSER while beefy is asleep. It does
+    # NOT wake beefy: anonymous page loads were how internet scanners kept booting it.
+    # The button goes to the Authentik-protected wake page instead.
+    if RECOVERY.status().get("phase") == "broken":
+        body = "<h1>%s</h1>\n  <p>%s</p>" % (_esc(BROKEN_TITLE), _esc(BROKEN_TEXT))
+        return _card_page(BROKEN_TITLE, body)
+    body = ('<div class="moon">&#128164;</div>\n  <h1>Jellyfin is asleep</h1>\n'
+            '  <p>The media server sleeps to save power.</p>\n'
+            '  <a class="btn" href="/beefy-wake/">Sign in to start it</a>\n'
+            '  <p>It takes about a minute to start after you sign in.</p>')
+    return _card_page("Jellyfin is asleep", body)
+
 
 # Only works behind the /beefy-wake/ rewrite (absolute BASE), not when opened on the LAN directly.
 # Public booting page, reached at https://jellyfin.holy-grail.ch/beefy-wake/ AFTER
@@ -193,47 +224,65 @@ JF_PAGE = """<!doctype html>
   <div class="ver">v__VERSION__</div>
 <script>
 const BASE = '__BASE__';
+const RETRY_TITLE = "Taking longer than it should";
+const RETRY_TEXT = "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more\\u2026";
+const BROKEN_TITLE = "The server can't be started right now";
+const BROKEN_TEXT = "Something seems to be broken, or maintenance work is going on. The admin has been notified. Please try again later.";
+const WAKING_TITLE = 'Starting Jellyfin\\u2026';
+const WAKING_TEXT = 'The media server is booting. You will be taken to Jellyfin automatically.';
 let left = __COUNTDOWN__;
-let gaveUp = false;
-let ticker = null;
-const GIVEUP_MS = __GIVEUP__ * 1000;
+let phase = 'waking';
+let broken = false;
+const titleEl = document.getElementById('title');
 const countEl = document.getElementById('count');
 const subEl = document.getElementById('sub');
+const spinEl = document.querySelector('.spin');
 function tick(){
+  if(broken) return;
   left -= 1;
   if(left > 0){ countEl.textContent = '~' + left + 's'; }
   else {
     countEl.textContent = 'almost\\u2026';
-    subEl.textContent = 'Taking a little longer than usual, still trying\\u2026';
+    if(phase === 'waking') subEl.textContent = 'Taking a little longer than usual, still trying\\u2026';
   }
 }
-async function isUp(){
-  try{ return (await (await fetch(BASE + 'status', {cache:'no-store'})).json()).up; }
-  catch(e){ return false; }
+function apply(st){
+  const ph = st.phase || 'waking';
+  const retry = (ph === 'power_cycle' || ph === 'retrying');
+  const was = phase;
+  phase = ph;
+  broken = (ph === 'broken');
+  spinEl.style.display = broken ? 'none' : '';
+  document.getElementById('retry').hidden = !broken;
+  if(broken){
+    titleEl.textContent = BROKEN_TITLE; subEl.textContent = BROKEN_TEXT; countEl.textContent = '';
+  } else if(retry){
+    titleEl.textContent = RETRY_TITLE; subEl.textContent = RETRY_TEXT;
+    if(typeof st.seconds_left === 'number'){ left = st.seconds_left; countEl.textContent = '~' + left + 's'; }
+    else countEl.textContent = '';
+  } else if(was !== 'waking' && was !== 'idle'){
+    titleEl.textContent = WAKING_TITLE; subEl.textContent = WAKING_TEXT;
+    countEl.textContent = 'almost\\u2026';
+  }
 }
-function giveUp(){
-  gaveUp = true;
-  clearInterval(ticker);
-  document.querySelector('.spin').style.display = 'none';
-  document.getElementById('title').textContent = "Couldn't start the server";
-  countEl.textContent = '';
-  subEl.textContent = 'Please try again in a minute.';
-  document.getElementById('retry').hidden = false;
+async function status(){
+  try{ return await (await fetch(BASE + 'status', {cache:'no-store'})).json(); }
+  catch(e){ return {up:false}; }
 }
 async function poll(){
-  if(gaveUp) return;
-  if(await isUp()){
-    document.getElementById('title').textContent = 'Jellyfin is ready';
+  const st = await status();
+  if(st.up){
+    titleEl.textContent = 'Jellyfin is ready';
     location.replace('/web/');
     return;
   }
+  apply(st);
   setTimeout(poll, 2000);
 }
 (async () => {
-  if(await isUp()){ location.replace('/web/'); return; }
+  if((await status()).up){ location.replace('/web/'); return; }
   fetch(BASE + 'wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
-  ticker = setInterval(tick, 1000);
-  setTimeout(giveUp, GIVEUP_MS);
+  setInterval(tick, 1000);
   setTimeout(poll, 2000);
 })();
 </script>
@@ -289,7 +338,7 @@ WAKE_PAGE = """<!doctype html>
   </div>
   <div id="waiting" class="hidden">
     <div class="spin"></div>
-    <h1>Waking up beefy&hellip;</h1>
+    <h1 id="waittitle">Waking up beefy&hellip;</h1>
     <div class="count" id="count">~__COUNTDOWN__s</div>
     <p id="sub">Magic packet sent. Checking when it answers&hellip;</p>
   </div>
@@ -308,16 +357,38 @@ let mode = 'idle';            // 'idle' = live state view, 'waking' = countdown
 let countTimer = null;
 const countEl = document.getElementById('count');
 const subEl = document.getElementById('sub');
+const titleEl = document.getElementById('waittitle');
+const spinEl = document.querySelector('#waiting .spin');
+const RETRY_TITLE = "Taking longer than it should";
+const RETRY_TEXT = "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more\\u2026";
+const BROKEN_TITLE = "The server can't be started right now";
+const BROKEN_TEXT = "Something seems to be broken, or maintenance work is going on. The admin has been notified. Please try again later.";
+let phase = 'idle';
 
+function applyPhase(st){
+  phase = st.phase || 'idle';
+  const broken = phase === 'broken', retry = phase === 'power_cycle' || phase === 'retrying';
+  spinEl.style.display = broken ? 'none' : '';
+  if(broken){
+    titleEl.textContent = BROKEN_TITLE; subEl.textContent = BROKEN_TEXT; countEl.textContent = '';
+  } else if(retry){
+    titleEl.textContent = RETRY_TITLE; subEl.textContent = RETRY_TEXT;
+    if(typeof st.seconds_left === 'number'){ left = st.seconds_left; countEl.textContent = '~' + left + 's'; }
+    else countEl.textContent = '';
+  } else {
+    titleEl.textContent = 'Waking up beefy\\u2026';
+  }
+}
 function show(id){
   for(const v of ['checking','asleep','waiting','done'])
     document.getElementById(v).classList.toggle('hidden', v !== id);
 }
 function showUp(){ show('done'); document.title = 'beefy is up'; }
 function tick(){
+  if(phase === 'broken' || ((phase === 'power_cycle' || phase === 'retrying') && left <= 0)) return;
   left -= 1;
   if(left > 0){ countEl.textContent = '~' + left + 's'; }
-  else {
+  else if(phase === 'waking' || phase === 'idle') {
     countEl.textContent = 'almost\\u2026';
     subEl.textContent = 'Taking a little longer than usual, still trying\\u2026';
   }
@@ -331,9 +402,10 @@ function startWaking(){
   if(!countTimer) countTimer = setInterval(tick, 1000);
 }
 async function poll(){
-  let up = false;
-  try{ up = (await (await fetch('/status', {cache:'no-store'})).json()).up; }
+  let up = false, st = {};
+  try{ st = await (await fetch('/status', {cache:'no-store'})).json(); up = st.up; }
   catch(e){}
+  if(mode === 'waking' && !up) applyPhase(st);
   if(up){
     if(countTimer){ clearInterval(countTimer); countTimer = null; }
     mode = 'idle'; showUp();
@@ -810,7 +882,6 @@ class Handler(BaseHTTPRequestHandler):
         body = (JF_PAGE
                 .replace("__COUNTDOWN__", str(COUNTDOWN))
                 .replace("__VERSION__", VERSION)
-                .replace("__GIVEUP__", str(WAKE_RETRY_WINDOW + 60))
                 .replace("__BASE__", PUBLIC_WAKE_PREFIX + "/")
                 .encode())
         self._send(200, "text/html; charset=utf-8", body)
@@ -868,11 +939,11 @@ class Handler(BaseHTTPRequestHandler):
         rec["cached"] = cached
         self.log_message("observe %s", json.dumps(rec, sort_keys=True))
         if decision == "signin":
-            self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
+            self._send(503, "text/html; charset=utf-8", signin_page())
         elif body is not None:
             self._send(200, "application/json", body, cors=True)
         else:
-            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+            self._send(503, "text/html; charset=utf-8", waking_page(), retry_after=5)
 
     def _page(self, autowake):
         body = (WAKE_PAGE
@@ -993,7 +1064,7 @@ class Handler(BaseHTTPRequestHandler):
                              PROBE_HOST, port, MAC, BROADCAST)
         except Exception as e:
             self.log_message("WoL send failed: %s", e)
-        self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+        self._send(503, "text/html; charset=utf-8", waking_page(), retry_after=5)
 
     def _gate_jellyfin(self, up, port):
         # Jellyfin has no Authentik in front (native apps can't follow a login
@@ -1026,9 +1097,9 @@ class Handler(BaseHTTPRequestHandler):
         if outcome == "pass":
             self._send(200, "text/plain", b"")
         elif outcome == "signin":
-            self._send(503, "text/html; charset=utf-8", SIGNIN_PAGE)
+            self._send(503, "text/html; charset=utf-8", signin_page())
         else:
-            self._send(503, "text/html; charset=utf-8", WAKING_PAGE, retry_after=5)
+            self._send(503, "text/html; charset=utf-8", waking_page(), retry_after=5)
 
     def _stream_auth(self):
         if (self.headers.get("X-Forwarded-Method") or "").upper() == "OPTIONS":
