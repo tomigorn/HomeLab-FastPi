@@ -435,3 +435,55 @@ class PostBodyLimitTest(unittest.TestCase):
             for path in ("/abr", "/prowlarr/api/v1/search"):
                 for bad in ("abc", "-5"):
                     self.assertEqual(live.headers_only("POST", path, bad), 400, (path, bad))
+
+
+class BookPrefsTest(unittest.TestCase):
+    WISHLIST = [{"book": {"title": "Sense and Sensibility", "asin": "0473434644", "authors": ["Jane Austen"], "narrators": ["Karen Savage"]}},
+                {"book": {"title": "Other", "asin": "B000000001", "authors": ["Someone"], "narrators": ["Reader"]}}]
+
+    def test_authors_and_narrators_of_the_requested_edition(self):
+        p = importer.book_prefs("Sense and Sensibility", self.WISHLIST, {"language": "english"})
+        self.assertEqual((p.language, p.authors, p.narrators), ("EN", ("Jane Austen",), ("Karen Savage",)))
+
+    def test_every_request_with_that_title_counts(self):
+        wishlist = self.WISHLIST + [{"book": {"title": "Sense and Sensibility", "asin": "B000000002", "authors": ["Joanna Trollope"], "narrators": []}}]
+        self.assertEqual(importer.book_prefs("Sense and Sensibility", wishlist, None).authors, ("Jane Austen", "Joanna Trollope"))
+
+    def test_audible_product_fills_in_when_abr_has_no_names(self):
+        wishlist = [{"book": {"title": "T", "asin": "B000000003"}}]
+        p = importer.book_prefs("T", wishlist, {"authors": [{"name": "A"}], "narrators": [{"name": "N"}]})
+        self.assertEqual((p.authors, p.narrators), (("A",), ("N",)))
+
+    def test_unknown_book_has_no_names(self):
+        self.assertEqual(importer.book_prefs("Nope", self.WISHLIST, None).authors, ())
+
+
+class NarratorSearchTest(unittest.TestCase):
+    def test_same_search_with_the_narrator_added(self):
+        path = importer.narrator_search("/api/v1/search?query=Sense+and+Sensibility&type=search&limit=100&categories=3030", "Karen Savage")
+        self.assertEqual(importer.urllib.parse.parse_qs(importer.urllib.parse.urlsplit(path).query),
+                         {"query": ["Sense and Sensibility Karen Savage"], "type": ["search"], "limit": ["100"], "categories": ["3030"]})
+
+    def test_forward_ranks_the_narrators_release_first(self):
+        from test_ranking import SENSE
+        savage = [r for r in SENSE if r["guid"].endswith(("/472825", "/1039841"))]
+
+        def fake(method, path, headers, data=None):
+            q = importer.urllib.parse.parse_qs(importer.urllib.parse.urlsplit(path).query)["query"][0]
+            return 200, importer.json.dumps(savage if q.endswith("Karen Savage") else SENSE).encode(), "application/json"
+
+        prefs = importer.Prefs(authors=("Jane Austen",), narrators=("Karen Savage",))
+        with Live() as live, mock.patch.dict(importer.CALLERS, {"/prowlarr/": ("127.0.0.1",)}), \
+                mock.patch.object(importer, "prowlarr", side_effect=fake), mock.patch.object(importer.REQUESTS, "prefs", return_value=prefs):
+            status, body = live.request("GET", "/prowlarr/api/v1/search?query=Sense+and+Sensibility&type=search")
+        self.assertEqual(status, 200)
+        self.assertEqual([r["guid"] for r in importer.json.loads(body)], ["https://www.myanonamouse.net/t/1039841"])
+
+    def test_forward_without_an_author_match_returns_nothing(self):
+        from test_ranking import SENSE
+        trollope = [r for r in SENSE if "Trollope" in r["title"]]
+        with Live() as live, mock.patch.dict(importer.CALLERS, {"/prowlarr/": ("127.0.0.1",)}), \
+                mock.patch.object(importer, "prowlarr", return_value=(200, importer.json.dumps(trollope).encode(), "application/json")), \
+                mock.patch.object(importer.REQUESTS, "prefs", return_value=importer.Prefs(authors=("Jane Austen",))):
+            status, body = live.request("GET", "/prowlarr/api/v1/search?query=Sense+and+Sensibility&type=search")
+        self.assertEqual((status, importer.json.loads(body)), (200, []))

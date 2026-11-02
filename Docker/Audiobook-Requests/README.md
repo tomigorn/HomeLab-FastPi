@@ -23,20 +23,22 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 | `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR; POST bodies over 1 MB → 413 |
 | `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
 
-## Release policy (`importer/ranking.py`, owner's final order 2026-10-26)
+## Release policy (`importer/ranking.py`, owner's order 2026-10-26, author + narrator 2026-11-02)
 
-ABR has no language, abridged or VIP setting and ranks FLAC above M4B itself, so its Prowlarr URL is the importer's pass-through, which filters, ranks and hands ABR **only the winner** (ABR grabs its first result).
+ABR has no language, abridged, author or VIP setting, searches by title only and ranks FLAC above M4B itself, so its Prowlarr URL is the importer's pass-through, which filters, ranks and hands ABR **only the winner** (ABR grabs its first result).
 
 | | Rule |
 |---|---|
+| filter | one of the book's authors (MAM title "… by Author, Author [ENG / …]"; case, accents, punctuation, spaces ignored): no match = nothing downloads, the request stays open for a manual pick (importer log `no release by …, no automatic grab`) |
 | filter | requested language only (default EN), no fallback: nothing matches = nothing downloads, the request stays open |
 | filter | at least 1 seeder |
 | 1 | requested abridgement first (unabridged by default; abridged only when no unabridged release exists) |
-| 2 | M4B before FLAC / MP3 |
-| 3 | VIP / freeleech before normal |
-| 4 | newest upload |
+| 2 | requested narrator first (preference, not a filter) |
+| 3 | M4B before FLAC / MP3 |
+| 4 | VIP / freeleech before normal |
+| 5 | newest upload |
 
-Per request: language and abridged come from the Audible edition picked in ABR (German book = region `de` on the search page, German edition).
+Per request: language and abridged come from the Audible edition picked in ABR (German book = region `de` on the search page, German edition); authors and narrators from ABR's request (every request with that title), Audible as fallback; unknown authors = no author filter. Narrator: Prowlarr's MAM results carry no narrator, so the pass-through runs the same search once more with the narrator's name added (MAM's search also matches narrators, at most 2 narrators = 2 extra searches per request search); releases in both are the narrator's. Example: "Sense and Sensibility" (Karen Savage edition) picks Karen Savage's M4B, not Rosamund Pike's newer one, and drops Joanna Trollope's book of the same name.
 
 Freeleech wedges (owner 2026-10-26): Prowlarr adds `fl=1` to every grab that is not free for us already (freeleech, personal freeleech, VIP-free for a VIP user: skipped, no wedge). If a wedge grab fails (e.g. none left), the pass-through switches the wedge off for one retry as a normal download and back on. ABR's second `.torrent` fetch (for the hash) is answered from qBittorrent (`/torrent` → `torrents/export`), so a grab never hits MAM twice.
 

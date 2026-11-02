@@ -1,5 +1,6 @@
 """Copies finished AudioBookRequest downloads (qBittorrent category abr) into the Audiobookshelf library, then scans it."""
 import copy
+import dataclasses
 import datetime
 import json
 import logging
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import library
 from naming import Book, book_dir, language_folder, mam_language
-from ranking import for_abr, prefs_from_product
+from ranking import Prefs, for_abr, norm_name, prefs_from_product, release_authors
 
 ENV = os.environ.get
 QBIT_URL = ENV("QBIT_URL", "http://10.24.25.2:8080")
@@ -487,25 +488,63 @@ def poll(qbit, abs_):
 
 
 class Requests:
-    """Preferences of the book behind a Prowlarr search: language + abridged from its Audible edition (ABR request)."""
+    """Preferences of the book behind a Prowlarr search: language + abridged from its Audible edition, authors + narrators from ABR's request."""
 
-    def __init__(self, key):
+    def __init__(self, key, ttl=600):
         self.key = key
+        self.ttl = ttl
         self.cache = {}
 
     def prefs(self, query):
-        if query in self.cache:
-            return self.cache[query]
-        product = None
+        hit = self.cache.get(query)
+        if hit and time.time() - hit[0] < self.ttl:
+            return hit[1]
+        wishlist, product = [], None
         if self.key:
             try:
-                wishlist = http_json(f"{ABR_URL}/api/requests", headers={"Authorization": f"Bearer {self.key}"})
+                wishlist = http_json(f"{ABR_URL}/api/requests", headers={"Authorization": f"Bearer {self.key}"}) or []
                 asin = next((w["book"]["asin"] for w in wishlist if w["book"]["title"] == query), None)
-                product = audible(asin)[0]
-            except (urllib.error.URLError, ValueError, KeyError) as e:
+                product = (audible(asin) or (None,))[0]
+            except (urllib.error.URLError, ValueError, KeyError, TypeError) as e:
                 log.warning("request lookup for %r: %s", query, e)
-        self.cache[query] = prefs = prefs_from_product(product)
+        prefs = book_prefs(query, wishlist, product)
+        self.cache[query] = (time.time(), prefs)
         return prefs
+
+
+def book_prefs(query, wishlist, product):
+    """Every request with this title counts (ABR searches by title only); ABR's names first, the Audible product as fallback."""
+    base = prefs_from_product(product)
+    books = [w.get("book") or {} for w in wishlist or []]
+    books = [b for b in books if b.get("title") == query]
+
+    def names(key):
+        out = []
+        for b in books:
+            out += [n for n in b.get(key) or [] if isinstance(n, str) and n and n not in out]
+        return tuple(out)
+
+    return dataclasses.replace(base, authors=names("authors") or base.authors, narrators=names("narrators") or base.narrators)
+
+
+def narrator_search(path, narrator):
+    """The same Prowlarr search with the narrator added: MAM's search also matches narrators, so its results are that narrator's releases."""
+    url = urllib.parse.urlsplit(path)
+    q = urllib.parse.parse_qs(url.query, keep_blank_values=True)
+    q["query"] = [f"{q.get('query', [''])[0]} {narrator}".strip()]
+    return urllib.parse.urlunsplit(("", "", url.path, urllib.parse.urlencode(q, doseq=True), ""))
+
+
+def narrated_guids(path, headers, narrators):
+    found = set()
+    for n in narrators[:2]:
+        status, body, _ = prowlarr("GET", narrator_search(path, n), headers)
+        if status == 200:
+            try:
+                found |= {r.get("guid") for r in json.loads(body) if r.get("guid")}
+            except (ValueError, AttributeError):
+                pass
+    return frozenset(found)
 
 
 REQUESTS = Requests("")
@@ -566,8 +605,15 @@ def forward(handler, method):
         query = urllib.parse.parse_qs(url.query).get("query", [""])[0]
         prefs = REQUESTS.prefs(query)
         results = json.loads(body)
-        ranked = for_abr(results, prefs, proxy_base=PROXY_BASE)
-        log.info("search %r: %d -> %d results (%s, unabridged=%s)", query, len(results), len(ranked), prefs.language, prefs.unabridged)
+        narrated = narrated_guids(path, headers, prefs.narrators) if results and prefs.narrators else frozenset()
+        ranked = for_abr(results, prefs, proxy_base=PROXY_BASE, narrated=narrated)
+        log.info("search %r: %d -> %d results (%s, unabridged=%s, authors=%s, narrator releases=%d)", query, len(results), len(ranked),
+                 prefs.language, prefs.unabridged, list(prefs.authors), len(narrated))
+        if not ranked:
+            wanted = {norm_name(a) for a in prefs.authors}
+            by_author = [r for r in results if not wanted or wanted & set(release_authors(r.get("title")))]
+            reason = f"no release by {', '.join(prefs.authors)}" if not by_author else "no release in the requested language with a seeder"
+            log.warning("search %r: %s, no automatic grab (the request stays open for a manual pick)", query, reason)
         body = json.dumps(ranked).encode()
     handler.send_response(status)
     handler.send_header("Content-Type", ctype)

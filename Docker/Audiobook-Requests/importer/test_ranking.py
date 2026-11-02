@@ -111,3 +111,74 @@ class FinalOrderTest(unittest.TestCase):
     def test_abr_gets_only_the_winner(self):
         out = for_abr([release("B by A [ENG / MP3]"), release("B by A [ENG / M4B]")], Prefs())
         self.assertEqual(titles(out), ["B by A [ENG / M4B]"])
+
+
+def mam(tid, title, date, seeders):
+    return release(title, date + "T00:00:00Z", seeders, guid=f"https://www.myanonamouse.net/t/{tid}")
+
+
+# Real MAM answer to "Sense and Sensibility" (2026-11-02): t/472825 + t/1039841 = Karen Savage, t/1277153 = Rosamund Pike (Audible Exclusive).
+SENSE = [mam(572126, "Sense & Sensibility by Joanna Trollope [ENG / MP3]", "2019-12-02", 10),
+         mam(51512, "Sense & Sensibility & Sea Monsters by Ben H Winters [ENG / MP3]", "2010-08-11", 5),
+         mam(1039841, "Sense and Sensibility by Jane Austen [ENG / M4B]", "2024-05-29", 26),
+         mam(472825, "Sense and Sensibility by Jane Austen [ENG / MP3]", "2018-11-06", 16),
+         mam(804228, "Sense and Sensibility by Jane Austen [ENG / M4B]", "2022-02-22", 138),
+         mam(1277153, "Sense and Sensibility by Jane Austen [ENG / M4B]", "2026-10-17", 27),
+         mam(1167215, "Sense and Sensibility by Jane Austen [ENG / M4B]", "2025-07-23", 59),
+         mam(220942, "BBC R4 CS - Sense and Sensibility by Jane Austen (Aug 2013) by Jane Austen, BBC Radio 4 [ENG / MP3]", "2014-12-06", 5),
+         mam(942700, "Women, Work, and the Art of Savoir Faire: Business Sense and Sensibility by Mireille Guiliano [ENG / M4B]", "2023-06-28", 3)]
+SAVAGE = frozenset({"https://www.myanonamouse.net/t/1039841", "https://www.myanonamouse.net/t/472825"})
+
+
+class AuthorFilterTest(unittest.TestCase):
+    def test_other_authors_with_the_same_title_are_dropped(self):
+        out = apply_policy(SENSE, Prefs(authors=("Jane Austen",)))
+        self.assertTrue(all("by Jane Austen" in r["title"] for r in out))
+        self.assertNotIn("Sense & Sensibility by Joanna Trollope [ENG / MP3]", titles(out))
+        self.assertEqual(len(out), 6)
+
+    def test_case_accents_and_punctuation_are_ignored(self):
+        self.assertEqual(len(apply_policy([release("B by JO NESBØ [ENG / M4B]")], Prefs(authors=("Jo Nesbo",)))), 1)
+        self.assertEqual(len(apply_policy([release("B by J.R.R. Tolkien [ENG / M4B]")], Prefs(authors=("J. R. R. Tolkien",)))), 1)
+        self.assertEqual(len(apply_policy([release("B by Émile Zola [ENG / M4B]")], Prefs(authors=("Emile Zola",)))), 1)
+
+    def test_any_author_of_the_book_or_the_release_counts(self):
+        out = apply_policy([release("B by Douglas Preston, Lincoln Child [ENG / M4B]")], Prefs(authors=("Lincoln Child", "Douglas Preston")))
+        self.assertEqual(len(out), 1)
+        out = apply_policy([release("B by Lincoln Child [ENG / M4B]")], Prefs(authors=("Douglas Preston", "Lincoln Child")))
+        self.assertEqual(len(out), 1)
+
+    def test_a_name_that_only_contains_the_author_does_not_match(self):
+        self.assertEqual(apply_policy([release("B by Jane Austenford [ENG / M4B]")], Prefs(authors=("Jane Austen",))), [])
+
+    def test_no_author_match_means_no_automatic_grab(self):
+        self.assertEqual(for_abr([release("Sense & Sensibility by Joanna Trollope [ENG / M4B]")], Prefs(authors=("Jane Austen",))), [])
+
+    def test_unknown_authors_keep_the_old_behaviour(self):
+        self.assertEqual(len(apply_policy([release("B by Anyone [ENG / M4B]")], Prefs())), 1)
+
+
+class NarratorTest(unittest.TestCase):
+    def test_requested_narrator_wins_over_newer_m4b(self):
+        out = for_abr(SENSE, Prefs(authors=("Jane Austen",), narrators=("Karen Savage",)), narrated=SAVAGE)
+        self.assertEqual(out[0]["guid"], "https://www.myanonamouse.net/t/1039841")
+
+    def test_narrator_beats_format(self):
+        out = apply_policy([release("B by A [ENG / M4B]", "2026-01-01T00:00:00Z"), release("B by A [ENG / MP3]", guid="n")],
+                           Prefs(authors=("A",), narrators=("N",)), narrated=frozenset({"n"}))
+        self.assertEqual(out[0]["guid"], "n")
+
+    def test_narrator_is_a_preference_not_a_filter(self):
+        out = for_abr(SENSE, Prefs(authors=("Jane Austen",), narrators=("Nobody Known",)), narrated=frozenset())
+        self.assertEqual(out[0]["guid"], "https://www.myanonamouse.net/t/1277153")
+
+    def test_unabridged_still_beats_an_abridged_narrator_match(self):
+        out = apply_policy([release("B (Abridged) by A [ENG / M4B]", guid="n"), release("B by A [ENG / MP3]")],
+                           Prefs(authors=("A",)), narrated=frozenset({"n"}))
+        self.assertEqual(titles(out)[0], "B by A [ENG / MP3]")
+
+
+class BookPrefsTest(unittest.TestCase):
+    def test_authors_and_narrators_from_the_audible_product(self):
+        p = prefs_from_product({"language": "english", "authors": [{"name": "Jane Austen"}], "narrators": [{"name": "Karen Savage"}]})
+        self.assertEqual((p.authors, p.narrators), (("Jane Austen",), ("Karen Savage",)))
