@@ -245,6 +245,12 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Static specs page served read-only from www/ | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `specs.caddyfile`: caddy validate → Valid configuration; `specs.page`: index → 200 + bytes | caddy directive changes (auto-updated) |
 
+## M4b-Auto-Merge
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Library and quarantine through one bind of their disk (`DISK_DIR`), so the promote is a rename (two binds = EXDEV) | `docker-compose.yaml`, `.env` `DISK_DIR` | `docker compose up -d --force-recreate` | `m4b.one-mount`: → disk=1 lib=0 quarantine=0 | a compose edit that splits the mounts again |
+
 ## Host (fastpi, no compose project)
 
 | Customization | Where | Reapply | Verify | Update can break |

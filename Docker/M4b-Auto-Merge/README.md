@@ -96,9 +96,9 @@ rebuild it on a fresh checkout:
 - Nothing is ever deleted. Originals move to
   `/mnt/seagate-black/m4b-originals-quarantine`, and `restore-book.py` in the
   m4b-merge project reverses any merge.
-- The library and quarantine binds use `create_host_path: false`: if
-  `/mnt/seagate-black` is not mounted, Compose refuses to start the container
-  instead of binding an empty directory.
+- Library and quarantine come in through ONE bind of their disk (`DISK_DIR`): a rename across two separate bind mounts fails with `EXDEV` even on one filesystem (every promote failed until 2026-11-02). Check: `m4b.one-mount`.
+- Disk not mounted: `/mnt/seagate-black` is then an empty directory, the watcher finds no library, exits and restarts (nothing is written).
+- Reads under the library (ABS scans, `find`) do not restart the quiet period, only changes do. Test: `ctest.sh -v $PWD/app:/t -w /t --entrypoint python3 m4b-auto-merge:local /t/test_watcher.py`.
 - beefy is always used, by design. It gets woken if it is asleep and idles back
   off afterwards.
 

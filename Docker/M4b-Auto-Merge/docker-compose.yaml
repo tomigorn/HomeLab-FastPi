@@ -26,16 +26,11 @@ services:
     volumes:
       - ./app/watcher.py:/app/watcher.py:ro
       # The library is the one thing this writes to: the merged .m4b goes in and
-      # the originals move out to quarantine. Both are on the same filesystem, so
-      # a promote is a rename, never a copy.
+      # the originals move out to quarantine. One bind of the disk that holds both:
+      # a rename across two separate bind mounts fails with EXDEV even on one filesystem.
       - type: bind
-        source: ${LIB_DIR}
-        target: ${LIB_DIR}
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ${QUARANTINE_DIR}
-        target: ${QUARANTINE_DIR}
+        source: ${DISK_DIR}
+        target: ${DISK_DIR}
         bind:
           create_host_path: false
       # The merge tooling, at the SAME path as on the host so orchestrate.py's
