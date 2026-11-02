@@ -9,7 +9,7 @@
  ],
  "timezone": "browser",
  "schemaVersion": 39,
- "version": 1,
+ "version": 2,
  "editable": true,
  "graphTooltip": 0,
  "refresh": "5m",
@@ -1662,13 +1662,263 @@
    }
   },
   {
+   "id": 43,
+   "type": "row",
+   "title": "Jellyfin playback",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 44,
+   "type": "timeseries",
+   "title": "Incidents by kind (per 15 min)",
+   "description": "Playback watch incidents (stall, silent, slow_transcode): increase over 15 min (textfile beefy_playback.prom).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (kind) (increase(jellyfin_playback_incidents_total[15m]))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{kind}}",
+     "instant": false,
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "custom": {
+      "fillOpacity": 70,
+      "lineWidth": 1,
+      "showPoints": "never",
+      "drawStyle": "bars"
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 36,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
+   "id": 45,
+   "type": "timeseries",
+   "title": "Stall seconds by client (per 15 min)",
+   "description": "Detected stall time per client.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (client) (increase(jellyfin_playback_stall_seconds_total[15m]))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{client}}",
+     "instant": false,
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "min": 0,
+     "custom": {
+      "fillOpacity": 10,
+      "lineWidth": 1,
+      "showPoints": "never"
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 36,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
+   "id": 46,
+   "type": "timeseries",
+   "title": "Active sessions by play method",
+   "description": "Playing sessions by method (DirectPlay, DirectStream, Transcode).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (method) (jellyfin_playback_active)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{method}}",
+     "instant": false,
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "custom": {
+      "fillOpacity": 30,
+      "lineWidth": 1,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 43,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
+   "id": 47,
+   "type": "state-timeline",
+   "title": "Auto-fix active",
+   "description": "Playback-watch auto-fixes currently applied: downloads_slow, background_low.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "jellyfin_playback_autofix_active == 1",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{action}}",
+     "instant": false,
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "green"
+     },
+     "custom": {
+      "fillOpacity": 80,
+      "lineWidth": 0
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "active"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "mergeValues": true,
+    "showValue": "never",
+    "alignValue": "left",
+    "rowHeight": 0.8,
+    "legend": {
+     "showLegend": false,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 43,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
    "id": 25,
    "type": "row",
    "title": "Backups and security",
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 35,
+    "y": 50,
     "w": 24,
     "h": 1
    },
@@ -1756,7 +2006,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 36,
+    "y": 51,
     "w": 6,
     "h": 4
    }
@@ -1821,7 +2071,7 @@
    },
    "gridPos": {
     "x": 6,
-    "y": 36,
+    "y": 51,
     "w": 6,
     "h": 4
    }
@@ -1894,7 +2144,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 36,
+    "y": 51,
     "w": 12,
     "h": 4
    }
@@ -1906,7 +2156,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 40,
+    "y": 55,
     "w": 24,
     "h": 1
    },
@@ -2083,7 +2333,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 41,
+    "y": 56,
     "w": 12,
     "h": 10
    }
@@ -2250,7 +2500,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 41,
+    "y": 56,
     "w": 12,
     "h": 4
    }
@@ -2367,7 +2617,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 45,
+    "y": 60,
     "w": 12,
     "h": 3
    }
@@ -2499,7 +2749,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 48,
+    "y": 63,
     "w": 12,
     "h": 5
    }
@@ -2511,7 +2761,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 51,
+    "y": 66,
     "w": 24,
     "h": 1
    },
@@ -2991,7 +3241,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 52,
+    "y": 67,
     "w": 24,
     "h": 9
    }
@@ -3003,7 +3253,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 61,
+    "y": 76,
     "w": 24,
     "h": 1
    },
@@ -3079,7 +3329,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 62,
+    "y": 77,
     "w": 12,
     "h": 7
    }
@@ -3152,7 +3402,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 62,
+    "y": 77,
     "w": 12,
     "h": 7
    }

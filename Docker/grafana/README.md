@@ -117,6 +117,15 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `JellyfinPopularFailed` | `jf_popular_last_run_success == 0` for 10 min (run failed or too many title lookups failed; lists of the last good run stay), warning |
 | `JellyfinPopularStale` | no run for more than 2 days, for 1 h (after 9 days the request backend refuses everything), warning |
 
+## Jellyfin playback watch
+
+`prometheus/rules/jellyfin-playback.yml`, test `prometheus/tests/jellyfin-playback_test.yml`. Source: the beefy `playback-watch` service → `~/.local/state/jellyfin-playback/playback.prom` → `beefy_playback.prom` (copied by `beefy-idle-pull`, kept while beefy sleeps).
+
+| Alert | When |
+|---|---|
+| `JellyfinPlaybackStutter` | `increase(jellyfin_playback_incidents_total[15m]) > 0` per kind (stall, silent, slow_transcode) and client, also for a client series that is new; warning, normal Telegram route; names the active auto-fixes and `ssh beefy playback-watch report --since 1h` |
+| `JellyfinPlaybackWatchDown` | no poll for 15 min while beefy is awake (fresh idle metrics), for 10 min, info, `notify: digest` |
+
 ## Authentik service tokens
 
 `prometheus/rules/authentik-tokens.yml`, test `prometheus/tests/authentik-tokens_test.yml`. Source: `Avatar-Picker/scripts/rotate-secrets.sh token-auto` (timer `avatar-token-rotate`, Tue 22:47) writes `authentik_tokens.prom`; it rotates the token 45 days before expiry.
@@ -216,6 +225,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | beefy wake | `beefy_wake_phase{phase}` (state timeline), `beefy_wake_power_cycles_total`, `beefy_wake_failures_total{reason}` (Beefy-Waker textfile `beefy_wake.prom`); dashboard annotations "power-cycle" and "wake failed" on their `changes(…[2m]) > 0` |
 | Downloads and requests | `beefy_downloads_night_pending`, `beefy_downloads_queue{state}`, `beefy_downloads_night_imported{,_bytes}{app}` (last 22:00-06:00 window), `beefy_requests{state}` (Seerr `/request/count`), `beefy_request_badges{state}` (request-state.json) |
 | Jellyfin popular | `jf_popular_last_run_timestamp_seconds`, `jf_popular_last_run_success` (0/1), `jf_popular_errors`, `jf_popular_items{list}`: written by the beefy popular job to `/home/buntu/.local/state/jellyfin-popular.prom` (the pull copies it only when it has a `jf_popular_last_run_timestamp_seconds ` line) |
+| Jellyfin playback | `jellyfin_playback_incidents_total{kind}` (increase per 15 min), `jellyfin_playback_stall_seconds_total{client}`, `jellyfin_playback_active{method}`, `jellyfin_playback_autofix_active{action}` (state timeline) |
 | Backups and security | `backup_last_status`, `backup_last_bytes_added`, `security_image_vulnerabilities_fixable` |
 | Certificates, domains, subscriptions | `tls_cert_*`, `domain_*`, `ddns_*`, `subscription_expiry_timestamp_seconds` |
 | Disk health | `smart_*` per host and disk |

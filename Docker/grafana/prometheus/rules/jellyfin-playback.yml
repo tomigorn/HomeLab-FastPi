@@ -1,0 +1,34 @@
+# Alert rules for the Jellyfin playback watch on beefy (stutter / silent / slow-transcode incidents and its auto-fixes).
+# Data: the beefy playback-watch service writes ~/.local/state/jellyfin-playback/playback.prom; Server/4-Security-Monitoring/beefy-idle-pull.sh copies it every 5 min to beefy_playback.prom (kept while beefy sleeps).
+# Stutter: warning, normal Telegram route. A client seen for the first time starts its counter at the incident count, so a series that appeared within 15 min counts too (increase() alone would miss it).
+# Watch down: only while beefy is awake (fresh beefy_idle metrics), info + notify: digest.
+# Tests: prometheus/tests/jellyfin-playback_test.yml
+groups:
+  - name: jellyfin-playback
+    rules:
+      - alert: JellyfinPlaybackStutter
+        expr: |
+          sum by (kind, client) (increase(jellyfin_playback_incidents_total[15m])) > 0
+          or
+          sum by (kind, client) (jellyfin_playback_incidents_total unless jellyfin_playback_incidents_total offset 15m) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jellyfin stutter: {{ $labels.kind }} on {{ $labels.client }}"
+          description: >-
+            {{ $value | printf "%.0f" }} {{ $labels.kind }} incident(s) on {{ $labels.client }} in the last 15 min.
+            Active auto-fixes: {{ with query "jellyfin_playback_autofix_active == 1" }}{{ range $i, $s := . }}{{ if $i }}, {{ end }}{{ $s.Labels.action }}{{ end }}{{ else }}none{{ end }}.
+            Details: <code>ssh beefy playback-watch report --since 1h</code>
+
+      - alert: JellyfinPlaybackWatchDown
+        expr: time() - jellyfin_playback_watch_last_poll_timestamp_seconds > 900
+              and on() (time() - beefy_idle_updated_timestamp_seconds < 900)
+        for: 10m
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "Jellyfin playback watch has not polled for {{ $value | humanizeDuration }}"
+          description: >-
+            The playback watch on beefy last polled {{ $value | humanizeDuration }} ago while beefy is awake.
+            Check <code>systemctl --user status playback-watch</code> on beefy.
