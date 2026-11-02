@@ -51,10 +51,11 @@
 |---|---|
 | What | `ctest.sh [-v HOST_DIR[:CONTAINER_DIR]]... [-w DIR] [-e NAME=VALUE]... [--entrypoint CMD] IMAGE [ARG...]`: one-off test run, safe to allow without a prompt |
 | Always | `--rm`, `--network=none`, `--read-only`, `/tmp` tmpfs 256 MB, user 65534, `--cap-drop=ALL`, `no-new-privileges`, `--pull=never` (only local images), 1 GB RAM, 2 CPUs, 256 pids |
-| Mounts | read-only only, resolved path must be under `~/Projects` or `~/Documents/development` (`CTEST_ROOTS`); symlinks out, the docker socket and any other option are refused |
-| Timeout | `CTEST_TIMEOUT` seconds (default 600), then the container is killed, exit 124 |
-| Example | `ctest.sh -v ~/Projects/Docker/grafana/prometheus:/p -w /p --entrypoint promtool prom/prometheus:v3.15.1 test rules tests/backup_test.yml` |
-| Allow | `Bash(/home/pi/Projects/Docker/_global/scripts/ctest.sh *)` |
+| Mounts | read-only only, resolved path must be under `~/Projects` or `~/Documents/development` (home from passwd, not `$HOME`); symlinks out, the docker socket and any other option are refused. `CTEST_ROOTS` only counts for a copy the caller owns (tests) |
+| Timeout | `CTEST_TIMEOUT` seconds (default 600, max 900), then the container is killed, exit 124; a killed caller kills it too |
+| Installed | root-owned copy `/usr/local/libexec/fastpi/ctest.sh` (`../install-root-scripts.sh`, drift check `host.root-scripts`), so an agent editing the repo file cannot widen what the allow rule permits |
+| Example | `bash /usr/local/libexec/fastpi/ctest.sh -v ~/Projects/Docker/grafana/prometheus:/p -w /p --entrypoint promtool prom/prometheus:v3.15.1 test rules tests/backup_test.yml` |
+| Allow | `Bash(bash /usr/local/libexec/fastpi/ctest.sh *)` (only the root copy, never the repo path) |
 | Test | `./test_ctest.sh` (fake docker) |
 
 ## mam-points

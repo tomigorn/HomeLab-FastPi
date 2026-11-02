@@ -9,6 +9,7 @@ SCRIPTS=(
   Docker/grafana/container-exporter/container_exporter.py
   Docker/grafana/smart-exporter/smart_exporter.py
   Server/8-Claude-Scratch/claude-scratch.sh
+  Docker/_global/scripts/ctest.sh
   Server/4-Security-Monitoring/security_scan.py
 )
 if [[ ${1:-} == --check ]]; then

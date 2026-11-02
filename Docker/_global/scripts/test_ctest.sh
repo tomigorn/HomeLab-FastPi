@@ -67,5 +67,19 @@ refuse "option-looking entrypoint refused" --entrypoint --privileged alpine:3.20
 [[ $rc == 124 ]] && ok "timeout exits 124" || bad "timeout exits 124" "rc=$rc"
 has "timeout kills the container" "kill" "$T/log"
 
+mkdir -p "$T/fakehome"; ln -s /etc "$T/fakehome/Projects"
+: > "$T/log"; env -u CTEST_ROOTS HOME="$T/fakehome" "$S" -v /etc alpine:3.20 ls >/dev/null 2>&1; rc=$?
+[[ $rc != 0 ]] && ! grep -q '^run$' "$T/log" && ok "roots come from passwd, not \$HOME" || bad "roots come from passwd, not \$HOME" "rc=$rc"
+if sudo -n true 2>/dev/null; then
+  sudo install -o root -g root -m 0755 "$S" "$T/rootcopy.sh"
+  : > "$T/log"; "$T/rootcopy.sh" -v "$T/root/proj" alpine:3.20 ls >/dev/null 2>&1; rc=$?
+  [[ $rc != 0 ]] && ! grep -q '^run$' "$T/log" && ok "root-owned copy ignores CTEST_ROOTS" || bad "root-owned copy ignores CTEST_ROOTS" "rc=$rc"
+  sudo rm "$T/rootcopy.sh"
+fi
+: > "$T/log"; CTEST_TIMEOUT=99999 "$S" alpine:3.20 true >/dev/null 2>&1; rc=$?
+[[ $rc != 0 ]] && ! grep -q '^run$' "$T/log" && ok "timeout above 900 s refused" || bad "timeout above 900 s refused" "rc=$rc"
+: > "$T/log"; FAKE_SLEEP=30 CTEST_TIMEOUT=60 "$S" alpine:3.20 sleep 30 >/dev/null 2>&1 & p=$!; sleep 1; kill -TERM $p; wait $p 2>/dev/null
+has "killed caller kills the container" "kill" "$T/log"
+
 echo "$PASS passed, $FAIL failed"
 [[ $FAIL == 0 ]]
