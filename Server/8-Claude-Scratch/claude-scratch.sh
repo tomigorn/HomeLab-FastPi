@@ -5,6 +5,8 @@ SRC=${SCRATCH_SRC:-/tmp/claude-1000}
 DST=${SCRATCH_DST:-/home/pi/.cache/claude-tmp}
 OWNER=${SCRATCH_OWNER:-pi}
 mountpoint -q "$SRC" && exit 0
+# a parent without the owner's x bit (once set by mistake) would leave the mounted scratch unusable for the owner
+[[ -d ${DST%/*} ]] && chmod u+rwx "${DST%/*}"
 install -d -o "$OWNER" -g "$(id -gn "$OWNER")" -m 0700 "$DST"
 if [[ -d $SRC ]]; then
   rsync -a --remove-source-files "$SRC"/ "$DST"/

@@ -4,7 +4,7 @@ Claude Code writes per-session scratch to `/tmp/claude-1000/<project>/<session>/
 
 | Piece | What |
 |---|---|
-| `claude-scratch.sh` | moves what is in `/tmp/claude-1000` to `/home/pi/.cache/claude-tmp` (0700), then `mount -o bind,nosuid,nodev` over it; idempotent. Root copy in `/usr/local/libexec/fastpi` |
+| `claude-scratch.sh` | moves what is in `/tmp/claude-1000` to `/home/pi/.cache/claude-tmp` (0700), then `mount -o bind,nosuid,nodev` over it; gives the owner back `rwx` on `~/.cache` if that was lost (set to 600 by mistake on 2026-11-01); idempotent. Root copy in `/usr/local/libexec/fastpi` |
 | `claude-scratch.service` | runs it at boot, before `user@1000` |
 | `claude-remote-scratch.conf` | user drop-in `claude-remote.service.d/scratch.conf`: runs it at each claude-remote start, so the first switch happens at the 04:00 idle restart, never under a running session |
 | `/etc/tmpfiles.d/claude-scratch.conf` | files older than 7 days deleted at 05:28 (`Server/7-Host-Tuning.md`) |

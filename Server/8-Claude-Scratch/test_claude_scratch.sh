@@ -15,7 +15,7 @@ cat > "$W/bin/mountpoint" <<'F'
 [ -e "$FAKE_MOUNTED" ]
 F
 chmod +x "$W/bin/"*
-run() { PATH="$W/bin:$PATH" SCRATCH_SRC="$W/src" SCRATCH_DST="$W/dst" SCRATCH_OWNER="$(id -un)" FAKE_LOG="$W/log" FAKE_MOUNTED="$W/mounted" "$HERE/claude-scratch.sh"; }
+run() { PATH="$W/bin:$PATH" SCRATCH_SRC="$W/src" SCRATCH_DST="${DST:-$W/dst}" SCRATCH_OWNER="$(id -un)" FAKE_LOG="$W/log" FAKE_MOUNTED="$W/mounted" "$HERE/claude-scratch.sh"; }
 
 mkdir -p "$W/src/-home-pi/s1/tasks" "$W/dst/-home-pi/s0"
 echo a > "$W/src/-home-pi/s1/tasks/out"; echo b > "$W/src/top.txt"; echo old > "$W/dst/-home-pi/s0/keep"
@@ -34,6 +34,11 @@ run; rc=$?
 rm -rf "$W/src" "$W/dst" "$W/mounted" "$W/log"
 run; rc=$?
 [[ $rc == 0 && -d $W/src && -d $W/dst && -f $W/log ]] && ok "fresh boot: creates both folders and mounts" || bad "fresh boot" "rc=$rc"
+
+rm -rf "$W/src" "$W/mounted" "$W/log"; mkdir -p "$W/cache"; chmod 600 "$W/cache"
+DST="$W/cache/dst" run; rc=$?
+[[ $rc == 0 && $(stat -c %a "$W/cache") == 7* && -d $W/cache/dst ]] && ok "untraversable parent made enterable for its owner" || bad "untraversable parent" "rc=$rc mode=$(stat -c %a "$W/cache")"
+chmod 700 "$W/cache"
 
 echo "$PASS passed, $FAIL failed"
 [[ $FAIL == 0 ]]
