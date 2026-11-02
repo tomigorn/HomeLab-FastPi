@@ -1,22 +1,19 @@
 # Alert rules for the Jellyfin playback watch on beefy (stutter / silent / slow-transcode incidents and its auto-fixes).
 # Data: the beefy playback-watch service writes ~/.local/state/jellyfin-playback/playback.prom; Server/4-Security-Monitoring/beefy-idle-pull.sh copies it every 5 min to beefy_playback.prom (kept while beefy sleeps).
-# Stutter: warning, normal Telegram route. A client seen for the first time starts its counter at the incident count, so a series that appeared within 15 min counts too (increase() alone would miss it).
+# Stutter: one alert while the last incident is under 15 min old (keyed on the timestamp, so a Prometheus restart or a gap cannot re-fire old counters); warning, normal Telegram route.
 # Watch down: only while beefy is awake (fresh beefy_idle metrics), info + notify: digest.
 # Tests: prometheus/tests/jellyfin-playback_test.yml
 groups:
   - name: jellyfin-playback
     rules:
       - alert: JellyfinPlaybackStutter
-        expr: |
-          sum by (kind, client) (increase(jellyfin_playback_incidents_total[15m])) > 0
-          or
-          sum by (kind, client) (jellyfin_playback_incidents_total unless jellyfin_playback_incidents_total offset 15m) > 0
+        expr: time() - jellyfin_playback_last_incident_timestamp_seconds < 900
         labels:
           severity: warning
         annotations:
-          summary: "Jellyfin stutter: {{ $labels.kind }} on {{ $labels.client }}"
+          summary: "Jellyfin stutter on beefy"
           description: >-
-            {{ $value | printf "%.0f" }} {{ $labels.kind }} incident(s) on {{ $labels.client }} in the last 15 min.
+            Incidents in the last 15 min: {{ with query "sum by (kind, client) (increase(jellyfin_playback_incidents_total[15m]) > 0)" }}{{ range $i, $s := . }}{{ if $i }}, {{ end }}{{ $s.Labels.kind }} on {{ $s.Labels.client }} ({{ $s.Value | printf "%.0f" }}){{ end }}{{ else }}see report{{ end }}.
             Active auto-fixes: {{ with query "jellyfin_playback_autofix_active == 1" }}{{ range $i, $s := . }}{{ if $i }}, {{ end }}{{ $s.Labels.action }}{{ end }}{{ else }}none{{ end }}.
             Details: <code>ssh beefy playback-watch report --since 1h</code>
 

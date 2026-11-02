@@ -3,41 +3,66 @@ rule_files:
   - ../rules/jellyfin-playback.yml
 evaluation_interval: 1m
 tests:
-  - name: one incident fires once per episode, a new client series counts, zero does not
+  - name: first-ever incident fires with the incident list, the episode ends 15 min after the last incident
     interval: 5m
     input_series:
+      - series: 'jellyfin_playback_last_incident_timestamp_seconds'
+        values: '0x3 1200x20'
       - series: 'jellyfin_playback_incidents_total{kind="stall",client="TV"}'
-        values: '0x3 1x20'
-      - series: 'jellyfin_playback_incidents_total{kind="silent",client="Web"}'
-        values: '_x10 1x13'
-      - series: 'jellyfin_playback_incidents_total{kind="slow_transcode",client="Quiet"}'
-        values: '0x23'
+        values: '0x4 1x19'
       - series: 'jellyfin_playback_autofix_active{action="downloads_slow"}'
         values: '1x23'
       - series: 'jellyfin_playback_autofix_active{action="background_low"}'
         values: '0x23'
     alert_rule_test:
-      - eval_time: 10m
+      - eval_time: 18m
         alertname: JellyfinPlaybackStutter
         exp_alerts: []
       - eval_time: 20m
         alertname: JellyfinPlaybackStutter
         exp_alerts:
-          - exp_labels: {severity: warning, kind: stall, client: TV}
+          - exp_labels: {severity: warning}
             exp_annotations:
-              summary: "Jellyfin stutter: stall on TV"
-              description: "1 stall incident(s) on TV in the last 15 min. Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
-      - eval_time: 45m
-        alertname: JellyfinPlaybackStutter
-        exp_alerts: []
-      - eval_time: 55m
+              summary: "Jellyfin stutter on beefy"
+              description: "Incidents in the last 15 min: stall on TV (1). Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
+      - eval_time: 33m
         alertname: JellyfinPlaybackStutter
         exp_alerts:
-          - exp_labels: {severity: warning, kind: silent, client: Web}
+          - exp_labels: {severity: warning}
             exp_annotations:
-              summary: "Jellyfin stutter: silent on Web"
-              description: "1 silent incident(s) on Web in the last 15 min. Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
-      - eval_time: 100m
+              summary: "Jellyfin stutter on beefy"
+              description: "Incidents in the last 15 min: see report. Active auto-fixes: downloads_slow. Details: <code>ssh beefy playback-watch report --since 1h</code>"
+      - eval_time: 36m
+        alertname: JellyfinPlaybackStutter
+        exp_alerts: []
+
+  - name: an old incident does not fire after a series gap or reappearance
+    interval: 5m
+    input_series:
+      - series: 'jellyfin_playback_last_incident_timestamp_seconds'
+        values: '1200x3 _x6 1200x10'
+      - series: 'jellyfin_playback_incidents_total{kind="stall",client="TV"}'
+        values: '5x3 _x6 5x10'
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: JellyfinPlaybackStutter
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: JellyfinPlaybackStutter
+        exp_alerts: []
+
+  - name: no incidents never fires
+    interval: 5m
+    input_series:
+      - series: 'jellyfin_playback_last_incident_timestamp_seconds'
+        values: '0x40'
+      - series: 'jellyfin_playback_incidents_total{kind="stall",client="TV"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: JellyfinPlaybackStutter
+        exp_alerts: []
+      - eval_time: 3h
         alertname: JellyfinPlaybackStutter
         exp_alerts: []
 

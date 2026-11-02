@@ -123,7 +123,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 | Alert | When |
 |---|---|
-| `JellyfinPlaybackStutter` | `increase(jellyfin_playback_incidents_total[15m]) > 0` per kind (stall, silent, slow_transcode) and client, also for a client series that is new; warning, normal Telegram route; names the active auto-fixes and `ssh beefy playback-watch report --since 1h` |
+| `JellyfinPlaybackStutter` | last incident (`jellyfin_playback_last_incident_timestamp_seconds`) less than 15 min ago, one alert for all kinds/clients, ends 15 min after the last incident; warning, normal Telegram route; lists recent incidents per kind and client, the active auto-fixes and `ssh beefy playback-watch report --since 1h` |
 | `JellyfinPlaybackWatchDown` | no poll for 15 min while beefy is awake (fresh idle metrics), for 10 min, info, `notify: digest` |
 
 ## Authentik service tokens
