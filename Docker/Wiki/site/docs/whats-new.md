@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 2 November 2026
 
+**Audiobooks: the edition you picked.** A request now downloads only releases by the book's author, and the one read by the narrator of the edition you picked comes first. A different book with the same title is no longer grabbed. [Which release gets downloaded](apps/audiobook-requests.md#which-release-gets-downloaded)
+
 **Audiobooks: one file with chapters again.** A book that arrives as many MP3s is merged into a single M4B with chapters again, a few minutes after it lands in Audiobookshelf (this had quietly stopped in October). Chapter list and skipping work as for any other book. [Audiobook requests](apps/audiobook-requests.md)
 
 ## 1 November 2026

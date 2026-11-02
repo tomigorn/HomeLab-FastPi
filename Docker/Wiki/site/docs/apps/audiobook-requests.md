@@ -14,14 +14,17 @@ Also in Requests: the **Audiobooks** entry in the menu (after Series) opens it.
 The language of the book is the Audible edition you pick. For a German book, switch the search **region to `de`** and pick the German edition. English is the default. If no release in that language exists, nothing is downloaded and the request stays open.
 
 ### Which release gets downloaded
-Automatic, in this order:
+Only releases by the **book's author** are downloaded automatically. A different book with the same title is never picked. If no release by that author exists, nothing is downloaded and the request stays open.
+
+Then, in this order:
 
 | Order | What counts |
 |---|---|
 | 1 | **Unabridged** (abridged only when no unabridged release exists) |
-| 2 | **M4B** before MP3 or FLAC |
-| 3 | free-to-download releases first |
-| 4 | newest upload |
+| 2 | read by the **narrator of the edition you picked** |
+| 3 | **M4B** before MP3 or FLAC |
+| 4 | free-to-download releases first |
+| 5 | newest upload |
 
 Books made of several files are merged into one M4B with chapters.
 
