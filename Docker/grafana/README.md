@@ -230,6 +230,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | `DownloadCorrupt` (warning), `DownloadIntegrityErrors`, `DownloadIntegrityMetricsMissing` (info) | Telegram, no resolved | muted 22:00-07:00, text lists title, file, reason (`rules/antivirus.yml`) |
 | `ContainerDown` of traefik, cloudflared, crowdsec, adguard*, authentik* | Telegram + email, no resolved | at once, any time |
 | Intrusion signs: `SshLoginOutsideLan` (unknown source), `SshLoginUnexpectedUser`, `SecurityFileChanged`, `BeefyBackupSnapshotInFuture` | Telegram + email, no resolved | at once, any time (never muted) |
+| `PlugSwitchedUnexpectedly`, `ServerPowerLost` (POSTed by Home Assistant, `Home-Assistant/config/packages/plug_watch.yaml`) | `telegram-power` (layout `tg.power`), no resolved | at once, any time, one message per event (label `at`) |
 | `AlertingHeartbeat` | email | every 28 days |
 | `DeadMansSwitch` | healthchecks.io webhook (it alerts by Telegram + email) | every 4 min |
 | other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |

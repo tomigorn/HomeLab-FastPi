@@ -73,6 +73,14 @@ route:
       group_wait: 0s
       repeat_interval: 720h
 
+    # Plug relay switched without a Home Assistant command, or a server lost power without shutting down (POSTed by Home-Assistant packages/plug_watch.yaml): Telegram at once, any time, one message per event (label at), no resolved. Layout tg.power.
+    - matchers:
+        - alertname=~"PlugSwitchedUnexpectedly|ServerPowerLost"
+      receiver: telegram-power
+      group_by: ['alertname', 'host', 'at']
+      group_wait: 0s
+      repeat_interval: 720h
+
     # Daily (06:30) and weekly (Monday 05:00) digests: fire for under an hour, no resolved message, exempt from quiet hours (they are the summary of them).
     - matchers:
         - alertname=~"DailyDigest|WeeklyUpdateDigest"
@@ -257,6 +265,14 @@ receivers:
         parse_mode: HTML
         send_resolved: false
         message: '{{ template "tg.digest" . }}'
+
+  - name: telegram-power
+    telegram_configs:
+      - bot_token_file: /secrets/telegram_bot_token
+        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
+        parse_mode: HTML
+        send_resolved: false
+        message: '{{ template "tg.power" . }}'
 
   # Synthetic tests. Same group chat (no separate test chat exists); the 🧪 prefix marks them.
   - name: telegram-test

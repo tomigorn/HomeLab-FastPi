@@ -53,6 +53,9 @@ CASES = [
     ({"alertname": "HostRebootedUnclean", "severity": "warning"}, "telegram", True),
     ({"alertname": "MalwareQuarantined", "severity": "warning", "host": "fastpi", "test": "eicar"}, "telegram-test", False),
     ({"alertname": "SyntheticCheck", "severity": "critical", "test": "batch"}, "telegram-test", False),
+    ({"alertname": "PlugSwitchedUnexpectedly", "severity": "critical", "host": "tower", "at": "20261102004422"}, "telegram-power", False),
+    ({"alertname": "ServerPowerLost", "severity": "critical", "host": "beefy", "at": "20261102004422"}, "telegram-power", False),
+    ({"alertname": "ServerPowerLost", "severity": "critical", "host": "tower", "test": "home-assistant"}, "telegram-test", False),
 ]
 
 INTRUSION = ("SshLoginOutsideLan", "SshLoginUnexpectedUser", "SecurityFileChanged", "BeefyBackupSnapshotInFuture")
@@ -124,6 +127,11 @@ class Routing(unittest.TestCase):
             if rcv in mailed and "test" not in labels:
                 self.assertTrue(labels.get("severity") in ("critical", "heartbeat") or labels["alertname"].startswith("Malware")
                                 or labels["alertname"] in ("ContainerDown", "AlertNotificationsFailing") + INTRUSION, labels)
+
+    def test_power_alerts_never_mail(self):
+        for r in self.cfg["receivers"]:
+            if r["name"] == "telegram-power":
+                self.assertEqual(set(r) - {"name"}, {"telegram_configs"})
 
     def test_resolved_only_for_critical(self):
         for r in self.cfg["receivers"]:

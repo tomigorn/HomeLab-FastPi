@@ -50,7 +50,18 @@
 {{- end }}
 {{- end }}
 
+{{/* PlugSwitchedUnexpectedly, ServerPowerLost (POSTed by Home Assistant, packages/plug_watch.yaml): annotations time and details arrive as plain text and • bullets; 🧪 when labelled test. */}}
+{{ define "tg.power" -}}
+{{ range $i, $a := .Alerts.Firing }}{{ if $i }}
+
+{{ end }}{{ if $a.Labels.test }}🧪 {{ end }}{{ if eq $a.Labels.alertname "PlugSwitchedUnexpectedly" }}🔌{{ else }}⚡{{ end }} <b>{{ $a.Annotations.summary | html }}</b>
+
+📅 {{ $a.Annotations.time | html }}
+{{ $a.Annotations.details | html }}
+<blockquote expandable>💡 {{ $a.Annotations.description | safeHtml }}</blockquote>{{ end }}
+{{- end }}
+
 {{/* Synthetic tests (label test=...): the usual layout behind a 🧪 marker; the malware and digest layouts are kept so a test shows the real message. */}}
 {{ define "tg.test" -}}
-{{ if eq .CommonLabels.alertname "MalwareQuarantined" }}{{ template "tg.malware" . }}{{ else if match "Digest" .CommonLabels.alertname }}🧪 {{ template "tg.digest" . }}{{ else }}🧪 {{ template "tg.message" . }}{{ end }}
+{{ if eq .CommonLabels.alertname "MalwareQuarantined" }}{{ template "tg.malware" . }}{{ else if match "^(PlugSwitchedUnexpectedly|ServerPowerLost)$" .CommonLabels.alertname }}{{ template "tg.power" . }}{{ else if match "Digest" .CommonLabels.alertname }}🧪 {{ template "tg.digest" . }}{{ else }}🧪 {{ template "tg.message" . }}{{ end }}
 {{- end }}
