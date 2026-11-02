@@ -3,9 +3,12 @@
 Phases: idle, waking, power_cycle, retrying, broken. One campaign at a time.
 All I/O (probe, plug, alert, metrics) runs outside the state lock; step() is the only mover.
 """
+import json
+import os
 import sys
 import threading
 import time
+import urllib.request
 
 PHASES = ("idle", "waking", "power_cycle", "retrying", "broken")
 REASONS = ("no_boot", "service_down", "plug_off", "plug_unreachable")
@@ -15,6 +18,85 @@ REASON_TEXT = {
     "plug_off": "the beefy plug is switched off (left alone on purpose)",
     "plug_unreachable": "the beefy plug does not answer or did not switch",
 }
+
+
+class MyStromPlug:
+    def __init__(self, base_url, timeout=3.0, sleep=time.sleep):
+        self.base, self.timeout, self.sleep = base_url.rstrip("/"), timeout, sleep
+
+    def _get(self, path):
+        with urllib.request.urlopen(self.base + path, timeout=self.timeout) as r:
+            return json.loads(r.read() or b"{}")
+
+    def _report(self, key):
+        try:
+            return self._get("/report").get(key)
+        except Exception:
+            return None
+
+    def relay(self):
+        v = self._report("relay")
+        return v if isinstance(v, bool) else None
+
+    def power(self):
+        v = self._report("power")
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+    def set(self, on):
+        try:
+            self._get(f"/relay?state={1 if on else 0}")
+        except Exception:
+            return False
+        for i in range(3):
+            if i:
+                self.sleep(1)
+            if self.relay() is on:
+                return True
+        return False
+
+
+def post_alert(url, alertname, severity, summary, details, description, wall=time.time):
+    try:
+        now = wall()
+        iso = lambda t: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+        body = json.dumps([{
+            "labels": {"alertname": alertname, "host": "beefy", "severity": severity, "source": "beefy-waker",
+                       "at": time.strftime("%Y%m%d%H%M%S", time.localtime(now))},
+            "annotations": {"summary": summary, "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
+                            "details": details, "description": description},
+            "startsAt": iso(now), "endsAt": iso(now + 3600)}]).encode()
+        req = urllib.request.Request(url.rstrip("/") + "/api/v2/alerts", body, {"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=5):
+            return True
+    except Exception:
+        return False
+
+
+def write_textfile(path, snapshot):
+    try:
+        out = []
+
+        def metric(name, kind, help_, rows):
+            out.append(f"# HELP beefy_wake_{name} {help_}\n# TYPE beefy_wake_{name} {kind}")
+            out.extend(f"beefy_wake_{name}{labels} {value}" for labels, value in rows)
+
+        metric("phase", "gauge", "Current wake recovery phase (1 = active).",
+               [(f'{{phase="{p}"}}', int(snapshot["phase"] == p)) for p in PHASES])
+        metric("campaigns_total", "counter", "Wake campaigns started.",
+               [(f'{{signed_in="{k}"}}', snapshot["campaigns"].get(k, 0)) for k in ("0", "1")])
+        metric("power_cycles_total", "counter", "Plug power-cycles done.", [("", snapshot["power_cycles"])])
+        metric("failures_total", "counter", "Times the broken phase was reached.",
+               [(f'{{reason="{r}"}}', snapshot["failures"].get(r, 0)) for r in REASONS])
+        metric("recoveries_total", "counter", "Times beefy came back after a power cycle or broken.",
+               [(f'{{after="{a}"}}', snapshot["recoveries"].get(a, 0)) for a in ("power_cycle", "broken")])
+        metric("last_event_timestamp_seconds", "gauge", "Unix time of the last event.",
+               [(f'{{event="{e}"}}', t) for e, t in sorted(snapshot["last"].items())])
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            f.write("\n".join(out) + "\n")
+        os.replace(tmp, path)
+    except Exception as e:
+        print(f"textfile write failed: {e!r}", file=sys.stderr, flush=True)
 
 
 class Recovery:
