@@ -28,4 +28,4 @@ groups:
           summary: "Jellyfin playback watch has not polled for {{ $value | humanizeDuration }}"
           description: >-
             The playback watch on beefy last polled {{ $value | humanizeDuration }} ago while beefy is awake.
-            Check <code>systemctl --user status playback-watch</code> on beefy.
+            Check <code>systemctl status playback-watch</code> on beefy.

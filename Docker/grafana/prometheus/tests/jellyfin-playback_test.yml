@@ -83,7 +83,7 @@ tests:
           - exp_labels: {severity: info, notify: digest}
             exp_annotations:
               summary: "Jellyfin playback watch has not polled for 40m 0s"
-              description: "The playback watch on beefy last polled 40m 0s ago while beefy is awake. Check <code>systemctl --user status playback-watch</code> on beefy."
+              description: "The playback watch on beefy last polled 40m 0s ago while beefy is awake. Check <code>systemctl status playback-watch</code> on beefy."
 
   - name: watch down is silent while beefy sleeps (stale idle metrics)
     interval: 5m
