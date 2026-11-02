@@ -33,6 +33,9 @@ services:
         target: ${DISK_DIR}
         bind:
           create_host_path: false
+      # The rest of that disk stays read-only for this container.
+      - ${DISK_DIR}/library/podcasts:${DISK_DIR}/library/podcasts:ro
+      - ${DISK_DIR}/lost+found:${DISK_DIR}/lost+found:ro
       # The merge tooling, at the SAME path as on the host so orchestrate.py's
       # absolute defaults resolve. Scripts read-only; runs/ writable for the log,
       # progress.json and the lock file.

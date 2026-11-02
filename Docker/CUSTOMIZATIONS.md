@@ -249,7 +249,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Library and quarantine through one bind of their disk (`DISK_DIR`), so the promote is a rename (two binds = EXDEV) | `docker-compose.yaml`, `.env` `DISK_DIR` | `docker compose up -d --force-recreate` | `m4b.one-mount`: → disk=1 lib=0 quarantine=0 | a compose edit that splits the mounts again |
+| Library and quarantine through one bind of their disk (`DISK_DIR`), so the promote is a rename (two binds = EXDEV); podcasts and lost+found read-only on top | `docker-compose.yaml`, `.env` `DISK_DIR` | `docker compose up -d --force-recreate` | `m4b.one-mount`: → disk=1 lib=0 quarantine=0; `m4b.rest-read-only`: → lost+found=false podcasts=false | a compose edit that splits the mounts again |
 
 ## Host (fastpi, no compose project)
 
