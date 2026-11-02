@@ -1,0 +1,37 @@
+# promtool test rules tests/claude-remote_test.yml
+rule_files:
+  - ../rules/claude-remote.yml
+evaluation_interval: 1m
+tests:
+  - name: deferred for more than a day alerts with the blocker, a shorter deferral or none does not
+    interval: 1h
+    input_series:
+      - series: 'claude_remote_restart_deferred_since_timestamp_seconds{reason="processes",blocker="node --test"}'
+        values: '3600x30'
+      - series: 'claude_remote_restart_deferred_since_timestamp_seconds{reason="",blocker=""}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 24h
+        alertname: ClaudeRemoteRestartBlocked
+        exp_alerts: []
+      - eval_time: 26h
+        alertname: ClaudeRemoteRestartBlocked
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              reason: processes
+              blocker: node --test
+            exp_annotations:
+              summary: "fastpi: claude-remote restart blocked for 1d 1h 0m 0s"
+              description: |-
+                The 04:00 restart is deferred (processes): <code>node --test</code>. Updates and memory cleanup wait until it ends.
+                Check: <code>journalctl --user -u claude-remote-restart -n 5</code>; a hung tool process: <code>systemd-cgls --user-unit claude-remote.service</code>, kill it.
+  - name: zero means not deferred
+    interval: 1h
+    input_series:
+      - series: 'claude_remote_restart_deferred_since_timestamp_seconds{reason="",blocker=""}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 50h
+        alertname: ClaudeRemoteRestartBlocked
+        exp_alerts: []

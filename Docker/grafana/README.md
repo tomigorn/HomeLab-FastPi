@@ -58,6 +58,7 @@ docker kill -s HUP prometheus   # reload rules
 | `HostNvmeHot` | NVMe at or over its own warning temperature for 10 min | warning |
 | `HostLoadHigh` | load15 > 2 per core for 30 min | warning |
 | `HostOomKill` | kernel OOM kill in the last 15 min | warning |
+| `ClaudeRemoteRestartBlocked` | the 04:00 claude-remote restart deferred > 1 day; names the reason and first blocking command (`rules/claude-remote.yml`, `Server/8-Claude-Scratch/`) | warning |
 
 ## Prometheus self-monitoring
 

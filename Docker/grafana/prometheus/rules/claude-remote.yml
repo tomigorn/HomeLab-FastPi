@@ -1,0 +1,16 @@
+# claude-remote daily restart guard (Server/8-Claude-Scratch/claude-remote-safe-restart, textfile claude_remote_restart.prom). A hung tool process blocked it 2026-10-28 → 11-02 unnoticed. Tests: tests/claude-remote_test.yml
+groups:
+  - name: claude-remote
+    rules:
+      - alert: ClaudeRemoteRestartBlocked
+        expr: >-
+          time() - claude_remote_restart_deferred_since_timestamp_seconds > 86400
+          and claude_remote_restart_deferred_since_timestamp_seconds > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fastpi: claude-remote restart blocked for {{ $value | humanizeDuration }}"
+          description: |-
+            The 04:00 restart is deferred ({{ $labels.reason }}): <code>{{ $labels.blocker | html }}</code>. Updates and memory cleanup wait until it ends.
+            Check: <code>journalctl --user -u claude-remote-restart -n 5</code>; a hung tool process: <code>systemd-cgls --user-unit claude-remote.service</code>, kill it.
