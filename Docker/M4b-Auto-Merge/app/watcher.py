@@ -84,6 +84,8 @@ class Handler(FileSystemEventHandler):
         # into quarantine. Those events are harmless - they just mark the tree
         # dirty, and candidates() then finds nothing and the run is skipped
         # before beefy is ever contacted.
+        if event.event_type in ("opened", "closed_no_write"):
+            return                        # a read (scan, find) changes nothing
         touch()
 
 
