@@ -8,6 +8,8 @@ mirror would test the mock.
 Run: python3 -m pytest test_security_scan.py -q
   or: python3 test_security_scan.py
 """
+import atexit
+import shutil
 import sys
 from pathlib import Path
 
@@ -408,6 +410,7 @@ def test_infected_list_empty_is_no_hits():
 def _tmp_dirs():
     import tempfile
     d = Path(tempfile.mkdtemp())
+    atexit.register(shutil.rmtree, d, True)
     security_scan.TEXTFILE = d / "textfile"
     security_scan.STATE = d / "state"
     security_scan.TEXTFILE.mkdir()
@@ -1364,6 +1367,7 @@ def test_refresh_sboms_marks_registry_missing_ref_local_not_failed():
     saved = (security_scan._trivy_mounted, security_scan.SBOM_DIR)
     try:
         security_scan.SBOM_DIR = Path(tempfile.mkdtemp())
+        atexit.register(shutil.rmtree, security_scan.SBOM_DIR, True)
         security_scan._trivy_mounted = lambda *a, **k: subprocess.CompletedProcess(a, 1, "", "UNAUTHORIZED: authentication required")
         index, err = {}, io.StringIO()
         with contextlib.redirect_stderr(err):
