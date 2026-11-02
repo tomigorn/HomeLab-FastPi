@@ -6,6 +6,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from http.server import ThreadingHTTPServer
 
 from recovery import MyStromPlug, Recovery, post_alert, write_textfile
@@ -27,6 +28,7 @@ class FakePlug:
         self.readback_none = False
         self.raise_on = None
         self.unreachable = False
+        self.watts = 2.0
         self.calls = []
 
     def relay(self):
@@ -49,7 +51,7 @@ class FakePlug:
         return True
 
     def power(self):
-        return 42.0
+        return self.watts
 
     def sets(self):
         return [c[1] for c in self.calls if c[0] == "set"]
@@ -60,6 +62,7 @@ class RecoveryTest(unittest.TestCase):
         self.clock = FakeClock()
         self.plug = FakePlug()
         self.up_from = {}
+        self.down_from = {}
         self.wols = []
         self.alerts = []
         self.snaps = []
@@ -78,6 +81,8 @@ class RecoveryTest(unittest.TestCase):
 
     def _probe(self, port):
         self.probe_log.append((self.clock.now, port))
+        if port in self.down_from and self.clock.now >= self.down_from[port]:
+            return False
         return port in self.up_from and self.clock.now >= self.up_from[port]
 
     def _alert(self, *a):
@@ -158,7 +163,7 @@ class RecoveryTest(unittest.TestCase):
         self.assertEqual(self.alerts[0][:2], ("BeefyWakeFailed", "critical"))
         self.assertIn("jane", self.alerts[0][3])
         self.assertIn("Jellyfin", self.alerts[0][3])
-        self.assertIn("42", self.alerts[0][3])
+        self.assertIn("plug_power=2.0W", self.alerts[0][3])
         self.assertEqual(self.rec.snapshot()["failures"]["no_boot"], 1)
 
     def test_not_broken_one_second_early(self):
@@ -375,6 +380,96 @@ class RecoveryTest(unittest.TestCase):
         self.run_to(100)
         self.assertEqual(self.rec.status()["seconds_left"], 200)
 
+    def test_host_drop_resumes_wol_and_restarts_clock(self):
+        self.down_from = {22: 60}
+        self.up_from = {22: 40}
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(59)
+        self.assertEqual(self.phase(), "waking")
+        n = len(self.wols)
+        self.run_to(170)
+        self.assertGreater(len(self.wols), n + 3)
+        self.assertEqual(self.plug.sets(), [])
+        self.assertEqual(self.phase(), "waking")
+        self.assertEqual(self.alerts, [])
+        self.run_to(179)
+        self.assertEqual(self.plug.sets(), [])
+        self.run_to(186)
+        self.assertEqual(self.plug.sets(), [False])
+        self.assertEqual(self.rec.snapshot()["failures"]["service_down"], 0)
+
+    def test_power_draw_extends_t1_once(self):
+        self.plug.watts = 25.0
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(125)
+        self.assertEqual(self.plug.sets(), [])
+        self.assertEqual(self.phase(), "waking")
+        n = len(self.wols)
+        self.run_to(239)
+        self.assertEqual(self.plug.sets(), [])
+        self.assertGreater(len(self.wols), n)
+        self.run_to(240)
+        self.assertEqual(self.plug.sets(), [False])
+
+    def test_power_draw_host_answers_during_grace(self):
+        self.plug.watts = 25.0
+        self.up_from = {22: 200, 8096: 200}
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(300)
+        self.assertEqual(self.plug.sets(), [])
+        self.assertEqual(self.phase(), "idle")
+        self.assertEqual(self.alerts, [])
+
+    def test_low_power_cuts_at_t1(self):
+        self.plug.watts = 2.0
+        self.rec.start(8096, True)
+        self.run_to(120)
+        self.assertEqual(self.plug.sets(), [False])
+
+    def test_unreadable_power_cuts_at_t1(self):
+        self.plug.watts = None
+        self.rec.start(8096, True)
+        self.run_to(120)
+        self.assertEqual(self.plug.sets(), [False])
+
+    def test_status_seconds_left_during_power_grace(self):
+        self.plug.watts = 25.0
+        self.rec.start(8096, True)
+        self.run_to(140)
+        self.assertEqual(self.rec.status()["seconds_left"], 100)
+
+    def test_plug_switched_back_on_when_off_fails(self):
+        for which in ("fail", "raise"):
+            self.setUp()
+            if which == "fail":
+                self.plug.fail_set = True
+            else:
+                self.plug.raise_on = "set"
+            self.rec.start(8096, True)
+            self.run_to(125)
+            self.assertEqual(self.plug.sets(), [False, True], which)
+            self.assertEqual(self.rec.status()["reason"], "plug_unreachable", which)
+
+    def test_emit_serialized(self):
+        active, peak = [0], [0]
+        lock = threading.Lock()
+
+        def slow(snap):
+            with lock:
+                active[0] += 1
+                peak[0] = max(peak[0], active[0])
+            threading.Event().wait(0.05)
+            with lock:
+                active[0] -= 1
+
+        self.rec.write_metrics = slow
+        ts = [threading.Thread(target=self.rec._emit) for _ in range(4)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        self.assertEqual(peak[0], 1)
+
 
 
 class StubServer(http.server.BaseHTTPRequestHandler):
@@ -523,6 +618,38 @@ class TextfileTest(unittest.TestCase):
 
     def test_textfile_never_raises(self):
         write_textfile("/nonexistent-dir/x.prom", self.SNAP)
+
+    def test_textfile_temp_name_unique_per_thread(self):
+        srcs = []
+        real = os.replace
+
+        def rec(src, dst):
+            srcs.append(src)
+            real(src, dst)
+
+        with tempfile.TemporaryDirectory() as d, mock.patch("recovery.os.replace", rec):
+            path = os.path.join(d, "beefy_wake.prom")
+            ts = [threading.Thread(target=write_textfile, args=(path, self.SNAP)) for _ in range(2)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+        self.assertEqual(len(set(srcs)), 2)
+
+    def test_textfile_concurrent_writes_stay_valid(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "beefy_wake.prom")
+            ts = [threading.Thread(target=lambda: [write_textfile(path, self.SNAP) for _ in range(30)])
+                  for _ in range(4)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+            self.assertEqual(os.listdir(d), ["beefy_wake.prom"])
+            text = open(path).read()
+        self.assertTrue(text.endswith("\n"))
+        self.assertEqual(text.count("# TYPE beefy_wake_phase gauge"), 1)
+        self.assertIn('beefy_wake_phase{phase="broken"} 1', text.splitlines())
 
 if __name__ == "__main__":
     unittest.main()

@@ -91,10 +91,17 @@ def write_textfile(path, snapshot):
                [(f'{{after="{a}"}}', snapshot["recoveries"].get(a, 0)) for a in ("power_cycle", "broken")])
         metric("last_event_timestamp_seconds", "gauge", "Unix time of the last event.",
                [(f'{{event="{e}"}}', t) for e, t in sorted(snapshot["last"].items())])
-        tmp = path + ".tmp"
-        with open(tmp, "w") as f:
-            f.write("\n".join(out) + "\n")
-        os.replace(tmp, path)
+        tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        try:
+            with open(tmp, "w") as f:
+                f.write("\n".join(out) + "\n")
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise
     except Exception as e:
         print(f"textfile write failed: {e!r}", file=sys.stderr, flush=True)
 
@@ -102,14 +109,17 @@ def write_textfile(path, snapshot):
 class Recovery:
     def __init__(self, probe, send_wol, plug, alert, write_metrics, clock=time.monotonic, wall=time.time,
                  host_port=22, t1=120, off_seconds=15, settle=5, t2=150, service_wait=300,
-                 resend=20, window=300, latch=21600, watch_interval=30, probe_interval=5):
+                 resend=20, window=300, latch=21600, watch_interval=30, probe_interval=5,
+                 power_floor=10.0, power_grace=120):
         self.probe, self.send_wol, self.plug = probe, send_wol, plug
         self.alert, self.write_metrics = alert, write_metrics
         self.clock, self.wall, self.host_port = clock, wall, host_port
         self.t1, self.off_seconds, self.settle, self.t2 = t1, off_seconds, settle, t2
         self.service_wait, self.resend, self.window = service_wait, resend, window
         self.latch, self.watch_interval, self.probe_interval = latch, watch_interval, probe_interval
+        self.power_floor, self.power_grace = power_floor, power_grace
         self._lock = threading.Lock()
+        self._emit_lock = threading.Lock()
         self._step_lock = threading.Lock()
         self.phase = "idle"
         self.reason = ""
@@ -131,6 +141,8 @@ class Recovery:
         self.off_t = self.on_t = self.t2_deadline = self.broken_t = 0.0
         self.probe_t = float('-inf')
         self.svc_ok = False
+        self.grace = 0.0
+        self.extended = False
 
     def start(self, port, signed_in, user="", service=""):
         now = self.clock()
@@ -159,7 +171,7 @@ class Recovery:
         with self._lock:
             left = None
             if self.phase == "waking" and self.armed and not self.host_up:
-                left = self.start_t + self.t1 - now
+                left = self.start_t + self.t1 + self.grace - now
             elif self.phase == "waking" and self.armed and self.host_up:
                 left = self.start_t + self.service_wait - now
             elif self.phase == "power_cycle" and self.sub == "off":
@@ -189,7 +201,8 @@ class Recovery:
 
     def _emit(self):
         try:
-            self.write_metrics(self.snapshot())
+            with self._emit_lock:
+                self.write_metrics(self.snapshot())
         except Exception as e:
             print(f"recovery metrics write failed: {e!r}", file=sys.stderr, flush=True)
 
@@ -210,6 +223,12 @@ class Recovery:
             return bool(self.plug.set(on))
         except Exception:
             return False
+
+    def _power(self):
+        try:
+            return self.plug.power()
+        except Exception:
+            return None
 
     def _host_answers(self, ports):
         return self.probe(self.host_port) or any(self.probe(p) for p in ports)
@@ -246,14 +265,18 @@ class Recovery:
             host_up = self.host_up
             armed_ports = [p for p, a in self.ports.items() if a]
         if self._probe_due(now):
-            if not host_up:
-                host_up = self._host_answers(ports)
+            up = self._host_answers(ports)
+            if up != host_up:
+                with self._lock:
+                    self.host_up = up
+                    if host_up:
+                        self.start_t, self.grace = now, 0.0
                 if host_up:
-                    with self._lock:
-                        self.host_up = True
+                    print("recovery: host stopped answering, waking again", file=sys.stderr, flush=True)
+                host_up = up
             self.svc_ok = host_up and any(self.probe(p) for p in armed_ports)
         with self._lock:
-            armed, elapsed = self.armed, now - self.start_t
+            armed, elapsed, grace = self.armed, now - self.start_t, self.grace
         if host_up:
             if not armed or self.svc_ok:
                 return self._to_idle()
@@ -264,7 +287,7 @@ class Recovery:
             if elapsed >= self.window:
                 return self._to_idle()
             return self._resend(now)
-        if elapsed < self.t1:
+        if elapsed < self.t1 + grace:
             return self._resend(now)
         if self._host_answers(ports):
             with self._lock:
@@ -278,11 +301,19 @@ class Recovery:
             return self._to_broken("plug_unreachable", now)
         if not relay:
             return self._to_broken("plug_off", now)
+        if not self.extended:
+            power = self._power()
+            if power is not None and power > self.power_floor:
+                with self._lock:
+                    self.extended = True
+                    self.grace = elapsed - self.t1 + self.power_grace
+                return self._resend(now)
         with self._lock:
             self.phase, self.sub, self.off_t = "power_cycle", "off", now
             self.last_cycle_t = now
         self._emit()
         if not self._set(False):
+            self._set(True)
             return self._to_broken("plug_unreachable", now)
         if self._relay() is not False:
             self._set(True)

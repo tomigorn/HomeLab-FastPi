@@ -104,7 +104,7 @@ class ServerTest(unittest.TestCase):
             self.assertIn(expected, body)
 
     def test_version_is_1_6_0(self):
-        self.assertEqual(waker.VERSION, "1.6.0")
+        self.assertEqual(waker.VERSION, "1.6.1")
 
     def test_handler_has_request_timeout(self):
         # a slow / never-finishing client must not tie up a worker thread forever
@@ -186,6 +186,18 @@ class JellyfinGateTest(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertIn(self.TITLE_BROKEN, body)
         self.assertIn("The admin has been notified", body)
+
+    def test_gate_page_broken_refreshes_slowly(self):
+        self.recovery.phase = "broken"
+        _, body = self.gate(False, self.APP, policy="")
+        self.assertIn('<meta http-equiv="refresh" content="30">', body)
+        self.assertNotIn('content="5"', body)
+
+    def test_gate_page_waking_refreshes_every_5s(self):
+        for phase in (None, "power_cycle", "retrying"):
+            self.recovery.phase = phase
+            _, body = self.gate(False, self.APP, policy="")
+            self.assertIn('<meta http-equiv="refresh" content="5">', body, phase)
 
     def test_gate_page_retry_copy(self):
         self.recovery.phase, self.recovery.seconds_left = "retrying", 90
@@ -384,6 +396,20 @@ class JellyfinWakePageTest(unittest.TestCase):
                   "The server can't be started right now",
                   "Something seems to be broken, or maintenance work is going on. The admin has been notified. Please try again later."):
             self.assertIn(t, body)
+
+    def test_jf_page_failed_status_keeps_view(self):
+        src = waker.JF_PAGE
+        self.assertIn("if(!r.ok) return null;", src)
+        self.assertIn("catch(e){ return null; }", src)
+        self.assertIn("if(st) apply(st);", src)
+        self.assertNotIn("return {up:false}", src)
+
+    def test_lan_page_start_waking_resets_view(self):
+        body = waker.WAKE_PAGE.split("function startWaking(){", 1)[1].split("\n}", 1)[0]
+        for part in ("phase = 'waking'", "titleEl.textContent = 'Waking up beefy\\u2026'",
+                     "spinEl.style.display = ''", "countEl.textContent = '~' + TOTAL + 's'",
+                     "subEl.textContent = 'Magic packet sent."):
+            self.assertIn(part, body)
 
     def test_lan_page_has_recovery_copy(self):
         _, body = self.req("GET", "/")

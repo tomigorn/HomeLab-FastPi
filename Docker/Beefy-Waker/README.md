@@ -105,13 +105,15 @@ rule (jellyfin-web clients send their first connect check without the Jellyfin h
 
 Design: `docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
 
-## Wake recovery (v1.6.0)
+## Wake recovery (v1.6.1)
 
 A signed-in wake that does not come up gets one hard power-cycle via beefy's plug, then a Telegram alarm. Code: `app/recovery.py`. Design: `docs/superpowers/specs/2026-11-02-wake-recovery-design.md`.
 
 | Phase | Starts | Ends |
 |---|---|---|
 | `waking` | first wake packet | host answers → `idle`; 120 s nothing on `:22` / service port → `power_cycle` (signed-in only) |
+| `waking`, host stops answering | host drops after it had answered (shutting down) | wake packets resume, the 120 s clock restarts from the drop |
+| `waking`, plug > 10 W at T1 | beefy draws power but answers no port (updates, fsck) | once 120 s more, then the cut (same checks) |
 | `power_cycle` | T1, armed | plug off (read back), 15 s, plug on, wake packets every 20 s → `retrying` |
 | `retrying` | plug back on | host answers → `idle` + `BeefyWakeRecovered`; 150 s nothing → `broken` |
 | `broken` | T2 failed, plug off on purpose, plug unreachable, or host up but service not ready 300 s after start | beefy answers (→ `BeefyWakeRecovered`) or 6 h latch ends |
@@ -141,7 +143,7 @@ The LAN route `beefy-wol.fastpi.homelab` blanks `X-Authentik-*` (`beefy-wol-stri
 (cd app && python3 -m unittest -q)                     # state machine, arming, pages
 curl -s http://192.168.1.2:9001/status                  # phase, seconds_left, reason
 cat /var/lib/node-exporter/textfile/beefy_wake.prom
-../_global/scripts/post-update-check.sh Beefy-Waker     # beefy-waker.recovery
+../_global/scripts/post-update-check.sh Beefy-Waker     # beefy-waker.recovery, beefy-waker.recovery-auth
 ```
 
 ## 2. Manual LAN wake page (`/` and `/wol`)
@@ -303,7 +305,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.6.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.6.1` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box

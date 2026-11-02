@@ -155,8 +155,8 @@ def _phase_copy():
     return None, [], True
 
 
-def _card_page(title, body_html, refresh=False):
-    meta = '<meta http-equiv="refresh" content="5">' if refresh else ""
+def _card_page(title, body_html, refresh=None):
+    meta = '<meta http-equiv="refresh" content="%d">' % refresh if refresh else ""
     return ("""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -176,7 +176,7 @@ def waking_page():
             "The server should be ready in under a minute."]
     body = ('<div class="spin"></div>\n  ' if spin else "") + "<h1>%s</h1>" % _esc(title)
     body += "".join("\n  <p>%s</p>" % _esc(t) for t in paras)
-    return _card_page(title, body, refresh=True)
+    return _card_page(title, body, refresh=30 if title == BROKEN_TITLE else 5)
 
 
 def signin_page():
@@ -265,22 +265,28 @@ function apply(st){
     countEl.textContent = 'almost\\u2026';
   }
 }
+// null = unknown (network error, expired login redirect): keep the current view
 async function status(){
-  try{ return await (await fetch(BASE + 'status', {cache:'no-store'})).json(); }
-  catch(e){ return {up:false}; }
+  try{
+    const r = await fetch(BASE + 'status', {cache:'no-store', redirect:'manual'});
+    if(!r.ok) return null;
+    return await r.json();
+  }
+  catch(e){ return null; }
 }
 async function poll(){
   const st = await status();
-  if(st.up){
+  if(st && st.up){
     titleEl.textContent = 'Jellyfin is ready';
     location.replace('/web/');
     return;
   }
-  apply(st);
+  if(st) apply(st);
   setTimeout(poll, 2000);
 }
 (async () => {
-  if((await status()).up){ location.replace('/web/'); return; }
+  const st0 = await status();
+  if(st0 && st0.up){ location.replace('/web/'); return; }
   fetch(BASE + 'wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
   setInterval(tick, 1000);
   setTimeout(poll, 2000);
@@ -394,7 +400,9 @@ function tick(){
   }
 }
 function startWaking(){
-  mode = 'waking'; left = TOTAL;
+  mode = 'waking'; left = TOTAL; phase = 'waking';
+  titleEl.textContent = 'Waking up beefy\\u2026';
+  spinEl.style.display = '';
   countEl.textContent = '~' + TOTAL + 's';
   subEl.textContent = 'Magic packet sent. Checking when it answers\\u2026';
   show('waiting');
