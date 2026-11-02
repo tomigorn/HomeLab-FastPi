@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copy beefy's idle-watcher metrics into the node-exporter textfile dir; remove them when beefy is down or sends nothing valid. Never wakes beefy (beefy-direct).
-# Also copies the queue-watchdog digest events (daily digest), the storage figures (storage.prom), the SSD->HDD mover result (mover.prom), SMART (smart-exporter), the request/download/indexer figures (media-metrics) and the Jellyfin popular job (jf_popular_*, optional); those copies stay while beefy sleeps (nothing changes while it is off), their series carry their own timestamps.
+# Also copies the queue-watchdog digest events (daily digest), the storage figures (storage.prom), the SSD->HDD mover result (mover.prom), SMART (smart-exporter), the request/download/indexer figures (media-metrics) and the Jellyfin popular job (jf_popular_*, optional), the Jellyfin playback watch (jellyfin_playback_*); those copies stay while beefy sleeps (nothing changes while it is off), their series carry their own timestamps.
 # Each copy is validated: only that file's metric names, any host label must be beefy, families fastpi writes too (smart_*, indexer_*) need host="beefy"; one bad line rejects the whole file (old copy kept), so a compromised beefy cannot shadow fastpi's own series.
 set -u
 DEST=${DEST:-/var/lib/node-exporter/textfile/beefy_idle.prom}
@@ -17,6 +17,8 @@ MM_DEST=${MM_DEST:-/var/lib/node-exporter/textfile/beefy_media.prom}
 MM_SRC=${MM_SRC:-/home/buntu/.local/state/movie-downloads/media-metrics.prom}
 JP_DEST=${JP_DEST:-/var/lib/node-exporter/textfile/beefy_jellyfin_popular.prom}
 JP_SRC=${JP_SRC:-/home/buntu/.local/state/jellyfin-popular.prom}
+PB_DEST=${PB_DEST:-/var/lib/node-exporter/textfile/beefy_playback.prom}
+PB_SRC=${PB_SRC:-/home/buntu/.local/state/jellyfin-playback/playback.prom}
 
 MAX_BYTES=${MAX_BYTES:-262144}
 
@@ -76,3 +78,4 @@ fetch "$MV_SRC" "$MV_DEST" 'beefy_mover_last_run_timestamp_seconds ' 'beefy_move
 fetch "$SM_SRC" "$SM_DEST" 'smart_exporter_last_run_timestamp_seconds{' 'smart_[a-z_]+' 'smart_[a-z_]+' || true
 fetch "$MM_SRC" "$MM_DEST" 'beefy_media_metrics_updated_timestamp_seconds ' 'beefy_(downloads_[a-z_]+|requests|request_badges|media_metrics_[a-z_]+)|indexer_(used|limit|bar_[a-z_]+)' 'indexer_[a-z_]+' || true
 fetch "$JP_SRC" "$JP_DEST" 'jf_popular_last_run_timestamp_seconds ' 'jf_popular_[a-z_]+' || true
+fetch "$PB_SRC" "$PB_DEST" 'jellyfin_playback_watch_last_poll_timestamp_seconds ' 'jellyfin_playback_[a-z_]+' || true
