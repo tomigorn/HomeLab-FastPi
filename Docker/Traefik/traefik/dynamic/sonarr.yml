@@ -43,7 +43,7 @@ http:
     # ?port=8989 makes the Beefy-Waker wait for Sonarr itself, not merely for sshd.
     sonarr-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/gate?port=8989"
+        address: "http://192.168.1.2:9001/gate?port=8989&signed_in=1"
         maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 

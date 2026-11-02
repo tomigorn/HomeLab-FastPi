@@ -53,7 +53,7 @@ http:
     # the seconds between sshd coming up and the container being ready.
     prowlarr-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/gate?port=9696"
+        address: "http://192.168.1.2:9001/gate?port=9696&signed_in=1"
         maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 

@@ -32,7 +32,7 @@ http:
     # ?port=8090 waits for DT's nginx; the apiserver is ready ~15 s later (UI shows a short API error, reload).
     dt-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/gate?port=8090"
+        address: "http://192.168.1.2:9001/gate?port=8090&signed_in=1"
         maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 

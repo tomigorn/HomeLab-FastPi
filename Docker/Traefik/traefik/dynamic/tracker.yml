@@ -131,7 +131,7 @@ http:
     # ?port=8012 makes the Beefy-Waker wait for Floppy itself, not merely for sshd.
     tracker-wake:
       forwardAuth:
-        address: "http://192.168.1.2:9001/gate?port=8012"
+        address: "http://192.168.1.2:9001/gate?port=8012&signed_in=1"
         maxResponseBodySize: 1048576   # 1 MiB, as authentik-forwardauth.yml; the gate answers with headers or a small page
         trustForwardHeader: false
 
