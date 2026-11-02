@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, where to click, and the page with the details.
 
+## 2 November 2026
+
+**Audiobooks: one file with chapters again.** A book that arrives as many MP3s is merged into a single M4B with chapters again, a few minutes after it lands in Audiobookshelf (this had quietly stopped in October). Chapter list and skipping work as for any other book. [Audiobook requests](apps/audiobook-requests.md)
+
 ## 1 November 2026
 
 **Admins: no weekly request limit.** Jellyfin admins are no longer held to the 10 requests per 7 days from Popular and the TV; their requests still count toward the 30 per day for everyone. [Requests](apps/requests.md)
