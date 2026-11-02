@@ -189,8 +189,16 @@ class KeepAwake:
         return ssh(f"sudo -n {shlex.quote(self.HELPER)} {action}",
                    timeout=30).returncode == 0
 
+    def held(self):
+        r = ssh(f"sudo -n {shlex.quote(self.HELPER)} status", timeout=30)
+        return r.returncode == 0 and (r.stdout or "").strip() == "held"
+
     def __enter__(self):
         if not self.enabled:
+            return self
+        if self.held():
+            # someone else (a batch, the maintenance window) holds it: releasing at our end would drop their hold
+            print(f"{REMOTE} is already held awake; leaving its inhibit file alone")
             return self
         if self._helper("on"):
             self._inhibit = True

@@ -213,7 +213,7 @@ rather than from threading one.
      preferring the watcher's own inhibit file and falling back to an
      interactive pty session (which it counts as `ssh=1 -> BUSY (ssh)`). Either
      way the hold is released when the run ends, so beefy still powers itself
-     off normally. `--no-keep-awake` disables it.
+     off normally. Already held by someone else (a batch, the maintenance window): left alone, so their hold survives the run (test `tests/test_keep_awake.py`). `--no-keep-awake` disables it.
   2. **`wake_remote()`** recovers if the host goes away anyway — a reboot, a
      crash, or a poweroff that slipped through. An unreachable beefy at startup
      is also treated as normal and woken, because beefy sleeping between runs
