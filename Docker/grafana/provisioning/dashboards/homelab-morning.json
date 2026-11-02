@@ -670,13 +670,307 @@
    }
   },
   {
+   "id": 39,
+   "type": "row",
+   "title": "beefy wake",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 11,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 40,
+   "type": "state-timeline",
+   "title": "Wake phase",
+   "description": "Beefy-Waker recovery phase (textfile beefy_wake.prom): waking, power_cycle (plug off/on), retrying, broken. Only signed-in wakes escalate.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "beefy_wake_phase == 1",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "{{phase}}",
+     "instant": false,
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "green"
+     },
+     "custom": {
+      "fillOpacity": 80,
+      "lineWidth": 0
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "active"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "idle"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "waking"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "blue"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "power_cycle"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "retrying"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "yellow"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "broken"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "mergeValues": true,
+    "showValue": "never",
+    "alignValue": "left",
+    "rowHeight": 0.8,
+    "legend": {
+     "showLegend": false,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 12,
+    "h": 5
+   }
+  },
+  {
+   "id": 41,
+   "type": "stat",
+   "title": "Wake power-cycles",
+   "description": "Plug power-cycles by the Beefy-Waker in the selected range (beefy did not boot on a signed-in wake).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "increase(beefy_wake_power_cycles_total[$__range])",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 12,
+    "w": 6,
+    "h": 5
+   }
+  },
+  {
+   "id": 42,
+   "type": "stat",
+   "title": "Wake failures",
+   "description": "Times a signed-in wake ended broken in the selected range (Telegram BeefyWakeFailed).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(increase(beefy_wake_failures_total[$__range]))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 12,
+    "w": 6,
+    "h": 5
+   }
+  },
+  {
    "id": 13,
    "type": "row",
    "title": "Downloads and requests (beefy)",
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 11,
+    "y": 17,
     "w": 24,
     "h": 1
    },
@@ -742,7 +1036,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 12,
+    "y": 18,
     "w": 4,
     "h": 4
    }
@@ -807,7 +1101,7 @@
    },
    "gridPos": {
     "x": 4,
-    "y": 12,
+    "y": 18,
     "w": 4,
     "h": 4
    }
@@ -876,7 +1170,7 @@
    },
    "gridPos": {
     "x": 8,
-    "y": 12,
+    "y": 18,
     "w": 4,
     "h": 4
    }
@@ -941,7 +1235,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 12,
+    "y": 18,
     "w": 6,
     "h": 4
    }
@@ -1006,7 +1300,7 @@
    },
    "gridPos": {
     "x": 18,
-    "y": 12,
+    "y": 18,
     "w": 6,
     "h": 4
    }
@@ -1071,7 +1365,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 16,
+    "y": 22,
     "w": 24,
     "h": 4
    }
@@ -1136,7 +1430,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 20,
+    "y": 26,
     "w": 24,
     "h": 4
    }
@@ -1148,7 +1442,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 24,
+    "y": 30,
     "w": 24,
     "h": 1
    },
@@ -1218,7 +1512,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 25,
+    "y": 31,
     "w": 8,
     "h": 4
    }
@@ -1297,7 +1591,7 @@
    },
    "gridPos": {
     "x": 8,
-    "y": 25,
+    "y": 31,
     "w": 4,
     "h": 4
    }
@@ -1362,7 +1656,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 25,
+    "y": 31,
     "w": 12,
     "h": 4
    }
@@ -1374,7 +1668,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 29,
+    "y": 35,
     "w": 24,
     "h": 1
    },
@@ -1462,7 +1756,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 30,
+    "y": 36,
     "w": 6,
     "h": 4
    }
@@ -1527,7 +1821,7 @@
    },
    "gridPos": {
     "x": 6,
-    "y": 30,
+    "y": 36,
     "w": 6,
     "h": 4
    }
@@ -1600,7 +1894,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 30,
+    "y": 36,
     "w": 12,
     "h": 4
    }
@@ -1612,7 +1906,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 34,
+    "y": 40,
     "w": 24,
     "h": 1
    },
@@ -1789,7 +2083,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 35,
+    "y": 41,
     "w": 12,
     "h": 10
    }
@@ -1956,7 +2250,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 35,
+    "y": 41,
     "w": 12,
     "h": 4
    }
@@ -2073,7 +2367,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 39,
+    "y": 45,
     "w": 12,
     "h": 3
    }
@@ -2205,7 +2499,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 42,
+    "y": 48,
     "w": 12,
     "h": 5
    }
@@ -2217,7 +2511,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 45,
+    "y": 51,
     "w": 24,
     "h": 1
    },
@@ -2697,7 +2991,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 46,
+    "y": 52,
     "w": 24,
     "h": 9
    }
@@ -2709,7 +3003,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 55,
+    "y": 61,
     "w": 24,
     "h": 1
    },
@@ -2785,7 +3079,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 56,
+    "y": 62,
     "w": 12,
     "h": 7
    }
@@ -2858,7 +3152,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 56,
+    "y": 62,
     "w": 12,
     "h": 7
    }
@@ -2868,7 +3162,36 @@
   "list": []
  },
  "annotations": {
-  "list": []
+  "list": [
+   {
+    "name": "power-cycle",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "dfc6abdxzsem8a"
+    },
+    "enable": true,
+    "iconColor": "orange",
+    "expr": "changes(beefy_wake_power_cycles_total[2m]) > 0",
+    "step": "60s",
+    "titleFormat": "beefy power-cycle",
+    "textFormat": "",
+    "useValueForTime": false
+   },
+   {
+    "name": "wake failed",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "dfc6abdxzsem8a"
+    },
+    "enable": true,
+    "iconColor": "red",
+    "expr": "changes(beefy_wake_failures_total[2m]) > 0",
+    "step": "60s",
+    "titleFormat": "beefy wake failed",
+    "textFormat": "{{reason}}",
+    "useValueForTime": false
+   }
+  ]
  },
  "links": [
   {

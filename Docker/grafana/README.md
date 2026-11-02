@@ -213,6 +213,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 |---|---|
 | At a glance | `ALERTS` (critical + warning), `backup_last_success_timestamp_seconds`, `clamav_infected_last_run`, `security_repo_leaks_total` |
 | Storage | `beefy_storage_*`, `beefy_mover_*`, `beefy_disk_smart_raw` (HDD start/stop, power cycles per 24 h) |
+| beefy wake | `beefy_wake_phase{phase}` (state timeline), `beefy_wake_power_cycles_total`, `beefy_wake_failures_total{reason}` (Beefy-Waker textfile `beefy_wake.prom`); dashboard annotations "power-cycle" and "wake failed" on their `changes(…[2m]) > 0` |
 | Downloads and requests | `beefy_downloads_night_pending`, `beefy_downloads_queue{state}`, `beefy_downloads_night_imported{,_bytes}{app}` (last 22:00-06:00 window), `beefy_requests{state}` (Seerr `/request/count`), `beefy_request_badges{state}` (request-state.json) |
 | Jellyfin popular | `jf_popular_last_run_timestamp_seconds`, `jf_popular_last_run_success` (0/1), `jf_popular_errors`, `jf_popular_items{list}`: written by the beefy popular job to `/home/buntu/.local/state/jellyfin-popular.prom` (the pull copies it only when it has a `jf_popular_last_run_timestamp_seconds ` line) |
 | Backups and security | `backup_last_status`, `backup_last_bytes_added`, `security_image_vulnerabilities_fixable` |
@@ -232,6 +233,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | `ContainerDown` of traefik, cloudflared, crowdsec, adguard*, authentik* | Telegram + email, no resolved | at once, any time |
 | Intrusion signs: `SshLoginOutsideLan` (unknown source), `SshLoginUnexpectedUser`, `SecurityFileChanged`, `BeefyBackupSnapshotInFuture` | Telegram + email, no resolved | at once, any time (never muted) |
 | `PlugSwitchedUnexpectedly`, `ServerPowerLost` (POSTed by Home Assistant, `Home-Assistant/config/packages/plug_watch.yaml`) | `telegram-power` (layout `tg.power`), no resolved | at once, any time, one message per event (label `at`) |
+| `BeefyWakeFailed` 🆘 (critical), `BeefyWakeRecovered` ✅ (info) (POSTed by Beefy-Waker, `Beefy-Waker/app/recovery.py`) | `telegram-power` (layout `tg.power`), no resolved | at once, any time, one message per event (label `at`) |
 | `AlertingHeartbeat` | email | every 28 days |
 | `DeadMansSwitch` | healthchecks.io webhook (it alerts by Telegram + email) | every 4 min |
 | other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |

@@ -56,6 +56,8 @@ CASES = [
     ({"alertname": "PlugSwitchedUnexpectedly", "severity": "critical", "host": "tower", "at": "20261102004422"}, "telegram-power", False),
     ({"alertname": "ServerPowerLost", "severity": "critical", "host": "beefy", "at": "20261102004422"}, "telegram-power", False),
     ({"alertname": "ServerPowerLost", "severity": "critical", "host": "tower", "test": "home-assistant"}, "telegram-test", False),
+    ({"alertname": "BeefyWakeFailed", "severity": "critical", "host": "beefy", "at": "20261102004422"}, "telegram-power", False),
+    ({"alertname": "BeefyWakeRecovered", "severity": "info", "host": "beefy", "at": "20261102004422"}, "telegram-power", False),
 ]
 
 INTRUSION = ("SshLoginOutsideLan", "SshLoginUnexpectedUser", "SecurityFileChanged", "BeefyBackupSnapshotInFuture")
