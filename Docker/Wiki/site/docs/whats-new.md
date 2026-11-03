@@ -4,7 +4,7 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 3 November 2026
 
-**How many can watch at once.** Measured with real 4K HDR films: about 60 at home and 35–45 from outside in original quality, and 4 conversions at the same time. Original quality is easiest on the server. [How many can watch at once](apps/machines.md#how-many-can-watch-at-once)
+**How many can watch at once.** Measured with films from our library: about 50 people at home and 30–40 from outside can watch 4K HDR in original quality at once, and 4 conversions run at the same time. The page also says which format we download. Original quality is easiest on the server. [How many can watch at once](apps/machines.md#how-many-can-watch-at-once)
 
 ## 2 November 2026
 
