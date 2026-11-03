@@ -118,6 +118,8 @@ A signed-in wake that does not come up gets one hard power-cycle via beefy's plu
 | `retrying` | plug back on | host answers → `idle` + `BeefyWakeRecovered`; 150 s nothing → `broken` |
 | `broken` | T2 failed, plug off on purpose, plug unreachable, or host up but service not ready 300 s after start | beefy answers (→ `BeefyWakeRecovered`) or 6 h latch ends |
 
+Verified live 2026-11-03: after the plug cut beefy stays off by itself (BIOS AC BACK not "Always On") but answers wake-on-LAN (sshd ~50 s after the packet), so `retrying` recovers it. Live tests run inside the container (`docker exec -i beefy-waker python -`), the Claude shell cannot reach beefy's ports.
+
 Never a power cut while beefy answers; at most one per 6 h.
 
 **Who may escalate** (anyone else only sends a plain wake packet):
