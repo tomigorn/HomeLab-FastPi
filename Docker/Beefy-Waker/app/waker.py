@@ -38,9 +38,9 @@ Config via env (see .env):
   PUBLIC_INFO_CACHE  cache file for /jf/public-info          default /tmp/public-info.json
   HOLD_SLOTS         concurrent held requests                default 16
   WAKE_COUNTDOWN     page countdown seconds (typical boot)   default 60
-  WAKE_RETRY_INTERVAL seconds between magic-packet resends       default 20
-  WAKE_RETRY_WINDOW  stop resending after this many seconds   default 300
-  TRUSTED_PROXY      Traefik's peer IP (signed-in wakes only)  default 172.24.255.3
+  WAKE_RETRY_INTERVAL seconds between resends                default 20
+  WAKE_RETRY_WINDOW  stop resending after this many secs     default 300
+  TRUSTED_PROXY      Traefik's peer IP (signed-in only)      default 172.24.255.3
   BEEFY_PLUG         beefy's myStrom plug (recovery)         default http://192.168.1.152
   ALERTMANAGER_URL   where wake alarms go                    default http://127.0.0.1:9093
   WAKE_METRICS       Prometheus textfile for wake metrics    default /textfile/beefy_wake.prom
@@ -410,9 +410,14 @@ function startWaking(){
   if(!countTimer) countTimer = setInterval(tick, 1000);
 }
 async function poll(){
-  let up = false, st = {};
-  try{ st = await (await fetch('/status', {cache:'no-store'})).json(); up = st.up; }
-  catch(e){}
+  let up = false, st = {}, ok = true;
+  try{
+    const r = await fetch('/status', {cache:'no-store'});
+    if(!r.ok) throw 0;
+    st = await r.json(); up = st.up;
+  }
+  catch(e){ ok = false; }
+  if(!ok){ setTimeout(poll, 3000); return; }
   if(mode === 'waking' && !up) applyPhase(st);
   if(up){
     if(countTimer){ clearInterval(countTimer); countTimer = null; }
@@ -993,8 +998,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(403, "application/json",
                        json.dumps({"error": "needs X-Wake: 1 from this origin"}).encode())
             return
-        user = (self.headers.get("X-Authentik-Username") or "").strip()[:64]
         signed_in = is_signed_in(self, True)
+        user = (self.headers.get("X-Authentik-Username") or "").strip()[:64] if signed_in else ""
         try:
             wake(JELLYFIN_PORT, signed_in, user if signed_in else "", "Jellyfin")
             self.log_message("jf wake by %s -> sent WoL to %s via %s", user or "?", MAC, BROADCAST)

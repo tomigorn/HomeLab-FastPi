@@ -105,7 +105,7 @@ rule (jellyfin-web clients send their first connect check without the Jellyfin h
 
 Design: `docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
 
-## Wake recovery (v1.6.1)
+## Wake recovery (v1.6.2)
 
 A signed-in wake that does not come up gets one hard power-cycle via beefy's plug, then a Telegram alarm. Code: `app/recovery.py`. Design: `docs/superpowers/specs/2026-11-02-wake-recovery-design.md`.
 
@@ -307,7 +307,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.6.1` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v1.6.2` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box

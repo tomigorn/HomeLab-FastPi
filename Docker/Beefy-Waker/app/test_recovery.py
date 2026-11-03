@@ -411,6 +411,18 @@ class RecoveryTest(unittest.TestCase):
         self.run_to(240)
         self.assertEqual(self.plug.sets(), [False])
 
+    def test_power_grace_available_again_after_host_drop(self):
+        self.plug.watts = 25.0
+        self.up_from = {22: 130}
+        self.down_from = {22: 150}
+        self.rec.start(8096, True, "jane", "Jellyfin")
+        self.run_to(145)
+        self.assertEqual(self.plug.sets(), [])
+        self.run_to(380)
+        self.assertEqual(self.plug.sets(), [])
+        self.run_to(395)
+        self.assertEqual(self.plug.sets(), [False])
+
     def test_power_draw_host_answers_during_grace(self):
         self.plug.watts = 25.0
         self.up_from = {22: 200, 8096: 200}

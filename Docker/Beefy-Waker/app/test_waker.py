@@ -103,8 +103,8 @@ class ServerTest(unittest.TestCase):
             _, body = self.req("GET", path)
             self.assertIn(expected, body)
 
-    def test_version_is_1_6_0(self):
-        self.assertEqual(waker.VERSION, "1.6.1")
+    def test_version_is_1_6_2(self):
+        self.assertEqual(waker.VERSION, "1.6.2")
 
     def test_handler_has_request_timeout(self):
         # a slow / never-finishing client must not tie up a worker thread forever
@@ -404,6 +404,12 @@ class JellyfinWakePageTest(unittest.TestCase):
         self.assertIn("if(st) apply(st);", src)
         self.assertNotIn("return {up:false}", src)
 
+    def test_lan_page_failed_status_keeps_view(self):
+        body = waker.WAKE_PAGE.split("async function poll(){", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(!r.ok) throw 0;", body)
+        self.assertIn("catch(e){ ok = false; }", body)
+        self.assertIn("if(!ok){ setTimeout(poll, 3000); return; }", body)
+
     def test_lan_page_start_waking_resets_view(self):
         body = waker.WAKE_PAGE.split("function startWaking(){", 1)[1].split("\n}", 1)[0]
         for part in ("phase = 'waking'", "titleEl.textContent = 'Waking up beefy\\u2026'",
@@ -417,7 +423,8 @@ class JellyfinWakePageTest(unittest.TestCase):
         self.assertIn("The admin has been notified", body)
 
     def test_wake_logs_authentik_user(self):
-        status, _ = self.req("POST", "/jf/wake", {"X-Authentik-Username": "alice", "X-Wake": "1"})
+        with mock.patch.object(waker, "TRUSTED_PROXY", "127.0.0.1"):
+            status, _ = self.req("POST", "/jf/wake", {"X-Authentik-Username": "alice", "X-Wake": "1"})
         self.assertEqual(status, 200)
         self.assertIn("jf wake by alice", sys.stdout.getvalue())
 
@@ -1238,6 +1245,13 @@ class SignedInWakeTest(unittest.TestCase):
         self.assertEqual(self.recovery.calls, [(waker.JELLYFIN_PORT, True, "jane", "Jellyfin"),
                                                (waker.JELLYFIN_PORT, False, "", "Jellyfin")])
 
+    def test_jf_wake_untrusted_peer_logs_no_user(self):
+        with mock.patch.object(waker, "TRUSTED_PROXY", "10.9.9.9"):
+            self.req("POST", "/jf/wake", {"X-Wake": "1", "X-Authentik-Username": "jane"})
+        out = sys.stdout.getvalue()
+        self.assertIn("jf wake by ?", out)
+        self.assertNotIn("jf wake by jane", out)
+
     def test_jf_wake_from_untrusted_peer_does_not_arm(self):
         with mock.patch.object(waker, "TRUSTED_PROXY", "10.9.9.9"):
             self.req("POST", "/jf/wake", {"X-Wake": "1", "X-Authentik-Username": "jane"})
@@ -1276,6 +1290,7 @@ class RecoveryWiringTest(unittest.TestCase):
         self.assertIsInstance(r, waker.Recovery)
         self.assertEqual((r.resend, r.window, r.host_port),
                          (waker.WAKE_RETRY_INTERVAL, waker.WAKE_RETRY_WINDOW, waker.PROBE_PORT))
+        self.assertEqual((r.t1, r.t2), (waker.WAKE_T1, waker.WAKE_T2))
         self.assertEqual(waker.TRUSTED_PROXY, os.environ.get("TRUSTED_PROXY", "172.24.255.3"))
 
     def test_alert_binds_url_and_description(self):

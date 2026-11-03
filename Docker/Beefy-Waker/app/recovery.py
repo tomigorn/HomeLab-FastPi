@@ -270,7 +270,7 @@ class Recovery:
                 with self._lock:
                     self.host_up = up
                     if host_up:
-                        self.start_t, self.grace = now, 0.0
+                        self.start_t, self.grace, self.extended = now, 0.0, False
                 if host_up:
                     print("recovery: host stopped answering, waking again", file=sys.stderr, flush=True)
                 host_up = up
