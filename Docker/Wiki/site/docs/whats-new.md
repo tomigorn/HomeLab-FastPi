@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, where to click, and the page with the details.
 
+## 3 November 2026
+
+**How many can watch at once.** Measured with real 4K HDR films: about 60 at home and 35–45 from outside in original quality, and 4 conversions at the same time. Original quality is easiest on the server. [How many can watch at once](apps/machines.md#how-many-can-watch-at-once)
+
 ## 2 November 2026
 
 **Audiobooks: the edition you picked.** A request now downloads only releases by the book's author, and the one read by the narrator of the edition you picked comes first. A different book with the same title is no longer grabbed. [Which release gets downloaded](apps/audiobook-requests.md#which-release-gets-downloaded)
