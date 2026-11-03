@@ -1,0 +1,61 @@
+# Seven DS18B20 probes on one 1-Wire bus (GPIO4, 4.7 kΩ pull-up to 3V3) on an ESP32 dev board; Home Assistant finds it via the ESPHome integration.
+# Addresses: fill in after the first boot from the log ("Found dallas devices"), then re-flash. README "Temperature probes".
+esphome:
+  name: temp-probes
+  friendly_name: Temp probes
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: temp-probes-fallback
+    password: !secret fallback_password
+
+one_wire:
+  - platform: gpio
+    pin: GPIO4
+
+sensor:
+  - platform: dallas_temp
+    address: 0x0000000000000001
+    name: "Tower CPU cooler"
+    update_interval: 10s
+  - platform: dallas_temp
+    address: 0x0000000000000002
+    name: "Tower VRM"
+    update_interval: 10s
+  - platform: dallas_temp
+    address: 0x0000000000000003
+    name: "Tower RAM"
+    update_interval: 10s
+  - platform: dallas_temp
+    address: 0x0000000000000004
+    name: "Tower PSU exhaust"
+    update_interval: 10s
+  - platform: dallas_temp
+    address: 0x0000000000000005
+    name: "Cabinet intake"
+    update_interval: 10s
+  - platform: dallas_temp
+    address: 0x0000000000000006
+    name: "Cabinet exhaust"
+    update_interval: 10s
+  - platform: dallas_temp
+    address: 0x0000000000000007
+    name: "Tower HDD cage"
+    update_interval: 10s

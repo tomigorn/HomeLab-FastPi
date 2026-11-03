@@ -61,3 +61,7 @@ __pycache__/
 *.pyc
 # Local pre-edit backups
 *.bak-*
+
+# ESPHome device secrets and build cache
+esphome/secrets.yaml
+esphome/.esphome/

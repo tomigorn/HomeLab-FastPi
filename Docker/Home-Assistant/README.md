@@ -600,3 +600,15 @@ no MQTT broker / extra containers). Full hardware detail in
   to feed the existing Prometheus/Grafana stack.
 - **Tower plug DHCP reservation** — add `3c:e9:0e:7d:13:a0` → `192.168.1.248` on
   the AX7501-B1 (Static DHCP) so the hardcoded IP in `plug_tower.yaml` stays valid.
+
+## Temperature probes (ESPHome, prepared 2026-11-03)
+
+Seven DS18B20 probes on an ESP32 (`esphome/temp-probes.yaml`, ESPHome 2025.10.3, config validated offline): tower CPU cooler, VRM, RAM, PSU exhaust, HDD cage, cabinet intake and exhaust. Parts and wiring: notes site "Homelab server hardware" / chat 2026-11-03 (one 1-Wire bus on GPIO4, 4.7 kΩ to 3V3, all probes in parallel).
+
+| Step | How |
+|---|---|
+| secrets | `cp esphome/secrets.yaml.example esphome/secrets.yaml` (gitignored), Wi-Fi, `openssl rand -base64 32` for `api_encryption_key` |
+| first flash (USB) | `docker run --rm -v "$PWD/esphome:/config" --device /dev/ttyUSB0 esphome/esphome:2025.10.3 run temp-probes.yaml` with the ESP32 on a fastpi USB port (or build `compile` and flash from a laptop at web.esphome.io) |
+| probe addresses | the boot log lists every probe ("Found dallas devices"); warm one probe in your hand to tell them apart, put each address into `temp-probes.yaml`, then `run` again (now over Wi-Fi/OTA) |
+| Home Assistant | Settings → Devices → ESPHome is discovered → enter the `api_encryption_key`; entities `sensor.temp_probes_*` |
+| history | InfluxDB (whole sensor domain) → Grafana "fastpi — RAM, containers & electricity", panel "Temperatures — probes (°C)" (empty until flashed) |
