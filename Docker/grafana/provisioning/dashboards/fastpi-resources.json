@@ -43,6 +43,51 @@
       "targets": [
         { "refId": "A", "query": "from(bucket:\"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"W\" and r._field==\"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> group(columns:[\"entity_id\"]) |> keep(columns:[\"_time\",\"_value\",\"entity_id\"])" }
       ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Temperatures — probes (°C)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb_fastpi"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket:\"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"°C\" and r._field==\"value\" and r.entity_id =~ /^temp_probes_/) |> aggregateWindow(every: v.windowPeriod, fn: mean) |> group(columns:[\"entity_id\"]) |> keep(columns:[\"_time\",\"_value\",\"entity_id\"])"
+        }
+      ],
+      "description": "DS18B20 probes on the ESPHome board temp-probes (Home-Assistant/esphome/temp-probes.yaml): tower CPU cooler, VRM, RAM, PSU exhaust, HDD cage, cabinet intake/exhaust. Empty until the board is flashed."
     }
   ]
 }
