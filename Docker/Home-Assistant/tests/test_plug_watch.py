@@ -65,5 +65,25 @@ class PowerVerdict(unittest.TestCase):
             self.assertEqual(call("power_verdict", "on", None, alive), "unknown", alive)
 
 
+class ShutdownVerdict(unittest.TestCase):
+    """beefy: clean_age = seconds since beefy reported a clean shutdown (webhook), none when never."""
+
+    def test_relay_not_on_is_left_to_the_relay_alert(self):
+        for relay in ("off", "unavailable", "unknown"):
+            self.assertEqual(call("shutdown_verdict", relay, None, 10), "relay", relay)
+
+    def test_recent_command_is_ordered(self):
+        self.assertEqual(call("shutdown_verdict", "on", 30, None), "ordered")
+
+    def test_recent_clean_report_is_clean(self):
+        self.assertEqual(call("shutdown_verdict", "on", None, 12), "clean")
+        self.assertEqual(call("shutdown_verdict", "on", 999, 300), "clean")
+
+    def test_no_or_old_report_is_hard_off(self):
+        self.assertEqual(call("shutdown_verdict", "on", None, None), "hard_off")
+        self.assertEqual(call("shutdown_verdict", "on", None, 301), "hard_off")
+        self.assertEqual(call("shutdown_verdict", "on", 121, 5000), "hard_off")
+
+
 if __name__ == "__main__":
     unittest.main()

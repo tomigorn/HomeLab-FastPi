@@ -47,6 +47,18 @@ template:
         device_class: timestamp
         state: "{{ now().isoformat() }}"
 
+  # --- beefy reports each clean shutdown (HomeLab-BeefyServer Server/8-Idle-Watcher/beefy-shutdown-notify.service) ---
+  - triggers:
+      - trigger: webhook
+        webhook_id: !secret beefy_shutdown_webhook
+        allowed_methods: [POST]
+        local_only: true
+    sensor:
+      - name: "Beefy Clean Shutdown"
+        unique_id: beefy_clean_shutdown
+        device_class: timestamp
+        state: "{{ now().isoformat() }}"
+
   # --- Debounced relay: on/off held for 30 s (6 polls), sampled every 5 s ----
   # A poll that fails reads "unavailable" and a one-poll glitch never holds
   # 30 s, so neither changes these (2026-11-02 04:30: tower relay unavailable
@@ -222,6 +234,55 @@ automation:
             A clean shutdown stops Nextcloud (port refused) before the power goes.
             {{ 'Here it answered until the cut: a hard off (power button, PSU, thermal or firmware).' if verdict == 'hard_off' else '' }}
             After the next boot look for an unclean-shutdown note in Unraid's syslog.
+
+  - id: plug_watch_beefy_power
+    alias: "Plug watch: beefy lost power without shutting down"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: sensor.beefy_plug_power
+    conditions:
+      - condition: template
+        value_template: >-
+          {% from 'plug_watch.jinja' import power_drop %}
+          {{ power_drop(trigger.from_state.state if trigger.from_state else none, trigger.to_state.state) == 'drop' }}
+    actions:
+      - variables:
+          from_w: "{{ trigger.from_state.state }}"
+          to_w: "{{ trigger.to_state.state }}"
+          at: "{{ now().strftime('%H:%M:%S') }}"
+      # let the relay poll catch up
+      - delay: "00:00:15"
+      - variables:
+          relay: "{{ states('binary_sensor.beefy_plug_relay') }}"
+          command_age: >-
+            {% set t = as_timestamp(states('sensor.beefy_plug_last_command'), none) %}
+            {{ (as_timestamp(now()) - t) | round(0) if t is not none else 999999 }}
+          clean_age: >-
+            {% set t = as_timestamp(states('sensor.beefy_clean_shutdown'), none) %}
+            {{ (as_timestamp(now()) - t) | round(0) if t is not none else none }}
+          verdict: >-
+            {% from 'plug_watch.jinja' import shutdown_verdict %}
+            {{ shutdown_verdict(relay, command_age, clean_age) }}
+      - action: logbook.log
+        data:
+          name: "Plug watch"
+          entity_id: sensor.beefy_plug_power
+          message: "power {{ from_w }} -> {{ to_w }} W at {{ at }}, relay {{ relay }}, clean shutdown report {{ clean_age if clean_age is number else 'none' }} s ago: {{ verdict }}"
+      - condition: template
+        value_template: "{{ verdict == 'hard_off' }}"
+      - action: rest_command.plug_watch_alert
+        data:
+          alertname: ServerPowerLost
+          host: beefy
+          summary: "Beefy lost power without shutting down"
+          details: |-
+            • power: {{ from_w }} → {{ to_w }} W in one poll ({{ at }})
+            • plug relay: stayed on, the plug did not cut it
+            • clean-shutdown report: {{ 'last one ' ~ clean_age ~ ' s ago' if clean_age is number else 'none since Home Assistant started' }}
+          description: >-
+            beefy reports every clean shutdown (idle sleep, poweroff, reboot) to Home Assistant just before it goes down; none came.
+            A hard off: power button, PSU, thermal, firmware or a crash. After the next boot: journalctl -b -1 -n 50 on beefy.
 
   # 🧪 the whole path with made-up inputs through the same decisions:
   # Settings > Automations > this one > Run, or POST to its webhook (README).

@@ -24,3 +24,12 @@
 {%- else -%}unknown
 {%- endif -%}
 {%- endmacro %}
+
+{# relay | ordered | clean | hard_off for a beefy power drop; clean_age = seconds since beefy's clean-shutdown webhook, none when never #}
+{% macro shutdown_verdict(relay, command_age, clean_age) -%}
+{%- if relay != 'on' -%}relay
+{%- elif command_age is number and command_age <= 120 -%}ordered
+{%- elif clean_age is number and clean_age <= 300 -%}clean
+{%- else -%}hard_off
+{%- endif -%}
+{%- endmacro %}
