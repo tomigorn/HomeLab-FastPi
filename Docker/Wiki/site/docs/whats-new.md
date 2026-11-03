@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 3 November 2026
 
+**The server restarts itself if it doesn't wake up.** If the media server doesn't start within about two minutes, the waiting page now says **"Taking longer than it should"**, the server is restarted the hard way and tried once more. If that fails too, the page says so and the admin is notified, instead of waiting forever. [The media server sleeps](apps/jellyfin.md)
+
 **How many can watch at once.** Measured with films from our library: about 50 people at home and 30–40 from outside can watch 4K HDR in original quality at once, and 4 conversions run at the same time. The page also says which format we download. Original quality is easiest on the server. [How many can watch at once](apps/machines.md#how-many-can-watch-at-once)
 
 ## 2 November 2026

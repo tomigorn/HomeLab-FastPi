@@ -23,6 +23,8 @@
 !!! info "The media server sleeps"
     To save power the media server sleeps when nobody uses it. If it is asleep, your browser shows an **"asleep, sign in to start"** page instead. Log in with Holy Grail and a waiting page starts the server and sends you on to Jellyfin when it's ready, after about a minute. Just wait on the page.
 
+    If it doesn't start within about two minutes, the waiting page says **"Taking longer than it should"**: the server is restarted the hard way (power off and on) and tried once more, with a new countdown. Should that fail too, the page says **"The server can't be started right now"** and the admin is notified automatically. Try again later.
+
 ### On your TV or phone (apps)
 The apps can't show the Holy Grail login page, so you connect them with **Quick Connect**.
 
