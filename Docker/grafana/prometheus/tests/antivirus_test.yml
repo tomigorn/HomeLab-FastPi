@@ -143,11 +143,11 @@ tests:
               summary: "fastpi: ClamAV reported 3 scan error(s)"
               description: "clamscan could not read some files in two nightly runs; those files are unscanned. Details: last-new.log in the scanner's state directory."
 
-  - name: signatures older than a week
+  - name: signatures older than 3 days
     interval: 1m
     input_series:
       - series: 'clamav_signature_age_seconds{host="tower"}'
-        values: '700000x200'
+        values: '300000x200'
       - series: 'clamav_signature_age_seconds{host="fastpi"}'
         values: '48895x200'
     alert_rule_test:
@@ -156,8 +156,8 @@ tests:
         exp_alerts:
           - exp_labels: {severity: info, notify: digest, host: tower}
             exp_annotations:
-              summary: "tower: ClamAV signatures are 8d 2h 26m 40s old"
-              description: "freshclam in the clamav container has not updated the database for over 7 days. Check: docker logs clamav."
+              summary: "tower: ClamAV signatures are 3d 11h 20m 0s old"
+              description: "freshclam in the clamav container has not updated the database for over 3 days. Check: docker logs clamav."
 
   - name: a corrupt download fires once with titles and reasons from the hit list
     interval: 1m

@@ -1,0 +1,48 @@
+# promtool test rules tests/security-freshness_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/security-posture.yml
+evaluation_interval: 5m
+tests:
+  - name: a list that stops updating alerts per source, the Java database gets longer
+    interval: 5m
+    input_series:
+      - series: 'security_data_updated_timestamp_seconds{source="adguard_filter"}'
+        values: '0x1500'
+      - series: 'security_data_updated_timestamp_seconds{source="trivy_db"}'
+        values: '0x1500'
+      - series: 'security_data_updated_timestamp_seconds{source="trivy_java_db"}'
+        values: '0x1500'
+    alert_rule_test:
+      - eval_time: 3d
+        alertname: SecurityDataStale
+        exp_alerts: []
+      - eval_time: 3d2h
+        alertname: SecurityDataStale
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, source: adguard_filter}
+            exp_annotations:
+              summary: "Security data adguard_filter is 3d 2h 0m 0s old"
+              description: "The list has stopped updating. Sources and checks: Server/4-Security-Monitoring/README.md, \"Data freshness\"."
+          - exp_labels: {severity: info, notify: digest, source: trivy_db}
+            exp_annotations:
+              summary: "Security data trivy_db is 3d 2h 0m 0s old"
+              description: "The list has stopped updating. Sources and checks: Server/4-Security-Monitoring/README.md, \"Data freshness\"."
+
+  - name: a scanner behind upstream alerts only after two weeks
+    interval: 5m
+    input_series:
+      - series: 'security_scanner_behind{tool="trivy"}'
+        values: '1x4400'
+      - series: 'security_scanner_behind{tool="gitleaks"}'
+        values: '0x4400'
+    alert_rule_test:
+      - eval_time: 13d
+        alertname: SecurityScannerBehind
+        exp_alerts: []
+      - eval_time: 15d
+        alertname: SecurityScannerBehind
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, tool: trivy}
+            exp_annotations:
+              summary: "trivy has been behind its upstream release for over 2 weeks"
+              description: "Tile \"Scanner versions\" on the Updates & security dashboard. How to update: Server/4-Security-Monitoring/README.md, \"Data freshness\"."

@@ -2046,6 +2046,61 @@ def test_dt_sbom_of_an_exported_tar_reads_it_through_the_read_only_mount():
     assert f"{security_scan.STATE / 'local-images'}:/local-images:ro" in cmd and cmd[-1] == "/local-images/beefy/c3.tar"
 
 
+def test_version_behind_compares_numerically():
+    assert security_scan.version_behind("0.75.0", "v0.76.2") == 1
+    assert security_scan.version_behind("0.9.0", "0.10.0") == 1
+    assert security_scan.version_behind("v8.30.1", "8.30.1") == 0
+    assert security_scan.version_behind("1.2.0", "1.1.9") == 0
+
+
+def test_version_behind_unknown_is_none():
+    assert security_scan.version_behind("0.75.0", None) is None
+    assert security_scan.version_behind("dev", "1.0.0") is None
+
+
+def test_trivy_pin_version_reads_the_tag():
+    assert security_scan.trivy_pin_version("aquasec/trivy:0.75.0@sha256:abc") == "0.75.0"
+
+
+def test_trivy_db_updated_parses_nanoseconds():
+    meta = '{"UpdatedAt": "2026-11-06T01:07:43.832840315Z", "Version": 2}'
+    assert security_scan.trivy_db_updated(meta) == 1793927263
+
+
+def _freshness(now=1793980800.0, latest="0.76.2"):
+    data = {"adguard_filter": 100.0, "trivy_db": 200.0, "trivy_java_db": 300.0}
+    versions = {"trivy": ("0.75.0", latest), "clamav": ("1.4.6", None)}
+    return security_scan.freshness_samples(data, versions, "2027-08-15", now)
+
+
+def test_freshness_publishes_data_age_for_each_source():
+    got = {s[1]["source"]: s[2] for s in _freshness() if s[0] == "security_data_updated_timestamp_seconds"}
+    assert got == {"adguard_filter": 100.0, "trivy_db": 200.0, "trivy_java_db": 300.0}
+
+
+def test_freshness_flags_a_scanner_behind_upstream():
+    assert ("security_scanner_behind", {"tool": "trivy"}, 1) in _freshness()
+    assert ("security_scanner_version_info", {"tool": "trivy", "installed": "0.75.0", "latest": "0.76.2"}, 1) in _freshness()
+
+
+def test_freshness_failed_lookup_is_unknown_not_up_to_date():
+    samples = _freshness(latest=None)
+    assert ("security_scanner_version_info", {"tool": "trivy", "installed": "0.75.0", "latest": "unknown"}, 1) in samples
+    assert not [s for s in samples if s[0] == "security_scanner_behind" and s[1]["tool"] == "trivy"]
+
+
+def test_freshness_clamav_lts_counts_until_its_end_of_life():
+    before = _freshness(now=1793980800.0)
+    assert ("security_scanner_behind", {"tool": "clamav"}, 0) in before
+    assert ("security_scanner_version_info", {"tool": "clamav", "installed": "1.4.6", "latest": "LTS until 2027-08-15"}, 1) in before
+    assert ("security_scanner_behind", {"tool": "clamav"}, 1) in _freshness(now=1830000000.0)
+
+
+def test_freshness_metrics_have_help_text():
+    for name in {s[0] for s in _freshness()}:
+        assert name in security_scan.HELPS
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

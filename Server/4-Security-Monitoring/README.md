@@ -19,6 +19,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`; a variable `FROM ${X}` is skipped, so beefy's FlareSolverr build is only scanned as the local image `flaresolverr-local:current` by the image scan), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | daily 03:40 (`security-code-scan.timer`) |
 | One CVE dashboard over everything that runs? | `dt` | CycloneDX SBOM per running image (fastpi: local Docker; beefy: registry copy of the running digest, built on fastpi; local beefy builds from the image scan's exported tar, else via their Dockerfile base) + one OS SBOM per host (Trivy `rootfs` over os-release, lsb-release (Ubuntu), debian_version, dpkg status) uploaded to Dependency-Track on beefy, see "Dependency-Track" | fastpi, beefy (tower: Unraid/Slackware, no Trivy OS support) | daily 04:02 (`security-dt.timer`), only if DT answers |
 | Are images updated? | `updates` (beefy's result) | tiered auto-update with rollback, see [auto-updates.md](auto-updates.md); beefy's `auto_update.prom` republished as `auto_update_beefy.prom` | fastpi, beefy | daily 03:10 fastpi, 04:12 beefy (`auto-update.timer`); pull 04:20 (with `av`) |
+| Are the lists and scanners current? | `freshness` | AdGuard filter, Trivy databases, scanner versions | fastpi | daily 04:05 |
 | Rootkit / hardening? | `audit` | rkhunter, chkrootkit, Lynis | fastpi, beefy | weekly Sun 04:05 |
 | Tagged titles still without their audio language (not security, same pull) | `media` | beefy's `media-language.prom` (Movie-Downloads `language-missing.py`), republished as `media_language_beefy.prom`; alert `AudioLanguageNotFound` (`grafana/prometheus/rules/media-language.yml`) | beefy | daily 04:20 (with `av`) |
 | Everything in one message | - | `WeeklyUpdateDigest` alert (`grafana/prometheus/rules/weekly-digest.yml`) | - | Mon 05:00 local |
@@ -36,6 +37,8 @@ Metrics:
 | `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
 | `clamav_quarantine_hit_first_seen_timestamp_seconds` (one per hit, 24 h, newest 20), `clamav_quarantine_hits_24h` | host, mode, title, file, path, signature, time / host, mode |
 | `security_rootkit_warnings` (new), `security_rootkit_findings` (all), `security_rootkit_new_fingerprint` (hash of the new set, 0 = none) | host, tool |
+| `security_data_updated_timestamp_seconds` | source |
+| `security_scanner_version_info`, `security_scanner_behind` | tool |
 | `security_lynis_hardening_index`, `security_lynis_warnings` | host |
 | `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
 | `security_new_vulns`, `security_new_vuln_info` (first seen < 24 h, newest 20) | scope (host or `code-<repo>`) / + image, id, pkg, severity |
@@ -211,6 +214,26 @@ behind it.
 - **`.gitignore` entries for `.env` do not match `.env.bak`.** A copy made while
   debugging is genuinely committable while the original is safe, which is why
   both the hook and the scan peel backup suffixes before testing a filename.
+
+## Data freshness
+
+Row "Data freshness" on the Updates & security dashboard.
+
+| Data | Updates | Orange + alert from | Alert | If it stops |
+|---|---|---|---|---|
+| ClamAV signatures | hourly (fastpi), when awake (beefy) | 3 days | `ClamavSignaturesStale` | `docker logs clamav` |
+| Trivy CVE database | daily 03:40 | 3 days | `SecurityDataStale` | `journalctl -u security-code-scan` |
+| Trivy Java database | when published | 14 days | `SecurityDataStale` | `journalctl -u security-code-scan` |
+| AdGuard filter | every 24 h | 3 days | `SecurityDataStale` | `docker logs adguardhome` |
+| CrowdSec blocklist | every 2 h | 8 h | `CrowdSecCommunityBlocklistStale` | `docker exec crowdsec cscli capi status` |
+| CrowdSec hub check | daily | 36 h | `CrowdSecAutoUpdateStale` | `journalctl -u crowdsec-autoupdate` |
+| GeoIP | when CrowdSec publishes | 60 days, no alert | `CrowdSecGeoIPBehindUpstream` only if a build was not fetched | map only, no ban uses it |
+
+| Scanner | Update | "Behind" means |
+|---|---|---|
+| Trivy | "Trivy pin" below | older than the newest release for 2 weeks (`SecurityScannerBehind`) |
+| gitleaks | `install.sh` | same |
+| ClamAV engine | Alpine package, weekly rebuild | past the long-term release's end (`CLAMAV_LTS_EOL` in `security_scan.py`), newer non-LTS releases don't count |
 
 ## Trivy pin
 

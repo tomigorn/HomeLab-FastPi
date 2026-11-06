@@ -64,7 +64,7 @@ groups:
             Details: last-new.log in the scanner's state directory.
 
       - alert: ClamavSignaturesStale
-        expr: max by (host) (clamav_signature_age_seconds) > 604800
+        expr: max by (host) (clamav_signature_age_seconds) > 259200
         for: 1h
         labels:
           severity: info
@@ -72,7 +72,7 @@ groups:
         annotations:
           summary: "{{ $labels.host }}: ClamAV signatures are {{ $value | humanizeDuration }} old"
           description: >-
-            freshclam in the clamav container has not updated the database for over 7 days.
+            freshclam in the clamav container has not updated the database for over 3 days.
             Check: docker logs clamav.
 
   - name: download-integrity

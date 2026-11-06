@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=oneshot
 User=pi
 Group=pi
-ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches logins cup
+ExecStart=/usr/bin/python3 /home/pi/Projects/Server/4-Security-Monitoring/security_scan.py secrets patches logins cup freshness
 # Bounded. The pass measures ~5s, ~30s more when Cup refreshes (beefy or tower awake); fifteen minutes covers a slow GitHub fetch, SSH timeouts and Cup's refresh without ever overlapping the next firing.
 # TimeoutStartSec, not RuntimeMaxSec: RuntimeMaxSec is silently ignored for
 # Type=oneshot, so a hung run would sit here until the next boot.

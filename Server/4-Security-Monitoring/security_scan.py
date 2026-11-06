@@ -39,6 +39,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 STATE = Path(os.environ.get("SECSCAN_STATE", "/var/lib/security-scan"))
@@ -2282,6 +2283,9 @@ def dt_os_entry(host: str):
 
 
 HELPS = {
+    "security_data_updated_timestamp_seconds": "When a security list last updated: AdGuard filter file, Trivy CVE and Java databases.",
+    "security_scanner_version_info": "Installed and newest upstream version of a scanner (ClamAV: end of its long-term release).",
+    "security_scanner_behind": "1 if the scanner is behind upstream, or past end of life for ClamAV's long-term release.",
     "security_repo_leaks": "Secrets found by gitleaks in a repository's PUBLISHED history, by rule.",
     "security_repo_leaks_total": "Total secrets found by gitleaks in a repository's published history.",
     "security_scan_last_success_timestamp_seconds": "Unix time of the last successful collection of this subject.",
@@ -2328,6 +2332,70 @@ HELPS = {
     "security_dt_vex_export_failed": "Projects whose decisions could not be read from DT in the last export (cached file kept).",
     "security_dt_stale_deleted": "Dependency-Track projects deleted in the last run (image no longer running).",
 }
+
+
+SCANNER_REPOS = {"trivy": "aquasecurity/trivy", "gitleaks": "gitleaks/gitleaks"}
+# Alpine ships the long-term release: https://docs.clamav.net/faq/faq-eol.html
+CLAMAV_LTS_EOL = "2027-08-15"
+
+
+def _version_tuple(v: str) -> tuple[int, ...] | None:
+    m = re.fullmatch(r"v?(\d+(?:\.\d+)*)", v or "")
+    return tuple(int(x) for x in m.group(1).split(".")) if m else None
+
+
+def version_behind(installed: str, latest: str | None) -> int | None:
+    have, want = _version_tuple(installed), _version_tuple(latest or "")
+    return None if have is None or want is None else int(have < want)
+
+
+def trivy_pin_version(image: str) -> str:
+    return image.split("@")[0].rsplit(":", 1)[1]
+
+
+def trivy_db_updated(metadata: str) -> int:
+    stamp = json.loads(metadata)["UpdatedAt"][:19]
+    return int(datetime.datetime.fromisoformat(stamp).replace(tzinfo=datetime.timezone.utc).timestamp())
+
+
+def freshness_samples(data: dict, versions: dict, clamav_eol: str, now: float) -> list:
+    out = [("security_data_updated_timestamp_seconds", {"source": s}, t) for s, t in sorted(data.items())]
+    for tool, (installed, latest) in sorted(versions.items()):
+        if tool == "clamav":
+            eol = datetime.datetime.fromisoformat(clamav_eol).replace(tzinfo=datetime.timezone.utc).timestamp()
+            latest, behind = f"LTS until {clamav_eol}", int(now > eol)
+        else:
+            behind = version_behind(installed, latest)
+        out.append(("security_scanner_version_info", {"tool": tool, "installed": installed, "latest": latest or "unknown"}, 1))
+        if behind is not None:
+            out.append(("security_scanner_behind", {"tool": tool}, behind))
+    return out
+
+
+def _latest_release(repo: str) -> str | None:
+    try:
+        req = urllib.request.Request(f"https://api.github.com/repos/{repo}/releases/latest",
+                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "security-scan"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.load(r)["tag_name"]
+    except (OSError, ValueError, KeyError) as e:
+        print(f"latest release of {repo}: {e!r}", file=sys.stderr)
+        return None
+
+
+def collect_freshness() -> list:
+    filters = run(["docker", "exec", "adguardhome", "find", "/opt/adguardhome/work/data/filters", "-name", "*.txt",
+                   "-exec", "stat", "-c", "%Y", "{}", "+"], check=True).stdout.split()
+    cache = STATE / "trivy-cache"
+    data = {"adguard_filter": min(int(t) for t in filters),
+            "trivy_db": trivy_db_updated((cache / "db" / "metadata.json").read_text()),
+            "trivy_java_db": trivy_db_updated((cache / "java-db" / "metadata.json").read_text())}
+    gitleaks = run([GITLEAKS, "version"], check=True).stdout.strip()
+    clamav = run(["docker", "exec", "clamav", "clamscan", "--version"], check=True).stdout.split()[1].split("/")[0]
+    versions = {"trivy": (trivy_pin_version(TRIVY_IMAGE), _latest_release(SCANNER_REPOS["trivy"])),
+                "gitleaks": (gitleaks, _latest_release(SCANNER_REPOS["gitleaks"])),
+                "clamav": (clamav, None)}
+    return freshness_samples(data, versions, CLAMAV_LTS_EOL, time.time())
 
 
 def guarded(subject: str, fn, *, host: str | None = None) -> None:
@@ -2416,6 +2484,9 @@ def main() -> int:
     if only and "access" in only:
         guarded("ssh-logins-fastpi", collect_ssh_logins, host="fastpi")
         guarded("integrity-fastpi", collect_integrity, host="fastpi")
+
+    if want("freshness"):
+        guarded("freshness-fastpi", collect_freshness)
 
     if want("audit"):
         for host in AUDIT_HOSTS:

@@ -50,6 +50,34 @@ groups:
           description: >-
             Neither tracked nor ignored, so <code>git add -A</code> would commit it to a public repo. Add a .gitignore line (an <code>.env</code> entry does not match <code>.env.bak</code>). List: <code>/var/lib/security-scan/hygiene-problems.txt</code> on fastpi.
 
+  - name: security-freshness
+    rules:
+      # The scan runs daily, so the age here can read up to a day high: 3 days means two updates missed.
+      - alert: SecurityDataStale
+        expr: >-
+          time() - security_data_updated_timestamp_seconds{source!="trivy_java_db"} > 3 * 86400
+          or
+          time() - security_data_updated_timestamp_seconds{source="trivy_java_db"} > 14 * 86400
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "Security data {{ $labels.source }} is {{ $value | humanizeDuration }} old"
+          description: >-
+            The list has stopped updating. Sources and checks: Server/4-Security-Monitoring/README.md, "Data freshness".
+
+      - alert: SecurityScannerBehind
+        expr: security_scanner_behind == 1
+        for: 14d
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "{{ $labels.tool }} has been behind its upstream release for over 2 weeks"
+          description: >-
+            Tile "Scanner versions" on the Updates & security dashboard. How to update: Server/4-Security-Monitoring/README.md, "Data freshness".
+
   - name: security-patches
     rules:
       - alert: PendingSecurityUpdates
