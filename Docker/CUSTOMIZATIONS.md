@@ -184,7 +184,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Only the authentik-proxy user, lockout 5 / 15 min | `conf/AdGuardHome.yaml` (root-owned) | edit with the container stopped | `adg.users`: → [authentik-proxy], 5, 15; `adg.anon-refused`: → 401; `adg.ui-sso`: → sso | schema_version bump rewriting the YAML |
+| Only the authentik-proxy user, lockout 5 / 15 min | `conf/AdGuardHome.yaml` (uid 65033, mode 600) | edit with the container stopped | `adg.users`: → [authentik-proxy], 5, 15; `adg.anon-refused`: → 401; `adg.ui-sso`: → sso | schema_version bump rewriting the YAML |
 | Local zone *.holy-grail.ch → fastpi | same file, rewrites | AdGuard UI | `adg.local-zone`: sso → 192.168.1.2; `adg.resolves`: example.com → an IP | same |
 
 ## Cup

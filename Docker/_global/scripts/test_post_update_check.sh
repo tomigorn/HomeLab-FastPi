@@ -122,6 +122,9 @@ PY
   dup=$(grep -hoE '^\s*check [a-z0-9.-]+ ' "$REPO_D"/*.sh | awk '{print $2}' | sort | uniq -d | xargs)
   [[ -z $dup ]] && ok "check ids are unique" || bad "check ids are unique" "$dup"
   for f in "$REPO_D"/*.sh; do bash -n "$f" || bad "syntax $(basename "$f")"; done
+  # auto-update.service runs with NoNewPrivileges: sudo in a check fails and rolls back a good update.
+  sudo_auto=$(for p in $(awk '$1 == "auto" || $1 == "edge-auto" {print $2}' "$HERE/../auto-update.conf"); do grep -lw sudo "$REPO_D/$p.sh" 2>/dev/null; done | xargs -r -n1 basename | xargs)
+  [[ -z $sudo_auto ]] && ok "checks of auto-applied projects need no sudo" || bad "checks of auto-applied projects need no sudo" "$sudo_auto"
 fi
 
 echo "$PASS passed, $FAIL failed"

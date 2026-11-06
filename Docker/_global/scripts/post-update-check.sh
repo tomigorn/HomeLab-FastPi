@@ -3,6 +3,7 @@
 # Verifies that a project's customizations (registry: Docker/CUSTOMIZATIONS.md) survived an image update.
 # Checks: Docker/_global/post-update.d/<Project>.sh, one `check <id> <regex> "<actual>"` per customization, `if want <service...>; then ...; fi` scopes a block to compose services.
 # Read-only; values are cut to 70 characters and no check prints a secret. Env: SERVICES (only the want-blocks of these services, as update-project.sh sets it), POST_UPDATE_DIR.
+# Checks of auto and edge-auto projects can't use sudo: auto-update.service runs with NoNewPrivileges.
 # Exit 0 all pass, 1 something missing or broken (last line "FAILED: <ids>"), 2 unknown project.
 set -uo pipefail
 DIR=${POST_UPDATE_DIR:-$(cd "$(dirname "$0")/.." && pwd)/post-update.d}
