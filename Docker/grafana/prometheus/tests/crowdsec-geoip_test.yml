@@ -4,18 +4,18 @@ rule_files:
 evaluation_interval: 1m
 tests:
   - name: old data alone stays quiet, a newer upstream build we did not fetch alerts after 2 days
-    interval: 1h
+    interval: 5m
     input_series:
       # our copy was written after the last publish, whatever its age
       - series: 'crowdsec_data_file_timestamp_seconds{file="GeoLite2-City.mmdb"}'
-        values: '5000x100'
+        values: '5000x700'
       - series: 'crowdsec_geoip_upstream_timestamp_seconds{file="GeoLite2-City.mmdb"}'
-        values: '1000x100'
+        values: '1000x700'
       # upstream published after our copy was written
       - series: 'crowdsec_data_file_timestamp_seconds{file="GeoLite2-ASN.mmdb"}'
-        values: '5000x100'
+        values: '5000x700'
       - series: 'crowdsec_geoip_upstream_timestamp_seconds{file="GeoLite2-ASN.mmdb"}'
-        values: '9000x100'
+        values: '9000x700'
     alert_rule_test:
       - eval_time: 47h
         alertname: CrowdSecGeoIPBehindUpstream
