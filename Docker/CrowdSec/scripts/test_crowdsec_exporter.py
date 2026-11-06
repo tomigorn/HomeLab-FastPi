@@ -188,5 +188,45 @@ class PluginVersion(unittest.TestCase):
         self.assertNotIn("crowdsec_bouncer_plugin", ex.render({}, NOW, {}, {}))
 
 
+class GeoIP(unittest.TestCase):
+    BUILD = 1768521600
+    TAIL = (b"tree bytes\xab\xcd\xefMaxMind.com\xe9\x5bbinary_format_major_version\xa1\x02"
+            b"\x4bbuild_epoch\x04\x02" + BUILD.to_bytes(4, "big") + b"\x4ddatabase_type\x4cGeoLite2-ASN")
+
+    def test_build_epoch_from_metadata(self):
+        self.assertEqual(ex.mmdb_build_epoch(self.TAIL), self.BUILD)
+
+    def test_last_marker_wins(self):
+        self.assertEqual(ex.mmdb_build_epoch(b"\xab\xcd\xefMaxMind.com\x4bbuild_epoch\x04\x02\0\0\0\1" + self.TAIL), self.BUILD)
+
+    def test_unreadable_metadata_is_none(self):
+        for bad in (b"", b"no marker", b"\xab\xcd\xefMaxMind.com no epoch", b"\xab\xcd\xefMaxMind.com\x4bbuild_epoch\x4cwrong type",
+                    b"\xab\xcd\xefMaxMind.com\x4bbuild_epoch\x04\x02\0"):
+            self.assertIsNone(ex.mmdb_build_epoch(bad), bad)
+
+    def test_upstream_dates_from_last_modified(self):
+        class Resp:
+            headers = {"Last-Modified": "Thu, 05 Feb 2026 16:11:25 GMT"}
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        seen = []
+        real, ex.urllib.request.urlopen = ex.urllib.request.urlopen, lambda req, timeout: seen.append(req) or Resp()
+        try:
+            got = ex.fetch_geoip_upstream()
+        finally:
+            ex.urllib.request.urlopen = real
+        self.assertEqual(got, {f: ex.parse_ts("2026-02-05T16:11:25Z") for f in ex.DATA_FILES})
+        self.assertEqual({r.get_method() for r in seen}, {"HEAD"})
+
+    def test_render_build_and_upstream(self):
+        txt = ex.render({}, NOW, {}, {"data_builds": {"GeoLite2-ASN.mmdb": self.BUILD},
+                                      "data_upstream": {"GeoLite2-ASN.mmdb": NOW}})
+        self.assertIn(f'crowdsec_geoip_build_timestamp_seconds{{file="GeoLite2-ASN.mmdb"}} {self.BUILD}', txt)
+        self.assertIn(f'crowdsec_geoip_upstream_timestamp_seconds{{file="GeoLite2-ASN.mmdb"}} {NOW:.0f}', txt)
+        for line in txt.strip().splitlines():
+            self.assertRegex(line, Render.LINE)
+        self.assertNotIn("crowdsec_geoip", ex.render({}, NOW, {}, {}))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

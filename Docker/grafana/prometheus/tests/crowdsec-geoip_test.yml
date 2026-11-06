@@ -1,0 +1,32 @@
+# promtool test rules tests/crowdsec-geoip_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/crowdsec.yml
+evaluation_interval: 1m
+tests:
+  - name: old data alone stays quiet, a newer upstream build we did not fetch alerts after 2 days
+    interval: 1h
+    input_series:
+      # our copy was written after the last publish, whatever its age
+      - series: 'crowdsec_data_file_timestamp_seconds{file="GeoLite2-City.mmdb"}'
+        values: '5000x100'
+      - series: 'crowdsec_geoip_upstream_timestamp_seconds{file="GeoLite2-City.mmdb"}'
+        values: '1000x100'
+      # upstream published after our copy was written
+      - series: 'crowdsec_data_file_timestamp_seconds{file="GeoLite2-ASN.mmdb"}'
+        values: '5000x100'
+      - series: 'crowdsec_geoip_upstream_timestamp_seconds{file="GeoLite2-ASN.mmdb"}'
+        values: '9000x100'
+    alert_rule_test:
+      - eval_time: 47h
+        alertname: CrowdSecGeoIPBehindUpstream
+        exp_alerts: []
+      - eval_time: 49h
+        alertname: CrowdSecGeoIPBehindUpstream
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              notify: digest
+              file: GeoLite2-ASN.mmdb
+            exp_annotations:
+              summary: "CrowdSec published GeoLite2-ASN.mmdb, the daily hub upgrade did not fetch it"
+              description: "`docker exec crowdsec cscli hub upgrade --force` re-downloads the data files; check `journalctl -u crowdsec-autoupdate` if that changes nothing."

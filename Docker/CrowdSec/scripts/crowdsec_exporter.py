@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import collections
 import datetime as dt
+import email.utils
 import json
 import os
 import re
@@ -53,6 +54,9 @@ PLUGIN_DIR = os.environ.get("PLUGIN_DIR", "/home/pi/Projects/Docker/Traefik/trae
 PLUGIN_RELEASES_URL = "https://api.github.com/repos/maxlerebourg/crowdsec-bouncer-traefik-plugin/releases/latest"
 LATEST_CACHE_PATH = os.environ.get("LATEST_CACHE_PATH", "/var/lib/crowdsec-exporter/plugin_latest.json")
 LATEST_TTL_S = 6 * 3600       # 4 unauthenticated GitHub calls a day, far below the 60/h limit
+GEOIP_UPSTREAM_URL = "https://hub-data.crowdsec.net/mmdb_update/"
+GEOIP_CACHE_PATH = os.environ.get("GEOIP_CACHE_PATH", "/var/lib/crowdsec-exporter/geoip_upstream.json")
+MMDB_MARKER = b"\xab\xcd\xefMaxMind.com"
 
 # Kinds that are not "something attacked this server". kind is null on alerts
 # written by CrowdSec < 1.7, which are real detections, so null is kept.
@@ -168,6 +172,22 @@ def plugin_status(installed: str | None, latest: str | None, reported: str | Non
     }
 
 
+def mmdb_build_epoch(tail: bytes) -> int | None:
+    """build_epoch from the metadata at the end of an .mmdb file; None if it can't be read."""
+    i = tail.rfind(MMDB_MARKER)
+    key = b"build_epoch"
+    j = tail.find(key, i) if i >= 0 else -1
+    if j < 0:
+        return None
+    start = j + len(key)
+    head = tail[start:start + 2]
+    if len(head) < 2 or head[0] >> 5 or head[1] != 2:  # MaxMind DB encoding of uint64
+        return None
+    size = head[0] & 0x1f
+    raw = tail[start + 2:start + 2 + size]
+    return int.from_bytes(raw, "big") if raw and len(raw) == size else None
+
+
 def refresh_latest(cache: dict, now: float, fetch) -> dict:
     """Newest upstream release tag, re-fetched at most every LATEST_TTL_S. A failed
     fetch keeps the last good answer (and its timestamp, so staleness is visible)."""
@@ -176,7 +196,7 @@ def refresh_latest(cache: dict, now: float, fetch) -> dict:
     try:
         return {"latest": fetch(), "checked": now}
     except Exception as e:  # noqa: BLE001 - network, rate limit, bad JSON: all non-fatal
-        print(f"crowdsec exporter: plugin release check failed: {e!r}", file=sys.stderr)
+        print(f"crowdsec exporter: upstream check failed: {e!r}", file=sys.stderr)
         return cache
 
 
@@ -257,8 +277,16 @@ def render(state: dict, now: float, countries: dict[str, str], extra: dict) -> s
                [("", extra["hub_items_not_ok"])])
     if extra.get("data_files"):
         metric("crowdsec_data_file_timestamp_seconds", "gauge",
-               "mtime of hub data files (GeoIP databases); refreshed by the daily cscli hub upgrade when upstream changes.",
+               "mtime of hub data files (GeoIP databases): when this host last wrote them, not how old the data is.",
                [(labels(file=f), f"{t:.0f}") for f, t in sorted(extra["data_files"].items())])
+    if extra.get("data_builds"):
+        metric("crowdsec_geoip_build_timestamp_seconds", "gauge",
+               "When MaxMind built the GeoIP database (build_epoch inside the file): the real age of the data.",
+               [(labels(file=f), t) for f, t in sorted(extra["data_builds"].items())])
+    if extra.get("data_upstream"):
+        metric("crowdsec_geoip_upstream_timestamp_seconds", "gauge",
+               "When CrowdSec last published the GeoIP database (Last-Modified on hub-data.crowdsec.net, cached 6 h).",
+               [(labels(file=f), f"{t:.0f}") for f, t in sorted(extra["data_upstream"].items())])
     if extra.get("plugin"):
         pl = extra["plugin"]
         metric("crowdsec_bouncer_plugin_version_info", "gauge",
@@ -332,6 +360,28 @@ def plugin_check(bouncers: list[dict], now: float) -> dict:
     return st
 
 
+def fetch_geoip_upstream() -> dict[str, float]:
+    out = {}
+    for f in DATA_FILES:
+        req = urllib.request.Request(GEOIP_UPSTREAM_URL + f, method="HEAD", headers={"User-Agent": "crowdsec-exporter"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            out[f] = email.utils.parsedate_to_datetime(r.headers["Last-Modified"]).timestamp()
+    return out
+
+
+def geoip_upstream(now: float) -> dict[str, float]:
+    try:
+        with open(GEOIP_CACHE_PATH) as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        cache = {}
+    new = refresh_latest(cache, now, fetch_geoip_upstream)
+    if new is not cache:
+        os.makedirs(os.path.dirname(GEOIP_CACHE_PATH), exist_ok=True)
+        write_atomic(GEOIP_CACHE_PATH, json.dumps(new))
+    return new.get("latest") or {}
+
+
 def load_countries() -> dict[str, str]:
     try:
         with open(ISO_PATH) as f:
@@ -377,6 +427,14 @@ def collect(state: dict, now: float) -> dict:
                            capture_output=True, text=True, timeout=30)
         if p.returncode == 0 and p.stdout.strip():
             extra["data_files"][f] = float(p.stdout.strip())
+    extra["data_builds"] = {}
+    for f in DATA_FILES:
+        p = subprocess.run(["docker", "exec", CONTAINER, "tail", "-c", "20000", f"/var/lib/crowdsec/data/{f}"],
+                           capture_output=True, timeout=30)
+        built = mmdb_build_epoch(p.stdout) if p.returncode == 0 else None
+        if built:
+            extra["data_builds"][f] = built
+    extra["data_upstream"] = geoip_upstream(now)
     hub = cscli("hub", "list") or {}
     extra["scenarios"] = [i["name"] for i in (hub.get("scenarios") or []) if i.get("name")]
     extra["hub_items_not_ok"] = sum(1 for items in hub.values() for i in (items or [])

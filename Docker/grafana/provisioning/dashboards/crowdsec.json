@@ -1120,8 +1120,8 @@
   {
    "id": 39,
    "type": "stat",
-   "title": "GeoIP data age",
-   "description": "Age of the oldest GeoLite2 database (City/ASN) that geoip-enrich uses for the country map and AS names. Re-downloaded by the daily hub upgrade when CrowdSec publishes a new build (hub-data.crowdsec.net); alert CrowdSecGeoIPStale at 60 days.",
+   "title": "GeoIP data age (map only)",
+   "description": "Age of the data: build date inside the oldest GeoLite2 database (City/ASN), not the download date. Only the country map and AS names use it, no ban does. Only CrowdSec can refresh it (hub-data.crowdsec.net); the daily hub upgrade fetches each new build, alert CrowdSecGeoIPBehindUpstream if it does not.",
    "datasource": {
     "type": "prometheus",
     "uid": "dfc6abdxzsem8a"
@@ -1129,7 +1129,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "time() - min(crowdsec_data_file_timestamp_seconds)",
+     "expr": "time() - min(crowdsec_geoip_build_timestamp_seconds)",
      "datasource": {
       "type": "prometheus",
       "uid": "dfc6abdxzsem8a"
@@ -1157,10 +1157,6 @@
        },
        {
         "color": "orange",
-        "value": 2592000
-       },
-       {
-        "color": "red",
         "value": 5184000
        }
       ]
