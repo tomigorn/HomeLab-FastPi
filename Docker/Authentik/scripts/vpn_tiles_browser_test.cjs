@@ -49,14 +49,20 @@ const fake = (t, name, slug, url) => ({ ...t, pk: crypto.randomUUID(), name, slu
 
 async function run(where, ip, inject) {
   const browser = await chromium.launch({ args: [`--host-resolver-rules=MAP sso.holy-grail.ch ${ip}`] });
-  const ctx = await browser.newContext({ viewport: { width: 1200, height: 800 }, colorScheme: process.env.SCHEME || "dark" });
+  const ctx = await browser.newContext({ viewport: process.env.MOBILE ? { width: 412, height: 915 } : { width: 1200, height: 800 }, isMobile: !!process.env.MOBILE, hasTouch: !!process.env.MOBILE, colorScheme: process.env.SCHEME || "dark" });
   await login(ctx);
   await ctx.route("**/api/v3/core/applications/**", async (route) => {
     const res = await route.fetch(), j = await res.json();
     if (j.results && j.results[0]) j.results.unshift(fake(j.results[0], "Grafana", "fake-grafana", "https://grafana.holy-grail.ch"), fake(j.results[0], "Jellyfin", "fake-jellyfin", "https://jellyfin.holy-grail.ch"));
     await route.fulfill({ response: res, json: j });
   });
-  if (inject) await ctx.addInitScript({ path: JS });
+  if (inject) {
+    await ctx.addInitScript({ path: JS });
+    await ctx.route("**/if/user/", async (route) => {
+      const res = await route.fetch();
+      await route.fulfill({ response: res, body: (await res.text()).replace(/<script>\(function \(\) \{\s*"use strict";[\s\S]*?hg-vpn-banner[\s\S]*?<\/script>/, "") });
+    });
+  }
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -69,14 +75,24 @@ async function run(where, ip, inject) {
       return null;
     }
     const r = root(document);
-    const tile = (h) => { const a = r.querySelector(`[part="card"] a[href*="${h}"]`); return a ? a.closest('[part="card"]').hasAttribute("data-hg-vpn") : null; };
+    const tile = (h) => { const a = r.querySelector(`[part="app-list"] a[href*="${h}"]`); return a ? a.closest('[part="card"],[part="row"]').hasAttribute("data-hg-vpn") : null; };
     return { banner: !!r.querySelector("#hg-vpn-banner"), grafana: tile("grafana."), jellyfin: tile("jellyfin.") };
   });
-  await page.screenshot({ path: path.join(OUT, `vpn-tiles-${where}-${process.env.SCHEME || "dark"}.png`) });
+  await page.waitForTimeout(2300);
+  const bannerStays = await page.evaluate(() => {
+    function root(r) {
+      if (r.querySelector('[part="app-list"]')) return r;
+      for (const e of r.querySelectorAll("*")) if (e.shadowRoot) { const f = root(e.shadowRoot); if (f) return f; }
+      return null;
+    }
+    return !!root(document).querySelector("#hg-vpn-banner");
+  });
+  state.banner = state.banner && bannerStays;
+  await page.screenshot({ path: path.join(OUT, `vpn-tiles-${where}-${process.env.SCHEME || "dark"}${process.env.MOBILE ? "-phone" : ""}.png`) });
   let opened = null;
   if (state.grafana) {
     ctx.on("page", () => { opened = true; });
-    const a = page.locator('[part="card"] a[href*="grafana."]').first();
+    const a = page.locator('[part="app-list"] a[href*="grafana."]').first();
     await a.click({ force: true }).catch(() => {});
     await page.waitForTimeout(1500);
     opened = !!opened;

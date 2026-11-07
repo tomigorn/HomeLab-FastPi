@@ -13,9 +13,11 @@
   var LINE = "linear-gradient(to top right,transparent calc(50% - 1px),#8592a8 calc(50% - 1px),#8592a8 calc(50% + 1px),transparent calc(50% + 1px))";
   var CSS = "[" + MARK + "],[" + MARK + "]:hover{box-shadow:none!important;border-color:#8592a8!important;cursor:not-allowed}" +
     "[" + MARK + "] a{cursor:not-allowed}" +
+    "[part=\"row\"][" + MARK + "]{position:relative}" +
     ".hg-vpn-veil{position:absolute;inset:0;z-index:3;pointer-events:none;background-color:rgba(226,229,235,.8);background-image:" + LINE + "}" +
     ":host([theme=\"dark\"]) .hg-vpn-veil{background-color:rgba(13,21,36,.8)}" +
     ".hg-vpn-badge{position:absolute;top:6px;left:6px;z-index:4;font-size:12px;font-weight:700;line-height:18px;padding:0 6px;color:#ffe7a3;background-color:#3a2d0c;border:1px solid #e9b949;border-radius:6px;pointer-events:none}" +
+    "[part=\"row\"] .hg-vpn-badge{top:50%;left:auto;right:48px;transform:translateY(-50%)}" +
     "#hg-vpn-banner{display:flex;gap:10px;align-items:center;margin:0 0 16px;padding:9px 12px;border:1px solid #e9b949;border-radius:8px;background:#3a2d0c;color:#ffe7a3;font-size:14px}" +
     "#hg-vpn-banner b{color:#fff}" +
     "#hg-vpn-banner.hg-pulse{animation:hg-vpn-pulse .9s}" +
@@ -119,7 +121,7 @@
     var list = libraryRoot.querySelector('[part="app-list"]');
     if (!list) return;
     addStyle(libraryRoot);
-    var cards = list.querySelectorAll('[part="card"]');
+    var cards = list.querySelectorAll('[part="card"],[part="row"]');
     var greyed = 0;
     for (var i = 0; i < cards.length; i++) {
       var link = cards[i].querySelector("a[href]");

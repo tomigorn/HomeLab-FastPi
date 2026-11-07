@@ -66,6 +66,11 @@ class Network(unittest.TestCase):
 
 
 class Template(unittest.TestCase):
+    def test_covers_grid_and_list_layouts(self):
+        text = JS.read_text()
+        self.assertIn("""[part="card"]""", text)
+        self.assertIn("""[part="row"]""", text)
+
     def test_extends_the_stock_page_instead_of_copying_it(self):
         text = TEMPLATE.read_text()
         self.assertIn('{% extends "if/user.html" %}', text)
