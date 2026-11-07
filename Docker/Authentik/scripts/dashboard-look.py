@@ -23,7 +23,7 @@ ICON_DIR = "/data/media/public"  # = Docker/Authentik/data/media/public on the h
 #   note for apps that wake a sleeping host, shown under the caption and in the menu.
 #   icon: None = apps/<slug>-*.svg from fetch-app-icons.sh (downloaded, or bundled in
 #   icons/), otherwise a literal meta_icon value (fa://, https://, /static/...).
-# Sections sort A to Z in authentik; the custom CSS below orders them Media, Downloads (Beefy, then FastPi), Account, Homelab.
+# Sections sort A to Z in authentik; the custom CSS below orders them Media, Downloads (Beefy, then FastPi), Account, Utilities, Homelab.
 BEEFY = "\nwakes Beefy · ~55 s"
 TOWER = "\nwakes Tower · ~110 s"
 APPS = {
@@ -54,6 +54,7 @@ APPS = {
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
     "dt":                ("Homelab", "CVE overview" + BEEFY, None),
+    "notes":             ("Utilities", "Private research notes", "fa://fa-note-sticky"),
     "avatar-picker":     ("Account", "Your profile picture", None),
     "wiki":              ("Account", "How to use everything", "fa://fa-book"),
 }
