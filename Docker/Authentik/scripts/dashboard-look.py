@@ -196,6 +196,12 @@ CUSTOM_CSS = """\
   margin-top: -1lh;
 }
 
+/* authentik sizes this with 100vh, which on phones includes the browser bars and hides the end of the list. */
+.pf-c-drawer__main {
+  min-height: calc(100dvh - 76px) !important;
+  max-height: calc(100dvh - 76px) !important;
+}
+
 /* Section order, grid and list (sections otherwise sort A-Z):
    Media, Downloads · Beefy, Downloads · FastPi, Account, Homelab (infrastructure admin tools) last.
    The list container is display:block in authentik, so make it a flex column for order. */
