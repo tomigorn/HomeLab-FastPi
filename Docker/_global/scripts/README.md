@@ -14,7 +14,23 @@
 | `maintenance-silence.sh on [hours] [reason] \| off \| status` | Alertmanager silence for batch/upgrade work (crash loops, container down/unhealthy, file changes, reboots, own SSH logins), default 4 h, max 24 h; only touches its own silences. Test: `./test_maintenance_silence.sh` |
 | `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
 | `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
+| `customization_check_exporter.py` | runs `post-update-check.sh all` and counts `port_updater` reattaches every 2 h, publishes to Prometheus, see below |
 | `ctest.sh` | throwaway test container that cannot change anything, see below |
+
+## customization-check
+Closes the gap that `post-update-check.sh` and `smoke-test.sh` only run by hand: on 2026-11-06 a broken gluetun network went 13 h without an alert.
+
+| | |
+|---|---|
+| When | `customization-check.timer`, 00:11 and every 2 h 06:11-22:11 Europe/Zurich (not during the DST hour or the 03:10-05:50 nightly jobs). A run takes ~70 s, 12 s CPU |
+| Metrics | `customization_check_failed{id}` (failed ids only, never check output), `customization_checks_failed`, `customization_checks_passed`, `port_updater_reattaches_6h` (`docker logs --since 6h`), `customization_check_last_success_timestamp_seconds{collector}`, `customization_check_errors{collector}` |
+| Files | `customization_checks.prom`, `port_updater_reattaches.prom`, each with `_status.prom`; a failed collection keeps the old data |
+| Alerts | `grafana/prometheus/rules/customization-checks.yml`: `CustomizationCheckFailing` (two failing runs in a row, up to ~4 h 15 min after the fault), `PortUpdaterReattachLoop` (>= 2 in 6 h), `CustomizationCheckStale` (> 8 h). All warning: Telegram, muted 22:00-07:00 |
+| Sandbox | no `NoNewPrivileges` (checks use `sudo -n`), `ProtectSystem=strict` also holds under sudo |
+| Sleeping hosts | never wakes beefy or tower; checks that depend on them pass with a note (`beefy asleep`, `beefy off at last refresh`, `*-tower` stale subjects) |
+| Side effects | refused or read-only requests only; `wiki`, `notes`, `server-specs` probes overwrite one file in their container's `/tmp` |
+| Install | `sudo install -m 0644 ../systemd/customization-check.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now customization-check.timer` |
+| Test | `python3 test_customization_check_exporter.py` |
 
 ## host-input-guard
 - New host port needed by a container or the VPN: add it to the port lists in the script, `sudo ./host-input-guard.sh --persist`.

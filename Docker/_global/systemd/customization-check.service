@@ -1,0 +1,24 @@
+[Unit]
+Description=Run the customization checks and count port_updater reattaches, publish to the textfile collector
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+Environment=HOME=/home/pi
+# node for authentik.vpn-tiles-hosts
+Environment=PATH=/home/pi/.local/share/fnm/aliases/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/_global/scripts/customization_check_exporter.py
+TimeoutStartSec=900
+Nice=10
+IOSchedulingClass=idle
+# No NoNewPrivileges or the settings that imply it (test_customization_check_exporter.py lists them): checks use sudo -n. Under sudo the mounts below still hold, so root stays read-only too.
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHostname=true

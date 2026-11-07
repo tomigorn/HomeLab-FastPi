@@ -1,0 +1,10 @@
+[Unit]
+Description=Customization checks every 2 hours
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+
+[Timer]
+# every 2 h, a gap 01:00-06:00 for the DST hour and the 03:10-05:50 nightly jobs; the alert needs two failing runs in a row
+OnCalendar=*-*-* 00,06,08,10,12,14,16,18,20,22:11:00 Europe/Zurich
+
+[Install]
+WantedBy=timers.target
