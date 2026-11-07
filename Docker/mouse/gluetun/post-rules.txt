@@ -1,7 +1,7 @@
 iptables -I OUTPUT 1 -o lo -p tcp --dport 9696 -m owner ! --uid-owner 65057 -m owner ! --uid-owner 65054 -j REJECT
-iptables -N MOUSE-ETH1
-iptables -A MOUSE-ETH1 -s 10.24.25.3 -p tcp -m multiport --dports 8080,8081,9697 -j ACCEPT
-iptables -A MOUSE-ETH1 -s 10.24.25.5 -p tcp -m multiport --dports 8080,9697 -j ACCEPT
-iptables -A MOUSE-ETH1 -s 10.24.25.1 -p tcp --dport 8080 -j ACCEPT
-iptables -A MOUSE-ETH1 -j DROP
-iptables -I INPUT 1 -i eth1 -m conntrack --ctstate NEW -j MOUSE-ETH1
+iptables -N MOUSE-TRAEFIK
+iptables -A MOUSE-TRAEFIK -s 10.24.25.3 -p tcp -m multiport --dports 8080,8081,9697 -j ACCEPT
+iptables -A MOUSE-TRAEFIK -s 10.24.25.5 -p tcp -m multiport --dports 8080,9697 -j ACCEPT
+iptables -A MOUSE-TRAEFIK -s 10.24.25.1 -p tcp --dport 8080 -j ACCEPT
+iptables -A MOUSE-TRAEFIK -j DROP
+iptables -I INPUT 1 -d 10.24.25.2 -m conntrack --ctstate NEW -j MOUSE-TRAEFIK

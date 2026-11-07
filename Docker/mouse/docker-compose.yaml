@@ -240,7 +240,7 @@ services:
       - gluetun-data:/tmp/gluetun
       - ./secrets/gluetun:/gluetun
       # S-05: only prowlarr-gate (65057) and Prowlarr itself (65054) may reach 127.0.0.1:9696; qBit/SAB/Mousehole are refused.
-      # A-06: chain MOUSE-ETH1 filters NEW traffic from traefik_mouse per source and port, rest dropped.
+      # A-06: chain MOUSE-TRAEFIK filters NEW traffic to the traefik_mouse address per source and port, rest dropped. By address, not eth0/eth1: Docker can swap those on a restart.
       - ./gluetun/post-rules.txt:/iptables/post-rules.txt:ro
     logging:
       driver: "json-file"
