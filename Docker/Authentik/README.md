@@ -566,6 +566,25 @@ To change the artwork, edit the store and run its deploy script - see
 are not automatic: Cloudflare caches the logo for four hours (hence md5-prefixed
 filenames), and `logo_data()` is `lru_cache`d (hence a restart).
 
+## VPN hint on the app page
+
+From outside, LAN/VPN-only apps stay visible: grey, a line across the tile, a VPN badge, not clickable, with a banner on top. Login pages are not touched.
+
+| What | Where |
+|---|---|
+| Script and host list | `custom-templates/holy-grail/vpn-tiles.js` |
+| Page override | `custom-templates/if/user.html` |
+| Home or outside | HEAD `/if/admin/`: 403 from Traefik = outside, 2xx/3xx = home, anything else changes nothing; every 30 s and on tab focus |
+
+New LAN/VPN-only route: add the host to `LOCAL_ONLY`, then:
+```
+sudoedit custom-templates/holy-grail/vpn-tiles.js   # root-owned
+docker compose restart server   # edge stack: ask first
+python3 scripts/test_vpn_tiles.py
+NODE_PATH=<a node_modules with playwright> bash scripts/vpn-tiles-browser-test.sh
+```
+Undo: `sudo rm custom-templates/if/user.html`, `docker compose restart server`.
+
 ## Dashboard look
 
 The user dashboard ("My applications", `/if/user/#/library`) is config as code. It has

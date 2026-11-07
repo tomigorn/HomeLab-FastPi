@@ -102,5 +102,7 @@ PY
   check authentik.brand-mounts '^ok ok$' "$(for c in authentik-server authentik-worker; do docker exec $c sh -c 'test -s /web/icons/icon_left_brand.png && test -n "$(ls /home/pi/Projects/HolyGrail-Branding/icons)"' && echo ok; done | xargs)"
   check authentik.app-icons '^[1-9][0-9]+$' "$(ls "$AKD/data/media/public/apps" 2>/dev/null | grep -c '\.svg$')"
   check authentik.login-page '^200$' "$(curl -s -m 10 -o /dev/null -w '%{http_code}' https://sso.holy-grail.ch/if/flow/default-authentication-flow/)"
+  check authentik.vpn-tiles '^[1-9]' "$(curl -s -m 10 https://sso.holy-grail.ch/if/user/ | grep -c hg-vpn-banner)"
+  check authentik.vpn-tiles-hosts '^OK$' "$(python3 "$AKD/scripts/test_vpn_tiles.py" Hosts 2>&1 | tail -1)"
 fi
 check authentik.app-cache-timer '^active$' "$(systemctl is-active authentik-app-cache.timer)"

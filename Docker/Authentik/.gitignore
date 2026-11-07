@@ -32,4 +32,10 @@ custom-templates/*
 !custom-templates/email/
 custom-templates/email/*
 !custom-templates/email/*.html
+!custom-templates/if/
+custom-templates/if/*
+!custom-templates/if/user.html
+!custom-templates/holy-grail/
+custom-templates/holy-grail/*
+!custom-templates/holy-grail/*.js
 backups/
