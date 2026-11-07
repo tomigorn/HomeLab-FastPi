@@ -1,0 +1,124 @@
+# promtool test rules tests/customization-checks_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/customization-checks.yml
+evaluation_interval: 5m
+tests:
+  - name: one failing run never pages, even though its gauge is held until the next run
+    interval: 5m
+    input_series:
+      - series: 'customization_check_failed{id="mouse.vpn-egress"}'
+        values: '1x24 stale'
+      - series: 'customization_check_last_success_timestamp_seconds{collector="checks"}'
+        values: '0+300x60'
+      - series: 'customization_check_last_success_timestamp_seconds{collector="reattach"}'
+        values: '0+300x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: CustomizationCheckFailing
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: CustomizationCheckFailing
+        exp_alerts: []
+      - eval_time: 2h20m
+        alertname: CustomizationCheckFailing
+        exp_alerts: []
+
+  - name: two failing runs in a row page as warning and name every failed id
+    interval: 5m
+    input_series:
+      - series: 'customization_check_failed{id="mouse.vpn-egress"}'
+        values: '1x40'
+      - series: 'customization_check_failed{id="traefik.real-ip"}'
+        values: '1x40'
+      - series: 'customization_check_last_success_timestamp_seconds{collector="checks"}'
+        values: '0+300x40'
+      - series: 'customization_check_last_success_timestamp_seconds{collector="reattach"}'
+        values: '0+300x40'
+    alert_rule_test:
+      - eval_time: 2h10m
+        alertname: CustomizationCheckFailing
+        exp_alerts: []
+      - eval_time: 2h20m
+        alertname: CustomizationCheckFailing
+        exp_alerts:
+          - exp_labels: {severity: warning, id: mouse.vpn-egress}
+            exp_annotations:
+              summary: "Customization check mouse.vpn-egress is failing"
+              description: "Failed two runs in a row. See what it got: <code>Docker/_global/scripts/post-update-check.sh all</code> (registry: Docker/CUSTOMIZATIONS.md)."
+          - exp_labels: {severity: warning, id: traefik.real-ip}
+            exp_annotations:
+              summary: "Customization check traefik.real-ip is failing"
+              description: "Failed two runs in a row. See what it got: <code>Docker/_global/scripts/post-update-check.sh all</code> (registry: Docker/CUSTOMIZATIONS.md)."
+
+  - name: a failure between runs clears as soon as a run passes
+    interval: 5m
+    input_series:
+      - series: 'customization_check_failed{id="mouse.vpn-egress"}'
+        values: '1x30 stale'
+    alert_rule_test:
+      - eval_time: 2h20m
+        alertname: CustomizationCheckFailing
+        exp_alerts:
+          - exp_labels: {severity: warning, id: mouse.vpn-egress}
+            exp_annotations:
+              summary: "Customization check mouse.vpn-egress is failing"
+              description: "Failed two runs in a row. See what it got: <code>Docker/_global/scripts/post-update-check.sh all</code> (registry: Docker/CUSTOMIZATIONS.md)."
+      - eval_time: 2h40m
+        alertname: CustomizationCheckFailing
+        exp_alerts: []
+
+  - name: one reattach is normal, two in 6 h are a loop
+    interval: 5m
+    input_series:
+      - series: 'port_updater_reattaches_6h'
+        values: '0x5 1x5 2x5 3x5 1x5 0x5'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: PortUpdaterReattachLoop
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: PortUpdaterReattachLoop
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "port_updater reattached qBittorrent 2 times in 6 h"
+              description: "Every reattach restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
+      - eval_time: 2h
+        alertname: PortUpdaterReattachLoop
+        exp_alerts: []
+
+  - name: a checker that stops succeeding goes stale, the overnight gap does not
+    interval: 5m
+    input_series:
+      - series: 'customization_check_last_success_timestamp_seconds{collector="checks"}'
+        values: '0x120'
+      - series: 'customization_check_last_success_timestamp_seconds{collector="reattach"}'
+        values: '0+300x120'
+    alert_rule_test:
+      - eval_time: 6h5m
+        alertname: CustomizationCheckStale
+        exp_alerts: []
+      - eval_time: 8h
+        alertname: CustomizationCheckStale
+        exp_alerts: []
+      - eval_time: 8h25m
+        alertname: CustomizationCheckStale
+        exp_alerts:
+          - exp_labels: {severity: warning, collector: checks}
+            exp_annotations:
+              summary: "Customization checker (checks) has not succeeded for over 8 h"
+              description: "A broken check would go unnoticed. Look at <code>systemctl status customization-check.timer</code> and <code>journalctl -u customization-check</code>."
+
+  - name: a checker that never published goes stale too
+    interval: 5m
+    input_series:
+      - series: 'customization_check_last_success_timestamp_seconds{collector="reattach"}'
+        values: '0+300x12'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: CustomizationCheckStale
+        exp_alerts:
+          - exp_labels: {severity: warning, collector: checks}
+            exp_annotations:
+              summary: "Customization checker (checks) has not succeeded for over 8 h"
+              description: "A broken check would go unnoticed. Look at <code>systemctl status customization-check.timer</code> and <code>journalctl -u customization-check</code>."

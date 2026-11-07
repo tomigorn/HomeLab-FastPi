@@ -1,0 +1,35 @@
+# Customization checks and port_updater reattaches, every 2 h (customization-check.timer, Docker/_global/scripts/README.md "customization-check"). Tests: tests/customization-checks_test.yml
+groups:
+  - name: customization-checks
+    rules:
+      # The gauge holds until the next run, so 2h15m means two failing runs in a row. One run caught mid-update never pages; one caught before the 01:00-06:00 gap clears before quiet hours end.
+      - alert: CustomizationCheckFailing
+        expr: customization_check_failed == 1
+        for: 2h15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Customization check {{ $labels.id }} is failing"
+          description: "Failed two runs in a row. See what it got: <code>Docker/_global/scripts/post-update-check.sh all</code> (registry: Docker/CUSTOMIZATIONS.md)."
+
+      - alert: PortUpdaterReattachLoop
+        expr: port_updater_reattaches_6h >= 2
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "port_updater reattached qBittorrent {{ $value }} times in 6 h"
+          description: "Every reattach restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
+
+      # 8 h: longer than the 6 h gap between 00:11 and 06:11.
+      - alert: CustomizationCheckStale
+        expr: >-
+          time() - customization_check_last_success_timestamp_seconds > 8 * 3600
+          or absent(customization_check_last_success_timestamp_seconds{collector="checks"})
+          or absent(customization_check_last_success_timestamp_seconds{collector="reattach"})
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Customization checker ({{ $labels.collector }}) has not succeeded for over 8 h"
+          description: "A broken check would go unnoticed. Look at <code>systemctl status customization-check.timer</code> and <code>journalctl -u customization-check</code>."

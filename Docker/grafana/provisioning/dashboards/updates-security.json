@@ -3842,7 +3842,7 @@
       "id": 36,
       "type": "table",
       "title": "Firing alerts (updates and security)",
-      "description": "Firing Prometheus alerts of the rule groups antivirus, security-*, container-updates, crowdsec and crowdsec-autoupdate (matched by alert name). Details and routing: Alertmanager / Telegram.",
+      "description": "Firing Prometheus alerts of the rule groups antivirus, security-*, container-updates, crowdsec, crowdsec-autoupdate and customization-checks (matched by alert name). Details and routing: Alertmanager / Telegram.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -3850,7 +3850,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "ALERTS{alertstate=\"firing\", alertname=~\"Malware.*|Clamav.*|Container.*|Cup.*|CrowdSec.*|Rootkit.*|Lynis.*|.*Image.*|FailedLogins.*|PendingSecurityUpdates|Unraid.*|SecurityScan.*|SecurityData.*|TextfileCollectorError|Secret.*\"}",
+          "expr": "ALERTS{alertstate=\"firing\", alertname=~\"Malware.*|Clamav.*|Container.*|Cup.*|CrowdSec.*|Rootkit.*|Lynis.*|.*Image.*|FailedLogins.*|PendingSecurityUpdates|Unraid.*|SecurityScan.*|SecurityData.*|TextfileCollectorError|Secret.*|Customization.*|PortUpdater.*\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
