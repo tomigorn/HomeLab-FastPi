@@ -54,7 +54,7 @@ APPS = {
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
     "dt":                ("Homelab", "CVE overview" + BEEFY, None),
-    "notes":             ("Utilities", "Private research notes", "fa://fa-note-sticky"),
+    "notes":             ("Utilities", "Private research notes", "fa://fa-sticky-note"),
     "avatar-picker":     ("Account", "Your profile picture", None),
     "wiki":              ("Account", "How to use everything", "fa://fa-book"),
 }
