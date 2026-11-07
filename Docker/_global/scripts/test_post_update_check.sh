@@ -127,5 +127,41 @@ PY
   [[ -z $sudo_auto ]] && ok "checks of auto-applied projects need no sudo" || bad "checks of auto-applied projects need no sudo" "$sudo_auto"
 fi
 
+# Checks whose answer depends on a sleeping host, run from the real check files against a fake curl.
+mkdir -p "$T/fake"
+cat > "$T/fake/curl" <<'EOF'
+#!/bin/sh
+case "$*" in
+  *api/v3/json*) printf '%s' "$FAKE_CUP" ;;
+  *api/v1/query*) printf '%s' "$FAKE_PROBE" ;;
+  *api/v2/alerts*) printf '%s' "$FAKE_ALERTS" ;;
+  *) echo 000 ;;
+esac
+EOF
+for c in sleep docker sudo; do printf '#!/bin/sh\nexit 1\n' > "$T/fake/$c"; done
+chmod +x "$T/fake/"*
+real() { PATH="$T/fake:$PATH" POST_UPDATE_DIR="$HERE/../post-update.d" "$S" "$1" </dev/null 2>&1 | grep -E "^  (PASS|FAIL) $2 "; }
+both='{"last_updated":"2026-11-07T03:07:47Z","images":[{"server":"beefy"},{"server":"fastpi"}]}'
+one='{"last_updated":"2026-11-07T03:07:47Z","images":[{"server":"fastpi"}]}'
+probe() { printf '{"data":{"result":[{"value":[1,"%s"]}]}}' "$1"; }
+FAKE_ALERTS='[]'; export FAKE_ALERTS
+export FAKE_CUP=$both FAKE_PROBE=$(probe 1)
+[[ $(real Cup cup.api-servers) == *PASS* ]] && ok "cup: both servers listed" || bad "cup: both servers listed" "$(real Cup cup.api-servers)"
+export FAKE_CUP=$one FAKE_PROBE=$(probe 0)
+[[ $(real Cup cup.api-servers) == *PASS*"beefy off at last refresh"* ]] && ok "cup: beefy asleep at the last refresh is no failure" || bad "cup: beefy asleep at the last refresh is no failure" "$(real Cup cup.api-servers)"
+export FAKE_CUP=$one FAKE_PROBE=$(probe 1)
+[[ $(real Cup cup.api-servers) == *FAIL* ]] && ok "cup: beefy awake at the last refresh but missing fails" || bad "cup: beefy awake at the last refresh but missing fails" "$(real Cup cup.api-servers)"
+export FAKE_CUP=$one FAKE_PROBE='{"data":{"result":[]}}'
+[[ $(real Cup cup.api-servers) == *FAIL* ]] && ok "cup: unknown beefy state fails" || bad "cup: unknown beefy state fails" "$(real Cup cup.api-servers)"
+export FAKE_CUP='{"last_updated":"2026-11-07T03:07:47Z","images":[{"server":"beefy"}]}' FAKE_PROBE=$(probe 0)
+[[ $(real Cup cup.api-servers) == *FAIL* ]] && ok "cup: fastpi missing fails" || bad "cup: fastpi missing fails" "$(real Cup cup.api-servers)"
+stale() { printf '[{"labels":{"alertname":"SecurityScanStale","subject":"%s"}}]' "$1"; }
+FAKE_ALERTS=$(stale images-tower)
+[[ $(real Host host.security-scan-fresh) == *PASS* ]] && ok "stale tower scan (tower sleeps) is no failure" || bad "stale tower scan (tower sleeps) is no failure" "$(real Host host.security-scan-fresh)"
+FAKE_ALERTS=$(stale images-beefy)
+[[ $(real Host host.security-scan-fresh) == *FAIL* ]] && ok "stale beefy scan fails" || bad "stale beefy scan fails" "$(real Host host.security-scan-fresh)"
+FAKE_ALERTS='[{"labels":{"alertname":"ContainerExporterStale"}}]'
+[[ $(real Host host.security-scan-fresh) == *FAIL* ]] && ok "stale alert without subject fails" || bad "stale alert without subject fails" "$(real Host host.security-scan-fresh)"
+
 echo "$PASS passed, $FAIL failed"
 [[ $FAIL == 0 ]]

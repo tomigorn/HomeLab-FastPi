@@ -2,7 +2,8 @@
 SMD=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../Server/4-Security-Monitoring" && pwd)
 check host.security-timers '^active( active){7}$' "$(systemctl is-active security-scan.timer security-image-scan.timer security-av.timer security-av-hits.timer security-audit.timer security-access.timer security-code-scan.timer security-dt.timer | xargs)"
 check host.security-units-installed '^0$' "$(n=0; for f in "$SMD"/security-*.service "$SMD"/security-*.timer; do cmp -s "$f" "/etc/systemd/system/$(basename "$f")" || n=$((n+1)); done; echo $n)"
-check host.security-scan-fresh '^none$' "$(curl -s -m 5 http://127.0.0.1:9093/api/v2/alerts | python3 -c 'import json,sys; a=sorted({x["labels"]["alertname"] for x in json.load(sys.stdin) if x["labels"]["alertname"] in ("SecurityScanStale","ClamavScanStale","ContainerExporterStale")}); print(" ".join(a) or "none")')"
+# tower sleeps most days and its scans go stale with it; SecurityScanStale itself still reports those subjects.
+check host.security-scan-fresh '^none$' "$(curl -s -m 5 http://127.0.0.1:9093/api/v2/alerts | python3 -c 'import json,sys; a=sorted({x["labels"]["alertname"] for x in json.load(sys.stdin) if x["labels"]["alertname"] in ("SecurityScanStale","ClamavScanStale","ContainerExporterStale") and not x["labels"].get("subject","").endswith("-tower")}); print(" ".join(a) or "none")')"
 check host.auto-update-timer '^active active$' "$(systemctl is-active auto-update.timer image-cleanup.timer | xargs)"
 check host.host-guard-persisted '^1$' "$(grep -c '^-A INPUT -i br-+ -j HOST-GUARD$' /etc/iptables/rules.v4 2>/dev/null || sudo -n grep -c '^-A INPUT -i br-+ -j HOST-GUARD$' /etc/iptables/rules.v4)"
 check host.lan-guard '^1 1$' "$(sudo -n iptables -C INPUT -i eth0 -j HOST-LAN-GUARD 2>/dev/null && echo 1 || echo 0) $(sudo -n grep -c '^-A INPUT -i eth0 -j HOST-LAN-GUARD$' /etc/iptables/rules.v4)"

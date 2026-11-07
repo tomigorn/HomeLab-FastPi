@@ -192,7 +192,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| No socket, agents per host, 172.24.0.1 bind, forward auth | `cup.json`, `cup-agent.json`, `docker-compose.yaml` | `docker compose up -d` | `cup.config`: → socket none, servers beefy, fastpi; `cup.api-servers`: API lists beefy and fastpi; `cup.bind-172`: LAN :8000 → 000; `cup.forward-auth`: → sso | config schema version |
+| No socket, agents per host, 172.24.0.1 bind, forward auth | `cup.json`, `cup-agent.json`, `docker-compose.yaml` | `docker compose up -d` | `cup.config`: → socket none, servers beefy, fastpi; `cup.api-servers`: API lists beefy and fastpi (fastpi alone if beefy was off at the last refresh); `cup.bind-172`: LAN :8000 → 000; `cup.forward-auth`: → sso | config schema version |
 | Rollback tags excluded: `images.exclude` `rollback.invalid/` + `registries.rollback.invalid.ignore` (UPDATE-RUNBOOK.md "Rollback tags") | `cup.json`, `cup-agent.json` | `docker restart cup-agent-fastpi Cup` | `cup.exclude-rollback`: → both files; `cup.rollback-tags-last`: in-use image with a rollback tag first → 0; `cup.no-crash-loop`: → stable over 12 s | exclude semantics (3.6: prefix match on the reference, only the first tag is read) |
 
 ## Avatar-Picker
@@ -258,7 +258,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Security monitoring timers | `Server/4-Security-Monitoring/` | its `install.sh` | `host.security-timers`: eight timers → active; `host.security-units-installed`: units differing from the repo → 0; `host.security-scan-fresh`: stale alerts → none | none |
+| Security monitoring timers | `Server/4-Security-Monitoring/` | its `install.sh` | `host.security-timers`: eight timers → active; `host.security-units-installed`: units differing from the repo → 0; `host.security-scan-fresh`: stale alerts → none (`*-tower` subjects excepted, tower sleeps) | none |
 | Nightly auto-update + image cleanup | `_global/systemd/` | its install line | `host.auto-update-timer`: → active active | none |
 | Corrupt-download alert path: beefy's `download-integrity.prom` + hits file pulled into `download_integrity_beefy.prom` and `download_integrity_hit_info`, rules `DownloadCorrupt` / `DownloadIntegrityErrors` / `DownloadIntegrityMetricsMissing`, digest line | `Server/4-Security-Monitoring/security_scan.py` (`AV_PATHS["beefy"]`), `Docker/grafana/prometheus/rules/antivirus.yml`, `weekly-digest.yml` | `Docker/_global/install-root-scripts.sh`; `docker kill -s HUP prometheus` | `host.root-scripts`: → 0; `prom.rule-files`: → n n [] 0; `promtool test rules tests/antivirus_test.yml` | a rename of beefy's metrics or files (`download-integrity.py`) |
 | Shared node-exporter textfile dir `pi:65046 2775` (gid 65046 = clamav-scan and other non-pi writers) | `/var/lib/node-exporter/textfile`, the four installers (`antivirus`, `CrowdSec`, `_global/install-image-cleanup.sh`, `4-Security-Monitoring`) | `sudo install -d -o pi -g 65046 -m 2775 /var/lib/node-exporter/textfile` | `host.textfile-perms`: → pi:65046 2775 | an installer that resets it (`_global/scripts/test_textfile_dir.sh` guards them) |

@@ -2,7 +2,8 @@
 CUPD=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../Cup" && pwd)
 if want cup cup-agent-fastpi; then
   check cup.config '^socket=none servers=beefy,fastpi' "$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("socket=" + d["socket"], "servers=" + ",".join(sorted(d["servers"])))' "$CUPD/cup.json" 2>&1)"
-  check cup.api-servers 'beefy.*fastpi' "$(curl -s -m 10 http://172.24.0.1:8000/api/v3/json | python3 -c 'import json,sys; print(sorted({i["server"] for i in json.load(sys.stdin)["images"]}))' 2>&1)"
+  # Cup reads the agents only at a refresh: a beefy asleep at the last one is missing until the next, not broken (blackbox-beefy never wakes it).
+  check cup.api-servers "beefy.*fastpi|^\['fastpi'\], beefy off at last refresh$" "$(j=$(curl -s -m 10 http://172.24.0.1:8000/api/v3/json); s=$(python3 -c 'import json,sys; print(sorted({i["server"] for i in json.load(sys.stdin)["images"]}))' <<<"$j" 2>&1); [[ $s == "['fastpi']" ]] && [[ $(curl -s -m 5 -G --data-urlencode 'query=probe_success{job="blackbox-beefy"}' --data-urlencode "time=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["last_updated"])' <<<"$j")" http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["result"][0]["value"][1])' 2>/dev/null) == 0 ]] && s="$s, beefy off at last refresh"; echo "$s")"
   check cup.bind-172 '^000$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://192.168.1.2:8000/)"
   check cup.forward-auth 'sso\.holy-grail\.ch' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' https://cup.holy-grail.ch/ | cut -c1-40)"
 fi
