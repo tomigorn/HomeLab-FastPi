@@ -1,0 +1,27 @@
+# promtool test rules tests/tower-burnin_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/tower-burnin.yml
+evaluation_interval: 1m
+tests:
+  - name: a checker that stops while the test is active alerts, a finished test stays quiet
+    interval: 1m
+    input_series:
+      - series: 'tower_burnin_active{instance="node-exporter:9100",job="raspberry-pi"}'
+        values: '1x60'
+      - series: 'tower_burnin_last_check_timestamp_seconds{instance="node-exporter:9100",job="raspberry-pi"}'
+        values: '0+60x10 600x50'
+      - series: 'tower_burnin_active{instance="node-exporter:9100",job="other"}'
+        values: '0x60'
+      - series: 'tower_burnin_last_check_timestamp_seconds{instance="node-exporter:9100",job="other"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TowerBurninCheckerStale
+        exp_alerts: []
+      - eval_time: 32m
+        alertname: TowerBurninCheckerStale
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100", job: raspberry-pi}
+            exp_annotations:
+              summary: "Tower burn-in checker has not run for 22m 0s"
+              description: "systemctl --user status tower-burnin.timer on fastpi; log ~/tower-burnin/control.log."

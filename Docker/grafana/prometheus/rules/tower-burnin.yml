@@ -1,0 +1,12 @@
+# Temporary (tower burn-in 2026-11): the checker on fastpi writes tower_burnin_* via the textfile collector.
+groups:
+  - name: tower-burnin
+    rules:
+      - alert: TowerBurninCheckerStale
+        expr: (time() - tower_burnin_last_check_timestamp_seconds > 900) and on(instance, job) tower_burnin_active == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Tower burn-in checker has not run for {{ $value | humanizeDuration }}"
+          description: "systemctl --user status tower-burnin.timer on fastpi; log ~/tower-burnin/control.log."
