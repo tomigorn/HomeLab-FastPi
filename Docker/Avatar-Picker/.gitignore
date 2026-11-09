@@ -33,3 +33,6 @@ __pycache__/
 # Local-only avatar pack: third-party copyrighted character art. Never commit
 # (public repo); it is still part of the Docker build context (see .dockerignore).
 app/img-local/
+
+# Rust build output
+rust/target/

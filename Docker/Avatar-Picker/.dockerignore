@@ -7,3 +7,4 @@ docs/
 scripts/
 !scripts/build_thumbs.py
 app/thumbs/
+rust/target/

@@ -1,0 +1,23 @@
+[package]
+name = "avatar-picker"
+version = "2.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "net", "fs", "io-util", "signal", "sync", "time"] }
+hyper = { version = "1", default-features = false, features = ["server", "client", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio", "client-legacy", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "ring", "tls12", "webpki-roots"] }
+ring = "0.17"
+http-body-util = "0.1"
+bytes = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
