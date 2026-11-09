@@ -1,0 +1,7 @@
+# The build only needs rust/; keep keys and env out of the build context
+secrets/
+.env
+.env.*
+rust/target/
+rust/target-out/
+**/__pycache__/
