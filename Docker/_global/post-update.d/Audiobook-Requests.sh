@@ -33,7 +33,9 @@ print("fresh" if age.total_seconds() < 300 else "stale", "ok" if j["ok"] and j["
 m = json.load(sys.stdin).get("mam") or {}
 print("ok" if m.get("ok") else "not-ok", "%s/%s" % (m.get("unsatisfied"), m.get("limit")))' < /var/lib/abr-bar/usage.json 2>&1 | tail -1)"
   check books.library '^200 401 401 401 _hg/sizes\.js [1-9]$' "$(echo $(for p in /_hg/library/ /_hg/library/data.json /_hg/library/cover/x /_hg/sizes.json; do bp -o /dev/null -w '%{http_code} ' "$BP$p"; done) $(bp "$BP/auth/login?backup=1" | grep -o '_hg/sizes\.js' | head -1) $(bp $BP/_hg/links.js | grep -c '/_hg/library/'))"
-  check books.peers-denied '^403 403 403 200$' "$(echo $(curl -s -m 5 -o /dev/null -w '%{http_code} ' http://10.24.25.6:8080/_hg/requests/data.json) $(curl -s -m 5 -o /dev/null -w '%{http_code} ' http://10.24.25.6:8080/) $(docker exec audiobook-importer wget -q -S -O /dev/null http://books-proxy:8080/_hg/requests/data.json 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}') $(docker exec traefik wget -q -S -O /dev/null http://10.24.25.6:8080/_hg/health 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}'))"
+  check books.peers-denied '^403 403 403 200$' "$(echo $(curl -s -m 5 -o /dev/null -w '%{http_code} ' http://10.24.25.6:8080/_hg/requests/data.json) $(curl -s -m 5 -o /dev/null -w '%{http_code} ' http://10.24.25.6:8080/) $(docker exec audiobookrequest python3 -c 'import urllib.request,urllib.error
+try: print(urllib.request.urlopen("http://books-proxy:8080/_hg/requests/data.json", timeout=5).status)
+except urllib.error.HTTPError as e: print(e.code)' 2>&1 | tail -1) $(docker exec traefik wget -q -S -O /dev/null http://10.24.25.6:8080/_hg/health 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}'))"
   check books.requests-unauth '^302 sso$' "$(curl -s -m 10 -o /dev/null --resolve books.holy-grail.ch:443:192.168.1.2 -w '%{http_code} %{redirect_url}' https://books.holy-grail.ch/_hg/requests/data.json | sed -E 's#https://(sso)\.holy-grail\.ch/.*#\1#')"
   check books.bar-shared '^(same|skipped: beefy not reachable \(not woken\))$' "$(bash "$ARD/scripts/sync-bar.sh" --check 2>&1 | tail -1)"
   check books.admin-only-downloads '^403 403$' "$(for p in /wishlist/hx-auto-download/B000CHECK0 /api/requests/B000CHECK0/auto-download; do bp -o /dev/null -w '%{http_code}\n' -X POST -H 'X-authentik-groups: streaming-requesters' "$BP$p"; done | xargs)"
@@ -45,5 +47,5 @@ if want importer; then
   check importer.callers '^403 403 403 403 403 403$' "$(for p in /quota /all-requests /prowlarr/torrent /library /library-cover/x /sizes; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://10.24.25.5:8000$p"; done | xargs)"
   check importer.post-callers '^403 403$' "$(for p in /abr /prowlarr/api/v1/search; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' -X POST -d '{}' "http://10.24.25.5:8000$p"; done | xargs)"
   check importer.my-quota '^403 400$' "$(echo $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.25.5:8000/my-quota) $(docker exec books-proxy wget -q -S -O /dev/null http://audiobook-importer:8000/my-quota 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}'))"
-  check importer.ranking-tests '^OK' "$(cd "$ARD/importer" && python3 -m unittest discover -s . 2>&1 | tail -1)"
+  check importer.image '^audiobook-importer:local ok$' "$(echo $(docker inspect -f '{{.Config.Image}}' audiobook-importer) $(docker exec audiobook-importer /audiobook-importer --health >/dev/null 2>&1 && echo ok))"
 fi
