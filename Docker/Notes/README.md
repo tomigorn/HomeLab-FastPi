@@ -9,7 +9,7 @@ Private research notes for one person. MkDocs Material, like the [Wiki](../Wiki/
 ## Add or edit a note
 
 ```bash
-$EDITOR ~/notes/docs/<topic>.md                 # plus a row in docs/index.md and a nav entry in mkdocs.yml
+$EDITOR ~/notes/docs/<topic>.md                 # plus a row in its chapter page docs/chapter-*.md and a nav entry under that chapter in mkdocs.yml
 ~/Projects/Docker/Notes/build.sh               # strict build, live at once
 git -C ~/notes add -A && git -C ~/notes commit -m "notes: <topic>"
 ```
