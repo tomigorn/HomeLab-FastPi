@@ -16,6 +16,8 @@ credentials.json
 /config/
 /data/
 __pycache__/
+# Rust build output (the image build caches it in BuildKit, never here)
+importer/rust/target/
 
 # JS test dependencies
 node_modules/
