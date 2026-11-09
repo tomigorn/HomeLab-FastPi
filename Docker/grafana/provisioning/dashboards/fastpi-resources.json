@@ -45,6 +45,22 @@
       ]
     },
     {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Temperatures — CPU & disks (°C)",
+      "description": "From existing sensors: fastpi CPU and NVMe (node-exporter hwmon), every disk's SMART temperature on fastpi and beefy, tower's hottest thermal zone while the burn-in runs (tower_burnin_cpu_celsius). beefy's CPU temperature is not collected.",
+      "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "node_hwmon_temp_celsius{chip=\"thermal_thermal_zone0\",sensor=\"temp0\"}", "legendFormat": "fastpi CPU", "range": true},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "node_hwmon_temp_celsius{chip=\"nvme_nvme0\",sensor=\"temp1\"}", "legendFormat": "fastpi NVMe", "range": true},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "smart_temperature_celsius", "legendFormat": "{{host}} {{disk}}", "range": true},
+        {"refId": "D", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "tower_burnin_cpu_celsius", "legendFormat": "tower CPU (burn-in)", "range": true}
+      ],
+      "fieldConfig": {"defaults": {"unit": "celsius", "decimals": 0, "custom": {"lineWidth": 2, "fillOpacity": 0, "spanNulls": 600000}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 28}
+    },
+    {
       "id": 4,
       "type": "timeseries",
       "title": "Temperatures — probes (°C)",
@@ -56,7 +72,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 37
       },
       "fieldConfig": {
         "defaults": {
