@@ -791,6 +791,29 @@ def write_atomic(path: Path, content: str) -> None:
         raise
 
 
+_META_LINE_RE = re.compile(r"^# (HELP|TYPE) (\S+)(?: |$)")
+
+
+def write_family(path: Path, content: str, glob: str) -> None:
+    """write_atomic(), then make every other file matching `glob` carry the HELP/TYPE lines of `content`, keeping its samples.
+
+    node-exporter drops the WHOLE textfile collector ("inconsistent metric help text") when two files give one metric different HELP, e.g. a file of a sleeping host written before a HELP change.
+    """
+    meta = {(m[1], m[2]): ln for ln in content.splitlines() if (m := _META_LINE_RE.match(ln))}
+    write_atomic(path, content)
+    for f in sorted(TEXTFILE.glob(glob)):
+        if f.name == path.name:
+            continue
+        try:
+            old = f.read_text()
+        except OSError:
+            continue
+        new = "\n".join(meta.get((m[1], m[2]), ln) if (m := _META_LINE_RE.match(ln)) else ln
+                        for ln in old.splitlines()) + "\n"
+        if new != old:
+            write_atomic(f, new)
+
+
 def fetch_mirror(name: str, url: str) -> Path:
     """Keep a bare mirror of the published repo, so the scan sees what GitHub serves."""
     d = STATE / "mirrors" / f"{name}.git"
@@ -889,7 +912,7 @@ def publish(subject: str, samples: list, helps: dict) -> None:
     dropping the series (reads as "nothing to see"). Both are the failure this
     file exists to prevent; leaving the old file to go stale is neither.
     """
-    write_atomic(TEXTFILE / _prom_name(subject), render_metrics(samples, helps))
+    write_family(TEXTFILE / _prom_name(subject), render_metrics(samples, helps), "security_*.prom")
 
 
 # tower's plain "tower" ssh alias fires a Wake-on-LAN (Match block in
@@ -1567,12 +1590,12 @@ def collect_av(host: str, fetch) -> list:
     hits = parse_infected_list(infected)
     (STATE / f"last-infected-{host}.txt").write_text(infected)
     if prom is not None:
-        write_atomic(TEXTFILE / f"clamav_{host}.prom", prom)
+        write_family(TEXTFILE / f"clamav_{host}.prom", prom, "clamav*.prom")
     if "hook" in AV_PATHS.get(host, {}):
         # Optional: no hook run yet just means no hook file; the nightly file decides NoData.
         hook = filter_exposition(fetch("hook") or "")
         if hook:
-            write_atomic(TEXTFILE / f"clamav_hook_{host}.prom", hook)
+            write_family(TEXTFILE / f"clamav_hook_{host}.prom", hook, "clamav*.prom")
     return [("security_av_infected_info", {"host": host, "path": p, "signature": sig}, 1)
             for p, sig in hits[:AV_HIT_LIMIT]]
 
@@ -1593,7 +1616,7 @@ def collect_download_integrity(host: str, fetch, now: float | None = None) -> li
     prom = filter_exposition(raw, prefix="download_integrity_")
     if not prom:
         raise NoData(f"download-integrity.prom on {host} has no download_integrity_ samples")
-    write_atomic(TEXTFILE / f"download_integrity_{host}.prom", prom)
+    write_family(TEXTFILE / f"download_integrity_{host}.prom", prom, "download_integrity*.prom")
     hits = []
     for line in (fetch("dlhits") or "").splitlines():
         f = line.split("\t")
@@ -1722,7 +1745,7 @@ def collect_media(host: str, fetch) -> list:
     prom = filter_exposition(raw, prefix="media_language_")
     if not prom:
         raise NoData(f"media-language.prom on {host} has no media_language_ samples")
-    write_atomic(TEXTFILE / f"media_language_{host}.prom", prom)
+    write_family(TEXTFILE / f"media_language_{host}.prom", prom, "media_language*.prom")
     return []
 
 
@@ -1747,7 +1770,7 @@ def collect_updates(host: str, fetch, name: str = "auto_update") -> list:
             if ln.startswith("# TYPE ") or (not ln.startswith("#") and mine in ln.split("}", 1)[0])]
     if not any(not ln.startswith("#") for ln in keep):
         raise NoData(f"{name}.prom on {host} has no samples for host {host}")
-    write_atomic(TEXTFILE / f"{name}_{host}.prom", "\n".join(keep) + "\n")
+    write_family(TEXTFILE / f"{name}_{host}.prom", "\n".join(keep) + "\n", f"{name}*.prom")
     return []
 
 

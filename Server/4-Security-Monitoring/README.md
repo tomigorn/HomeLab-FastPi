@@ -236,6 +236,7 @@ behind it.
 - **`.gitignore` entries for `.env` do not match `.env.bak`.** A copy made while
   debugging is genuinely committable while the original is safe, which is why
   both the hook and the scan peel backup suffixes before testing a filename.
+- **HELP text must match across per-host files.** Changing a HELP in `HELPS` while a sleeping host's file (tower, last written weeks ago) keeps the old one makes node-exporter drop the whole textfile collector (`node_textfile_scrape_error 1`, "inconsistent metric help text"). Every write through `write_family()` (all `security_*.prom`, `clamav*`, `download_integrity*`, `media_language*`) rewrites the HELP/TYPE lines of the sibling files, samples kept. Check: `node_textfile_scrape_error` stays 0.
 
 ## Data freshness
 

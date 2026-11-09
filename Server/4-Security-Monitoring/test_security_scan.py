@@ -2249,6 +2249,35 @@ def test_repo_accept_list_is_valid_and_fully_applied():
     for e in got["active"]:
         assert e["statement"].split(":")[0] in ("misreport", "not_affected"), e["id"]
 
+# --- HELP/TYPE shared across per-host files -------------------------------------
+
+def test_publish_rewrites_help_of_stale_sibling_host_file():
+    from security_scan import publish, HELPS
+    d = _tmp_dirs()
+    old = ('# HELP security_image_updates old help\n# TYPE security_image_updates gauge\n'
+           'security_image_updates{host="tower",type="minor"} 3\n')
+    tower = d / "textfile" / "security_cup_tower.prom"
+    tower.write_text(old)
+    publish("cup-fastpi", [("security_image_updates", {"host": "fastpi", "type": "minor"}, 1)], HELPS)
+    new_help = f"# HELP security_image_updates {HELPS['security_image_updates']}"
+    assert tower.read_text().splitlines()[0] == new_help
+    assert 'security_image_updates{host="tower",type="minor"} 3' in tower.read_text()
+    assert (d / "textfile" / "security_cup_fastpi.prom").read_text().splitlines()[0] == new_help
+    assert oct(tower.stat().st_mode & 0o777) == "0o644"
+
+
+def test_republished_clamav_file_syncs_help_to_sibling():
+    d = _tmp_dirs()
+    sib = d / "textfile" / "clamav_tower.prom"
+    sib.write_text("# HELP clamav_last_scan_timestamp_seconds stale\n# TYPE clamav_last_scan_timestamp_seconds gauge\n"
+                   "clamav_last_scan_timestamp_seconds 5\n")
+    prom = ("# HELP clamav_last_scan_timestamp_seconds fresh\n# TYPE clamav_last_scan_timestamp_seconds gauge\n"
+            "clamav_last_scan_timestamp_seconds 9\n")
+    collect_av("beefy", lambda what: {"prom": prom, "hook": None, "infected": ""}[what])
+    assert sib.read_text().splitlines()[0].endswith(" fresh")
+    assert sib.read_text().splitlines()[-1].endswith(" 5")
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
