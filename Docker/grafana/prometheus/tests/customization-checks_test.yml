@@ -81,9 +81,41 @@ tests:
         exp_alerts:
           - exp_labels: {severity: warning}
             exp_annotations:
-              summary: "port_updater reattached qBittorrent 2 times in 6 h"
-              description: "Every reattach restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
+              summary: "port_updater restarted the VPN clients: 2 reattaches or stack restarts in 6 h"
+              description: "Fires at 2 reattaches or 4 stack restarts (gluetun lease) in 6 h; each restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
       - eval_time: 2h
+        alertname: PortUpdaterReattachLoop
+        exp_alerts: []
+
+  - name: up to three stack restarts in 6 h are normal lease renewals, four are a loop
+    interval: 5m
+    input_series:
+      - series: 'port_updater_reattaches_6h'
+        values: '0x30'
+      - series: 'port_updater_stack_restarts_6h'
+        values: '0x5 3x5 4x5 7x5 2x5'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: PortUpdaterReattachLoop
+        exp_alerts: []
+      - eval_time: 55m
+        alertname: PortUpdaterReattachLoop
+        exp_alerts: []
+      - eval_time: 1h20m
+        alertname: PortUpdaterReattachLoop
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "port_updater restarted the VPN clients: 4 reattaches or stack restarts in 6 h"
+              description: "Fires at 2 reattaches or 4 stack restarts (gluetun lease) in 6 h; each restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
+      - eval_time: 1h50m
+        alertname: PortUpdaterReattachLoop
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "port_updater restarted the VPN clients: 7 reattaches or stack restarts in 6 h"
+              description: "Fires at 2 reattaches or 4 stack restarts (gluetun lease) in 6 h; each restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
+      - eval_time: 2h20m
         alertname: PortUpdaterReattachLoop
         exp_alerts: []
 

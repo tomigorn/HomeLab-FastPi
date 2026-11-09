@@ -23,9 +23,9 @@ Closes the gap that `post-update-check.sh` and `smoke-test.sh` only run by hand:
 | | |
 |---|---|
 | When | `customization-check.timer`, 00:11 and every 2 h 06:11-22:11 Europe/Zurich (not during the DST hour or the 03:10-05:50 nightly jobs). A run takes ~70 s, 12 s CPU |
-| Metrics | `customization_check_failed{id}` (failed ids only, never check output), `customization_checks_failed`, `customization_checks_passed`, `port_updater_reattaches_6h` (`docker logs --since 6h`), `customization_check_last_success_timestamp_seconds{collector}`, `customization_check_errors{collector}` |
+| Metrics | `customization_check_failed{id}` (failed ids only, never check output), `customization_checks_failed`, `customization_checks_passed`, `port_updater_reattaches_6h`, `port_updater_stack_restarts_6h` (`docker logs --since 6h`), `customization_check_last_success_timestamp_seconds{collector}`, `customization_check_errors{collector}` |
 | Files | `customization_checks.prom`, `port_updater_reattaches.prom`, each with `_status.prom`; a failed collection keeps the old data |
-| Alerts | `grafana/prometheus/rules/customization-checks.yml`: `CustomizationCheckFailing` (two failing runs in a row, up to ~4 h 15 min after the fault), `PortUpdaterReattachLoop` (>= 2 in 6 h), `CustomizationCheckStale` (> 8 h). All warning: Telegram, muted 22:00-07:00 |
+| Alerts | `grafana/prometheus/rules/customization-checks.yml`: `CustomizationCheckFailing` (two failing runs in a row, up to ~4 h 15 min after the fault), `PortUpdaterReattachLoop` (>= 2 reattaches or >= 4 stack restarts in 6 h), `CustomizationCheckStale` (> 8 h). All warning: Telegram, muted 22:00-07:00 |
 | Sandbox | no `NoNewPrivileges` (checks use `sudo -n`), `ProtectSystem=strict` also holds under sudo |
 | Sleeping hosts | never wakes beefy or tower; checks that depend on them pass with a note (`beefy asleep`, `beefy off at last refresh`, `*-tower` stale subjects) |
 | Side effects | refused or read-only requests only; `wiki`, `notes`, `server-specs` probes overwrite one file in their container's `/tmp` |

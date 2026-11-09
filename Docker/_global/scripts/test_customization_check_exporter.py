@@ -83,9 +83,16 @@ def test_count_reattaches():
     assert cce.count_reattaches("") == 0
 
 
+def test_count_stack_restarts():
+    log = "Restarting gluetun to obtain a new VPN port lease...\nNo port after stack restart - backing off 4 min (240 s) before the next one\nRestarting gluetun to obtain a new VPN port lease...\nPort OK\n"
+    assert cce.count_stack_restarts(log) == 2
+    assert cce.count_stack_restarts("") == 0
+
+
 def test_render_reattaches():
-    text = cce.render_reattaches(3, 1000.0)
+    text = cce.render_reattaches(3, 1000.0, 5)
     assert "port_updater_reattaches_6h 3\n" in text
+    assert "port_updater_stack_restarts_6h 5\n" in text
     assert 'customization_check_last_success_timestamp_seconds{collector="reattach"} 1000\n' in text
 
 
@@ -122,7 +129,7 @@ def test_guarded_failure_keeps_old_data_and_flags_status():
 
 def test_data_and_status_series_never_overlap():
     names = lambda t: {re.split(r"[{ ]", l)[0] for l in t.splitlines() if l and not l.startswith("#")}
-    data = names(cce.render_checks(["a.b"], 1, 1.0)) | names(cce.render_reattaches(1, 1.0))
+    data = names(cce.render_checks(["a.b"], 1, 1.0)) | names(cce.render_reattaches(1, 1.0, 1))
     assert not data & names(cce.render_status("checks", True))
 
 

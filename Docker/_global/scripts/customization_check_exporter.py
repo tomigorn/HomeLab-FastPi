@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Customization checks and port_updater reattaches -> node-exporter textfile (customization-check.timer).
+"""Customization checks and port_updater reattaches/stack restarts -> node-exporter textfile (customization-check.timer).
 
 Publishes check ids only, never check output. A failed collection keeps the previous data file and flips the status file (each series lives in exactly one file, as in security_scan.py). Doc: README.md "customization-check".
 """
@@ -18,6 +18,7 @@ CHECK_SCRIPT = Path(__file__).resolve().with_name("post-update-check.sh")
 CHECK_TIMEOUT_S = 600
 LOGS_TIMEOUT_S = 60
 REATTACH_LINE = "Attempting to reattach qBittorrent/mousehole/sabnzbd to gluetun network"
+STACK_LINE = "Restarting gluetun to obtain a new VPN port lease"
 SUMMARY = re.compile(r"post-update: (\d+) failed, (\d+) passed")
 CHECK_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 LAST_SUCCESS = "customization_check_last_success_timestamp_seconds"
@@ -55,6 +56,10 @@ def count_reattaches(log: str) -> int:
     return sum(REATTACH_LINE in line for line in log.splitlines())
 
 
+def count_stack_restarts(log: str) -> int:
+    return sum(STACK_LINE in line for line in log.splitlines())
+
+
 def render_checks(failed: list[str], passed: int, now: float) -> str:
     rows = "".join(f'customization_check_failed{{id="{i}"}} 1\n' for i in sorted(failed))
     return (
@@ -66,10 +71,12 @@ def render_checks(failed: list[str], passed: int, now: float) -> str:
     )
 
 
-def render_reattaches(count: int, now: float) -> str:
+def render_reattaches(count: int, now: float, stack: int) -> str:
     return (
         "# HELP port_updater_reattaches_6h Times port_updater restarted the VPN clients to reattach them to gluetun, last 6 h.\n"
         f"# TYPE port_updater_reattaches_6h gauge\nport_updater_reattaches_6h {count}\n"
+        "# HELP port_updater_stack_restarts_6h Times port_updater restarted gluetun and the VPN clients for a new port lease, last 6 h.\n"
+        f"# TYPE port_updater_stack_restarts_6h gauge\nport_updater_stack_restarts_6h {stack}\n"
         f'{LAST_SUCCESS_HELP}{LAST_SUCCESS}{{collector="reattach"}} {now:.0f}\n'
     )
 
@@ -108,12 +115,12 @@ def run_checks() -> tuple[list[str], int]:
     return parse_checks(p.stdout, p.returncode)
 
 
-def reattaches_6h() -> int:
+def reattaches_6h() -> tuple[int, int]:
     p = subprocess.run(["docker", "logs", "--since", "6h", "port_updater"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                        stderr=subprocess.STDOUT, text=True, errors="replace", timeout=LOGS_TIMEOUT_S)
     if p.returncode != 0:
         raise CollectError(f"docker logs exit {p.returncode}")
-    return count_reattaches(p.stdout)
+    return count_reattaches(p.stdout), count_stack_restarts(p.stdout)
 
 
 def main() -> int:
@@ -123,9 +130,9 @@ def main() -> int:
         return render_checks(failed, passed, time.time())
 
     def reattach() -> str:
-        n = reattaches_6h()
-        print(f"port_updater reattaches in 6 h: {n}")
-        return render_reattaches(n, time.time())
+        n, stack = reattaches_6h()
+        print(f"port_updater reattaches in 6 h: {n}, stack restarts: {stack}")
+        return render_reattaches(n, time.time(), stack)
 
     ok = [guarded("checks", "customization_checks", checks), guarded("reattach", "port_updater_reattaches", reattach)]
     return 0 if all(ok) else 1

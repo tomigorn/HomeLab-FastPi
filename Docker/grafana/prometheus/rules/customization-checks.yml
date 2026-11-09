@@ -1,4 +1,4 @@
-# Customization checks and port_updater reattaches, every 2 h (customization-check.timer, Docker/_global/scripts/README.md "customization-check"). Tests: tests/customization-checks_test.yml
+# Customization checks and port_updater reattaches/stack restarts, every 2 h (customization-check.timer, Docker/_global/scripts/README.md "customization-check"). Tests: tests/customization-checks_test.yml
 groups:
   - name: customization-checks
     rules:
@@ -13,13 +13,13 @@ groups:
           description: "Failed two runs in a row. See what it got: <code>Docker/_global/scripts/post-update-check.sh all</code> (registry: Docker/CUSTOMIZATIONS.md)."
 
       - alert: PortUpdaterReattachLoop
-        expr: port_updater_reattaches_6h >= 2
+        expr: port_updater_reattaches_6h >= 2 or port_updater_stack_restarts_6h >= 4
         for: 0m
         labels:
           severity: warning
         annotations:
-          summary: "port_updater reattached qBittorrent {{ $value }} times in 6 h"
-          description: "Every reattach restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
+          summary: "port_updater restarted the VPN clients: {{ $value }} reattaches or stack restarts in 6 h"
+          description: "Fires at 2 reattaches or 4 stack restarts (gluetun lease) in 6 h; each restarts qBittorrent, SABnzbd and Mousehole. Look at <code>docker logs port_updater</code> and <code>Docker/_global/scripts/post-update-check.sh mouse</code>; on 2026-11-06 gluetun_mouse had swapped eth0 and eth1."
 
       # 8 h: longer than the 6 h gap between 00:11 and 06:11.
       - alert: CustomizationCheckStale
