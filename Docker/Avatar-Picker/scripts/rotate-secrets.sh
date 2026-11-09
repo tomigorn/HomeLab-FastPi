@@ -72,14 +72,7 @@ PY
 token_verify() {
   local i
   for i in $(seq 1 20); do
-    docker exec -i avatar-picker python - 2>/dev/null <<'PY' | grep -qx TOKEN_OK && { echo TOKEN_OK; return 0; }
-import os, sys
-sys.path.insert(0, "/app")
-from authentik_api import Client
-c = Client(os.environ["AUTHENTIK_URL"], open(os.environ["AUTHENTIK_TOKEN_FILE"]).read().strip())
-d = c._call("GET", "/api/v3/core/users/?page_size=1")
-print("TOKEN_OK" if "results" in d else "TOKEN_BAD")
-PY
+    docker exec avatar-picker /avatar-picker check token 2>/dev/null | grep -qx TOKEN_OK && { echo TOKEN_OK; return 0; }
     sleep 3
   done
   echo "TOKEN_VERIFY_FAILED"; return 1

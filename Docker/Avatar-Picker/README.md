@@ -72,9 +72,17 @@ cd ../Authentik && echo 'import json; from authentik.core.models import User; pr
 
 ```bash
 cd Docker/Avatar-Picker
-docker compose up -d --build          # build on fastpi only (local avatar pack in app/img-local/)
+docker compose up -d --build          # build on fastpi only (local avatar pack in app/img-local/); cargo test runs in the build
 python3 scripts/provision-authentik.py  # application, provider, scope (idempotent)
 ```
+
+| Code | |
+|---|---|
+| Server | Rust (`rust/`, hyper + rustls), one static binary in a `scratch` image (no shell, no Python), uid 65002, read-only, 32 MB limit. Same endpoints, headers, caches and `data/queue.json` format as the Python server |
+| Legacy | Python server `app/*.py` + `Dockerfile.legacy` (until removed); its unit tests `tests/test_server.py`, `test_core.py`, `test_authentik_api.py`, `test_pickqueue.py` |
+| Host scripts | stay Python: `scripts/avatar-sync.py`, `seerr-avatar.py`, `provision-authentik.py`, `build_thumbs.py` (build stage `thumbs`) |
+| Checks | `docker exec avatar-picker /avatar-picker healthcheck \| version \| check local-pack\|favicon\|state [user]\|thumbs\|secret-required\|queue\|picked\|token` (post-update check, smoke test, token rotation; secrets stay inside) |
+| Black-box suite | `tests/blackbox/run.sh old \| new <binary> \| image <image>`: 49 HTTP tests against a fake Authentik in a private network namespace |
 
 Token rights (checked 2026-10-31): the service account is no superuser and in no group; its only rights are the role `avatar-picker` with `view_user` + `change_user` (`scripts/provision-authentik.py`). That is the minimum: Authentik RBAC has no per-field permission, so `change_user` covers every field of every user: name, mail, username, active, attributes and also membership in non-superuser groups (Authentik refuses superuser groups without `enable_group_superuser` and roles without `change_role`; password resets and impersonation are separate permissions). Narrower would need a per-user object permission for every new user, so the token stays inside the container and is rotated yearly.
 
@@ -91,4 +99,4 @@ API token), `picker_secret` (the header Traefik adds), `jellyfin_api_key`, `ha_t
 | first screen, 20 Mbit/s | 3.6 s | 0.9 s |
 | scroll whole page, 20 Mbit/s | 62 s | 8 s |
 
-**Rebuild** (`avatar-picker:local`, FROM `python:3.13-alpine@sha256:…`, pinned by digest, A-30): set the `FROM` digest to the current one (`docker buildx imagetools inspect python:3.13-alpine`, first `Digest:`), then `docker compose up -d --build`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, tests and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py Avatar-Picker`.
+**Rebuild** (`avatar-picker:local`; build stages `python:3.13-alpine` for the thumbnails and `rust:1.91-alpine`, both pinned by digest, A-30; final image `scratch`): set a `FROM` digest to the current one (`docker buildx imagetools inspect <image>`, first `Digest:`), then `docker compose up -d --build`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pins, rebuilds, runs the black-box suite on the new image and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py Avatar-Picker`.

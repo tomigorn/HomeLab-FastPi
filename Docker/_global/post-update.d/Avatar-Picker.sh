@@ -1,47 +1,16 @@
 # Avatar picker customizations (Docker/CUSTOMIZATIONS.md "Avatar-Picker").
 APD=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../Avatar-Picker" && pwd)
 if want avatar-picker; then
-  check avatar.local-pack '^[1-9][0-9]* local, 0 missing$' "$(docker exec avatar-picker python -c 'import json, os; g=[a["file"] for a in json.load(open("/app/gallery.json")) if a.get("pack") == "local"]; print(len(g), "local,", sum(not os.path.exists("/app/img-local/" + f) for f in g), "missing")' 2>&1 | tail -1)"
-  check avatar.version '^same$' "$([[ $(docker exec avatar-picker cat /app/VERSION) == "$(cat "$APD/app/VERSION")" ]] && echo same || echo "image $(docker exec avatar-picker cat /app/VERSION) repo $(cat "$APD/app/VERSION")")"
-  check avatar.favicon '^200 200$' "$(docker exec avatar-picker python -c 'import urllib.request as u; print(*(u.urlopen("http://127.0.0.1:8080/" + p, timeout=5).status for p in ("favicon.svg", "favicon-32.png")))' 2>&1 | tail -1)"
-  check avatar.state '^200 groups=[0-9]+ avatars=[1-9][0-9]* lotr=[1-9]' "$(docker exec -i avatar-picker python - 2>&1 <<'PY' | tail -1
-import json, urllib.error, urllib.request
-s = open("/run/secrets/picker_secret").read().strip()
-r = urllib.request.Request("http://127.0.0.1:8080/api/state", headers={"X-Picker-Secret": s, "X-authentik-username": "post-update-check"})
-try:
-    d = json.load(urllib.request.urlopen(r, timeout=15))
-    print(200, f"groups={len(d['groups'])} avatars={len(d['avatars'])} lotr={sum(a.get('group') == 'lotr' for a in d['avatars'])}")
-except urllib.error.HTTPError as e:
-    print(e.code, e.read().decode()[:60])
-PY
-)"
-  check avatar.thumbs '^([1-9][0-9]*)/\1 thumbs, private immutable, gzip$' "$(docker exec -i avatar-picker python - 2>&1 <<'PY' | tail -1
-import sys, urllib.request
-sys.path.insert(0, "/app")
-import server
-s = open("/run/secrets/picker_secret").read().strip()
-aid, h = next(iter(sorted(server.THUMBS.items())), ("-", "-"))
-r = urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:8080/thumb/{aid}.{h}.320.webp", headers={"X-Picker-Secret": s}), timeout=5)
-cc = "private immutable" if r.headers["Cache-Control"] == server.THUMB_CACHE else r.headers["Cache-Control"]
-z = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/", headers={"X-Picker-Secret": s, "X-authentik-username": "post-update-check", "Accept-Encoding": "gzip"}), timeout=5).headers["Content-Encoding"]
-ok = sum(f"{a}.{x}.{w}.webp" in server.THUMB_FILES for a, x in server.THUMBS.items() for w in (160, 320)) == 2 * len(server.THUMBS)
-print(f"{len(server.THUMBS) if ok else 'missing files'}/{len(server.IDS)} thumbs, {cc}, {z}")
-PY
-)"
-  check avatar.secret-required '^403$' "$(docker exec avatar-picker python -c 'import urllib.request as u, urllib.error as e
-try: u.urlopen(u.Request("http://127.0.0.1:8080/api/state", headers={"X-authentik-username": "post-update-check"}), timeout=5); print(200)
-except e.HTTPError as x: print(x.code)' 2>&1 | tail -1)"
-  check avatar.queue '^ok$' "$(docker exec avatar-picker python -c 'import json; json.load(open("/data/queue.json")); print("ok")' 2>&1 | tail -1)"
-  check avatar.img-routes '^200 403 200$' "$(read -r pk un < <(docker exec -i avatar-picker python - 2>&1 <<'PY'
-import os, pathlib, sys
-sys.path.insert(0, "/app")
-import core, server
-from authentik_api import Client
-c = Client(os.environ["AUTHENTIK_URL"], pathlib.Path(os.environ["AUTHENTIK_TOKEN_FILE"]).read_text().strip())
-picked = sorted(core.picked_ids(c.list_users(), os.environ["PUBLIC_BASE_URL"]) & server.IDS)
-print(picked[0] if picked else "-", next(i for i in sorted(server.IDS) if i not in picked))
-PY
-); pub=$(dig +short sso.holy-grail.ch @1.1.1.1 | head -1); for t in "$pub $pk" "$pub $un" "192.168.1.2 $un"; do set -- $t; curl -s -m 10 -o /dev/null -w '%{http_code}\n' --resolve sso.holy-grail.ch:443:$1 "https://sso.holy-grail.ch/avatar-img/img/$2.png"; done | xargs)"
+  AP="docker exec avatar-picker /avatar-picker"
+  check avatar.rust '^/avatar-picker healthy$' "$(echo "$(docker inspect -f '{{join .Config.Entrypoint " "}}' avatar-picker) $(docker inspect -f '{{.State.Health.Status}}' avatar-picker)")"
+  check avatar.local-pack '^[1-9][0-9]* local, 0 missing$' "$($AP check local-pack 2>&1 | tail -1)"
+  check avatar.version '^same$' "$([[ $($AP version) == "$(cat "$APD/app/VERSION")" ]] && echo same || echo "image $($AP version) repo $(cat "$APD/app/VERSION")")"
+  check avatar.favicon '^200 200$' "$($AP check favicon 2>&1 | tail -1)"
+  check avatar.state '^200 groups=[0-9]+ avatars=[1-9][0-9]* lotr=[1-9]' "$($AP check state post-update-check 2>&1 | tail -1)"
+  check avatar.thumbs '^([1-9][0-9]*)/\1 thumbs, private immutable, gzip$' "$($AP check thumbs 2>&1 | tail -1)"
+  check avatar.secret-required '^403$' "$($AP check secret-required 2>&1 | tail -1)"
+  check avatar.queue '^ok$' "$($AP check queue 2>&1 | tail -1)"
+  check avatar.img-routes '^200 403 200$' "$(read -r pk un < <($AP check picked 2>&1); pub=$(dig +short sso.holy-grail.ch @1.1.1.1 | head -1); for t in "$pub $pk" "$pub $un" "192.168.1.2 $un"; do set -- $t; curl -s -m 10 -o /dev/null -w '%{http_code}\n' --resolve sso.holy-grail.ch:443:$1 "https://sso.holy-grail.ch/avatar-img/img/$2.png"; done | xargs)"
 fi
 check avatar.sync-units '^active enabled (success|)$' "$(echo "$(systemctl is-active avatar-sync.path) $(systemctl is-enabled avatar-sync.service) $(systemctl show avatar-sync.service -p Result --value)")"
 check avatar.retry-timer '^(in sync inactive|pending [0-9]+ active)$' "$(echo "$(python3 "$APD/scripts/avatar-sync.py" --status 2>&1 | tail -1) $(systemctl is-active avatar-sync.timer)")"

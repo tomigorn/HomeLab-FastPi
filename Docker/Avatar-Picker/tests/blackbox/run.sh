@@ -2,14 +2,20 @@
 # Black-box suite runner: fake Authentik + the picker in a private network namespace (port 8080 is fixed in the legacy server).
 # Usage: run.sh old            legacy Python server (app/*.py)
 #        run.sh new BINARY     Rust binary
+#        run.sh image IMAGE    the binary inside a built image (weekly rebuild: rebuild-local.conf `test`)
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJ=$(cd "$HERE/../.." && pwd)
 MODE=${1:?old or new}
 BIN=${2:-}
-[[ $MODE == old || -x $BIN ]] || { echo "usage: run.sh old | run.sh new BINARY" >&2; exit 2; }
-WORK=$(mktemp -d "$HOME/.cache/claude-work/avatar-blackbox.XXXXXX")
+mkdir -p "${BB_TMP:=$HOME/.cache/claude-work}"
+WORK=$(mktemp -d "$BB_TMP/avatar-blackbox.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
+if [[ $MODE == image ]]; then
+  c=$(docker create "${BIN:?image}") && docker cp -q "$c:/avatar-picker" "$WORK/bin" && docker rm "$c" >/dev/null
+  MODE=new BIN=$WORK/bin
+fi
+[[ $MODE == old || -x $BIN ]] || { echo "usage: run.sh old | new BINARY | image IMAGE" >&2; exit 2; }
 
 python3 - "$WORK" <<'PY'
 import json, os, pathlib, sys
