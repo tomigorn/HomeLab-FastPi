@@ -19,7 +19,9 @@
   data_type = "integer"
 
 [[inputs.docker]]
-  endpoint = "unix:///var/run/docker.sock"
+  # 30 s instead of the 10 s agent default: 64 containers every 10 s cost dockerd, containerd, socket-proxy-ro and telegraf ~8% of a core; dashboards only need minute resolution.
+  interval = "30s"
+  endpoint = "tcp://socket-proxy-ro:2375"
   gather_services = false
   container_name_include = []
   container_name_exclude = []

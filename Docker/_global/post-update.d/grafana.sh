@@ -9,6 +9,7 @@ c = sqlite3.connect(":memory:"); c.deserialize(sys.stdin.buffer.read())
 n = {r[0] for r in c.execute("select name from resource where resource=\"dashboards\"")}
 w = [json.load(open(f))["uid"] for f in glob.glob(sys.argv[1] + "/*.json")]
 print("ok" if w and all(x in n for x in w) else "missing " + " ".join(x for x in w if x not in n))' "$GFD/provisioning/dashboards" 2>&1 | tail -1)"
+  check grafana.plugins-disabled '^15 0$' "$(echo "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' grafana | sed -n 's/^GF_PLUGINS_DISABLE_PLUGINS=//p' | tr ',' '\n' | grep -c .) $(t=$(docker top grafana -eo pid,args 2>&1) && { grep -o 'gpx_[A-Za-z_-]*' <<<"$t" | grep -vcE 'influxdb|prometheus'; true; } || echo top-failed)")"
 fi
 if want prometheus; then
   check prom.rule-files '^([0-9]+) \1 \[\] 0$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,os,sys
@@ -32,6 +33,7 @@ if want blackbox-exporter blackbox-exporter-wan; then
 fi
 if want telegraf; then
   check telegraf.writes '^0$' "$(docker logs --since 5m telegraf 2>&1 | grep -c 'E! \[outputs')"
+  check telegraf.docker-interval '^interval = "30s"$' "$(docker exec telegraf sed -n '/^\[\[inputs.docker\]\]/,/^\[/p' /etc/telegraf/telegraf.conf | grep -oE '^ *interval = "[^"]*"' | sed 's/^ *//')"
 fi
 if want influxdb; then
   check influxdb.v2-pin 'v2\.9\.1.*pass|pass.*v2\.9\.1' "$(curl -s -m 5 http://127.0.0.1:8086/health)"

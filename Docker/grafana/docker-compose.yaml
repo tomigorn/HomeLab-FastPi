@@ -247,6 +247,8 @@ services:
       # (secrets/grafana_admin_password only applies when the DB is first created).
       - GF_AUTH_DISABLE_LOGIN_FORM=true
       - GF_AUTH_BASIC_ENABLED=false
+      # Only influxdb + prometheus are used; every other datasource plugin ran its own backend process (14 x ~10 MB) and pushed Grafana against its mem_limit. A new datasource type: take it out of this list first.
+      - GF_PLUGINS_DISABLE_PLUGINS=cloudwatch,elasticsearch,grafana-postgresql-datasource,grafana-pyroscope-datasource,jaeger,loki,mssql,mysql,opentsdb,stackdriver,tempo,zipkin,grafana-exploretraces-app,grafana-lokiexplore-app,grafana-pyroscope-app
     secrets:
       - grafana_admin_password
       - grafana_oauth_client_secret
