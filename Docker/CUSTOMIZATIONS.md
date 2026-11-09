@@ -167,6 +167,8 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | Local image, own entrypoint, logback, shared rules + spelling | `Raspi/Dockerfile`, `shared/`, `Raspi/config/` | `docker compose -f Raspi/docker-compose.yaml up -d --build` | `lt.local-image`: → languagetool-local:6.8; `lt.entrypoint-logback`: → /LanguageTool/logback.xml; `lt.rules-spelling`: Raspi/scripts/test.sh → PASS n FAIL 0 | upstream start.sh changes |
+| JVM: G1 periodic GC as a concurrent cycle every 5 min (was a full GC every 30 s: 5% of a core idle, stop-the-world), GC log `/tmp/gc.log` in the container | `Raspi/docker-compose.yaml` JAVA_TOOL_OPTIONS | `docker compose -f Raspi/docker-compose.yaml up -d` | `lt.jvm-gc`: → G1PeriodicGCInterval=300000 concurrent gclog | upstream start.sh overriding JAVA_TOOL_OPTIONS |
+| Pipeline pool 5 (upstream default; was 2) + Xmx 1024m, mem_limit 1536m: one pool for all languages and settings, 6.8 never evicts idle pipelines, so 2 slots (one taken by the en-US healthcheck) evicted de-CH on every en-GB check and the rebuild re-read the spellers (static caches expire 10 min after load): 2.7-4 s. The heap needs the room: live ~650 MB with 5 pipelines, full GC 2.3 s at 768m | `Raspi/docker-compose.yaml` | `docker compose -f Raspi/docker-compose.yaml up -d` | `lt.pipeline-pool`: config.properties pool, JVM Xmx, memory.max → 5 1024m 1610612736 | n-grams or more languages: raise Xmx and mem_limit together |
 
 Token routers: `traefik.lt-token-routers` (Traefik).
 
