@@ -2,7 +2,7 @@
 # Black-box suite against the legacy shell/Python image or the Rust image, inside ctest.sh (no network, read-only).
 # Usage: run.sh legacy|rust [IMAGE] [HISTORY_FIXTURE]
 #   legacy: builds legacy/ (or uses IMAGE); rust: IMAGE defaults to mouse-port-updater:latest
-# SCRIPT=bench.py runs the benchmark instead. Test names after -- are passed to unittest, e.g. run.sh rust "" "" -- Web
+# Test names after -- are passed to unittest, e.g. run.sh rust "" "" -- Web
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=$(cd "$here/../.." && pwd)
@@ -25,4 +25,4 @@ extra=()
 [[ -n $fixture ]] && extra+=(-v "$(realpath "$fixture"):/fixture.json" -e HISTORY_FIXTURE=/fixture.json)
 CTEST_TIMEOUT=900 bash /usr/local/libexec/fastpi/ctest.sh -v "$src:/src" -v "$cfg:/haproxy.cfg" -w /src/tests/blackbox \
   -e SUT_CMD="$sut" -e PYTHONDONTWRITEBYTECODE=1 -e LEGACY_WEB=/src/legacy/web-server.py "${extra[@]}" \
-  --entrypoint python3 "port-updater-blackbox:$target" "${SCRIPT:-test_blackbox.py}" "$@"
+  --entrypoint python3 "port-updater-blackbox:$target" test_blackbox.py "$@"

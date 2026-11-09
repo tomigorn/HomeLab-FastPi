@@ -45,9 +45,9 @@ def http(method, path, user=None, pw=None, auth_header=None):
         req.add_header("Authorization", auth_header)
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
-            return r.status, r.headers, r.read()
+            return r.status, dict(r.headers), r.read()
     except urllib.error.HTTPError as e:
-        return e.code, e.headers, e.read()
+        return e.code, dict(e.headers), e.read()
 
 
 class Base(unittest.TestCase):

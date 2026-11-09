@@ -24,7 +24,8 @@
   endpoint = "tcp://socket-proxy-ro:2375"
   gather_services = false
   container_name_include = []
-  container_name_exclude = []
+  # One-off ctest containers vanish between list and stats ("No such container" errors fail the smoke test).
+  container_name_exclude = ["ctest-*"]
   timeout = "5s"
   docker_label_include = []
   docker_label_exclude = []

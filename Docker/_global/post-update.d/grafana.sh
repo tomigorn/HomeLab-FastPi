@@ -34,6 +34,7 @@ fi
 if want telegraf; then
   check telegraf.writes '^0$' "$(docker logs --since 5m telegraf 2>&1 | grep -c 'E! \[outputs')"
   check telegraf.docker-interval '^interval = "30s"$' "$(docker exec telegraf sed -n '/^\[\[inputs.docker\]\]/,/^\[/p' /etc/telegraf/telegraf.conf | grep -oE '^ *interval = "[^"]*"' | sed 's/^ *//')"
+  check telegraf.docker-exclude-ctest '^container_name_exclude = \["ctest-\*"\]$' "$(docker exec telegraf sed -n '/^\[\[inputs.docker\]\]/,/^\[/p' /etc/telegraf/telegraf.conf | grep -oE '^ *container_name_exclude = .*' | sed 's/^ *//')"
 fi
 if want influxdb; then
   check influxdb.v2-pin 'v2\.9\.1.*pass|pass.*v2\.9\.1' "$(curl -s -m 5 http://127.0.0.1:8086/health)"
