@@ -13,6 +13,7 @@
 | `rebuild-local.timer` → `Docker/_global/scripts/rebuild_local.py` | 23:23, each image on its weekday | local builds in `Docker/_global/rebuild-local.conf`, see "Local builds" | **enabled** |
 | beefy: same script, own `auto-update.conf` | 04:12 | see [beefy](#beefy) | **enabled** (auto tier) |
 | `AutoUpdateNightly` | hour after the run | no message of its own (`notify: digest`): the 06:30 daily digest lists per host what was updated / rolled back / held / waiting; failures and rollbacks keep their own alerts | **enabled** |
+| shared tags (end of every run) | after the updates | containers left on the old image of a tag another project pulled: recreated via `update-project.sh <dir> recreate` for `auto`/`edge-auto` rows (same deadline, `MAX_APPLY`, resource floor, major-jump hold), else logged; `container_image_stale.prom` → `ContainerImageStale` (`grafana/prometheus/rules/image-drift.yml`); details `Docker/_global/scripts/README.md` "Shared tags" | **enabled** |
 | `AutoUpdateRollbackFailed` | at once | email + Telegram; the script also pages via `oob-alert.sh` (bypasses the edge) | **enabled** |
 | unattended-upgrades | daily (apt timers) | Debian + Debian-Security only, no reboot | existed |
 | `crowdsec-autoupdate.timer` | 05:07 | CrowdSec engine patch/minor + hub, own verify/rollback | existed |
