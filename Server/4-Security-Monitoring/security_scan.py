@@ -2076,7 +2076,7 @@ def write_accept_file(text: str, now: float) -> dict[str, list]:
         vex_dir().mkdir(parents=True, exist_ok=True)
         keep = [{k: e[k] for k in ("id", "paths", "purls", "statement", "expired_at") if k in e} for e in parsed["active"]]
         for e in keep:
-            e["expired_at"] = datetime.datetime.fromtimestamp(_accept_expiry(e["expired_at"]), datetime.timezone.utc).date().isoformat()
+            e["expired_at"] = datetime.datetime.fromtimestamp(_accept_expiry(e["expired_at"]), datetime.timezone.utc).date()
         write_atomic(f, yaml.safe_dump({"vulnerabilities": keep}, sort_keys=False))
     else:
         f.unlink(missing_ok=True)

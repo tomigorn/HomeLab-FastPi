@@ -2187,7 +2187,9 @@ def test_accept_file_for_trivy_holds_only_active_entries():
     write_accept_file(_ACCEPT, _NOW)
     doc = yaml.safe_load((vex_dir() / "accepted.trivyignore.yaml").read_text())
     assert [v["id"] for v in doc["vulnerabilities"]] == ["CVE-2026-1"]
-    assert str(doc["vulnerabilities"][0]["expired_at"]) == "2027-01-15"
+    # a YAML date, not a quoted string: Trivy rejects "2027-01-15" (expects RFC 3339 for strings) and then fails the whole scan
+    import datetime
+    assert doc["vulnerabilities"][0]["expired_at"] == datetime.date(2027, 1, 15)
     assert accept_args() == ["--ignorefile", "/vex/accepted.trivyignore.yaml", "--show-suppressed"]
 
 
