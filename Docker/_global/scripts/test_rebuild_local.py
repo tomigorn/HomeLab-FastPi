@@ -25,6 +25,7 @@ from rebuild_local import (  # noqa: E402
     parse_env,
     render_prom,
     rollback_tag,
+    tar_content_digest,
     update_result,
 )
 
@@ -186,6 +187,27 @@ def test_predates_compares_image_build_time_with_the_last_context_commit():
     assert not predates("2026-11-02T04:52:37.1Z", 1793578889)
     assert not predates("", 1793578889)
     assert not predates("2026-10-31T08:43:15Z", 0)
+
+def _tar(files, mtime):
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as t:
+        for name, data in files:
+            ti = tarfile.TarInfo(name)
+            ti.size, ti.mtime, ti.mode = len(data), mtime, 0o755
+            t.addfile(ti, io.BytesIO(data))
+    buf.seek(0)
+    return buf
+
+
+def test_tar_content_digest_ignores_mtime_but_sees_content_and_names():
+    a = tar_content_digest(_tar([("app", b"bin1"), ("etc/x", b"y")], 1000))
+    assert a == tar_content_digest(_tar([("app", b"bin1"), ("etc/x", b"y")], 2000))
+    assert a != tar_content_digest(_tar([("app", b"bin2"), ("etc/x", b"y")], 1000))
+    assert a != tar_content_digest(_tar([("app2", b"bin1"), ("etc/x", b"y")], 1000))
+    assert a
+
 
 if __name__ == "__main__":
     fails = 0

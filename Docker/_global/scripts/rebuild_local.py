@@ -4,7 +4,7 @@
 Per due entry, one at a time:
   1. digest-pinned FROM (A-30): set the pin to the tag's current digest (the documented update rule); other tags float within their pin
   2. build --pull --no-cache (fresh base and packages); a build failure changes nothing
-  3. fingerprint (base ids + installed packages + build context): unchanged -> old image kept, nothing restarts
+  3. fingerprint (base ids + installed packages, or the filesystem content digest for shell-less scratch images, + build context): unchanged -> old image kept, nothing restarts
   4. the project's tests against the new image (unittest inside it, and/or a host command with $IMAGE)
   5. update-project.sh recreate: container checks, CHECK, post-update check, automatic rollback to the previous image (kept as rollback.invalid/<repo>:<date>-<project>)
   6. success with a moved pin: the Dockerfile change is committed (only that file, never pushed)
@@ -29,6 +29,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tarfile
 import time
 import tomllib
 from pathlib import Path
@@ -316,12 +317,49 @@ def old_fingerprint(prints: dict, img: str, compute) -> str:
     return fp
 
 
+def tar_content_digest(stream) -> str:
+    """sha256 over name, type, mode and content hash of every tar member, ignoring mtimes (a rebuilt identical binary hashes the same)."""
+    h = hashlib.sha256()
+    with tarfile.open(fileobj=stream, mode="r|") as t:
+        for m in t:
+            body = hashlib.sha256()
+            if m.isfile():
+                f = t.extractfile(m)
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    body.update(chunk)
+            h.update(f"{m.name}\0{m.type!r}\0{m.mode}\0{m.linkname}\0{body.hexdigest()}\n".encode())
+    return h.hexdigest()
+
+
+def filesystem_digest(image: str) -> str:
+    """Content digest of a shell-less (scratch) image's filesystem via docker create + export; '' on any failure."""
+    cid = sh(["docker", "create", image]).stdout.strip()
+    if not cid:
+        return ""
+    try:
+        p = subprocess.Popen(_docker + ["export", cid], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            digest = tar_content_digest(p.stdout)
+        except (tarfile.TarError, OSError):
+            digest = ""
+        finally:
+            p.stdout.close()
+            rc = p.wait()
+        return digest if rc == 0 else ""
+    finally:
+        sh(["docker", "rm", "-f", cid])
+
+
 def image_fingerprint(image: str, context: str) -> str:
     env = parse_env(sh(["docker", "image", "inspect", "-f", "{{json .Config.Env}}", image]).stdout)
     if env is None:
         return ""
     r = sh(["docker", "run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "sh", image, "-c", PACKAGES_SH], timeout=180)
-    return fingerprint(env, r.stdout if r.returncode == 0 else "", context)
+    packages = r.stdout if r.returncode == 0 else ""
+    if not packages.strip():
+        # no shell (scratch): the image's files stand in for the package list
+        packages = filesystem_digest(image)
+    return fingerprint(env, packages, context)
 
 
 def oob(msg: str) -> None:
