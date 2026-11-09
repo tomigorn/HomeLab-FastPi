@@ -15,7 +15,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Image updates per host? | `cup` | Cup's JSON per `server`, only images a container uses (Cup's `in_use`, running or stopped); updates of unused images (old tags, rollback leftovers, base images) only as `security_image_updates_unused` (cleanup, `image-cleanup.sh`); refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error; its last figures and snapshot time stay, see "Cup snapshot of a sleeping host") | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 05:50 (fastpi, tower); never wakes beefy or tower, a sleeping host is skipped |
 | Was anything quarantined (nightly, beefy's download hook and queue)? | `avhits` (also inside `av`) | each host's quarantine `index.txt`, see "Quarantined hits" | all three | every 15 min (`security-av-hits.timer`); beefy/tower only while the Waker sees them up, always via `-direct` (never wakes) |
-| Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
+| Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json`; reviewed misreports counted apart as accepted (`trivy-accepted.yaml`) | all three | daily 04:10 |
 | Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`; a variable `FROM ${X}` is skipped, so beefy's FlareSolverr build is only scanned as the local image `flaresolverr-local:current` by the image scan), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | daily 03:40 (`security-code-scan.timer`) |
 | One CVE dashboard over everything that runs? | `dt` | CycloneDX SBOM per running image (fastpi: local Docker; beefy: registry copy of the running digest, built on fastpi; local beefy builds from the image scan's exported tar, else via their Dockerfile base) + one OS SBOM per host (Trivy `rootfs` over os-release, lsb-release (Ubuntu), debian_version, dpkg status) uploaded to Dependency-Track on beefy, see "Dependency-Track" | fastpi, beefy (tower: Unraid/Slackware, no Trivy OS support) | daily 04:02 (`security-dt.timer`), only if DT answers |
 | Are images updated? | `updates` (beefy's result) | tiered auto-update with rollback, see [auto-updates.md](auto-updates.md); beefy's `auto_update.prom` republished as `auto_update_beefy.prom` | fastpi, beefy | daily 03:10 fastpi, 04:12 beefy (`auto-update.timer`); pull 04:20 (with `av`) |
@@ -42,6 +42,8 @@ Metrics:
 | `security_lynis_hardening_index`, `security_lynis_warnings` | host |
 | `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
 | `security_new_vulns`, `security_new_vuln_info` (first seen < 24 h, newest 20) | scope (host or `code-<repo>`) / + image, id, pkg, severity |
+| `security_image_vulnerabilities_accepted`, `security_code_vulnerabilities_accepted` (suppressed by the acceptance list, not in the fixable counts) | host / scope, severity |
+| `security_accept_entries`, `security_accept_expiry_timestamp_seconds` (active and expired entries) | state (`active`, `expired`, `invalid`) / id, scope |
 | `auto_update_result`, `auto_update_omitted`, `auto_update_last_run_timestamp_seconds` (no HELP lines: two hosts' files share the families) | host, project, tier, ref, result, from, to, command / host |
 | `container_image_stale`, `container_image_stale_containers`, `container_image_stale_last_run_timestamp_seconds` (beefy's republished as `container_image_stale_beefy.prom`, `updates` group) | host, project, service, container, image, running, tag, dir / host |
 | `security_dt_projects`, `security_dt_uploads`, `security_dt_sbom_failed`, `security_dt_stale_deleted` | host |
@@ -86,6 +88,25 @@ DT is the one place to triage, Trivy stays the scanner and the alert source. A d
 | Metrics | `security_dt_vex_projects`, `security_dt_vex_statements`, `security_dt_vex_export_failed` |
 
 DT-only ids (e.g. OSV `GO-…`) that Trivy does not report change nothing in Trivy.
+
+## Acceptance list (`trivy-accepted.yaml`)
+
+Reviewed findings that are a scanner misreport or provably not affected, committed in git next to `security_scan.py`. Trivy's own ignore-file format; findings stay visible as "accepted", never silently dropped.
+
+| | |
+|---|---|
+| Entry | `id`, scope `paths` (file or binary path in the image) and/or `purls` (both must match when both are given), `statement: "<misreport\|not_affected>: <evidence>"`, `expired_at` (at most 90 days ahead) |
+| Not allowed | an id without scope (would hide it in every image), no statement, no or a longer expiry: counted as `invalid`, never applied |
+| Not for | "real but only reachable from the LAN / behind SSO": that is an owner decision, not a misreport |
+| Applied | every image, tar and SBOM scan writes the active entries to `/var/lib/security-scan/vex/accepted.trivyignore.yaml` and passes `--ignorefile … --show-suppressed` (next to the DT `--vex` files) |
+| Counted | accepted findings are not in `security_image_vulnerabilities_fixable` / `security_code_vulnerabilities_fixable` / `vulns-seen-*`; they are in `…_accepted` |
+| Dashboard | **Updates & security** > "Fixable critical/high CVEs (open / accepted)" |
+| Expiry | `CveAcceptanceExpired` (info, per entry), Monday digest "CVE acceptances to re-review" (expired or due within 14 days); the expired entry is no longer applied, so its findings count as open and alert as new |
+| Invalid | `CveAcceptanceInvalid` (digest); `python3 test_security_scan.py` fails on an invalid repo entry |
+| Metrics refresh | daily 04:05 (`freshness` group), and at every image/code scan |
+| Add or renew | edit `trivy-accepted.yaml`, `python3 test_security_scan.py`, commit; takes effect at the next code scan (03:40) / image scan (04:10) |
+
+Triage record with evidence per entry: the report `~/reports/2026-11-09/cve-triage.md` (fastpi, not in git).
 
 ## Cup snapshot of a sleeping host
 

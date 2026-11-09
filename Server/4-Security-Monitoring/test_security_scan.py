@@ -2128,6 +2128,125 @@ def test_freshness_metrics_have_help_text():
         assert name in security_scan.HELPS
 
 
+
+# --- acceptance list (trivy-accepted.yaml) ----------------------------------
+
+_NOW = 1794182400.0   # 2026-11-09T00:00:00Z
+_ACCEPT = """
+vulnerabilities:
+  - id: CVE-2026-1
+    paths:
+      - usr/local/bin/gosu
+    statement: "not_affected: package not linked"
+    expired_at: 2027-01-15
+  - id: CVE-2026-2
+    purls:
+      - pkg:pypi/setuptools@70.3.0
+    statement: "misreport: module not present"
+    expired_at: 2026-11-01
+  - id: CVE-2026-3
+    paths:
+      - usr/bin/x
+    expired_at: 2027-01-15
+  - id: CVE-2026-4
+    paths:
+      - usr/bin/x
+    statement: "too long"
+    expired_at: 2027-06-01
+  - id: CVE-2026-5
+    statement: "no scope, would hide the CVE in every image"
+    expired_at: 2027-01-15
+  - id: CVE-2026-6
+    paths:
+      - usr/bin/x
+    statement: "no expiry"
+"""
+
+
+def test_accept_list_sorts_entries_into_active_expired_and_invalid():
+    from security_scan import parse_accept_list
+    got = parse_accept_list(_ACCEPT, _NOW)
+    assert [e["id"] for e in got["active"]] == ["CVE-2026-1"]
+    assert [e["id"] for e in got["expired"]] == ["CVE-2026-2"]
+    # no statement, expiry beyond 90 days, no paths/purls scope, no expiry: never applied
+    assert sorted(e["id"] for e in got["invalid"]) == ["CVE-2026-3", "CVE-2026-4", "CVE-2026-5", "CVE-2026-6"]
+
+
+def test_accept_list_unparseable_or_empty_applies_nothing():
+    from security_scan import parse_accept_list
+    bad = parse_accept_list("vulnerabilities: [unclosed", _NOW)
+    assert bad["active"] == [] and len(bad["invalid"]) == 1
+    assert parse_accept_list("", _NOW) == {"active": [], "expired": [], "invalid": []}
+
+
+def test_accept_file_for_trivy_holds_only_active_entries():
+    import yaml
+    from security_scan import write_accept_file, accept_args, vex_dir
+    _tmp_dirs()
+    assert accept_args() == []
+    write_accept_file(_ACCEPT, _NOW)
+    doc = yaml.safe_load((vex_dir() / "accepted.trivyignore.yaml").read_text())
+    assert [v["id"] for v in doc["vulnerabilities"]] == ["CVE-2026-1"]
+    assert str(doc["vulnerabilities"][0]["expired_at"]) == "2027-01-15"
+    assert accept_args() == ["--ignorefile", "/vex/accepted.trivyignore.yaml", "--show-suppressed"]
+
+
+def test_accept_file_removed_when_nothing_is_active():
+    from security_scan import write_accept_file, accept_args, vex_dir
+    _tmp_dirs()
+    write_accept_file(_ACCEPT, _NOW)
+    write_accept_file("vulnerabilities: []", _NOW)
+    assert not (vex_dir() / "accepted.trivyignore.yaml").exists() and accept_args() == []
+
+
+def test_accept_samples_count_states_and_publish_each_expiry():
+    from security_scan import parse_accept_list, accept_samples
+    s = accept_samples(parse_accept_list(_ACCEPT, _NOW))
+    assert ("security_accept_entries", {"state": "active"}, 1) in s
+    assert ("security_accept_entries", {"state": "expired"}, 1) in s
+    assert ("security_accept_entries", {"state": "invalid"}, 4) in s
+    exp = [x for x in s if x[0] == "security_accept_expiry_timestamp_seconds"]
+    # expired entries keep their series so the alert can name them; invalid ones have no usable expiry
+    assert exp == [("security_accept_expiry_timestamp_seconds", {"id": "CVE-2026-1", "scope": "usr/local/bin/gosu"}, 1799971200.0),
+                   ("security_accept_expiry_timestamp_seconds", {"id": "CVE-2026-2", "scope": "pkg:pypi/setuptools@70.3.0"}, 1793491200.0)]
+    for name in {x[0] for x in s}:
+        assert name in security_scan.HELPS
+
+
+def test_count_accepted_counts_only_ignored_fixable_findings():
+    from security_scan import count_accepted, count_fixable
+    rep = {"Results": [{
+        "Vulnerabilities": [{"Severity": "HIGH", "FixedVersion": "2"}],
+        "ExperimentalModifiedFindings": [
+            {"Type": "vulnerability", "Status": "ignored", "Finding": {"Severity": "CRITICAL", "FixedVersion": "1.1"}},
+            {"Type": "vulnerability", "Status": "ignored", "Finding": {"Severity": "HIGH", "FixedVersion": "1.1"}},
+            {"Type": "vulnerability", "Status": "ignored", "Finding": {"Severity": "HIGH"}},
+            # a Dependency-Track decision passed as VEX is not an acceptance from the list
+            {"Type": "vulnerability", "Status": "not_affected", "Finding": {"Severity": "HIGH", "FixedVersion": "1"}},
+        ]}]}
+    assert count_accepted(rep) == {"CRITICAL": 1, "HIGH": 1, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    # accepted findings are not in Vulnerabilities, so they never count as open
+    assert count_fixable(rep)["HIGH"] == 1
+    assert count_accepted({})["CRITICAL"] == 0
+
+
+def test_trivy_flags_add_the_accept_list_to_every_scan():
+    from security_scan import triage_args, write_accept_file, match_script
+    _tmp_dirs()
+    assert triage_args("fastpi", "caddy:2") == []
+    write_accept_file(_ACCEPT, _NOW)
+    assert triage_args("fastpi", "caddy:2") == ["--ignorefile", "/vex/accepted.trivyignore.yaml", "--show-suppressed"]
+    assert match_script({"n1": "caddy:2"}, "fastpi").count("--ignorefile /vex/accepted.trivyignore.yaml") == 1
+
+
+def test_repo_accept_list_is_valid_and_fully_applied():
+    from security_scan import parse_accept_list, ACCEPT_FILE
+    import time
+    got = parse_accept_list(ACCEPT_FILE.read_text(), time.time())
+    assert got["invalid"] == [], [e.get("id") for e in got["invalid"]]
+    for e in got["active"]:
+        assert e["statement"].split(":")[0] in ("misreport", "not_affected"), e["id"]
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

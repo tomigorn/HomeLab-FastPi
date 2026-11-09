@@ -206,6 +206,19 @@ def count_fixable(report: dict) -> dict[str, int]:
     return counts
 
 
+
+def count_accepted(report: dict) -> dict[str, int]:
+    """Fixable vulnerabilities suppressed by the acceptance list (Trivy --show-suppressed, Status "ignored"); Dependency-Track VEX decisions are not counted."""
+    counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    for res in report.get("Results") or []:
+        for m in res.get("ExperimentalModifiedFindings") or []:
+            f = m.get("Finding") or {}
+            if m.get("Type") != "vulnerability" or m.get("Status") != "ignored" or not f.get("FixedVersion"):
+                continue
+            sev = (f.get("Severity") or "UNKNOWN").upper()
+            counts[sev] = counts.get(sev, 0) + 1
+    return counts
+
 _ENV_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 _VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?[-?])([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)")
 
@@ -1219,6 +1232,8 @@ def scan_all_images(hosts, lister, scan) -> None:
 # host -> {image|id|pkg: severity} of the last nightly scan, diffed into security_new_vulns{scope=host}.
 IMAGE_FINDINGS: dict[str, dict[str, str]] = {}
 SCANNED: dict[str, set] = {}
+# host -> fixable findings suppressed by the acceptance list, by severity
+ACCEPTED: dict[str, dict[str, int]] = {}
 
 
 def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[str, int], int, int, int]:
@@ -1235,6 +1250,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     """
     totals = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     fixables = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    accepted = ACCEPTED.setdefault(host, {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0})
     scanned = unscannable = 0
     local_only: list[str] = []
     # Per-image detail goes to a file rather than into labels. 60+ images times
@@ -1243,6 +1259,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     # WHICH image is just a number to feel bad about.
     detail: list[tuple[int, int, str]] = []
     download_trivy_db(host)
+    refresh_accept_file()
     platform = REMOTE_SCAN_HOSTS.get(host)
     src = ["--image-src", "remote", "--platform", platform] if platform else ["--image-src", "docker"]
     bases_of = {_repo(k): v for k, v in LOCAL_BASES.get(host, {}).items()}
@@ -1267,7 +1284,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
             r = _trivy_run(host, [
                 "image", "--input", f"/local-images/{tar}", "--scanners", "vuln",
                 "--skip-db-update", "--skip-java-db-update",
-                "--quiet", "--format", "json", *vex_args(host, ref), "--timeout", "10m",
+                "--quiet", "--format", "json", *triage_args(host, ref), "--timeout", "10m",
             ], attach_proxy=False, timeout=1200)
             if r.returncode != 0 or not r.stdout.strip():
                 print(f"  tar scan failed on {host}: {ref} ({r.stderr.strip()[-160:]}), scanning its base images", file=sys.stderr)
@@ -1281,7 +1298,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
             r = _trivy_run(host, [
                 "image", *src, "--scanners", "vuln",
                 "--skip-db-update", "--skip-java-db-update",
-                "--quiet", "--format", "json", *vex_args(host, image),
+                "--quiet", "--format", "json", *triage_args(host, image),
                 "--timeout", "10m", image,
             ], attach_proxy=not platform, timeout=1200)
             if r.returncode != 0 or not r.stdout.strip():
@@ -1309,6 +1326,8 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
             totals[k] = totals.get(k, 0) + v
         for k, v in fixable.items():
             fixables[k] = fixables.get(k, 0) + v
+        for k, v in count_accepted(report).items():
+            accepted[k] = accepted.get(k, 0) + v
 
     detail.sort(reverse=True)
     lines = [f"# Trivy CVE counts for images in use on {host}, worst first.",
@@ -1401,7 +1420,7 @@ def match_script(names: dict[str, str], host: str) -> str:
     """Shell loop for one Trivy container: every SBOM against the local DB, with the VEX file of its DT project when there is one."""
     return "".join(
         f"trivy sbom --skip-db-update --skip-java-db-update --quiet --scanners vuln --format json "
-        f"{' '.join(shlex.quote(a) for a in vex_args(host, ref))} --output /sbom/out/{n}.json /sbom/{n}.cdx.json || echo FAIL {n} >&2; "
+        f"{' '.join(shlex.quote(a) for a in triage_args(host, ref))} --output /sbom/out/{n}.json /sbom/{n}.cdx.json || echo FAIL {n} >&2; "
         for n, ref in sorted(names.items()))
 
 
@@ -1458,12 +1477,14 @@ def collect_code(repo: str) -> list:
     SBOM_DIR.mkdir(parents=True, exist_ok=True)
     index = _load_json(SBOM_DIR / "index.json") or {}
     download_trivy_db("fastpi")
+    refresh_accept_file()
     refresh_sboms(platform, refs, index)
     write_atomic(SBOM_DIR / "index.json", json.dumps(index, indent=1, sort_keys=True))
     names = {_sbom_name(platform, r): r for r in refs if index.get(f"{platform}|{r}", {}).get("ok")}
     reports = match_sboms(names, repo)
     current: dict[str, str] = {}
     sev = {"CRITICAL": 0, "HIGH": 0}
+    acc = {"CRITICAL": 0, "HIGH": 0}
     lines = [f"# Fixable CRITICAL/HIGH in images the {repo} repo refers to (SBOM {platform}), worst first.", "# critical  high  image", ""]
     rows = []
     for n, rep in reports.items():
@@ -1475,6 +1496,9 @@ def collect_code(repo: str) -> list:
         rows.append((c, h, names[n]))
         for vid, pkg, s in f:
             current[f"{names[n]}|{vid}|{pkg}"] = s
+        a = count_accepted(rep)
+        for k in acc:
+            acc[k] += a.get(k, 0)
     rows.sort(reverse=True)
     lines += [f"{c:>8}  {h:>4}  {img}" for c, h, img in rows]
     missing = sorted(set(refs) - {names[n] for n in reports})
@@ -1486,6 +1510,7 @@ def collect_code(repo: str) -> list:
            ("security_code_images_scanned", {"scope": scope}, len(reports)),
            ("security_code_images_unresolved", {"scope": scope}, unresolved)]
     out += [("security_code_vulnerabilities_fixable", {"scope": scope, "severity": k}, v) for k, v in sorted(sev.items())]
+    out += [("security_code_vulnerabilities_accepted", {"scope": scope, "severity": k}, v) for k, v in sorted(acc.items())]
     return out + findings_samples(scope, current, {names[n] for n in reports})
 
 
@@ -1995,6 +2020,96 @@ def vex_args(host: str, ref: str) -> list[str]:
     return []
 
 
+# ---- Acceptance list: reviewed misreports / not-affected findings, committed next to this script
+ACCEPT_FILE = Path(os.environ.get("SECSCAN_ACCEPT", str(Path(__file__).resolve().parent / "trivy-accepted.yaml")))
+ACCEPT_MAX_DAYS = 90
+ACCEPT_TRIVY_NAME = "accepted.trivyignore.yaml"
+
+
+def _accept_expiry(value) -> float | None:
+    if isinstance(value, datetime.datetime):
+        value = value.date()
+    if isinstance(value, str):
+        try:
+            value = datetime.date.fromisoformat(value.strip())
+        except ValueError:
+            return None
+    if not isinstance(value, datetime.date):
+        return None
+    return datetime.datetime(value.year, value.month, value.day, tzinfo=datetime.timezone.utc).timestamp()
+
+
+def parse_accept_list(text: str, now: float) -> dict[str, list]:
+    """trivy-accepted.yaml (Trivy ignore-file format) -> active / expired / invalid entries.
+
+    Only an entry with a statement, a scope (paths or purls: an id alone would hide the CVE in every image) and an expiry at most 90 days ahead is applied.
+    """
+    import yaml
+    out: dict[str, list] = {"active": [], "expired": [], "invalid": []}
+    try:
+        doc = yaml.safe_load(text) if text.strip() else {}
+    except yaml.YAMLError as e:
+        out["invalid"].append({"id": "<unparseable>", "error": str(e)[:120]})
+        return out
+    for e in (doc or {}).get("vulnerabilities") or []:
+        if not isinstance(e, dict):
+            out["invalid"].append({"id": str(e)})
+            continue
+        exp = _accept_expiry(e.get("expired_at"))
+        ok = (e.get("id") and str(e.get("statement") or "").strip() and (e.get("paths") or e.get("purls"))
+              and exp is not None and exp <= now + (ACCEPT_MAX_DAYS + 1) * 86400)
+        if not ok:
+            out["invalid"].append(e)
+        elif exp <= now:
+            out["expired"].append(e)
+        else:
+            out["active"].append(e)
+    return out
+
+
+def write_accept_file(text: str, now: float) -> dict[str, list]:
+    """The active entries only, as Trivy's --ignorefile next to the VEX files (/vex in the Trivy container); removed when none is active."""
+    import yaml
+    parsed = parse_accept_list(text, now)
+    f = vex_dir() / ACCEPT_TRIVY_NAME
+    if parsed["active"]:
+        vex_dir().mkdir(parents=True, exist_ok=True)
+        keep = [{k: e[k] for k in ("id", "paths", "purls", "statement", "expired_at") if k in e} for e in parsed["active"]]
+        for e in keep:
+            e["expired_at"] = datetime.datetime.fromtimestamp(_accept_expiry(e["expired_at"]), datetime.timezone.utc).date().isoformat()
+        write_atomic(f, yaml.safe_dump({"vulnerabilities": keep}, sort_keys=False))
+    else:
+        f.unlink(missing_ok=True)
+    return parsed
+
+
+def refresh_accept_file() -> dict[str, list]:
+    try:
+        text = ACCEPT_FILE.read_text()
+    except OSError:
+        text = ""
+    return write_accept_file(text, time.time())
+
+
+def accept_args() -> list[str]:
+    if (vex_dir() / ACCEPT_TRIVY_NAME).exists():
+        return ["--ignorefile", f"/vex/{ACCEPT_TRIVY_NAME}", "--show-suppressed"]
+    return []
+
+
+def triage_args(host: str, ref: str) -> list[str]:
+    """Every decision Trivy should apply to one image: Dependency-Track VEX plus the acceptance list."""
+    return vex_args(host, ref) + accept_args()
+
+
+def accept_samples(parsed: dict[str, list]) -> list:
+    out = [("security_accept_entries", {"state": k}, len(parsed[k])) for k in ("active", "expired", "invalid")]
+    for e in parsed["active"] + parsed["expired"]:
+        scope = (e.get("paths") or e.get("purls") or [""])[0]
+        out.append(("security_accept_expiry_timestamp_seconds", {"id": str(e["id"]), "scope": scope}, _accept_expiry(e["expired_at"])))
+    return out
+
+
 # ---- Dependency-Track feed (group dt): SBOMs of the running images and of the host OS -> DT on beefy (HomeLab-BeefyServer Docker/Dependency-Track)
 DT_URL = os.environ.get("SECSCAN_DT_URL", "http://192.168.1.102:8090")
 DT_KEY = Path(os.environ.get("SECSCAN_DT_KEY", "/var/lib/security-scan/secrets/dt-api-key"))
@@ -2305,6 +2420,7 @@ HELPS = {
     "security_pending_updates": "Pending OS package updates.",
     "security_image_vulnerabilities": "Trivy CVE count across images in use, by severity.",
     "security_image_vulnerabilities_fixable": "Subset of the above that an image update could actually fix (Trivy reports a FixedVersion).",
+    "security_image_vulnerabilities_accepted": "Fixable CVEs across images in use that the acceptance list (trivy-accepted.yaml) marks as misreport or not affected, by severity; not in the fixable count.",
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
     "security_images_local_only": "Images on beefy/tower built locally (in no registry), skipped by the registry scan.",
@@ -2329,6 +2445,9 @@ HELPS = {
     "security_code_images_scanned": "Of those, images with an SBOM matched against the current Trivy DB.",
     "security_code_images_unresolved": "image: lines whose ${VAR} could not be resolved from .env/.env.example.",
     "security_code_vulnerabilities_fixable": "Fixable CVEs across the images the repo refers to, by severity (CRITICAL/HIGH).",
+    "security_code_vulnerabilities_accepted": "Fixable CRITICAL/HIGH CVEs in the images the repo refers to that the acceptance list suppresses, by severity.",
+    "security_accept_entries": "Entries of the acceptance list trivy-accepted.yaml by state: active (applied), expired (re-review), invalid (no statement, scope or expiry, or expiry beyond 90 days; never applied).",
+    "security_accept_expiry_timestamp_seconds": "Expiry (UTC midnight of expired_at) of each active or expired acceptance entry.",
     "security_new_vulns": "Fixable CRITICAL/HIGH findings (image, CVE, package) first seen in the last 24 h; scope = host (running images) or code-<repo>.",
     "security_new_vuln_info": "One series per finding first seen in the last 24 h (newest 20).",
     "security_av_infected_info": "One series per ClamAV hit of the host's last scan (path, signature), capped at 20.",
@@ -2498,6 +2617,7 @@ def main() -> int:
 
     if want("freshness"):
         guarded("freshness-fastpi", collect_freshness)
+        guarded("accept-list", lambda: accept_samples(refresh_accept_file()))
 
     if want("audit"):
         for host in AUDIT_HOSTS:
@@ -2600,6 +2720,8 @@ def main() -> int:
                        for k, v in sorted(totals.items())]
                 out += [("security_image_vulnerabilities_fixable", {"host": host, "severity": k}, v)
                         for k, v in sorted(fixables.items())]
+                out += [("security_image_vulnerabilities_accepted", {"host": host, "severity": k}, v)
+                        for k, v in sorted(ACCEPTED.get(host, {}).items())]
                 out.append(("security_images_scanned", {"host": host}, scanned))
                 out.append(("security_images_unscannable", {"host": host}, bad))
                 out.append(("security_images_local_only", {"host": host}, local))

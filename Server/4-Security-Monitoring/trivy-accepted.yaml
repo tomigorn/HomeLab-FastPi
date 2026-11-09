@@ -1,0 +1,528 @@
+# Reviewed CVE acceptances for Trivy (ignore-file format, passed with --ignorefile by security_scan.py).
+# Only misreport / not_affected with evidence. Each entry: id, a scope (paths and/or purls, both must match), statement "<verdict>: <evidence>", expired_at at most 90 days ahead.
+# Re-review: a finding whose entry expires counts as open again and alerts as new (CveAcceptanceExpired names the entry).
+vulnerabilities:
+  # Go binaries that do not link the vulnerable package (package symbols absent from the binary's pclntab, checked 2026-11-09); gosu also per its SECURITY.md (CVEs in interfaces gosu never invokes)
+  - id: CVE-2025-22869
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2025-47913
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh/agent not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2025-61726
+    paths:
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+    statement: "not_affected: vulnerable_code_not_present, net/url not linked into gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2025-61729
+    paths:
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+    statement: "not_affected: vulnerable_code_not_present, crypto/x509 not linked into gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2025-68121
+    paths:
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+    statement: "not_affected: vulnerable_code_not_present, crypto/tls not linked into gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-111943
+    paths:
+      - "usr/bin/amneziawg-go"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.9"
+    statement: "not_affected: vulnerable_code_not_present, crypto/x509 not linked into amneziawg-go, dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-25679
+    paths:
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+    statement: "not_affected: vulnerable_code_not_present, net/url not linked into gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-25681
+    paths:
+      - "usr/bin/amneziawg-go"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.44.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/net/html not linked into amneziawg-go"
+    expired_at: 2027-02-06
+  - id: CVE-2026-27136
+    paths:
+      - "usr/bin/amneziawg-go"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.44.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/net/html not linked into amneziawg-go"
+    expired_at: 2027-02-06
+  - id: CVE-2026-27145
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, crypto/x509 not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-32280
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, crypto/tls, crypto/x509 not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-32281
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, crypto/x509 not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-32283
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, crypto/tls not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-33811
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, net not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-33814
+    paths:
+      - "usr/bin/amneziawg-go"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.44.0"
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, net/http/internal/http2 not linked into amneziawg-go, dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-33818
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, encoding/asn1 not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39820
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+      - "usr/local/bin/influx"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "not_affected: vulnerable_code_not_present, net/mail not linked into dasel, gosu, influx"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39821
+    paths:
+      - "usr/bin/amneziawg-go"
+      - "usr/bin/tempio"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.44.0"
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/net/idna, net/http not linked into amneziawg-go, dasel, gosu, tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39822
+    paths:
+      - "gluetun-entrypoint"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "not_affected: vulnerable_code_not_present, os.Root not linked into dasel, gluetun-entrypoint, gosu, influx, influxd"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39828
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39829
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39830
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39831
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39832
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh/agent not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39835
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-39836
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, net not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-42499
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+      - "usr/local/bin/influx"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "not_affected: vulnerable_code_not_present, net/mail not linked into dasel, gosu, influx"
+    expired_at: 2027-02-06
+  - id: CVE-2026-42504
+    paths:
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+    statement: "not_affected: vulnerable_code_not_present, mime not linked into dasel, gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-42508
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh/knownhosts not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-46595
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-46597
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-56853
+    paths:
+      - "usr/bin/tempio"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, net/http not linked into dasel, gosu, tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-56854
+    paths:
+      - "usr/bin/tempio"
+    purls:
+      - "pkg:golang/golang.org/x/crypto@v0.31.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/crypto/ssh not linked into tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-56858
+    paths:
+      - "gluetun-entrypoint"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+      - "usr/local/bin/influx"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "not_affected: vulnerable_code_not_present, html/template not linked into dasel, gluetun-entrypoint, gosu, influx"
+    expired_at: 2027-02-06
+  - id: CVE-2026-56859
+    paths:
+      - "bin/json_exporter"
+      - "gluetun-entrypoint"
+      - "usr/bin/tempio"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, encoding/xml not linked into gluetun-entrypoint, gosu, json_exporter, tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-56860
+    paths:
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+    statement: "not_affected: vulnerable_code_not_present, net/url not linked into gosu"
+    expired_at: 2027-02-06
+  - id: CVE-2026-56862
+    paths:
+      - "usr/bin/tempio"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, crypto/tls not linked into dasel, gosu, tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-78661
+    paths:
+      - "bin/alertmanager"
+      - "bin/amtool"
+      - "bin/blackbox_exporter"
+      - "bin/go2rtc"
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "usr/bin/amneziawg-go"
+      - "usr/local/bin/cloudflared"
+      - "usr/local/lib/crowdsec/plugins/notification-email"
+      - "usr/local/lib/crowdsec/plugins/notification-file"
+      - "usr/local/lib/crowdsec/plugins/notification-http"
+      - "usr/local/lib/crowdsec/plugins/notification-sentinel"
+      - "usr/local/lib/crowdsec/plugins/notification-slack"
+      - "usr/local/lib/crowdsec/plugins/notification-splunk"
+      - "usr/share/grafana/data/plugins-bundled/elasticsearch/gpx_grafana_elasticsearch_datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/grafana-pyroscope-datasource/gpx_grafana-pyroscope-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/influxdb/gpx_grafana_influxdb_datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/jaeger/gpx_grafana-jaeger-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/loki/gpx_grafana-loki-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/mssql/gpx_grafana-mssql-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/mysql/gpx_grafana-mysql-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/opentsdb/gpx_grafana-opentsdb-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/prometheus/gpx_grafana-prometheus-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/stackdriver/gpx_grafana_cloudmonitoring_datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/tempo/gpx_grafana-tempo-datasource_linux_arm64"
+      - "usr/share/grafana/data/plugins-bundled/zipkin/gpx_grafana-zipkin-datasource_linux_arm64"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.44.0"
+      - "pkg:golang/golang.org/x/net@v0.57.0"
+      - "pkg:golang/golang.org/x/net@v0.58.0"
+      - "pkg:golang/golang.org/x/net@v0.59.0"
+      - "pkg:golang/golang.org/x/net@v0.60.0"
+      - "pkg:golang/golang.org/x/net@v0.61.0"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/net/html not linked into alertmanager, amneziawg-go, amtool, blackbox_exporter, cloudflared, go2rtc, gpx_grafana-jaeger-datasource_linux_arm64, gpx_grafana-loki-datasource_linux_arm64, gpx_grafana-mssql-datasource_linux_arm64, gpx_grafana-mysql-datasource_linux_arm64, gpx_grafana-opentsdb-datasource_linux_arm64, gpx_grafana-prometheus-datasource_linux_arm64, gpx_grafana-pyroscope-datasource_linux_arm64, gpx_grafana-tempo-datasource_linux_arm64, gpx_grafana-zipkin-datasource_linux_arm64, gpx_grafana_cloudmonitoring_datasource_linux_arm64, gpx_grafana_elasticsearch_datasource_linux_arm64, gpx_grafana_influxdb_datasource_linux_arm64, json_exporter, node_exporter, notification-email, notification-file, notification-http, notification-sentinel, notification-slack, notification-splunk"
+    expired_at: 2027-02-06
+  - id: CVE-2026-78667
+    paths:
+      - "usr/bin/tempio"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, net/http not linked into dasel, gosu, tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-78669
+    paths:
+      - "usr/bin/amneziawg-go"
+      - "usr/bin/tempio"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.44.0"
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, golang.org/x/net/http2, net/http, net/http/internal/http2 not linked into amneziawg-go, dasel, gosu, tempio"
+    expired_at: 2027-02-06
+  - id: CVE-2026-97031
+    paths:
+      - "usr/bin/tempio"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/gosu"
+    purls:
+      - "pkg:golang/stdlib@v1.24.6"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "not_affected: vulnerable_code_not_present, crypto/tls not linked into dasel, gosu, tempio"
+    expired_at: 2027-02-06
+  # npm CLI's own dependencies under /usr/local/lib/node_modules/npm: the containers run node <app>, npm never runs and node module resolution from the app cannot reach these
+  - id: CVE-2026-102276
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+    purls:
+      - "pkg:npm/brace-expansion@5.0.9"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, bundled with the npm CLI, which no container runs (audiobookshelf: node dist-server/index.js, wg-easy: node server/index.mjs)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-102278
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+    purls:
+      - "pkg:npm/brace-expansion@5.0.9"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, bundled with the npm CLI, which no container runs (audiobookshelf: node dist-server/index.js, wg-easy: node server/index.mjs)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-109383
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    purls:
+      - "pkg:npm/undici@6.28.0"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, bundled with the npm CLI, which no container runs (audiobookshelf: node dist-server/index.js, wg-easy: node server/index.mjs)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-109869
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    purls:
+      - "pkg:npm/undici@6.28.0"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, bundled with the npm CLI, which no container runs (audiobookshelf: node dist-server/index.js, wg-easy: node server/index.mjs)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-19534
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    purls:
+      - "pkg:npm/undici@6.28.0"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, bundled with the npm CLI, which no container runs (audiobookshelf: node dist-server/index.js, wg-easy: node server/index.mjs)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-87018
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    purls:
+      - "pkg:npm/undici@6.28.0"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, bundled with the npm CLI, which no container runs (audiobookshelf: node dist-server/index.js, wg-easy: node server/index.mjs)"
+    expired_at: 2027-02-06
+  # Audiobookshelf: code paths the app never takes
+  - id: CVE-2026-69240
+    paths:
+      - "app/node_modules/sequelize/package.json"
+    purls:
+      - "pkg:npm/sequelize@6.35.2"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, the flaw is in the Oracle dialect; Audiobookshelf uses dialect sqlite only (no oracledb module in the image)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-90711
+    paths:
+      - "app/node_modules/proxy-addr/package.json"
+    purls:
+      - "pkg:npm/proxy-addr@2.0.7"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, the flaw is in trusted-subnet matching; Audiobookshelf never sets express 'trust proxy', so no subnet is trusted"
+    expired_at: 2027-02-06
+  # pip's vendored copies (pip/_vendor, listed in its vendor.txt / bom.cdx.json, no file path in the SBOM): pip only runs at build time
+  - id: CVE-2025-47273
+    purls:
+      - "pkg:pypi/setuptools@70.3.0"
+    statement: "misreport: pip vendors only pkg_resources from setuptools 70.3.0; the vulnerable setuptools.package_index module is not in the image (real setuptools installs are 79+)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-114613
+    purls:
+      - "pkg:pypi/msgpack@1.1.2"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, msgpack 1.1.2 exists only as pip's vendored copy (cachecontrol), pip never runs in the containers; app-installed msgpack is 1.2.x and stays counted"
+    expired_at: 2027-02-06
+  - id: GHSA-6v7p-g79w-8964
+    purls:
+      - "pkg:pypi/msgpack@1.1.2"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, msgpack 1.1.2 exists only as pip's vendored copy (cachecontrol), pip never runs in the containers; app-installed msgpack is 1.2.x and stays counted"
+    expired_at: 2027-02-06
+  # setuptools' vendored jaraco.context / wheel and unused servers in LibreTranslate and FlareSolverr
+  - id: CVE-2026-23949
+    paths:
+      - "app/venv/lib/python3.11/site-packages/setuptools/_vendor/jaraco.context-5.3.0.dist-info/METADATA"
+      - "usr/local/lib/python3.11/site-packages/setuptools/_vendor/jaraco.context-5.3.0.dist-info/METADATA"
+    purls:
+      - "pkg:pypi/jaraco.context@5.3.0"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, only setuptools' vendored copy; the vulnerable jaraco.context.tarball() is called nowhere in the image (only ExceptionTrap is imported by jaraco.text)"
+    expired_at: 2027-02-06
+  - id: CVE-2026-24049
+    paths:
+      - "app/venv/lib/python3.11/site-packages/setuptools/_vendor/wheel-0.45.1.dist-info/METADATA"
+      - "usr/local/lib/python3.11/site-packages/setuptools/_vendor/wheel-0.45.1.dist-info/METADATA"
+      - "usr/local/lib/python3.11/site-packages/wheel-0.45.1.dist-info/METADATA"
+    purls:
+      - "pkg:pypi/wheel@0.45.1"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, wheel unpacking is a build tool; no package in the image imports wheel and nothing installs wheels at runtime"
+    expired_at: 2027-02-06
+  - id: CVE-2024-49768
+    paths:
+      - "app/venv/lib/python3.11/site-packages/waitress-2.1.2.dist-info/METADATA"
+    purls:
+      - "pkg:pypi/waitress@2.1.2"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, LibreTranslate is served by gunicorn (scripts/entrypoint.sh, PID list checked); waitress is installed but never started"
+    expired_at: 2027-02-06
+  - id: CVE-2024-49769
+    paths:
+      - "app/venv/lib/python3.11/site-packages/waitress-2.1.2.dist-info/METADATA"
+    purls:
+      - "pkg:pypi/waitress@2.1.2"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, LibreTranslate is served by gunicorn (scripts/entrypoint.sh, PID list checked); waitress is installed but never started"
+    expired_at: 2027-02-06
+  - id: CVE-2024-34069
+    paths:
+      - "app/venv/lib/python3.11/site-packages/werkzeug-2.3.8.dist-info/METADATA"
+    purls:
+      - "pkg:pypi/werkzeug@2.3.8"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, the flaw is in the Werkzeug debugger; LibreTranslate runs under gunicorn without debug (no LT_DEBUG)"
+    expired_at: 2027-02-06
+  # apt inside containers: the flaw needs apt downloading packages; no service runs apt (no DOCKER_MODS on the linuxserver images)
+  - id: CVE-2026-109518
+    purls:
+      - "pkg:deb/debian/apt@2.6.1"
+      - "pkg:deb/debian/apt@3.0.3"
+      - "pkg:deb/debian/libapt-pkg6.0@2.6.1"
+      - "pkg:deb/debian/libapt-pkg7.0@3.0.3"
+      - "pkg:deb/ubuntu/apt-utils@3.2.0"
+      - "pkg:deb/ubuntu/apt@2.8.3"
+      - "pkg:deb/ubuntu/apt@3.2.0"
+      - "pkg:deb/ubuntu/libapt-pkg6.0t64@2.8.3"
+      - "pkg:deb/ubuntu/libapt-pkg7.0@3.2.0"
+    statement: "not_affected: vulnerable_code_not_in_execute_path, apt only runs at image build; no container runs apt-get at runtime (entrypoints checked, no linuxserver DOCKER_MODS)"
+    expired_at: 2027-02-06
