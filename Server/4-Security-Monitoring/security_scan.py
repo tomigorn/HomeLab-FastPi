@@ -1116,7 +1116,7 @@ def running_image_digests(host: str) -> list[str]:
 # on purpose, and a `:ro` socket mount would not have helped anyway, since it
 # protects the socket FILE and not the root-equivalent API behind it.
 # multi-arch index digest; update: see README, Trivy pin
-TRIVY_IMAGE = "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
+TRIVY_IMAGE = "aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb"
 TRIVY_HOSTS = {
     "fastpi": {
         "network": "socket_proxy",
