@@ -6,7 +6,7 @@ services:
 # M4b-Auto-Merge ##########################################
 # #########################################################
   watcher:
-    build: .                       # python:3.12-alpine + ssh/rsync/ffmpeg + watchdog
+    build: .                       # Rust watcher on python:3.12-alpine + ssh/rsync/ffmpeg (orchestrate.py is Python)
     image: m4b-auto-merge:local
     container_name: m4b-auto-merge
     restart: unless-stopped
@@ -24,7 +24,6 @@ services:
       # ssh(1) reads this; it points at the mounted key and known_hosts
       HOME: /home/merger
     volumes:
-      - ./app/watcher.py:/app/watcher.py:ro
       # The library is the one thing this writes to: the merged .m4b goes in and
       # the originals move out to quarantine. One bind of the disk that holds both:
       # a rename across two separate bind mounts fails with EXDEV even on one filesystem.
@@ -52,11 +51,19 @@ services:
     user: "65018:65018"
     group_add:
       - "1100"
+    # tini as PID 1: forwards docker stop and reaps the ssh/rsync children the orchestrator leaves behind
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+    # The watcher itself needs under 1 MB; the limits are for the orchestrator it starts (10 parallel books, local md5 + ffprobe).
     mem_limit: 512m
+    cpus: 2.0
+    pids_limit: 256
     # No ports: this serves nothing. Progress is visible on the existing
     # M4b-Merge-Dashboard, which reads the same runs/ directory.
 

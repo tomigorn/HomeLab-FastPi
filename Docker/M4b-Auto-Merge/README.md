@@ -3,7 +3,7 @@
 Keeps the Audiobookshelf library converged on single-file chaptered `.m4b` as new
 books arrive.
 
-**This project contains no merge logic.** It decides *when* to run
+The watcher is a small Rust binary (`rust/`, since 2026-11-09; the old Python watcher stays in `legacy/` until removed). **This project contains no merge logic.** It decides *when* to run
 `/home/pi/Projects/Docker/audiobookshelf/m4b-merge/orchestrate.py`, which already
 stages each book to beefy, merges it, runs all eight verification checks,
 md5-round-trips the result, promotes it, quarantines the originals and recovers
@@ -59,7 +59,7 @@ watcher logs it, stays armed and retries in `RETRY_SECONDS` (default 15 min).
 
     docker compose up -d                      # start
     docker compose logs -f                    # what it is doing and why
-    docker compose up -d --build              # after editing app/watcher.py
+    docker compose up -d --build              # after editing rust/ (runs cargo test in the build)
     docker compose up -d --force-recreate     # after editing compose/.env
 
 Progress during a merge is on the existing dashboard at
@@ -85,9 +85,7 @@ rebuild it on a fresh checkout:
 
 ## Notes
 
-- The container runs as uid 1000 with all capabilities dropped and publishes no
-  ports. uid 1000 owns the library files on the host, so a promote is a plain
-  `rename(2)` and needs no privilege.
+- The container runs as uid 65018 (group 1100 for the library ACL), read-only root with a `/tmp` tmpfs, `init: true`, all capabilities dropped, cpus 2 / pids 256 / 512 MB (for the orchestrator; the watcher itself uses under 1 MB), no ports.
 - `MERGE_DIR` is mounted at the **same path** inside the container as on the
   host, so the orchestrator's absolute default paths resolve unchanged. The
   scripts are read-only; only `runs/` is writable.
@@ -98,8 +96,21 @@ rebuild it on a fresh checkout:
   m4b-merge project reverses any merge.
 - Library and quarantine come in through ONE bind of their disk (`DISK_DIR`): a rename across two separate bind mounts fails with `EXDEV` even on one filesystem (every promote failed until 2026-11-02). The rest of the disk (`library/podcasts`, `lost+found`) is bound read-only on top. Checks: `m4b.one-mount`, `m4b.rest-read-only`.
 - Disk not mounted: `/mnt/seagate-black` is then an empty directory, the watcher finds no library, exits and restarts (nothing is written).
-- Reads under the library (ABS scans, `find`) do not restart the quiet period, only changes do. Test: `ctest.sh -v $PWD/app:/t -w /t --entrypoint python3 m4b-auto-merge:local /t/test_watcher.py`.
+- Reads under the library (ABS scans, `find`) do not restart the quiet period, only changes do (no IN_OPEN/IN_ACCESS watch).
+- The merge starts exactly `QUIET_SECONDS` after the last change (the Python watcher polled every 30 s on top). Folders moved into the library are watched all the way down (the Python watcher missed changes deep inside a moved-in tree).
+- `docker stop` while idle exits at once; during a merge the watcher waits for the orchestrator, so docker's kill timeout ends it as before (then check `pgrep ffmpeg` on beefy).
+
+## Tests
+
+| What | Command |
+|---|---|
+| Unit (Rust, in the build) | `docker build --target build .` |
+| Black-box, 24 cases (fake orchestrator, scratch library in /tmp) | `tests/blackbox/run.sh m4b-auto-merge:local` |
+| Benchmark (startup, RSS, CPU, trigger latency) | `BENCH=1 tests/blackbox/run.sh m4b-auto-merge:local` |
+| Legacy watcher | `docker build -t m4b-auto-merge:legacy -f legacy/Dockerfile . && tests/blackbox/run.sh m4b-auto-merge:legacy` |
+
+New dependency versions: `docker build --target lockfile -o rust .` rewrites `rust/Cargo.lock`.
 - beefy is always used, by design. It gets woken if it is asleep and idles back
   off afterwards.
 
-**Rebuild** (`m4b-auto-merge:local`, FROM `python:3.12-alpine`): `docker compose up -d --build --pull`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, tests and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py M4b-Auto-Merge`.
+**Rebuild** (`m4b-auto-merge:local`, `rust:1-alpine` build stage, FROM `python:3.12-alpine` because orchestrate.py is Python): `docker compose up -d --build --pull`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, runs the black-box suite and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py M4b-Auto-Merge`.
