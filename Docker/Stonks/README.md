@@ -13,5 +13,9 @@ the `stonks:latest` image this compose runs.
 
 Weekly rebuild (Sat, fresh base, the code repo's tests in the new image, rollback): `rebuild-local`, `Server/4-Security-Monitoring/auto-updates.md` "Local builds".
 
+Tests before a redeploy (sandboxed, no network): `~/Documents/development/Stonks/tests/run-unit.sh` and `tests/blackbox/run.sh stonks:latest` (45 HTTP checks against the image).
+
+Rollback: `docker tag stonks:pre-<date> stonks:latest && docker compose up -d` (the previous image is tagged `stonks:pre-<date>` before a redeploy; data in `./data` is untouched, a DB copy is in `./data/backups/`).
+
 Data persists in `./data/stonks.db` (gitignored). Routing is handled by Traefik
 (`stonks.holy-grail.ch`).
