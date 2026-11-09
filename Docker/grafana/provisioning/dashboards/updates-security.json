@@ -324,8 +324,8 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Fixable critical CVEs",
-      "description": "CRITICAL vulnerabilities with a fixed version available, summed over all images per host (Trivy, weekly image scan). Alert CriticalImageVulnerabilities.",
+      "title": "Fixable critical CVEs (open / accepted)",
+      "description": "CRITICAL vulnerabilities with a fixed version available, summed over all images per host (Trivy, weekly image scan). Alert CriticalImageVulnerabilities. \"accepted\" = findings the reviewed acceptance list Server/4-Security-Monitoring/trivy-accepted.yaml marks as misreport or not affected (each entry has a statement and expires within 90 days); they are not in the open count.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -338,7 +338,18 @@
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "{{host}}",
+          "legendFormat": "{{host}} open",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "security_image_vulnerabilities_accepted{severity=\"CRITICAL\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}} accepted",
           "instant": true,
           "range": false
         }
@@ -370,7 +381,23 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*accepted"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "reduceOptions": {
@@ -397,8 +424,8 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "Fixable high CVEs",
-      "description": "HIGH vulnerabilities with a fixed version available, summed over all images per host (Trivy).",
+      "title": "Fixable high CVEs (open / accepted)",
+      "description": "HIGH vulnerabilities with a fixed version available, summed over all images per host (Trivy). \"accepted\" = findings the reviewed acceptance list Server/4-Security-Monitoring/trivy-accepted.yaml marks as misreport or not affected (each entry has a statement and expires within 90 days); they are not in the open count.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -411,7 +438,18 @@
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "{{host}}",
+          "legendFormat": "{{host}} open",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "security_image_vulnerabilities_accepted{severity=\"HIGH\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}} accepted",
           "instant": true,
           "range": false
         }
@@ -443,7 +481,23 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*accepted"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "reduceOptions": {

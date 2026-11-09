@@ -154,3 +154,52 @@ tests:
 
                 <b>Lynis</b>
                 • no data
+
+  # Acceptance entries expired or expiring within 14 days are listed for re-review; one 30 days out is not. 4d4h = 360000 s.
+  - name: acceptance section lists entries due for re-review
+    interval: 1m
+    input_series:
+      - series: 'security_accept_expiry_timestamp_seconds{id="CVE-2026-1",scope="usr/local/bin/gosu"}'
+        values: '1000000x17000'
+      - series: 'security_accept_expiry_timestamp_seconds{id="CVE-2026-2",scope="pkg:pypi/setuptools@70.3.0"}'
+        values: '300000x17000'
+      - series: 'security_accept_expiry_timestamp_seconds{id="CVE-2026-3",scope="usr/bin/x"}'
+        values: '3000000x17000'
+    alert_rule_test:
+      - eval_time: 4d4h
+        alertname: WeeklyUpdateDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Weekly update digest"
+              description: |-
+                <b>Apt</b> (all / security)
+                • no data
+
+                <b>Images</b> (Cup)
+                • no data
+
+                <b>Fixable critical CVEs</b>
+                • no data
+
+                <b>CVE acceptances to re-review</b> (trivy-accepted.yaml: expired or expiring within 14 days)
+                • CVE-2026-1 (usr/local/bin/gosu): expires in 7d 9h 46m 40s
+                • CVE-2026-2 (pkg:pypi/setuptools@70.3.0): expired
+
+                <b>Unraid</b>
+                • no data
+                • plugins: none
+
+                <b>CrowdSec</b>
+                • no data
+                • bouncer plugin no data
+
+                <b>Antivirus</b> (last new-files scan)
+                • no data
+                • corrupt downloads caught this week: no data
+
+                <b>Rootkit</b> (new findings)
+                • no data
+
+                <b>Lynis</b>
+                • no data

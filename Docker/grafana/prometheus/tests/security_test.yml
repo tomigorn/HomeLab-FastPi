@@ -248,3 +248,41 @@ tests:
       - eval_time: 3h
         alertname: NewFixableImageVulnerability
         exp_alerts: []
+
+  - name: an expired CVE acceptance alerts per entry, an active one does not
+    interval: 1m
+    input_series:
+      - series: 'security_accept_expiry_timestamp_seconds{id="CVE-2026-1",scope="usr/local/bin/gosu"}'
+        values: '600x60'
+      - series: 'security_accept_expiry_timestamp_seconds{id="CVE-2026-2",scope="pkg:pypi/msgpack@1.1.2"}'
+        values: '86400x60'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CveAcceptanceExpired
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: CveAcceptanceExpired
+        exp_alerts:
+          - exp_labels: {severity: info, id: CVE-2026-1, scope: usr/local/bin/gosu}
+            exp_annotations:
+              summary: "CVE acceptance expired: CVE-2026-1 (usr/local/bin/gosu)"
+              description: "The entry in Server/4-Security-Monitoring/trivy-accepted.yaml is past expired_at and no longer applied; its findings count as open again. Re-check the evidence, then renew expired_at (at most 90 days) or delete the entry."
+
+  - name: invalid CVE acceptance entries go to the digest
+    interval: 1m
+    input_series:
+      - series: 'security_accept_entries{state="invalid"}'
+        values: '0x10 2x10'
+      - series: 'security_accept_entries{state="active"}'
+        values: '5x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CveAcceptanceInvalid
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CveAcceptanceInvalid
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, state: invalid}
+            exp_annotations:
+              summary: "2 invalid CVE acceptance entr(y/ies), not applied"
+              description: "Entries in Server/4-Security-Monitoring/trivy-accepted.yaml need id, statement, paths or purls, and expired_at at most 90 days ahead. Find them: python3 test_security_scan.py (test_repo_accept_list_is_valid_and_fully_applied names the ids)."

@@ -142,6 +142,29 @@ groups:
           description: >-
             Update the image (Cup: https://cup.holy-grail.ch/). All findings: <code>/var/lib/security-scan/code-cves-&lt;repo&gt;.txt</code> or <code>image-cves-&lt;host&gt;.txt</code> on fastpi.
 
+      # Acceptance list (Server/4-Security-Monitoring/trivy-accepted.yaml): reviewed misreport / not_affected findings, suppressed in Trivy and counted as accepted. An entry past its expired_at is no longer applied, so its findings count as open again; this names the entry to re-review (renew with fresh evidence, or delete).
+      - alert: CveAcceptanceExpired
+        expr: security_accept_expiry_timestamp_seconds < time()
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "CVE acceptance expired: {{ $labels.id }} ({{ $labels.scope }})"
+          description: >-
+            The entry in Server/4-Security-Monitoring/trivy-accepted.yaml is past expired_at and no longer applied; its findings count as open again. Re-check the evidence, then renew expired_at (at most 90 days) or delete the entry.
+
+      # An entry without statement, scope (paths/purls) or expiry, or with an expiry beyond 90 days, is never applied.
+      - alert: CveAcceptanceInvalid
+        expr: security_accept_entries{state="invalid"} > 0
+        for: 0m
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "{{ $value }} invalid CVE acceptance entr(y/ies), not applied"
+          description: >-
+            Entries in Server/4-Security-Monitoring/trivy-accepted.yaml need id, statement, paths or purls, and expired_at at most 90 days ahead. Find them: python3 test_security_scan.py (test_repo_accept_list_is_valid_and_fully_applied names the ids).
+
       - alert: ImagesUnscannable
         expr: security_images_unscannable > 0
         for: 1d

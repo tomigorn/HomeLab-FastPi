@@ -45,7 +45,10 @@ groups:
             • {{ .Labels.host }}: {{ .Value }}{{ else }}
             • no data{{ end }}
 
-            <b>Unraid</b>
+            {{ with query `security_accept_expiry_timestamp_seconds - time() < 14 * 86400` }}<b>CVE acceptances to re-review</b> (trivy-accepted.yaml: expired or expiring within 14 days){{ range query `security_accept_expiry_timestamp_seconds - time() < 14 * 86400` | sortByLabel "id" }}
+            • {{ .Labels.id }} ({{ .Labels.scope | html }}): {{ if lt .Value 0.0 }}expired{{ else }}expires in {{ .Value | humanizeDuration }}{{ end }}{{ end }}
+
+            {{ end }}<b>Unraid</b>
             • {{ with query `security_unraid_os_update` }}{{ with first . }}{{ if eq .Value 1.0 }}OS {{ .Labels.installed }} → {{ .Labels.available }}{{ else }}OS {{ .Labels.installed }} current{{ end }}{{ end }}{{ else }}no data{{ end }}
             • plugins: {{ range $i, $s := query `security_unraid_plugin_update == 1` | sortByLabel "plugin" }}{{ if $i }}, {{ end }}{{ $s.Labels.plugin }}{{ else }}none{{ end }}
 
