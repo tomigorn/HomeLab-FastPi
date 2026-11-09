@@ -72,6 +72,14 @@ pub fn port(v: Option<&Value>) -> Option<u64> {
     v.and_then(Value::as_u64).filter(|p| *p <= 65535)
 }
 
+/// gluetun's public IP as stored in the history: an IPv4/IPv6 address string, anything else becomes empty.
+pub fn vpn_ip(v: Option<&Value>) -> String {
+    match v {
+        Some(Value::String(s)) if s.len() <= 45 && s.chars().all(|c| c.is_ascii_hexdigit() || c == '.' || c == ':') => s.clone(),
+        _ => String::new(),
+    }
+}
+
 /// Every Set-Cookie name=value pair, joined like a Cookie header.
 pub fn cookies(resp: &ureq::http::Response<ureq::Body>) -> Option<String> {
     let pairs: Vec<&str> = resp
@@ -174,6 +182,18 @@ mod tests {
         assert_eq!(port(Some(&json!("45000"))), None);
         assert_eq!(port(Some(&json!(-1))), None);
         assert_eq!(port(None), None);
+    }
+
+    #[test]
+    fn vpn_ip_only_plain_addresses() {
+        assert_eq!(vpn_ip(Some(&json!("198.51.100.7"))), "198.51.100.7");
+        assert_eq!(vpn_ip(Some(&json!("2001:db8::1"))), "2001:db8::1");
+        assert_eq!(vpn_ip(Some(&json!("<img src=x onerror=alert(1)>"))), "");
+        assert_eq!(vpn_ip(Some(&json!("1.2.3.4\"><b>"))), "");
+        assert_eq!(vpn_ip(Some(&json!("1".repeat(46)))), "");
+        assert_eq!(vpn_ip(Some(&json!(1234))), "");
+        assert_eq!(vpn_ip(Some(&json!(""))), "");
+        assert_eq!(vpn_ip(None), "");
     }
 
     #[test]

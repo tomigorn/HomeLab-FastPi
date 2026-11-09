@@ -9,8 +9,8 @@ Keeps qBittorrent's listen port on gluetun's forwarded VPN port and shows a stat
 | Interface binding | at start: `current_network_interface=tun0`, then restarts `qbittorrent_mouse` |
 | Reattach | qBit WebUI not 200/302 → restart `qbittorrent_mouse mousehole sabnzbd` (log line counted by `PortUpdaterReattachLoop`) |
 | Zero port | `ZERO_PORT_LIMIT` zero answers (`ZERO_RETRY_INTERVAL` s apart) → stop the three, restart `gluetun_mouse`, wait healthy, start them |
-| History | `/data/port-history.json`, one JSON object per line (format unchanged from legacy) |
-| Status page | `WEB_PORT`: `/`, `/index.html`, `/api/history`, `/api/status`; Basic auth when `WEB_USER` + `WEB_PASS` are set; non-GET → 501 |
+| History | `/data/port-history.json`, one JSON object per line (format unchanged from legacy); `vpn_ip` kept only if it is a plain IPv4/IPv6 string, else empty |
+| Status page | `WEB_PORT`: `/`, `/index.html`, `/api/history`, `/api/status`; Basic auth when `WEB_USER` + `WEB_PASS` are set, open when both are empty, locked (always 401) when only one is set (e.g. unreadable secret file); history values are HTML-escaped; non-GET → 501 |
 
 Docker API (through `socket-proxy-portupdater`, unversioned paths): `GET /containers/gluetun_mouse/json`, `POST /containers/{qbittorrent_mouse,mousehole,sabnzbd,gluetun_mouse}/{start,stop,restart}`. A subset of the legacy CLI's calls; the allow-list is unchanged.
 

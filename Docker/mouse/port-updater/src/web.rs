@@ -22,16 +22,38 @@ const REAL_IP_URL: &str = "https://api.ipify.org";
 const REAL_IP_TTL: Duration = Duration::from_secs(600);
 const MAX_CONNECTIONS: usize = 64;
 
+enum Auth {
+    Open,
+    Basic(Vec<u8>),
+    /// Only one of user and password set (e.g. an unreadable secret file): nobody gets in.
+    Locked,
+}
+
 pub struct State {
-    pub expected_auth: Option<Vec<u8>>,
+    auth: Auth,
     pub data_file: PathBuf,
     real_ip: Mutex<Option<(String, Instant)>>,
 }
 
 impl State {
     pub fn new(user: &str, pass: &str, data_file: PathBuf) -> Self {
-        let expected_auth = (!user.is_empty() && !pass.is_empty()).then(|| clients::basic(user, pass).into_bytes());
-        State { expected_auth, data_file, real_ip: Mutex::new(None) }
+        let auth = match (user.is_empty(), pass.is_empty()) {
+            (true, true) => Auth::Open,
+            (false, false) => Auth::Basic(clients::basic(user, pass).into_bytes()),
+            _ => {
+                eprintln!("[web-server] WEB_USER or WEB_PASS missing: status page locked");
+                Auth::Locked
+            }
+        };
+        State { auth, data_file, real_ip: Mutex::new(None) }
+    }
+
+    pub fn allows(&self, header: Option<&[u8]>) -> bool {
+        match &self.auth {
+            Auth::Open => true,
+            Auth::Basic(exp) => auth_ok(exp, header),
+            Auth::Locked => false,
+        }
     }
 
     /// Public IP of this container's own route (not the VPN), cached 10 min; only successes are cached.
@@ -83,9 +105,7 @@ pub async fn handle(req: Request<Incoming>, state: Arc<State>) -> Result<Respons
     if req.method() != Method::GET {
         return Ok(reply(StatusCode::NOT_IMPLEMENTED, None, Bytes::new()));
     }
-    if let Some(exp) = &state.expected_auth
-        && !auth_ok(exp, req.headers().get(header::AUTHORIZATION).map(|v| v.as_bytes()))
-    {
+    if !state.allows(req.headers().get(header::AUTHORIZATION).map(|v| v.as_bytes())) {
         let mut r = reply(StatusCode::UNAUTHORIZED, None, Bytes::new());
         r.headers_mut().insert(header::WWW_AUTHENTICATE, header::HeaderValue::from_static("Basic realm=\"port-updater\""));
         return Ok(r);
@@ -145,9 +165,21 @@ mod tests {
     }
 
     #[test]
-    fn auth_only_with_user_and_password() {
-        assert!(State::new("u", "", PathBuf::new()).expected_auth.is_none());
-        assert!(State::new("", "p", PathBuf::new()).expected_auth.is_none());
-        assert!(State::new("u", "p", PathBuf::new()).expected_auth.is_some());
+    fn open_only_without_user_and_password() {
+        let s = State::new("", "", PathBuf::new());
+        assert!(s.allows(None));
+        let s = State::new("u", "p", PathBuf::new());
+        assert!(s.allows(Some(b"Basic dTpw")));
+        assert!(!s.allows(None));
+    }
+
+    #[test]
+    fn half_configured_credentials_lock_the_page() {
+        for (u, p) in [("u", ""), ("", "p")] {
+            let s = State::new(u, p, PathBuf::new());
+            assert!(!s.allows(None));
+            assert!(!s.allows(Some(b"")));
+            assert!(!s.allows(Some(clients::basic(u, p).as_bytes())));
+        }
     }
 }

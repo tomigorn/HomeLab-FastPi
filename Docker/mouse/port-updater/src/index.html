@@ -118,6 +118,10 @@
       return Math.floor(delta / 86400) + 'd ' + Math.floor((delta % 86400) / 3600) + 'h';
     }
 
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+
     function badgeClass(event)  { return 'badge badge-' + (event || 'startup'); }
     function badgeLabel(event) {
       return { port_update: 'port update', stack_restart: 'stack restart', zero_port: 'zero port', startup: 'startup' }[event] || event;
@@ -125,13 +129,13 @@
 
     function portCell(val) {
       return (val !== undefined && val !== 0 && val !== null)
-        ? `<span class="port-val">${val}</span>`
+        ? `<span class="port-val">${esc(val)}</span>`
         : `<span style="color:#2d3748">—</span>`;
     }
 
     function ipCell(val) {
       return (val && val !== '')
-        ? `<span class="port-val">${val}</span>`
+        ? `<span class="port-val">${esc(val)}</span>`
         : `<span style="color:#2d3748">—</span>`;
     }
 
@@ -184,13 +188,13 @@
           : `<span class="uptime-dash">—</span>`;
         return `<tr>
           <td class="num">${num}</td>
-          <td><span class="${badgeClass(e.event)}">${badgeLabel(e.event)}</span></td>
-          <td class="ts">${e.timestamp || ''}</td>
+          <td><span class="${esc(badgeClass(e.event))}">${esc(badgeLabel(e.event))}</span></td>
+          <td class="ts">${esc(e.timestamp)}</td>
           <td>${portCell(e.port)}</td>
           <td>${portCell(e.old_port)}</td>
           <td style="text-align:right">${uptimeCell}</td>
           <td>${ipCell(e.vpn_ip)}</td>
-          <td class="msg">${e.message || ''}</td>
+          <td class="msg">${esc(e.message)}</td>
         </tr>`;
       }).join('');
     }

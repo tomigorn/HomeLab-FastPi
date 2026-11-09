@@ -201,7 +201,7 @@ impl Updater {
             self.login()?;
 
             let port = clients::port(self.gluetun_get("/v1/portforward", "port")?.as_ref());
-            let vpn_ip = self.gluetun_get("/v1/publicip/ip", "public_ip")?.map(|v| clients::raw(&v)).unwrap_or_default();
+            let vpn_ip = clients::vpn_ip(self.gluetun_get("/v1/publicip/ip", "public_ip")?.as_ref());
             let qbit_port = self.qbit_listen_port()?;
             let shown = port.map(|p| p.to_string()).unwrap_or_default();
 

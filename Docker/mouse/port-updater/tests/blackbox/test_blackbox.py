@@ -22,6 +22,7 @@ from mocks import World, load_allow_list
 SUT_CMD = shlex.split(os.environ.get("SUT_CMD", "/usr/local/bin/entrypoint.sh"))
 HAPROXY_CFG = os.environ.get("HAPROXY_CFG", "/haproxy.cfg")
 LEGACY_WEB = os.environ.get("LEGACY_WEB", "/src/legacy/web-server.py")
+PAGE_FILE = os.environ.get("PAGE_FILE")
 DATA = "/tmp/data"
 SECRETS = "/tmp/secrets"
 WEB = "http://127.0.0.1:8088"
@@ -35,6 +36,13 @@ def legacy_html():
         if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "HTML":
             return node.value.value
     raise RuntimeError("HTML not found in legacy web-server.py")
+
+
+def expected_html():
+    if PAGE_FILE:
+        with open(PAGE_FILE, "rb") as f:
+            return f.read()
+    return legacy_html().encode()
 
 
 def http(method, path, user=None, pw=None, auth_header=None):
@@ -268,7 +276,7 @@ class Web(Base):
         self.assertEqual(http("GET", "/api/history", "x", p)[0], 401)
         self.assertEqual(http("GET", "/api/history", auth_header="Bearer abc")[0], 401)
 
-        html = legacy_html().encode()
+        html = expected_html()
         for path in ("/", "/index.html"):
             code, hdr, body = http("GET", path, u, p)
             self.assertEqual(code, 200)
@@ -297,6 +305,39 @@ class Web(Base):
         self.assertEqual(http("GET", "/nope")[0], 401)
         self.assertEqual(http("POST", "/api/history", u, p)[0], 501)
         self.assertEqual(http("POST", "/")[0], 501)
+
+
+@unittest.skipUnless(PAGE_FILE, "the legacy page is not escaped")
+class PageEscapes(unittest.TestCase):
+    def test_history_values_are_escaped(self):
+        page = expected_html().decode()
+        self.assertIn("function esc(", page)
+        self.assertEqual(re.findall(r"\$\{(?:val|e\.\w+)\s*(?:\|\||\})", page), [])
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy stores any vpn_ip")
+class HostileVpnIp(Base):
+    def configure(self, w):
+        w.vpn_ip = '<img src=x onerror="alert(1)">'
+
+    def test_vpn_ip_not_stored(self):
+        self.wait_log(r"^Port updated to 45000$", 60)
+        up = [e for e in self.history() if e["event"] == "port_update"]
+        self.assertEqual(up[0]["vpn_ip"], "")
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy serves the page open")
+class WebHalfCredentials(Base):
+    web_pass = ""
+
+    def configure(self, w):
+        w.qbit_available = False
+
+    def test_locked_when_password_missing(self):
+        self.wait_web()
+        self.assertEqual(http("GET", "/api/history")[0], 401)
+        self.assertEqual(http("GET", "/api/history", self.web_user, "")[0], 401)
+        self.assertEqual(http("GET", "/", self.web_user, "x")[0], 401)
 
 
 class WebNoAuth(Base):
