@@ -42,3 +42,8 @@ if want samba; then
   # Host network: discovery and file service only on lo + eth0, never on a Docker bridge (D-14); encryption enforced.
   check mouse.samba-lan-only '^none Yes required$' "$(sudo -n ss -Hlntup 2>&1 | grep -E 'smbd|nmbd|wsdd2|avahi-daemon' | awk '{print $5}' | grep -E '%(br-|docker|veth)|^172\.' | xargs | sed 's/^$/none/') $(docker exec samba testparm -s -v 2>/dev/null | sed -n 's/^[[:space:]]*server smb encrypt = //p;s/^[[:space:]]*bind interfaces only = //p' | xargs)"
 fi
+if want autoheal-mouse; then
+  check mouse.autoheal-pin '^willfarrell/autoheal:latest@sha256:4c7ed9f223b0' "$(docker inspect -f '{{.Config.Image}}' autoheal-mouse)"
+  # the image's own unhealthy query (entrypoint functions) through socket-proxy-autoheal -> array, same count as docker ps
+  check mouse.autoheal-sees '^array ([0-9]+) \1$' "$(echo "$(docker exec autoheal-mouse sh -c 'eval "$(sed "/^if \[ \"\$1\" = \"autoheal\" \]/,\$d" /docker-entrypoint)" >/dev/null; get_container_info | jq -r "type, length"' 2>&1 | xargs) $(docker ps -q --filter label=autoheal-mouse=true --filter health=unhealthy | wc -l)")"
+fi

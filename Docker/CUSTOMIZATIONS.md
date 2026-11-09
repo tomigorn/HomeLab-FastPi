@@ -101,6 +101,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | gluetun pinned, ASN-locked server, port forwarding, control-server auth | `docker-compose.yaml`, `secrets/gluetun/auth/config.toml` | `docker compose up -d gluetun` | `mouse.gluetun-pin`: → v3.41.3; `mouse.gluetun-server`: → node-ch-07, forwarding on; `mouse.gluetun-control-auth`: anon → 401 401; `mouse.vpn-egress`: qBittorrent IP ≠ home IP → vpn | auth schema change |
 | SABnzbd local ranges + host whitelist | sabnzbd.ini [misc] (edit only while stopped) | edit with the container stopped | `mouse.sab-whitelist`: → the four ranges, host listed True; `mouse.sab-localhost`: :8090 → 200 | sabnzbd:latest migrating the ini |
 | Mousehole keeps the MAM session | `docker-compose.yaml` | `docker compose up -d mousehole` | `mouse.mousehole-mam`: /health → ok | state path changes (0.5) |
+| autoheal pinned to one audited digest (no release since 1.2.0, `latest` rebuilt weekly), sees its containers through socket-proxy-autoheal | `docker-compose.yaml` autoheal-mouse | new digest only after diffing `/docker-entrypoint`, then `SERVICES=autoheal-mouse update-project.sh … pull` | `mouse.autoheal-pin`: → latest@sha256:4c7ed9f2…; `mouse.autoheal-sees`: the image's own unhealthy query through the proxy → array n n | a new query shape the proxy denies (autoheal blind) |
 
 ## antivirus
 
@@ -110,6 +111,7 @@ Full functional check (not read-only, it toggles the canary): `scripts/canary-ve
 | Nightly new-files scan, weekly host scan (nightly 22:30 timer, window 22:00-06:00 + Sunday, resumable) | `systemd/clamav-*`, `install.sh` | `./install.sh` | `av.timers`: → active active, units same as repo; `av.services`: units same as repo; `av.nightly-scan`: last run → under 2 days | none |
 | `new`/`all` in `clamav` skip Prowlarr's config dir (`SCAN_EXCLUDE_DIRS=/scan/seagate-red/prowlarr`, unreadable for 65039 by design) | `docker-compose.yaml` clamav env, `clamav/scan.sh` `list_find` | `docker compose up -d --build clamav` | `av.nightly-scan`: last run → under 2 days | none |
 | Host scan without network, resumable, low priority, exclude list | `docker-compose.yaml` profile hostscan | `docker compose up -d --build clamav` (image) | `av.hostscan-no-network`: network_mode → none; `av.hostscan-resume`: SCAN_RESUME=1 and cpu_shares 2 in the config | none |
+| autoheal pinned to one audited digest, sees its containers through socket-proxy-autoheal | `docker-compose.yaml` autoheal-antivirus | as mouse | `av.autoheal-pin`: → latest@sha256:4c7ed9f2…; `av.autoheal-sees`: → array n n | a new query shape the proxy denies |
 
 ## Home-Assistant
 

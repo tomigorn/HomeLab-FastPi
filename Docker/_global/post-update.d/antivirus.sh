@@ -10,3 +10,8 @@ check av.timers '^active active same same$' "$(echo "$(systemctl is-active clama
 check av.hostscan-no-network '^none$' "$(cd "$AVD" && docker compose --profile hostscan config --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["services"]["clamav-hostscan"].get("network_mode"))')"
 check av.services '^same same$' "$(for u in clamav-scan clamav-hostscan; do cmp -s /etc/systemd/system/$u.service "$AVD/systemd/$u.service" && echo same || echo differs; done | xargs)"
 check av.hostscan-resume '^1 2$' "$(cd "$AVD" && docker compose --profile hostscan config --format json 2>/dev/null | python3 -c 'import json,sys; s=json.load(sys.stdin)["services"]["clamav-hostscan"]; e=s["environment"]; print(e.get("SCAN_RESUME"), s.get("cpu_shares"))')"
+if want autoheal-antivirus; then
+  check av.autoheal-pin '^willfarrell/autoheal:latest@sha256:4c7ed9f223b0' "$(docker inspect -f '{{.Config.Image}}' autoheal-antivirus)"
+  # the image's own unhealthy query (entrypoint functions) through socket-proxy-autoheal -> array, same count as docker ps
+  check av.autoheal-sees '^array ([0-9]+) \1$' "$(echo "$(docker exec autoheal-antivirus sh -c 'eval "$(sed "/^if \[ \"\$1\" = \"autoheal\" \]/,\$d" /docker-entrypoint)" >/dev/null; get_container_info | jq -r "type, length"' 2>&1 | xargs) $(docker ps -q --filter label=autoheal-antivirus=true --filter health=unhealthy | wc -l)")"
+fi

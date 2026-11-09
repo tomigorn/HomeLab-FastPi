@@ -7,7 +7,7 @@ services:
 # Autoheal ################################################
 # #########################################################
   autoheal-antivirus:
-    image: willfarrell/autoheal:latest
+    image: willfarrell/autoheal:latest@sha256:4c7ed9f223b06469a4bf3e29cb9f8d0c3d0e65a27b8deb7983543f80fab9e08c   # no release since 1.2.0 (2021); digest of the audited build (2026-11-08, same entrypoint as before)
     container_name: autoheal-antivirus
     user: "65011:65011"
     mem_limit: 64m
