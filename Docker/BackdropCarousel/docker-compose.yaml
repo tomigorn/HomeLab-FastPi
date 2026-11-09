@@ -11,6 +11,7 @@ services:
     user: "65008:65008"
     mem_limit: 32m
     cpus: 1.0
+    pids_limit: 64                 # with max_blocking_threads(16) in the binary
     read_only: true
     restart: unless-stopped
     security_opt:

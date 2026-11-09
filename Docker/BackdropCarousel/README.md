@@ -16,6 +16,7 @@ Photos: `photos/` (gitignored, mounted read-only), `.jpg .jpeg .png .webp .bmp .
 | | |
 |---|---|
 | Server | Rust (`rust/`, hyper), one static binary in a `scratch` image, uid 65008, read-only, 32 MB limit |
+| Connections | idle keep-alive closes after 10 s (header read timeout); after 300 s a connection takes no new request, finishes the one in flight, and is cut only 30 s later; blocking pool max 16 threads, `pids_limit: 64` |
 | Legacy | Python/FastAPI original in `legacy/` (until removed), runs with `docker build legacy/` |
 | Healthcheck | `/backdrop-carousel healthcheck` (the image has no shell) |
 
