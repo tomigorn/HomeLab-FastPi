@@ -475,7 +475,7 @@ services:
 # Port Updater ############################################
 # #########################################################
   port-updater:
-    build: ./port-updater
+    build: ./port-updater/legacy
     container_name: port_updater
     user: "65042:65042"
     mem_limit: 64m
