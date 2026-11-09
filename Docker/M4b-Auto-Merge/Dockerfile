@@ -1,14 +1,25 @@
+# Build context: the project folder (Docker/M4b-Auto-Merge).
+FROM rust:1-alpine AS build
+RUN apk add --no-cache musl-dev
+WORKDIR /src
+COPY rust/Cargo.toml rust/Cargo.lock* ./
+COPY rust/src ./src
+ENV CARGO_BUILD_JOBS=2
+RUN cargo test --release --locked && cargo build --release --locked && cp target/release/m4b-auto-merge /m4b-auto-merge
+
+FROM rust:1-alpine AS lock
+WORKDIR /src
+COPY rust/Cargo.toml ./
+COPY rust/src ./src
+RUN cargo generate-lockfile
+
+FROM scratch AS lockfile
+COPY --from=lock /src/Cargo.lock /Cargo.lock
+
+# The orchestrator this triggers (m4b-merge/orchestrate.py, mounted read-only) is Python and needs ssh, rsync and ffprobe, so the final stage keeps that runtime.
 FROM python:3.12-alpine
-
-# openssh-client + rsync: the orchestrator ships each book to beefy over ssh.
-# ffmpeg: the orchestrator's cheap local ffprobe check on the pulled .m4b.
-# The heavy encoding never happens here - it all runs on beefy.
 RUN apk add --no-cache openssh-client rsync ffmpeg \
- && pip install --no-cache-dir watchdog==6.0.0
-
-RUN adduser -D -u 65018 merger
-COPY app/watcher.py /app/watcher.py
-
+ && adduser -D -u 65018 merger
+COPY --from=build /m4b-auto-merge /usr/local/bin/m4b-auto-merge
 USER merger
-ENV PYTHONUNBUFFERED=1
-ENTRYPOINT ["python3", "/app/watcher.py"]
+ENTRYPOINT ["/usr/local/bin/m4b-auto-merge"]

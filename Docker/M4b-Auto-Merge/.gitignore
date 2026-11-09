@@ -24,3 +24,4 @@ auth.json
 
 __pycache__/
 *.pyc
+rust/target/
