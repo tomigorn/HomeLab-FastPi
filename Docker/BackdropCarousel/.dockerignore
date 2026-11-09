@@ -1,0 +1,5 @@
+photos/
+old/
+tests/
+rust/target/
+.env
