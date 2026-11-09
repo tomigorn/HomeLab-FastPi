@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starting Jellyfin</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;max-width:30rem;padding:2rem}
+  .spin{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border:4px solid #30363d;
+        border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  h1{font-size:1.4rem;margin:.4rem 0}
+  p{color:#8b949e;margin:.3rem 0}
+  .count{font-size:2.6rem;font-variant-numeric:tabular-nums;margin:.4rem 0;color:#58a6ff}
+  .ver{margin-top:1.4rem;color:#484f58;font-size:.75rem}
+</style></head>
+<body><div class="card">
+  <div class="spin"></div>
+  <h1 id="title">Starting Jellyfin&hellip;</h1>
+  <div class="count" id="count">~__COUNTDOWN__s</div>
+  <p id="sub">The media server is booting. You will be taken to Jellyfin automatically.</p>
+  <a id="retry" href="__BASE__" hidden>Try again</a>
+  <div class="ver">v__VERSION__</div>
+<script>
+const BASE = '__BASE__';
+const RETRY_TITLE = "Taking longer than it should";
+const RETRY_TEXT = "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more\u2026";
+const BROKEN_TITLE = "The server can't be started right now";
+const BROKEN_TEXT = "Something seems to be broken, or maintenance work is going on. The admin has been notified. Please try again later.";
+const WAKING_TITLE = 'Starting Jellyfin\u2026';
+const WAKING_TEXT = 'The media server is booting. You will be taken to Jellyfin automatically.';
+let left = __COUNTDOWN__;
+let phase = 'waking';
+let broken = false;
+const titleEl = document.getElementById('title');
+const countEl = document.getElementById('count');
+const subEl = document.getElementById('sub');
+const spinEl = document.querySelector('.spin');
+function tick(){
+  if(broken) return;
+  left -= 1;
+  if(left > 0){ countEl.textContent = '~' + left + 's'; }
+  else {
+    countEl.textContent = 'almost\u2026';
+    if(phase === 'waking') subEl.textContent = 'Taking a little longer than usual, still trying\u2026';
+  }
+}
+function apply(st){
+  const ph = st.phase || 'waking';
+  const retry = (ph === 'power_cycle' || ph === 'retrying');
+  const was = phase;
+  phase = ph;
+  broken = (ph === 'broken');
+  spinEl.style.display = broken ? 'none' : '';
+  document.getElementById('retry').hidden = !broken;
+  if(broken){
+    titleEl.textContent = BROKEN_TITLE; subEl.textContent = BROKEN_TEXT; countEl.textContent = '';
+  } else if(retry){
+    titleEl.textContent = RETRY_TITLE; subEl.textContent = RETRY_TEXT;
+    if(typeof st.seconds_left === 'number'){ left = st.seconds_left; countEl.textContent = '~' + left + 's'; }
+    else countEl.textContent = '';
+  } else if(was !== 'waking' && was !== 'idle'){
+    titleEl.textContent = WAKING_TITLE; subEl.textContent = WAKING_TEXT;
+    countEl.textContent = 'almost\u2026';
+  }
+}
+// null = unknown (network error, expired login redirect): keep the current view
+async function status(){
+  try{
+    const r = await fetch(BASE + 'status', {cache:'no-store', redirect:'manual'});
+    if(!r.ok) return null;
+    return await r.json();
+  }
+  catch(e){ return null; }
+}
+async function poll(){
+  const st = await status();
+  if(st && st.up){
+    titleEl.textContent = 'Jellyfin is ready';
+    location.replace('/web/');
+    return;
+  }
+  if(st) apply(st);
+  setTimeout(poll, 2000);
+}
+(async () => {
+  const st0 = await status();
+  if(st0 && st0.up){ location.replace('/web/'); return; }
+  fetch(BASE + 'wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
+  setInterval(tick, 1000);
+  setTimeout(poll, 2000);
+})();
+</script>
+</div></body></html>

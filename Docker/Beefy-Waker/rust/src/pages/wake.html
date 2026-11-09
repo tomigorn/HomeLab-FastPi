@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wake beefy</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;width:min(95vw,80rem);padding:1.5rem}
+  /* keep the hero a tidy centered column; the history log uses the full width */
+  #checking,#asleep,#waiting,#done{max-width:32rem;margin:0 auto}
+  .btn{display:inline-block;border:0;cursor:pointer;font:inherit;font-weight:600;
+       font-size:1.35rem;padding:1rem 2.6rem;margin:.9rem 0;border-radius:.7rem;
+       background:#238636;color:#fff}
+  .btn:hover{background:#2ea043} .btn:active{transform:translateY(1px)}
+  .moon{font-size:3rem;line-height:1;margin:0 auto 1rem}
+  .spin{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border:4px solid #30363d;
+        border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
+  .ok{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border-radius:50%;
+      background:#1f6f3f;display:flex;align-items:center;justify-content:center;font-size:2rem}
+  h1{font-size:1.4rem;margin:.4rem 0}
+  p{color:#8b949e;margin:.3rem 0}
+  .count{font-size:2.6rem;font-variant-numeric:tabular-nums;margin:.4rem 0;color:#58a6ff}
+  .hidden{display:none}
+  details.hist{margin-top:2.2rem;text-align:left;border-top:1px solid #21262d;padding-top:1rem}
+  summary{cursor:pointer;color:#8b949e;font-size:.95rem;user-select:none}
+  .tl{margin:.9rem 0 0;font-size:.85rem;line-height:1.7;
+      max-height:60vh;overflow-y:auto}
+  .tl .up{color:#3fb950}
+  .tl .sleep{color:#6e7681;padding-left:.15rem}
+  .muted{color:#6e7681}
+  .hist a{color:#58a6ff}
+  .ver{margin-top:1.4rem;color:#484f58;font-size:.75rem;letter-spacing:.02em}
+</style></head>
+<body><div class="card">
+  <div id="checking">
+    <div class="spin"></div>
+    <h1>Checking beefy&hellip;</h1>
+    <p>Reading current state&hellip;</p>
+  </div>
+  <div id="asleep" class="hidden">
+    <div class="moon">&#128164;</div>
+    <h1>beefy is asleep</h1>
+    <p>Send a wake-up packet to start it.</p>
+    <button id="wakeBtn" class="btn">Wake beefy</button>
+  </div>
+  <div id="waiting" class="hidden">
+    <div class="spin"></div>
+    <h1 id="waittitle">Waking up beefy&hellip;</h1>
+    <div class="count" id="count">~__COUNTDOWN__s</div>
+    <p id="sub">Magic packet sent. Checking when it answers&hellip;</p>
+  </div>
+  <div id="done" class="hidden">
+    <div class="ok">&#10003;</div>
+    <h1>beefy is up and running</h1>
+    <p>You can reach its services now.</p>
+  </div>
+  <details class="hist" id="hist"><summary>beefy history</summary><div id="histbody"></div></details>
+  <div class="ver">v__VERSION__</div>
+<script>
+const AUTOWAKE = __AUTOWAKE__;
+const TOTAL = __COUNTDOWN__;
+let left = TOTAL;
+let mode = 'idle';            // 'idle' = live state view, 'waking' = countdown
+let countTimer = null;
+const countEl = document.getElementById('count');
+const subEl = document.getElementById('sub');
+const titleEl = document.getElementById('waittitle');
+const spinEl = document.querySelector('#waiting .spin');
+const RETRY_TITLE = "Taking longer than it should";
+const RETRY_TEXT = "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more\u2026";
+const BROKEN_TITLE = "The server can't be started right now";
+const BROKEN_TEXT = "Something seems to be broken, or maintenance work is going on. The admin has been notified. Please try again later.";
+let phase = 'idle';
+
+function applyPhase(st){
+  phase = st.phase || 'idle';
+  const broken = phase === 'broken', retry = phase === 'power_cycle' || phase === 'retrying';
+  spinEl.style.display = broken ? 'none' : '';
+  if(broken){
+    titleEl.textContent = BROKEN_TITLE; subEl.textContent = BROKEN_TEXT; countEl.textContent = '';
+  } else if(retry){
+    titleEl.textContent = RETRY_TITLE; subEl.textContent = RETRY_TEXT;
+    if(typeof st.seconds_left === 'number'){ left = st.seconds_left; countEl.textContent = '~' + left + 's'; }
+    else countEl.textContent = '';
+  } else {
+    titleEl.textContent = 'Waking up beefy\u2026';
+  }
+}
+function show(id){
+  for(const v of ['checking','asleep','waiting','done'])
+    document.getElementById(v).classList.toggle('hidden', v !== id);
+}
+function showUp(){ show('done'); document.title = 'beefy is up'; }
+function tick(){
+  if(phase === 'broken' || ((phase === 'power_cycle' || phase === 'retrying') && left <= 0)) return;
+  left -= 1;
+  if(left > 0){ countEl.textContent = '~' + left + 's'; }
+  else if(phase === 'waking' || phase === 'idle') {
+    countEl.textContent = 'almost\u2026';
+    subEl.textContent = 'Taking a little longer than usual, still trying\u2026';
+  }
+}
+function startWaking(){
+  mode = 'waking'; left = TOTAL; phase = 'waking';
+  titleEl.textContent = 'Waking up beefy\u2026';
+  spinEl.style.display = '';
+  countEl.textContent = '~' + TOTAL + 's';
+  subEl.textContent = 'Magic packet sent. Checking when it answers\u2026';
+  show('waiting');
+  fetch('/wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
+  if(!countTimer) countTimer = setInterval(tick, 1000);
+}
+async function poll(){
+  let up = false, st = {}, ok = true;
+  try{
+    const r = await fetch('/status', {cache:'no-store'});
+    if(!r.ok) throw 0;
+    st = await r.json(); up = st.up;
+  }
+  catch(e){ ok = false; }
+  if(!ok){ setTimeout(poll, 3000); return; }
+  if(mode === 'waking' && !up) applyPhase(st);
+  if(up){
+    if(countTimer){ clearInterval(countTimer); countTimer = null; }
+    mode = 'idle'; showUp();
+  } else if(mode === 'idle'){
+    show('asleep');
+  }
+  setTimeout(poll, 3000);
+}
+document.getElementById('wakeBtn').addEventListener('click', startWaking);
+if(AUTOWAKE) startWaking();
+poll();
+
+// --- collapsed "beefy history" panel: lazy-fetch on first open ---
+const hist = document.getElementById('hist');
+let histLoaded = false;
+hist.addEventListener('toggle', async () => {
+  if(!hist.open || histLoaded) return;
+  histLoaded = true;
+  const body = document.getElementById('histbody');
+  body.innerHTML = '<p class="muted">Loading\u2026</p>';
+  try{
+    const r = await fetch('/history', {cache:'no-store'});
+    if(!r.ok) throw new Error('unreachable');
+    body.innerHTML = renderHist(await r.json());
+  }catch(e){
+    histLoaded = false; // allow a retry
+    body.innerHTML = '<p class="muted">History loads once beefy is awake. '
+      + '<a href="#" id="retry">\u21BB retry</a></p>';
+    document.getElementById('retry').onclick = ev => {
+      ev.preventDefault(); hist.dispatchEvent(new Event('toggle')); };
+  }
+});
+function fmtDur(ms){
+  const s = Math.max(0, Math.round(ms/1000));
+  const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+  if(d) return d+'d '+h+'h'; if(h) return h+'h '+m+'m'; return m+'m';
+}
+function fmtDate(ms){
+  return new Date(ms).toLocaleString([], {month:'short', day:'numeric',
+    hour:'2-digit', minute:'2-digit'});
+}
+function renderHist(boots){
+  if(!Array.isArray(boots) || !boots.length) return '<p class="muted">No sessions recorded '
+    + 'yet \u2014 tracking from now on.</p>';
+  boots.sort((a,b)=> b.index - a.index); // most recent first
+  let html = '<div class="tl">';
+  for(let i=0;i<boots.length;i++){
+    const start = boots[i].first_entry/1000, end = boots[i].last_entry/1000;
+    html += '<div class="up">\u{1F7E2} ' + fmtDate(start) + ' \u2192 ' + fmtDate(end)
+          + ' <span class="muted">(up ' + fmtDur(end-start) + ')</span></div>';
+    const older = boots[i+1];
+    if(older){
+      const gap = start - older.last_entry/1000;
+      if(gap > 0) html += '<div class="sleep">\u{1F634} asleep ' + fmtDur(gap) + '</div>';
+    }
+  }
+  return html + '</div>';
+}
+</script>
+</div></body></html>

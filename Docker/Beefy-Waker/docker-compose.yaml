@@ -6,7 +6,7 @@ services:
 # Beefy-Waker #############################################
 # #########################################################
   waker:
-    build: .                       # python:3.13-alpine + openssh-client (see Dockerfile)
+    build: .                       # Rust, static binary in a scratch image (see Dockerfile); legacy Python: app/
     image: beefy-waker:local
     container_name: beefy-waker
     restart: unless-stopped
@@ -15,33 +15,34 @@ services:
     network_mode: host
     env_file: .env
     volumes:
-      - ./app/waker.py:/app/waker.py:ro
-      - ./app/recovery.py:/app/recovery.py:ro
       - ./app/VERSION:/app/VERSION:ro        # app version shown in the page footer
       - /etc/localtime:/etc/localtime:ro      # local time in alert labels, like Home Assistant
-      # read-only forced-command key (journalctl --list-boots only) for /history
+      # read-only forced-command key (journalctl --list-boots only) for /history; host key pinned in known_hosts
       - ./secrets/beefy-history:/key:ro
       - ./secrets/known_hosts:/known_hosts:ro
       # node-exporter textfile dir: wake recovery metrics (beefy_wake.prom)
       - /var/lib/node-exporter/textfile:/textfile
-    command: ["python", "/app/waker.py"]
+      # Jellyfin /System/Info/Public cache (PUBLIC_INFO_CACHE=/tmp/public-info.json), kept across restarts and recreates
+      - cache:/tmp
     # Liveness probe for observability (docker ps shows healthy/unhealthy). NOTE:
     # plain compose does NOT auto-restart on unhealthy — restart:unless-stopped only
     # catches crashes/OOM. /status answers whenever the gate loop is alive.
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://192.168.1.2:9001/status', timeout=3)"]
+      test: ["CMD", "/beefy-waker", "--health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s
     # Non-root + no capabilities: it binds :9001 (>1024), sends a broadcast UDP
-    # packet (SO_BROADCAST is unprivileged), reads the mounted key, and runs ssh —
-    # none of which need root or any capability. uid 1000 owns app/secrets on the host.
-    user: "65005:65005"      # dedicated uid (not pi's 1000); secrets chowned to match
+    # packet (SO_BROADCAST is unprivileged), reads the mounted key and speaks SSH itself.
+    user: "65005:65005"      # dedicated uid (not pi's 1000); secrets chowned to match; host-output-guard lets this uid reach beefy
     group_add: ["65046"]     # textfile dir group (setgid), so the metrics file can be written
+    read_only: true
     cap_drop:
       - ALL
-    mem_limit: 64m
+    mem_limit: 32m           # RSS ~3 MB
+    cpus: 0.5
+    pids_limit: 32
     security_opt:
       - no-new-privileges:true
 
@@ -53,4 +54,5 @@ services:
 # =========================================================
 # Volumes =================================================
 # =========================================================
-# (none — app is a single bind-mounted script)
+volumes:
+  cache:

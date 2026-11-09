@@ -2,8 +2,9 @@
 BWD=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../Beefy-Waker" && pwd)
 if want waker; then
   check waker.status '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
-  # ssh (the /history panel) refuses to run without a passwd entry for the compose uid
-  check waker.ssh-user '^waker$' "$(docker exec beefy-waker sh -c 'getent passwd "$(id -u)" | cut -d: -f1' 2>&1)"
+  # Rust binary on scratch (no shell to exec into); /history speaks SSH itself with the pinned host key, checked only while beefy is up (never wakes)
+  check waker.rust '^\[/beefy-waker\] 65005:65005 true$' "$(docker inspect -f '{{.Config.Entrypoint}} {{.Config.User}} {{.HostConfig.ReadonlyRootfs}}' beefy-waker 2>&1)"
+  check waker.history '^(200|asleep)$' "$(if curl -s -m 5 http://192.168.1.2:9001/status | grep -q '"up": true'; then curl -s -m 15 -o /dev/null -w '%{http_code}' http://192.168.1.2:9001/history; else echo asleep; fi)"
   check waker.wake-csrf '^403 403$' "$(u=http://192.168.1.2:9001/wake; echo "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST $u) $(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST -H 'X-Wake: 1' -H 'Origin: https://evil.example.com' $u)")"   # D-11
   check waker.stream-auth '^401 401$' "$(u=http://192.168.1.2:9001/stream-auth; echo "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Uri: /Videos/x/stream' $u) $(curl -s -m 5 -o /dev/null -w '%{http_code}' -H 'X-Emby-Token: bad"x' $u)")"
   # wake recovery: metrics textfile written, 10 signed-in gate addresses in Traefik (Docker/CUSTOMIZATIONS.md "Beefy-Waker")

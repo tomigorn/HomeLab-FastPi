@@ -9,8 +9,7 @@ wake-on-demand phase. The off/on mechanism (`ssh beefy-poweroff` /
 `wakeonlan`) already exists; this is the **wake** half. beefy decides when to
 *sleep* itself (see `Server/8-Idle-Watcher.md` in the beefy repo).
 
-beefy can be woken **two ways**, both served by the one tiny `app/waker.py`
-(host network, `:9001`):
+beefy can be woken **two ways**, both served by one small Rust binary (`rust/`, scratch image, host network, `:9001`; Python original kept in `app/` until the owner removes it):
 
 1. **Automatically** — Traefik's `forwardAuth` gate (`/gate`) fires the WoL when a
    request arrives for a beefy service that's asleep.
@@ -33,7 +32,7 @@ request → Traefik router (a beefy host)
                  └─ browser re-polls every 5s until a poll returns 200
 ```
 
-- **No third-party WoL package.** The magic packet is ~3 lines of stdlib
+- **No third-party WoL package.** The magic packet is a few lines of plain UDP
   `socket`. The only reason a service exists at all is that `forwardAuth` speaks
   HTTP, not shell.
 - **No Traefik restart.** Pure dynamic config (`dynamic/beefy-wake.yml`),
@@ -107,7 +106,7 @@ Design: `docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
 
 ## Wake recovery (v1.6.2)
 
-A signed-in wake that does not come up gets one hard power-cycle via beefy's plug, then a Telegram alarm. Code: `app/recovery.py`. Design: `docs/superpowers/specs/2026-11-02-wake-recovery-design.md`.
+A signed-in wake that does not come up gets one hard power-cycle via beefy's plug, then a Telegram alarm. Code: `rust/src/recovery.rs` (Python original `app/recovery.py`). Design: `docs/superpowers/specs/2026-11-02-wake-recovery-design.md`.
 
 | Phase | Starts | Ends |
 |---|---|---|
@@ -118,7 +117,7 @@ A signed-in wake that does not come up gets one hard power-cycle via beefy's plu
 | `retrying` | plug back on | host answers → `idle` + `BeefyWakeRecovered`; 150 s nothing → `broken` |
 | `broken` | T2 failed, plug off on purpose, plug unreachable, or host up but service not ready 300 s after start | beefy answers (→ `BeefyWakeRecovered`) or 6 h latch ends |
 
-Verified live 2026-11-03: after the plug cut beefy stays off by itself (BIOS AC BACK not "Always On") but answers wake-on-LAN (sshd ~50 s after the packet), so `retrying` recovers it. Live tests run inside the container (`docker exec -i beefy-waker python -`), the Claude shell cannot reach beefy's ports.
+Verified live 2026-11-03: after the plug cut beefy stays off by itself (BIOS AC BACK not "Always On") but answers wake-on-LAN (sshd ~50 s after the packet), so `retrying` recovers it. Live tests: the host shell cannot reach beefy's app ports (host-output-guard lets only uid 65005 through); the Rust image has no shell, so run a side container as uid 65005 or use `tests/blackbox/` with fakes.
 
 Never a power cut while beefy answers; at most one per 6 h.
 
@@ -217,11 +216,14 @@ curl -s http://127.0.0.1:9001/history | python3 -c \
 
 | File | Purpose |
 |------|---------|
-| `app/waker.py` | Gate + status/wake/history endpoints + the manual page. Stdlib only. |
-| `app/recovery.py` | Wake recovery state machine, myStrom plug, alert POST, textfile writer. |
-| `app/VERSION` | App version (semver) shown in the page footer. **Bump on each user-facing change.** |
-| `Dockerfile` | `python:3.13-alpine` + `openssh-client` (for `/history`), passwd user `waker` = compose uid 65005 (ssh refuses an unknown uid), pip removed (stdlib-only app; pip's vendored libs were the only HIGH CVEs). |
-| `docker-compose.yaml` | Builds the image, host network, runs the script. |
+| `rust/src/main.rs` | Routes: gate, Jellyfin policy + holds, public-info cache, stream auth, status/wake, pages. |
+| `rust/src/recovery.rs` | Wake recovery state machine, myStrom plug, alert POST, textfile writer. |
+| `rust/src/history.rs` | `/history` over SSH in-process (russh, host key pinned from `known_hosts`, wrong key = refused). |
+| `rust/src/{web,wol,client,pyfmt}.rs` | HTTP server layer and magic packet (identical copies in Tower-Waker), LAN HTTP client, Python-compatible JSON/float output. |
+| `tests/blackbox/` | Black-box suite (97 tests, fakes for beefy, Jellyfin, myStrom, Alertmanager, WoL; network-less `ctest.sh` container): `run.sh old` (Python) / `run.sh new` (binary from `beefy-waker:local`, or `IMAGE=`). `bench.py`: latency of read-only endpoints. |
+| `app/` | Legacy Python app (`waker.py`, `recovery.py`, unit tests, `Dockerfile.python`) + `VERSION` (mounted at `/app/VERSION`, shown in the footer). |
+| `Dockerfile` | Rust build stage (`cargo test` + build, `rust:1-alpine` pinned by digest), final `scratch` image with the static binary and a uid-65005 `/tmp`. |
+| `docker-compose.yaml` | Host network, uid 65005, read-only root, volume `cache` at `/tmp` (public-info cache). |
 | `.env` | MAC, broadcast, probe, port, countdown, ssh user, history cutoff (no secrets). |
 | `secrets/` | Read-only history SSH key + `known_hosts` (gitignored). |
 | `Traefik/.../dynamic/beefy-wake.yml` | The `beefy-wake` forwardAuth middleware (auto gate). |
@@ -231,8 +233,11 @@ curl -s http://127.0.0.1:9001/history | python3 -c \
 
 ```sh
 cd /home/pi/Projects/Docker/Beefy-Waker
-docker compose up -d --build
+flock ~/.cache/claude-work/rust-build.lock ../_global/scripts/update-project.sh . build   # one Rust build at a time on fastpi
+tests/blackbox/run.sh new                                                                  # black-box suite on the built binary
 ```
+
+Rollback to Python (image `beefy-waker:pre-rust-2026-11-09`): `docker tag beefy-waker:pre-rust-2026-11-09 beefy-waker:local`, `git show <commit before the Rust cutover>:Docker/Beefy-Waker/docker-compose.yaml > docker-compose.yaml`, `docker compose up -d --force-recreate`.
 
 The `beefy-wake.yml` / `beefy-wol.yml` files in Traefik's dynamic dir are picked
 up automatically — no Traefik restart. (`/history` needs the one-time key setup in
@@ -278,7 +283,8 @@ See [`docs/2026-06-26-power-management-review.md`](docs/2026-06-26-power-managem
 for the full adversarial review. The essentials:
 
 **Waking beefy**
-- Listen backlog 64 (`request_queue_size`): a burst of parallel requests (Jellyfin home rows) is accepted at once, not retried by the kernel after 1-2 s.
+- Async server (tokio): a burst of parallel requests (Jellyfin home rows) is served at once.
+- `BEEFY_BROADCAST` must be an IPv4 address (no DNS lookups). SIGTERM stops the container at once.
 - Automatic: any request to a beefy service routed through the `beefy-wake` middleware.
 - Manual: the wake page (`/wol`, or `/` + Wake button), or `wakeonlan 74:56:3c:96:79:a3`
   from fastpi (out-of-band fallback if this container is down).
@@ -297,8 +303,7 @@ for the full adversarial review. The essentials:
 - A **Docker `healthcheck`** (`GET /status`) reports liveness. Note: plain compose does **not**
   auto-restart on unhealthy (only crashes/OOM are) — it's for observability + future
   autoheal/swarm.
-- A **per-request socket timeout** (`Handler.timeout`) so slow / never-finishing clients can't
-  exhaust worker threads.
+- Slow clients: 10 s to send the request headers, at most 512 open connections (since v2.0.0).
 
 **Known gaps still open (see review for detail)**
 - When attaching `beefy-wake` to a real beefy route, gate on the **service port**
@@ -307,7 +312,7 @@ for the full adversarial review. The essentials:
 - The waker is a **single point of failure** for automatic wakes; `wakeonlan` from fastpi is
   the out-of-band fallback. (Healthcheck gives observability but not auto-restart in plain compose.)
 
-**Versions:** Beefy-Waker `v1.6.2` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
+**Versions:** Beefy-Waker `v2.0.0` (page footer + `app/VERSION`), idle-watcher `v1.1.0`
 (its startup log banner).
 
 ## SSH wake: `ssh beefy` auto-wakes the box
