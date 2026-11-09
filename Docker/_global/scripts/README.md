@@ -7,7 +7,7 @@
 | `host-output-guard.sh [--persist]` | HOST-OUT-GUARD: what the host itself (incl. host-network containers) may open on beefy (OUTPUT) |
 | `iptables-persist.sh` | writes `/etc/iptables/rules.v4/v6` with only those chains; never `netfilter-persistent save` |
 | `smoke-test.sh` | end-to-end checks, must stay green |
-| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env, old image and, after an image change, the data backups; a failed backup aborts; backups owner-only). Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
+| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env, old image and, after an image change, the data backups; a failed backup aborts; backups owner-only). Shared tags: see below. Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
 | `rebuild_local.py` | weekly rebuild of the local images with tests and rollback (`Server/4-Security-Monitoring/auto-updates.md` "Local builds", list `../rebuild-local.conf`). Test: `python3 test_rebuild_local.py` |
 | `migrate-rollback-tags.sh` | one-shot: old `<repo>:rollback-*` tags -> `rollback.invalid/` (tags only). Test: `./test_migrate_rollback_tags.sh` |
 | `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
@@ -44,10 +44,21 @@ Closes the gap that `post-update-check.sh` and `smoke-test.sh` only run by hand:
 | What | `image-cleanup.sh`: removes images no container (running or stopped) uses, and build cache, both after 14 days. Never volumes, networks or containers. |
 | When | weekly `image-cleanup.timer`: fastpi Sun 05:30, beefy Sun 04:20 (inside the maintenance wake, never a wake of its own). Install: `_global/install-image-cleanup.sh` |
 | Unused clock | own state `/var/lib/image-cleanup/first-seen` (image ID, first seen unused). `prune --filter until` dates by build time, which would delete an image the day it was superseded |
-| Rollback | `update-project.sh` tags the previous image `rollback.invalid/<repo>:<date>-<project>` (UPDATE-RUNBOOK.md "Rollback tags"), so a superseded image stays 14 days. Those tags (and old `<repo>:rollback-*` ones): kept 14 days from the date in the tag (else the tag time), then cleaned. Kept always: images of any container, other tags containing `rollback`, images referenced in the repo's compose files and scripts. First run: dangling images and older tags of a repo in use start their 14 days then |
+| Rollback | `update-project.sh` tags the previous image `rollback.invalid/<repo>:<date>-<project>` (UPDATE-RUNBOOK.md "Rollback tags"), so a superseded image stays 14 days. Those tags (and old `<repo>:rollback-*` ones): kept 14 days from the date in the tag (else the tag time), then cleaned; only the newest `ROLLBACK_KEEP` (3, as in update-project.sh) per repo and project. Kept always: images of any container, other tags containing `rollback`, images referenced in the repo's compose files and scripts. First run: dangling images and older tags of a repo in use start their 14 days then |
+| Referenced | whole word only (`influxdb:2.9` is not `influxdb:2.9.1`). `repo:${VAR}` and a bare repo name (for `:latest`) only protect repositories no container uses (scanners, on-demand tools); for a repository in use its other tags are old tags and go |
 | Metrics | `docker_image_cleanup_{freed_bytes,removed_images,rollback_window_images,failed_images,last_run_timestamp_seconds}` in `image_cleanup.prom` |
-| By hand | `scripts/image-cleanup.sh --dry-run` lists what would go; `systemctl start image-cleanup.service` runs it (`KEEP_DAYS=7` env to change the age) |
+| By hand | `scripts/image-cleanup.sh --dry-run` lists what would go and, as `pending`, what goes later with its date; `systemctl start image-cleanup.service` runs it (`KEEP_DAYS=7` env to change the age) |
 | Test | `scripts/test_image_cleanup.sh` (fake docker) |
+
+## Shared tags
+When one project pulls a newer image under a tag others use too (`caddy:alpine`, `python:3.15.2-alpine3.24`), compose leaves the others on the old image.
+
+| | |
+|---|---|
+| By hand | `update-project.sh` prints `shared tag: <ref> also runs in <container> (<project>/<service>) …` with the recreate command after a successful run |
+| Nightly | `auto_update.py` recreates them through `update-project.sh <dir> recreate` (verify, rollback) when their row is `auto`/`edge-auto` and the service is in it; others are only logged. A major jump is held; a recreate that rolls back holds that tag (state `stale_bad`) |
+| Metric | `container_image_stale{host,project,service,container,image,running,tag,dir}`, `container_image_stale_containers`, `container_image_stale_last_run_timestamp_seconds` in `container_image_stale.prom`, written by every run and by `auto_update.py --stale-only`; beefy's republished by `security_scan.py updates` |
+| Alerts | `grafana/prometheus/rules/image-drift.yml`: `ContainerImageStale` (30 min), `ContainerImageStaleCheckMissing` (> 2 days) |
 
 ## subscription-alerts
 | | |
