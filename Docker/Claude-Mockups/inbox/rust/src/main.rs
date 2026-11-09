@@ -211,7 +211,11 @@ async fn main() {
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("sigterm handler");
     let mut int = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).expect("sigint handler");
     loop {
-        let permit = permits.clone().acquire_owned().await.expect("semaphore open");
+        let permit = tokio::select! {
+            _ = term.recv() => break,
+            _ = int.recv() => break,
+            p = permits.clone().acquire_owned() => p.expect("semaphore open"),
+        };
         tokio::select! {
             _ = term.recv() => break,
             _ = int.recv() => break,

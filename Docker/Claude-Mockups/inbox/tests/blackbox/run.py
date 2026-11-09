@@ -307,6 +307,22 @@ def suite(url, data, broken_url=None):
         shutil.rmtree(td)
 
 
+def sigterm_when_full(cmd, data):
+    port = free_port()
+    p = start(cmd, port, data)
+    held = [socket.create_connection(('127.0.0.1', port), 5) for _ in range(160)]
+    time.sleep(0.5)
+    t0 = time.time()
+    p.send_signal(signal.SIGTERM)
+    try:
+        p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        p.kill(); p.wait()
+    check('SIGTERM exits promptly with all connection slots held', time.time() - t0 < 3, round(time.time() - t0, 1))
+    for s in held:
+        s.close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--server-cmd')
@@ -322,6 +338,7 @@ def main():
             procs.append(start(a.server_cmd, port, d))
             procs.append(start(a.server_cmd, bport, '/nonexistent-dir/x'))
             suite('http://127.0.0.1:%d' % port, d, 'http://127.0.0.1:%d' % bport)
+            sigterm_when_full(a.server_cmd, d)
         elif a.url and a.data:
             suite(a.url, a.data)
         else:
