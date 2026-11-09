@@ -10,6 +10,8 @@ services:
     image: beefy-waker:local
     container_name: beefy-waker
     restart: unless-stopped
+    # SIGTERM inside a power cycle's plug-off window switches the plug back on (<=10 s) and alerts (<=5 s)
+    stop_grace_period: 20s
     # Host network so the magic packet can be broadcast onto the LAN
     # and so Traefik can reach the gate at <fastpi-ip>:${WAKER_LISTEN_PORT}.
     network_mode: host
@@ -22,7 +24,7 @@ services:
       - ./secrets/known_hosts:/known_hosts:ro
       # node-exporter textfile dir: wake recovery metrics (beefy_wake.prom)
       - /var/lib/node-exporter/textfile:/textfile
-      # Jellyfin /System/Info/Public cache (PUBLIC_INFO_CACHE=/tmp/public-info.json), kept across restarts and recreates
+      # Jellyfin /System/Info/Public cache (PUBLIC_INFO_CACHE=/tmp/public-info.json) and power-cycle state (WAKE_STATE_FILE=/tmp/power-cycle.state), kept across restarts and recreates
       - cache:/tmp
     # Liveness probe for observability (docker ps shows healthy/unhealthy). NOTE:
     # plain compose does NOT auto-restart on unhealthy — restart:unless-stopped only

@@ -42,6 +42,7 @@ BASE_ENV = {
     "BEEFY_PLUG": "http://127.0.0.4", "ALERTMANAGER_URL": "http://127.0.0.5:9093",
     "WAKE_METRICS": WORK + "/textfile/beefy_wake.prom", "HOLD_SECONDS": "2", "HOLD_SLOTS": "2",
     "PUBLIC_INFO_CACHE": WORK + "/public-info.json", "JELLYFIN_PORT": "8096",
+    "WAKE_STATE_FILE": WORK + "/power-cycle.state",
     "PATH": "/usr/local/bin:/usr/bin:/bin", "TZ": "UTC",
 }
 
@@ -360,9 +361,13 @@ class Base(unittest.TestCase):
         self.seerr.stop()
         (self.jf.start if self.jellyfin_up else self.jf.stop)()
         self.wol.reset()
+        self.before_start()
         self.sut = Sut(self.env)
         self.sut.start()
         self.addCleanup(self.sut.stop)
+
+    def before_start(self):
+        pass
 
     def status(self, path="/status"):
         s, h, b, _ = req("GET", path)
@@ -1217,6 +1222,112 @@ class Recovery(Base):
         st = self.status()
         self.assertEqual(st["phase"], "waking")
         self.assertIn(st["seconds_left"], (1, 2))
+
+
+RUST_ONLY = unittest.skipIf("python" in SUT, "Rust waker only")
+STATE = BASE_ENV["WAKE_STATE_FILE"]
+
+
+@RUST_ONLY
+class PowerCycleInterrupted(Base):
+    env = REC
+
+    def stop_sut(self, timeout=20):
+        self.sut.proc.terminate()
+        return self.sut.proc.wait(timeout)
+
+    def test_sigterm_during_plug_off_switches_plug_on(self):
+        req("POST", "/jf/wake", SIGNED_JF)
+        self.assertTrue(wait_for(lambda: self.plug.relay is False, 6))
+        self.assertTrue(os.path.exists(STATE))
+        self.assertEqual(self.stop_sut(), 0)
+        self.assertTrue(self.plug.relay)
+        self.assertEqual(self.plug.relay_calls(), ["/relay?state=0", "/relay?state=1"])
+        self.assertFalse(os.path.exists(STATE))
+        self.assertTrue(self.log_lines("power cycle interrupted by shutdown, plug switched back on"), self.sut.log())
+        a = self.am.alerts()
+        self.assertEqual(len(a), 1)
+        self.assertEqual(a[0][1][0]["labels"]["alertname"], "BeefyWakeFailed")
+        self.assertIn("interrupted", a[0][1][0]["annotations"]["summary"])
+
+    def test_sigterm_when_idle_leaves_plug_alone(self):
+        self.assertEqual(self.stop_sut(), 0)
+        self.assertEqual(self.plug.requests, [])
+        self.assertEqual(self.am.alerts(), [])
+
+    def test_state_file_cleared_after_plug_back_on(self):
+        req("POST", "/jf/wake", SIGNED_JF)
+        self.assertTrue(wait_for(lambda: self.plug.relay is False, 6))
+        self.assertTrue(wait_for(lambda: self.plug.relay is True, 22))
+        self.assertTrue(wait_for(lambda: not os.path.exists(STATE), 2))
+
+
+class InterruptedStateOnStart(Base):
+    age = 30
+    relay = False
+
+    def before_start(self):
+        self.plug.relay = self.relay
+        with open(STATE, "w") as f:
+            f.write("%.3f\n" % (time.time() - self.age))
+
+    def wait_done(self):
+        self.assertTrue(wait_for(lambda: not os.path.exists(STATE), 8), self.sut.log())
+        time.sleep(1)
+
+
+@RUST_ONLY
+class ResumeRecentOff(InterruptedStateOnStart):
+    def test_plug_switched_on_once(self):
+        self.wait_done()
+        self.assertTrue(self.plug.relay)
+        self.assertEqual(self.plug.relay_calls(), ["/relay?state=1"])
+        self.assertTrue(self.log_lines("interrupted power cycle found at start, plug switched back on"), self.sut.log())
+        a = self.am.alerts()
+        self.assertEqual(len(a), 1)
+        self.assertEqual(a[0][1][0]["labels"]["alertname"], "BeefyWakeFailed")
+        self.assertIn("interrupted", a[0][1][0]["annotations"]["summary"])
+        self.sut.stop()
+        self.sut = Sut(self.env)
+        self.sut.start()
+        self.addCleanup(self.sut.stop)
+        time.sleep(1.5)
+        self.assertEqual(self.plug.relay_calls(), ["/relay?state=1"])
+
+
+@RUST_ONLY
+class ResumeStale(InterruptedStateOnStart):
+    age = 3600
+
+    def test_stale_state_ignored(self):
+        self.wait_done()
+        self.assertFalse(self.plug.relay)
+        self.assertEqual(self.plug.relay_calls(), [])
+        self.assertEqual(self.am.alerts(), [])
+
+
+@RUST_ONLY
+class ResumePlugAlreadyOn(InterruptedStateOnStart):
+    relay = True
+
+    def test_plug_on_left_alone(self):
+        self.wait_done()
+        self.assertEqual(self.plug.relay_calls(), [])
+        self.assertEqual(self.am.alerts(), [])
+
+
+@RUST_ONLY
+class LoopSupervisor(Base):
+    env = dict(REC, WAKER_TEST_PANIC_RUNS="2")
+
+    def test_panicking_loop_is_restarted_and_alerts_once(self):
+        self.assertTrue(wait_for(lambda: len(self.log_lines("recovery loop panicked")) >= 2, 8), self.sut.log())
+        self.assertTrue(self.wait_log("recovery loop restarted", 5), self.sut.log())
+        req("POST", "/jf/wake", SIGNED_JF)
+        self.assertTrue(wait_for(lambda: self.status()["phase"] == "power_cycle", 8), self.sut.log())
+        a = [x for x in self.am.alerts() if "loop" in x[1][0]["annotations"]["summary"]]
+        self.assertEqual(len(a), 1)
+        self.assertEqual(a[0][1][0]["labels"]["alertname"], "BeefyWakeFailed")
 
 
 if __name__ == "__main__":

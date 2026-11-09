@@ -2,8 +2,8 @@
 //! Phases: idle, waking, power_cycle, retrying, broken. One campaign at a time; the step loop is the only mover.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
@@ -16,6 +16,11 @@ use crate::wol;
 pub const PHASES: [&str; 5] = ["idle", "waking", "power_cycle", "retrying", "broken"];
 pub const REASONS: [&str; 4] = ["no_boot", "service_down", "plug_off", "plug_unreachable"];
 const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
+/// An interrupted power cycle older than this is not resumed at start.
+const RESUME_MAX_AGE: f64 = 600.0;
+/// Plug-on budget on SIGTERM; compose stop_grace_period must cover it plus the alert (5 s).
+const SHUTDOWN_PLUG_TIMEOUT: Duration = Duration::from_secs(10);
+const LOOP_BACKOFF_MAX: u64 = 60;
 
 fn reason_text(r: &str) -> &'static str {
     match r {
@@ -25,6 +30,9 @@ fn reason_text(r: &str) -> &'static str {
         _ => "the beefy plug does not answer or did not switch",
     }
 }
+
+const INTERRUPTED_DESCRIPTION: &str = "A waker stop or recreate fell into the 15 s plug-off window of a power cycle; the plug was switched back on, beefy stays off until the next wake. Check the beefy plug in Home Assistant.";
+const LOOP_DESCRIPTION: &str = "The wake recovery loop of beefy-waker crashed and was restarted; see docker logs beefy-waker.";
 
 fn alert_description(name: &str) -> &'static str {
     match name {
@@ -135,6 +143,10 @@ impl Plug {
 }
 
 pub async fn post_alert(url: &str, name: &str, severity: &str, summary: &str, details: &str) -> bool {
+    post_alert_desc(url, name, severity, summary, details, alert_description(name)).await
+}
+
+async fn post_alert_desc(url: &str, name: &str, severity: &str, summary: &str, details: &str, description: &str) -> bool {
     let Some(b) = BaseUrl::parse(url) else { return false };
     let now = wall();
     let local = chrono::DateTime::from_timestamp(now as i64, 0).map(|t| t.with_timezone(&chrono::Local));
@@ -145,7 +157,7 @@ pub async fn post_alert(url: &str, name: &str, severity: &str, summary: &str, de
     let iso = |t: f64| chrono::DateTime::from_timestamp(t as i64, 0).map(|d| d.format("%Y-%m-%dT%H:%M:%SZ").to_string()).unwrap_or_default();
     let body = json!([{
         "labels": {"alertname": name, "host": "beefy", "severity": severity, "source": "beefy-waker", "at": at},
-        "annotations": {"summary": summary, "time": time, "details": details, "description": alert_description(name)},
+        "annotations": {"summary": summary, "time": time, "details": details, "description": description},
         "startsAt": iso(now), "endsAt": iso(now + 3600.0)}]);
     let path = format!("{}/api/v2/alerts", b.base);
     match client::request("POST", &b.host, b.port, &path, &[("content-type", "application/json")], Some(pyfmt::dumps(&body).into_bytes()), 1 << 16, Duration::from_secs(5)).await {
@@ -278,10 +290,14 @@ pub struct Recovery {
     plug: Plug,
     alert_url: String,
     metrics_path: String,
+    state_file: String,
+    stopping: AtomicBool,
+    task: Mutex<Option<tokio::task::AbortHandle>>,
+    test_panic_runs: AtomicU64,
 }
 
 impl Recovery {
-    pub fn new(tm: Timings, probe_host: String, host_port: u16, mac: [u8; 6], broadcast: String, plug_url: &str, alert_url: String, metrics_path: String) -> Self {
+    pub fn new(tm: Timings, probe_host: String, host_port: u16, mac: [u8; 6], broadcast: String, plug_url: &str, alert_url: String, metrics_path: String, state_file: String) -> Self {
         let mut st = State {
             phase: "idle",
             reason: "",
@@ -310,7 +326,7 @@ impl Recovery {
             extended: false,
         };
         st.reset_campaign();
-        Recovery { st: Mutex::new(st), emit_lock: Mutex::new(()), tm, probe_host, host_port, mac, broadcast, plug: Plug::new(plug_url), alert_url, metrics_path }
+        Recovery { st: Mutex::new(st), emit_lock: Mutex::new(()), tm, probe_host, host_port, mac, broadcast, plug: Plug::new(plug_url), alert_url, metrics_path, state_file, stopping: AtomicBool::new(false), task: Mutex::new(None), test_panic_runs: AtomicU64::new(0) }
     }
 
     fn s(&self) -> MutexGuard<'_, State> {
@@ -392,7 +408,119 @@ impl Recovery {
         write_textfile(&self.metrics_path, &self.snapshot());
     }
 
+    /// Fault injection for the black-box suite: the first `n` loop runs panic.
+    pub fn set_test_panic_runs(&self, n: u64) {
+        self.test_panic_runs.store(n, Ordering::Relaxed);
+    }
+
+    /// The plug-off window is persisted, so a stop or restart inside it can switch the plug back on.
+    fn mark_cycle(&self) {
+        let tmp = format!("{}.tmp", self.state_file);
+        let res = std::fs::write(&tmp, format!("{}\n", wall())).and_then(|_| std::fs::rename(&tmp, &self.state_file));
+        if let Err(e) = res {
+            eprintln!("recovery: state file write failed: {e:?}");
+        }
+    }
+
+    fn clear_cycle(&self) {
+        match std::fs::remove_file(&self.state_file) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => eprintln!("recovery: state file remove failed: {e:?}"),
+            _ => {}
+        }
+    }
+
+    fn mid_cycle(&self) -> bool {
+        let s = self.s();
+        s.phase == "power_cycle" && s.sub == Sub::Off
+    }
+
+    async fn alert_interrupted(&self, summary: &str, details: &str) {
+        post_alert_desc(&self.alert_url, "BeefyWakeFailed", "critical", summary, details, INTERRUPTED_DESCRIPTION).await;
+    }
+
+    /// At start: a recent interrupted power cycle with the plug still off gets the plug switched on (never off).
+    pub async fn resume_interrupted(&self) {
+        let Ok(text) = std::fs::read_to_string(&self.state_file) else { return };
+        let age = text.trim().parse::<f64>().map(|t| wall() - t).unwrap_or(f64::INFINITY);
+        if !(0.0..RESUME_MAX_AGE).contains(&age) {
+            eprintln!("recovery: stale interrupted power cycle state ignored");
+            return self.clear_cycle();
+        }
+        match self.plug.relay().await {
+            Some(true) => eprintln!("recovery: interrupted power cycle found at start, plug already on"),
+            Some(false) => {
+                if self.plug.set(true).await {
+                    eprintln!("recovery: interrupted power cycle found at start, plug switched back on");
+                    self.alert_interrupted("Beefy wake: power cycle interrupted by a waker restart, plug switched back on", "plug=on").await;
+                } else {
+                    eprintln!("recovery: interrupted power cycle found at start, plug did not switch on");
+                    self.alert_interrupted("Beefy wake: power cycle interrupted by a waker restart, plug did not switch back on", "plug=off").await;
+                }
+            }
+            None => {
+                eprintln!("recovery: interrupted power cycle found at start, plug unreachable");
+                self.alert_interrupted("Beefy wake: power cycle interrupted by a waker restart, plug unreachable", "plug=unreachable").await;
+            }
+        }
+        self.clear_cycle();
+    }
+
+    /// On SIGTERM: stop the loop; inside the plug-off window switch the plug back on (bounded).
+    pub async fn shutdown(&self) {
+        self.stopping.store(true, Ordering::SeqCst);
+        if let Some(h) = self.task.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            h.abort();
+        }
+        tokio::task::yield_now().await;
+        if !self.mid_cycle() {
+            return;
+        }
+        if matches!(tokio::time::timeout(SHUTDOWN_PLUG_TIMEOUT, self.plug.set(true)).await, Ok(true)) {
+            self.clear_cycle();
+            eprintln!("recovery: power cycle interrupted by shutdown, plug switched back on");
+            self.alert_interrupted("Beefy wake: power cycle interrupted by a waker stop, plug switched back on", "plug=on").await;
+        } else {
+            eprintln!("recovery: power cycle interrupted by shutdown, plug did not switch back on (retried at next start)");
+        }
+    }
+
+    /// Resume an interrupted cycle, then run the step loop; a loop that panics or ends is logged, alerted once and restarted with backoff.
+    pub async fn supervise(self: Arc<Self>) {
+        self.resume_interrupted().await;
+        let mut backoff = 1;
+        let mut alerted = false;
+        loop {
+            if self.stopping.load(Ordering::SeqCst) {
+                return;
+            }
+            let r = self.clone();
+            let h = tokio::spawn(async move { r.run().await });
+            *self.task.lock().unwrap_or_else(|e| e.into_inner()) = Some(h.abort_handle());
+            let started = mono();
+            let res = h.await;
+            if self.stopping.load(Ordering::SeqCst) || matches!(&res, Err(e) if e.is_cancelled()) {
+                return;
+            }
+            if mono() - started >= LOOP_BACKOFF_MAX as f64 {
+                backoff = 1;
+            }
+            let what = if res.is_err() { "panicked" } else { "ended" };
+            eprintln!("recovery loop {what}, restarting in {backoff}s");
+            if !alerted {
+                alerted = true;
+                post_alert_desc(&self.alert_url, "BeefyWakeFailed", "critical", &format!("Beefy wake recovery loop {what} and was restarted"), &format!("phase={}", self.s().phase), LOOP_DESCRIPTION).await;
+            }
+            tokio::time::sleep(Duration::from_secs(backoff)).await;
+            backoff = (backoff * 2).min(LOOP_BACKOFF_MAX);
+            eprintln!("recovery loop restarted");
+        }
+    }
+
     pub async fn run(&self) {
+        if self.test_panic_runs.load(Ordering::Relaxed) > 0 {
+            self.test_panic_runs.fetch_sub(1, Ordering::Relaxed);
+            panic!("test fault injection (WAKER_TEST_PANIC_RUNS)");
+        }
         self.emit();
         loop {
             self.step().await;
@@ -529,13 +657,11 @@ impl Recovery {
             s.off_t = now;
             s.last_cycle_t = Some(now);
         }
+        self.mark_cycle();
         self.emit();
-        if !self.plug.set(false).await {
+        if !self.plug.set(false).await || self.plug.relay().await != Some(false) {
             self.plug.set(true).await;
-            return self.to_broken("plug_unreachable", now).await;
-        }
-        if self.plug.relay().await != Some(false) {
-            self.plug.set(true).await;
+            self.leave_off();
             return self.to_broken("plug_unreachable", now).await;
         }
     }
@@ -550,8 +676,10 @@ impl Recovery {
                 return;
             }
             if !self.plug.set(true).await || self.plug.relay().await != Some(true) {
+                self.leave_off();
                 return self.to_broken("plug_unreachable", now).await;
             }
+            self.clear_cycle();
             let mut s = self.s();
             s.sub = Sub::On;
             s.on_t = now;
@@ -567,6 +695,12 @@ impl Recovery {
             }
             self.emit();
         }
+    }
+
+    /// Out of the plug-off window without a successful switch-on: the broken alert covers it, so nothing to resume.
+    fn leave_off(&self) {
+        self.s().sub = Sub::None;
+        self.clear_cycle();
     }
 
     async fn step_retrying(&self, now: f64) {
@@ -677,7 +811,7 @@ mod tests {
 
     #[test]
     fn status_truncates_like_int() {
-        let r = Recovery::new(Timings::new(120.0, 150.0, 20.0, 300.0), "127.0.0.1".into(), 1, [0; 6], "127.0.0.1".into(), "http://127.0.0.1:1", "http://127.0.0.1:1".into(), "/nonexistent/x".into());
+        let r = Recovery::new(Timings::new(120.0, 150.0, 20.0, 300.0), "127.0.0.1".into(), 1, [0; 6], "127.0.0.1".into(), "http://127.0.0.1:1", "http://127.0.0.1:1".into(), "/nonexistent/x".into(), "/nonexistent/s".into());
         let st = r.status();
         assert_eq!((st.phase, st.seconds_left, st.reason), ("idle", None, ""));
         r.s().phase = "waking";

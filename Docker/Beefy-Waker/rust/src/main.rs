@@ -733,6 +733,7 @@ fn main() {
     let hold_seconds = clamp_hold_seconds(&env_or("HOLD_SECONDS", "18"));
     let hold_slots = clamp_hold_slots(&env_or("HOLD_SLOTS", "16"));
     let public_info_cache = env_or("PUBLIC_INFO_CACHE", "/tmp/public-info.json");
+    let state_file = env_or("WAKE_STATE_FILE", "/tmp/power-cycle.state");
 
     let missing: Vec<&str> = [("BEEFY_MAC", &mac_str), ("BEEFY_PROBE_HOST", &probe_host)].iter().filter(|(_, v)| v.is_empty()).map(|(k, _)| *k).collect();
     if !missing.is_empty() {
@@ -750,7 +751,9 @@ fn main() {
         &plug,
         alert_url,
         metrics,
+        state_file,
     ));
+    recovery.set_test_panic_runs(py_int(&env_or("WAKER_TEST_PANIC_RUNS", "0")).unwrap_or(0).max(0) as u64);
     let app = Arc::new(App {
         mac_str,
         broadcast,
@@ -775,7 +778,7 @@ fn main() {
     mono();
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));
     rt.block_on(async move {
-        tokio::spawn(async move { recovery.run().await });
+        tokio::spawn(recovery.clone().supervise());
         tokio::task::yield_now().await;
         let listener = TcpListener::bind((bind.as_str(), port)).await.unwrap_or_else(|e| fail(&format!("bind {bind}:{port}: {e}")));
         println!(
@@ -787,6 +790,7 @@ fn main() {
             _ = web::serve(listener, move |r| a.clone().handle(r)) => {}
             _ = shutdown() => {}
         }
+        let _ = tokio::time::timeout(Duration::from_secs(16), recovery.shutdown()).await;
     });
 }
 

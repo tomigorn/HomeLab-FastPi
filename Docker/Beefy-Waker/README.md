@@ -121,6 +121,16 @@ Verified live 2026-11-03: after the plug cut beefy stays off by itself (BIOS AC 
 
 Never a power cut while beefy answers; at most one per 6 h.
 
+**Interrupted power cycle** (stop, recreate or crash inside the 15 s plug-off window): never switches the plug off.
+
+| When | What |
+|---|---|
+| plug switched off | `WAKE_STATE_FILE` (`/tmp/power-cycle.state`, volume `cache`) holds the cut time; removed when the window ends |
+| SIGTERM inside the window | loop stopped, plug on (≤10 s), `BeefyWakeFailed` "power cycle interrupted"; `stop_grace_period: 20s` |
+| start, state file < 10 min old, plug off | plug on once, log + `BeefyWakeFailed`; plug already on or file older: left alone; file removed |
+
+**Loop supervisor:** the recovery loop runs as its own task; if it panics or ends: log, `BeefyWakeFailed` "recovery loop … restarted" (once per process), restart after 1, 2, 4 … 60 s (reset after a 60 s run). The state stays, so a cycle in progress continues.
+
 **Who may escalate** (anyone else only sends a plain wake packet):
 
 | Source | Signed in when |
@@ -134,7 +144,7 @@ The LAN route `beefy-wol.fastpi.homelab` blanks `X-Authentik-*` (`beefy-wol-stri
 
 | alertname | Severity | When |
 |---|---|---|
-| `BeefyWakeFailed` 🆘 | critical | `broken` reached, once per episode |
+| `BeefyWakeFailed` 🆘 | critical | `broken` reached, once per episode; also an interrupted power cycle (plug switched back on) and a restarted recovery loop |
 | `BeefyWakeRecovered` ✅ | info | up after a power-cycle or after `broken` |
 
 **Metrics:** `/var/lib/node-exporter/textfile/beefy_wake.prom` (rewritten at start and on every change): `beefy_wake_phase{phase}`, `beefy_wake_campaigns_total{signed_in}`, `beefy_wake_power_cycles_total`, `beefy_wake_failures_total{reason}`, `beefy_wake_recoveries_total{after}`, `beefy_wake_last_event_timestamp_seconds{event}`. Grafana: row "beefy wake" + annotations on `homelab-morning`.
@@ -276,6 +286,7 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `BEEFY_PLUG` | beefy's myStrom plug. `http://192.168.1.152` |
 | `ALERTMANAGER_URL` | Where wake alarms go. `http://127.0.0.1:9093` |
 | `WAKE_METRICS` | Textfile in the container. `/textfile/beefy_wake.prom` |
+| `WAKE_STATE_FILE` | Power-cycle state (plug-off window), in the `cache` volume. `/tmp/power-cycle.state` |
 
 ## Operations & known limitations
 
@@ -284,7 +295,7 @@ for the full adversarial review. The essentials:
 
 **Waking beefy**
 - Async server (tokio): a burst of parallel requests (Jellyfin home rows) is served at once.
-- `BEEFY_BROADCAST` must be an IPv4 address (no DNS lookups). SIGTERM stops the container at once.
+- `BEEFY_BROADCAST` must be an IPv4 address (no DNS lookups). SIGTERM stops the container at once (inside a power cycle's plug-off window it first switches the plug back on).
 - Automatic: any request to a beefy service routed through the `beefy-wake` middleware.
 - Manual: the wake page (`/wol`, or `/` + Wake button), or `wakeonlan 74:56:3c:96:79:a3`
   from fastpi (out-of-band fallback if this container is down).
