@@ -10,8 +10,27 @@ if want prowlarr prowlarr-gate; then
   check mouse.prowlarr-lo-guard '^000 ok$' "$(docker exec qbittorrent_mouse curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:9696/ping) $(docker exec prowlarr-gate wget -q -O /dev/null http://127.0.0.1:9696/ping && echo ok)"
 fi
 if want qbittorrent; then
-  check mouse.qbit-5.2-pin '^qBittorrent v5\.2\.' "$(docker exec qbittorrent_mouse /app/qbittorrent-nox --version 2>/dev/null | tail -1)"
-  check mouse.qbit-auth-bypass '^WebUI\\AuthSubnetWhitelist=10\.24\.25\.3/32 WebUI\\AuthSubnetWhitelistEnabled=true$' "$(grep -E '^WebUI\\(AuthSubnetWhitelist|AuthSubnetWhitelistEnabled|ReverseProxySupportEnabled)=' "$QB/qBittorrent.conf" | xargs -d '\n')"
+  # MAM flags qBittorrent 4.3.4-4.4.5 and 4.5.2-4.6.7 (owner 2026-11-09); any other version is allowed
+  check mouse.qbit-mam-allowed '^v[0-9]+\.[0-9]+\.[0-9]+ allowed$' "$(docker exec qbittorrent_mouse /app/qbittorrent-nox --version 2>/dev/null | tail -1 | python3 -c 'import re,sys
+m = re.search(r"v(\d+)\.(\d+)\.(\d+)", sys.stdin.read()); v = tuple(map(int, m.groups())) if m else None
+print("v%d.%d.%d " % v + ("flagged" if any(a <= v <= b for a, b in [((4, 3, 4), (4, 4, 5)), ((4, 5, 2), (4, 6, 7))]) else "allowed") if v else "no version")')"
+  # the tracker's verdict: MAM answered qBittorrent 5.3.0 "is not allowed" on 2026-11-09 although its list did not flag it
+  check mouse.qbit-mam-accepted '^0 rejected [1-9][0-9]* working$' "$(for h in $(docker exec traefik wget -qO- -T 10 'http://10.24.25.2:8080/api/v2/torrents/info?limit=5&sort=added_on' 2>/dev/null | python3 -c 'import json,sys; print(" ".join(t["hash"] for t in json.load(sys.stdin)))' 2>/dev/null); do docker exec traefik wget -qO- -T 10 "http://10.24.25.2:8080/api/v2/torrents/trackers?hash=$h" 2>/dev/null; echo; done | python3 -c 'import json,sys
+t = [x for l in sys.stdin if l.strip() for x in json.loads(l) if x["url"].startswith("http")]
+print(sum("not allowed" in x["msg"] for x in t), "rejected", sum(x["status"] == 2 for x in t), "working")' 2>&1 | tail -1)"
+  # through Traefik's auth bypass: every complete torrent in a seeding state, none in error or missingFiles
+  check mouse.qbit-seeding '^([1-9][0-9]*) \1 0$' "$(docker exec traefik wget -qO- -T 10 http://10.24.25.2:8080/api/v2/torrents/info 2>/dev/null | python3 -c 'import json,sys
+t = json.load(sys.stdin); done = [x for x in t if x["progress"] == 1]
+print(len(done), sum(x["state"] in ("uploading", "stalledUP", "queuedUP", "forcedUP") for x in done), sum(x["state"] in ("error", "missingFiles") for x in t))' 2>&1 | tail -1)"
+  # 5.2 keeps the WebUI\X keys in [Preferences], 5.3 moves them to a [WebUI] section: both read as WebUI\X
+  check mouse.qbit-auth-bypass '^WebUI\\AuthSubnetWhitelist=10\.24\.25\.3/32 WebUI\\AuthSubnetWhitelistEnabled=true$' "$(python3 -c 'import re,sys
+sec, out = "", {}
+for l in open(sys.argv[1]):
+    l = l.strip(); m = re.match(r"\[(.*)\]$", l)
+    if m: sec = m.group(1); continue
+    k, _, v = l.partition("="); k = k if sec == "Preferences" else sec + "\\" + k
+    if k in ("WebUI\\AuthSubnetWhitelist", "WebUI\\AuthSubnetWhitelistEnabled", "WebUI\\ReverseProxySupportEnabled"): out[k] = v
+print(" ".join(f"{k}={v}" for k, v in sorted(out.items())))' "$QB/qBittorrent.conf" 2>&1)"
   check mouse.qbit-bypass-scope '403' "$(docker exec audiobook-importer python3 -c 'import urllib.request; urllib.request.urlopen("http://10.24.25.2:8080/api/v2/app/version", timeout=5)' 2>&1 | grep -o 'HTTP Error [0-9]*')"
   check mouse.qbit-vpn-bind '^Session\\Interface=tun0 Session\\InterfaceName=tun0$' "$(grep -E '^Session\\Interface(Name)?=' "$QB/qBittorrent.conf" | xargs -d '\n')"
   check mouse.qbit-category-abr '^/downloads/complete/abr -2 -2 -2$' "$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1]))["abr"]; print(c["save_path"], c["ratio_limit"], c["seeding_time_limit"], c["inactive_seeding_time_limit"])' "$QB/categories.json" 2>&1)"
