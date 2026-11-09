@@ -141,7 +141,7 @@ check "wiki -> sso"              '^https://sso\.holy-grail\.ch/application/o/aut
 check "notes -> sso"             '^https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve notes.holy-grail.ch:443:192.168.1.2 https://notes.holy-grail.ch/ | cut -c1-60)"
 check "claude-mockups inbox POST -> sso" '^https://sso\.holy-grail\.ch/' "$(curl -sk -m 10 -o /dev/null -w '%{redirect_url}' --resolve claude-mockups.holy-grail.ch:443:192.168.1.2 -X POST --data '{}' https://claude-mockups.holy-grail.ch/_inbox/submit | cut -c1-40)"
 check "beefy waker"                '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
-check "tower waker v1.3.0"         '1\.3\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
+check "tower waker v2.0.0"         '2\.0\.0' "$(curl -s -m 5 http://192.168.1.2:9002/nc | grep -o 'tower-waker [0-9.]*')"
 # Avatar picker loads its state (needs Authentik's user list; 503 = Authentik unreachable, the 2026-10-25 regression).
 # Asked inside the container (Rust binary's check subcommand) with the Traefik header secret, which is read there and never printed.
 running avatar-picker

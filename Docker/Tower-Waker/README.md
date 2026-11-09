@@ -7,6 +7,14 @@ always-on Traefik edge, on host network port **`:9002`** (`:9001` is
 for the endpoints, the gate, the wake page and the deploy steps; everything
 below is only what differs for tower).
 
+Since v2.0.0 the waker is Rust (`rust/`, static binary in a `scratch` image, uid 65006); the old Python app stays in `app/` (`app/Dockerfile.python`) until the owner removes it. Behaviour, pages, log lines and env vars are unchanged; the black-box suite proves it against both.
+
+| Path | What |
+|---|---|
+| `rust/` | the waker (`src/main.rs` routes + Nextcloud policy, `web.rs` HTTP layer, `wol.rs` magic packet; `web.rs`/`wol.rs` are identical copies of Beefy-Waker's) |
+| `tests/blackbox/` | black-box suite (32 tests, fakes for tower and the WoL broadcast, network-less `ctest.sh` container): `tests/blackbox/run.sh old` (Python) / `run.sh new` (binary from `tower-waker:local`) |
+| `app/` | legacy Python app + `VERSION` (mounted at `/app/VERSION`, shown in the pages) |
+
 ## How tower sleeps and wakes (the beefy logic, Unraid flavour)
 
 | Part | beefy | tower |
@@ -86,7 +94,9 @@ boot, Tools → Registration → Replace Key if the GUID changed.
 
 ## Operations
 
-- Listen backlog 64 (`request_queue_size`), same as Beefy-Waker.
+- At most 512 open connections, 10 s to send the request headers; SIGTERM stops it at once.
+- Healthcheck: `/tower-waker --health` (GET `/status` on the listen address).
+- WoL target (`TARGET_BROADCAST`) must be an IPv4 address (no DNS lookups).
 - `POST /wake` and `/nc/wake` need header `X-Wake: 1`, and a browser `Origin` must be this host, else 403 (CSRF guard, same as Beefy-Waker). ssh hook: `Match host tower exec "curl -fsS -m 5 -X POST -H X-Wake:1 http://192.168.1.2:9002/wake"`.
 - Out-of-band wake if this container is down: `wakeonlan 60:be:b4:17:0d:e0` on fastpi.
 - **Timing/checking trap:** every `ssh tower` fires `/wake`, and because the
@@ -106,4 +116,6 @@ boot, Tools → Registration → Replace Key if the GUID changed.
   2026-10-14 tower runs a perpetual **Starter** key (`Starter.key`; OS updates
   until 2027-10-14). Keep exactly one `.key` file in `/boot/config/`.
 
-**Rebuild** (`tower-waker:local`, FROM `python:3.13-alpine@sha256:…`, pinned by digest, A-30): set the `FROM` digest to the current one (`docker buildx imagetools inspect python:3.13-alpine`, first `Digest:`), then `docker compose up -d --build`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, tests and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py Tower-Waker`. The image has no pip (removed in the `Dockerfile`).
+**Rebuild** (`tower-waker:local`, build stage FROM `rust:1-alpine@sha256:…`, pinned by digest, A-30; `cargo test` runs in the build): `flock ~/.cache/claude-work/rust-build.lock ../_global/scripts/update-project.sh . build` (one Rust build at a time on fastpi). Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, runs the black-box suite on the new image and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py Tower-Waker`.
+
+**Rollback to Python:** `docker tag tower-waker:pre-rust-2026-11-09 tower-waker:local`, restore `docker-compose.yaml` from git (`git show <commit before the Rust cutover>:Docker/Tower-Waker/docker-compose.yaml`), `docker compose up -d --force-recreate`.

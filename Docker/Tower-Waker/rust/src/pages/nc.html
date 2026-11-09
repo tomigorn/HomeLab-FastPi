@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starting Nextcloud</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+  .card{text-align:center;max-width:28rem;padding:2rem}
+  h1{font-size:1.3rem;margin:.5rem 0} p{color:#8b949e;margin:.25rem 0}
+  .n{font-size:2.4rem;font-weight:700;margin:1rem 0}
+  footer{color:#484f58;font-size:.75rem;margin-top:1.5rem}
+</style></head>
+<body><div class="card">
+  <h1 id="title">Starting Nextcloud&hellip;</h1>
+  <p id="sub">The storage server is booting. You will be taken to Nextcloud automatically.</p>
+  <div class="n" id="n">__COUNTDOWN__</div>
+  <footer>tower-waker __VERSION__</footer>
+</div>
+<script>
+const base = "/tower-wake/";
+let left = __COUNTDOWN__, waited = 0;
+fetch(base + "wake", {method: "POST", headers: {"X-Wake": "1"}}).catch(() => {});
+const tick = setInterval(() => {
+  left = Math.max(0, left - 1); waited++;
+  document.getElementById("n").textContent = left > 0 ? left : "…";
+  if (waited > __GIVEUP__) {
+    clearInterval(tick);
+    document.getElementById("title").textContent = "Nextcloud did not start";
+    document.getElementById("sub").textContent = "Try again in a few minutes, or tell the admin.";
+  }
+}, 1000);
+async function poll() {
+  try {
+    const r = await fetch(base + "status", {cache: "no-store"});
+    if ((await r.json()).up) {
+      document.getElementById("title").textContent = "Nextcloud is ready";
+      location.replace("/");
+      return;
+    }
+  } catch (e) {}
+  setTimeout(poll, 3000);
+}
+poll();
+</script></body></html>

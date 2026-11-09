@@ -6,7 +6,7 @@ services:
 # Tower-Waker #############################################
 # #########################################################
   waker:
-    build: .                       # python:3.13-alpine + openssh-client (see Dockerfile)
+    build: .                       # Rust, static binary in a scratch image (see Dockerfile); legacy Python: app/
     image: tower-waker:local
     container_name: tower-waker
     restart: unless-stopped
@@ -15,27 +15,26 @@ services:
     network_mode: host
     env_file: .env
     volumes:
-      - ./app/waker.py:/app/waker.py:ro
       - ./app/VERSION:/app/VERSION:ro        # app version shown in the page footer
-      # NOTE: no /history key mount, unlike Beefy-Waker. /history shells out to
-      # `journalctl --list-boots`; Unraid is not systemd and has no journal, so
-      # that endpoint cannot work for tower.
-    command: ["python", "/app/waker.py"]
+      # No /history key: Unraid has no journal, /history always answers "history key not installed".
     # Liveness probe for observability (docker ps shows healthy/unhealthy). NOTE:
     # plain compose does NOT auto-restart on unhealthy — restart:unless-stopped only
     # catches crashes/OOM. /status answers whenever the gate loop is alive.
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://192.168.1.2:9002/status', timeout=3)"]
+      test: ["CMD", "/tower-waker", "--health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s
     # Non-root + no capabilities: it binds :9002 (>1024), sends a broadcast UDP
     # packet (SO_BROADCAST is unprivileged) — neither needs root or any capability.
-    user: "65006:65006"      # dedicated uid (not pi's 1000); no secret mounts to chown
+    user: "65006:65006"      # dedicated uid (not pi's 1000)
+    read_only: true
     cap_drop:
       - ALL
-    mem_limit: 64m
+    mem_limit: 16m           # RSS ~1 MB
+    cpus: 0.5
+    pids_limit: 32
     security_opt:
       - no-new-privileges:true
 
@@ -47,4 +46,4 @@ services:
 # =========================================================
 # Volumes =================================================
 # =========================================================
-# (none — app is a single bind-mounted script)
+# (none)
