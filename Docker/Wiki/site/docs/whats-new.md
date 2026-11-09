@@ -4,6 +4,10 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 9 November 2026
 
+**No more trailers playing on their own in Moonfin.** The big banner at the top of the home screen shows pictures only; a trailer plays only when you press it. Restart the Moonfin app once. [Media guide](apps/media-guide.md)
+
+**New longer cuts are picked up.** Re-released longer versions such as *Avengers: Endgame Encore* now count as a longer cut: once one can be downloaded, films you have are upgraded to it at night. [Upgrades and editions](apps/requests.md#upgrades-and-editions)
+
 **Requests say why a download is stuck.** ⚠️ now shows the reason when you hover or tap it, for example **Wrong film downloaded, being replaced** or **Needs a manual import**, and the size reads `≈ 5.4 GB · problem`. Wrong films and fake downloads (a program instead of a video) are removed and searched again automatically. [Requests](apps/requests.md)
 
 ## 3 November 2026

@@ -34,7 +34,7 @@ Quick Connect in 3 steps: the TV shows a code → on your laptop open Jellyfin �
 | **Top 10** rows | Netflix's weekly Top 10 for Switzerland, with 🇨🇭 rank badges |
 | **Coming soon** | new episodes and films with their date |
 | **Hidden Gems** | well rated, not watched yet |
-| **For you** | a showcase picked just for you (big banner at the top in Moonfin) |
+| **For you** | a showcase picked just for you (big banner at the top in Moonfin, pictures only: no trailer plays by itself) |
 | Studio rows, genre lists | browse by studio, network or genre |
 | Collections | film series, e.g. all Harry Potter films |
 

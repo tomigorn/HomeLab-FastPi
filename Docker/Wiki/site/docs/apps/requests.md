@@ -174,7 +174,7 @@ If the server grabbed the wrong film (same title, different year), it notices an
 !!! note "Languages come from the release name"
     The server mainly knows the languages written in a release's name (e.g. *German.DL* = German + original). For a release that only says *MULTi*, it also reads the release's info file (NFO) where the indexer offers it; without one, it counts as original only until it has been downloaded. *MULTi* releases that only contain dubs and no original track are blocked automatically.
 
-**Special editions:** longer cuts (Extended, Director's Cut, Uncut, …) are preferred whenever the same quality and languages exist; films you already have are upgraded once, at night (cheaper power). Language and quality always win.
+**Special editions:** longer cuts (Extended, Encore, Director's Cut, Uncut, …) are preferred whenever the same quality and languages exist; films you already have are upgraded once, at night (cheaper power). Language and quality always win.
 
 ## The indexer bar at the top
 
