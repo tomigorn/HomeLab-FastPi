@@ -1,0 +1,20 @@
+[package]
+name = "answer-inbox"
+version = "1.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "net", "time", "sync", "signal", "io-util"] }
+hyper = { version = "1", default-features = false, features = ["server", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

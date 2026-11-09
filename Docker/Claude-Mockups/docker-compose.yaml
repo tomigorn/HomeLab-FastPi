@@ -32,9 +32,12 @@ services:
 # Answer-Inbox ############################################
 # #########################################################
   answer-inbox:
-    image: node:26-alpine
+    build: ./inbox/rust                 # Rust, static binary in a scratch image (see inbox/rust/Dockerfile); the Node original is in inbox/legacy/
+    image: claude-mockups-answer-inbox:local
     container_name: claude-mockups-inbox
-    mem_limit: 128m
+    mem_limit: 16m
+    cpus: 0.5
+    pids_limit: 32
     restart: unless-stopped
     user: "65003:65003"
     read_only: true
@@ -42,15 +45,16 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    command: ["node", "/app/server.js"]
     environment:
       - PORT=8080
       - DATA_DIR=/data
     volumes:
-      - ./inbox:/app:ro                         # the tiny dependency-free HTTP server
       - ./answers:/data                         # received selections (Claude reads these)
-    tmpfs:
-      - /tmp
+    healthcheck:
+      test: ["CMD", "/answer-inbox", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - mockups_internal
 

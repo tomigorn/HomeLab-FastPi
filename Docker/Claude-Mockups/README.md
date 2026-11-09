@@ -32,7 +32,9 @@ Files that make this work:
 | `.env` | only `COMPOSE_PROJECT_NAME` (no secrets any more) |
 | `www/` | demo content, one subfolder per mockup (gitignored) |
 | `assets/` | durable client lib for interactive answers (`answer.js`/`.css`), served at `/_assets/*` |
-| `inbox/server.js` | tiny dependency-free `answer-inbox` service (records selections) |
+| `inbox/rust/` | `answer-inbox` service in Rust (static binary, `scratch` image `claude-mockups-answer-inbox:local`, built by compose) |
+| `inbox/legacy/server.js` | the original Node service, kept for rollback and as the reference for the tests |
+| `inbox/tests/` | black-box suite (`blackbox/run.sh legacy`, `rust <binary>` or `url <url> <data-dir>`), `bench.py`, side-by-side `docker-compose.side.yaml` |
 | `answers/` | received selections, `<token>.json` (gitignored) — Claude reads these |
 | `wait-for-answer.sh` | blocks until `answers/<token>.json` arrives, then prints it (Claude runs this in the background) |
 | `../Traefik/traefik/dynamic/claude-mockups.yml` | Traefik route: TLS, rate-limit, headers |
@@ -83,7 +85,7 @@ browser  --POST /_inbox/submit-->  Caddy (after Traefik forward auth)  --strip /
 Claude (on the Pi)  <--reads--  answers/<token>.json   (and waits for it to appear)
 ```
 
-- `answer-inbox` is a tiny dependency-free Node service on an **internal-only**
+- `answer-inbox` is a tiny Rust service (~1 MB RSS) on an **internal-only**
   network — never exposed via Traefik. It only accepts a validated `token`
   (`[A-Za-z0-9_-]{6,64}`, which also blocks path traversal) and atomically
   writes `answers/<token>.json`.
@@ -158,3 +160,8 @@ The Traefik route is picked up automatically (Traefik watches `/dynamic`).
   scripts/styles.
 - The container serves the `www` volume **read-only** and runs with
   `no-new-privileges`. No server-side code, just static files.
+
+## answer-inbox: Rust, rollback
+- Tests: `inbox/tests/blackbox/run.sh legacy` (Node original) and `run.sh rust <binary>` must both pass; same suite against a running instance: `run.sh url http://127.0.0.1:PORT <data-dir>`.
+- Rebuild: `SERVICES=answer-inbox _global/scripts/update-project.sh $PWD build`. The builder image is pinned by digest in `inbox/rust/Dockerfile`; `cargo test` runs in the build.
+- Rollback to Node: restore the `image:`/`command:`/`./inbox/legacy:/app:ro` lines from git (`docker-compose.yaml` before the Rust commit) or use image `node:pre-rust-2026-11-09` with `node /app/server.js`.

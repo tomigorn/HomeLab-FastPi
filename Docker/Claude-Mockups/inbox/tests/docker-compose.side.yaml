@@ -1,0 +1,30 @@
+# Side-by-side test instances (no Caddy, no Traefik): legacy on 127.0.0.1:18081, rust on 127.0.0.1:18082. Data under ~/.cache/claude-work/inbox-side.
+# docker compose -f tests/docker-compose.side.yaml -p inbox-side up -d [legacy|rust]
+services:
+  legacy:
+    image: node:26-alpine
+    container_name: inbox-side-legacy
+    mem_limit: 128m
+    user: "65003:65003"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    command: ["node", "/app/server.js"]
+    environment: [PORT=8080, DATA_DIR=/data]
+    volumes:
+      - ../legacy:/app:ro
+      - ${SIDE_DATA:-/home/pi/.cache/claude-work/inbox-side}/legacy:/data
+    tmpfs: [/tmp]
+    ports: ["127.0.0.1:18081:8080"]
+  rust:
+    image: claude-mockups-answer-inbox:local
+    container_name: inbox-side-rust
+    mem_limit: 128m
+    user: "65003:65003"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment: [PORT=8080, DATA_DIR=/data]
+    volumes:
+      - ${SIDE_DATA:-/home/pi/.cache/claude-work/inbox-side}/rust:/data
+    ports: ["127.0.0.1:18082:8080"]

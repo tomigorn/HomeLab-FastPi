@@ -232,7 +232,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Caddyfile, answer assets, answer inbox | `Caddyfile`, `assets/`, `inbox/server.js` | `docker compose up -d --force-recreate` | `mockups.caddyfile`: caddy validate → Valid configuration; `mockups.assets`: → ok; `mockups.answer-inbox`: → ok; `mockups.answer-roundtrip`: POST /_inbox/submit through Caddy → answers/<token>.json written (test file removed) → ok; `mockups.forward-auth`: → sso | caddy directive changes (auto-updated) |
+| Caddyfile, answer assets, answer inbox | `Caddyfile`, `assets/`, `inbox/rust/` (Rust, local image `claude-mockups-answer-inbox:local`; Node original in `inbox/legacy/`) | `docker compose up -d --build answer-inbox` (or `update-project.sh … build`) | `mockups.caddyfile`: caddy validate → Valid configuration; `mockups.assets`: → ok; `mockups.answer-inbox`: → ok; `mockups.answer-roundtrip`: POST /_inbox/submit through Caddy → answers/<token>.json written (test file removed via sudo, the scratch image has no shell) → ok; `mockups.forward-auth`: → sso | caddy directive changes (auto-updated) |
 
 ## Wiki
 
