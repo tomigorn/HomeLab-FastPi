@@ -29,6 +29,7 @@ services:
       - no-new-privileges:true
     mem_limit: 32m
     cpus: 1.0
+    pids_limit: 64                 # with max_blocking_threads(16) in the binary
     healthcheck:
       test: ["CMD", "/avatar-picker", "healthcheck"]
       interval: 30s

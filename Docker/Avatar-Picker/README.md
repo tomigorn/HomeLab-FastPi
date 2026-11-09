@@ -79,10 +79,12 @@ python3 scripts/provision-authentik.py  # application, provider, scope (idempote
 | Code | |
 |---|---|
 | Server | Rust (`rust/`, hyper + rustls), one static binary in a `scratch` image (no shell, no Python), uid 65002, read-only, 32 MB limit. Same endpoints, headers, caches and `data/queue.json` format as the Python server |
+| Connections | idle keep-alive closes after 10 s (header read timeout); after 120 s a connection takes no new request, finishes the one in flight, and is cut only 30 s later; blocking pool max 16 threads, `pids_limit: 64` |
+| Authentik URL | `AUTHENTIK_URL` must be `https://`, the binary refuses to start otherwise; plain `http://` only with `AUTHENTIK_ALLOW_HTTP=1` (black-box suite, dev) |
 | Legacy | Python server `app/*.py` + `Dockerfile.legacy` (until removed); its unit tests `tests/test_server.py`, `test_core.py`, `test_authentik_api.py`, `test_pickqueue.py` |
 | Host scripts | stay Python: `scripts/avatar-sync.py`, `seerr-avatar.py`, `provision-authentik.py`, `build_thumbs.py` (build stage `thumbs`) |
 | Checks | `docker exec avatar-picker /avatar-picker healthcheck \| version \| check local-pack\|favicon\|state [user]\|thumbs\|secret-required\|queue\|picked\|token` (post-update check, smoke test, token rotation; secrets stay inside) |
-| Black-box suite | `tests/blackbox/run.sh old \| new <binary> \| image <image>`: 49 HTTP tests against a fake Authentik in a private network namespace |
+| Black-box suite | `tests/blackbox/run.sh old \| new <binary> \| image <image>`: 51 tests (HTTP + start-up) against a fake Authentik in a private network namespace |
 
 Token rights (checked 2026-10-31): the service account is no superuser and in no group; its only rights are the role `avatar-picker` with `view_user` + `change_user` (`scripts/provision-authentik.py`). That is the minimum: Authentik RBAC has no per-field permission, so `change_user` covers every field of every user: name, mail, username, active, attributes and also membership in non-superuser groups (Authentik refuses superuser groups without `enable_group_superuser` and roles without `change_role`; password resets and impersonation are separate permissions). Narrower would need a per-user object permission for every new user, so the token stays inside the container and is rotated yearly.
 

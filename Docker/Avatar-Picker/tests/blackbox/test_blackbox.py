@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import socket
+import subprocess
 import unittest
 import urllib.parse
 
@@ -394,6 +395,29 @@ class T6_Pick(unittest.TestCase):
         st = {a["id"]: a["status"] for a in json.loads(req("/api/state", headers=picker("alice"))[2])["avatars"]}
         self.assertEqual((st["beta"], st["a08"]), ("free", "taken"))
         self.assertEqual(req("/img/beta.png", headers={"X-Avatar-Access": "gated"})[0], 403)
+
+
+@unittest.skipUnless(os.environ.get("MODE") == "new", "Rust binary only")
+class T7_PlainHttpAuthentik(unittest.TestCase):
+    def run_sut(self, extra):
+        env = {k: v for k, v in os.environ.items() if k != "AUTHENTIK_ALLOW_HTTP"}
+        env.update(LISTEN="127.0.0.1:8181", **extra)
+        try:
+            p = subprocess.run([os.environ["BIN"]], env=env, capture_output=True, text=True, timeout=5)
+        except subprocess.TimeoutExpired:
+            self.fail("started with a plain http Authentik URL")
+        return p
+
+    def test_http_refused_without_dev_flag(self):
+        p = self.run_sut({"AUTHENTIK_URL": "http://127.0.0.1:9999"})
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("https", p.stderr)
+        self.assertNotIn("listening", p.stdout)
+
+    def test_http_refused_with_flag_off(self):
+        p = self.run_sut({"AUTHENTIK_URL": "http://127.0.0.1:9999", "AUTHENTIK_ALLOW_HTTP": "0"})
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("https", p.stderr)
 
 
 if __name__ == "__main__":

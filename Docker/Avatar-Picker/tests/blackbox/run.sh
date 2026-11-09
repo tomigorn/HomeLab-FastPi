@@ -60,7 +60,7 @@ set -uo pipefail
 ip link set lo up
 python3 "$HERE/mock_authentik.py" 9999 tok-123 & MOCKPID=$!
 export AUTHENTIK_TOKEN_FILE=$WORK/token PICKER_SECRET_FILE=$WORK/secret QUEUE_FILE=$WORK/data/queue.json \
-       AUTHENTIK_URL=http://127.0.0.1:9999 PUBLIC_BASE_URL=https://sso.example.com/avatar-img APP_DIR=$WORK/app
+       AUTHENTIK_URL=http://127.0.0.1:9999 AUTHENTIK_ALLOW_HTTP=1 PUBLIC_BASE_URL=https://sso.example.com/avatar-img APP_DIR=$WORK/app
 for _ in $(seq 50); do curl -s -o /dev/null http://127.0.0.1:9999/_mock/state && break; sleep 0.1; done
 if [[ $MODE == old ]]; then python3 -u "$WORK/app/server.py" >"$WORK/sut.log" 2>&1 & else "$BIN" >"$WORK/sut.log" 2>&1 & fi
 SUTPID=$!

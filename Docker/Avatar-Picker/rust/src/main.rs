@@ -417,11 +417,48 @@ pub fn listen_addr() -> String {
 }
 
 pub fn client_from_env() -> Client {
-    Client::new(&env("AUTHENTIK_URL"), &read_secret("AUTHENTIK_TOKEN_FILE"))
+    let allow_http = matches!(std::env::var("AUTHENTIK_ALLOW_HTTP").as_deref(), Ok("1" | "true"));
+    Client::new(&env("AUTHENTIK_URL"), &read_secret("AUTHENTIK_TOKEN_FILE"), allow_http).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(2)
+    })
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
+const CONN_MAX_AGE: Duration = Duration::from_secs(120);
+const CONN_GRACE: Duration = Duration::from_secs(30);
+const MAX_BLOCKING_THREADS: usize = 16;
+
+fn runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread().enable_all().max_blocking_threads(MAX_BLOCKING_THREADS).build().expect("runtime")
+}
+
+/// Serves one connection; at max_age it stops taking new requests, finishes the one in flight, and is cut only after grace.
+async fn serve_conn<I, S, B>(io: I, svc: S, max_age: Duration, grace: Duration)
+where
+    I: hyper::rt::Read + hyper::rt::Write + Unpin + 'static,
+    S: hyper::service::HttpService<hyper::body::Incoming, ResBody = B>,
+    S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    B: hyper::body::Body + 'static,
+    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    let conn = http1::Builder::new()
+        .timer(TokioTimer::new())
+        .header_read_timeout(HEADER_READ_TIMEOUT)
+        .serve_connection(io, svc);
+    let mut conn = std::pin::pin!(conn);
+    if tokio::time::timeout(max_age, conn.as_mut()).await.is_ok() {
+        return;
+    }
+    conn.as_mut().graceful_shutdown();
+    let _ = tokio::time::timeout(grace, conn).await;
+}
+
+fn main() {
+    runtime().block_on(serve());
+}
+
+async fn serve() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if !args.is_empty() {
         std::process::exit(checks::run(&args).await);
@@ -479,16 +516,111 @@ async fn main() {
             accepted = listener.accept() => {
                 let Ok((stream, _)) = accepted else { continue };
                 let app = app.clone();
-                tokio::spawn(async move {
-                    let conn = http1::Builder::new()
-                        .timer(TokioTimer::new())
-                        .header_read_timeout(Duration::from_secs(10))
-                        .serve_connection(TokioIo::new(stream), service_fn(move |req| app.clone().handle(req)));
-                    let _ = tokio::time::timeout(Duration::from_secs(120), conn).await;
-                });
+                tokio::spawn(serve_conn(TokioIo::new(stream), service_fn(move |req| app.clone().handle(req)), CONN_MAX_AGE, CONN_GRACE));
             }
             _ = term.recv() => break,
             _ = tokio::signal::ctrl_c() => break,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::{ready, Context, Poll};
+    use hyper::body::Frame;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    struct SlowBody {
+        chunks: usize,
+        every: Duration,
+        tick: Pin<Box<tokio::time::Sleep>>,
+    }
+
+    impl hyper::body::Body for SlowBody {
+        type Data = Bytes;
+        type Error = std::convert::Infallible;
+        fn poll_frame(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<Frame<Bytes>, Self::Error>>> {
+            if self.chunks == 0 {
+                return Poll::Ready(None);
+            }
+            ready!(self.tick.as_mut().poll(cx));
+            let next = tokio::time::Instant::now() + self.every;
+            self.tick.as_mut().reset(next);
+            self.chunks -= 1;
+            Poll::Ready(Some(Ok(Frame::data(Bytes::from_static(b"chunk\n")))))
+        }
+    }
+
+    async fn exchange(request: &'static [u8], chunks: usize, every: Duration, max_age: Duration, grace: Duration) -> String {
+        let (client, server) = tokio::io::duplex(1 << 16);
+        let svc = service_fn(move |_req| async move {
+            let tick = Box::pin(tokio::time::sleep(every));
+            Ok::<_, std::convert::Infallible>(Response::new(SlowBody { chunks, every, tick }))
+        });
+        tokio::spawn(serve_conn(TokioIo::new(server), svc, max_age, grace));
+        let (mut r, mut w) = tokio::io::split(client);
+        w.write_all(request).await.unwrap();
+        let mut out = Vec::new();
+        tokio::time::timeout(Duration::from_secs(5), r.read_to_end(&mut out)).await.expect("connection never closed").unwrap();
+        String::from_utf8(out).unwrap()
+    }
+
+    #[tokio::test]
+    async fn response_in_flight_at_deadline_is_not_truncated() {
+        let out = exchange(b"GET / HTTP/1.1\r\nHost: t\r\n\r\n", 8, Duration::from_millis(50), Duration::from_millis(100), Duration::from_secs(5)).await;
+        assert_eq!(out.matches("chunk\n").count(), 8, "{out}");
+        assert!(out.ends_with("0\r\n\r\n"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn reused_keep_alive_connection_is_not_truncated() {
+        let two = b"GET /1 HTTP/1.1\r\nHost: t\r\n\r\nGET /2 HTTP/1.1\r\nHost: t\r\n\r\n";
+        let out = exchange(two, 4, Duration::from_millis(50), Duration::from_millis(250), Duration::from_secs(5)).await;
+        assert_eq!(out.matches("HTTP/1.1 200").count(), 2, "{out}");
+        assert_eq!(out.matches("chunk\n").count(), 8, "{out}");
+        assert!(out.ends_with("0\r\n\r\n"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn endless_response_is_cut_after_grace() {
+        let start = std::time::Instant::now();
+        exchange(b"GET / HTTP/1.1\r\nHost: t\r\n\r\n", 10_000, Duration::from_millis(20), Duration::from_millis(100), Duration::from_millis(200)).await;
+        assert!(start.elapsed() < Duration::from_secs(2));
+    }
+
+    #[tokio::test]
+    async fn idle_connection_closes_at_deadline() {
+        let start = std::time::Instant::now();
+        let out = exchange(b"", 0, Duration::from_millis(1), Duration::from_millis(100), Duration::from_secs(5)).await;
+        assert!(out.is_empty());
+        assert!(start.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn blocking_pool_is_bounded() {
+        let live = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        runtime().block_on(async {
+            let tasks: Vec<_> = (0..MAX_BLOCKING_THREADS * 3)
+                .map(|_| {
+                    let (live, peak) = (live.clone(), peak.clone());
+                    tokio::task::spawn_blocking(move || {
+                        let now = live.fetch_add(1, Ordering::SeqCst) + 1;
+                        peak.fetch_max(now, Ordering::SeqCst);
+                        std::thread::sleep(Duration::from_millis(50));
+                        live.fetch_sub(1, Ordering::SeqCst);
+                    })
+                })
+                .collect();
+            for t in tasks {
+                t.await.unwrap();
+            }
+        });
+        let peak = peak.load(Ordering::SeqCst);
+        assert!(peak > 1 && peak <= MAX_BLOCKING_THREADS, "peak {peak}");
     }
 }

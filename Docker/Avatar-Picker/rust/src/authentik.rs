@@ -32,17 +32,22 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base: &str, token: &str) -> Self {
+    /// Plain http only with allow_http (AUTHENTIK_ALLOW_HTTP=1, test and dev only): the token would travel in clear.
+    pub fn new(base: &str, token: &str, allow_http: bool) -> Result<Self, AuthentikError> {
+        let scheme = base.parse::<hyper::Uri>().ok().and_then(|u| u.scheme_str().map(str::to_ascii_lowercase));
+        match scheme.as_deref() {
+            Some("https") => {}
+            Some("http") if allow_http => {}
+            _ => return Err(AuthentikError(format!("AUTHENTIK_URL must be https:// (plain http only with AUTHENTIK_ALLOW_HTTP=1): {base:?}"))),
+        }
         let mut tcp = HttpConnector::new();
         tcp.enforce_http(false);
         tcp.set_connect_timeout(Some(Duration::from_secs(10)));
-        let https = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_webpki_roots()
-            .https_or_http()
-            .enable_http1()
-            .wrap_connector(tcp);
+        let builder = hyper_rustls::HttpsConnectorBuilder::new().with_webpki_roots();
+        let builder = if allow_http { builder.https_or_http() } else { builder.https_only() };
+        let https = builder.enable_http1().wrap_connector(tcp);
         let http = HyperClient::builder(TokioExecutor::new()).pool_idle_timeout(Duration::from_secs(30)).build(https);
-        Client { base: base.trim_end_matches('/').to_string(), token: token.to_string(), timeout: Duration::from_secs(10), http }
+        Ok(Client { base: base.trim_end_matches('/').to_string(), token: token.to_string(), timeout: Duration::from_secs(10), http })
     }
 
     async fn send(&self, req: Request<Full<Bytes>>) -> Result<(StatusCode, Bytes), String> {
@@ -119,5 +124,30 @@ impl Client {
             },
             Err(_) => Err(AuthentikError("GET users/me: unreachable".into())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn https_accepted() {
+        assert!(Client::new("https://sso.example.com", "t", false).is_ok());
+        assert!(Client::new("HTTPS://sso.example.com/", "t", false).is_ok());
+    }
+
+    #[test]
+    fn plain_http_refused_by_default() {
+        let err = Client::new("http://sso.example.com", "t", false).err().expect("http accepted");
+        assert!(err.0.contains("https"), "{err}");
+        assert!(Client::new("sso.example.com", "t", false).is_err());
+        assert!(Client::new("", "t", false).is_err());
+    }
+
+    #[test]
+    fn plain_http_only_with_dev_flag() {
+        assert!(Client::new("http://127.0.0.1:9999", "t", true).is_ok());
+        assert!(Client::new("ftp://127.0.0.1:9999", "t", true).is_err());
     }
 }
