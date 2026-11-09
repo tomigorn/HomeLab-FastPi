@@ -3,3 +3,4 @@ old/
 tests/
 rust/target/
 .env
+legacy/

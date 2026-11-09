@@ -211,6 +211,12 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | API token expires after 365 days, rotated 45 days before (new token, verify as the container, delete old; old token back on failure), expiry metric | `scripts/rotate-secrets.sh token-auto`, `systemd/avatar-token-rotate.*`, `authentik_tokens.prom`, `grafana/prometheus/rules/authentik-tokens.yml` | README install line | `avatar.token-rotate`: timer active, > 30 days left → active ok | Authentik Token model fields |
 | Image routes: LAN all, outside picked only (rest needs a login session) | `Traefik/traefik/dynamic/avatar-picker.yml` (`X-Avatar-Access` header), `app/server.py` | file reload, `docker compose up -d --build` | `avatar.img-routes`: public picked / public unpicked / LAN → 200 403 200 | ClientIP rule changes, Authentik `users/me` semantics |
 
+## BackdropCarousel
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Server in Rust (since 2026-11-09): static binary on `scratch` (no shell), uid 65008, read-only, 32 MB, healthcheck `/backdrop-carousel healthcheck`; Python/FastAPI original in `legacy/` | `rust/`, `Dockerfile`, `docker-compose.yaml` | `docker compose up -d --build` | `bd.rust`: entrypoint + health → /backdrop-carousel healthy; `bd.photos`: listed vs files in `photos/` → same n; `bd.route`: public route `/random` → 200 image/jpeg or png; weekly rebuild runs `tests/blackbox/run.sh image` | a `rust:1.91-alpine` pin bump or crate that breaks the build (rebuild-local keeps the old image) |
+
 ## Beefy-Waker
 
 | Customization | Where | Reapply | Verify | Update can break |

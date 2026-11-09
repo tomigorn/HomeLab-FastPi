@@ -24,7 +24,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65004 | alertmanager | | | |
 | 65005 / 65006 | beefy-waker / tower-waker | | | |
 | 65007 | stonks | | | |
-| 65008 | backdrop-carousel | | | |
+| 65008 | backdrop-carousel | | | ✅ |
 | 65009 | sbb-easyride-taxreport | | | |
 | 65010 | blackbox-exporter-wan | | | ✅ |
 | 65011–65012 | autoheal-antivirus / -mouse | | | |

@@ -9,12 +9,19 @@ services:
     build: .
     container_name: backdrop-carousel
     user: "65008:65008"
-    mem_limit: 256m
+    mem_limit: 32m
+    cpus: 1.0
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test: ["CMD", "/backdrop-carousel", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - PHOTOS_DIR=/photos
     volumes:

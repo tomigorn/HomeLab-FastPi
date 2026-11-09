@@ -1,3 +1,4 @@
 .env
 photos/
 rust/target/
+__pycache__/
