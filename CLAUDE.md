@@ -4,6 +4,9 @@ Everything that runs on fastpi: Docker stacks under `Docker/`, server docs under
 ## Git commits
 - `Project Name: short description`. The project is the folder or service changed, written as it is normally written: `Traefik: add Dashy route`, `WireguardVPN: remove old network`, `Global: smoke-test …` for `Docker/_global`. Several projects: `Traefik, Authentik: …`.
 
+## Code
+- Everything self-written is Rust by default (services, sidecars, scripts beyond a few lines of shell).
+
 ## Docker projects (`Docker/`)
 - One folder per project, named as normally written (PascalCase, `Portainer-Agent`). `COMPOSE_PROJECT_NAME` in `.env` is that name in lowercase (Compose rejects uppercase).
 - The sample files in `Docker/` are the template. Every project has these four files:
