@@ -113,4 +113,4 @@ New dependency versions: `docker build --target lockfile -o rust .` rewrites `ru
 - beefy is always used, by design. It gets woken if it is asleep and idles back
   off afterwards.
 
-**Rebuild** (`m4b-auto-merge:local`, `rust:1-alpine` build stage, FROM `python:3.12-alpine` because orchestrate.py is Python): `docker compose up -d --build --pull`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, runs the black-box suite and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py M4b-Auto-Merge`.
+**Rebuild** (`m4b-auto-merge:local`, `rust:1-alpine@sha256:…` build stage, FROM `python:3.12-alpine@sha256:…` because orchestrate.py is Python, both pinned by digest, A-30): set the `FROM` digests to the current ones (`docker buildx imagetools inspect <image:tag>`, first `Digest:`), then `docker compose up -d --build`. Automatic: weekly `rebuild-local` (`Server/4-Security-Monitoring/auto-updates.md` "Local builds") moves the pin, rebuilds, runs the black-box suite and rolls back on failure; by hand: `python3 ../_global/scripts/rebuild_local.py M4b-Auto-Merge`.
