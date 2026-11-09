@@ -37,7 +37,7 @@ Not covered: fastpi off or offline. That needs an external dead-man's switch; `A
 ../_global/install-root-scripts.sh   # root runs a root-owned copy in /usr/local/libexec/fastpi; re-run after editing the script
 sudo cp container-exporter/systemd/container-exporter.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now container-exporter.timer
 python3 container-exporter/test_container_exporter.py
-docker run --rm --network none --entrypoint sh -v "$PWD/prometheus":/w:ro -w /w/tests prom/prometheus:v3.15.1 -c 'promtool test rules *.yml'   # glob expands inside the container
+docker run --rm --network none --entrypoint sh -v "$PWD/prometheus":/w:ro -w /w/tests prom/prometheus:v3.16.0 -c 'promtool test rules *.yml'   # glob expands inside the container
 docker kill -s HUP prometheus   # reload rules
 ```
 

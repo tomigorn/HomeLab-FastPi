@@ -15,7 +15,11 @@ if want prometheus; then
 g = json.load(sys.stdin)["data"]["groups"]; f = {os.path.basename(x["file"]) for x in g}; d = set(os.listdir(sys.argv[1]))
 print(len(f), len(d), sorted(d - f), sum(r.get("health") != "ok" for x in g for r in x["rules"]))' "$GFD/prometheus/rules")"
   check prom.retention '^400d 60GiB$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/status/flags | python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; print(d["storage.tsdb.retention.time"], d["storage.tsdb.retention.size"])')"
-  check prom.scrape-jobs '^([0-9]+) \1 0$' "$(echo "$(grep -c 'job_name:' "$GFD/prometheus/prometheus.yml") $(curl -s -m 5 'http://127.0.0.1:9090/api/v1/targets?state=active' | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print(len({x["scrapePool"] for x in t}), sum(x["health"] != "up" for x in t))')")"
+  check prom.scrape-jobs '^([0-9]+) \1 0$' "$(echo "$(grep -c 'job_name:' "$GFD/prometheus/prometheus.yml") $(curl -s -m 5 'http://127.0.0.1:9090/api/v1/targets?state=active' | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print(len({x["scrapePool"] for x in t}), sum(x["health"] == "down" for x in t))')")"
+  check prom.tsdb-history '^[1-9][0-9]* [1-9][0-9]*$' "$(for o in 1h 14d; do curl -s -m 10 -G --data-urlencode "query=count(up offset $o)" http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else 0)'; done | xargs)"
+  check prom.rules-evaluate '^([0-9]+) \1 0$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys,time,datetime as d
+g = json.load(sys.stdin)["data"]["groups"]; t = lambda s: d.datetime.fromisoformat(s[:26].rstrip("Z") + "+00:00").timestamp()
+print(len(g), sum(time.time() - t(x["lastEvaluation"]) < 2 * x["interval"] + 30 for x in g), sum(bool(r.get("lastError")) for x in g for r in x["rules"]))')"
 fi
 if want alertmanager; then
   check am.config '^True True True telegram\.tmpl$' "$(echo "$(curl -s -m 5 http://127.0.0.1:9093/api/v2/status | python3 -c 'import json,sys; c=json.load(sys.stdin)["config"]["original"]; print("quiet-hours" in c, "Europe/Zurich" in c, "templates/" in c)') $(docker exec alertmanager ls /etc/alertmanager/templates | xargs)")"
