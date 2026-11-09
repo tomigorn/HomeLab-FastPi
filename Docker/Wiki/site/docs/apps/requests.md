@@ -102,7 +102,7 @@ Every requested title that is not in Jellyfin yet shows an icon next to the stat
 | ✅ | available in Jellyfin (or downloaded: Requests catches up within a few minutes after the import, "Downloaded — in Jellyfin shortly") |
 | ◐ (half-filled circle) | partly available: released episodes still missing (the rest can show 🌙 🧭 📅, the magnifier or the spinning ring next to it); the status reads **Partially Available** in blue |
 | ✅📅 | series complete so far: everything released is there, the next episode or season is not out yet (status **Available so far**) |
-| ⚠️ | a download or import problem: an admin has a look (Requests / Activity) |
+| ⚠️ | a download or import problem; hover or tap for the reason, e.g. **Wrong film downloaded (release from 2002, film is 1999), being replaced** or **Needs a manual import**. It also shows next to the spinning ring. An admin has a look (Requests / Activity) |
 
 ### Download now
 Open a title **you requested** → **⚡ Download now** (next to the request button). It starts the waiting download at once, at the higher daytime power price. Titles other people requested have no button; admins see it on every title.
@@ -137,6 +137,7 @@ Every request shows **Size** under Profile (German: **Grösse**).
 | `45.3 GB` | on the server |
 | `22.9 GB · 5 of 6 episodes` | series: some episodes still missing |
 | `≈ 5.4 GB · in queue` | downloading or waiting for the night |
+| `≈ 5.4 GB · problem` | downloading, but something is wrong (see ⚠️) |
 | `—` | nothing downloaded yet |
 
 A title's page shows **Size** too, in the facts box under Status: films with their quality (`45.3 GB · 2160p HDR10`), series with episodes (`143.7 GB · 16 of 16 episodes`; hover or tap for each season).
@@ -168,7 +169,7 @@ You don't need to choose anything: the server picks the best version automatical
 ### Upgrades and editions
 A film you already have is replaced only when the new version looks or sounds better (never just bigger, never for an extra dub), until it is 4K HDR with the original language and English (for English films: with German; anime: 1080p with original + English); after that it stays. German-only dubs are never downloaded.
 
-If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically.
+If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically. Fake downloads (a program instead of a video) are removed and searched again automatically.
 
 !!! note "Languages come from the release name"
     The server mainly knows the languages written in a release's name (e.g. *German.DL* = German + original). For a release that only says *MULTi*, it also reads the release's info file (NFO) where the indexer offers it; without one, it counts as original only until it has been downloaded. *MULTi* releases that only contain dubs and no original track are blocked automatically.
