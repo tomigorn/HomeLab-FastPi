@@ -257,6 +257,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | Library and quarantine through one bind of their disk (`DISK_DIR`), so the promote is a rename (two binds = EXDEV); podcasts and lost+found read-only on top | `docker-compose.yaml`, `.env` `DISK_DIR` | `docker compose up -d --force-recreate` | `m4b.one-mount`: → disk=1 lib=0 quarantine=0; `m4b.rest-read-only`: → lost+found=false podcasts=false | a compose edit that splits the mounts again |
+| Watcher is our Rust binary (`rust/`, 2026-11-09; the Python watcher stays in `legacy/`), read-only root + `/tmp` tmpfs, `init: true`, cpus/pids limits | `Dockerfile`, `rust/`, `docker-compose.yaml` | `docker compose up -d --build` | `m4b.rust-watcher`: → /usr/local/bin/m4b-auto-merge ro=true init=true | a base-image change that breaks the orchestrator's Python/ssh/rsync/ffprobe (the black-box suite in the weekly rebuild catches the watcher, not the orchestrator) |
 
 ## Host (fastpi, no compose project)
 
