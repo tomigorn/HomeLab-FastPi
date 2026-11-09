@@ -48,13 +48,15 @@
       "id": 5,
       "type": "timeseries",
       "title": "Temperatures — CPU & disks (°C)",
-      "description": "From existing sensors: fastpi CPU and NVMe (node-exporter hwmon), every disk's SMART temperature on fastpi and beefy, tower's hottest thermal zone while the burn-in runs (tower_burnin_cpu_celsius). beefy's CPU temperature is not collected.",
+      "description": "From existing sensors: fastpi CPU and NVMe (node-exporter hwmon), every disk's SMART temperature on fastpi and beefy, tower's hottest thermal zone while the burn-in runs (tower_burnin_cpu_celsius). beefy's CPU package and board (PCH) temperature from its idle watcher (shown only while beefy is awake).",
       "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"},
       "targets": [
         {"refId": "A", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "node_hwmon_temp_celsius{chip=\"thermal_thermal_zone0\",sensor=\"temp0\"}", "legendFormat": "fastpi CPU", "range": true},
         {"refId": "B", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "node_hwmon_temp_celsius{chip=\"nvme_nvme0\",sensor=\"temp1\"}", "legendFormat": "fastpi NVMe", "range": true},
         {"refId": "C", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "smart_temperature_celsius", "legendFormat": "{{host}} {{disk}}", "range": true},
-        {"refId": "D", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "tower_burnin_cpu_celsius", "legendFormat": "tower CPU (burn-in)", "range": true}
+        {"refId": "D", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "tower_burnin_cpu_celsius", "legendFormat": "tower CPU (burn-in)", "range": true},
+        {"refId": "E", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "beefy_idle_cpu_temp_celsius", "legendFormat": "beefy CPU", "range": true},
+        {"refId": "F", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "beefy_idle_pch_temp_celsius", "legendFormat": "beefy board (PCH)", "range": true}
       ],
       "fieldConfig": {"defaults": {"unit": "celsius", "decimals": 0, "custom": {"lineWidth": 2, "fillOpacity": 0, "spanNulls": 600000}}, "overrides": []},
       "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
