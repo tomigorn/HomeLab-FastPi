@@ -35,7 +35,7 @@ services:
     build: ./inbox/rust                 # Rust, static binary in a scratch image (see inbox/rust/Dockerfile); the Node original is in inbox/legacy/
     image: claude-mockups-answer-inbox:local
     container_name: claude-mockups-inbox
-    mem_limit: 16m
+    mem_limit: 32m                      # 128 connections x 64 KiB bodies peak near 16 MiB
     cpus: 0.5
     pids_limit: 32
     restart: unless-stopped
