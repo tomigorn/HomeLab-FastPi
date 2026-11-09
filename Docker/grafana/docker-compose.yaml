@@ -294,7 +294,7 @@ services:
 # Telegraf ################################################
 # #########################################################
   telegraf:
-    image: telegraf:1.40.2
+    image: telegraf:1.40.3
     container_name: telegraf
     security_opt:
       - no-new-privileges:true
