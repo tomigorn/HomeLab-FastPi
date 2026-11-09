@@ -39,6 +39,12 @@ def test_parse_conf_reads_entries_with_defaults():
     assert rows[1]["day"] == "Sat" and rows[1]["services"] == ["stonks"] and rows[1]["context"] == "/x"
 
 
+def test_repo_conf_parses_with_one_project_per_entry():
+    rows = parse_conf((Path(__file__).parent.parent / "rebuild-local.conf").read_text())
+    assert rows and all(r["project"] for r in rows)
+    assert len({r["project"] for r in rows}) == len(rows)
+
+
 def test_parse_conf_refuses_bad_day_and_unknown_keys():
     for bad in ('[[image]]\nproject = "A"\nday = "Monday"\n', '[[image]]\nproject = "A"\nday = "Mon"\ntypo = 1\n',
                 '[[image]]\nday = "Mon"\n'):
