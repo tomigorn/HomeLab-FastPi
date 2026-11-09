@@ -236,6 +236,113 @@ class ZeroPort(Base):
         self.assertEqual([e["event"] for e in h], ["startup", "zero_port", "zero_port", "zero_port", "stack_restart", "port_update"])
 
 
+def restarts(world):
+    return [a for a in world.docker_actions() if a[0] != "inspect"]
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy always rebinds and restarts qBittorrent")
+class StartupAlreadyBound(Base):
+    def configure(self, w):
+        w.prefs["current_network_interface"] = "tun0"
+
+    def test_no_qbit_restart_when_bound(self):
+        w = self.world
+        self.wait_log(r"^qBittorrent already bound to tun0 - no restart needed$", 60)
+        self.wait_log(r"^Port updated to 45000$", 30)
+        self.assertEqual(restarts(w), [])
+        self.assertNotIn({"current_network_interface": "tun0"}, w.qbit_calls("/api/v2/app/setPreferences"))
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy exits on a non-JSON gluetun answer")
+class GluetunApiError(Base):
+    def configure(self, w):
+        w.prefs["current_network_interface"] = "tun0"
+        w.gluetun_error = (401, "Unauthorized\n")
+
+    def test_error_answer_is_unknown_not_fatal(self):
+        w = self.world
+        n = self.wait_log(r"^gluetun API error: HTTP 401 \"Unauthorized\" - port unknown, keeping 0, retrying next cycle$", 60)
+        self.wait_log(r"^gluetun API error: HTTP 401", 20, n)
+        with w.lock:
+            w.gluetun_error = (404, "404 page not found\n")
+        n = self.wait_log(r"^gluetun API error: HTTP 404 \"404 page not found\" - port unknown, keeping 0, retrying next cycle$", 20, n)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(restarts(w), [])
+        self.assertEqual([e["event"] for e in self.history()], ["startup"])
+
+        with w.lock:
+            w.gluetun_error = None
+        n = self.wait_log(r"^Port updated to 45000$", 20, n)
+        with w.lock:
+            w.gluetun_error = (401, "Unauthorized\n")
+        self.wait_log(r"^gluetun API error: HTTP 401 \"Unauthorized\" - port unknown, keeping 45000, retrying next cycle$", 20, n)
+        self.assertEqual(w.prefs["listen_port"], 45000)
+        self.assertEqual(restarts(w), [])
+        self.assertEqual([e["event"] for e in self.history()], ["startup", "port_update"])
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy restarts the stack every few minutes without backoff")
+class StackRestartBackoff(Base):
+    env_extra = {"STACK_RESTART_BACKOFF": "2", "STACK_RESTART_BACKOFF_MAX": "5"}
+
+    def configure(self, w):
+        w.prefs["current_network_interface"] = "tun0"
+        w.ports = [0]
+
+    def backoffs(self, after=0):
+        rx = re.compile(r"^No port after stack restart - backing off \d+ min \((\d+) s\) before the next one$")
+        return [int(m.group(1)) for m in (rx.search(l) for l in self.lines[after:]) if m]
+
+    def test_backoff_grows_caps_and_resets(self):
+        w = self.world
+        n = 0
+        for _ in range(4):
+            n = self.wait_log(r"^Restarting gluetun to obtain a new VPN port lease\.\.\.$", 120, n)
+        self.assertEqual(self.backoffs(), [2, 4, 5])
+        times = [e[0] for e in w.events if e[1:] == ("docker", "restart", "gluetun_mouse")]
+        gaps = [b - a for a, b in zip(times, times[1:])]
+        for gap, wait in zip(gaps, [2, 4, 5]):
+            self.assertGreaterEqual(gap, wait)
+        self.assertEqual(len([e for e in self.history() if e["event"] == "stack_restart"]), 4)
+
+        n = self.wait_log(r"^No port after stack restart - backing off \d+ min \(5 s\)", 120, n)
+        with w.lock:
+            w.ports = [48000]
+        n = self.wait_log(r"^Port 48000 arrived during back-off$", 20, n)
+        n = self.wait_log(r"^Port updated to 48000$", 20, n)
+        restarts_before = len(times) + 0
+        self.assertEqual(len([e for e in w.events if e[1:] == ("docker", "restart", "gluetun_mouse")]), restarts_before)
+
+        with w.lock:
+            w.ports = [0]
+        m = self.wait_log(r"^Restarting gluetun to obtain a new VPN port lease\.\.\.$", 60, n)
+        self.assertEqual(self.backoffs(n), [])
+        self.wait_log(r"^No port after stack restart - backing off", 60, m)
+        self.assertEqual(self.backoffs(m)[:1], [2])
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy history grows without limit")
+class HistoryCapped(Base):
+    def configure(self, w):
+        w.qbit_available = False
+
+    def seed(self):
+        with open(f"{DATA}/port-history.json", "w") as f:
+            for i in range(2005):
+                f.write(f'{{"timestamp":"2026-01-01T00:00:00+0100","event":"port_update","port":{i},"old_port":0,"vpn_ip":"","message":"seed {i}"}}\n')
+
+    def test_history_keeps_newest_2000(self):
+        end = time.monotonic() + 20
+        while time.monotonic() < end and self.history()[-1]["event"] != "startup":
+            time.sleep(0.2)
+        raw = self.raw_history()
+        self.assertEqual(len(raw), 2000)
+        self.assertEqual(json.loads(raw[0])["message"], "seed 6")
+        self.assertEqual(json.loads(raw[-2])["message"], "seed 2004")
+        self.assertEqual(json.loads(raw[-1])["event"], "startup")
+        self.assertTrue(all(line.endswith("}\n") for line in raw))
+
+
 SEED = [
     '{"timestamp":"2026-11-01T10:00:00+0100","event":"startup","port":0,"old_port":0,"vpn_ip":"","message":"Port updater started"}',
     '{"timestamp":"2026-11-01T10:01:00+0100","event":"port_update","port":40000,"old_port":0,"vpn_ip":"203.0.113.9","message":"ProtonVPN assigned new port 40000 (was 0)"}',

@@ -36,13 +36,41 @@ pub fn event_line(ts: &str, event: &str, port: u64, old_port: u64, vpn_ip: &str,
     )
 }
 
-pub fn append(file: &Path, line: &str) {
+/// Newest entries kept in the history; 2026-11 had ~830 after eight months, so the status page still shows everything.
+pub const MAX_LINES: usize = 2000;
+
+/// Appends, then keeps only the newest `max` lines (rewritten via a temp file and rename, so readers never see half a file).
+pub fn append(file: &Path, line: &str, max: usize) {
     if let Some(dir) = file.parent() {
         let _ = fs::create_dir_all(dir);
     }
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(file) {
         let _ = f.write_all(line.as_bytes());
     }
+    let Ok(content) = fs::read(file) else { return };
+    if let Some(kept) = newest_lines(&content, max) {
+        let tmp = file.with_extension("json.tmp");
+        if fs::write(&tmp, kept).is_ok() && fs::rename(&tmp, file).is_err() {
+            let _ = fs::remove_file(&tmp);
+        }
+    }
+}
+
+/// The last `max` lines when there are more, else None (nothing to trim).
+pub fn newest_lines(content: &[u8], max: usize) -> Option<&[u8]> {
+    let body = content.strip_suffix(b"\n").unwrap_or(content);
+    let lines = if body.is_empty() { 0 } else { body.iter().filter(|b| **b == b'\n').count() + 1 };
+    if lines <= max {
+        return None;
+    }
+    let mut skip = lines - max;
+    let start = content.iter().position(|b| {
+        if *b == b'\n' {
+            skip -= 1;
+        }
+        skip == 0
+    })?;
+    Some(&content[start + 1..])
 }
 
 /// The history as a JSON array: every line that parses, unchanged, in file order.
@@ -132,12 +160,24 @@ mod tests {
     }
 
     #[test]
+    fn newest_lines_keeps_the_tail() {
+        assert_eq!(newest_lines(b"a\nb\nc\n", 2), Some(&b"b\nc\n"[..]));
+        assert_eq!(newest_lines(b"a\nb\nc\n", 1), Some(&b"c\n"[..]));
+        assert_eq!(newest_lines(b"a\nb\nc", 2), Some(&b"b\nc"[..]));
+        assert_eq!(newest_lines(b"a\nb\n", 2), None);
+        assert_eq!(newest_lines(b"", 2), None);
+    }
+
+    #[test]
     fn append_creates_dir_and_appends() {
         let dir = std::env::temp_dir().join(format!("pu-test-{}", std::process::id()));
         let f = dir.join("sub/port-history.json");
-        append(&f, "a\n");
-        append(&f, "b\n");
+        append(&f, "a\n", 2);
+        append(&f, "b\n", 2);
         assert_eq!(fs::read_to_string(&f).unwrap(), "a\nb\n");
+        append(&f, "c\n", 2);
+        assert_eq!(fs::read_to_string(&f).unwrap(), "b\nc\n");
+        assert!(!f.with_extension("json.tmp").exists());
         let _ = fs::remove_dir_all(dir);
     }
 }

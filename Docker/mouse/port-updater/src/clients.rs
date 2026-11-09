@@ -32,6 +32,14 @@ pub fn body(resp: Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> Opti
     r.body_mut().with_config().limit(1 << 20).read_to_string().ok()
 }
 
+/// A control-server answer: Ok(None) when the server is silent (no answer at all), Err for a non-2xx answer.
+pub fn api_body(resp: Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> Result<Option<String>, String> {
+    let Ok(mut r) = resp else { return Ok(None) };
+    let code = r.status().as_u16();
+    let b = r.body_mut().with_config().limit(1 << 20).read_to_string().unwrap_or_default();
+    if r.status().is_success() { Ok(Some(b)) } else { Err(format!("HTTP {code} {:?}", short(b.trim()))) }
+}
+
 /// `jq -r '.KEY // empty'`: Ok(None) for no output, Err where jq would fail (the input is not JSON or not an object).
 pub fn jq_field(body: &str, key: &str) -> Result<Option<Value>, String> {
     if body.trim().is_empty() {
@@ -166,6 +174,15 @@ mod tests {
         assert!(jq_field("Unauthorized\n", "port").is_err());
         assert!(jq_field("Forbidden", "listen_port").is_err());
         assert!(jq_field("[1]", "port").is_err());
+    }
+
+    #[test]
+    fn api_body_status_and_silence() {
+        let resp = |code: u16, body: &str| Ok(ureq::http::Response::builder().status(code).body(ureq::Body::builder().data(body.to_string())).unwrap());
+        assert_eq!(api_body(resp(200, "{\"port\":1}")), Ok(Some("{\"port\":1}".into())));
+        assert_eq!(api_body(resp(401, "Unauthorized\n")), Err("HTTP 401 \"Unauthorized\"".into()));
+        assert_eq!(api_body(resp(404, "404 page not found\n")), Err("HTTP 404 \"404 page not found\"".into()));
+        assert_eq!(api_body(Err(ureq::Error::ConnectionFailed)), Ok(None));
     }
 
     #[test]

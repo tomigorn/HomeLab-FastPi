@@ -69,6 +69,7 @@ class World:
         self.port_after_restart = None
         self.vpn_ip = "198.51.100.7"
         self.gluetun_bad_auth = 0
+        self.gluetun_error = None
         self.health = ["healthy"]
         self.qbit_available = True
         self.sid = None
@@ -112,6 +113,9 @@ class World:
             getattr(self, "_" + kind)(h, method, body)
 
     def _gluetun(self, h, method, body):
+        if self.gluetun_error:
+            self.log("gluetun", "error", h.path)
+            return h._send(*self.gluetun_error)
         want = "Basic " + base64.b64encode(f"{self.gluetun_user}:{self.gluetun_pass}".encode()).decode()
         if h.headers.get("Authorization") != want:
             self.gluetun_bad_auth += 1

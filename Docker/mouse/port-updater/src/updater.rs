@@ -27,6 +27,12 @@ fn secs(n: u64) {
     sleep(Duration::from_secs(n));
 }
 
+/// Wait before the next stack restart after `failed` restarts that brought no port: base, 2x base, 4x base ... capped.
+pub fn backoff(base: u64, max: u64, failed: u32) -> u64 {
+    let shift = failed.saturating_sub(1).min(32);
+    base.saturating_mul(1u64 << shift).min(max)
+}
+
 impl Updater {
     pub fn new(cfg: Config) -> Self {
         let docker = Docker::new(cfg.docker_url.clone());
@@ -43,7 +49,7 @@ impl Updater {
 
     fn log_event(&self, event: &str, port: u64, old_port: u64, message: &str, vpn_ip: &str) {
         let ts = events::timestamp(self.cfg.tz.as_ref(), &Zoned::now());
-        events::append(&self.cfg.data_file, &events::event_line(&ts, event, port, old_port, vpn_ip, message));
+        events::append(&self.cfg.data_file, &events::event_line(&ts, event, port, old_port, vpn_ip, message), events::MAX_LINES);
     }
 
     fn qbit_code(&self, path: &str, with_cookie: bool) -> u16 {
@@ -111,6 +117,23 @@ impl Updater {
         req.send_form([("json", json)]).map(|_| ()).map_err(|e| format!("qBittorrent setPreferences failed: {e}"))
     }
 
+    fn qbit_interface(&self) -> Option<String> {
+        let mut req = self.http.get(&self.qbit("/api/v2/app/preferences"));
+        if let Some(c) = &self.cookie {
+            req = req.header("Cookie", c);
+        }
+        clients::jq_field(&clients::body(req.call())?, "current_network_interface").ok().flatten().map(|v| clients::raw(&v))
+    }
+
+    /// At start the binding usually survives from the last run: restart qBittorrent only when it is not on tun0 yet.
+    fn ensure_qbittorrent_bound(&mut self) -> Result<(), Fatal> {
+        if self.qbit_interface().as_deref() == Some("tun0") {
+            println!("qBittorrent already bound to tun0 - no restart needed");
+            return Ok(());
+        }
+        self.apply_qbittorrent_settings()
+    }
+
     fn apply_qbittorrent_settings(&mut self) -> Result<(), Fatal> {
         println!("Setting qBittorrent to use tun0 interface...");
         self.set_preferences(r#"{"current_network_interface":"tun0"}"#)?;
@@ -133,9 +156,26 @@ impl Updater {
         }
     }
 
-    fn gluetun_get(&self, path: &str, key: &str) -> Result<Option<serde_json::Value>, Fatal> {
+    /// Err = gluetun answered with an error or non-JSON (port unknown); Ok(None) = no value or no answer at all (counts as zero).
+    fn gluetun_get(&self, path: &str, key: &str) -> Result<Option<serde_json::Value>, String> {
         let resp = self.http.get(&self.gluetun(path)).header("Authorization", &clients::basic(&self.cfg.gluetun_user, &self.cfg.gluetun_pass)).call();
-        clients::jq_field(&clients::body(resp).unwrap_or_default(), key)
+        clients::jq_field(&clients::api_body(resp)?.unwrap_or_default(), key)
+    }
+
+    /// Waits `delay` s before the next stack restart, polling gluetun quietly; true when a port arrived meanwhile.
+    fn back_off(&self, delay: u64) -> bool {
+        let step = self.cfg.zero_retry_interval.max(1);
+        let mut waited = 0;
+        while waited < delay {
+            let n = step.min(delay - waited);
+            secs(n);
+            waited += n;
+            if let Some(p) = self.gluetun_get("/v1/portforward", "port").ok().and_then(|v| clients::port(v.as_ref())).filter(|p| *p != 0) {
+                println!("Port {p} arrived during back-off");
+                return true;
+            }
+        }
+        false
     }
 
     fn qbit_listen_port(&self) -> Result<String, Fatal> {
@@ -187,11 +227,12 @@ impl Updater {
             self.try_reattach_qbittorrent();
         }
         self.login()?;
-        self.apply_qbittorrent_settings()?;
+        self.ensure_qbittorrent_bound()?;
 
         println!("Starting port monitoring loop...");
         let mut last_port: u64 = 0;
         let mut zero_count: u32 = 0;
+        let mut failed_restarts: u32 = 0;
         let limit = self.cfg.zero_port_limit;
         loop {
             if !self.is_qbittorrent_available() {
@@ -200,8 +241,15 @@ impl Updater {
             }
             self.login()?;
 
-            let port = clients::port(self.gluetun_get("/v1/portforward", "port")?.as_ref());
-            let vpn_ip = clients::vpn_ip(self.gluetun_get("/v1/publicip/ip", "public_ip")?.as_ref());
+            let port = match self.gluetun_get("/v1/portforward", "port") {
+                Ok(v) => clients::port(v.as_ref()),
+                Err(e) => {
+                    println!("gluetun API error: {e} - port unknown, keeping {last_port}, retrying next cycle");
+                    self.sleep_until_next_cycle();
+                    continue;
+                }
+            };
+            let vpn_ip = clients::vpn_ip(self.gluetun_get("/v1/publicip/ip", "public_ip").ok().flatten().as_ref());
             let qbit_port = self.qbit_listen_port()?;
             let shown = port.map(|p| p.to_string()).unwrap_or_default();
 
@@ -214,6 +262,7 @@ impl Updater {
                     self.log_event("port_update", p, last_port, &format!("ProtonVPN assigned new port {p} (was {last_port})"), &vpn_ip);
                     last_port = p;
                     zero_count = 0;
+                    failed_restarts = 0;
                     println!("Reannouncing all torrents...");
                     self.post_cookie("/api/v2/torrents/reannounce", [("hashes", "all")])?;
                     println!("Reannounce triggered.");
@@ -222,10 +271,19 @@ impl Updater {
                     zero_count += 1;
                     println!("Port is 0 ({zero_count}/{limit}): VPN={shown}, qBit={qbit_port}");
                     self.log_event("zero_port", 0, last_port, &format!("Port is 0 ({zero_count}/{limit})"), &vpn_ip);
+                    if zero_count >= limit && failed_restarts > 0 {
+                        let delay = backoff(self.cfg.stack_restart_backoff, self.cfg.stack_restart_backoff_max, failed_restarts);
+                        println!("No port after stack restart - backing off {} min ({delay} s) before the next one", delay / 60);
+                        if self.back_off(delay) {
+                            zero_count = 0;
+                            continue;
+                        }
+                    }
                     if zero_count >= limit {
                         println!("Port has been 0 for {} minutes — restarting stack...", u64::from(zero_count) * self.cfg.check_interval / 60);
                         self.log_event("stack_restart", 0, last_port, &format!("Port remained 0 for {zero_count} cycles — restarting stack"), &vpn_ip);
                         self.restart_stack()?;
+                        failed_restarts += 1;
                         zero_count = 0;
                         last_port = 0;
                         println!("Stack restarted. Checking for new port immediately...");
@@ -235,9 +293,26 @@ impl Updater {
                     }
                     continue;
                 }
-                Some(_) => println!("Port OK: VPN={shown}, qBit={qbit_port}"),
+                Some(_) => {
+                    failed_restarts = 0;
+                    println!("Port OK: VPN={shown}, qBit={qbit_port}");
+                }
             }
             self.sleep_until_next_cycle();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backoff_doubles_and_caps() {
+        let seq: Vec<u64> = (1..=7).map(|n| backoff(240, 3600, n)).collect();
+        assert_eq!(seq, [240, 480, 960, 1920, 3600, 3600, 3600]);
+        assert_eq!(backoff(240, 3600, 0), 240);
+        assert_eq!(backoff(240, 3600, u32::MAX), 3600);
+        assert_eq!(backoff(2, 5, 3), 5);
     }
 }
