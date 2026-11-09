@@ -98,24 +98,27 @@ services:
 # Audiobook-Importer ######################################
 # #########################################################
   # Copies finished abr torrents (never moves: they keep seeding) into LANG/Author/[Series]/NN - Title, then scans ABS.
+  # Rust (importer/rust, static binary in a scratch image, built here); the Python it replaced stays in importer/*.py until removed.
+  # Build (one Rust build at a time on fastpi, 2 jobs): flock ~/.cache/claude-work/rust-build.lock docker compose build importer
   importer:
-    image: python:3.13-alpine@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+    build:
+      context: ./importer/rust
+      args:
+        CARGO_BUILD_JOBS: 2
+    image: audiobook-importer:local
     container_name: audiobook-importer
     user: "65056:65056"
     group_add:
       - "1100"   # sambashare: read the downloads, write the library
-    mem_limit: 192m
+    mem_limit: 64m
     restart: unless-stopped
     read_only: true
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    working_dir: /app
-    command: ["python3", "importer.py"]
     environment:
       - TZ=Europe/Zurich
-      - PYTHONDONTWRITEBYTECODE=1
       - QBIT_URL=http://10.24.25.2:8080
       - QBIT_PASS_FILE=/run/secrets/qbit_pass
       - ABS_KEY_FILE=/run/secrets/abs_api_key
@@ -130,7 +133,6 @@ services:
       - abs_api_key
       - abr_api_key
     volumes:
-      - ./importer:/app:ro
       - ./data:/data
       # Same path as inside qBittorrent, so content_path from its API is valid here.
       - type: bind
@@ -145,11 +147,12 @@ services:
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5)"]
+      # The image has no shell: the binary probes its own /health.
+      test: ["CMD", "/audiobook-importer", "--health"]
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 10s
     logging:
       driver: "json-file"
       options:

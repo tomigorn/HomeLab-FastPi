@@ -20,10 +20,10 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 | Container | uid | Network | Job |
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
-| `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/` (stdlib Python, `python:3.13-alpine`); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR; POST bodies over 1 MB → 413 |
+| `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/rust/` (Rust, static binary in a `scratch` image `audiobook-importer:local`, see "Rust importer"); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR; POST bodies over 1 MB → 413 |
 | `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
 
-## Release policy (`importer/ranking.py`, owner's order 2026-10-26, author + narrator 2026-11-02)
+## Release policy (`importer/rust/src/ranking.rs`, owner's order 2026-10-26, author + narrator 2026-11-02)
 
 ABR has no language, abridged, author or VIP setting, searches by title only and ranks FLAC above M4B itself, so its Prowlarr URL is the importer's pass-through, which filters, ranks and hands ABR **only the winner** (ABR grabs its first result).
 
@@ -92,7 +92,7 @@ Disk colours: green < 70 %, yellow 70–80 %, red ≥ 80 % (both 1.8 TB HDDs; fa
 
 Install: `sudo install -m 0644 systemd/abr-bar-usage.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now abr-bar-usage.timer`, then `docker compose up -d books-proxy` (the mount needs `/var/lib/abr-bar`).
 
-## Library naming (`importer/naming.py`)
+## Library naming (`importer/rust/src/naming.rs`)
 
 `EN|DE|Other / First author / [Series without "Series"] / NN - Title`, from the Audible product (title, first author, series + position, language), fallback ABR webhook + MAM language flag. Files keep their download names (library convention, owner 2026-10-26); parts in subfolders are flattened as `CD1 - 01.mp3` because the merger works per folder. An existing folder is never overwritten (`exists` in the job list). Several audio files (MP3 or M4B parts) = `merge-wait` until M4b-Auto-Merge leaves one `.m4b`; only then the scan and match.
 
@@ -113,7 +113,21 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
 | Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link, search; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel; `QUOTA_ASINS="6 ASINs"` also checks the limit (switch auto-download off first, delete the canary's requests after) |
 | Requests bar | `systemd/abr-bar-usage.timer`, see "Requests bar" |
-| Tests | `python3 -m unittest discover -s Docker/Audiobook-Requests/importer`; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar, MAM chip, sizes, library, all requests, links: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
+| Tests | importer: see "Rust importer"; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar, MAM chip, sizes, library, all requests, links: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
+
+## Rust importer
+
+`importer/rust/` (axum + tokio + reqwest/rustls, `unsafe` forbidden, every outbound call with a timeout), one static musl binary in a `scratch` image, uid 65056, no shell. Replaced the stdlib-Python `importer/*.py` (2026-11-09), kept there as the reference until removed. Same env, same `data/jobs.json` and `data/quota.json`, same answers (checked below); naive ABR timestamps now count as UTC (the Python read them in the container's local time), log lines are stamped in UTC, a job without ASIN imports from the webhook names (the Python never did).
+
+| | Command |
+|---|---|
+| build | `flock ~/.cache/claude-work/rust-build.lock docker compose build importer` (one Rust build at a time on fastpi, `CARGO_BUILD_JOBS=2` from the compose args; dependencies and target are BuildKit cache mounts, a rebuild after a source change takes about 1.5 min) |
+| unit tests | `flock ~/.cache/claude-work/rust-build.lock docker build --target test importer/rust` |
+| black-box suite | `bash importer/tests/blackbox/run-image.sh` (the image's binary on the host against fakes for qBittorrent, ABS, ABR, Prowlarr, Audible: HTTP answers, files copied, downloads untouched, wedge fallback, quota ledger); `bash importer/tests/blackbox/run.sh` runs it against the old Python (2 known Python bugs skipped) |
+| side by side | `bash importer/tests/sidebyside.sh [image]`: the image next to the live importer on a scratch copy of `data/`, same answers for `/library`, `/sizes`, `/all-requests`, `/my-quota`, the gates |
+| deploy | `SERVICES=importer CHECK='curl -sf http://10.24.25.5:8000/health' Docker/_global/scripts/update-project.sh Docker/Audiobook-Requests recreate` (post-update check, automatic rollback) |
+| rollback | restore `docker-compose.yaml` from `~/backups/rust-rewrite-2026-11-09/audiobook-importer/` (the Python service on `python:3.13-alpine`, also tagged `audiobook-importer:pre-rust-2026-11-09`), then `docker compose up -d importer` |
+| weekly rebuild | `Docker/_global/rebuild-local.conf` (Mon): `build --pull --no-cache`, black-box suite against the new image, recreate with rollback |
 
 ## Secrets (`secrets/`, 0400)
 

@@ -1,0 +1,62 @@
+# Side-by-side check of a new importer image next to the running one (README "Rust importer"): same secrets, real ABS and ABR (GET only),
+# but its own scratch copy of data/ and an empty scratch library, so it never writes where the live importer does. No traefik_mouse address:
+# gluetun admits only the live importer, so qBittorrent and Prowlarr stay unreachable here (logged, harmless). Run: bash ../sidebyside.sh
+services:
+  importer-rust:
+    image: ${IMPORTER_IMAGE:-audiobook-importer:local}
+    container_name: audiobook-importer-sbs
+    user: "65056:65056"
+    group_add:
+      - "1100"
+    mem_limit: 64m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      - TZ=Europe/Zurich
+      - QBIT_URL=http://10.24.25.2:8080
+      - QBIT_PASS_FILE=/run/secrets/qbit_pass
+      - ABS_KEY_FILE=/run/secrets/abs_api_key
+      - ABS_URL=https://audiobookshelf.holy-grail.ch
+      - LIBRARY=/library
+      - PROWLARR_URL=http://10.24.25.2:9697
+      - ABR_URL=http://audiobookrequest:8000
+      - ABR_KEY_FILE=/run/secrets/abr_api_key
+      # The host (bridge gateway) plays books-proxy for the checks.
+      - BOOKS_PROXY_IP=${SBS_HOST_IP:-10.24.26.1}
+    secrets:
+      - qbit_pass
+      - abs_api_key
+      - abr_api_key
+    volumes:
+      - ${SBS_SCRATCH}/data:/data
+      - ${SBS_SCRATCH}/library:/library
+      - type: bind
+        source: /mnt/seagate-red/qbittorrent/downloads
+        target: /downloads
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "/audiobook-importer", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      egress:
+
+secrets:
+  qbit_pass:
+    file: ../../../secrets/qbit_pass
+  abs_api_key:
+    file: ../../../secrets/abs_api_key
+  abr_api_key:
+    file: ../../../secrets/abr_api_key_importer
+
+networks:
+  egress:
+    external: true
+    name: audiobook-requests_egress
