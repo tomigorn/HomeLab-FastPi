@@ -725,13 +725,21 @@ def parse_cup(data: dict) -> tuple[dict[str, dict[str, int]], list[tuple[str, st
 
     `server` null is fastpi itself. A host missing from the JSON (asleep at
     Cup's last refresh) is missing here too, never reported as zero.
+    Only images a container uses (Cup's in_use, running or stopped; missing = in use) count; updates of
+    images no container uses (old tags, rollback leftovers, base images) are only counted as "unused".
     """
     hosts: dict[str, dict[str, int]] = {}
     info: set[tuple[str, str, str]] = set()
+    unused: set[tuple[str, str]] = set()
     for img in data.get("images") or []:
         host = img.get("server") or "fastpi"
-        counts = hosts.setdefault(host, {"all": 0, **{t: 0 for t in CUP_TYPES}, "unknown": 0})
+        counts = hosts.setdefault(host, {"all": 0, **{t: 0 for t in CUP_TYPES}, "unknown": 0, "unused": 0})
         res = img.get("result") or {}
+        if img.get("in_use") is False:
+            if res.get("has_update") and (host, img.get("reference", "?")) not in unused:
+                unused.add((host, img.get("reference", "?")))
+                counts["unused"] += 1
+            continue
         if res.get("has_update") is None:
             counts["unknown"] += 1
             continue
@@ -1697,10 +1705,12 @@ def collect_media(host: str, fetch) -> list:
 UPDATES_PATHS = {"beefy": "/var/lib/auto-update/textfile/auto_update.prom"}
 # beefy's weekly local rebuilds (rebuild_local.py, 04:27): pulled at 04:20, so a result shows the next morning
 REBUILD_PATHS = {"beefy": "/var/lib/auto-update/textfile/rebuild_local.prom"}
+# beefy's shared-tag drift (auto_update.py writes container_image_stale.prom every run); alert: grafana/prometheus/rules/image-drift.yml.
+STALE_PATHS = {"beefy": "/var/lib/auto-update/textfile/container_image_stale.prom"}
 
 
 def collect_updates(host: str, fetch, name: str = "auto_update") -> list:
-    """Republish a host's <name>.prom (auto_update or rebuild_local) as <name>_<host>.prom.
+    """Republish a host's <name>.prom (auto_update, rebuild_local or container_image_stale) as <name>_<host>.prom.
 
     Only samples labelled host="<host>" pass, so they can never collide with fastpi's own auto_update.prom (one duplicate series breaks node-exporter's whole textfile collector). HELP is dropped (auto_update.py writes none): node-exporter rejects a family whose files disagree on HELP.
     """
@@ -1708,7 +1718,7 @@ def collect_updates(host: str, fetch, name: str = "auto_update") -> list:
     if raw is None:
         raise NoData(f"no {name}.prom on {host} yet")
     mine = f'host="{host}"'
-    keep = [ln for ln in filter_exposition(raw, prefix=f"{name}_").splitlines()
+    keep = [ln for ln in filter_exposition(raw, prefix=name).splitlines()
             if ln.startswith("# TYPE ") or (not ln.startswith("#") and mine in ln.split("}", 1)[0])]
     if not any(not ln.startswith("#") for ln in keep):
         raise NoData(f"{name}.prom on {host} has no samples for host {host}")
@@ -2311,9 +2321,10 @@ HELPS = {
     "security_lynis_warnings": "Lynis warnings in the weekly quick audit.",
     "security_unraid_os_update": "1 if a newer Unraid OS release is available on tower.",
     "security_unraid_plugin_update": "1 if a newer version of this Unraid plugin is available on tower.",
-    "security_image_updates": "Images with an update according to Cup, per host and update type.",
+    "security_image_updates": "Images a container uses (running or stopped) with an update according to Cup, per host and update type.",
     "security_cup_snapshot_timestamp_seconds": "Time of the Cup snapshot behind the host's image-update figures (a sleeping host shows its last snapshot).",
-    "security_image_update_info": "One series per image with an update according to Cup (host, reference, type).",
+    "security_image_update_info": "One series per image with an update according to Cup (host, reference, type), only images a container uses.",
+    "security_image_updates_unused": "Images with an update according to Cup that no container uses (old tags, rollback leftovers, base images): cleanup, not updates.",
     "security_code_images": "Registry images the repo refers to (compose image:, Dockerfile FROM; local builds excluded).",
     "security_code_images_scanned": "Of those, images with an SBOM matched against the current Trivy DB.",
     "security_code_images_unresolved": "image: lines whose ${VAR} could not be resolved from .env/.env.example.",
@@ -2509,7 +2520,8 @@ def main() -> int:
                 if host not in cup["hosts"]:
                     raise NoData(cup_missing_reason(host, cup["awake"]))
                 out = [("security_image_updates", {"host": host, "type": t}, n)
-                       for t, n in sorted(cup["hosts"][host].items())]
+                       for t, n in sorted(cup["hosts"][host].items()) if t != "unused"]
+                out.append(("security_image_updates_unused", {"host": host}, cup["hosts"][host]["unused"]))
                 out += [("security_image_update_info", {"host": h, "reference": ref, "type": t}, 1)
                         for h, ref, t in cup["info"] if h == host]
                 return out
@@ -2549,6 +2561,8 @@ def main() -> int:
             guarded(f"updates-{host}", lambda host=host: collect_updates(host, lambda: fetch_nowake(host, UPDATES_PATHS[host])), host=host)
         for host in REBUILD_PATHS:
             guarded(f"rebuild-{host}", lambda host=host: collect_updates(host, lambda: fetch_nowake(host, REBUILD_PATHS[host]), "rebuild_local"), host=host)
+        for host in STALE_PATHS:
+            guarded(f"stale-{host}", lambda host=host: collect_updates(host, lambda: fetch_nowake(host, STALE_PATHS[host]), "container_image_stale"), host=host)
 
     if only and "code" in only:
         for repo in CODE_REPOS:

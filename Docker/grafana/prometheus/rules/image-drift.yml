@@ -1,0 +1,23 @@
+# Shared-tag drift: another project pulled a newer image under the same tag and this container still runs the old one (compose, Cup and the CVE scan miss it). Source: container_image_stale.prom, written by every nightly auto_update.py run (fastpi 03:10; beefy 04:12, its file republished by security-av at 04:20). Doc: Server/4-Security-Monitoring/auto-updates.md. Tests: tests/image-drift_test.yml
+groups:
+  - name: image-drift
+    rules:
+      # The gauge is held until the next nightly run; a recreate that ran later shows only then.
+      - alert: ContainerImageStale
+        expr: max by (host, project, service, container, image, running, tag, dir) (container_image_stale) == 1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.host }} {{ $labels.container }} runs an old {{ $labels.image }} image"
+          description: "Another project pulled {{ $labels.image }}: the tag is on {{ $labels.tag }}, {{ $labels.container }} still runs {{ $labels.running }} (no CVE scan or Cup notices this). Recreate: <code>SERVICES={{ $labels.service }} ~/Projects/Docker/_global/scripts/update-project.sh {{ $labels.dir }} recreate</code> on {{ $labels.host }} (the nightly auto-update does it for auto and edge-auto rows)."
+
+      - alert: ContainerImageStaleCheckMissing
+        expr: time() - container_image_stale_last_run_timestamp_seconds > 2 * 86400
+        for: 1h
+        labels:
+          severity: info
+          notify: digest
+        annotations:
+          summary: "Shared-tag check on {{ $labels.host }} has not run for 2 days"
+          description: "container_image_stale.prom is written by every nightly auto-update run (auto_update.py, also <code>auto_update.py --stale-only</code>). Check <code>journalctl -u auto-update</code> on {{ $labels.host }} (beefy: its file reaches fastpi with the 04:20 security-av pull)."

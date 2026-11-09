@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "5m",
   "time": {
     "from": "now-24h",
@@ -471,7 +471,7 @@
       "id": 8,
       "type": "stat",
       "title": "Images to update",
-      "description": "Running images with a newer version or digest according to Cup. List: table 'Image updates by name' below.",
+      "description": "Images a container uses (running or stopped) with a newer version or digest according to Cup. Unused images on disk are counted apart (next panel). List: table 'Image updates by name' below.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -535,6 +535,75 @@
       },
       "gridPos": {
         "x": 0,
+        "y": 5,
+        "w": 4,
+        "h": 6
+      }
+    },
+    {
+      "id": 49,
+      "type": "stat",
+      "title": "Unused images on disk (cleanup)",
+      "description": "Images Cup sees an update for that no container uses: old tags, rollback leftovers, unused base images. Pulling them changes nothing; the weekly image-cleanup (Sun) removes them once unused 14 days (Docker/_global/scripts/README.md 'image-cleanup').",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "security_image_updates_unused",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "n/a",
+          "mappings": [],
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "text",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 4,
         "y": 5,
         "w": 4,
         "h": 6
@@ -991,9 +1060,9 @@
         }
       ],
       "gridPos": {
-        "x": 4,
+        "x": 8,
         "y": 5,
-        "w": 11,
+        "w": 7,
         "h": 6
       }
     },

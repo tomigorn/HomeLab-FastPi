@@ -1,0 +1,57 @@
+# promtool test rules tests/image-drift_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/image-drift.yml
+evaluation_interval: 1m
+tests:
+  - name: a container left on the old image of a shared tag is reported after 30 minutes, with the command
+    interval: 1m
+    input_series:
+      - series: 'container_image_stale{host="fastpi",project="wiki",service="wiki",container="wiki",image="caddy:alpine",running="c7d68e4fa1bb",tag="6e5bf6e6409f",dir="/home/pi/Projects/Docker/Wiki"}'
+        values: '1x90'
+      - series: 'container_image_stale_containers{host="fastpi"}'
+        values: '1x90'
+      - series: 'container_image_stale_last_run_timestamp_seconds{host="fastpi"}'
+        values: '0x90'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ContainerImageStale
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: ContainerImageStale
+        exp_alerts:
+          - exp_labels: {severity: info, host: fastpi, project: wiki, service: wiki, container: wiki, image: "caddy:alpine", running: c7d68e4fa1bb, tag: 6e5bf6e6409f, dir: /home/pi/Projects/Docker/Wiki}
+            exp_annotations:
+              summary: "fastpi wiki runs an old caddy:alpine image"
+              description: "Another project pulled caddy:alpine: the tag is on 6e5bf6e6409f, wiki still runs c7d68e4fa1bb (no CVE scan or Cup notices this). Recreate: <code>SERVICES=wiki ~/Projects/Docker/_global/scripts/update-project.sh /home/pi/Projects/Docker/Wiki recreate</code> on fastpi (the nightly auto-update does it for auto and edge-auto rows)."
+
+  - name: nothing when no container is stale
+    interval: 1m
+    input_series:
+      - series: 'container_image_stale_containers{host="beefy"}'
+        values: '0x90'
+      - series: 'container_image_stale_last_run_timestamp_seconds{host="beefy"}'
+        values: '0x90'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: ContainerImageStale
+        exp_alerts: []
+      - eval_time: 60m
+        alertname: ContainerImageStaleCheckMissing
+        exp_alerts: []
+
+  - name: the check itself not running for two days is reported
+    interval: 1m
+    input_series:
+      - series: 'container_image_stale_last_run_timestamp_seconds{host="beefy"}'
+        values: '0x3100'
+    alert_rule_test:
+      - eval_time: 47h
+        alertname: ContainerImageStaleCheckMissing
+        exp_alerts: []
+      - eval_time: 50h
+        alertname: ContainerImageStaleCheckMissing
+        exp_alerts:
+          - exp_labels: {severity: info, notify: digest, host: beefy}
+            exp_annotations:
+              summary: "Shared-tag check on beefy has not run for 2 days"
+              description: "container_image_stale.prom is written by every nightly auto-update run (auto_update.py, also <code>auto_update.py --stale-only</code>). Check <code>journalctl -u auto-update</code> on beefy (beefy: its file reaches fastpi with the 04:20 security-av pull)."

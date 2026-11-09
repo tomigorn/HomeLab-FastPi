@@ -1114,8 +1114,8 @@ CUP = {"images": [
 
 def test_cup_counts_updates_per_server_and_type():
     hosts, _ = parse_cup(CUP)
-    assert hosts["fastpi"] == {"all": 2, "major": 0, "minor": 1, "patch": 0, "digest": 1, "unknown": 1}
-    assert hosts["beefy"] == {"all": 1, "major": 1, "minor": 0, "patch": 0, "digest": 0, "unknown": 0}
+    assert hosts["fastpi"] == {"all": 2, "major": 0, "minor": 1, "patch": 0, "digest": 1, "unknown": 1, "unused": 0}
+    assert hosts["beefy"] == {"all": 1, "major": 1, "minor": 0, "patch": 0, "digest": 0, "unknown": 0, "unused": 0}
     assert hosts["tower"]["all"] == 0
 
 
@@ -1126,6 +1126,19 @@ def test_cup_lists_each_image_with_an_update():
         ("fastpi", "caddy:2.10-alpine", "minor"),
         ("fastpi", "traefik:latest", "digest"),
     ]
+
+
+def test_cup_counts_only_images_a_container_uses_and_unused_ones_apart():
+    def img(ref, use, res):
+        return dict(_img(None, ref, res), in_use=use)
+    hosts, info = parse_cup({"images": [
+        img("caddy:alpine", True, {"has_update": True, "info": {"type": "digest"}}),
+        img("traefik:v3.7.15", False, {"has_update": True, "info": {"type": "version", "version_update_type": "patch"}}),
+        img("python:3.11-alpine", False, {"has_update": True, "info": {"type": "version", "version_update_type": "minor"}}),
+        img("old:rollback", False, {"has_update": None, "info": None}),
+        img("alpine:3", False, {"has_update": False, "info": None})]})
+    assert hosts["fastpi"] == {"all": 1, "major": 0, "minor": 0, "patch": 0, "digest": 1, "unknown": 0, "unused": 2}
+    assert info == [("fastpi", "caddy:alpine", "digest")]
 
 
 def test_cup_server_missing_from_json_is_absent_not_zero():
@@ -1410,6 +1423,20 @@ def test_updates_republishes_rebuild_local_under_its_own_name():
     assert collect_updates("beefy", lambda: prom, "rebuild_local") == []
     out = (d / "textfile" / "rebuild_local_beefy.prom").read_text()
     assert 'project="Antivirus"' in out and 'host="fastpi"' not in out and "auto_update_" not in out
+
+
+def test_updates_republishes_container_image_stale_under_its_own_name():
+    d = _tmp_dirs()
+    prom = ('# TYPE container_image_stale gauge\n'
+            'container_image_stale{host="beefy",project="jellyfin",service="popular",container="jellyfin-popular",image="python:3.15.2-alpine3.24",running="a",tag="b",dir="/x"} 1\n'
+            'container_image_stale{host="fastpi",project="x",container="x",image="y"} 1\n'
+            '# TYPE container_image_stale_containers gauge\ncontainer_image_stale_containers{host="beefy"} 1\n'
+            '# TYPE container_image_stale_last_run_timestamp_seconds gauge\ncontainer_image_stale_last_run_timestamp_seconds{host="beefy"} 5\n')
+    assert collect_updates("beefy", lambda: prom, "container_image_stale") == []
+    out = (d / "textfile" / "container_image_stale_beefy.prom").read_text()
+    assert 'container="jellyfin-popular"' in out and 'host="fastpi"' not in out
+    assert 'container_image_stale_containers{host="beefy"} 1' in out and 'container_image_stale_last_run_timestamp_seconds{host="beefy"} 5' in out
+    assert security_scan.STALE_PATHS == {"beefy": "/var/lib/auto-update/textfile/container_image_stale.prom"}
 
 
 def test_updates_missing_or_foreign_only_file_is_no_data_and_keeps_old_file():

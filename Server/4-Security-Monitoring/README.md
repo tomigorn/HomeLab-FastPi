@@ -12,7 +12,7 @@ pipeline that already exists (`security_scan.py <group>`):
 | Brute force on SSH? | `logins` | failed-login lines in the last 24 h | all three | daily 04:05 |
 | Who logged in over SSH (sshd is key-only, so no failures)? | `access` | accepted logins in the last 24 h by user and source class (lan 192.168.1.0/24, vpn 10.24.5.5 + 10.8.0.0/24, tunnel 172.20.0.0/16 = cloudflared, other); alerts on non-lan or a user other than `pi` | fastpi | every 5 min (`security-access.timer`, root, runs the root-owned copy `/usr/local/libexec/fastpi/security_scan.py`: after editing `security_scan.py` run `Docker/_global/install-root-scripts.sh`) |
 | Did authorized_keys, sudoers or sshd_config change? | `access` | SHA-256 of `/home/*/.ssh/authorized_keys`, `/root/.ssh/authorized_keys`, `/etc/sudoers`, `/etc/sudoers.d/*`, `/etc/ssh/sshd_config(.d/*)` against a baseline | fastpi | every 5 min |
-| Image updates per host? | `cup` | Cup's JSON per `server`; refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error; its last figures and snapshot time stay, see "Cup snapshot of a sleeping host") | all three | daily 04:05 |
+| Image updates per host? | `cup` | Cup's JSON per `server`, only images a container uses (Cup's `in_use`, running or stopped); updates of unused images (old tags, rollback leftovers, base images) only as `security_image_updates_unused` (cleanup, `image-cleanup.sh`); refreshes Cup first when beefy or tower is awake (once per run; a host that is off is reported as skipped, not as an error; its last figures and snapshot time stay, see "Cup snapshot of a sleeping host") | all three | daily 04:05 |
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 05:50 (fastpi, tower); never wakes beefy or tower, a sleeping host is skipped |
 | Was anything quarantined (nightly, beefy's download hook and queue)? | `avhits` (also inside `av`) | each host's quarantine `index.txt`, see "Quarantined hits" | all three | every 15 min (`security-av-hits.timer`); beefy/tower only while the Waker sees them up, always via `-direct` (never wakes) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json` | all three | daily 04:10 |
@@ -32,7 +32,7 @@ Metrics:
 | `security_ssh_logins`, `security_ssh_last_login_timestamp_seconds` | host, user, source_class |
 | `security_integrity_changed` (1 = changed, new or missing), `security_integrity_file_info` (12-hex hash prefix), `security_integrity_files` | host, path / + sha256_prefix / host |
 | `security_unraid_os_update`, `security_unraid_plugin_update` | installed, available / plugin |
-| `security_image_updates`, `security_image_update_info` | host, type / host, reference, type |
+| `security_image_updates`, `security_image_update_info` (images in use only), `security_image_updates_unused` | host, type / host, reference, type / host |
 | `security_cup_snapshot_timestamp_seconds` | host |
 | `clamav_*` (republished as `clamav_<host>.prom`, beefy's hook as `clamav_hook_beefy.prom`), `security_av_infected_info` | host, mode / host, path, signature |
 | `clamav_quarantine_hit_first_seen_timestamp_seconds` (one per hit, 24 h, newest 20), `clamav_quarantine_hits_24h` | host, mode, title, file, path, signature, time / host, mode |
@@ -43,6 +43,7 @@ Metrics:
 | `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
 | `security_new_vulns`, `security_new_vuln_info` (first seen < 24 h, newest 20) | scope (host or `code-<repo>`) / + image, id, pkg, severity |
 | `auto_update_result`, `auto_update_omitted`, `auto_update_last_run_timestamp_seconds` (no HELP lines: two hosts' files share the families) | host, project, tier, ref, result, from, to, command / host |
+| `container_image_stale`, `container_image_stale_containers`, `container_image_stale_last_run_timestamp_seconds` (beefy's republished as `container_image_stale_beefy.prom`, `updates` group) | host, project, service, container, image, running, tag, dir / host |
 | `security_dt_projects`, `security_dt_uploads`, `security_dt_sbom_failed`, `security_dt_stale_deleted` | host |
 | `media_language_missing_since_timestamp_seconds`, `…_notify_timestamp_seconds` (republished from beefy) | app, title, language, failed |
 
