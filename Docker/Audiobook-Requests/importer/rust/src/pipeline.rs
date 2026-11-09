@@ -125,8 +125,11 @@ pub fn needs_merge(names: &[String]) -> bool {
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
-        let p = entry?.path();
-        if p.is_dir() {
+        let entry = entry?;
+        let p = entry.path();
+        if entry.file_type()?.is_symlink() {
+            log::warn!("skipped symlink {}", p.display());
+        } else if p.is_dir() {
             walk(&p, out)?;
         } else if p.is_file() {
             out.push(p);
@@ -144,6 +147,12 @@ pub fn files_under(dir: &Path) -> io::Result<Vec<PathBuf>> {
 
 pub fn file_names(dir: &Path) -> io::Result<Vec<String>> {
     Ok(files_under(dir)?.iter().filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())).collect())
+}
+
+/// The download's real path lies inside the downloads folder (symlinks resolved): qBittorrent's content_path is never trusted to point elsewhere.
+pub fn under(path: &Path, root: &Path) -> io::Result<bool> {
+    let (p, r) = (fs::canonicalize(path)?, fs::canonicalize(root)?);
+    Ok(p != r && p.starts_with(&r))
 }
 
 /// shutil.copy2: contents and modification time.
@@ -226,6 +235,10 @@ pub async fn step(app: &App, job: &mut Value, now: f64) -> Result<()> {
             set(job, "region", region.map(Value::String).unwrap_or(Value::Null));
             set(job, "book", json!({"title": book.title, "authors": book.authors}));
             let src = PathBuf::from(str_of(t.get("content_path")).unwrap_or(""));
+            if !under(&src, &cfg.downloads)? {
+                fail(job, &format!("content path {} is outside {}", src.display(), cfg.downloads.display()));
+                return Ok(());
+            }
             let library = cfg.library.clone();
             let rel_for_copy = rel.clone();
             let copied = tokio::task::spawn_blocking(move || copy_into(&src, &library, &rel_for_copy)).await?;
@@ -405,6 +418,23 @@ mod tests {
         assert!(!needs_merge(&n(&["book.m4b", "book.cue", "cover.jpg"])));
         assert!(!needs_merge(&n(&["one.mp3"])));
         assert!(needs_merge(&n(&["Part 1.m4b", "Part 2.m4b", "cover.jpg"])));
+    }
+
+    #[test]
+    fn downloads_root() {
+        let root = std::env::temp_dir().join(format!("importer-under-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("dl/book")).unwrap();
+        fs::create_dir_all(root.join("secrets")).unwrap();
+        std::os::unix::fs::symlink(root.join("secrets"), root.join("dl/link")).unwrap();
+        let dl = root.join("dl");
+        assert!(under(&dl.join("book"), &dl).unwrap());
+        assert!(!under(&dl, &dl).unwrap());
+        assert!(!under(&root.join("secrets"), &dl).unwrap());
+        assert!(!under(&dl.join("book/../../secrets"), &dl).unwrap());
+        assert!(!under(&dl.join("link"), &dl).unwrap());
+        assert!(under(&dl.join("missing"), &dl).is_err());
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

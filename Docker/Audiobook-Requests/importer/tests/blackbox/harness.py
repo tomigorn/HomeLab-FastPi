@@ -59,7 +59,7 @@ class Service:
             "QBIT_URL": self.qbit.url, "ABS_URL": self.abs.url, "ABR_URL": self.abr.url, "PROWLARR_URL": self.prowlarr.url,
             "AUDIBLE_BASE": f"{self.audible.url}/audible", "AUDNEXUS_URL": f"{self.audible.url}/audnexus",
             "AUDIBLE_REGIONS": "com" if AUDIBLE_MOCK else "invalid",
-            "LIBRARY": str(self.library), "STATE": str(self.data / "jobs.json"), "QUOTA_LEDGER": str(self.data / "quota.json"),
+            "LIBRARY": str(self.library), "DOWNLOADS": str(self.downloads), "STATE": str(self.data / "jobs.json"), "QUOTA_LEDGER": str(self.data / "quota.json"),
             "QBIT_PASS_FILE": str(secrets / "qbit_pass"), "ABS_KEY_FILE": str(secrets / "abs_api_key"), "ABR_KEY_FILE": str(secrets / "abr_api_key"),
             "BOOKS_PROXY_IP": PEERS["proxy"], "ABR_IP": PEERS["abr"], "ABR_HOST": "localhost",
             "PROXY_BASE": "http://audiobook-importer:8000/prowlarr", "PATH": os.environ.get("PATH", "/usr/bin:/bin"),

@@ -255,6 +255,33 @@ class WithoutAsin(ServiceTest):
         self.assertEqual(job["dest"], DEST)
 
 
+class OutsideDownloads(ServiceTest):
+    """Only what lies under DOWNLOADS is copied: a content_path elsewhere (e.g. /run/secrets) or a symlink out of the download never reaches the library."""
+    @classmethod
+    def prepare(cls, svc):
+        cls.elsewhere = svc.tmp / "elsewhere"
+        cls.elsewhere.mkdir()
+        (cls.elsewhere / "secret").write_text("key")
+        src = svc.downloads / "Linked"
+        src.mkdir()
+        (src / "01.m4b").write_bytes(b"1")
+        (src / "leak").symlink_to(cls.elsewhere / "secret")
+        (src / "leakdir").symlink_to(cls.elsewhere, target_is_directory=True)
+        cls.before = snapshot(svc.downloads)
+        svc.qbit.torrents = [torrent(svc, HASH, cls.elsewhere), torrent(svc, "e" * 40, src)]
+
+    @legacy_bug("content_path is copied from wherever qBittorrent says, symlinks followed")
+    def test_outside_content_path_fails_and_symlinks_are_skipped(self):
+        self.svc.request("POST", "/abr", peer="abr", body=WEBHOOK)
+        job = self.svc.wait_state(lambda k, j: k == HASH, "failed")
+        self.assertIn("outside", job["error"])
+        self.svc.request("POST", "/abr", peer="abr", body=dict(WEBHOOK, hash="e" * 40, title="Linked Book"))
+        job = self.svc.wait_state(lambda k, j: k == "e" * 40, "done")
+        self.assertEqual(sorted(p.name for p in (self.svc.library / job["dest"]).iterdir()), ["01.m4b"])
+        self.assertEqual([p for p in self.svc.library.rglob("*") if p.name in ("secret", "leak") or "leakdir" in p.name], [])
+        self.assertEqual(snapshot(self.svc.downloads), self.before)
+
+
 @unittest.skipUnless(harness.AUDIBLE_MOCK, "needs AUDIBLE_BASE (Rust): the Python calls api.audible.com directly")
 class AudibleNaming(ServiceTest):
     @classmethod
