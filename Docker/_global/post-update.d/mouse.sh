@@ -11,9 +11,10 @@ if want prowlarr prowlarr-gate; then
 fi
 if want qbittorrent; then
   # MAM flags qBittorrent 4.3.4-4.4.5 and 4.5.2-4.6.7 (owner 2026-11-09); any other version is allowed
+  # MAM allows qBittorrent 5.0.1 to latest 5.2.x (list of 2026-11-09); anything not listed is rejected
   check mouse.qbit-mam-allowed '^v[0-9]+\.[0-9]+\.[0-9]+ allowed$' "$(docker exec qbittorrent_mouse /app/qbittorrent-nox --version 2>/dev/null | tail -1 | python3 -c 'import re,sys
 m = re.search(r"v(\d+)\.(\d+)\.(\d+)", sys.stdin.read()); v = tuple(map(int, m.groups())) if m else None
-print("v%d.%d.%d " % v + ("flagged" if any(a <= v <= b for a, b in [((4, 3, 4), (4, 4, 5)), ((4, 5, 2), (4, 6, 7))]) else "allowed") if v else "no version")')"
+print("v%d.%d.%d " % v + ("allowed" if (5, 0, 1) <= v < (5, 3, 0) else "discouraged" if any(a <= v <= b for a, b in [((4, 3, 4), (4, 4, 5)), ((4, 5, 2), (4, 6, 7))]) else "not-allowed") if v else "no version")')"
   # the tracker's verdict: MAM answered qBittorrent 5.3.0 "is not allowed" on 2026-11-09 although its list did not flag it
   check mouse.qbit-mam-accepted '^0 rejected [1-9][0-9]* working$' "$(for h in $(docker exec traefik wget -qO- -T 10 'http://10.24.25.2:8080/api/v2/torrents/info?limit=5&sort=added_on' 2>/dev/null | python3 -c 'import json,sys; print(" ".join(t["hash"] for t in json.load(sys.stdin)))' 2>/dev/null); do docker exec traefik wget -qO- -T 10 "http://10.24.25.2:8080/api/v2/torrents/trackers?hash=$h" 2>/dev/null; echo; done | python3 -c 'import json,sys
 t = [x for l in sys.stdin if l.strip() for x in json.loads(l) if x["url"].startswith("http")]
