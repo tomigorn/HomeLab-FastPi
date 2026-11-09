@@ -32,7 +32,7 @@ for l in open(sys.argv[1]):
     k, _, v = l.partition("="); k = k if sec == "Preferences" else sec + "\\" + k
     if k in ("WebUI\\AuthSubnetWhitelist", "WebUI\\AuthSubnetWhitelistEnabled", "WebUI\\ReverseProxySupportEnabled"): out[k] = v
 print(" ".join(f"{k}={v}" for k, v in sorted(out.items())))' "$QB/qBittorrent.conf" 2>&1)"
-  check mouse.qbit-bypass-scope '403' "$(docker exec audiobook-importer python3 -c 'import urllib.request; urllib.request.urlopen("http://10.24.25.2:8080/api/v2/app/version", timeout=5)' 2>&1 | grep -o 'HTTP Error [0-9]*')"
+  check mouse.qbit-bypass-scope '^403$' "$(docker exec audiobook-importer /audiobook-importer --probe http://10.24.25.2:8080/api/v2/app/version 2>&1)"
   check mouse.qbit-vpn-bind '^Session\\Interface=tun0 Session\\InterfaceName=tun0$' "$(grep -E '^Session\\Interface(Name)?=' "$QB/qBittorrent.conf" | xargs -d '\n')"
   check mouse.qbit-category-abr '^/downloads/complete/abr -2 -2 -2$' "$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1]))["abr"]; print(c["save_path"], c["ratio_limit"], c["seeding_time_limit"], c["inactive_seeding_time_limit"])' "$QB/categories.json" 2>&1)"
   check mouse.torrenting-port '^TORRENTING_PORT=' "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' qbittorrent_mouse | grep '^TORRENTING_PORT=')"
@@ -44,7 +44,7 @@ fi
 if want gluetun; then
   check mouse.gluetun-pin ':v3\.41\.3$' "$(docker inspect -f '{{.Config.Image}}' gluetun_mouse)"
   check mouse.gluetun-server '^SERVER_HOSTNAMES=node-ch-07\.protonvpn\.net VPN_PORT_FORWARDING=on$' "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' gluetun_mouse | grep -E '^(SERVER_HOSTNAMES|VPN_PORT_FORWARDING)=' | sort | xargs)"
-  check mouse.traefik-guard '^ok blocked$' "$(docker exec audiobook-importer python3 -c "import socket;socket.create_connection(('10.24.25.2',8080),3);print('ok')" 2>/dev/null) $(docker exec audiobookrequest python3 -c "import socket;s=socket.socket();s.settimeout(3);print('open' if s.connect_ex(('10.24.25.2',5010))==0 else 'blocked')" 2>/dev/null)"
+  check mouse.traefik-guard '^ok blocked$' "$(docker exec audiobook-importer /audiobook-importer --probe http://10.24.25.2:8080/ >/dev/null 2>&1 && echo ok) $(docker exec audiobookrequest python3 -c "import socket;s=socket.socket();s.settimeout(3);print('open' if s.connect_ex(('10.24.25.2',5010))==0 else 'blocked')" 2>/dev/null)"
   check mouse.gluetun-control-auth '^401 401$' "$(echo "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:8000/v1/portforward) $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:8000/v1/vpn/status)")"
   check mouse.vpn-egress '^vpn$' "$(h=$(curl -s -m 8 https://ifconfig.me/ip); q=$(docker exec qbittorrent_mouse wget -qO- -T 8 https://ifconfig.me/ip 2>/dev/null); [[ -n $q && -n $h && $q != "$h" ]] && echo vpn || echo "home or none")"
 fi

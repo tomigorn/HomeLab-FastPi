@@ -1,7 +1,12 @@
 """HTTP behaviour of the importer: who may call what, quota, pages' data, the ABS and Prowlarr pass-throughs."""
+import datetime
 import json
+import os
+import shlex
+import subprocess
 import time
 import unittest
+from zoneinfo import ZoneInfo
 
 import harness
 from harness import ServiceTest, abs_item, abs_user, legacy_bug, wish
@@ -201,6 +206,93 @@ class MyQuota(ServiceTest):
         oldest = min(v["at"] for v in ledger.values())
         self.assertEqual(q["used"], 5)
         self.assertEqual(q["freesAt"], time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(oldest + 7 * 86400)))
+
+
+ZURICH = ZoneInfo("Europe/Zurich")
+
+
+class QuotaLocalTime(ServiceTest):
+    """ABR writes updated_at with datetime.now() in its container (TZ=Europe/Zurich): naive times are local time, read in the importer's TZ."""
+    ENV = {"TZ": "Europe/Zurich"}
+
+    def setUp(self):
+        super().setUp()
+        self.svc.abr.wishlist, self.svc.abr.manual, self.svc.abr.fail = [], [], False
+        self.svc.write_ledger({})
+
+    def local(self, seconds_ago):
+        return datetime.datetime.fromtimestamp(time.time() - seconds_ago, ZURICH).strftime("%Y-%m-%dT%H:%M:%S")
+
+    def quota(self, user):
+        return self.svc.request("GET", "/quota", peer="proxy", headers={"X-Original-Method": "POST", "X-authentik-username": user})[0]
+
+    def test_naive_times_are_local(self):
+        self.svc.abr.wishlist = [wish("B0", "T0", "jane", self.local(86400))]
+        self.assertEqual(self.quota("jane"), 204)
+        self.assertAlmostEqual(self.svc.ledger()["jane|B0"]["at"], time.time() - 86400, delta=5)
+
+    def test_window_edge_is_measured_in_local_time(self):
+        self.svc.abr.wishlist = [wish(f"B{i}", f"T{i}", "jane", self.local(7 * 86400 - 1200)) for i in range(5)]
+        self.assertEqual(self.quota("jane"), 403)
+        self.svc.write_ledger({})
+        self.svc.abr.wishlist = [wish(f"B{i}", f"T{i}", "jane", self.local(7 * 86400 + 1200)) for i in range(5)]
+        self.assertEqual(self.quota("jane"), 204)
+
+    def test_log_lines_are_stamped_in_local_time(self):
+        self.quota("")
+        first = self.svc.wait_for(lambda: next((l for l in self.svc.log_text().splitlines() if "refused" in l), None), what="a log line")
+        stamped = datetime.datetime.strptime(first[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZURICH)
+        self.assertLess(abs(time.time() - stamped.timestamp()), 300, first)
+
+
+class QuotaLocalTimeFixedDates(ServiceTest):
+    """Fixed dates around a week boundary and both DST switches (values from the Python's datetime.fromisoformat(...).timestamp())."""
+    ENV = {"TZ": "Europe/Zurich", "QUOTA_DAYS": "36500"}
+    EXPECTED = {
+        "2026-11-08T23:30:00": 1794177000.0,   # Sunday 23:30 CET
+        "2026-11-09T00:30:00": 1794180600.0,   # Monday 00:30 CET
+        "2026-01-01T00:00:00": 1767222000.0,
+        "2026-07-01T00:00:00": 1782856800.0,
+        "2026-03-29T01:30:00": 1774744200.0,   # before the spring switch (CET)
+        "2026-03-29T02:30:00": 1774747800.0,   # does not exist: read with the offset before the switch
+        "2026-03-29T03:30:00": 1774747800.0,   # CEST
+        "2026-10-25T01:30:00": 1792884600.0,
+        "2026-10-25T02:30:00": 1792888200.0,   # twice: the first (CEST)
+        "2026-10-25T03:30:00": 1792895400.0,
+        "2026-07-01T12:00:00.250000": 1782900000.25,
+        "2026-07-01 12:00:00": 1782900000.0,
+        "2026-07-01T12:00:00+00:00": 1782907200.0,
+        "2026-07-01T12:00:00Z": 1782907200.0,
+        "2026-01-01": 1767222000.0,
+    }
+
+    def test_ledger_times(self):
+        self.svc.abr.wishlist = [wish(f"B{i}", "T", "jane", at) for i, at in enumerate(self.EXPECTED)]
+        self.svc.abr.manual, self.svc.abr.fail = [], False
+        self.svc.write_ledger({})
+        self.svc.request("GET", "/quota", peer="proxy", headers={"X-Original-Method": "POST", "X-authentik-username": "jane"})
+        ledger = self.svc.ledger()
+        got = {at: ledger[f"jane|B{i}"]["at"] for i, at in enumerate(self.EXPECTED)}
+        self.assertEqual(got, self.EXPECTED)
+
+
+@unittest.skipIf(harness.LEGACY, "the Python has python3 in its image instead of a probe")
+class Probe(ServiceTest):
+    """--probe <http url>: the status line's code on stdout, for checks that run inside the shell-less image (docker exec)."""
+
+    def probe(self, url):
+        cmd = shlex.split(os.environ["IMPORTER_CMD"]) + ["--probe", url]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        return r.returncode, r.stdout.strip()
+
+    def test_status_code_of_any_answer(self):
+        self.assertEqual(self.probe(f"http://127.0.0.1:{self.svc.port}/health"), (0, "200"))
+        self.assertEqual(self.probe(f"http://127.0.0.1:{self.svc.port}/quota"), (0, "403"))
+
+    def test_nothing_listening_or_not_http(self):
+        self.assertEqual(self.probe(f"http://127.0.0.1:{harness.free_port()}/")[0], 1)
+        self.assertEqual(self.probe("https://127.0.0.1/")[0], 2)
+        self.assertEqual(self.probe("http://example.com/")[0], 2)
 
 
 class AllRequests(ServiceTest):
@@ -424,6 +516,8 @@ class ProwlarrPassThrough(ServiceTest):
     def test_no_release_by_the_author_means_nothing(self):
         status, _, out = self.search("Lonely")
         self.assertEqual((status, out), (200, []))
+        line = self.svc.wait_for(lambda: next((l for l in self.svc.log_text().splitlines() if "no release by Nobody Here" in l), None), what="the warning")
+        self.assertEqual(line.split()[2], "WARNING", line)
 
     def test_unknown_book_keeps_language_and_seeder_rules(self):
         self.svc.prowlarr.results = lambda q: [dict(SENSE[0], title="X by Y [GER / M4B]"), dict(SENSE[1], seeders=0),
