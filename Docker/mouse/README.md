@@ -1,5 +1,5 @@
 # mouse
-Torrent/usenet download stack (gluetun, qBittorrent, SABnzbd, MouseHole, port-updater) plus the Samba file server.
+Torrent/usenet download stack (gluetun, qBittorrent, SABnzbd, MouseHole, port-updater, Rust: `port-updater/README.md`) plus the Samba file server.
 
 ## Samba shares
 The samba container mounts only the folders below; the qBittorrent/SABnzbd config dirs and the disk roots are not mounted. `wide links = no` on every share.

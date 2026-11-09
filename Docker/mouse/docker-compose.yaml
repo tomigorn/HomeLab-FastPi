@@ -474,11 +474,15 @@ services:
 # #########################################################
 # Port Updater ############################################
 # #########################################################
+  # Rust, static binary on scratch (port-updater/README.md); the shell/Python original is in port-updater/legacy/.
   port-updater:
-    build: ./port-updater/legacy
+    build: ./port-updater
     container_name: port_updater
     user: "65042:65042"
-    mem_limit: 64m
+    mem_limit: 16m
+    cpus: 0.5
+    pids_limit: 32
+    read_only: true
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -488,10 +492,9 @@ services:
       # Status page: https://vpn-status-mouse.holy-grail.ch (Traefik over traefik_proxy, Holy Grail injects the basic auth).
       # ssh -L 8087:127.0.0.1:8087 fastpi, then http://localhost:8087/ still works.
       - "127.0.0.1:${WEB_PORT:-8088}:${WEB_PORT:-8088}"
-    # Real docker.sock REMOVED (2026-09-26) - it is root on the host. This script
-    # only inspects and restarts/stops a few named containers, so it uses the
-    # docker CLI against socket-proxy-portupdater (start/stop/restart of its four containers only, inspect of gluetun_mouse, no create/exec, no images, no
-    # volumes, no networks). The CLI honours DOCKER_HOST.
+    # Real docker.sock REMOVED (2026-09-26) - it is root on the host. port-updater only inspects and
+    # restarts/stops a few named containers, through socket-proxy-portupdater (start/stop/restart of its four
+    # containers only, inspect of gluetun_mouse, no create/exec, no images, no volumes, no networks), at DOCKER_HOST.
     volumes:
       - port-updater-data:/data
     logging:

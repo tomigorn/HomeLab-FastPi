@@ -7,7 +7,7 @@ fi
 if want socket-proxy-autoheal socket-proxy-portupdater; then
   check dsp.haproxy-overlays '^match match$' "$(for c in autoheal portupdater; do [[ $(docker exec socket-proxy-$c cat /usr/local/etc/haproxy/haproxy.cfg | sha256sum) == "$(sha256sum < "$DSPD/$c-haproxy.cfg")" ]] && echo match || echo "$c differs"; done | xargs)"
   check dsp.autoheal-denies '^403$' "$(docker exec autoheal-mouse curl -s -m 5 -o /dev/null -w '%{http_code}' http://socket-proxy-autoheal:2375/info)"
-  check dsp.portupdater-scope '^200 403$' "$(echo "$(docker exec port_updater curl -s -m 5 -o /dev/null -w '%{http_code}' http://socket-proxy-portupdater:2375/containers/gluetun_mouse/json) $(docker exec port_updater curl -s -m 5 -o /dev/null -w '%{http_code}' http://socket-proxy-portupdater:2375/containers/traefik/json)")"
+  check dsp.portupdater-scope '^200 403$' "$(echo "$(docker exec port_updater /port-updater probe http://socket-proxy-portupdater:2375/containers/gluetun_mouse/json) $(docker exec port_updater /port-updater probe http://socket-proxy-portupdater:2375/containers/traefik/json)")"
 fi
 check dsp.image-pin '^pinned 4/4, running = pin 4/4$' "$(docker compose --project-directory "$DSPD" config --format json 2>/dev/null | python3 -c 'import json, subprocess, sys
 s = {k: v for k, v in json.load(sys.stdin)["services"].items() if k in sys.argv[1:]}
