@@ -7,7 +7,7 @@
 | `host-output-guard.sh [--persist]` | HOST-OUT-GUARD: what the host itself (incl. host-network containers) may open on beefy (OUTPUT) |
 | `iptables-persist.sh` | writes `/etc/iptables/rules.v4/v6` with only those chains; never `netfilter-persistent save` |
 | `smoke-test.sh` | end-to-end checks, must stay green |
-| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env, old image and, after an image change, the data backups; a failed backup aborts; backups owner-only). Shared tags: see below. Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
+| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env, old image and, after an image change, the data backups; a failed build or backup aborts before the recreate; `build: network: host` services are built by `buildx bake --allow=network.host`; backups owner-only). Shared tags: see below. Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
 | `rebuild_local.py` | weekly rebuild of the local images with tests and rollback (`Server/4-Security-Monitoring/auto-updates.md` "Local builds", list `../rebuild-local.conf`). Images without a shell (scratch) are compared by a content digest of their filesystem (mtimes ignored) instead of the package list. Test: `python3 test_rebuild_local.py` |
 | `migrate-rollback-tags.sh` | one-shot: old `<repo>:rollback-*` tags -> `rollback.invalid/` (tags only). Test: `./test_migrate_rollback_tags.sh` |
 | `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
