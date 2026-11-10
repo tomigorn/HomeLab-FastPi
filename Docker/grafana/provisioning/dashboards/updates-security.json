@@ -525,7 +525,7 @@
       "id": 8,
       "type": "stat",
       "title": "Images to update",
-      "description": "Images a container uses (running or stopped) with a newer version or digest according to Cup. Unused images on disk are counted apart (next panel). List: table 'Image updates by name' below.",
+      "description": "Images a container uses (running or stopped) with a newer version or digest according to Cup, plus local builds whose base image has a new digest (base) or a newer upstream release (upstream), checked against the registry by security_scan.py (localbase). Unused images on disk are counted apart (next panel). List: table 'Image updates by name' below.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -533,7 +533,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "security_image_updates{type=\"all\"}",
+          "expr": "sum by (host) (security_image_updates{type=~\"all|base|upstream\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -667,7 +667,7 @@
       "id": 9,
       "type": "table",
       "title": "Image updates by kind",
-      "description": "Image updates per host and kind (Cup). digest = same tag, rebuilt image. As of = time of the Cup snapshot behind the figures; shows 'live' (green) when the snapshot is under 1 h old. Age = time since the snapshot, orange after 36 h, red after 8 days. A host that is asleep (beefy, tower) keeps its last snapshot, so its numbers are as old as this. 'no snapshot' = no snapshot yet.",
+      "description": "Image updates per host and kind (Cup). digest = same tag, rebuilt image. base / upstream = local builds (no Cup check): a pinned base has a new digest (the weekly rebuild-local moves it) / a newer release of a versioned base is out (change the Dockerfile by hand). As of = time of the Cup snapshot behind the figures; shows 'live' (green) when the snapshot is under 1 h old. Age = time since the snapshot, orange after 36 h, red after 8 days. A host that is asleep (beefy, tower) keeps its last snapshot, so its numbers are as old as this. 'no snapshot' = no snapshot yet.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -748,6 +748,30 @@
         {
           "refId": "G",
           "expr": "time() - max by (host) (security_cup_snapshot_timestamp_seconds)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "H",
+          "expr": "max by (host) (security_image_updates{type=\"base\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "I",
+          "expr": "max by (host) (security_image_updates{type=\"upstream\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -930,6 +954,86 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "base"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "blue",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "upstream"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "unknown"
             },
             "properties": [
@@ -1096,9 +1200,11 @@
               "minor": 2,
               "patch": 3,
               "digest": 4,
-              "unknown": 5,
-              "Value #F": 6,
-              "Value #G": 7
+              "base": 5,
+              "upstream": 6,
+              "unknown": 7,
+              "Value #F": 8,
+              "Value #G": 9
             },
             "renameByName": {
               "host": "Host",
@@ -1108,7 +1214,9 @@
               "Value #B": "minor",
               "Value #C": "patch",
               "Value #D": "digest",
-              "Value #E": "unknown"
+              "Value #E": "unknown",
+              "Value #H": "base",
+              "Value #I": "upstream"
             }
           }
         }
@@ -2402,7 +2510,7 @@
       "id": 15,
       "type": "table",
       "title": "Image updates by name",
-      "description": "One row per image with an update according to Cup (reference = image:tag as running). Click a header to sort. Update helper: Docker/_global/scripts/update-project.sh.",
+      "description": "One row per image with an update according to Cup (reference = image:tag as running), plus local builds whose base image moved: 'base image update' (new digest of the pinned base tag, the weekly rebuild-local picks it up) and 'upstream release' (newer release of the base, e.g. LibreTranslate: change the Dockerfile tags by hand). Click a header to sort. Update helper: Docker/_global/scripts/update-project.sh.",
       "datasource": {
         "type": "prometheus",
         "uid": "dfc6abdxzsem8a"
@@ -2472,6 +2580,16 @@
                         "text": "unknown",
                         "color": "purple",
                         "index": 4
+                      },
+                      "base": {
+                        "text": "base image update",
+                        "color": "blue",
+                        "index": 5
+                      },
+                      "upstream": {
+                        "text": "upstream release",
+                        "color": "orange",
+                        "index": 6
                       }
                     }
                   }
@@ -2479,7 +2597,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 120
+                "value": 150
               }
             ]
           },
