@@ -173,6 +173,7 @@ still get the manual treatment.
 
 | Rule | Why |
 |---|---|
+| Hand-made backup tags also go under `rollback.invalid/<repo>:<label>`, never `<registry repo>:<label>` | Cup looks every tag of a registry repo up remotely; an unknown one (e.g. `libretranslate/libretranslate:pre-rebuild-…`) made beefy's Cup agent exit and crash-loop (2026-11-10) |
 | One namespace: `rollback.invalid/<repo>:<date>-<project>` (`:` in a registry port becomes `-`, e.g. `rollback.invalid/lscr.io/linuxserver/prowlarr:2026-10-29-mouse`) | Cup reads only the first tag of an image and exits on a tag with no remote versions (crash loop, 2026-10-29); one prefix excludes them all |
 | `.invalid` registry host, not `local/rollback/` | Docker lists tags sorted by full name; `rollback.invalid/` sorts after `docker.io/`, `ghcr.io/`, `lscr.io/`, `quay.io/`, so an in-use image keeps its real tag first in Cup. `.invalid` never resolves: no accidental push or pull |
 | Cup: `images.exclude: ["rollback.invalid/"]` + `registries: {"rollback.invalid": {"ignore": true}}` in `Cup/cup.json`, `Cup/cup-agent.json`, beefy `Cup-Agent/cup.json` | Cup 3.6 `exclude` is a prefix match on the reference; the registry ignore stops its auth probe of the fake host (3 retries per start) |
