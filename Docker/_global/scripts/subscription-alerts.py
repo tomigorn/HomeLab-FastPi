@@ -2,7 +2,7 @@
 """Telegram warnings for the subscription deadlines in Seerr's indexer-bar/limits.toml (beefy) and the domains with a set end date in grafana/status-exporter/domains.toml. See README "Subscription alerts".
 Stages per end date: yellow <= 30 days left, orange <= 7, red on the end date, red "expired yesterday" the day after. Each stage once per (service, end date); a renewed date starts fresh.
 beefy sleeps, so the list is cached on fastpi: refreshed over ssh when beefy answers (never woken), the cache is never deleted.
-DDNS hostnames (domains.toml [ddns."…"] confirmed = <date>): end date = confirmed + 30 days; No-IP deletes the hostname on the end date, so stages: yellow 7-4 days left, orange 3-2, red 1 day left, red on the end date (morning), red "deadline passed" the day after.
+DDNS hostnames (domains.toml [ddns."…"] confirmed = <date>): end date = confirmed + 30 days; No-IP deletes the hostname on the end date, so stages: yellow 5-4 days left, orange 3-2, red 1 day left, red on the end date (morning), red "deadline passed" the day after.
 Usage: subscription-alerts.py [--test]"""
 import datetime as dt
 import html
@@ -39,7 +39,7 @@ def zurich_today(now):
 
 def stage(left, ddns=False):
     if ddns:
-        if left > 7:
+        if left > 5:
             return None
         if left > 3:
             return "yellow"

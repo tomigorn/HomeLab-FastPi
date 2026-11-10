@@ -305,7 +305,7 @@ def test_ddns_end_date_is_confirmed_plus_30_and_no_confirmed_means_no_timer():
 
 
 def test_ddns_stage_timing():
-    want = {8: None, 7: "yellow", 4: "yellow", 3: "orange", 2: "orange", 1: "red1", 0: "red", -1: "expired", -2: None}
+    want = {8: None, 6: None, 5: "yellow", 4: "yellow", 3: "orange", 2: "orange", 1: "red1", 0: "red", -1: "expired", -2: None}
     for left, st in want.items():
         assert sa.stage(left, True) == st, left
 
@@ -318,16 +318,16 @@ def test_ddns_sequence_once_each_and_fresh_on_new_date():
         for g in sa.pending(ddns_subs(), today, state):
             seen.append((today, g["stage"], len(g["items"])))
             sa.mark(state, g)
-    assert seen == [(D(2026, 12, 3), "yellow", 2), (D(2026, 12, 7), "orange", 2), (D(2026, 12, 9), "red1", 2), (D(2026, 12, 10), "red", 2), (D(2026, 12, 11), "expired", 2)]
+    assert seen == [(D(2026, 12, 5), "yellow", 2), (D(2026, 12, 7), "orange", 2), (D(2026, 12, 9), "red1", 2), (D(2026, 12, 10), "red", 2), (D(2026, 12, 11), "expired", 2)]
     new = [dict(s, expires=D(2027, 1, 9)) for s in ddns_subs()]
-    assert sa.pending(new, D(2027, 1, 2), state)[0]["stage"] == "yellow"
+    assert sa.pending(new, D(2027, 1, 4), state)[0]["stage"] == "yellow"
 
 
 def test_ddns_message_layout():
-    g = sa.pending(ddns_subs(), D(2026, 12, 3), {})[0]
+    g = sa.pending(ddns_subs(), D(2026, 12, 5), {})[0]
     m = sa.render(g, 0)
     lines = m.split("\n")
-    assert lines[0] == "🟡 <b>No-IP confirm due in 7 days</b>"
+    assert lines[0] == "🟡 <b>No-IP confirm due in 5 days</b>"
     assert lines[2] == "📅 Thu, 10 Dec 2026"
     assert "• <b>a.ddns.net</b> · No-IP hostname" in m and "• <b>b.ddns.net</b> · No-IP hostname" in m
     assert "noip.com" in m and "Dynamic DNS" in m and "No-IP confirmed" in m and "confirmed = " in m and "limits.toml" not in m
@@ -342,9 +342,9 @@ def test_ddns_message_layout():
 def test_run_sends_ddns_once():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 4), time.time(), DDNS) == 0
-        assert len([m for m in sent if "No-IP" in m]) == 1
         assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 5), time.time(), DDNS) == 0
+        assert len([m for m in sent if "No-IP" in m]) == 1
+        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 6), time.time(), DDNS) == 0
         assert len([m for m in sent if "No-IP" in m]) == 1
 
 
