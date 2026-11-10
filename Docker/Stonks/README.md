@@ -13,7 +13,7 @@ folder (16 MB on `scratch`, a few MB RAM). The previous Python image stays as `s
 
 Weekly rebuild (Sat, fresh base, unit + black-box tests, rollback): `rebuild-local`, `Server/4-Security-Monitoring/auto-updates.md` "Local builds".
 
-Tests before a redeploy (sandboxed, no network): in the code repo `docker build --target test rust/` (33 unit tests) and `tests/blackbox/run-rust.sh` (45 HTTP checks against the exported binary, `docker build --target export --output type=local,dest=rust/dist rust/` first).
+Tests before a redeploy (sandboxed, no network): in the code repo `docker build --target test rust/` (39 unit tests) and `tests/blackbox/run-rust.sh` (47 HTTP checks against the exported binary, `docker build --target export --output type=local,dest=rust/dist rust/` first).
 
 Post-update check: `Docker/_global/scripts/post-update-check.sh Stonks` (image shape, healthz, login redirect, price cache fresh).
 
