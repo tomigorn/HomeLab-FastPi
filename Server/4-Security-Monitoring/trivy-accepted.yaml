@@ -1,5 +1,5 @@
 # Reviewed CVE acceptances for Trivy (ignore-file format, passed with --ignorefile by security_scan.py).
-# Only misreport / not_affected with evidence. Each entry: id, a scope (paths and/or purls, both must match), statement "<verdict>: <evidence>", expired_at at most 90 days ahead.
+# misreport / not_affected with evidence, or real_mitigated only with the owner's dated yes ("real_mitigated: accepted by owner YYYY-MM-DD, <exposure>"). Each entry: id, a scope (paths and/or purls, both must match), statement "<verdict>: <evidence>", expired_at at most 90 days ahead.
 # Re-review: a finding whose entry expires counts as open again and alerts as new (CveAcceptanceExpired names the entry).
 vulnerabilities:
   # Go binaries that do not link the vulnerable package (package symbols absent from the binary's pclntab, checked 2026-11-09); gosu also per its SECURITY.md (CVEs in interfaces gosu never invokes)
@@ -526,3 +526,270 @@ vulnerabilities:
       - "pkg:deb/ubuntu/libapt-pkg7.0@3.2.0"
     statement: "not_affected: vulnerable_code_not_in_execute_path, apt only runs at image build; no container runs apt-get at runtime (entrypoints checked, no linuxserver DOCKER_MODS)"
     expired_at: 2027-02-06
+  # Owner decisions 2026-11-10 (real_mitigated, cve-triage 2026-11-09 #1): LanguageTool 6.8 (newest), opennlp + netty
+  - id: CVE-2026-42579
+    paths:
+      - "LanguageTool/libs/netty-codec-dns.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-codec-dns@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-75595
+    paths:
+      - "LanguageTool/libs/netty-handler.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-handler@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-44249
+    paths:
+      - "LanguageTool/libs/netty-handler.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-handler@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-45416
+    paths:
+      - "LanguageTool/libs/netty-handler.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-handler@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-50010
+    paths:
+      - "LanguageTool/libs/netty-handler.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-handler@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-45674
+    paths:
+      - "LanguageTool/libs/netty-resolver-dns.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-resolver-dns@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-47691
+    paths:
+      - "LanguageTool/libs/netty-resolver-dns.jar"
+    purls:
+      - "pkg:maven/io.netty/netty-resolver-dns@4.2.5.Final"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; netty is only used by the Redis (lettuce) and remote-rules (grpc) clients, neither is configured (config.properties has no redis/remote-rules keys), the LT HTTP server is not netty"
+    expired_at: 2027-02-08
+  - id: CVE-2026-40682
+    paths:
+      - "LanguageTool/libs/opennlp-tools.jar"
+    purls:
+      - "pkg:maven/org.apache.opennlp/opennlp-tools@1.9.4"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; the opennlp flaws need crafted model or dictionary files, LanguageTool loads only its bundled models"
+    expired_at: 2027-02-08
+  - id: CVE-2026-42027
+    paths:
+      - "LanguageTool/libs/opennlp-tools.jar"
+    purls:
+      - "pkg:maven/org.apache.opennlp/opennlp-tools@1.9.4"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; the opennlp flaws need crafted model or dictionary files, LanguageTool loads only its bundled models"
+    expired_at: 2027-02-08
+  - id: CVE-2026-42440
+    paths:
+      - "LanguageTool/libs/opennlp-tools.jar"
+    purls:
+      - "pkg:maven/org.apache.opennlp/opennlp-tools@1.9.4"
+    statement: "real_mitigated: accepted by owner 2026-11-10, LanguageTool reachable from the internet only via secret per-device token paths; the opennlp flaws need crafted model or dictionary files, LanguageTool loads only its bundled models"
+    expired_at: 2027-02-08
+  # Owner decisions 2026-11-10 (real_mitigated, cve-triage 2026-11-09 #2): internal-only services, DoS-class Go stdlib / x/net only (no RCE, XSS, privilege, auth-bypass or certificate-validation CVEs)
+  - id: CVE-2026-27145
+    paths:
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via excessive processing of DNS SAN entries); influxdb: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-33811
+    paths:
+      - "usr/local/bin/influx"
+    purls:
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via long CNAME response in LookupCNAME); influxdb: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-33814
+    paths:
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+      - "usr/local/bin/yq"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.47.0"
+      - "pkg:golang/golang.org/x/net@v0.48.0"
+      - "pkg:golang/golang.org/x/net@v0.51.0"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via malformed SETTINGS_MAX_FRAME_SIZE frame); crowdsec, gluetun, influxdb: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-33818
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via excessive recursion in Unmarshal); gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-39836
+    paths:
+      - "usr/local/bin/influx"
+    purls:
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via NUL byte in Dial and LookupPort on Windows); influxdb: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-42504
+    paths:
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.9"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via maliciously-crafted MIME header); influxdb: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-46600
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influxd"
+      - "usr/local/bin/yq"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.47.0"
+      - "pkg:golang/golang.org/x/net@v0.48.0"
+      - "pkg:golang/golang.org/x/net@v0.51.0"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via invalid DNS record parsing); crowdsec, gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-56853
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Unencrypted HTTP/2 connections vulnerable to Denial of Service); gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-56859
+    paths:
+      - "bin/node_exporter"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via XML decoding recursion depth issue); influxdb, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-56860
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/dasel"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.8"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service from quadratic complexity in path resolution); gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-56862
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via indefinite KeyUpdate messages); gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-78661
+    paths:
+      - "app/agent"
+      - "app/healthy"
+      - "gluetun-entrypoint"
+      - "portainer"
+      - "usr/local/bin/crowdsec"
+      - "usr/local/bin/cscli"
+      - "usr/local/bin/influxd"
+      - "usr/local/bin/yq"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.47.0"
+      - "pkg:golang/golang.org/x/net@v0.48.0"
+      - "pkg:golang/golang.org/x/net@v0.51.0"
+      - "pkg:golang/golang.org/x/net@v0.60.0"
+      - "pkg:golang/golang.org/x/net@v0.61.0"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via crafted HTML input); agent, crowdsec, gluetun, influxdb, portainer-ce: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-78667
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via crafted HTTP Range headers); gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-78669
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+      - "usr/local/bin/yq"
+    purls:
+      - "pkg:golang/golang.org/x/net@v0.47.0"
+      - "pkg:golang/golang.org/x/net@v0.48.0"
+      - "pkg:golang/golang.org/x/net@v0.51.0"
+      - "pkg:golang/golang.org/x/net@v0.57.0"
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via excessive HTTP/2 SETTINGS frames); crowdsec, gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08
+  - id: CVE-2026-97031
+    paths:
+      - "bin/json_exporter"
+      - "bin/node_exporter"
+      - "gluetun-entrypoint"
+      - "usr/local/bin/influx"
+      - "usr/local/bin/influxd"
+    purls:
+      - "pkg:golang/stdlib@v1.25.10"
+      - "pkg:golang/stdlib@v1.25.11"
+      - "pkg:golang/stdlib@v1.25.9"
+      - "pkg:golang/stdlib@v1.26.5"
+    statement: "real_mitigated: accepted by owner 2026-11-10, denial of service only (Denial of Service via multiple ECH outer extension references); gluetun, influxdb, json-exporter, node-exporter: no Traefik route or LAN-only, reachable only from the LAN/VPN or containers on the same Docker network"
+    expired_at: 2027-02-08

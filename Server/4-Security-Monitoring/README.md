@@ -91,13 +91,13 @@ DT-only ids (e.g. OSV `GO-…`) that Trivy does not report change nothing in Tri
 
 ## Acceptance list (`trivy-accepted.yaml`)
 
-Reviewed findings that are a scanner misreport or provably not affected, committed in git next to `security_scan.py`. Trivy's own ignore-file format; findings stay visible as "accepted", never silently dropped.
+Reviewed findings that are a scanner misreport, provably not affected, or real but mitigated and accepted by the owner, committed in git next to `security_scan.py`. Trivy's own ignore-file format; findings stay visible as "accepted", never silently dropped.
 
 | | |
 |---|---|
-| Entry | `id`, scope `paths` (file or binary path in the image) and/or `purls` (both must match when both are given), `statement: "<misreport\|not_affected>: <evidence>"`, `expired_at` (at most 90 days ahead) |
+| Entry | `id`, scope `paths` (file or binary path in the image) and/or `purls` (both must match when both are given), `statement: "<misreport\|not_affected>: <evidence>"` or `"real_mitigated: accepted by owner YYYY-MM-DD, <exposure>"`, `expired_at` (at most 90 days ahead) |
 | Not allowed | an id without scope (would hide it in every image), no statement, no or a longer expiry: counted as `invalid`, never applied |
-| Not for | "real but only reachable from the LAN / behind SSO": that is an owner decision, not a misreport |
+| `real_mitigated` | real but only reachable from the LAN / behind SSO / via secret paths: only with the owner's dated yes in the statement (else `invalid`); internal + DoS class is acceptable, RCE / auth-bypass / certificate-validation is not (2026-11-10: LanguageTool opennlp + netty, DoS-class Go stdlib / x/net in influxdb, exporters, crowdsec, gluetun, portainer) |
 | Applied | every image, tar and SBOM scan writes the active entries to `/var/lib/security-scan/vex/accepted.trivyignore.yaml` and passes `--ignorefile … --show-suppressed` (next to the DT `--vex` files) |
 | Counted | accepted findings are not in `security_image_vulnerabilities_fixable` / `security_code_vulnerabilities_fixable` / `vulns-seen-*`; they are in `…_accepted` |
 | Dashboard | **Updates & security** > "Fixable critical/high CVEs (open / accepted)" |

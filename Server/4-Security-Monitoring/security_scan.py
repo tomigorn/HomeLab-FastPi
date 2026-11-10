@@ -2062,10 +2062,22 @@ def _accept_expiry(value) -> float | None:
     return datetime.datetime(value.year, value.month, value.day, tzinfo=datetime.timezone.utc).timestamp()
 
 
+_ACCEPT_OWNER_RE = re.compile(r"\baccepted by owner \d{4}-\d{2}-\d{2}\b")
+
+
+def _accept_verdict_ok(statement: str) -> bool:
+    """misreport / not_affected with evidence, or real_mitigated only with the owner's dated yes."""
+    verdict, _, evidence = statement.partition(":")
+    verdict = verdict.strip()
+    if not evidence.strip() or verdict not in ("misreport", "not_affected", "real_mitigated"):
+        return False
+    return verdict != "real_mitigated" or bool(_ACCEPT_OWNER_RE.search(evidence))
+
+
 def parse_accept_list(text: str, now: float) -> dict[str, list]:
     """trivy-accepted.yaml (Trivy ignore-file format) -> active / expired / invalid entries.
 
-    Only an entry with a statement, a scope (paths or purls: an id alone would hide the CVE in every image) and an expiry at most 90 days ahead is applied.
+    Only an entry with a known verdict in its statement, a scope (paths or purls: an id alone would hide the CVE in every image) and an expiry at most 90 days ahead is applied.
     """
     import yaml
     out: dict[str, list] = {"active": [], "expired": [], "invalid": []}
@@ -2079,7 +2091,7 @@ def parse_accept_list(text: str, now: float) -> dict[str, list]:
             out["invalid"].append({"id": str(e)})
             continue
         exp = _accept_expiry(e.get("expired_at"))
-        ok = (e.get("id") and str(e.get("statement") or "").strip() and (e.get("paths") or e.get("purls"))
+        ok = (e.get("id") and _accept_verdict_ok(str(e.get("statement") or "")) and (e.get("paths") or e.get("purls"))
               and exp is not None and exp <= now + (ACCEPT_MAX_DAYS + 1) * 86400)
         if not ok:
             out["invalid"].append(e)
@@ -2443,7 +2455,7 @@ HELPS = {
     "security_pending_updates": "Pending OS package updates.",
     "security_image_vulnerabilities": "Trivy CVE count across images in use, by severity.",
     "security_image_vulnerabilities_fixable": "Subset of the above that an image update could actually fix (Trivy reports a FixedVersion).",
-    "security_image_vulnerabilities_accepted": "Fixable CVEs across images in use that the acceptance list (trivy-accepted.yaml) marks as misreport or not affected, by severity; not in the fixable count.",
+    "security_image_vulnerabilities_accepted": "Fixable CVEs across images in use that the acceptance list (trivy-accepted.yaml) marks as misreport, not affected or owner-accepted real_mitigated, by severity; not in the fixable count.",
     "security_images_scanned": "Images successfully scanned by Trivy.",
     "security_images_unscannable": "Images Trivy could not scan, for any reason.",
     "security_images_local_only": "Images on beefy/tower built locally (in no registry), skipped by the registry scan.",
@@ -2469,7 +2481,7 @@ HELPS = {
     "security_code_images_unresolved": "image: lines whose ${VAR} could not be resolved from .env/.env.example.",
     "security_code_vulnerabilities_fixable": "Fixable CVEs across the images the repo refers to, by severity (CRITICAL/HIGH).",
     "security_code_vulnerabilities_accepted": "Fixable CRITICAL/HIGH CVEs in the images the repo refers to that the acceptance list suppresses, by severity.",
-    "security_accept_entries": "Entries of the acceptance list trivy-accepted.yaml by state: active (applied), expired (re-review), invalid (no statement, scope or expiry, or expiry beyond 90 days; never applied).",
+    "security_accept_entries": "Entries of the acceptance list trivy-accepted.yaml by state: active (applied), expired (re-review), invalid (no known verdict, real_mitigated without the owner's dated yes, no scope or expiry, or expiry beyond 90 days; never applied).",
     "security_accept_expiry_timestamp_seconds": "Expiry (UTC midnight of expired_at) of each active or expired acceptance entry.",
     "security_new_vulns": "Fixable CRITICAL/HIGH findings (image, CVE, package) first seen in the last 24 h; scope = host (running images) or code-<repo>.",
     "security_new_vuln_info": "One series per finding first seen in the last 24 h (newest 20).",

@@ -2160,16 +2160,31 @@ vulnerabilities:
     paths:
       - usr/bin/x
     statement: "no expiry"
+  - id: CVE-2026-7
+    paths:
+      - usr/bin/x
+    statement: "real_mitigated: accepted by owner 2026-11-08, internal only, DoS class"
+    expired_at: 2027-01-15
+  - id: CVE-2026-8
+    paths:
+      - usr/bin/x
+    statement: "real_mitigated: internal only, but no owner decision recorded"
+    expired_at: 2027-01-15
+  - id: CVE-2026-9
+    paths:
+      - usr/bin/x
+    statement: "probably fine: no known verdict"
+    expired_at: 2027-01-15
 """
 
 
 def test_accept_list_sorts_entries_into_active_expired_and_invalid():
     from security_scan import parse_accept_list
     got = parse_accept_list(_ACCEPT, _NOW)
-    assert [e["id"] for e in got["active"]] == ["CVE-2026-1"]
+    assert [e["id"] for e in got["active"]] == ["CVE-2026-1", "CVE-2026-7"]
     assert [e["id"] for e in got["expired"]] == ["CVE-2026-2"]
-    # no statement, expiry beyond 90 days, no paths/purls scope, no expiry: never applied
-    assert sorted(e["id"] for e in got["invalid"]) == ["CVE-2026-3", "CVE-2026-4", "CVE-2026-5", "CVE-2026-6"]
+    # no statement, expiry beyond 90 days, no paths/purls scope, no expiry, real_mitigated without the owner's dated yes, unknown verdict: never applied
+    assert sorted(e["id"] for e in got["invalid"]) == ["CVE-2026-3", "CVE-2026-4", "CVE-2026-5", "CVE-2026-6", "CVE-2026-8", "CVE-2026-9"]
 
 
 def test_accept_list_unparseable_or_empty_applies_nothing():
@@ -2186,7 +2201,7 @@ def test_accept_file_for_trivy_holds_only_active_entries():
     assert accept_args() == []
     write_accept_file(_ACCEPT, _NOW)
     doc = yaml.safe_load((vex_dir() / "accepted.trivyignore.yaml").read_text())
-    assert [v["id"] for v in doc["vulnerabilities"]] == ["CVE-2026-1"]
+    assert [v["id"] for v in doc["vulnerabilities"]] == ["CVE-2026-1", "CVE-2026-7"]
     # a YAML date, not a quoted string: Trivy rejects "2027-01-15" (expects RFC 3339 for strings) and then fails the whole scan
     import datetime
     assert doc["vulnerabilities"][0]["expired_at"] == datetime.date(2027, 1, 15)
@@ -2204,12 +2219,13 @@ def test_accept_file_removed_when_nothing_is_active():
 def test_accept_samples_count_states_and_publish_each_expiry():
     from security_scan import parse_accept_list, accept_samples
     s = accept_samples(parse_accept_list(_ACCEPT, _NOW))
-    assert ("security_accept_entries", {"state": "active"}, 1) in s
+    assert ("security_accept_entries", {"state": "active"}, 2) in s
     assert ("security_accept_entries", {"state": "expired"}, 1) in s
-    assert ("security_accept_entries", {"state": "invalid"}, 4) in s
+    assert ("security_accept_entries", {"state": "invalid"}, 6) in s
     exp = [x for x in s if x[0] == "security_accept_expiry_timestamp_seconds"]
     # expired entries keep their series so the alert can name them; invalid ones have no usable expiry
     assert exp == [("security_accept_expiry_timestamp_seconds", {"id": "CVE-2026-1", "scope": "usr/local/bin/gosu"}, 1799971200.0),
+                   ("security_accept_expiry_timestamp_seconds", {"id": "CVE-2026-7", "scope": "usr/bin/x"}, 1799971200.0),
                    ("security_accept_expiry_timestamp_seconds", {"id": "CVE-2026-2", "scope": "pkg:pypi/setuptools@70.3.0"}, 1793491200.0)]
     for name in {x[0] for x in s}:
         assert name in security_scan.HELPS
@@ -2247,7 +2263,7 @@ def test_repo_accept_list_is_valid_and_fully_applied():
     got = parse_accept_list(ACCEPT_FILE.read_text(), time.time())
     assert got["invalid"] == [], [e.get("id") for e in got["invalid"]]
     for e in got["active"]:
-        assert e["statement"].split(":")[0] in ("misreport", "not_affected"), e["id"]
+        assert e["statement"].split(":")[0] in ("misreport", "not_affected", "real_mitigated"), e["id"]
 
 # --- HELP/TYPE shared across per-host files -------------------------------------
 
