@@ -9,7 +9,9 @@ services:
     image: stonks:latest
     container_name: stonks
     user: "65007:65007"
-    mem_limit: 512m
+    # Rust binary on scratch: ~6 MB idle, up to ~70 MB during a login (argon2); was 512m for Python
+    mem_limit: 128m
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -18,7 +20,7 @@ services:
     env_file: .env
     volumes:
       - ./data:/data
-      # pydantic-settings reads /app/.env; it holds only the secrets
+      # the binary reads /app/.env; it holds only the secrets
       - ./secrets/stonks.env:/app/.env:ro
     networks:
       - traefik_stonks   # shared only with Traefik (H-2)
