@@ -3,6 +3,12 @@
 # auth), TLS, rate-limiting and security headers are handled upstream by Traefik, so
 # this container must stay reachable only through Traefik (traefik_proxy network).
 :80 {
+	# Only Traefik (pinned 172.24.255.3 on traefik_proxy, Docker/Traefik/docker-compose.yaml) and Caddy's own loopback (post-update checks) get through; other containers on traefik_proxy would bypass the Authentik forward auth. remote_ip, not client_ip: no trusted_proxies here, so the connection address is what counts.
+	@not_traefik not remote_ip 172.24.255.3/32 127.0.0.1/32
+	handle @not_traefik {
+		respond 403
+	}
+
 	# Answer back-channel: mockup pages POST a selection here. The prefix is
 	# stripped, so /_inbox/submit reaches the answer-inbox service as /submit.
 	# answer-inbox lives on an internal-only network (never exposed directly).

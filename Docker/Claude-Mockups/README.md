@@ -155,6 +155,7 @@ The Traefik route is picked up automatically (Traefik watches `/dynamic`).
 - Whole subdomain is gated by **Authentik forward auth** (Holy Grail SSO, group
   `homelab-admins`) at Traefik. Caddy and answer-inbox have no host ports and are
   only reachable through Traefik / the internal network.
+- Caddy answers only Traefik's pinned address `172.24.255.3` (and its own loopback for the post-update checks); other containers on `traefik_proxy` get 403, so they cannot skip the forward auth. Check: `mockups.inbox-traefik-only`.
 - Secure headers (HSTS, nosniff, frameDeny, referrer-policy) are applied by
   Traefik, but **no strict CSP** — mockups legitimately use CDNs and inline
   scripts/styles.

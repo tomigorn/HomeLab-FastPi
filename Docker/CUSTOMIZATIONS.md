@@ -244,6 +244,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | Caddyfile, answer assets, answer inbox | `Caddyfile`, `assets/`, `inbox/rust/` (Rust, local image `claude-mockups-answer-inbox:local`; Node original in `inbox/legacy/`) | `docker compose up -d --build answer-inbox` (or `update-project.sh … build`) | `mockups.caddyfile`: caddy validate → Valid configuration; `mockups.assets`: → ok; `mockups.answer-inbox`: → ok; `mockups.answer-roundtrip`: POST /_inbox/submit through Caddy → answers/<token>.json written (test file removed via sudo, the scratch image has no shell) → ok; `mockups.forward-auth`: → sso | caddy directive changes (auto-updated) |
+| Caddy answers only Traefik: `remote_ip 172.24.255.3/32 127.0.0.1/32`, every other source (other containers on `traefik_proxy`, which would skip the Authentik forward auth) gets 403 for `/_inbox/*` and the demos | `Caddyfile` (`@not_traefik`); Traefik's pinned IP in `Traefik/docker-compose.yaml` | `docker compose --project-directory Docker/Claude-Mockups up -d --force-recreate claude-mockups` | `mockups.inbox-traefik-only`: GET /_inbox/health from `traefik` → ok, /_inbox/health and / from `server-specs` → 403,403 | Traefik's pinned IP changing (all requests 403), `remote_ip` matcher changes |
 
 ## Wiki
 
