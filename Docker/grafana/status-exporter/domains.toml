@@ -9,8 +9,8 @@ registrar = "GoDaddy"
 renew = "yearly at godaddy.com"
 dns = "Cloudflare"
 
-# Free DDNS hostnames (No-IP). No-IP deletes an unconfirmed free hostname after 30 days (confirm mail ~7 days before). The deadline is not readable from outside: `confirmed` = the day you last confirmed (TOML date, no quotes), end date = confirmed + 30 days.
-# subscription-alerts.py sends Telegram warnings (7, 2 days left, on the day, day after) and the dashboard/digest show the end date. After each confirm set the new date: confirmed = 2026-12-09. Without `confirmed` there is no timer; the resolve check (DdnsHostnameNotResolving) stays as the backstop.
+# Free DDNS hostnames (No-IP). No-IP deletes an unconfirmed free hostname after 30 days (confirm mail ~7 days before; deleted ON the end date). The deadline is not readable from outside: `confirmed` = the day you last confirmed (TOML date, no quotes), end date = confirmed + 30 days.
+# subscription-alerts.py sends Telegram warnings (7, 3, 1 days left, deadline day morning, day after) and the dashboard/digest show the end date. After each confirm set the new date: confirmed = 2026-12-09. Without `confirmed` there is no timer; the resolve check (DdnsHostnameNotResolving) stays as the backstop.
 [ddns."lang-tool.ddns.net"]
 confirmed = 2026-11-10
 [ddns."wg-aemtli.ddns.net"]

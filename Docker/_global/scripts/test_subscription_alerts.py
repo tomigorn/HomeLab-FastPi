@@ -305,7 +305,7 @@ def test_ddns_end_date_is_confirmed_plus_30_and_no_confirmed_means_no_timer():
 
 
 def test_ddns_stage_timing():
-    want = {8: None, 7: "yellow", 3: "yellow", 2: "orange", 1: "orange", 0: "red", -1: "expired", -2: None}
+    want = {8: None, 7: "yellow", 4: "yellow", 3: "orange", 2: "orange", 1: "red1", 0: "red", -1: "expired", -2: None}
     for left, st in want.items():
         assert sa.stage(left, True) == st, left
 
@@ -318,7 +318,7 @@ def test_ddns_sequence_once_each_and_fresh_on_new_date():
         for g in sa.pending(ddns_subs(), today, state):
             seen.append((today, g["stage"], len(g["items"])))
             sa.mark(state, g)
-    assert seen == [(D(2026, 12, 3), "yellow", 2), (D(2026, 12, 8), "orange", 2), (D(2026, 12, 10), "red", 2), (D(2026, 12, 11), "expired", 2)]
+    assert seen == [(D(2026, 12, 3), "yellow", 2), (D(2026, 12, 7), "orange", 2), (D(2026, 12, 9), "red1", 2), (D(2026, 12, 10), "red", 2), (D(2026, 12, 11), "expired", 2)]
     new = [dict(s, expires=D(2027, 1, 9)) for s in ddns_subs()]
     assert sa.pending(new, D(2027, 1, 2), state)[0]["stage"] == "yellow"
 
@@ -331,10 +331,12 @@ def test_ddns_message_layout():
     assert lines[2] == "📅 Thu, 10 Dec 2026"
     assert "• <b>a.ddns.net</b> · No-IP hostname" in m and "• <b>b.ddns.net</b> · No-IP hostname" in m
     assert "noip.com" in m and "Dynamic DNS" in m and "No-IP confirmed" in m and "confirmed = " in m and "limits.toml" not in m
-    assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 10), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm due today</b>"
-    assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 11), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm was due yesterday</b>"
-    one = sa.pending(ddns_subs()[:1], D(2026, 12, 8), {})[0]
-    assert sa.render(one, 0).split("\n")[0] == "🟠 <b>No-IP confirm due in 2 days</b>"
+    assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 10), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm last day</b>"
+    assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 11), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm deadline passed</b>"
+    one = sa.pending(ddns_subs()[:1], D(2026, 12, 9), {})[0]
+    assert sa.render(one, 0).split("\n")[0] == "🔴 <b>No-IP confirm due in 1 day</b>"
+    assert "deletes the hostname today" in sa.render(sa.pending(ddns_subs(), D(2026, 12, 10), {})[0], 0)
+    assert "re-create the hostname at No-IP" in sa.render(sa.pending(ddns_subs(), D(2026, 12, 11), {})[0], 0)
 
 
 def test_run_sends_ddns_once():

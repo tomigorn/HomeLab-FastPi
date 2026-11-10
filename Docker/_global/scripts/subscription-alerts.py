@@ -2,7 +2,7 @@
 """Telegram warnings for the subscription deadlines in Seerr's indexer-bar/limits.toml (beefy) and the domains with a set end date in grafana/status-exporter/domains.toml. See README "Subscription alerts".
 Stages per end date: yellow <= 30 days left, orange <= 7, red on the end date, red "expired yesterday" the day after. Each stage once per (service, end date); a renewed date starts fresh.
 beefy sleeps, so the list is cached on fastpi: refreshed over ssh when beefy answers (never woken), the cache is never deleted.
-DDNS hostnames (domains.toml [ddns."…"] confirmed = <date>): end date = confirmed + 30 days; stages yellow 7-3 days left, orange 2-1, red on the day, red "expired yesterday".
+DDNS hostnames (domains.toml [ddns."…"] confirmed = <date>): end date = confirmed + 30 days; No-IP deletes the hostname on the end date, so stages: yellow 7-4 days left, orange 3-2, red 1 day left, red on the end date (morning), red "deadline passed" the day after.
 Usage: subscription-alerts.py [--test]"""
 import datetime as dt
 import html
@@ -22,7 +22,7 @@ OOB = HERE / "oob-alert.sh"
 STATE_DIR = Path(os.environ.get("STATE_DIRECTORY", "/var/lib/subscription-alerts"))
 REMOTE = ("beefy-direct", "/home/buntu/Projects/Docker/Seerr/indexer-bar/limits.toml")
 STALE_DAYS = 7
-EMOJI = {"yellow": "🟡", "orange": "🟠", "red": "🔴", "expired": "🔴"}
+EMOJI = {"yellow": "🟡", "orange": "🟠", "red": "🔴", "expired": "🔴", "red1": "🔴"}
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 DOMAINS_TOML = Path(os.environ.get("DOMAINS_TOML", HERE.parent.parent / "grafana" / "status-exporter" / "domains.toml"))
@@ -41,11 +41,11 @@ def stage(left, ddns=False):
     if ddns:
         if left > 7:
             return None
-        if left > 2:
+        if left > 3:
             return "yellow"
-        if left > 0:
+        if left > 1:
             return "orange"
-        return {0: "red", -1: "expired"}.get(left)
+        return {1: "red1", 0: "red", -1: "expired"}.get(left)
     if left > 30:
         return None
     if left > 7:
@@ -120,13 +120,21 @@ def is_stale(age_days):
     return age_days > STALE_DAYS
 
 
+def ddns_howto(st):
+    if st == "red":
+        return "Last day: confirm now or No-IP deletes the hostname today.\n" + DDNS_HOWTO
+    if st == "expired":
+        return "Deadline passed: re-create the hostname at No-IP (noip.com, Dynamic DNS), point it at the WAN address.\nThen set <code>confirmed = &lt;date&gt;</code> in <code>grafana/status-exporter/domains.toml</code> (fastpi)."
+    return DDNS_HOWTO
+
+
 def render(group, cache_age_days):
     items, st, d = group["items"], group["stage"], group["days"]
     n = len(items)
     subject = html.escape(items[0]["name"]) if n == 1 else f"{n} subscriptions"
     if all(s.get("ddns") for s in items):
         subject = "No-IP confirm"
-        when = {"expired": "was due yesterday", "red": "due today"}.get(st, f"due in {d} day{'' if d == 1 else 's'}")
+        when = {"expired": "deadline passed", "red": "last day"}.get(st, f"due in {d} day{'' if d == 1 else 's'}")
     elif st == "expired":
         when = "expired yesterday"
     elif st == "red":
@@ -135,14 +143,14 @@ def render(group, cache_age_days):
         when = f"{'ends' if n == 1 else 'end'} in {d} day{'' if d == 1 else 's'}"
     e = group["expires"]
     lines = [f"{EMOJI[st]} <b>{subject} {when}</b>", "",
-             f"📅 {'ended ' if st == 'expired' else ''}{WEEKDAYS[e.weekday()]}, {e.day} {MONTHS[e.month - 1]} {e.year}"]
+             f"📅 {'deadline was ' if st == 'expired' and all(s.get('ddns') for s in items) else 'ended ' if st == 'expired' else ''}{WEEKDAYS[e.weekday()]}, {e.day} {MONTHS[e.month - 1]} {e.year}"]
     for s in items:
         kind = f" · {html.escape(s['kind'])}" if s.get("kind") else ""
         lines.append(f"• <b>{html.escape(s['name'])}</b>{kind}")
     age = int(cache_age_days)
     if is_stale(cache_age_days):
         lines.append(f"⚠️ Subscription list is {age} days old (beefy not reachable)")
-    howto = "\n".join(([HOWTO] if any("howto" not in s for s in items) else []) + [s["howto"] for s in items if "howto" in s])
+    howto = "\n".join(([HOWTO] if any("howto" not in s for s in items) else []) + [ddns_howto(st) if s.get("ddns") else s["howto"] for s in items if "howto" in s])
     details = howto + (f"\nSubscription list is {age} day{'' if age == 1 else 's'} old." if 1 <= age and not is_stale(cache_age_days) else "")
     lines += ["", f"<blockquote expandable>{details}</blockquote>"]
     return "\n".join(lines)
