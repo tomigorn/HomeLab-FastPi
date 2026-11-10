@@ -285,6 +285,67 @@ def test_run_domain_warns_even_without_the_beefy_list():
         assert len(sent) == 1 and "holy-grail.ch ends in 5 days" in sent[0]
 
 
+DDNS = """
+[ddns."a.ddns.net"]
+confirmed = 2026-11-10
+[ddns."b.ddns.net"]
+confirmed = 2026-11-10
+[ddns."old.ddns.net"]
+"""
+
+
+def ddns_subs():
+    return sa.ddns_subscriptions(DDNS)
+
+
+def test_ddns_end_date_is_confirmed_plus_30_and_no_confirmed_means_no_timer():
+    got = ddns_subs()
+    assert [(s["name"], s["expires"], s["kind"]) for s in got] == [("a.ddns.net", D(2026, 12, 10), "No-IP hostname"), ("b.ddns.net", D(2026, 12, 10), "No-IP hostname")]
+    assert all(s["ddns"] for s in got)
+
+
+def test_ddns_stage_timing():
+    want = {8: None, 7: "yellow", 3: "yellow", 2: "orange", 1: "orange", 0: "red", -1: "expired", -2: None}
+    for left, st in want.items():
+        assert sa.stage(left, True) == st, left
+
+
+def test_ddns_sequence_once_each_and_fresh_on_new_date():
+    state = {}
+    seen = []
+    for day in range(0, 33):
+        today = D(2026, 11, 10) + dt.timedelta(days=day)
+        for g in sa.pending(ddns_subs(), today, state):
+            seen.append((today, g["stage"], len(g["items"])))
+            sa.mark(state, g)
+    assert seen == [(D(2026, 12, 3), "yellow", 2), (D(2026, 12, 8), "orange", 2), (D(2026, 12, 10), "red", 2), (D(2026, 12, 11), "expired", 2)]
+    new = [dict(s, expires=D(2027, 1, 9)) for s in ddns_subs()]
+    assert sa.pending(new, D(2027, 1, 2), state)[0]["stage"] == "yellow"
+
+
+def test_ddns_message_layout():
+    g = sa.pending(ddns_subs(), D(2026, 12, 3), {})[0]
+    m = sa.render(g, 0)
+    lines = m.split("\n")
+    assert lines[0] == "🟡 <b>No-IP confirm due in 7 days</b>"
+    assert lines[2] == "📅 Thu, 10 Dec 2026"
+    assert "• <b>a.ddns.net</b> · No-IP hostname" in m and "• <b>b.ddns.net</b> · No-IP hostname" in m
+    assert "noip.com" in m and "Dynamic DNS" in m and "No-IP confirmed" in m and "confirmed = " in m and "limits.toml" not in m
+    assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 10), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm due today</b>"
+    assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 11), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm was due yesterday</b>"
+    one = sa.pending(ddns_subs()[:1], D(2026, 12, 8), {})[0]
+    assert sa.render(one, 0).split("\n")[0] == "🟠 <b>No-IP confirm due in 2 days</b>"
+
+
+def test_run_sends_ddns_once():
+    sent = []
+    with tempfile.TemporaryDirectory() as d:
+        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 4), time.time(), DDNS) == 0
+        assert len([m for m in sent if "No-IP" in m]) == 1
+        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 5), time.time(), DDNS) == 0
+        assert len([m for m in sent if "No-IP" in m]) == 1
+
+
 def test_test_message():
     m = sa.test_message()
     assert m.split("\n")[0].startswith("🧪 <b>Test: ")

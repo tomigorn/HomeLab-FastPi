@@ -238,10 +238,12 @@ def run_domains() -> int:
 
 # --- subscriptions ---------------------------------------------------------
 
-def subscription_lines(seerr_toml: str, mam: dict, updated: float, domains: dict | None = None) -> str:
+def subscription_lines(seerr_toml: str, mam: dict, updated: float, domains: dict | None = None, ddns: dict | None = None) -> str:
     subs = list(tomllib.loads(seerr_toml).get("subscriptions") or [])
     subs += [{"name": d, "kind": "domain" + (f", {c['registrar']}" if c.get("registrar") else "") + (f" (DNS {c['dns']})" if c.get("dns") else ""), "expires": c["expires"]}
              for d, c in (domains or {}).items() if isinstance((c or {}).get("expires"), dt.date)]
+    subs += [{"name": h, "kind": "No-IP hostname", "expires": c["confirmed"] + dt.timedelta(days=30)}
+             for h, c in (ddns or {}).items() if isinstance((c or {}).get("confirmed"), dt.date)]
     if (mam or {}).get("vip_expires"):
         subs.append({"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date.fromisoformat(mam["vip_expires"])})
     # one series per label set (node-exporter rejects the whole file on a duplicate); the earliest expiry wins
@@ -261,8 +263,9 @@ def subscription_lines(seerr_toml: str, mam: dict, updated: float, domains: dict
 def run_subscriptions() -> int:
     with open(ABR_LIMITS, "rb") as f:
         mam = tomllib.load(f).get("mam") or {}
+    conf = tomllib.loads(DOMAINS.read_text())
     write_atomic(TEXTFILE_DIR / "status_subscriptions.prom",
-                 subscription_lines(SUBS_CACHE.read_text(), mam, SUBS_CACHE.stat().st_mtime, tomllib.loads(DOMAINS.read_text()).get("domains")))
+                 subscription_lines(SUBS_CACHE.read_text(), mam, SUBS_CACHE.stat().st_mtime, conf.get("domains"), conf.get("ddns")))
     return 0
 
 

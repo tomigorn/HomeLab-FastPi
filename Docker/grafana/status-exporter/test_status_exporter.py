@@ -123,6 +123,12 @@ class Subscriptions(unittest.TestCase):
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="holy-grail.ch",kind="domain, GoDaddy (DNS Cloudflare)"}} {int(ex.local_midnight(dt.date(2027, 2, 17)))}', text)
         self.assertNotIn("other.ch", text)
 
+    def test_ddns_confirmed_plus_30_days(self):
+        ddns = {"a.ddns.net": {"confirmed": dt.date(2026, 11, 10)}, "old.ddns.net": {}}
+        text = ex.subscription_lines(self.TOML, {}, 1, None, ddns)
+        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="a.ddns.net",kind="No-IP hostname"}} {int(ex.local_midnight(dt.date(2026, 12, 10)))}', text)
+        self.assertNotIn("old.ddns.net", text)
+
     def test_no_vip(self):
         self.assertNotIn("MAM VIP", ex.subscription_lines(self.TOML, {"vip_expires": ""}, 1))
 

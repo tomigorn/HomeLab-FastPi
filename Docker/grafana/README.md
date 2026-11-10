@@ -193,7 +193,7 @@ fastpi's two USB disks (`seagate-black` Expansion `0bc2:231a`, `seagate-red` One
 
 - A TLS handshake runs no Traefik middleware: wake-gated routes (Jellyfin, Seerr, Nextcloud) are checked without waking beefy/tower. Traefik's own `traefik_tls_certs_not_after` lists every cert in the ACME store, including ones no router uses any more; the alerts use only the served certs.
 - `.ch` RDAP (rdap.nic.ch) has no end date: `source="anniversary"` = next registration anniversary. holy-grail.ch has its paid end date in `domains.toml` (`expires`, `source="manual"`; GoDaddy, renewed yearly; Cloudflare only does the DNS): a set date warns through `subscription-alerts.py` (Telegram) and shows with the subscriptions, `DomainExpiringSoon` covers only domains without one. After each renewal update `expires`.
-- No-IP free hostnames (`lang-tool.ddns.net`, `wg-aemtli.ddns.net`) need the 30-day confirm mail; the deadline is not readable from outside, so the alert is "stops resolving".
+- No-IP free hostnames (`lang-tool.ddns.net`, `wg-aemtli.ddns.net`) need a confirm every 30 days (mail ~7 days before; unconfirmed = deleted). `confirmed = <date>` per `[ddns."…"]` in `domains.toml` gives the end date (+30 days): Telegram via `subscription-alerts.py` at 7 and 2 days left, on the day and the day after (title "No-IP confirm due …"), dashboard/digest show it as `kind="No-IP hostname"`. After confirming set the new date (or tell Claude "No-IP confirmed"). `DdnsHostnameNotResolving` stays as backstop.
 - Subscriptions: no rule, `subscription-alerts.py` sends the Telegram warnings; the dashboard and digest show days left.
 
 | Alert | Fires when | Severity |

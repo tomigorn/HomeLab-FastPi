@@ -2,6 +2,7 @@
 """Telegram warnings for the subscription deadlines in Seerr's indexer-bar/limits.toml (beefy) and the domains with a set end date in grafana/status-exporter/domains.toml. See README "Subscription alerts".
 Stages per end date: yellow <= 30 days left, orange <= 7, red on the end date, red "expired yesterday" the day after. Each stage once per (service, end date); a renewed date starts fresh.
 beefy sleeps, so the list is cached on fastpi: refreshed over ssh when beefy answers (never woken), the cache is never deleted.
+DDNS hostnames (domains.toml [ddns."…"] confirmed = <date>): end date = confirmed + 30 days; stages yellow 7-3 days left, orange 2-1, red on the day, red "expired yesterday".
 Usage: subscription-alerts.py [--test]"""
 import datetime as dt
 import html
@@ -25,6 +26,9 @@ EMOJI = {"yellow": "🟡", "orange": "🟠", "red": "🔴", "expired": "🔴"}
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 DOMAINS_TOML = Path(os.environ.get("DOMAINS_TOML", HERE.parent.parent / "grafana" / "status-exporter" / "domains.toml"))
+DDNS_DAYS = 30
+DDNS_HOWTO = ("Confirm at noip.com: log in, Dynamic DNS, confirm the hostname (or click the link in No-IP's mail).\n"
+              "Then tell Claude \"No-IP confirmed\" or set <code>confirmed = &lt;date&gt;</code> in <code>grafana/status-exporter/domains.toml</code> (fastpi).")
 DOMAIN_HOWTO = "set the new date (<code>expires</code>) in <code>grafana/status-exporter/domains.toml</code> (fastpi)."
 HOWTO = "After renewing: set the new date (<code>expires</code>) in <code>indexer-bar/limits.toml</code> (Seerr, beefy). The bar and these warnings follow within a minute."
 
@@ -33,7 +37,15 @@ def zurich_today(now):
     return now.astimezone(TZ).date()
 
 
-def stage(left):
+def stage(left, ddns=False):
+    if ddns:
+        if left > 7:
+            return None
+        if left > 2:
+            return "yellow"
+        if left > 0:
+            return "orange"
+        return {0: "red", -1: "expired"}.get(left)
     if left > 30:
         return None
     if left > 7:
@@ -70,6 +82,11 @@ def domain_subscriptions(text):
     return out
 
 
+def ddns_subscriptions(text):
+    return [{"name": h, "kind": "No-IP hostname", "expires": c["confirmed"] + dt.timedelta(days=DDNS_DAYS), "howto": DDNS_HOWTO, "ddns": True}
+            for h, c in (tomllib.loads(text).get("ddns") or {}).items() if isinstance((c or {}).get("confirmed"), dt.date)]
+
+
 def key(s):
     return f"{s['name']}|{s['expires'].isoformat()}"
 
@@ -80,10 +97,10 @@ def pending(subs, today, state):
         if s.get("lifetime"):
             continue
         left = (s["expires"] - today).days
-        st = stage(left)
+        st = stage(left, s.get("ddns", False))
         if st is None or st in state.get(key(s), []):
             continue
-        g = groups.setdefault((st, s["expires"]), {"stage": st, "expires": s["expires"], "days": left, "items": []})
+        g = groups.setdefault((st, s["expires"], bool(s.get("ddns"))), {"stage": st, "expires": s["expires"], "days": left, "items": []})
         g["items"].append(s)
     return sorted(groups.values(), key=lambda g: (g["expires"], g["stage"]))
 
@@ -107,7 +124,10 @@ def render(group, cache_age_days):
     items, st, d = group["items"], group["stage"], group["days"]
     n = len(items)
     subject = html.escape(items[0]["name"]) if n == 1 else f"{n} subscriptions"
-    if st == "expired":
+    if all(s.get("ddns") for s in items):
+        subject = "No-IP confirm"
+        when = {"expired": "was due yesterday", "red": "due today"}.get(st, f"due in {d} day{'' if d == 1 else 's'}")
+    elif st == "expired":
         when = "expired yesterday"
     elif st == "red":
         when = "ends today" if n == 1 else "end today"
@@ -185,7 +205,8 @@ def run(state_dir, fetch, send, today, now, domains_text=None):
             print(f"subscription-alerts: cached list unusable: {e}", file=sys.stderr)
             errors = 1
     try:
-        subs += domain_subscriptions(DOMAINS_TOML.read_text() if domains_text is None else domains_text)
+        dtext = DOMAINS_TOML.read_text() if domains_text is None else domains_text
+        subs += domain_subscriptions(dtext) + ddns_subscriptions(dtext)
     except (OSError, tomllib.TOMLDecodeError) as e:
         print(f"subscription-alerts: domains.toml unusable: {e}", file=sys.stderr)
         errors = 1
