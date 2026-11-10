@@ -1954,6 +1954,199 @@ def read_cup() -> tuple[dict, dict[str, bool]]:
     return json.loads(_http_get(f"{CUP_URL}/api/v3/json", 60)), awake_map
 
 
+
+# ---- Local builds (group cup, subject localbase-<host>): Cup cannot check a locally built image, so its Dockerfile bases are checked against their registry.
+# base = a digest-pinned base whose tag now points to another digest (the weekly rebuild-local moves the pin); upstream = a newer X.Y.Z release of a versioned base tag (a human changes the Dockerfile).
+LOCAL_BASE_HOSTS = ("fastpi", "beefy")
+_VERSION_TAG_RE = re.compile(r"^(v?)(\d+)\.(\d+)\.(\d+)(-.+)?$")
+REGISTRY_ACCEPT = ", ".join((
+    "application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json",
+    "application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json"))
+
+
+def version_tag(tag: str) -> tuple[str, tuple[int, int, int], str] | None:
+    """v1.9.6 -> ('v', (1, 9, 6), ''); 1.30.6-alpine3.24 -> ('', (1, 30, 6), '-alpine3.24'); anything else (3.11-slim, latest) -> None."""
+    m = _VERSION_TAG_RE.match(tag)
+    return (m.group(1), (int(m.group(2)), int(m.group(3)), int(m.group(4))), m.group(5) or "") if m else None
+
+
+def newer_release(tag: str, tags: list[str]) -> str:
+    """Newest tag of the same form (prefix, suffix) with a higher version than tag, else ''."""
+    cur = version_tag(tag)
+    if not cur:
+        return ""
+    best, best_v = "", cur[1]
+    for t in tags:
+        v = version_tag(t)
+        if v and v[0] == cur[0] and v[2] == cur[2] and v[1] > best_v:
+            best, best_v = t, v[1]
+    return best
+
+
+def split_base(ref: str) -> tuple[str, str, str]:
+    """name:tag@digest -> (name, tag, digest); no tag and no digest = latest; digest only = no tag."""
+    ref, _, digest = ref.partition("@")
+    last = ref.rsplit("/", 1)[-1]
+    if ":" in last:
+        name, tag = ref.rsplit(":", 1)
+    else:
+        name, tag = ref, ("" if digest else "latest")
+    return name, tag, digest
+
+
+def built_bases(bases: dict[str, list[str]], built: set[str]) -> dict[str, list[str]]:
+    """Only the compose build: images: read_local_bases also lists the other containers of a project that has a Dockerfile."""
+    repos = {_repo(b) for b in built}
+    return {img: b for img, b in bases.items() if _repo(img) in repos}
+
+
+def local_base_updates(bases: dict[str, list[str]], digest_of, tags_of) -> tuple[list[tuple[str, str, str, str]], list[str]]:
+    """{local image: [base refs]} -> ([(image, base name:tag, 'base'|'upstream', newer tag or '')], [lookup errors]). Each base is looked up once."""
+    digests: dict[str, str | Exception] = {}
+    tag_lists: dict[str, list[str] | Exception] = {}
+    found, errors = [], []
+
+    def once(cache, key, fn):
+        if key not in cache:
+            try:
+                cache[key] = fn(key)
+            except Exception as e:  # noqa: BLE001
+                cache[key] = e
+                errors.append(f"{key}: {e}"[:200])
+        return cache[key]
+
+    for image in sorted(bases):
+        for ref in bases[image]:
+            name, tag, pinned = split_base(ref)
+            if not tag:
+                continue
+            short = f"{name}:{tag}"
+            if pinned:
+                cur = once(digests, short, digest_of)
+                if isinstance(cur, str) and cur and cur != pinned:
+                    found.append((image, short, "base", ""))
+            if version_tag(tag):
+                tags = once(tag_lists, name, tags_of)
+                if isinstance(tags, list) and (new := newer_release(tag, tags)):
+                    found.append((image, short, "upstream", new))
+    return sorted(found), errors
+
+
+def local_base_samples(host: str, found: list[tuple[str, str, str, str]]) -> list:
+    out = [("security_image_updates", {"host": host, "type": k}, sum(1 for f in found if f[2] == k)) for k in ("base", "upstream")]
+    for image, base, kind, new in found:
+        what = f"{new} out" if kind == "upstream" else "new digest"
+        out.append(("security_image_update_info", {"host": host, "reference": f"{image} (base {base}, {what})", "type": kind}, 1))
+    return out
+
+
+def cached_local_bases(host: str, read, awake: bool) -> dict[str, list[str]]:
+    """Read the host's local-build bases while it is awake and keep them; a sleeping host is checked from the last copy."""
+    path = STATE / f"local-bases-{host}.json"
+    if awake:
+        bases = read()
+        write_atomic(path, json.dumps(bases, indent=1, sort_keys=True))
+        return bases
+    if path.exists():
+        return json.loads(path.read_text())
+    raise NoData(f"{host} asleep and no local-build bases read yet, skipped")
+
+
+def read_local_build_bases(host: str) -> dict[str, list[str]]:
+    """Bases of the host's compose-built images; never wakes a host (fastpi runs the commands itself)."""
+    d = docker_cmd(host)
+    bases_cmd = (f"{d} ps --format '{{{{.Image}}}} {{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | sort -u | "
+                 "while read i w; do [ -n \"$w\" ] || continue; echo \"## $i\"; cat \"$w\"/Dockerfile \"$w\"/*/Dockerfile 2>/dev/null; done; true")
+    built_cmd = (f"{d} ps --format '{{{{.Label \"com.docker.compose.project.config_files\"}}}}' | tr ',' '\\n' | sort -u | "
+                 "while read -r f; do [ -n \"$f\" ] || continue; echo \"## $f\"; cat \"$f\" 2>/dev/null; done; true")
+    outs = []
+    for cmd in (bases_cmd, built_cmd):
+        r = run(["bash", "-c", cmd], timeout=120) if host == "fastpi" else ssh(host, cmd, timeout=120, wake=False)
+        if r.returncode != 0:
+            raise RuntimeError(f"local builds on {host}: {r.stderr.strip()[:200]}")
+        outs.append(r.stdout)
+    return built_bases(parse_local_bases(outs[0]), parse_built_images(outs[1]))
+
+
+def parse_www_authenticate(header: str) -> dict[str, str]:
+    return dict(re.findall(r'(\w+)="([^"]*)"', header))
+
+
+def registry_location(name: str) -> tuple[str, str]:
+    """Image name -> (registry host, repository path); Docker Hub names get library/ and registry-1.docker.io."""
+    first, _, rest = name.partition("/")
+    if rest and ("." in first or ":" in first or first == "localhost"):
+        host, repo = first, rest
+    else:
+        host, repo = "docker.io", name
+    if host in ("docker.io", "index.docker.io"):
+        host = "registry-1.docker.io"
+        if "/" not in repo:
+            repo = f"library/{repo}"
+    return host, repo
+
+
+_REGISTRY_TOKENS: dict[str, str] = {}
+
+
+def _registry_request(name: str, path: str, method: str = "GET", accept: str = "") -> tuple[dict, bytes]:
+    """One registry API call with the anonymous bearer-token dance; -> (headers, body). HEAD on a manifest does not count against Docker Hub's pull limit."""
+    import urllib.error
+    host, repo = registry_location(name)
+    url = path if path.startswith("https://") else f"https://{host}/v2/{repo}/{path}"
+    for attempt in (1, 2):
+        headers = {"Accept": accept} if accept else {}
+        if repo in _REGISTRY_TOKENS:
+            headers["Authorization"] = f"Bearer {_REGISTRY_TOKENS[repo]}"
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, method=method, headers=headers), timeout=30) as r:
+                return dict(r.headers), r.read()
+        except urllib.error.HTTPError as e:
+            if e.code != 401 or attempt == 2:
+                raise
+            auth = parse_www_authenticate(e.headers.get("WWW-Authenticate", ""))
+            q = "&".join(f"{k}={urllib.request.quote(auth[k])}" for k in ("service", "scope") if k in auth)
+            with urllib.request.urlopen(f"{auth['realm']}?{q}", timeout=30) as t:
+                tok = json.loads(t.read())
+            _REGISTRY_TOKENS[repo] = tok.get("token") or tok.get("access_token") or ""
+    raise RuntimeError("unreachable")
+
+
+def registry_digest(ref: str) -> str:
+    """Digest the tag of name:tag points to now (index digest for multi-arch, as a Dockerfile pin uses)."""
+    name, tag, _ = split_base(ref)
+    headers, _ = _registry_request(name, f"manifests/{tag}", "HEAD", REGISTRY_ACCEPT)
+    digest = {k.lower(): v for k, v in headers.items()}.get("docker-content-digest", "")
+    if not digest.startswith("sha256:"):
+        raise RuntimeError(f"no digest for {ref}")
+    return digest
+
+
+def registry_tags(name: str) -> list[str]:
+    tags, path = [], "tags/list?n=1000"
+    for _ in range(50):
+        headers, body = _registry_request(name, path)
+        tags += json.loads(body).get("tags") or []
+        link = {k.lower(): v for k, v in headers.items()}.get("link", "")
+        m = re.match(r"<([^>]+)>", link)
+        if not m:
+            break
+        nxt = m.group(1)
+        host, _ = registry_location(name)
+        path = nxt if nxt.startswith("https://") else f"https://{host}{nxt}"
+    return tags
+
+
+def collect_local_bases(host: str) -> list:
+    awake = host == "fastpi" or host_awake(host)
+    bases = cached_local_bases(host, lambda: read_local_build_bases(host), awake)
+    found, errors = local_base_updates(bases, registry_digest, registry_tags)
+    for e in errors:
+        print(f"  local base lookup on {host}: {e}", file=sys.stderr)
+    if errors and len(errors) >= sum(len(b) for b in bases.values()):
+        raise RuntimeError(f"every registry lookup failed: {errors[0]}")
+    return local_base_samples(host, found)
+
 # ---- Triage in Dependency-Track -> VEX for Trivy: DT analysis decisions exported per project, cached under STATE/vex
 VEX_STATES = {"NOT_AFFECTED": "not_affected", "FALSE_POSITIVE": "not_affected", "RESOLVED": "fixed"}
 
@@ -2472,9 +2665,9 @@ HELPS = {
     "security_lynis_warnings": "Lynis warnings in the weekly quick audit.",
     "security_unraid_os_update": "1 if a newer Unraid OS release is available on tower.",
     "security_unraid_plugin_update": "1 if a newer version of this Unraid plugin is available on tower.",
-    "security_image_updates": "Images a container uses (running or stopped) with an update according to Cup, per host and update type.",
+    "security_image_updates": "Images a container uses (running or stopped) with an update according to Cup, per host and update type; type base/upstream = local builds whose pinned base has a new digest / a newer upstream release (registry check).",
     "security_cup_snapshot_timestamp_seconds": "Time of the Cup snapshot behind the host's image-update figures (a sleeping host shows its last snapshot).",
-    "security_image_update_info": "One series per image with an update according to Cup (host, reference, type), only images a container uses.",
+    "security_image_update_info": "One series per image with an update according to Cup (host, reference, type), only images a container uses; local builds: reference names the base, type base or upstream.",
     "security_image_updates_unused": "Images with an update according to Cup that no container uses (old tags, rollback leftovers, base images): cleanup, not updates.",
     "security_code_images": "Registry images the repo refers to (compose image:, Dockerfile FROM; local builds excluded).",
     "security_code_images_scanned": "Of those, images with an SBOM matched against the current Trivy DB.",
@@ -2682,6 +2875,8 @@ def main() -> int:
                 return out
             guarded(f"cup-{host}", _cup)
         publish_cup_asof(("fastpi", "beefy", "tower"))
+        for host in LOCAL_BASE_HOSTS:
+            guarded(f"localbase-{host}", lambda host=host: collect_local_bases(host))
 
     if want("av"):
         for host in AV_PATHS:

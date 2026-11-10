@@ -2294,6 +2294,114 @@ def test_republished_clamav_file_syncs_help_to_sibling():
     assert sib.read_text().splitlines()[-1].endswith(" 5")
 
 
+
+# --- local builds: base image and upstream release updates --------------------
+
+def test_version_tag_keeps_prefix_and_suffix():
+    from security_scan import version_tag
+    assert version_tag("v1.9.6") == ("v", (1, 9, 6), "")
+    assert version_tag("1.30.6-alpine3.24") == ("", (1, 30, 6), "-alpine3.24")
+    assert version_tag("3.11-slim-bookworm") is None
+    assert version_tag("latest") is None
+
+
+def test_newer_release_same_prefix_and_suffix_only():
+    from security_scan import newer_release
+    tags = ["v1.9.5", "v1.9.6", "v1.9.7", "v1.10.0", "v1.10.0-cuda", "latest", "1.11.0"]
+    assert newer_release("v1.9.6", tags) == "v1.10.0"
+    assert newer_release("v1.10.0", tags) == ""
+    assert newer_release("1.30.6-alpine3.24", ["1.31.7-alpine3.24", "1.31.8-alpine3.23", "1.32.0"]) == "1.31.7-alpine3.24"
+    assert newer_release("3.11-slim-bookworm", ["3.12-slim-bookworm"]) == ""
+
+
+def test_split_base_ref():
+    from security_scan import split_base
+    assert split_base("python:3.11-slim-bookworm@sha256:aa") == ("python", "3.11-slim-bookworm", "sha256:aa")
+    assert split_base("ghcr.io/linuxserver/mods@sha256:bb") == ("ghcr.io/linuxserver/mods", "", "sha256:bb")
+    assert split_base("localhost:5000/x") == ("localhost:5000/x", "latest", "")
+
+
+def test_local_base_updates_reports_moved_pin_and_new_release():
+    from security_scan import local_base_updates
+    bases = {"libretranslate-local:v1.9.6": ["libretranslate/libretranslate:v1.9.6@sha256:11", "python:3.11-slim-bookworm@sha256:22"],
+             "clamav-local:latest": ["alpine:3.24.3@sha256:33"]}
+    digests = {"libretranslate/libretranslate:v1.9.6": "sha256:11", "python:3.11-slim-bookworm": "sha256:99", "alpine:3.24.3": "sha256:33"}
+    tags = {"libretranslate/libretranslate": ["v1.9.6", "v1.9.7"], "alpine": ["3.24.3"]}
+    asked = []
+    found, errors = local_base_updates(bases, lambda r: asked.append(r) or digests[r], lambda n: tags[n])
+    assert errors == []
+    assert found == [("libretranslate-local:v1.9.6", "libretranslate/libretranslate:v1.9.6", "upstream", "v1.9.7"),
+                     ("libretranslate-local:v1.9.6", "python:3.11-slim-bookworm", "base", "")]
+    assert len(asked) == len(set(asked))
+
+
+def test_local_base_updates_unpinned_base_is_only_checked_for_releases():
+    from security_scan import local_base_updates
+    found, errors = local_base_updates({"jf-local:1": ["lscr.io/linuxserver/jellyfin:12.4ubu2604-ls57"]},
+                                       lambda r: 1 / 0, lambda n: ["12.5ubu2604-ls58"])
+    assert (found, errors) == ([], [])
+
+
+def test_local_base_updates_collects_lookup_errors():
+    from security_scan import local_base_updates
+
+    def boom(_):
+        raise OSError("429 too many requests")
+    found, errors = local_base_updates({"a-local:1": ["alpine:3.24.3@sha256:33"]}, boom, boom)
+    assert found == [] and len(errors) == 2 and "alpine:3.24.3" in errors[0]
+
+
+def test_local_base_samples_count_both_kinds_and_name_the_base():
+    from security_scan import local_base_samples
+    found = [("libretranslate-local:v1.9.6", "libretranslate/libretranslate:v1.9.6", "upstream", "v1.9.7"),
+             ("libretranslate-local:v1.9.6", "python:3.11-slim-bookworm", "base", "")]
+    s = local_base_samples("beefy", found)
+    assert ("security_image_updates", {"host": "beefy", "type": "base"}, 1) in s
+    assert ("security_image_updates", {"host": "beefy", "type": "upstream"}, 1) in s
+    assert ("security_image_update_info", {"host": "beefy", "type": "upstream",
+            "reference": "libretranslate-local:v1.9.6 (base libretranslate/libretranslate:v1.9.6, v1.9.7 out)"}, 1) in s
+    assert ("security_image_update_info", {"host": "beefy", "type": "base",
+            "reference": "libretranslate-local:v1.9.6 (base python:3.11-slim-bookworm, new digest)"}, 1) in s
+    assert local_base_samples("beefy", []) == [("security_image_updates", {"host": "beefy", "type": "base"}, 0),
+                                               ("security_image_updates", {"host": "beefy", "type": "upstream"}, 0)]
+
+
+def test_built_bases_keeps_only_compose_built_images():
+    from security_scan import built_bases
+    bases = {"libretranslate-local:v1.9.6": ["python:3.11-slim-bookworm@sha256:22"],
+             "lingarr/lingarr:1.4.1": ["python:3.11-slim-bookworm@sha256:22"]}
+    assert built_bases(bases, {"libretranslate-local:v1.9.6"}) == {"libretranslate-local:v1.9.6": ["python:3.11-slim-bookworm@sha256:22"]}
+
+
+def test_cached_local_bases_reads_when_awake_and_falls_back_to_the_cache():
+    from security_scan import cached_local_bases
+    _tmp_dirs()
+    got = cached_local_bases("beefy", lambda: {"a-local:1": ["alpine:3"]}, awake=True)
+    assert got == {"a-local:1": ["alpine:3"]}
+    assert cached_local_bases("beefy", lambda: 1 / 0, awake=False) == got
+    try:
+        cached_local_bases("tower", lambda: 1 / 0, awake=False)
+        raise AssertionError("expected NoData")
+    except NoData:
+        pass
+
+
+def test_registry_auth_header_parse():
+    from security_scan import parse_www_authenticate
+    h = 'Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:library/python:pull"'
+    assert parse_www_authenticate(h) == {"realm": "https://auth.docker.io/token", "service": "registry.docker.io",
+                                         "scope": "repository:library/python:pull"}
+
+
+def test_registry_location():
+    from security_scan import registry_location
+    assert registry_location("python") == ("registry-1.docker.io", "library/python")
+    assert registry_location("libretranslate/libretranslate") == ("registry-1.docker.io", "libretranslate/libretranslate")
+    assert registry_location("docker.io/library/alpine") == ("registry-1.docker.io", "library/alpine")
+    assert registry_location("lscr.io/linuxserver/jellyfin") == ("lscr.io", "linuxserver/jellyfin")
+    assert registry_location("ghcr.io/a/b") == ("ghcr.io", "a/b")
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
