@@ -165,4 +165,4 @@ The Traefik route is picked up automatically (Traefik watches `/dynamic`).
 ## answer-inbox: Rust, rollback
 - Tests: `inbox/tests/blackbox/run.sh legacy` (Node original) and `run.sh rust <binary>` must both pass; same suite against a running instance: `run.sh url http://127.0.0.1:PORT <data-dir>`.
 - Rebuild: `SERVICES=answer-inbox _global/scripts/update-project.sh $PWD build`. The builder image is pinned by digest in `inbox/rust/Dockerfile`; `cargo test` runs in the build.
-- Rollback to Node: restore the `image:`/`command:`/`./inbox/legacy:/app:ro` lines from git (`docker-compose.yaml` before the Rust commit) or use image `node:pre-rust-2026-11-09` with `node /app/server.js`.
+- Rollback to Node: restore the `image:`/`command:`/`./inbox/legacy:/app:ro` lines from git (`docker-compose.yaml` before the Rust commit) or use image `rollback.invalid/node:pre-rust-2026-11-09` with `node /app/server.js`.
