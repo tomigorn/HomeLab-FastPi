@@ -10,7 +10,7 @@ Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits t
 |---|---|---|
 | CrowdSec | `crowdsec-overview` | bans, attacks, bouncer and hub health (`Docker/CrowdSec/README.md`) |
 | Updates & security | `updates-security` | OS/image updates, CVEs, ClamAV, rootkit/Lynis, CrowdSec versions, firing security alerts (`Server/4-Security-Monitoring/README.md`) |
-| fastpi — RAM, containers & electricity | `fastpi-resources` | per-container RAM, plug power (InfluxDB) |
+| fastpi — RAM, containers & electricity | `fastpi-resources` | per-container RAM, plug power (InfluxDB), Authentik workers row |
 | fastpi — system (CPU, RAM, disk) | `rYdddlPWk` | node-exporter full view (Prometheus) |
 | fastpi — Pi hardware (temperature, throttling) | `sF7d-FHZz` | Pi telemetry (InfluxDB) |
 | LanguageTool — usage watch | `languagetool-watch` | LanguageTool usage |
@@ -60,6 +60,10 @@ docker kill -s HUP prometheus   # reload rules
 | `HostOomKill` | kernel OOM kill in the last 15 min | warning |
 | `CustomizationCheckFailing`, `PortUpdaterReattachLoop`, `CustomizationCheckStale` | customization check failed two runs in a row (names the id), `port_updater` reattached >= 2 in 6 h, checker stale > 8 h (`rules/customization-checks.yml`, `_global/scripts/README.md` "customization-check") | warning |
 | `ClaudeRemoteRestartBlocked` | the 04:00 claude-remote restart deferred > 1 day; names the reason and first blocking command (`rules/claude-remote.yml`, `Server/8-Claude-Scratch/`) | warning |
+
+## Authentik metrics
+
+Job `authentik` scrapes `authentik-server:9300` over the `authentik_authentik_internal` network (Prometheus joins it; the port is not published). Forward-auth latency = `authentik_main_request_duration_seconds{dest="embedded_outpost"}` (summary quantiles, Traefik calls the outpost directly so it is not in Traefik metrics); `dest="core"` is the Django side. Dashboard `fastpi-resources`, row "Authentik workers" (RAM, SSO latency from Traefik, forward-auth latency); baseline `~/reports/2026-11-10/authentik-workers-baseline.md`.
 
 ## Prometheus self-monitoring
 

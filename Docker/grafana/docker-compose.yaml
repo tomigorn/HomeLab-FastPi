@@ -37,6 +37,8 @@ services:
       - cloudflare
       # Defined by Traefik (internal). Prometheus scrapes traefik:8080/metrics.
       - traefik_metrics
+      # Defined by Authentik. Prometheus scrapes authentik-server:9300 (not published).
+      - authentik_internal
 
 # #########################################################
 # Node Exporter ###########################################
@@ -358,6 +360,10 @@ networks:
   # Defined by Traefik, internal: only Traefik + Prometheus (metrics scrape).
   traefik_metrics:
     external: true
+  # Defined by Authentik (compose project authentik). Prometheus joins it to scrape authentik-server:9300.
+  authentik_internal:
+    external: true
+    name: authentik_authentik_internal
   # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
   traefik_proxy:
     external: true

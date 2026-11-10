@@ -49,6 +49,13 @@ scrape_configs:
       - targets:
           - cloudflared:20241
 
+  # Authentik server metrics (:9300, never published on the host) over the authentik_internal network.
+  # authentik_main_request_duration_seconds{dest="embedded_outpost"} = forward-auth check latency (Traefik calls it directly, so it is not in Traefik's metrics).
+  - job_name: "authentik"
+    static_configs:
+      - targets:
+          - "authentik-server:9300"
+
   # Traefik metrics (per-router/service request counts) over the internal traefik_metrics network; :8080 is not published on the host.
   - job_name: "traefik"
     static_configs:

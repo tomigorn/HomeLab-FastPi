@@ -7,6 +7,11 @@
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-24h", "to": "now" },
+  "annotations": {
+    "list": [
+      { "name": "Authentik restart (worker change 1 to 2: 2026-11-10 10:27 CET)", "enable": true, "iconColor": "orange", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "changes(container_started_timestamp_seconds{name=\"authentik-server\"}[2m]) > 0", "step": "60s", "titleFormat": "Authentik server (re)started" }
+    ]
+  },
   "templating": { "list": [] },
   "panels": [
     {
@@ -106,6 +111,56 @@
         }
       ],
       "description": "DS18B20 probes on the ESPHome board temp-probes (Home-Assistant/esphome/temp-probes.yaml): tower CPU cooler, VRM, RAM, PSU exhaust, HDD cage, cabinet intake/exhaust. Empty until the board is flashed."
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Authentik workers (2 from 2026-11-10 10:27 CET, 1 before; compare ~2026-11-24)",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 46},
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "authentik-server RAM",
+      "description": "Container memory of authentik-server (telegraf docker input, same source as the stacked panel). Limit mem_limit 1g.",
+      "datasource": { "type": "influxdb", "uid": "influxdb_fastpi" },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 47},
+      "fieldConfig": { "defaults": { "unit": "decbytes", "custom": { "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}},
+      "targets": [
+        { "refId": "A", "query": "from(bucket:\"rpi\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn:(r)=> r._measurement==\"docker_container_mem\" and r._field==\"usage\" and r.container_name==\"authentik-server\") |> aggregateWindow(every: v.windowPeriod, fn: mean) |> group(columns:[\"container_name\"]) |> keep(columns:[\"_time\",\"_value\",\"container_name\"])" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "SSO website latency (Traefik, p50 / p95)",
+      "description": "Traefik router authentik@file (sso.holy-grail.ch pages), 5 min rate.",
+      "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 47},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2, "fillOpacity": 0, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "histogram_quantile(0.5, sum by (le) (rate(traefik_router_request_duration_seconds_bucket{router=\"authentik@file\"}[5m])))", "legendFormat": "p50", "range": true},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "histogram_quantile(0.95, sum by (le) (rate(traefik_router_request_duration_seconds_bucket{router=\"authentik@file\"}[5m])))", "legendFormat": "p95", "range": true}
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Forward-auth check latency (Authentik, p50 / p95)",
+      "description": "authentik_main_request_duration_seconds{dest=embedded_outpost}: the /outpost.goauthentik.io/auth/traefik check every protected page pays (Authentik summary quantiles, scraped from authentik-server:9300 since 2026-11-10). dest=core is the Django side (website, API).",
+      "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 47},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2, "fillOpacity": 0, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "authentik_main_request_duration_seconds{dest=\"embedded_outpost\", quantile=\"0.5\"}", "legendFormat": "forward-auth p50", "range": true},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "authentik_main_request_duration_seconds{dest=\"embedded_outpost\", quantile=\"0.95\"}", "legendFormat": "forward-auth p95", "range": true},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "dfc6abdxzsem8a"}, "expr": "authentik_main_request_duration_seconds{dest=\"core\", quantile=\"0.95\"}", "legendFormat": "core (Django) p95", "range": true}
+      ]
     }
   ]
 }
