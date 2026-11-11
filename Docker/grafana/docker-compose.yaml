@@ -39,6 +39,8 @@ services:
       - traefik_metrics
       # Defined by Authentik. Prometheus scrapes authentik-server:9300 (not published).
       - authentik_internal
+      # Defined by Activity (internal). Prometheus scrapes activity:8080/metrics.
+      - activity_metrics
 
 # #########################################################
 # Node Exporter ###########################################
@@ -365,6 +367,9 @@ networks:
   authentik_internal:
     external: true
     name: authentik_authentik_internal
+  # Defined by Activity (internal, 10.24.40.0/29). Prometheus joins it to scrape activity:8080/metrics; the service answers /metrics only from this subnet.
+  activity_metrics:
+    external: true
   # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
   traefik_proxy:
     external: true

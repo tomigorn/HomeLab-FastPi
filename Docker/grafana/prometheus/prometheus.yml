@@ -62,6 +62,14 @@ scrape_configs:
       - targets:
           - "traefik:8080"
 
+  # Activity status page (Docker/Activity): anonymous stream/download/listening counts over the internal activity_metrics network.
+  # 30 s = the service's own poll interval; finer adds nothing.
+  - job_name: "activity"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - "activity:8080"
+
   # ---------------------------------------------------------------------------
   # Public endpoint probes (blackbox).
   #

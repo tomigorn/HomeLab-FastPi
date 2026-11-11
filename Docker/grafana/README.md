@@ -65,6 +65,10 @@ docker kill -s HUP prometheus   # reload rules
 
 Job `authentik` scrapes `authentik-server:9300` over the `authentik_authentik_internal` network (Prometheus joins it; the port is not published). Forward-auth latency = `authentik_main_request_duration_seconds{dest="embedded_outpost"}` (summary quantiles, Traefik calls the outpost directly so it is not in Traefik metrics); `dest="core"` is the Django side. Dashboard `fastpi-resources`, row "Authentik workers" (RAM, SSO latency from Traefik, forward-auth latency); baseline `~/reports/2026-11-10/authentik-workers-baseline.md`.
 
+## Activity metrics
+
+Job `activity` scrapes `activity:8080/metrics` every 30 s over the internal `activity_metrics` network (10.24.40.0/29, defined by `../Activity`; Prometheus joins it). Anonymous counts only: `activity_streams{kind,quality,mode}`, `activity_watching_streams`, `activity_downloads{state,kind,quality}`, `activity_listening_sessions`, `activity_audiobook_downloads{state}`, `activity_beefy_up`, `activity_beefy_snapshot_age_seconds` (`../Activity/README.md`).
+
 ## Prometheus self-monitoring
 
 Job `prometheus` scrapes `localhost:9090`. Rules: `prometheus/rules/prometheus-self.yml`, all warning.
