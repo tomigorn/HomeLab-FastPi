@@ -30,6 +30,8 @@ activity, every 30 s: Waker up? ─► GET traefik:8080/activity/gate/<contract 
 
 All three: `ipAllowList` 172.24.255.10 (activity, pinned) only; everyone else 403 (`activity.internal-only`).
 
+`activity-gate` has no `healthCheck` (Traefik would poll beefy regardless of the Waker) and `serversTransport` `activity-gate-no-idle` (`idleConnTimeout: 1s`), so Traefik holds no idle connection to beefy even if the gate's `keepalive_timeout 0` went away (`activity.gate-transport`).
+
 Audiobook downloads: the Audiobook-Requests importer has no download counts, so qBittorrent is read directly, through the route, limited to the one read.
 
 Answers are parsed into typed fields and grouped at once; raw answers, titles and names are never stored, logged or served. Log lines name only the path and the error (`HTTP 503`, `timed out`).

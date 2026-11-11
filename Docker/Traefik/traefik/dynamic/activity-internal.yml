@@ -56,9 +56,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://192.168.1.2:9001"
+    # Never add a healthCheck: Traefik would then poll beefy on its own, regardless of the Waker, and keep it awake.
     activity-gate:
       loadBalancer:
         passHostHeader: false
+        serversTransport: activity-gate-no-idle
         servers:
           - url: "http://192.168.1.102:8095"
     activity-qbit:
@@ -66,3 +68,9 @@ http:
         passHostHeader: false
         servers:
           - url: "http://10.24.25.2:8080"
+
+  # fastpi's side of "no idle connection to beefy": an idle connection is dropped after 1 s (the gate also answers Connection: close).
+  serversTransports:
+    activity-gate-no-idle:
+      forwardingTimeouts:
+        idleConnTimeout: 1s
