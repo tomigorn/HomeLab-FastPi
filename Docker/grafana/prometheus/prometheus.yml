@@ -225,6 +225,7 @@ scrape_configs:
           - https://claude-mockups.holy-grail.ch/
           - https://tracker.holy-grail.ch/
           - https://avatars.holy-grail.ch/
+          - https://activity.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
