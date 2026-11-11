@@ -181,5 +181,10 @@ if os.environ.get("PORT_UPDATER_PROXY_USER") and os.environ.get("PORT_UPDATER_PR
     admins.attributes["port_updater_password"] = os.environ["PORT_UPDATER_PROXY_PASSWORD"]
     admins.save()
 
+# 10. Activity page (forward auth; route in Docker/Traefik/traefik/dynamic/activity.yml), read-only anonymous counts.
+app_for("activity", "Activity",
+        proxy("activity-proxy", "https://activity.holy-grail.ch"),
+        "https://activity.holy-grail.ch")
+
 outpost.save()
 print("OK provisioned")
