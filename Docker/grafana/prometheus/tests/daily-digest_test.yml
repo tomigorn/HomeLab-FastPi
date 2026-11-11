@@ -152,3 +152,80 @@ tests:
             exp_annotations:
               summary: "Daily digest"
               description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• none\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• ⏳ <b>SmartPendingSectors</b> · fastpi\n\n<b>🛡️ New fixable CVEs</b>\n• none\n\n<b>📦 Auto-updates</b>\n• no run in the last 24 h\n\n<b>💤 Awake</b> (24 h)\n\n<b>⏰ Expiry and disks</b> (needs attention)\n• 🔐 sso.holy-grail.ch: certificate ends in 10 d\n• 🌐 holy-grail.ch: renewal due in 20 d\n• 💳 Eweka: ends in 5 d\n• 💳 Old &amp; Gone: ended\n• 💽 fastpi seagate-red: SmartPendingSectors\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
+
+
+  - name: silenced alerts marked, rate-limit events merged, No-IP only within 5 days
+    interval: 1m
+    input_series:
+      # alert_silenced as json-exporter exports it (Alertmanager /api/v2/alerts, silenced only): all alert labels in one JSON label
+      - series: 'ALERTS{alertstate="firing",alertname="ClamavScanStale",severity="info",host="tower"}'
+        values: '1x1800'
+      # same alert on another host, not silenced: still listed
+      - series: 'ALERTS{alertstate="firing",alertname="ClamavScanStale",severity="info",host="beefy"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="TowerUpButNextcloudDown",severity="warning",job="blackbox-tower",instance="tower"}'
+        values: '1x1800'
+      - series: 'ALERTS{alertstate="firing",alertname="BeefyWakeLoop",severity="warning",job="blackbox-beefy",instance="beefy"}'
+        values: '1x1800'
+      - series: 'alert_silenced{alertname="ClamavScanStale",alert_labels="{\"alertname\":\"ClamavScanStale\",\"host\":\"tower\",\"severity\":\"info\"}",job="alertmanager-silences",instance="alertmanager-silences"}'
+        values: '1x1800'
+      - series: 'alert_silenced{alertname="TowerUpButNextcloudDown",alert_labels="{\"alertname\":\"TowerUpButNextcloudDown\",\"instance\":\"tower\",\"job\":\"blackbox-tower\",\"severity\":\"warning\"}",job="alertmanager-silences",instance="alertmanager-silences"}'
+        values: '1x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="radarr",title="1337x (Prowlarr)"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="sonarr",title="1337x (Prowlarr), 1337x (old-rare) (Prowlarr)"}'
+        values: '98000x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="sonarr",title="Too Old (Prowlarr)"}'
+        values: '1000x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="malware_removed",app="sonarr",title="Fake Show S01: Fake.S01E01"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="brand_new_thing",app="sonarr",title="Something"}'
+        values: '98400x1800'
+      # at 1d5h30m (106200 s): No-IP hostname 29 d and 4 d left, Usenet provider 29 d left
+      - series: 'subscription_expiry_timestamp_seconds{name="far.ddns.net",kind="No-IP hostname"}'
+        values: '2611800x1800'
+      - series: 'subscription_expiry_timestamp_seconds{name="near.ddns.net",kind="No-IP hostname"}'
+        values: '451800x1800'
+      - series: 'subscription_expiry_timestamp_seconds{name="Eweka",kind="Usenet provider"}'
+        values: '2611800x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Daily digest"
+              description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• none\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• ⏳ <b>BeefyWakeLoop</b> · beefy\n• ⏳ <b>ClamavScanStale</b> · beefy\n• 🔇 2 silenced: ClamavScanStale, TowerUpButNextcloudDown\n\n<b>🛡️ New fixable CVEs</b>\n• none\n\n<b>📦 Auto-updates</b>\n• no run in the last 24 h\n\n<b>💤 Awake</b> (24 h)\n\n<b>🎬 Downloads</b> (beefy, handled automatically)\n• brand new thing · Something\n• fake download removed · Fake Show S01: Fake.S01E01\n• indexer paused (rate limit) · 1337x, 1337x (old-rare) ×2\n\n<b>⏰ Expiry and disks</b> (needs attention)\n• 💳 Eweka: ends in 29 d\n• 💳 near.ddns.net: ends in 4 d\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
+
+
+  - name: only silenced alerts, downloads capped at 5 lines with the merged rate-limit line, No-IP alone at 29 d shows no expiry section
+    interval: 1m
+    input_series:
+      - series: 'ALERTS{alertstate="firing",alertname="SecurityScanStale",severity="warning",job="raspberry-pi",instance="node-exporter:9100",subject="av-tower"}'
+        values: '1x1800'
+      - series: 'alert_silenced{alertname="SecurityScanStale",alert_labels="{\"alertname\":\"SecurityScanStale\",\"instance\":\"node-exporter:9100\",\"job\":\"raspberry-pi\",\"severity\":\"warning\",\"subject\":\"av-tower\"}",job="alertmanager-silences",instance="alertmanager-silences"}'
+        values: '1x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="failed",app="sonarr",title="Show A S01E01"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="failed",app="sonarr",title="Show B S01E01"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="stalled",app="sonarr",title="Show C S01E01"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="auto_imported",app="radarr",title="Film D (2020)"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="subtitle_forced_unverified",app="bazarr",title="Show E S01E01 · en"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="radarr",title="1337x (Prowlarr)"}'
+        values: '98400x1800'
+      - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="sonarr",title="1337x (Prowlarr)"}'
+        values: '98000x1800'
+      - series: 'subscription_expiry_timestamp_seconds{name="far.ddns.net",kind="No-IP hostname"}'
+        values: '2611800x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Daily digest"
+              description: "📅 1970-01-02 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• none\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• 🔇 1 silenced: SecurityScanStale\n\n<b>🛡️ New fixable CVEs</b>\n• none\n\n<b>📦 Auto-updates</b>\n• no run in the last 24 h\n\n<b>💤 Awake</b> (24 h)\n\n<b>🎬 Downloads</b> (beefy, handled automatically)\n• imported automatically · Film D (2020)\n• failed, re-searching · Show A S01E01\n• failed, re-searching · Show B S01E01\n• stalled, re-searching · Show C S01E01\n• indexer paused (rate limit) · 1337x ×2\n• … 7 events in total\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"

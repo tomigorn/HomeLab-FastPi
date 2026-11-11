@@ -1,6 +1,6 @@
 # Expiry of TLS certificates, domain registrations and DDNS hostnames (README "Expiry and disk health").
 # Data: status-exporter/status_exporter.py, daily 05:50 (status-exporter-daily.timer): status_certs.prom (TLS handshake with Traefik per routed hostname) and status_domains.prom (RDAP + DDNS resolution). The files persist between runs, so for: 1h only filters a half-written start.
-# Subscriptions have their own Telegram warnings (_global/scripts/subscription-alerts.py) and no rule here; the daily digest lists the ones ending within 30 days.
+# Subscriptions have their own Telegram warnings (_global/scripts/subscription-alerts.py) and no rule here; the daily digest lists the ones ending within 30 days, No-IP hostnames within 5.
 # Warning and critical on certificates use disjoint ranges, so a cert sends one message per level.
 # Tests: prometheus/tests/expiry_test.yml
 groups:

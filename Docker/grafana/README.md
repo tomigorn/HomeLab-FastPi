@@ -172,7 +172,7 @@ The textfile stays on fastpi while beefy sleeps, so the series do not go stale; 
 
 ## Expiry and disk health
 
-Rules `prometheus/rules/expiry.yml`, `prometheus/rules/disk-health.yml`, tests `prometheus/tests/expiry_test.yml`, `disk-health_test.yml`. The daily digest gets a section **⏰ Expiry and disks** only when something is due: certs ≤ 21 d, domains ≤ 30 d, subscriptions ≤ 30 d, firing `Smart*` alerts.
+Rules `prometheus/rules/expiry.yml`, `prometheus/rules/disk-health.yml`, tests `prometheus/tests/expiry_test.yml`, `disk-health_test.yml`. The daily digest gets a section **⏰ Expiry and disks** only when something is due: certs ≤ 21 d, domains ≤ 30 d, subscriptions ≤ 30 d (No-IP hostnames ≤ 5 d: their 30-day confirm window would always be listed), firing `Smart*` alerts.
 
 | Job | Runs | Writes | Source |
 |---|---|---|---|
@@ -262,7 +262,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | any label `test=…` | `telegram-test`, marked 🧪, never email | only when sent on purpose |
 
 - **Quiet hours** (`time_intervals: quiet-hours`, Europe/Zurich, DST-safe): muted sends are dropped; a group still firing at 07:00 is sent then, one that fired and cleared overnight is in the digest.
-- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy SSD/HDD used % and the last mover run, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`, kinds `guard_removed` `failed` `stalled` `indexer_recovered` `subtitle_repaired` `subtitle_suspect` shown as plain text, unknown kinds raw), and only when something is due the expiry and disk section (see Expiry and disk health). Lists capped (8/6/5/6/5/4) to stay under 4096 characters.
+- **Daily digest** (`prometheus/rules/daily-digest.yml`): digest-only alerts and other alerts of the last 24 h (⏳ still firing / ✔️ cleared), new fixable CVEs grouped per CVE, nightly auto-update per host, hours beefy/tower were awake, beefy SSD/HDD used % and the last mover run, beefy queue-watchdog events (`beefy_watchdog_event_timestamp_seconds`, every kind of `queue-watchdog.py` as plain text, an unknown kind with `_` as spaces; all `indexer_rate_limited` events merged into one line "indexer paused (rate limit)" with the distinct indexer names, without " (Prowlarr)", and ×count), and only when something is due the expiry and disk section (see Expiry and disk health). Alerts silenced in Alertmanager are not listed as firing but as one line `🔇 n silenced: names` per alert section (`homelab:alert_silenced`, json-exporter module `alertmanager`). Lists capped (8/6/5/6/5/4) to stay under 4096 characters.
 - **New alert rule:** pick its line above; give it `notify: digest` if it needs no action today.
 - **Maintenance:** `Docker/_global/scripts/maintenance-silence.sh on [hours] [reason]` before batch or upgrade work, `off` after: silences ContainerCrashLooping, ContainerDown, ContainerUnhealthy, SecurityFileChanged, HostRebooted, SshLoginOutsideLan; the digest still lists them.
 - **Tests:** no separate test chat exists, so 🧪 messages go to the alert group, only when sent on purpose (a POSTed alert with a `test` label, `oob-alert.sh --test`). To check the path without a message: `oob-alert.sh --check`.
