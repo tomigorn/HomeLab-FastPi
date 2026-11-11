@@ -110,7 +110,7 @@ LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 
 ## Metrics
 
-`activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `activity_listening_sessions`, `activity_audiobook_downloads{state}`. Job `activity` in `../grafana/prometheus/prometheus.yml`.
+`activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `quality="unknown"` = no quality known (waiting requests, a stream or queue item without resolution), `activity_listening_sessions`, `activity_audiobook_downloads{state}`. Job `activity` in `../grafana/prometheus/prometheus.yml`.
 
 | Alert (`../grafana/prometheus/rules/activity.yml`) | When | Check |
 |---|---|---|
