@@ -2402,6 +2402,35 @@ def test_registry_location():
     assert registry_location("ghcr.io/a/b") == ("ghcr.io", "a/b")
 
 
+
+def _run_cli(script, args, env_paths):
+    """Runs the script with stub docker/ssh/git/sudo on PATH that only record a call. -> (rc, output, calls, created paths)."""
+    import os
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        (tmp / "bin").mkdir()
+        for tool in ("docker", "ssh", "git", "sudo", "curl", "trivy", "gitleaks"):
+            stub = tmp / "bin" / tool
+            stub.write_text(f"#!/bin/sh\necho {tool} \"$@\" >> {tmp}/calls\nexit 1\n")
+            stub.chmod(0o755)
+        env = dict(os.environ, PATH=f"{tmp}/bin:/usr/bin:/bin", **{k: str(tmp / k) for k in env_paths})
+        r = subprocess.run([sys.executable, str(script), *args], capture_output=True, text=True, env=env, timeout=60)
+        calls = (tmp / "calls").read_text() if (tmp / "calls").exists() else ""
+        made = [k for k in env_paths if (tmp / k).exists()]
+        return r.returncode, r.stdout + r.stderr, calls, made
+
+
+def test_help_and_unknown_groups_print_usage_and_do_nothing():
+    script = Path(__file__).parent / "security_scan.py"
+    for args, want in ((["--help"], 0), (["-h"], 0), (["--bogus"], 2), (["secrets", "nonsense"], 2)):
+        rc, out, calls, made = _run_cli(script, args, ["SECSCAN_STATE", "SECSCAN_TEXTFILE"])
+        assert rc == want, (args, rc, out)
+        assert "Usage: security_scan.py" in out, args
+        assert calls == "" and made == [], (args, calls, made)
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

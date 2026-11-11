@@ -1,7 +1,7 @@
 # Security monitoring
 
 Security questions, answered on a schedule and routed into the alerting
-pipeline that already exists (`security_scan.py <group>`):
+pipeline that already exists (`security_scan.py <group>`; `--help` lists the groups, an unknown one prints usage and runs nothing, exit 2):
 
 | Concern | Group | What answers it | Hosts | Cadence |
 |---|---|---|---|---|

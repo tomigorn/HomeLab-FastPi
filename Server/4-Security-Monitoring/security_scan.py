@@ -2800,8 +2800,26 @@ def guarded(subject: str, fn, *, host: str | None = None) -> None:
     ], HELPS))
 
 
-def main() -> int:
-    only = set(sys.argv[1:]) or None
+GROUPS = ("secrets", "patches", "logins", "freshness", "audit", "cup", "av", "media", "updates", "images", "access", "avhits", "code", "dt")
+USAGE = (f"Usage: security_scan.py [group ...]   (no group: every group except {', '.join(GROUPS[10:])}, which run only when named)\n"
+         f"Groups: {' '.join(GROUPS)}")
+
+
+def usage_error(argv: list[str]) -> tuple[int, str] | None:
+    """--help -> (0, usage); an unknown group or option -> (2, why + usage); else None."""
+    if "-h" in argv or "--help" in argv:
+        return 0, USAGE
+    bad = [a for a in argv if a not in GROUPS]
+    return (2, f"security_scan.py: unknown group {' '.join(bad)}\n{USAGE}") if bad else None
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    err = usage_error(argv)
+    if err:
+        print(err[1], file=sys.stdout if err[0] == 0 else sys.stderr)
+        return err[0]
+    only = set(argv) or None
     STATE.mkdir(parents=True, exist_ok=True)
     TEXTFILE.mkdir(parents=True, exist_ok=True)
 
