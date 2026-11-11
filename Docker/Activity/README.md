@@ -2,7 +2,7 @@
 
 Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), what is downloading or waiting. Anonymous counts only: categories, no titles, no names.
 
-- **URL:** https://activity.holy-grail.ch (Holy Grail SSO, group `homelab-admins`; LAN/VPN now, internet after [Owner steps](#owner-steps))
+- **URL:** https://activity.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`; LAN/VPN now, internet after [Owner steps](#owner-steps))
 - **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher. A page view never causes a request to beefy: the page reads the service's memory.
 - Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port.
 
@@ -91,7 +91,7 @@ Rotation: `sudo install -o 65060 -g 65060 -m 0400 <new file> secrets/<name>`; re
 
 ## Owner steps
 
-Authentik application `Activity` (group `homelab-admins`, `../Authentik/scripts/provision-admin-sso.py` §10) is live. Left: the public hostname (the tunnel's routes are dashboard-managed; no API token for them).
+Authentik application `Activity` (groups `homelab-admins`, `homelab-users`, `../Authentik/scripts/provision-admin-sso.py` §10) is live. Left: the public hostname (the tunnel's routes are dashboard-managed; no API token for them).
 
 | # | What | How | Check |
 |---|---|---|---|

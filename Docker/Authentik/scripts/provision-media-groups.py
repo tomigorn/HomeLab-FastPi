@@ -44,7 +44,7 @@ APP_GROUP = {
     # Image versions of every host: homelab inventory, not a media tool.
     "cup": "homelab-admins",
 }
-USER_APPS = {"home-assistant": HOMELAB_USERS, "grafana": HOMELAB_USERS, "claude-mockups": HOMELAB_USERS}
+USER_APPS = {"home-assistant": HOMELAB_USERS, "grafana": HOMELAB_USERS, "claude-mockups": HOMELAB_USERS, "activity": HOMELAB_USERS}
 
 
 def plan(current):
