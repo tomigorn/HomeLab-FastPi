@@ -135,6 +135,15 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | `JellyfinPlaybackStutter` | last incident (`jellyfin_playback_last_incident_timestamp_seconds`) less than 15 min ago, one alert for all kinds/clients, ends 15 min after the last incident; warning, normal Telegram route; lists recent incidents per kind and client, the active auto-fixes and `ssh beefy playback-watch report --since 1h` |
 | `JellyfinPlaybackWatchDown` | no poll for 15 min while beefy is awake (fresh idle metrics), for 10 min, info, `notify: digest` |
 
+## Activity page
+
+`prometheus/rules/activity.yml`, test `prometheus/tests/activity_test.yml`. Source: job `activity` (`Docker/Activity`, `/metrics`). The service down is `TargetDown`.
+
+| Alert | When |
+|---|---|
+| `ActivityBeefyDataStale` | `activity_beefy_up == 1` and `activity_beefy_snapshot_age_seconds` > 300 or absent, for 10 min (gate stopped, rotated key, broken Traefik route); warning, normal Telegram route |
+| `ActivityLocalSourcesMissing` | service up, `activity_listening_sessions` or `activity_audiobook_downloads` absent for 15 min (label `source`: ABS key copy stale / ABS down, or the qBittorrent route broken); warning, normal Telegram route |
+
 ## Authentik service tokens
 
 `prometheus/rules/authentik-tokens.yml`, test `prometheus/tests/authentik-tokens_test.yml`. Source: `Avatar-Picker/scripts/rotate-secrets.sh token-auto` (timer `avatar-token-rotate`, Tue 22:47) writes `authentik_tokens.prom`; it rotates the token 45 days before expiry.

@@ -111,3 +111,8 @@ LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 ## Metrics
 
 `activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `activity_listening_sessions`, `activity_audiobook_downloads{state}`. Job `activity` in `../grafana/prometheus/prometheus.yml`.
+
+| Alert (`../grafana/prometheus/rules/activity.yml`) | When | Check |
+|---|---|---|
+| `ActivityBeefyDataStale` | beefy up, no good poll for > 5 min, for 10 min | gate on beefy, its API keys, Traefik route `activity-gate` |
+| `ActivityLocalSourcesMissing` | `activity_listening_sessions` or `activity_audiobook_downloads` absent for 15 min | ABS key copy `secrets/abs_api_key`, Traefik route `activity-qbit` |
