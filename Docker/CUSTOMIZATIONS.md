@@ -260,6 +260,14 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Private site served read-only from `$NOTES_DIR/www` (content outside this repo, built by `build.sh`); Authentik app `notes` bound to one user, no group | `Caddyfile`, `.env` `NOTES_DIR`, `../Authentik/scripts/provision-notes-sso.py` | `docker compose up -d --force-recreate`; SSO: the provision script | `notes.caddyfile`: Valid configuration; `notes.site`: index → 200 + bytes; `notes.forward-auth`: → sso | caddy directive changes (auto-updated) |
 
+## Activity
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Own Rust service (scratch, uid 65060, read-only, no caps, 32 MB / 0.5 CPU / 32 pids, healthcheck `/activity --health`); pulls beefy only while the Waker says up, through the activity-gate | `rust/`, `Dockerfile`, `docker-compose.yaml`, `tests/blackbox/` | `flock ~/.cache/claude-work/rust-build.lock _global/scripts/update-project.sh Docker/Activity build` | `activity.health`: → healthy; `activity.hardening`: → 65060:65060 ro=true caps=[ALL] nnp mem=33554432; `activity.api`: `/api/state` from traefik → beefy field | rust base image, hyper/tokio API changes (caught by `cargo test` in the build and `tests/blackbox/run.sh`); Jellyfin/arr/Seerr JSON field changes (fixture tests) |
+| Page and state only through Traefik + SSO: the service answers `/` and `/api/state` only from 172.24.255.3 (`PAGE_ALLOW`), `/metrics` only from `activity_metrics` 10.24.40.0/29; route `activity.yml` behind `authentik@file` | `.env`, `../Traefik/traefik/dynamic/activity.yml` | `docker compose up -d --force-recreate`; Traefik file reload | `activity.page-sso`: no login → never 200 (302 to sso once the Authentik app exists); `activity.traefik-only`: from `server-specs` → 403,403 | Traefik's pinned IP changing (page 403), Authentik outpost behaviour |
+| Prometheus joins `activity_metrics`, job `activity` | `../grafana/docker-compose.yaml`, `../grafana/prometheus/prometheus.yml` | `SERVICES=prometheus update-project.sh Docker/grafana recreate` | `activity.metrics-scraped`: `up{job="activity"}` → 1 | network renamed or removed |
+
 ## Server-Specs
 
 | Customization | Where | Reapply | Verify | Update can break |

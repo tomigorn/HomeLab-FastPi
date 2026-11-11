@@ -1,2 +1,171 @@
 <!doctype html>
-<html lang="en"><title>Activity</title></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Activity</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1117; --card: #161b22; --line: #30363d; --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 40rem; margin: 0 auto; padding: 1rem 0.8rem 2rem; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+  h1 { font-size: 1.35rem; margin: 0; }
+  #beefy { font-weight: 600; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.8rem; margin-bottom: 0.8rem; }
+  h2 { font-size: 1rem; margin: 0 0 0.4rem; display: flex; justify-content: space-between; gap: 0.5rem; }
+  h2 .n { color: var(--muted); font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 0.35rem 0.2rem; border-top: 1px solid var(--line); vertical-align: top; }
+  tr:first-child td { border-top: 0; }
+  td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; width: 1%; }
+  td.e { width: 1.6rem; }
+  .sub { color: var(--muted); font-size: 0.85rem; }
+  .empty { color: var(--muted); margin: 0.2rem 0; }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Activity</h1>
+    <span id="beefy">…</span>
+    <span class="muted" id="updated"></span>
+  </header>
+  <section>
+    <h2>📺 Watching <span class="n" id="watching-n"></span></h2>
+    <div id="watching"><p class="empty">loading…</p></div>
+  </section>
+  <section>
+    <h2>🎧 Listening <span class="n" id="listening-n"></span></h2>
+    <div id="listening"><p class="empty">loading…</p></div>
+  </section>
+  <section>
+    <h2>⬇️ Downloads and requests</h2>
+    <div id="downloads"><p class="empty">loading…</p></div>
+  </section>
+  <p class="note">Anonymous counts only: no titles, no names. Refreshes every 30 s. beefy is only asked while it is already awake.</p>
+</main>
+<script>
+"use strict";
+const STATE_ICON = { "downloading": "⬇️", "importing": "📥", "waiting for night": "🌙", "waiting for release": "📅", "problem": "⚠️" };
+const STATE_ORDER = ["downloading", "importing", "waiting for night", "waiting for release", "problem"];
+const DL_KIND = { "Movie": "Movie", "Episode": "Series", "Anime": "Anime series", "Audiobook": "Audiobook", "Other": "Other" };
+const REQUESTS = "https://requests.holy-grail.ch/requests";
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  for (const k of kids) e.append(k);
+  return e;
+}
+function hhmm(t) {
+  return new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function empty(text) { return el("p", { class: "empty" }, text); }
+function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+function label(kind, quality) { return quality ? kind + " · " + quality : kind; }
+
+function watching(s) {
+  const box = document.getElementById("watching");
+  const n = document.getElementById("watching-n");
+  box.replaceChildren();
+  n.textContent = "";
+  if (s.watching === null) {
+    box.append(empty(s.beefy === "unknown" ? "❔ beefy state unknown, no fresh data" : "❔ beefy is awake, its data is unavailable right now"));
+    return;
+  }
+  if (s.watching.length === 0) {
+    box.append(empty(s.beefy === "asleep" ? "💤 beefy asleep — nobody watching" : "nobody watching"));
+    n.textContent = "0";
+    return;
+  }
+  n.textContent = String(s.watching.reduce((a, w) => a + w.n, 0));
+  const t = el("table");
+  for (const w of s.watching) {
+    t.append(el("tr", {},
+      el("td", { class: "e" }, w.paused ? "⏸" : "▶️"),
+      el("td", {}, label(w.kind, w.quality), el("div", { class: "sub" }, w.mode + (w.paused ? " · paused" : ""))),
+      el("td", { class: "n" }, String(w.n))));
+  }
+  box.append(t);
+}
+
+function listening(s) {
+  const box = document.getElementById("listening");
+  const n = document.getElementById("listening-n");
+  box.replaceChildren();
+  if (s.listening === null) {
+    n.textContent = "";
+    box.append(empty("❔ Audiobookshelf unavailable"));
+  } else {
+    n.textContent = String(s.listening.sessions);
+    box.append(empty(s.listening.sessions === 0 ? "nobody listening" : plural(s.listening.sessions, "audiobook session", "audiobook sessions") + " now"));
+  }
+}
+
+function amount(d) {
+  if ((d.kind === "Episode" || d.kind === "Anime") && (d.seasons || d.episodes)) {
+    const parts = [];
+    if (d.seasons) parts.push(plural(d.seasons, "season", "seasons"));
+    if (d.episodes) parts.push(plural(d.episodes, "episode", "episodes"));
+    return plural(d.items, "series", "series") + " · " + parts.join(", ") + " remaining";
+  }
+  return plural(d.items, "title", "titles");
+}
+
+function downloads(s) {
+  const box = document.getElementById("downloads");
+  box.replaceChildren();
+  const rows = [];
+  if (s.audiobook_downloads) {
+    const a = s.audiobook_downloads;
+    if (a.downloading) rows.push(["⬇️", "Audiobook", "downloading", a.downloading]);
+    if (a.queued) rows.push(["⏳", "Audiobook", "queued", a.queued]);
+  }
+  const list = (s.downloads || []).slice().sort((x, y) => STATE_ORDER.indexOf(x.state) - STATE_ORDER.indexOf(y.state));
+  for (const d of list) {
+    rows.push([STATE_ICON[d.state] || "•", label(DL_KIND[d.kind] || d.kind, d.quality), d.state + " · " + amount(d), d.items, d.state === "problem"]);
+  }
+  if (rows.length) {
+    const t = el("table");
+    for (const [icon, what, sub, n, problem] of rows) {
+      const subEl = el("div", { class: "sub" }, sub);
+      if (problem) subEl.append(" · ", el("a", { href: REQUESTS, rel: "noopener" }, "details"));
+      t.append(el("tr", {}, el("td", { class: "e" }, icon), el("td", {}, what, subEl), el("td", { class: "n" }, String(n))));
+    }
+    box.append(t);
+  } else if (s.downloads !== null || s.audiobook_downloads) {
+    box.append(empty("nothing downloading"));
+  }
+  if (s.downloads === null) box.append(el("p", { class: "note" }, "❔ beefy downloads unavailable (no data yet)"));
+  else if (s.downloads_as_of) box.append(el("p", { class: "note" }, "beefy part as of " + hhmm(s.downloads_as_of) + (s.beefy === "asleep" ? " (beefy asleep)" : "")));
+  if (!s.audiobook_downloads) box.append(el("p", { class: "note" }, "❔ audiobook downloads unavailable"));
+}
+
+function render(s) {
+  const b = document.getElementById("beefy");
+  b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", unknown: "❔ beefy unknown" }[s.beefy] || s.beefy;
+  document.getElementById("updated").textContent = "updated " + hhmm(s.now);
+  watching(s);
+  listening(s);
+  downloads(s);
+}
+
+async function refresh() {
+  try {
+    const r = await fetch("api/state", { cache: "no-store", credentials: "same-origin" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    render(await r.json());
+  } catch (e) {
+    document.getElementById("updated").textContent = "⚠️ not updated (" + e.message + ")";
+  }
+}
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

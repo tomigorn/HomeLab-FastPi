@@ -42,6 +42,7 @@ tell them apart.
 | Audiobook-Requests | ❌ | ❌ | | |  |
 | Wiki | ❌ | ❌ | | |  |
 | Notes | ❌ | ❌ | | |  |
+| Activity | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 
