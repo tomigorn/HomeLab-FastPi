@@ -1,0 +1,68 @@
+# Internal-only routes for the activity service (Docker/Activity): the Beefy-Waker status, the activity-gate on beefy and the abr torrents of the mouse qBittorrent.
+#
+# Entry point `internal` (:8080) is not published on the host and not in the tunnel; the name `traefik` resolves only inside the docker networks.
+# activity calls http://traefik:8080/activity/{waker,gate,qbit}/... and Traefik forwards from addresses the firewalls and backends already admit:
+#   - Waker 192.168.1.2:9001: HOST-GUARD admits 172.24.255.3
+#   - activity-gate 192.168.1.102:8095: DOCKER-USER admits 172.24.255.3 to beefy, the gate admits 192.168.1.2 (the NAT source); read-only GET allow-list on the gate
+#   - qBittorrent 10.24.25.2:8080: gluetun admits 10.24.25.3, qBittorrent skips its login for it, so this route allows only the one read (GET torrents/info?category=abr)
+# No Authentik here: only the activity container's pinned 172.24.255.10 gets through (activity-internal-only).
+http:
+  routers:
+    activity-waker:
+      rule: "Host(`traefik`) && Method(`GET`) && Path(`/activity/waker/status`)"
+      entryPoints: ["internal"]
+      service: activity-waker
+      middlewares:
+        - activity-internal-only
+        - activity-internal-strip
+        - activity-waker-strip-authentik
+
+    activity-gate:
+      rule: "Host(`traefik`) && Method(`GET`) && PathPrefix(`/activity/gate/`)"
+      entryPoints: ["internal"]
+      service: activity-gate
+      middlewares:
+        - activity-internal-only
+        - activity-internal-strip
+
+    activity-qbit:
+      rule: "Host(`traefik`) && Method(`GET`) && Path(`/activity/qbit/api/v2/torrents/info`) && Query(`category`, `abr`)"
+      entryPoints: ["internal"]
+      service: activity-qbit
+      middlewares:
+        - activity-internal-only
+        - activity-internal-strip
+
+  middlewares:
+    activity-internal-only:
+      ipAllowList:
+        sourceRange:
+          - "172.24.255.10/32"   # activity on traefik_proxy (pinned in Docker/Activity/docker-compose.yaml)
+    activity-internal-strip:
+      stripPrefix:
+        prefixes:
+          - "/activity/waker"
+          - "/activity/gate"
+          - "/activity/qbit"
+    # As beefy-wol.yml: the Waker trusts these headers as "signed in".
+    activity-waker-strip-authentik:
+      headers:
+        customRequestHeaders:
+          X-Authentik-Username: ""
+          X-Authentik-Groups: ""
+
+  services:
+    activity-waker:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.2:9001"
+    activity-gate:
+      loadBalancer:
+        passHostHeader: false
+        servers:
+          - url: "http://192.168.1.102:8095"
+    activity-qbit:
+      loadBalancer:
+        passHostHeader: false
+        servers:
+          - url: "http://10.24.25.2:8080"

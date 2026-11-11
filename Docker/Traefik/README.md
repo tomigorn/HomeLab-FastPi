@@ -27,7 +27,7 @@ Files in `traefik/secrets/` (gitignored, mounted at `/secrets`), never env value
 |------|------|----------------|---------|
 | `web` | 80 | public | HTTP→HTTPS redirect + ACME HTTP challenge |
 | `websecure` | 443 | public (Cloudflare tunnel) | every `holy-grail.ch` service |
-| `internal` | 8080 (not published) | Prometheus only, over the internal `traefik_metrics` network | `/metrics` |
+| `internal` | 8080 (not published) | Prometheus over `traefik_metrics`; the `activity` container (172.24.255.10 only, `activity-internal.yml`) | `/metrics`; `/activity/{waker,gate,qbit}/` internal routes (`../Activity/README.md`) |
 | `langtool` | 8443 | public (direct forward) | the two ddns services below |
 
 Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%5C` `%00` (`%25 %3B %3F %23` stay allowed, they occur in file names); `langtool` refuses all seven. Check: `traefik.encoded-chars`.
