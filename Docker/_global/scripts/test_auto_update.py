@@ -297,6 +297,19 @@ def test_every_auto_row_has_a_post_update_check():
     assert not (NO_CHECK_YET - need)
 
 
+def test_seerr_sidecars_auto_update_each_with_its_own_check():
+    if not (DOCKER / "Seerr").exists():
+        return
+    seerr = [r for r in _conf_rows() if r["project"] == "Seerr"]
+    assert all(r["services"] for r in seerr)
+    rows = {s: r for r in seerr for s in r["services"]}
+    for svc in ("seerr-proxy", "download-now"):
+        assert rows[svc]["tier"] == "auto", svc
+        assert rows[svc]["services"] == [svc], svc
+        assert rows[svc]["check"], svc
+    assert "seerr" not in rows
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
