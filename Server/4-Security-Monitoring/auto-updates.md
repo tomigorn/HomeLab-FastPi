@@ -22,10 +22,10 @@
 
 | Tier | Projects | Behaviour |
 |---|---|---|
-| `auto` | Claude-Mockups, Wiki, Server-Specs, Notes (static caddy), M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
-| `notify` | audiobookshelf, Home-Assistant, grafana (Prometheus, InfluxDB, Grafana DB), mouse, antivirus autoheal, Docker-Socket-Proxy, Portainer, Cup, Audiobook-Requests (digest-pinned) | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
+| `auto` | Claude-Mockups, Wiki, Server-Specs, Notes (static caddy), M4b-Merge-Dashboard, DDNS, sbb-easyride-taxreport, Cup (owner 2026-11-11, check: `/api/v3/json` lists images), grafana exporters node-exporter, blackbox-exporter(-wan), json-exporter (owner 2026-11-11, check: `grafana/scripts/exporters-scraped.sh` = each scraped up by Prometheus since its restart) | new digest of the tag in the repo → wait `COOLDOWN_HOURS` (24) → pull → refuse a major jump (OCI version label) → `update-project.sh recreate` (container verify + `CHECK` command) → rollback on failure; a rolled-back digest is held until the tag moves again |
+| `notify` | audiobookshelf, Home-Assistant, grafana core (Prometheus, Alertmanager, Grafana, InfluxDB, telegraf; backs up the Grafana + InfluxDB volumes), mouse (backs up qBit + SAB config, `mouse_mousehole`, `mouse_gluetun-data`), antivirus autoheal, Docker-Socket-Proxy, Portainer (backs up `docker_portainer_data`), Audiobook-Requests (digest-pinned) | Telegram with the exact `update-project.sh … pull <backups>` command; nothing pulled |
 | `notify`, custom builds | Avatar-Picker, M4b-Auto-Merge, BackdropCarousel, Stonks, LanguageTool/Raspi | never pulled (`build:` or a local tag): reported as `local_build` (quiet); rebuilt weekly by `rebuild-local`, see "Local builds" |
-| `edge` | Authentik, Traefik, WireguardVPN, CrowdSec (engine/hub also by `crowdsec-autoupdate`), Beefy-Waker, Tower-Waker | like notify (machine.md: owner's yes) |
+| `edge` | Authentik (backs up `authentik_database-pg18`), Traefik, WireguardVPN (backs up `./wg-easy-v15`), CrowdSec (backs up both volumes; engine/hub also by `crowdsec-autoupdate`), Beefy-Waker, Tower-Waker | like notify (machine.md: owner's yes) |
 | `edge-auto` | cloudflared, adguard (owner 2026-10-25) | like auto, check = canary / DNS / public route; failed rollback → OOB page |
 | not listed | LoyaltyCards, LoyaltyCards-Sync, bitwarden (parked), Jenkins (stopped), tower | untouched; `test_auto_update.py` fails when a compose project is neither in the conf nor in its `UNMANAGED` list |
 
@@ -115,8 +115,8 @@ Same `auto_update.py`, `test_auto_update.py`, `update-project.sh`, `test_update_
 | Item | beefy |
 |---|---|
 | When | 04:12 (inside the 03:55–04:45 window, after the 04:05 scan); `AUTO_UPDATE_APPLY_BY=04:16`: nothing starts later, the rest is `deferred` to the next night; `AUTO_UPDATE_MAX_APPLY=2` projects a night; `TimeoutStartSec=600` hard stop. No wake of its own |
-| auto | Movie-Downloads flaresolverr, recyclarr, vpn-status; Cup-Agent cup-agent, socket-proxy-unix; Seerr seerr-proxy, download-now (owner 2026-11-11) (pinned tags except socat) |
-| notify | socket proxies + autoheal (docker.sock), gluetun + *arr + qBit + SAB (state; gluetun carries the VPN namespace), Floppy (pinned by digest), Dependency-Track, Jellyfin, Antivirus, Portainer-Agent; Jellyfin, clamav are local builds (`local_build`, detected from compose `build:`) |
+| auto | Movie-Downloads flaresolverr, recyclarr, vpn-status; Cup-Agent cup-agent, socket-proxy-unix; Seerr seerr-proxy, download-now (owner 2026-11-11); Jellyfin popular (owner 2026-11-11, check: `/hss-popular/health` local and through the public route) (pinned tags except socat) |
+| notify | socket proxies (digest-pinned since 2026-11-11, A-30) + autoheal (docker.sock), gluetun + *arr + qBit + SAB (state; gluetun carries the VPN namespace), Floppy (pinned by digest), Dependency-Track, Jellyfin jellyfin, Antivirus, Portainer-Agent; Jellyfin, clamav are local builds (`local_build`, detected from compose `build:`) |
 | Keep-awake | the unit holds `beefy-keep-awake` while it runs and releases only its own hold |
 | Docker | the unit has the `docker` group; by hand (`buntu`) both scripts fall back to `sudo -n docker` |
 | Result | `/var/lib/auto-update/textfile/auto_update.prom` → `security_scan.py updates` (security-av, 04:20) → `auto_update_beefy.prom` here (only `host="beefy"` samples) → `AutoUpdateNightly{host="beefy"}` |
