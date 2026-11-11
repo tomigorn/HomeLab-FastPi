@@ -1,0 +1,32 @@
+{
+ "sessions": [
+  {
+   "id": "a1",
+   "userId": "u1",
+   "displayTitle": "Fixture Audiobook One",
+   "updatedAt": 0,
+   "user": {
+    "username": "jane"
+   }
+  },
+  {
+   "id": "a2",
+   "userId": "u2",
+   "displayTitle": "Fixture Audiobook Two",
+   "updatedAt": 0
+  },
+  {
+   "id": "a3",
+   "userId": "u3",
+   "displayTitle": "Fixture Audiobook Stale",
+   "updatedAt": -3600000
+  }
+ ],
+ "shareSessions": [
+  {
+   "id": "sh1",
+   "displayTitle": "Fixture Shared Book",
+   "updatedAt": 0
+  }
+ ]
+}

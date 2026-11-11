@@ -1,0 +1,13 @@
+{"page": 1, "pageSize": 200, "totalRecords": 5, "records": [
+  {"id": 1, "movieId": 101, "title": "Fixture.Movie.Alpha.2160p.DV", "status": "downloading", "trackedDownloadStatus": "ok", "trackedDownloadState": "downloading",
+   "downloadId": "ABC123", "quality": {"quality": {"id": 19, "name": "Bluray-2160p", "resolution": 2160}}, "customFormats": [{"id": 3, "name": "DV HDR10"}],
+   "movie": {"title": "Fixture Movie Alpha", "tmdbId": 5101}},
+  {"id": 2, "movieId": 101, "title": "Fixture.Movie.Alpha.2160p.DV.part2", "status": "downloading", "trackedDownloadStatus": "ok", "trackedDownloadState": "downloading",
+   "downloadId": "ABC124", "quality": {"quality": {"resolution": 2160}}, "customFormats": [{"name": "HDR"}]},
+  {"id": 3, "movieId": 102, "title": "Fixture.Movie.Night.1080p", "status": "paused", "trackedDownloadStatus": "ok", "trackedDownloadState": "downloading",
+   "downloadId": "NIGHT1", "quality": {"quality": {"resolution": 1080}}, "customFormats": []},
+  {"id": 4, "movieId": 103, "title": "Fixture.Movie.Import.1080p", "status": "completed", "trackedDownloadStatus": "ok", "trackedDownloadState": "importPending",
+   "downloadId": "IMP1", "quality": {"quality": {"resolution": 1080}}, "customFormats": null},
+  {"id": 5, "movieId": 104, "title": "Fixture.Movie.Blocked.720p", "status": "completed", "trackedDownloadStatus": "warning", "trackedDownloadState": "importBlocked",
+   "downloadId": "BLK1", "quality": {"quality": {"resolution": 720}}, "statusMessages": [{"title": "Fixture Movie Blocked", "messages": ["matched by ID"]}]}
+]}

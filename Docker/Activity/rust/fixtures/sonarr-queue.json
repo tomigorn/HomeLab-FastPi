@@ -1,0 +1,206 @@
+{
+ "page": 1,
+ "pageSize": 500,
+ "totalRecords": 8,
+ "records": [
+  {
+   "id": 10,
+   "seriesId": 201,
+   "episodeId": 2000,
+   "seasonNumber": 1,
+   "title": "Fixture.Anime.Gamma.S01E01.1080p",
+   "status": "downloading",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "ANI1",
+   "quality": {
+    "quality": {
+     "name": "WEBDL-1080p",
+     "resolution": 1080
+    }
+   },
+   "customFormats": [],
+   "series": {
+    "title": "Fixture Anime Gamma",
+    "seriesType": "anime"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 1,
+    "title": "Ep 1"
+   }
+  },
+  {
+   "id": 11,
+   "seriesId": 201,
+   "episodeId": 2001,
+   "seasonNumber": 1,
+   "title": "Fixture.Anime.Gamma.S01E02.1080p",
+   "status": "downloading",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "ANI1",
+   "quality": {
+    "quality": {
+     "name": "WEBDL-1080p",
+     "resolution": 1080
+    }
+   },
+   "customFormats": [],
+   "series": {
+    "title": "Fixture Anime Gamma",
+    "seriesType": "anime"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 2,
+    "title": "Ep 2"
+   }
+  },
+  {
+   "id": 12,
+   "seriesId": 201,
+   "episodeId": 2002,
+   "seasonNumber": 1,
+   "title": "Fixture.Anime.Gamma.S01E03.1080p",
+   "status": "downloading",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "ANI1",
+   "quality": {
+    "quality": {
+     "name": "WEBDL-1080p",
+     "resolution": 1080
+    }
+   },
+   "customFormats": [],
+   "series": {
+    "title": "Fixture Anime Gamma",
+    "seriesType": "anime"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 3,
+    "title": "Ep 3"
+   }
+  },
+  {
+   "id": 13,
+   "seriesId": 201,
+   "episodeId": 2003,
+   "seasonNumber": 2,
+   "title": "Fixture.Anime.Gamma.S02E01.1080p",
+   "status": "downloading",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "ANI1",
+   "quality": {
+    "quality": {
+     "name": "WEBDL-1080p",
+     "resolution": 1080
+    }
+   },
+   "customFormats": [],
+   "series": {
+    "title": "Fixture Anime Gamma",
+    "seriesType": "anime"
+   },
+   "episode": {
+    "seasonNumber": 2,
+    "episodeNumber": 1,
+    "title": "Ep 1"
+   }
+  },
+  {
+   "id": 20,
+   "seriesId": 202,
+   "episodeId": 2100,
+   "title": "Fixture.Show.Night.S01E01.720p",
+   "status": "paused",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "nzo_NIGHT2",
+   "quality": {
+    "quality": {
+     "resolution": 720
+    }
+   },
+   "customFormats": [
+    {
+     "name": "HDR10"
+    }
+   ],
+   "series": {
+    "title": "Fixture Show Night",
+    "seriesType": "standard"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 1
+   }
+  },
+  {
+   "id": 21,
+   "seriesId": 202,
+   "episodeId": 2101,
+   "title": "Fixture.Show.Night.S01E02.720p",
+   "status": "paused",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "nzo_NIGHT2",
+   "quality": {
+    "quality": {
+     "resolution": 720
+    }
+   },
+   "customFormats": [
+    {
+     "name": "HDR10"
+    }
+   ],
+   "series": {
+    "title": "Fixture Show Night",
+    "seriesType": "standard"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 2
+   }
+  },
+  {
+   "id": 30,
+   "seriesId": 203,
+   "episodeId": 2200,
+   "title": "Fixture.Show.Failed.S03E04.2160p",
+   "status": "failed",
+   "trackedDownloadStatus": "warning",
+   "trackedDownloadState": "downloading",
+   "downloadId": "F1",
+   "quality": {
+    "quality": {
+     "resolution": 2160
+    }
+   },
+   "customFormats": [],
+   "series": {
+    "title": "Fixture Show Failed",
+    "seriesType": "standard"
+   },
+   "episode": {
+    "seasonNumber": 3,
+    "episodeNumber": 4
+   }
+  },
+  {
+   "id": 31,
+   "title": "Unknown.Item.Without.Series",
+   "status": "downloading",
+   "trackedDownloadState": "downloading",
+   "quality": {
+    "quality": {
+     "resolution": 1080
+    }
+   }
+  }
+ ]
+}

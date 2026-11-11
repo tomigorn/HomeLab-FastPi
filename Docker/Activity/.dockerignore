@@ -1,0 +1,9 @@
+# The build only needs rust/ and www/; keep keys, env and state out of the build context
+secrets/
+data/
+.env
+.env.*
+rust/target/
+rust/target-out/
+tests/
+**/__pycache__/

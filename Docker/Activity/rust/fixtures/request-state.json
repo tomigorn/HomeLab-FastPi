@@ -1,0 +1,35 @@
+{
+ "canWait": [
+  "movie/5001",
+  "tv/9005",
+  "movie/5003",
+  "movie/5004"
+ ],
+ "unreleased": {
+  "movie/5002": "2027-01-01",
+  "tv/9006": null
+ },
+ "noRelease": {
+  "movie/5003": "2026-11-01T03:00:00Z"
+ },
+ "searching": {},
+ "fresh": {},
+ "pending": [],
+ "imported": [
+  "movie/5099"
+ ],
+ "soFar": [],
+ "queue": {
+  "movie/5004": {
+   "state": "downloading",
+   "message": ""
+  }
+ },
+ "sizes": {
+  "7": 123
+ },
+ "media": {
+  "movie/5001": 456
+ },
+ "updated": "2026-11-11T12:00:00+01:00"
+}

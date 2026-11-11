@@ -1,0 +1,38 @@
+[
+ {
+  "hash": "h1",
+  "name": "Fixture Book DL",
+  "category": "abr",
+  "state": "downloading"
+ },
+ {
+  "hash": "h2",
+  "name": "Fixture Book Stalled",
+  "category": "abr",
+  "state": "stalledDL"
+ },
+ {
+  "hash": "h3",
+  "name": "Fixture Book Meta",
+  "category": "abr",
+  "state": "metaDL"
+ },
+ {
+  "hash": "h4",
+  "name": "Fixture Book Queued",
+  "category": "abr",
+  "state": "queuedDL"
+ },
+ {
+  "hash": "h5",
+  "name": "Fixture Book Seeding",
+  "category": "abr",
+  "state": "uploading"
+ },
+ {
+  "hash": "h6",
+  "name": "Fixture Book Done",
+  "category": "abr",
+  "state": "stalledUP"
+ }
+]

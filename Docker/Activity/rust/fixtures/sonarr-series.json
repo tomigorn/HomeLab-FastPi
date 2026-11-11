@@ -1,0 +1,78 @@
+[
+ {
+  "id": 201,
+  "tmdbId": 9001,
+  "title": "Fixture Anime Gamma",
+  "seriesType": "anime",
+  "path": "/data/anime/Fixture Anime Gamma",
+  "seasons": [
+   {
+    "seasonNumber": 1,
+    "monitored": true,
+    "statistics": {
+     "episodeCount": 12,
+     "episodeFileCount": 9,
+     "totalEpisodeCount": 12
+    }
+   }
+  ]
+ },
+ {
+  "id": 205,
+  "tmdbId": 9005,
+  "title": "Fixture Show Epsilon",
+  "seriesType": "standard",
+  "path": "/data/tv/Fixture Show Epsilon",
+  "seasons": [
+   {
+    "seasonNumber": 0,
+    "monitored": false,
+    "statistics": {
+     "episodeCount": 5,
+     "episodeFileCount": 0
+    }
+   },
+   {
+    "seasonNumber": 1,
+    "monitored": true,
+    "statistics": {
+     "episodeCount": 10,
+     "episodeFileCount": 0
+    }
+   },
+   {
+    "seasonNumber": 2,
+    "monitored": true,
+    "statistics": {
+     "episodeCount": 8,
+     "episodeFileCount": 0
+    }
+   },
+   {
+    "seasonNumber": 3,
+    "monitored": true,
+    "statistics": {
+     "episodeCount": 6,
+     "episodeFileCount": 6
+    }
+   }
+  ]
+ },
+ {
+  "id": 206,
+  "tmdbId": 9006,
+  "title": "Fixture Anime Zeta",
+  "seriesType": "anime",
+  "path": "/data/anime/Fixture Anime Zeta",
+  "seasons": [
+   {
+    "seasonNumber": 1,
+    "monitored": true,
+    "statistics": {
+     "episodeCount": 0,
+     "episodeFileCount": 0
+    }
+   }
+  ]
+ }
+]
