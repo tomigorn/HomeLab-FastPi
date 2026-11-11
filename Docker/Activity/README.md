@@ -2,7 +2,7 @@
 
 Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), what is downloading or waiting. Anonymous counts only: categories, no titles, no names.
 
-- **URL:** https://activity.holy-grail.ch (Holy Grail SSO, group `homelab-admins`; see [Owner steps](#owner-steps))
+- **URL:** https://activity.holy-grail.ch (Holy Grail SSO, group `homelab-admins`; LAN/VPN now, internet after [Owner steps](#owner-steps))
 - **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher. A page view never causes a request to beefy: the page reads the service's memory.
 - Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port.
 
@@ -89,11 +89,14 @@ Rotation: `sudo install -o 65060 -g 65060 -m 0400 <new file> secrets/<name>`; re
 
 ## Owner steps
 
+Authentik application `Activity` (group `homelab-admins`, `../Authentik/scripts/provision-admin-sso.py` §10) is live. Left: the public hostname (the tunnel's routes are dashboard-managed; no API token for them).
+
 | # | What | How | Check |
 |---|---|---|---|
-| 1 | Cloudflare public hostname (tunnel ingress is dashboard-managed) | see below | `curl -sI https://activity.holy-grail.ch/` from outside → 302 to `sso.holy-grail.ch` |
+| 1 | Cloudflare public hostname | Zero Trust → Networks → Tunnels → `fastpi` → Public Hostname (published application routes) → Add: subdomain `activity`, domain `holy-grail.ch`, service `HTTPS` `192.168.1.2:443`, TLS → No TLS Verify on (as `specs`, `wiki`) | `curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://activity.holy-grail.ch/` from outside → `302 https://sso.holy-grail.ch/…` |
+| 2 | WAN probe | add `https://activity.holy-grail.ch/` to job `blackbox-wan-gated` in `../grafana/prometheus/prometheus.yml`, `SERVICES=prometheus ../_global/scripts/update-project.sh Docker/grafana recreate` | `probe_success{job="blackbox-wan-gated",instance="https://activity.holy-grail.ch/"}` = 1 |
 
-Cloudflare dashboard: Zero Trust → Networks → Tunnels → the fastpi tunnel → Public Hostname → Add: subdomain `activity`, domain `holy-grail.ch`, then service type/URL and TLS options copied from an existing entry (e.g. `specs`). LAN and VPN work already (AdGuard wildcard).
+LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 
 ## Operations
 

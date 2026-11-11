@@ -22,8 +22,7 @@ http:
         certResolver: cloudflare
 
   middlewares:
-    # NOTE: authentication is Authentik forward auth (authentik@file); application "Activity" bound to group homelab-admins
-    # (owner step in Docker/Activity/README.md: until that application exists the outpost knows no provider for this host and nothing gets through).
+    # NOTE: authentication is Authentik forward auth (authentik@file); application "Activity" bound to group homelab-admins (Docker/Authentik/scripts/provision-admin-sso.py).
     # The service answers / and /api/state only from Traefik's pinned 172.24.255.3 (PAGE_ALLOW), so other containers on traefik_proxy cannot skip this.
     activity-secure-headers:
       headers:
