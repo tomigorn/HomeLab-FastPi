@@ -32,6 +32,9 @@ fi
 if want blackbox-exporter blackbox-exporter-wan; then
   check blackbox.modules '^([1-9][0-9]*) \1$' "$(for c in blackbox-exporter blackbox-exporter-wan; do docker exec $c wget -qO- -T 5 http://127.0.0.1:9115/config | grep -cE '^    [a-z_0-9]+:$'; done | xargs)"
 fi
+if want json-exporter alertmanager prometheus; then
+  check json-exporter.silences '^up ([0-9]+) \1$' "$(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=up{job="alertmanager-silences"}' | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print("up" if r and r[0]["value"][1] == "1" else "down")') $(curl -s -m 5 'http://127.0.0.1:9093/api/v2/alerts?active=false&silenced=true&inhibited=false&unprocessed=false' | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))') $(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count(alert_silenced) or vector(0)' | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["result"][0]["value"][1])')"
+fi
 if want telegraf; then
   check telegraf.writes '^0$' "$(docker logs --since 5m telegraf 2>&1 | grep -c 'E! \[outputs')"
   check telegraf.docker-interval '^interval = "30s"$' "$(docker exec telegraf sed -n '/^\[\[inputs.docker\]\]/,/^\[/p' /etc/telegraf/telegraf.conf | grep -oE '^ *interval = "[^"]*"' | sed 's/^ *//')"

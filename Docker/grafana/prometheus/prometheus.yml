@@ -373,6 +373,24 @@ scrape_configs:
       - target_label: instance
         replacement: cup
 
+  # Alerts silenced in Alertmanager, via json-exporter (module alertmanager): Prometheus itself does not know silences.
+  # The daily digest marks these 🔇 instead of listing them as firing (rules/daily-digest.yml, homelab:alert_silenced).
+  - job_name: "alertmanager-silences"
+    scrape_interval: 1m
+    metrics_path: /probe
+    params:
+      module: [alertmanager]
+    static_configs:
+      - targets:
+          - http://alertmanager:9093/api/v2/alerts?active=false&silenced=true&inhibited=false&unprocessed=false
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: json-exporter:7979
+      - target_label: instance
+        replacement: alertmanager-silences
+
   # ---------------------------------------------------------------------------
   # AdGuard DNS functional probe.
   #

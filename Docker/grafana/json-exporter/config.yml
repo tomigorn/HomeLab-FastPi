@@ -1,4 +1,4 @@
-# json-exporter: turn Cup's JSON API into Prometheus metrics.
+# json-exporter: turn JSON APIs into Prometheus metrics. Modules: default (Cup), alertmanager (silenced alerts).
 #
 # Cup has no /metrics endpoint - only /api/v3/json - and no notification support of
 # its own (`cup --help` offers just `check` and `serve`). Rather than bolt a bespoke
@@ -34,3 +34,18 @@ modules:
           monitored: '{.monitored_images}'
           up_to_date: '{.up_to_date}'
           unknown: '{.unknown}'
+
+  # Alertmanager /api/v2/alerts?active=false&silenced=true&inhibited=false&unprocessed=false: only silenced alerts, one alert_silenced series each.
+  # Prometheus does not know silences; the daily digest (prometheus/rules/daily-digest.yml) uses this to mark them 🔇 instead of listing them as firing.
+  # All alert labels go into one JSON label, alert_labels: a path to a label the alert lacks (host, subject, ...) logs an error on every scrape. homelab:alert_silenced unpacks it.
+  alertmanager:
+    metrics:
+      - name: alert
+        type: object
+        path: '{[*]}'
+        help: "1 for each alert currently silenced in Alertmanager"
+        labels:
+          alertname: '{.labels.alertname}'
+          alert_labels: '{.labels}'
+        values:
+          silenced: 1

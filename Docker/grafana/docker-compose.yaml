@@ -178,6 +178,7 @@ services:
 # post to Telegram" script onto the side, Cup is fed into the SAME pipeline as
 # everything else. One notification path, one place the bot token lives, and
 # silences work for container updates exactly as they do for an outage.
+# Second module: Alertmanager's silenced alerts as a metric, for the daily digest.
   json-exporter:
     image: quay.io/prometheuscommunity/json-exporter:v0.8.0
     container_name: json-exporter
@@ -185,7 +186,7 @@ services:
     mem_limit: 128m
     restart: unless-stopped
     volumes:
-      - ./json-exporter/cup.yml:/config.yml:ro
+      - ./json-exporter/config.yml:/config.yml:ro
     command:
       - "--config.file=/config.yml"
     # No ports: only Prometheus talks to it, over the project network.
