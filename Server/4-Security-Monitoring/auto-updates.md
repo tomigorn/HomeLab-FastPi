@@ -13,6 +13,7 @@
 | `rebuild-local.timer` → `Docker/_global/scripts/rebuild_local.py` | 23:23, each image on its weekday | local builds in `Docker/_global/rebuild-local.conf`, see "Local builds" | **enabled** |
 | beefy: same script, own `auto-update.conf` | 04:12 | see [beefy](#beefy) | **enabled** (auto tier) |
 | `AutoUpdateNightly` | hour after the run | no message of its own (`notify: digest`): the 06:30 daily digest lists per host what was updated / rolled back / held / waiting; failures and rollbacks keep their own alerts | **enabled** |
+| drift (every row, before its update check) | during the run | a container whose image ref (or, for a digest pin, image id) differs from what the compose file declares (`docker compose config`, with `.env`): result `drift` (🔁 recreate needed, with the `SERVICES=… update-project.sh <dir> recreate` command), never `available`/`updated`; no registry check for it. `auto`/`edge-auto` rows recreate it through `update-project.sh` (checks, rollback; result `recreated` ♻️, same deadline, `MAX_APPLY`, resource floor); a rolled-back drift recreate is not retried (state `drift_bad`); `notify`/`edge` rows only report | **enabled** |
 | shared tags (end of every run) | after the updates | containers left on the old image of a tag another project pulled: recreated via `update-project.sh <dir> recreate` for `auto`/`edge-auto` rows (same deadline, `MAX_APPLY`, resource floor, major-jump hold), else logged; `container_image_stale.prom` → `ContainerImageStale` (`grafana/prometheus/rules/image-drift.yml`); details `Docker/_global/scripts/README.md` "Shared tags" | **enabled** |
 | `AutoUpdateRollbackFailed` | at once | email + Telegram; the script also pages via `oob-alert.sh` (bypasses the edge) | **enabled** |
 | unattended-upgrades | daily (apt timers) | Debian + Debian-Security only, no reboot | existed |
@@ -29,7 +30,7 @@
 | `edge-auto` | cloudflared, adguard (owner 2026-10-25) | like auto, check = canary / DNS / public route; failed rollback → OOB page |
 | not listed | LoyaltyCards, LoyaltyCards-Sync, bitwarden (parked), Jenkins (stopped), tower | untouched; `test_auto_update.py` fails when a compose project is neither in the conf nor in its `UNMANAGED` list |
 
-Only the digest behind the tag written in the repo moves, so the repo stays the truth. Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
+Only the digest behind the tag written in the repo moves, so the repo stays the truth: the ref checked is the one compose declares, not the container's own (a container left on `:latest` while compose pins a digest is `drift`, not an update). Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
 
 ## Local builds (rebuild-local)
 
@@ -56,7 +57,7 @@ Only the digest behind the tag written in the repo moves, so the repo stays the 
 | Move a stack between tiers | edit its line (`auto` / `notify`) |
 | Cool-down | `Environment=COOLDOWN_HOURS=24` in `Docker/_global/systemd/auto-update.service`, then `sudo install -m644 … /etc/systemd/system/ && sudo systemctl daemon-reload` |
 | Pause | `sudo systemctl disable --now auto-update.timer` |
-| Dry run | `python3 Docker/_global/scripts/auto_update.py --dry-run [project]` (needs write access to `/var/lib/auto-update`: run as the service, or set `AUTO_UPDATE_STATE`/`AUTO_UPDATE_TEXTFILE` to a scratch dir) |
+| Dry run | `python3 Docker/_global/scripts/auto_update.py --dry-run [project]` (drift: logged with `would recreate`, nothing recreated; `--help` or an unknown option/project prints usage and does nothing, exit 0/2; needs write access to `/var/lib/auto-update`: run as the service, or set `AUTO_UPDATE_STATE`/`AUTO_UPDATE_TEXTFILE` to a scratch dir) |
 | Rollback drill | `TEST_FORCE_FAIL=1 CHECK='…' Docker/_global/scripts/update-project.sh <dir> recreate` → `ROLLED BACK`, exit 1 |
 | Log | `journalctl -u auto-update` ; backups in `~/backups/pre-update/<date>/<project>/` |
 

@@ -7,7 +7,7 @@
 | `host-output-guard.sh [--persist]` | HOST-OUT-GUARD: what the host itself (incl. host-network containers) may open on beefy (OUTPUT) |
 | `iptables-persist.sh` | writes `/etc/iptables/rules.v4/v6` with only those chains; never `netfilter-persistent save` |
 | `smoke-test.sh` | end-to-end checks, must stay green |
-| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env, old image and, after an image change, the data backups; a failed build or backup aborts before the recreate; `build: network: host` services are built by `buildx bake --allow=network.host`; backups owner-only; bind-path backups use `sudo tar`, so they work by hand but not under `auto-update.service` (NoNewPrivileges): auto rows back up volumes only). Shared tags: see below. Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
+| `update-project.sh`, `auto_update.py` | image updates (`UPDATE-RUNBOOK.md`, rollback restores compose/.env, old image and, after an image change, the data backups; a failed build or backup aborts before the recreate; `build: network: host` services are built by `buildx bake --allow=network.host`; backups owner-only; bind-path backups use `sudo tar`, so they work by hand but not under `auto-update.service` (NoNewPrivileges): auto rows back up volumes only). Drift (container ref/id ≠ compose's declared ref) and shared tags: see below. `-h`/`--help` or an unknown option prints usage and does nothing (also `rebuild_local.py`, `image-cleanup.sh`, `security_scan.py`). Test: `./test_update_project.sh`, `python3 test_auto_update.py` |
 | `rebuild_local.py` | weekly rebuild of the local images with tests and rollback (`Server/4-Security-Monitoring/auto-updates.md` "Local builds", list `../rebuild-local.conf`). Images without a shell (scratch) are compared by a content digest of their filesystem (mtimes ignored) instead of the package list. Test: `python3 test_rebuild_local.py` |
 | `migrate-rollback-tags.sh` | one-shot: old `<repo>:rollback-*` tags -> `rollback.invalid/` (tags only). Test: `./test_migrate_rollback_tags.sh` |
 | `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
@@ -49,6 +49,15 @@ Closes the gap that `post-update-check.sh` and `smoke-test.sh` only run by hand:
 | Metrics | `docker_image_cleanup_{freed_bytes,removed_images,rollback_window_images,failed_images,last_run_timestamp_seconds}` in `image_cleanup.prom` |
 | By hand | `scripts/image-cleanup.sh --dry-run` lists what would go and, as `pending`, what goes later with its date; `systemctl start image-cleanup.service` runs it (`KEEP_DAYS=7` env to change the age) |
 | Test | `scripts/test_image_cleanup.sh` (fake docker) |
+
+## Drift
+A container created from another ref than the compose file declares (e.g. `alpine/socat:latest` while compose pins `alpine/socat:1.8.1.3@sha256:…`), or a digest pin running another image id.
+
+| | |
+|---|---|
+| Check | `auto_update.py` reads the declared refs from `docker compose config` (compose + `.env`) and checks only those against the registry; a drifted container is result `drift` (🔁, with `SERVICES=… update-project.sh <dir> recreate`), never `available` |
+| Fix | `auto`/`edge-auto` rows: recreated through `update-project.sh recreate` (checks, rollback) → `recreated` (♻️); a rollback is not retried for that image (state `drift_bad`). `notify`/`edge`: reported only |
+| Shown | `AutoUpdateNightly` and the daily digest Auto-updates line (🔁 / ♻️) |
 
 ## Shared tags
 When one project pulls a newer image under a tag others use too (`caddy:alpine`, `python:3.15.2-alpine3.24`), compose leaves the others on the old image.
