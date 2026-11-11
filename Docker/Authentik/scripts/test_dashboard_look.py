@@ -18,5 +18,10 @@ class PhoneScrolling(unittest.TestCase):
         self.assertIn("max-height: calc(100dvh - 76px) !important", rule.group(1))
 
 
+class Sections(unittest.TestCase):
+    def test_nextcloud_is_a_utility(self):
+        self.assertEqual(re.search(r'"nextcloud":\s*\("(\w+)"', SOURCE).group(1), "Utilities")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
