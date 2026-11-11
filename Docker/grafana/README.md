@@ -95,7 +95,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | Job | Pass | Targets | Alert |
 |---|---|---|---|
 | `blackbox-public` | 200/301/302/401/403 | audiobookshelf, sso | `PublicEndpointDown`, `AllPublicEndpointsDown` |
-| `blackbox-gated` | 302 to sso.holy-grail.ch | cup, claude-mockups, tracker, avatars | `PublicEndpointDown` |
+| `blackbox-gated` | 302 to sso.holy-grail.ch | cup, claude-mockups, tracker, avatars, activity (WAN: after its tunnel hostname, `../Activity/README.md`) | `PublicEndpointDown` |
 | `blackbox-gated-wake` (15m) | 302 to sso.holy-grail.ch | requests (Seerr, behind `requests-wake`) | `WakeGatedEndpointNotGated` |
 | `blackbox-lan-locked` | 403 | radarr, sonarr, prowlarr, bazarr, qbittorrent, sabnzbd, stonks, traefik, adguard | `LanLockedEndpointNotLocked` |
 | `blackbox-wan-public` | 200/301/302/401 | audiobookshelf, sso | `PublicPathDown`, `CloudflareTunnelDown` |
