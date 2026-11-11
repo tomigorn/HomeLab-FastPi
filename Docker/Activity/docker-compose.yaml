@@ -14,7 +14,6 @@ services:
     # Credentials are copies owned by this uid (README "Secrets"); read on every use, no restart after a rotation.
     secrets:
       - abs_api_key
-      - qbit_pass
     volumes:
       - activity_data:/data        # last.json: last beefy snapshot, for "as of" after a restart
     healthcheck:
@@ -34,24 +33,18 @@ services:
     pids_limit: 32
     networks:
       traefik_proxy:
-        # Pinned: the firewall rules for the Waker (HOST-GUARD :9001) and the gate (DOCKER-USER beefy :8097) name this source (README "Owner steps").
+        # Pinned: Traefik's internal routes to the Waker, the gate and qBittorrent admit only this source (../Traefik/traefik/dynamic/activity-internal.yml).
         # Top of the subnet, like Traefik's .3: Docker hands out addresses from the bottom.
         ipv4_address: 172.24.255.10
         gw_priority: 100
-      traefik_mouse:
-        # qBittorrent (gluetun_mouse 10.24.25.2:8080), category abr, read-only use. Pinned: gluetun's post-rules.txt must accept this source (README "Owner steps").
-        ipv4_address: 10.24.25.7
       activity_metrics:            # Prometheus scrapes /metrics here; nothing else on it
 
 # =========================================================
 # Networks ================================================
 # =========================================================
 networks:
-  # Defined by Traefik. Traefik reaches activity:8080; Audiobookshelf is here too; the only network with a gateway (egress to the Waker and the gate).
+  # Defined by Traefik. Traefik reaches activity:8080 and activity reaches traefik:8080 (internal routes) and Audiobookshelf here.
   traefik_proxy:
-    external: true
-  # Defined by hand (Docker/mouse README), internal: gluetun_mouse with qBittorrent.
-  traefik_mouse:
     external: true
   # Only activity + Prometheus; internal = no route out. Fixed subnet: the service answers /metrics only from it (METRICS_ALLOW).
   activity_metrics:
@@ -70,5 +63,3 @@ volumes:
 secrets:
   abs_api_key:
     file: ./secrets/abs_api_key
-  qbit_pass:
-    file: ./secrets/qbit_pass

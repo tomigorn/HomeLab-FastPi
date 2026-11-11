@@ -1,7 +1,7 @@
 //! fastpi-local audiobook figures: Audiobookshelf listening sessions and the qBittorrent category `abr` (mouse).
+//! qBittorrent is read through Traefik's internal route, which qBittorrent lets in without a login and which allows only this one GET.
 
 use std::path::PathBuf;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -49,24 +49,6 @@ pub fn count_qbit(body: &[u8]) -> Result<(u32, u32), String> {
     Ok((count(&DOWNLOADING), count(&QUEUED)))
 }
 
-/// `SID=<value>` from a qBittorrent login `Set-Cookie`.
-pub fn sid_from_set_cookie(cookies: &[String]) -> Option<String> {
-    cookies.iter().find_map(|c| {
-        let first = c.split(';').next()?.trim();
-        let v = first.strip_prefix("SID=")?;
-        (!v.is_empty()).then(|| v.to_string())
-    })
-}
-
-fn form_encode(s: &str) -> String {
-    s.bytes()
-        .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => (b as char).to_string(),
-            _ => format!("%{b:02X}"),
-        })
-        .collect()
-}
-
 fn read_secret(path: &PathBuf) -> Result<String, String> {
     let s = std::fs::read_to_string(path).map_err(|_| "secret file unreadable".to_string())?;
     let s = s.trim().to_string();
@@ -75,13 +57,12 @@ fn read_secret(path: &PathBuf) -> Result<String, String> {
 
 pub struct Sources {
     pub abs: Option<(BaseUrl, PathBuf)>,
-    pub qbit: Option<(BaseUrl, PathBuf, String)>,
-    sid: Mutex<Option<String>>,
+    pub qbit: Option<BaseUrl>,
 }
 
 impl Sources {
-    pub fn new(abs: Option<(BaseUrl, PathBuf)>, qbit: Option<(BaseUrl, PathBuf, String)>) -> Sources {
-        Sources { abs, qbit, sid: Mutex::new(None) }
+    pub fn new(abs: Option<(BaseUrl, PathBuf)>, qbit: Option<BaseUrl>) -> Sources {
+        Sources { abs, qbit }
     }
 
     async fn abs(&self, now_ms: i64) -> Result<u32, String> {
@@ -91,47 +72,10 @@ impl Sources {
         count_abs(&body, now_ms)
     }
 
-    async fn login(&self, base: &BaseUrl, pass_file: &PathBuf, user: &str) -> Result<String, String> {
-        let body = format!("username={}&password={}", form_encode(user), form_encode(&read_secret(pass_file)?));
-        let referer = format!("http://{}:{}", base.host, base.port);
-        let r = client::request(
-            "POST",
-            &base.host,
-            base.port,
-            &format!("{}/api/v2/auth/login", base.base),
-            &[("content-type", "application/x-www-form-urlencoded"), ("referer", &referer)],
-            Some(body.into_bytes()),
-            1024,
-            TIMEOUT,
-        )
-        .await?;
-        if r.status != 200 {
-            return Err(format!("login HTTP {}", r.status));
-        }
-        sid_from_set_cookie(&r.set_cookies).ok_or_else(|| "login refused".to_string())
-    }
-
     async fn qbit(&self) -> Result<(u32, u32), String> {
-        let (base, pass_file, user) = self.qbit.as_ref().ok_or("not configured")?;
-        let cached = self.sid.lock().map_err(|_| "lock")?.clone();
-        let sid = match cached {
-            Some(s) => s,
-            None => {
-                let s = self.login(base, pass_file, user).await?;
-                *self.sid.lock().map_err(|_| "lock")? = Some(s.clone());
-                s
-            }
-        };
-        let cookie = format!("SID={sid}");
-        match client::get(base, "/api/v2/torrents/info?category=abr", &[("cookie", &cookie), ("accept", "application/json")], LIMIT, TIMEOUT).await {
-            Ok(body) => count_qbit(&body),
-            Err(e) => {
-                if e == "HTTP 403" {
-                    *self.sid.lock().map_err(|_| "lock")? = None;
-                }
-                Err(e)
-            }
-        }
+        let base = self.qbit.as_ref().ok_or("not configured")?;
+        let body = client::get(base, "/api/v2/torrents/info?category=abr", &[("accept", "application/json")], LIMIT, TIMEOUT).await?;
+        count_qbit(&body)
     }
 
     /// One refresh of both sources; a failing source is None (and its reason returned for a log line), the other still counts.
@@ -179,14 +123,7 @@ mod tests {
         assert!(count_qbit(b"Forbidden").is_err());
     }
 
-    #[test]
-    fn sid_cookie() {
-        assert_eq!(sid_from_set_cookie(&["SID=abc123; HttpOnly; path=/; SameSite=Strict".into()]), Some("abc123".into()));
-        assert_eq!(sid_from_set_cookie(&["other=1".into()]), None);
-        assert_eq!(form_encode("p@ss w&rd"), "p%40ss%20w%26rd");
-    }
-
-    /// Fake qBittorrent: login answers a SID cookie, torrents/info needs it.
+    /// Fake Traefik route to qBittorrent: only GET /activity/qbit/api/v2/torrents/info?category=abr without a cookie, anything else 403.
     async fn fake_qbit() -> u16 {
         let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = l.local_addr().unwrap().port();
@@ -197,9 +134,7 @@ mod tests {
                     let mut buf = vec![0u8; 8192];
                     let n = s.read(&mut buf).await.unwrap_or(0);
                     let req = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let resp = if req.starts_with("POST /api/v2/auth/login") && req.contains("password=fixture-pass") {
-                        "HTTP/1.1 200 OK\r\nSet-Cookie: SID=fakesid; HttpOnly; path=/\r\nContent-Length: 3\r\nConnection: close\r\n\r\nOk.".to_string()
-                    } else if req.starts_with("GET /api/v2/torrents/info?category=abr") && req.to_lowercase().contains("cookie: sid=fakesid") {
+                    let resp = if req.starts_with("GET /activity/qbit/api/v2/torrents/info?category=abr ") && !req.to_lowercase().contains("\r\ncookie:") {
                         format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", QBIT.len(), QBIT)
                     } else {
                         "HTTP/1.1 403 Forbidden\r\nContent-Length: 9\r\nConnection: close\r\n\r\nForbidden".to_string()
@@ -216,20 +151,19 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("activity-local-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("key"), "fixture-key\n").unwrap();
-        std::fs::write(dir.join("pass"), "fixture-pass\n").unwrap();
         let port = fake_qbit().await;
         let src = Sources::new(
             Some((BaseUrl::parse("http://127.0.0.1:9").unwrap(), dir.join("key"))),
-            Some((BaseUrl::parse(&format!("http://127.0.0.1:{port}")).unwrap(), dir.join("pass"), "admin".into())),
+            Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/activity/qbit")).unwrap()),
         );
         let (local, errors) = src.refresh(0).await;
-        assert_eq!(local, Local { listening: None, abr_downloading: Some(3), abr_queued: Some(1) });
+        assert_eq!(local, Local { listening: None, abr_downloading: Some(3), abr_queued: Some(1) }, "{errors:?}");
         assert_eq!(errors.len(), 1);
         assert!(errors[0].starts_with("audiobookshelf: "), "{errors:?}");
-        let (again, _) = src.refresh(0).await;
-        assert_eq!(again.abr_downloading, Some(3), "cached session id still works");
-        let none = Sources::new(None, Some((BaseUrl::parse(&format!("http://127.0.0.1:{port}")).unwrap(), dir.join("missing"), "admin".into())));
-        assert_eq!(none.refresh(0).await.0, Local::default(), "missing credential = unavailable, no crash");
+        let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()));
+        let (local, errors) = refused.refresh(0).await;
+        assert_eq!(local, Local::default(), "route refused = unavailable, no crash");
+        assert!(errors.contains(&"qbittorrent: HTTP 403".to_string()), "{errors:?}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

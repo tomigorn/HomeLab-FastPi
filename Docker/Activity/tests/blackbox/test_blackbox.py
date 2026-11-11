@@ -2,11 +2,12 @@
 """Black-box tests for the activity service: real HTTP against the running binary, fakes on loopback.
 
 Runs inside a network-less container (run.sh):
-  127.0.0.1:18080  the service (SUT)
-  127.0.0.2:8097   activity-gate on beefy (serves /fixtures, records every request)
-  127.0.0.3:9001   Beefy-Waker /status
-  127.0.0.4:8080   Audiobookshelf
-  127.0.0.5:8080   qBittorrent (mouse)
+  127.0.0.1:18080                the service (SUT)
+  127.0.0.2:8095/activity/gate   activity-gate on beefy behind Traefik's internal route (serves /fixtures, records every request)
+  127.0.0.3:9001/activity/waker  Beefy-Waker /status behind Traefik's internal route
+  127.0.0.4:8080                 Audiobookshelf
+  127.0.0.5:8080/activity/qbit   qBittorrent (mouse) behind Traefik's internal route: no login (Traefik is whitelisted), only GET torrents/info?category=abr
+The fakes play the Traefik routes: a request outside the prefix is 404, the recorded path is the one after the prefix.
 """
 import http.client
 import json
@@ -49,7 +50,7 @@ def wait_for(cond, timeout, step=0.1):
 class Fake:
     """Threaded HTTP fake; `handler(method, path, headers, body)` -> (status, headers, body) or None to drop the connection."""
 
-    def __init__(self, host, port, handler):
+    def __init__(self, host, port, handler, prefix=""):
         self.handler = handler
         self.requests = []
         self.lock = threading.Lock()
@@ -62,9 +63,10 @@ class Fake:
                 n = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(n) if n else b""
                 hdrs = {k.lower(): v for k, v in self.headers.items()}
+                path = self.path[len(prefix):] if self.path.startswith(prefix + "/") else None
                 with fake.lock:
-                    fake.requests.append((self.command, self.path, hdrs))
-                out = fake.handler(self.command, self.path, hdrs, body)
+                    fake.requests.append((self.command, path if path is not None else self.path, hdrs))
+                out = fake.handler(self.command, path, hdrs, body) if path is not None else (404, [], b"404 page not found")
                 if out is None:
                     self.close_connection = True
                     return
@@ -104,10 +106,11 @@ class World:
         self.waker_up = "up"
         self.gate_mode = "ok"
         self.abs_mode = "ok"
-        self.waker = Fake("127.0.0.3", 9001, self.on_waker)
-        self.gate = Fake("127.0.0.2", 8097, self.on_gate)
+        self.qbit_mode = "ok"
+        self.waker = Fake("127.0.0.3", 9001, self.on_waker, "/activity/waker")
+        self.gate = Fake("127.0.0.2", 8095, self.on_gate, "/activity/gate")
         self.abs = Fake("127.0.0.4", 8080, self.on_abs)
-        self.qbit = Fake("127.0.0.5", 8080, self.on_qbit)
+        self.qbit = Fake("127.0.0.5", 8080, self.on_qbit, "/activity/qbit")
 
     def on_waker(self, method, path, h, body):
         if path != "/status":
@@ -139,9 +142,7 @@ class World:
         return 200, [("Content-Type", "application/json")], json.dumps(data).encode()
 
     def on_qbit(self, method, path, h, body):
-        if method == "POST" and path == "/api/v2/auth/login" and b"password=fixture-pass" in body:
-            return 200, [("Set-Cookie", "SID=fakesid; HttpOnly; path=/")], b"Ok."
-        if path == "/api/v2/torrents/info?category=abr" and h.get("cookie") == "SID=fakesid":
+        if self.qbit_mode == "ok" and method == "GET" and path == "/api/v2/torrents/info?category=abr":
             return 200, [("Content-Type", "application/json")], (FIX / "qbit-abr.json").read_bytes()
         return 403, [], b"Forbidden"
 
@@ -158,13 +159,12 @@ class Sut:
     def __init__(self, env):
         TMP.mkdir(parents=True, exist_ok=True)
         (TMP / "key").write_text("fixture-key\n")
-        (TMP / "pass").write_text("fixture-pass\n")
         (TMP / "data").mkdir(exist_ok=True)
         self.env = {
             "LISTEN_ADDR": "127.0.0.1", "LISTEN_PORT": str(PORT),
-            "WAKER_URL": "http://127.0.0.3:9001", "GATE_URL": "http://127.0.0.2:8097",
+            "WAKER_URL": "http://127.0.0.3:9001/activity/waker", "GATE_URL": "http://127.0.0.2:8095/activity/gate",
             "ABS_URL": "http://127.0.0.4:8080", "ABS_KEY_FILE": str(TMP / "key"),
-            "QBIT_URL": "http://127.0.0.5:8080", "QBIT_PASS_FILE": str(TMP / "pass"),
+            "QBIT_URL": "http://127.0.0.5:8080/activity/qbit",
             "DATA_DIR": str(TMP / "data"), "POLL_SECONDS": "1", "WAKER_SECONDS": "1",
             "PAGE_ALLOW": "127.0.0.1/32", "METRICS_ALLOW": "127.0.0.1/32", "PATH": "/usr/bin:/bin",
         }
@@ -230,7 +230,7 @@ class Base(unittest.TestCase):
 
     def setUp(self):
         shutil.rmtree(TMP, ignore_errors=True)
-        W.waker_up, W.gate_mode, W.abs_mode = self.waker, "ok", "ok"
+        W.waker_up, W.gate_mode, W.abs_mode, W.qbit_mode = self.waker, "ok", "ok", "ok"
         for f in (W.waker, W.gate, W.abs, W.qbit):
             f.reset()
         self.sut = Sut(self.env)
@@ -422,15 +422,24 @@ class LocalSources(Base):
 
 
 
-class MissingCredential(Base):
+class QbitThroughTraefik(Base):
     waker = "down"
-    env = {"QBIT_PASS_FILE": "/tmp/bb/missing"}
 
-    def test_missing_qbit_credential_is_unavailable(self):
+    def test_qbit_counted_without_login_or_cookie(self):
+        s = self.wait_state(lambda s: s["audiobook_downloads"] is not None)
+        self.assertEqual(s["audiobook_downloads"], {"downloading": 3, "queued": 1})
+        seen = W.qbit.seen()
+        self.assertTrue(seen)
+        for method, path, h in seen:
+            self.assertEqual((method, path), ("GET", "/api/v2/torrents/info?category=abr"), "only the one read the Traefik route allows, never a login")
+            self.assertNotIn("cookie", h)
+
+    def test_qbit_route_refused_is_unavailable(self):
+        W.qbit_mode = "deny"
         s = self.wait_state(lambda s: s["listening"] is not None)
         self.assertIsNone(s["audiobook_downloads"])
         self.assertEqual(s["listening"], {"sessions": 3})
-        self.assertIn("qbittorrent: secret file unreadable", self.sut.log())
+        self.assertIn("qbittorrent: HTTP 403", self.sut.log())
 
 
 if __name__ == "__main__":

@@ -12,11 +12,25 @@ Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), wh
 browser ─► Cloudflare/AdGuard ─► Traefik (authentik@file) ─► activity:8080  /  /api/state  (answers only Traefik 172.24.255.3)
 Prometheus ─► activity_metrics (10.24.40.0/29) ─► activity:8080/metrics
 
-activity, every 15 s: Waker http://192.168.1.2:9001/status
-activity, every 30 s: Waker up? ─► GET gate http://192.168.1.102:8097/<contract paths>, one attempt each, 3 s timeout, Connection: close
+activity, every 15 s: traefik:8080/activity/waker/status ─► Waker 192.168.1.2:9001/status
+activity, every 30 s: Waker up? ─► GET traefik:8080/activity/gate/<contract paths> ─► gate 192.168.1.102:8095, one attempt each, 3 s timeout, Connection: close
                       Audiobookshelf audiobookshelf:8080 /api/sessions/open
-                      qBittorrent 10.24.25.2:8080 /api/v2/torrents/info?category=abr
+                      traefik:8080/activity/qbit/api/v2/torrents/info?category=abr ─► qBittorrent 10.24.25.2:8080 (no login)
 ```
+
+### Internal routes (Traefik)
+
+`../Traefik/traefik/dynamic/activity-internal.yml`: entry point `internal` (:8080, not published, not in the tunnel), host `traefik` (resolves only inside docker networks), no SSO. No firewall or gluetun rule for activity: Traefik forwards from the addresses already admitted.
+
+| Router | Allows | Backend | Admitted because |
+|---|---|---|---|
+| `activity-waker` | GET `/activity/waker/status` | Waker 192.168.1.2:9001 | HOST-GUARD admits Traefik 172.24.255.3 |
+| `activity-gate` | GET `/activity/gate/*` (the gate allow-lists the contract) | gate 192.168.1.102:8095 | beefy admits fastpi 192.168.1.2 (NAT source) |
+| `activity-qbit` | GET `/activity/qbit/api/v2/torrents/info?category=abr` | qBittorrent 10.24.25.2:8080 | gluetun admits Traefik 10.24.25.3; qBittorrent skips its login for it |
+
+All three: `ipAllowList` 172.24.255.10 (activity, pinned) only; everyone else 403 (`activity.internal-only`).
+
+Audiobook downloads: the Audiobook-Requests importer has no download counts, so qBittorrent is read directly, through the route, limited to the one read.
 
 Answers are parsed into typed fields and grouped at once; raw answers, titles and names are never stored, logged or served. Log lines name only the path and the error (`HTTP 503`, `timed out`).
 
@@ -52,7 +66,7 @@ The last snapshot is kept in the volume `activity_data` (`/data/last.json`, writ
 
 ## Gate path contract
 
-The gate on beefy (`activity-gate`, port 8097) allow-lists exactly these GET paths (query strings included) and injects the API keys; fastpi holds none. Source of truth: `rust/src/beefy.rs` (`PATH_*`).
+The gate on beefy (`activity-gate`, port 8095; 8097 is jellyfin-popular) allow-lists exactly these GET paths (query strings included) and injects the API keys; fastpi holds none. Source of truth: `rust/src/beefy.rs` (`PATH_*`).
 
 | Path on the gate | Upstream | Needed |
 |---|---|---|
@@ -70,24 +84,16 @@ A needed path failing = no new snapshot for that tick.
 | File | Owner, mode | What |
 |---|---|---|
 | `secrets/abs_api_key` | 65060, 0400 | copy of `../Audiobook-Requests/secrets/abs_api_key` (ABS key `audiobook-importer`; `/api/sessions/open` needs admin) |
-| `secrets/qbit_pass` | 65060, 0400 | copy of `../mouse/secrets/qbit_pass` |
 
 Rotation: `sudo install -o 65060 -g 65060 -m 0400 <new file> secrets/<name>`; read on every use, no restart.
 
 ## Owner steps
 
-Open until done; the page works without them, beefy and the audiobook downloads then show "unavailable".
-
 | # | What | How | Check |
 |---|---|---|---|
-| 1 | Authentik application, group `homelab-admins` (until then the outpost knows no provider for this host: 404, nothing gets through) | add to `../Authentik/scripts/provision-admin-sso.py`: `app_for("activity", "Activity", proxy("activity-proxy", "https://activity.holy-grail.ch"), "https://activity.holy-grail.ch")`, then `cd ../Authentik && docker compose exec -T server ak shell < scripts/provision-admin-sso.py \| python3 scripts/apply-sso-env.py` | `post-update-check.sh Activity`: `activity.page-sso` → `302 https://sso…` |
-| 2 | Waker reachable (HOST-GUARD) | `../_global/scripts/host-input-guard.sh`: `ACTIVITY=172.24.255.10/32` and `iptables -A HOST-GUARD -s "$ACTIVITY" -p tcp --dport 9001 -j RETURN` before the LOG line; `sudo ../_global/scripts/host-input-guard.sh --persist`; then `WAKER_URL=http://192.168.1.2:9001` in `.env` + `.env.example`, `../_global/scripts/update-project.sh Docker/Activity recreate` | `/api/state` → `"beefy":"up"` or `"asleep"` |
-| 3 | Gate reachable (DOCKER-USER) | `../_global/scripts/docker-user-lan-guard.sh`: `ACTIVITY=172.24.255.10/32` and `iptables -A DOCKER-USER -s "$ACTIVITY" -o "$IFACE" -d "$BEEFY" -p tcp --dport 8097 -j RETURN` before the LAN DROP; `sudo ../_global/scripts/docker-user-lan-guard.sh --persist` | with beefy awake and the gate built: `"beefy_data":"live"` |
-| 4 | qBittorrent reachable (gluetun) | `../mouse/gluetun/post-rules.txt`: `iptables -I INPUT 1 -d 10.24.25.2 -s 10.24.25.7 -p tcp --dport 8080 -j ACCEPT`; `docker restart gluetun_mouse` | `audiobook_downloads` not null |
-| 5 | Public hostname | Cloudflare Tunnel: `activity.holy-grail.ch` → `https://192.168.1.2:443`, No TLS Verify (LAN and VPN work already: AdGuard wildcard) | `dig +short activity.holy-grail.ch @1.1.1.1` |
-| 6 | Gate on beefy | beefy repo, plan task 5 (paths above) | step 3 check |
+| 1 | Cloudflare public hostname (tunnel ingress is dashboard-managed) | see below | `curl -sI https://activity.holy-grail.ch/` from outside → 302 to `sso.holy-grail.ch` |
 
-Until step 2 `WAKER_URL=off`: the dropped probes would use up HOST-GUARD's shared drop-log budget (6/min).
+Cloudflare dashboard: Zero Trust → Networks → Tunnels → the fastpi tunnel → Public Hostname → Add: subdomain `activity`, domain `holy-grail.ch`, then service type/URL and TLS options copied from an existing entry (e.g. `specs`). LAN and VPN work already (AdGuard wildcard).
 
 ## Operations
 
@@ -97,7 +103,7 @@ Until step 2 `WAKER_URL=off`: the dropped probes would use up HOST-GUARD's share
 | Black-box suite (fakes for Waker, gate, ABS, qBittorrent; ~1 min) | `bash tests/blackbox/run.sh` (binary from `activity:local`), `run.sh image IMAGE`, `run.sh bin BINARY` |
 | Customization checks | `Docker/_global/scripts/post-update-check.sh Activity` |
 | State | `docker exec traefik wget -qO- http://activity:8080/api/state` |
-| Rollback | `update-project.sh` rolls back on a failed check; remove: `docker compose down` here, delete `../Traefik/traefik/dynamic/activity.yml`, the `activity` job and network in `../grafana` |
+| Rollback | `update-project.sh` rolls back on a failed check; remove: `docker compose down` here, delete `../Traefik/traefik/dynamic/activity.yml` and `activity-internal.yml`, the `activity` job and network in `../grafana` |
 
 ## Metrics
 

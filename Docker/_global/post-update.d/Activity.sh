@@ -7,5 +7,9 @@ if want activity; then
   check activity.api '^"beefy":"(up|asleep|unknown)"$' "$(docker exec traefik wget -qO- -T 5 http://activity:8080/api/state 2>&1 | grep -o '"beefy":"[a-z]*"')"
   # only Traefik's pinned address may read the page and the state: another container on traefik_proxy gets 403
   check activity.traefik-only '^403,403$' "$(st() { docker exec server-specs wget -qO /dev/null -T 5 "http://activity:8080$1" 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | cut -d' ' -f2 || true; }; echo "$(st /api/state),$(st /)")"
+  # Traefik's internal routes (../Traefik/traefik/dynamic/activity-internal.yml): the Waker answers through it, qBittorrent too, and nobody but activity gets in
+  check activity.waker-route '^"beefy":"(up|asleep)"$' "$(docker exec traefik wget -qO- -T 5 http://activity:8080/api/state 2>&1 | grep -o '"beefy":"[a-z]*"')"
+  check activity.qbit-route '^"audiobook_downloads":\{"downloading":[0-9]+' "$(docker exec traefik wget -qO- -T 5 http://activity:8080/api/state 2>&1 | grep -oE '"audiobook_downloads":(null|\{"downloading":[0-9]+)')"
+  check activity.internal-only '^403,403,403$' "$(st() { docker exec server-specs wget -qO /dev/null -T 5 "http://traefik:8080$1" 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | cut -d' ' -f2 || true; }; echo "$(st /activity/waker/status),$(st /activity/gate/seerr/night-waiting.json),$(st '/activity/qbit/api/v2/torrents/info?category=abr')")"
   check activity.metrics-scraped '^1$' "$(docker exec prometheus wget -qO- -T 5 'http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22activity%22%7D' 2>&1 | grep -o '"value":\[[^]]*\]' | grep -o '"[01]"' | tr -d '"')"
 fi

@@ -277,11 +277,10 @@ fn main() {
         std::process::exit(health(port));
     }
     let bind = env_or("LISTEN_ADDR", "0.0.0.0");
-    let waker = url("WAKER_URL", "http://192.168.1.2:9001");
-    let gate = url("GATE_URL", "http://192.168.1.102:8097");
+    let waker = url("WAKER_URL", "http://traefik:8080/activity/waker");
+    let gate = url("GATE_URL", "http://traefik:8080/activity/gate");
     let abs = url("ABS_URL", "http://audiobookshelf:8080").map(|u| (u, PathBuf::from(env_or("ABS_KEY_FILE", "/run/secrets/abs_api_key"))));
-    let qbit = url("QBIT_URL", "http://10.24.25.2:8080")
-        .map(|u| (u, PathBuf::from(env_or("QBIT_PASS_FILE", "/run/secrets/qbit_pass")), env_or("QBIT_USER", "admin")));
+    let qbit = url("QBIT_URL", "http://traefik:8080/activity/qbit");
     let poll = env_secs("POLL_SECONDS", 30);
     let waker_every = env_secs("WAKER_SECONDS", 15);
     let access = api::Access {
@@ -306,7 +305,7 @@ fn main() {
     rt.block_on(async move {
         let listener = TcpListener::bind((bind.as_str(), port)).await.unwrap_or_else(|e| fail(&format!("bind {bind}:{port}: {e}")));
         match (&gate, &waker) {
-            (Some(g), Some(w)) => log(&format!("listening on {bind}:{port}; beefy via {}:{} only while {}:{} says up, every {} s", g.host, g.port, w.host, w.port, poll.as_secs())),
+            (Some(g), Some(w)) => log(&format!("listening on {bind}:{port}; beefy via {}:{}{} only while {}:{}{} says up, every {} s", g.host, g.port, g.base, w.host, w.port, w.base, poll.as_secs())),
             _ => log(&format!("listening on {bind}:{port}; beefy polling off (WAKER_URL or GATE_URL = off)")),
         }
         tokio::spawn(waker_loop(app.clone(), waker.clone(), waker_every));

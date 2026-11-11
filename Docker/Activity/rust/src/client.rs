@@ -14,8 +14,6 @@ pub struct HttpResp {
     pub body: Vec<u8>,
     /// true when the body was longer than the limit (body holds the first `limit` + 1 bytes)
     pub truncated: bool,
-    /// `Set-Cookie` values (qBittorrent session id)
-    pub set_cookies: Vec<String>,
 }
 
 /// `http://host[:port][/base]` with trailing slashes removed (urllib-style base URL from env).
@@ -89,7 +87,6 @@ async fn request_inner(
     let req = b.body(Full::new(Bytes::from(body.unwrap_or_default()))).map_err(|e| e.to_string())?;
     let resp = sender.send_request(req).await.map_err(|e| e.to_string())?;
     let status = resp.status().as_u16();
-    let set_cookies = resp.headers().get_all("set-cookie").iter().filter_map(|v| v.to_str().ok().map(str::to_string)).collect();
     let mut body = resp.into_body();
     let mut out = Vec::new();
     let mut truncated = false;
@@ -104,7 +101,7 @@ async fn request_inner(
             }
         }
     }
-    Ok(HttpResp { status, body: out, truncated, set_cookies })
+    Ok(HttpResp { status, body: out, truncated })
 }
 
 /// GET `base + path`: the body of a 200 answer within `limit` bytes, else a short reason (status, size, network error; never the body).
