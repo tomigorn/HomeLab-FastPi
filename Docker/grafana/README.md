@@ -299,6 +299,13 @@ sudo systemctl start usage-collector.service && journalctl -u usage-collector -n
 
 New token: `docker exec influxdb influx auth create -o myorg -d "usage collector write" --write-bucket <usage bucket id>`, file `secrets/usage_influx_token` mode 0400 owner `pi`.
 
+## Image updates
+
+| Services | Tier (`_global/auto-update.conf`) | Check |
+|---|---|---|
+| node-exporter, blackbox-exporter, blackbox-exporter-wan, json-exporter | `auto` (owner 2026-11-11) | `scripts/exporters-scraped.sh`: each exporter scraped by Prometheus since its restart, every such scrape `up` |
+| prometheus, alertmanager, grafana, influxdb, telegraf | `notify` (the alert path itself) | by hand; backs up the Grafana + InfluxDB volumes |
+
 ## Secrets
 
 Files in `secrets/` (gitignored, mode `0400`, owner = the reading container's uid), mounted via compose `secrets:`, never env values. How-to: `Docker/_global/docs/secrets-as-files.md`.
