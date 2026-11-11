@@ -75,7 +75,7 @@ function watching(s) {
   box.replaceChildren();
   n.textContent = "";
   if (s.watching === null) {
-    box.append(empty(s.beefy === "unknown" ? "❔ beefy state unknown, no fresh data" : "❔ beefy is awake, its data is unavailable right now"));
+    box.append(empty(s.beefy === "unknown" ? "❔ beefy state unknown — watching unavailable" : "❔ beefy is awake, its data is unavailable right now"));
     return;
   }
   if (s.watching.length === 0) {
@@ -148,7 +148,7 @@ function downloads(s) {
 
 function render(s) {
   const b = document.getElementById("beefy");
-  b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", unknown: "❔ beefy unknown" }[s.beefy] || s.beefy;
+  b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", unknown: "❔ beefy state unknown" }[s.beefy] || s.beefy;
   document.getElementById("updated").textContent = "updated " + hhmm(s.now);
   watching(s);
   listening(s);

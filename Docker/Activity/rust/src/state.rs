@@ -188,7 +188,7 @@ pub struct View {
     pub beefy: &'static str,
     /// "live" (fresh and trusted) | "stale" (last known only) | "none" (never polled)
     pub beefy_data: &'static str,
-    /// None = unavailable (awake or unknown without fresh data); empty while asleep = nobody watching
+    /// None = unavailable (awake without fresh data, or Waker state unknown); empty while asleep = nobody watching
     pub watching: Option<Vec<Stream>>,
     /// None = never polled
     pub downloads: Option<Vec<Download>>,
@@ -200,7 +200,7 @@ pub struct View {
 
 pub fn view(now: i64, snap: Option<&Snapshot>, waker: WakerState, local: &Local) -> View {
     let fresh = snap.is_some_and(|s| now - s.at < STALE_AFTER);
-    let trusted = fresh && waker != WakerState::Down;
+    let trusted = fresh && waker == WakerState::Up;
     let watching = match (trusted, waker) {
         (true, _) => snap.map(|s| s.streams.clone()),
         (false, WakerState::Down) => Some(Vec::new()),
@@ -292,12 +292,14 @@ pub mod tests {
     }
 
     #[test]
-    fn view_waker_unknown_uses_snapshot_only_if_fresh() {
+    fn view_waker_unknown_never_trusts_the_snapshot() {
         let fresh = sample(NOW - 10);
         let v = view(NOW, Some(&fresh), WakerState::Unknown, &Local::default());
         assert_eq!(v.beefy, "unknown");
-        assert_eq!(v.watching, Some(fresh.streams.clone()));
-        assert_eq!(v.downloads_as_of, None);
+        assert_eq!(v.beefy_data, "stale", "only a fresh snapshot with the Waker saying up is live");
+        assert_eq!(v.watching, None, "unknown = unavailable, even with a fresh snapshot");
+        assert_eq!(v.downloads, Some(fresh.downloads.clone()));
+        assert_eq!(v.downloads_as_of, Some(NOW - 10));
         let old = sample(NOW - 200);
         let v = view(NOW, Some(&old), WakerState::Unknown, &Local::default());
         assert_eq!(v.watching, None);

@@ -398,12 +398,23 @@ class WakerBroken(Base):
         self.assertEqual(W.gate.seen(), [])
 
 
+    def test_waker_turning_unknown_hides_fresh_streams(self):
+        W.waker_up = "up"
+        live = self.wait_state(lambda s: s["beefy_data"] == "live")
+        W.waker_up = "broken"
+        s = self.wait_state(lambda s: s["beefy"] == "unknown")
+        self.assertIsNone(s["watching"], "unknown = unavailable, even with a snapshot seconds old")
+        self.assertEqual(s["beefy_data"], "stale")
+        self.assertEqual(s["downloads"], live["downloads"])
+        self.assertIsInstance(s["downloads_as_of"], int)
+
+
 class LocalSources(Base):
     waker = "down"
 
     def test_abs_unavailable_rest_still_works(self):
         W.abs_mode = "deny"
-        s = self.wait_state(lambda s: s["audiobook_downloads"] is not None)
+        s = self.wait_state(lambda s: s["audiobook_downloads"] is not None and s["listening"] is None)
         self.assertIsNone(s["listening"])
         self.assertEqual(s["audiobook_downloads"], {"downloading": 3, "queued": 1})
         self.assertEqual(s["beefy"], "asleep")

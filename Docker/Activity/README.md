@@ -27,8 +27,7 @@ Answers are parsed into typed fields and grouped at once; raw answers, titles an
 | up | < 90 s | live | live |
 | up | ≥ 90 s or none | ❔ unavailable | last known, "as of HH:MM" |
 | asleep | any | 💤 nobody watching | last known, "as of HH:MM" |
-| unknown | < 90 s | live | live |
-| unknown | ≥ 90 s or none | ❔ unavailable | last known, "as of HH:MM" |
+| unknown | any | ❔ unavailable ("beefy state unknown") | last known, "as of HH:MM" |
 
 The last snapshot is kept in the volume `activity_data` (`/data/last.json`, written when the downloads change, else every 10 min), so "as of" survives a restart.
 
