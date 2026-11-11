@@ -305,12 +305,10 @@ fn main() {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));
     rt.block_on(async move {
         let listener = TcpListener::bind((bind.as_str(), port)).await.unwrap_or_else(|e| fail(&format!("bind {bind}:{port}: {e}")));
-        log(&format!(
-            "listening on {bind}:{port}; beefy via {} only while {} says up, every {} s",
-            gate.as_ref().map(|g| format!("{}:{}", g.host, g.port)).unwrap_or_else(|| "off".into()),
-            waker.as_ref().map(|w| format!("{}:{}", w.host, w.port)).unwrap_or_else(|| "off".into()),
-            poll.as_secs()
-        ));
+        match (&gate, &waker) {
+            (Some(g), Some(w)) => log(&format!("listening on {bind}:{port}; beefy via {}:{} only while {}:{} says up, every {} s", g.host, g.port, w.host, w.port, poll.as_secs())),
+            _ => log(&format!("listening on {bind}:{port}; beefy polling off (WAKER_URL or GATE_URL = off)")),
+        }
         tokio::spawn(waker_loop(app.clone(), waker.clone(), waker_every));
         tokio::spawn(beefy_loop(app.clone(), waker, gate, poll));
         tokio::spawn(local_loop(app.clone(), local::Sources::new(abs, qbit), poll));
