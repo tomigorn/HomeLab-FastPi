@@ -1,0 +1,48 @@
+http:
+  routers:
+    # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
+    activity-outpost:
+      rule: "Host(`activity.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    activity:
+      rule: "Host(`activity.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: activity
+      middlewares:
+        - authentik@file
+        - default-rate-limit@file
+        - activity-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # NOTE: authentication is Authentik forward auth (authentik@file); application "Activity" bound to group homelab-admins
+    # (owner step in Docker/Activity/README.md: until that application exists the outpost knows no provider for this host and nothing gets through).
+    # The service answers / and /api/state only from Traefik's pinned 172.24.255.3 (PAGE_ALLOW), so other containers on traefik_proxy cannot skip this.
+    activity-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "no-referrer"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        contentSecurityPolicy: "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        customResponseHeaders:
+          Server: ""
+          Cache-Control: "private, no-store"
+          X-Robots-Tag: "noindex, nofollow"
+
+  services:
+    activity:
+      loadBalancer:
+        servers:
+          - url: "http://activity:8080"
+        passHostHeader: true
