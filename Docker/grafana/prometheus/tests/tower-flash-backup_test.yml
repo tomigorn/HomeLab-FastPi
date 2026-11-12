@@ -1,0 +1,21 @@
+# promtool test rules tests/tower-flash-backup_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/tower-flash-backup.yml
+evaluation_interval: 1m
+tests:
+  - name: a backup older than 8 days alerts, a fresh one stays quiet
+    interval: 1m
+    input_series:
+      - series: 'tower_flash_backup_last_success_timestamp_seconds{instance="node-exporter:9100",job="raspberry-pi"}'
+        values: '0x14000'
+    alert_rule_test:
+      - eval_time: 7d
+        alertname: TowerFlashBackupStale
+        exp_alerts: []
+      - eval_time: 9d
+        alertname: TowerFlashBackupStale
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100", job: raspberry-pi}
+            exp_annotations:
+              summary: "No tower flash backup for 9d 0h 0m 0s"
+              description: "journalctl --user -u tower-flash-backup.service on fastpi; tower must be reachable by ssh with ~/.ssh/tower."

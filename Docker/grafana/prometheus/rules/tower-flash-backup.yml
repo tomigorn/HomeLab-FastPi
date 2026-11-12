@@ -1,0 +1,11 @@
+groups:
+  - name: tower-flash-backup
+    rules:
+      - alert: TowerFlashBackupStale
+        expr: time() - tower_flash_backup_last_success_timestamp_seconds > 8 * 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No tower flash backup for {{ $value | humanizeDuration }}"
+          description: "journalctl --user -u tower-flash-backup.service on fastpi; tower must be reachable by ssh with ~/.ssh/tower."
