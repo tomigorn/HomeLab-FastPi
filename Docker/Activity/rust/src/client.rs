@@ -71,9 +71,10 @@ async fn request_inner(
 ) -> Result<HttpResp, String> {
     let tcp = TcpStream::connect((host, port)).await.map_err(|e| e.to_string())?;
     let (mut sender, conn) = http1::handshake(TokioIo::new(tcp)).await.map_err(|e| e.to_string())?;
-    tokio::spawn(async move {
+    // dropped with this future (also on the caller's timeout): the connection task ends and the socket closes
+    let _conn = AbortOnDrop(tokio::spawn(async move {
         let _ = conn.await;
-    });
+    }));
     let host_header = if port == 80 { host.to_string() } else { format!("{host}:{port}") };
     let mut b = Request::builder()
         .method(method)
@@ -104,6 +105,14 @@ async fn request_inner(
     Ok(HttpResp { status, body: out, truncated })
 }
 
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 /// GET `base + path`: the body of a 200 answer within `limit` bytes, else a short reason (status, size, network error; never the body).
 pub async fn get(base: &BaseUrl, path: &str, headers: &[(&str, &str)], limit: usize, timeout: Duration) -> Result<Vec<u8>, String> {
     let r = request("GET", &base.host, base.port, &format!("{}{path}", base.base), headers, None, limit, timeout).await?;
@@ -127,5 +136,28 @@ mod tests {
         assert_eq!(BaseUrl::parse("http://h:1/am//"), Some(BaseUrl { host: "h".into(), port: 1, base: "/am".into() }));
         assert_eq!(BaseUrl::parse("https://h"), None);
         assert_eq!(BaseUrl::parse("http://h:x"), None);
+    }
+
+    #[tokio::test]
+    async fn a_timeout_closes_the_connection() {
+        use tokio::io::AsyncReadExt;
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = l.local_addr().unwrap().port();
+        let srv = tokio::spawn(async move {
+            let (mut s, _) = l.accept().await.unwrap();
+            let mut buf = vec![0u8; 4096];
+            let mut n = 0;
+            // read the request, never answer; return once the client closes
+            loop {
+                match tokio::time::timeout(Duration::from_secs(5), s.read(&mut buf[n..])).await {
+                    Ok(Ok(0)) => return true,
+                    Ok(Ok(k)) => n = (n + k).min(4000),
+                    _ => return false,
+                }
+            }
+        });
+        let base = BaseUrl::parse(&format!("http://127.0.0.1:{port}")).unwrap();
+        assert_eq!(get(&base, "/x", &[], 100, Duration::from_millis(300)).await, Err("timed out".into()));
+        assert!(srv.await.unwrap(), "the socket is closed at the timeout, not left open");
     }
 }

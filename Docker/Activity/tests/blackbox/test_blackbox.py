@@ -104,7 +104,9 @@ class Fake:
 class World:
     def __init__(self):
         self.waker_up = "up"
+        self.waker_phase = "idle"
         self.gate_mode = "ok"
+        self.gate_delay = 0.0
         self.abs_mode = "ok"
         self.qbit_mode = "ok"
         self.waker = Fake("127.0.0.3", 9001, self.on_waker, "/activity/waker")
@@ -118,11 +120,15 @@ class World:
         if self.waker_up == "broken":
             return 502, [], b"<html>bad gateway</html>"
         up = "true" if self.waker_up == "up" else "false"
-        return 200, [("Content-Type", "application/json")], f'{{"up": {up}, "phase": "idle", "seconds_left": null, "reason": ""}}'.encode()
+        return 200, [("Content-Type", "application/json")], f'{{"up": {up}, "phase": "{self.waker_phase}", "seconds_left": null, "reason": ""}}'.encode()
 
     def on_gate(self, method, path, h, body):
+        if self.gate_delay:
+            time.sleep(self.gate_delay)
         if self.gate_mode == "down":
             return 503, [], b"gate down"
+        if self.gate_mode == "sonarr-down" and path.startswith("/sonarr/api/v3/queue"):
+            return 503, [], b"sonarr restarting"
         if self.gate_mode == "huge" and path.startswith("/radarr/"):
             return 200, [("Content-Type", "application/json")], b'{"records": [' + b'{"movieId": 1, "title": "Fixture filler"},' * 120000 + b"{}]}"
         name = CONTRACT.get(path)
@@ -230,7 +236,7 @@ class Base(unittest.TestCase):
 
     def setUp(self):
         shutil.rmtree(TMP, ignore_errors=True)
-        W.waker_up, W.gate_mode, W.abs_mode, W.qbit_mode = self.waker, "ok", "ok", "ok"
+        W.waker_up, W.waker_phase, W.gate_mode, W.gate_delay, W.abs_mode, W.qbit_mode = self.waker, "idle", "ok", 0.0, "ok", "ok"
         for f in (W.waker, W.gate, W.abs, W.qbit):
             f.reset()
         self.sut = Sut(self.env)
@@ -285,9 +291,11 @@ class Awake(Base):
         self.wait_state(lambda s: s["beefy_data"] == "live")
         W.gate_mode = "down"
         W.gate.reset()
+        W.waker.reset()
         time.sleep(3.5)
-        n = len(W.gate.seen())
-        self.assertLessEqual(n, 4, "a failing gate gets at most one request per tick (first required path fails)")
+        polls, n = len(W.waker.seen()), len(W.gate.seen())
+        self.assertGreaterEqual(polls, 2)
+        self.assertLessEqual(n, 5 * polls, "a failing gate gets one request per needed path per tick, no retries")
         self.assertGreaterEqual(n, 2)
 
     def test_gate_down_while_awake_shows_unavailable_not_old_streams(self):
@@ -297,9 +305,26 @@ class Awake(Base):
         s = state()
         self.assertIsNone(s["watching"])
         self.assertEqual(s["beefy_data"], "none")
-        self.assertTrue(s["gate_failed"], "the page warns: beefy data unavailable (gate not answering)")
-        self.assertIn("beefy poll failed: /jellyfin/Sessions?ActiveWithinSeconds=60: HTTP 503", self.sut.log())
+        self.assertTrue(s["streams_failed"] and s["downloads_failed"], "the page warns: beefy data unavailable (gate not answering)")
+        self.assertIn("/jellyfin/Sessions?ActiveWithinSeconds=60: HTTP 503", self.sut.log())
         self.assertEqual(self.sut.log().count("beefy poll failed"), 1, "logged once per change, not every tick")
+
+    def test_a_queue_failure_keeps_the_streams(self):
+        W.gate_mode = "sonarr-down"
+        s = self.wait_state(lambda s: s["beefy_data"] == "live")
+        self.assertEqual(s["watching"], EXPECTED_WATCHING)
+        self.assertIsNone(s["downloads"], "no queue answer yet")
+        self.assertTrue(s["downloads_failed"])
+        self.assertFalse(s["streams_failed"])
+        W.gate_mode = "ok"
+        live = self.wait_state(lambda s: s["downloads"] is not None and s["downloads_as_of"] is None)
+        W.gate_mode = "sonarr-down"
+        s = self.wait_state(lambda s: s["downloads_failed"])
+        self.assertEqual(s["watching"], EXPECTED_WATCHING)
+        self.assertEqual(s["downloads"], live["downloads"], "the last downloads stay")
+        time.sleep(1.5)
+        self.assertEqual(state()["downloads"], live["downloads"])
+        self.assertIn("/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true: HTTP 503", self.sut.log())
 
     def test_oversized_answer_fails_the_poll_without_crash(self):
         W.gate_mode = "huge"
@@ -308,8 +333,9 @@ class Awake(Base):
         self.assertIsNone(self.sut.proc.poll())
         self.assertIn("answer over", self.sut.log())
         s = state()
-        self.assertEqual(s["beefy_data"], "none")
-        self.assertTrue(s["gate_failed"])
+        self.assertEqual(s["beefy_data"], "live", "only the downloads part fails")
+        self.assertIsNone(s["downloads"])
+        self.assertTrue(s["downloads_failed"])
 
     def test_nothing_identifying_leaves_the_service(self):
         self.wait_state(lambda s: s["beefy_data"] == "live" and s["listening"] is not None)
@@ -327,11 +353,23 @@ class Awake(Base):
         self.assertEqual(s, 200)
         self.assertIn("frame-ancestors 'none'", h["content-security-policy"])
         self.assertEqual(h["cache-control"], "no-store")
-        self.assertEqual(get("/api/state", source="127.0.0.9")[0], 403)
-        self.assertEqual(get("/", source="127.0.0.9")[0], 403)
-        self.assertEqual(get("/metrics", source="127.0.0.9")[0], 403)
-        self.assertEqual(get("/health", source="127.0.0.9")[0], 200)
+        for path in ("/api/state", "/", "/metrics", "/health"):
+            with self.assertRaises(OSError, msg=f"{path}: a peer in neither allow-list is dropped at accept"):
+                get(path, source="127.0.0.9")
         self.assertEqual(get("/ingest")[0], 404)
+
+    def test_unlisted_peers_cannot_starve_the_listed_ones(self):
+        held = []
+        for _ in range(80):
+            try:
+                held.append(socket.create_connection(("127.0.0.1", PORT), timeout=1, source_address=("127.0.0.9", 0)))
+            except OSError:
+                pass
+        try:
+            self.assertEqual(get("/health")[0], 200, "silent connections of a neighbour take no slot")
+        finally:
+            for c in held:
+                c.close()
 
     def test_health_subcommand(self):
         r = subprocess.run([SUT, "--health"], env={"LISTEN_PORT": str(PORT)}, timeout=10)
@@ -381,6 +419,12 @@ class PageViews(Base):
         _, _, m = get("/metrics")
         self.assertIn("activity_viewer_active 1\n", m.decode())
         self.assertIn("activity_last_poll_timestamp_seconds ", m.decode())
+
+    def test_a_slow_gate_still_answers_the_first_view_live(self):
+        W.gate_delay = 1.0
+        t0 = time.monotonic()
+        s = state()
+        self.assertEqual(s["beefy_data"], "live", f"the gate requests run side by side (1 s each), so the 4 s first-view wait is enough; took {time.monotonic() - t0:.1f} s")
 
     def test_concurrent_first_views_share_one_poll(self):
         out = []
@@ -444,7 +488,28 @@ class Asleep(Base):
         self.assertEqual(s["downloads"], live["downloads"])
         self.assertIsNotNone(s["downloads_as_of"])
         self.assertEqual(s["beefy_data"], "stale")
-        self.assertIn("loaded the last snapshot", self.sut.log())
+        self.assertIn("loaded the last downloads", self.sut.log())
+
+
+class WakerPhases(Base):
+    waker = "down"
+
+    def test_waking_and_broken_are_shown_as_such(self):
+        W.waker_phase = "waking"
+        s = self.wait_state(lambda s: s["beefy"] == "waking")
+        self.assertEqual(s["watching"], [])
+        W.waker_phase = "broken"
+        s = self.wait_state(lambda s: s["beefy"] == "broken")
+        self.assertIsNone(s["watching"])
+        self.assertEqual(W.gate.seen(), [], "never asks beefy unless it is up")
+
+
+class Config(unittest.TestCase):
+    def test_nonsense_timing_is_refused(self):
+        for env in ({"POLL_SECONDS": "0"}, {"VIEWER_SECONDS": "0"}, {"POLL_SECONDS": "soon"}):
+            r = subprocess.run([SUT], env={"LISTEN_ADDR": "127.0.0.1", "LISTEN_PORT": "18081", "DATA_DIR": "off", **env}, capture_output=True, text=True, timeout=10)
+            self.assertEqual(r.returncode, 2, env)
+            self.assertIn(next(iter(env)), r.stderr)
 
 
 class WakerBroken(Base):

@@ -5,7 +5,7 @@ Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), wh
 - **URL:** https://activity.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`; LAN/VPN now, internet after [Owner steps](#owner-steps))
 - **Polls only while someone looks:** nothing (no Waker, no gate, no ABS, no qBittorrent) while nobody has the page open; see [Polling](#polling).
 - **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher.
-- Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port.
+- Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port. Connections from addresses in neither `PAGE_ALLOW` nor `METRICS_ALLOW` are closed right after accept (no slot taken), so a neighbour on traefik_proxy cannot starve Traefik or the healthcheck.
 
 ## Data flow
 
@@ -14,7 +14,7 @@ browser ─► Cloudflare/AdGuard ─► Traefik (authentik@file) ─► activit
 Prometheus ─► activity_metrics (10.24.40.0/29) ─► activity:8080/metrics
 
 activity, per poll:   traefik:8080/activity/waker/status ─► Waker 192.168.1.2:9001/status
-                      Waker up? ─► GET traefik:8080/activity/gate/<contract paths> ─► gate 192.168.1.102:8095, one attempt each, 3 s timeout, Connection: close
+                      Waker up? ─► GET traefik:8080/activity/gate/<contract paths> ─► gate 192.168.1.102:8095, side by side, one attempt each, 3 s timeout, Connection: close
                       Audiobookshelf audiobookshelf:8080 /api/sessions/open
                       traefik:8080/activity/qbit/api/v2/torrents/info?category=abr ─► qBittorrent 10.24.25.2:8080 (no login)
 ```
@@ -28,7 +28,14 @@ activity, per poll:   traefik:8080/activity/waker/status ─► Waker 192.168.1.
 | `/api/state` within the last 120 s | every `POLL_SECONDS` (30) |
 | `/metrics`, `/health`, `/` (HTML) | never count as a viewer |
 
-The page fetches `/api/state` every 30 s only while its tab is visible (stops on `hidden`, fetches at once on `visible`); it shows "updated HH:MM:SS" (the last poll) and "⚠️ beefy data unavailable (gate not answering)" when the Waker says up but the gate failed (`gate_failed`). The post-update checks read `/api/state`, so each run counts as a viewer for 2 min.
+| Setting | Allowed |
+|---|---|
+| `POLL_SECONDS` | 1–86400 (0 is refused: it would poll beefy in a loop) |
+| `VIEWER_SECONDS` | 1 s to a week |
+
+The page fetches `/api/state` every 30 s only while its tab is visible (stops on `hidden`, fetches at once on `visible`); while beefy is up but its data is not live yet it asks again after 5 s (at most 3 times). It shows "updated HH:MM:SS" (the last poll) and "⚠️ beefy streams/downloads/data unavailable (gate not answering)" when the Waker says up but that part failed (`streams_failed`, `downloads_failed`); not in the first 90 s after a wake (`beefy_starting`: Jellyfin and the arrs start after sshd). The post-update checks read `/api/state`, so each run counts as a viewer for 2 min.
+
+`/health` is 503 when the poll loop has stopped or a due poll has not run for 2 × `POLL_SECONDS` + 60 s (Docker marks the container unhealthy, autoheal restarts it).
 
 ### Internal routes (Traefik)
 
@@ -50,14 +57,20 @@ Answers are parsed into typed fields and grouped at once; raw answers, titles an
 
 ## Staleness rule
 
-| Waker | last good poll | Watching | Downloads |
+Streams (Jellyfin sessions) and downloads (queues + request state) are stored separately: a failed queue keeps the streams live, and the other way round. A part counts as fresh when taken 0–90 s ago (a time in the future, after a clock step, is never fresh).
+
+| Waker (`beefy`) | part fresh | Watching | Downloads |
 |---|---|---|---|
 | up | < 90 s | live | live |
 | up | ≥ 90 s or none | ❔ unavailable | last known, "as of HH:MM" |
-| asleep | any | 💤 nobody watching | last known, "as of HH:MM" |
-| unknown | any | ❔ unavailable ("beefy state unknown") | last known, "as of HH:MM" |
+| asleep (`up: false`, phase idle) | any | 💤 nobody watching | last known, "as of …" |
+| waking (phase waking, retrying, power_cycle) | any | ⏳ nobody watching yet | last known, "as of …" |
+| broken (the wake failed) | any | ⚠️ unknown | last known, "as of …" |
+| unknown | any | ❔ unavailable ("beefy state unknown") | last known, "as of …" |
 
-The last snapshot is kept in the volume `activity_data` (`/data/last.json`, written when the downloads change, else every 10 min), so "as of" survives a restart.
+"as of" shows the time today, "yesterday HH:MM", else weekday and date.
+
+The last downloads are kept in the volume `activity_data` (`/data/last.json`, `{"v":2,"downloads":{…}}`; a version-1 file is read once; written when the downloads change, else every 10 min, and when the clock went back), so "as of" survives a restart.
 
 ## Categories
 
@@ -91,7 +104,7 @@ The gate on beefy (`activity-gate`, port 8095; 8097 is jellyfin-popular) allow-l
 | `/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true` | Sonarr | yes |
 | `/sonarr/api/v3/series` | Sonarr, only when an episode plays or a series request waits | no (no anime, no series counts) |
 
-A needed path failing = no new snapshot for that tick.
+Paths are asked side by side (the series list after the others, only when needed). Sessions failing = no new streams for that tick; request state or a queue failing = no new downloads for that tick (the last ones stay, "as of"). One log line per change names the failed paths.
 
 ## Secrets
 
@@ -118,6 +131,7 @@ LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 |---|---|
 | Build + deploy | `flock ~/.cache/claude-work/rust-build.lock Docker/_global/scripts/update-project.sh Docker/Activity build` (cargo test runs in the build) |
 | Black-box suite (fakes for Waker, gate, ABS, qBittorrent; ~1 min) | `bash tests/blackbox/run.sh` (binary from `activity:local`), `run.sh image IMAGE`, `run.sh bin BINARY` |
+| Page tests (headless Chromium, `/api/state` from fixtures; Playwright from `PLAYWRIGHT`, global, or `~/Documents/development/LoyaltyCards`) | `node --test tests/page/page.test.cjs` |
 | Customization checks | `Docker/_global/scripts/post-update-check.sh Activity` |
 | State | `docker exec traefik wget -qO- http://activity:8080/api/state` |
 | Rollback | `update-project.sh` rolls back on a failed check; remove: `docker compose down` here, delete `../Traefik/traefik/dynamic/activity.yml` and `activity-internal.yml`, the `activity` job and network in `../grafana` |

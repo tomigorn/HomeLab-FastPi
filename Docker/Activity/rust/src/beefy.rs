@@ -533,8 +533,8 @@ mod tests {
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let snap = crate::state::Snapshot { v: 1, at: 1, streams: streams(&sessions(), &AnimeIndex::from_series(&series())), downloads: all_downloads() };
-        let out = serde_json::to_string(&snap).unwrap().to_lowercase();
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &AnimeIndex::from_series(&series())) }, crate::state::DownloadsPart { at: 1, list: all_downloads() });
+        let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
         for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data"] {
             assert!(!out.contains(secret), "{secret} leaked into {out}");
         }

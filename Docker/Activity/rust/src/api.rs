@@ -64,11 +64,23 @@ pub fn is_viewer(method: &str, path: &str, peer: IpAddr, access: &Access) -> boo
     (method == "GET" || method == "HEAD") && path == "/api/state" && access.page.contains(peer)
 }
 
+/// Connections from anyone in neither list are closed right after accept (no slot, no parsing).
+pub fn admitted(peer: IpAddr, access: &Access) -> bool {
+    access.page.contains(peer) || access.metrics.contains(peer)
+}
+
+#[cfg(test)]
 pub fn route(method: &str, path: &str, peer: IpAddr, access: &Access, view: impl FnOnce() -> Seen) -> Resp {
+    route_health(method, path, peer, access, true, view)
+}
+
+/// `poller_ok`: the poll loop runs and is not overdue; `/health` fails otherwise.
+pub fn route_health(method: &str, path: &str, peer: IpAddr, access: &Access, poller_ok: bool, view: impl FnOnce() -> Seen) -> Resp {
     if method != "GET" && method != "HEAD" {
         return Resp::text(405, "GET only\n");
     }
     match path {
+        "/health" if !poller_ok => Resp::text(503, "poller stopped\n"),
         "/health" => Resp::text(200, "ok\n"),
         "/" | "/index.html" | "/api/state" if !access.page.contains(peer) => Resp::text(403, "forbidden\n"),
         "/" | "/index.html" => Resp { status: 200, content_type: "text/html; charset=utf-8", body: PAGE.to_string() },
@@ -134,7 +146,7 @@ pub fn metrics(v: &View, snapshot_age: Option<i64>, viewer: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{tests::sample, view, Local, Polled, WakerState};
+    use crate::state::{tests::{downloads_part, streams_part}, view, Local, Polled, WakerState};
 
     const NOW: i64 = 1_794_430_000;
 
@@ -146,7 +158,7 @@ mod tests {
     }
     fn live() -> Seen {
         let l = Local { listening: Some(2), abr_downloading: Some(1), abr_queued: Some(0) };
-        (view(NOW, Some(&sample(NOW - 10)), WakerState::Up, &l, Polled { at: Some(NOW - 10), gate_failed: false }), Some(10), true)
+        (view(NOW, Some(&streams_part(NOW - 10)), Some(&downloads_part(NOW - 10)), WakerState::Up, &l, Polled { at: Some(NOW - 10), ..Polled::default() }), Some(10), true)
     }
 
     #[test]
@@ -169,7 +181,7 @@ mod tests {
                 assert!(["kind", "quality", "mode", "state"].contains(&k), "unexpected label {k} in {line}");
             }
         }
-        let asleep = view(NOW, Some(&sample(NOW - 999)), WakerState::Down, &Local::default(), Polled::default());
+        let asleep = view(NOW, Some(&streams_part(NOW - 999)), Some(&downloads_part(NOW - 999)), WakerState::Down, &Local::default(), Polled::default());
         let m = metrics(&asleep, Some(999), false);
         assert!(m.contains("activity_viewer_active 0\n") && !m.contains("activity_last_poll_timestamp_seconds"), "{m}");
         assert!(m.contains("activity_beefy_up 0\n") && m.contains("activity_watching_streams 0\n") && !m.contains("activity_streams{"), "{m}");
@@ -188,6 +200,24 @@ mod tests {
         assert_eq!(route("GET", "/metrics", ip("172.24.255.3"), &a, live).status, 403);
         assert_eq!(route("GET", "/metrics", ip("10.24.40.3"), &a, live).status, 200);
         assert_eq!(route("GET", "/health", ip("172.24.0.6"), &a, live).status, 200);
+    }
+
+    #[test]
+    fn health_fails_when_the_poller_is_dead() {
+        let a = access();
+        assert_eq!(route_health("GET", "/health", ip("127.0.0.1"), &a, false, live).status, 503);
+        assert_eq!(route_health("GET", "/health", ip("127.0.0.1"), &a, true, live).status, 200);
+        assert_eq!(route_health("GET", "/api/state", ip("127.0.0.1"), &a, false, live).status, 200, "the page still answers");
+    }
+
+    #[test]
+    fn peers_in_neither_list_are_dropped() {
+        let a = access();
+        assert!(admitted(ip("172.24.255.3"), &a));
+        assert!(admitted(ip("10.24.40.3"), &a));
+        assert!(admitted(ip("127.0.0.1"), &a));
+        assert!(!admitted(ip("172.24.0.6"), &a), "another container on traefik_proxy");
+        assert!(!admitted(ip("::1"), &a));
     }
 
     #[test]

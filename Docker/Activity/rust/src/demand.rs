@@ -13,6 +13,8 @@ struct S {
     /// Poll generation the waiting viewers need, while an immediate poll is due or running.
     pending: Option<u64>,
     done: u64,
+    /// the last poll's end, or the moment polling became due after an idle spell
+    progress: Option<Instant>,
 }
 
 pub struct Demand {
@@ -25,7 +27,7 @@ pub struct Demand {
 
 impl Demand {
     pub fn new(every: Duration, window: Duration) -> Demand {
-        Demand { every, window, s: Mutex::new(S { seen: None, pending: None, done: 0 }), kick: Notify::new(), done: watch::channel(0).0 }
+        Demand { every, window, s: Mutex::new(S { seen: None, pending: None, done: 0, progress: None }), kick: Notify::new(), done: watch::channel(0).0 }
     }
 
     fn active_at(&self, s: &S, now: Instant) -> bool {
@@ -45,6 +47,7 @@ impl Demand {
         s.seen = Some(now);
         if idle && s.pending.is_none() {
             s.pending = Some(s.done + 1);
+            s.progress = Some(now);
             self.kick.notify_one();
         }
         s.pending
@@ -54,6 +57,18 @@ impl Demand {
     pub async fn wait(&self, target: u64, max: Duration) {
         let mut rx = self.done.subscribe();
         let _ = tokio::time::timeout(max, rx.wait_for(|d| *d >= target)).await;
+    }
+
+    /// A poll is due but none has finished for over 2 x `every` + 60 s: the loop is stuck or gone.
+    pub fn overdue(&self) -> bool {
+        let now = Instant::now();
+        self.s
+            .lock()
+            .map(|s| {
+                let due = s.pending.is_some() || self.active_at(&s, now);
+                due && s.progress.is_some_and(|p| now.duration_since(p) > self.every * 2 + Duration::from_secs(60))
+            })
+            .unwrap_or(true)
     }
 
     fn pending(&self) -> bool {
@@ -78,6 +93,7 @@ impl Demand {
             if let Ok(mut s) = self.s.lock() {
                 s.done += 1;
                 s.pending = None;
+                s.progress = Some(Instant::now());
                 self.done.send_replace(s.done);
             }
             // a kick cuts the pause short only for a viewer that is waiting (a permit left from before the poll is stale)
@@ -195,5 +211,22 @@ mod tests {
         assert_eq!(n.load(Ordering::SeqCst), 1);
         page(&d).await;
         assert_eq!(n.load(Ordering::SeqCst), 1, "the second view does not start another poll");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn overdue_only_when_a_due_poll_does_not_come() {
+        let d = Arc::new(Demand::new(EVERY, WINDOW));
+        assert!(!d.overdue(), "idle is not overdue");
+        let _ = d.viewer();
+        secs(2 * 30 + 59).await;
+        assert!(!d.overdue());
+        secs(2).await;
+        assert!(d.overdue(), "a viewer waits and no poll ran for over 2 x POLL_SECONDS + 60 s: the poller is dead");
+        let (d, _) = start(Duration::ZERO);
+        page(&d).await;
+        secs(110).await;
+        assert!(!d.overdue(), "a running loop is never overdue");
+        secs(3600).await;
+        assert!(!d.overdue(), "idle again");
     }
 }

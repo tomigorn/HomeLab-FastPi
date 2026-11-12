@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 
 /// beefy data counts only while the last successful poll is younger than this.
 pub const STALE_AFTER: i64 = 90;
-pub const SNAPSHOT_VERSION: u32 = 1;
+/// After the Waker turns up, failures are not reported for this long: Jellyfin and the arrs start after sshd.
+pub const WARM_UP: i64 = 90;
+pub const SNAPSHOT_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Kind {
@@ -145,20 +147,45 @@ pub struct Download {
     pub episodes: u32,
 }
 
-/// One successful poll of beefy, already aggregated: categories and counts only.
+/// The Jellyfin side of one successful poll of beefy, already aggregated: categories and counts only.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Snapshot {
-    pub v: u32,
+pub struct StreamsPart {
     pub at: i64,
     pub streams: Vec<Stream>,
-    pub downloads: Vec<Download>,
+}
+
+/// The queue side of one successful poll of beefy; kept on disk for "as of" after a restart.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DownloadsPart {
+    pub at: i64,
+    pub list: Vec<Download>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Saved {
+    v: u32,
+    downloads: DownloadsPart,
+}
+
+/// last.json before the parts were split: one `at` for streams and downloads.
+#[derive(Deserialize)]
+struct SavedV1 {
+    v: u32,
+    at: i64,
+    downloads: Vec<Download>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WakerState {
     Up,
     Down,
+    /// a wake (or its recovery) is in progress: still off
+    Waking,
+    /// the last wake failed
+    Broken,
     Unknown,
 }
 
@@ -184,11 +211,11 @@ pub struct AudiobookDownloads {
 #[derive(Debug, PartialEq, Serialize)]
 pub struct View {
     pub now: i64,
-    /// "up" | "asleep" | "unknown" (Waker /status)
+    /// "up" | "asleep" | "waking" | "broken" (the last wake failed) | "unknown" (Waker /status)
     pub beefy: &'static str,
-    /// "live" (fresh and trusted) | "stale" (last known only) | "none" (never polled)
+    /// "live" (fresh streams, Waker up) | "stale" (last known only) | "none" (never polled)
     pub beefy_data: &'static str,
-    /// None = unavailable (awake without fresh data, or Waker state unknown); empty while asleep = nobody watching
+    /// None = unavailable (awake without fresh data, wake failed, or Waker state unknown); empty while asleep or waking = nobody watching
     pub watching: Option<Vec<Stream>>,
     /// None = never polled
     pub downloads: Option<Vec<Download>>,
@@ -198,23 +225,36 @@ pub struct View {
     pub audiobook_downloads: Option<AudiobookDownloads>,
     /// when the last poll finished (None = no poll since the start)
     pub polled_at: Option<i64>,
-    /// the Waker says up but the last poll of the beefy gate failed
-    pub gate_failed: bool,
+    /// the Waker says up (past the warm-up) but the last poll got no sessions / no queues from the gate
+    pub streams_failed: bool,
+    pub downloads_failed: bool,
+    /// beefy woke within the last WARM_UP seconds and has no live data yet: its services are still starting
+    pub beefy_starting: bool,
 }
 
 /// What the last poll left behind besides the data.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Polled {
     pub at: Option<i64>,
-    pub gate_failed: bool,
+    pub streams_failed: bool,
+    pub downloads_failed: bool,
+    /// when the Waker turned up after an observed sleep or wake (None = up since before the service saw it)
+    pub up_since: Option<i64>,
 }
 
-pub fn view(now: i64, snap: Option<&Snapshot>, waker: WakerState, local: &Local, polled: Polled) -> View {
-    let fresh = snap.is_some_and(|s| now - s.at < STALE_AFTER);
-    let trusted = fresh && waker == WakerState::Up;
-    let watching = match (trusted, waker) {
-        (true, _) => snap.map(|s| s.streams.clone()),
-        (false, WakerState::Down) => Some(Vec::new()),
+/// Fresh = taken within STALE_AFTER and not in the future (a stepped clock never makes old data live).
+fn fresh(now: i64, at: i64) -> bool {
+    (0..STALE_AFTER).contains(&(now - at))
+}
+
+pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&DownloadsPart>, waker: WakerState, local: &Local, polled: Polled) -> View {
+    let up = waker == WakerState::Up;
+    let live = up && streams.is_some_and(|s| fresh(now, s.at));
+    let downloads_live = up && downloads.is_some_and(|d| fresh(now, d.at));
+    let warming = up && polled.up_since.is_some_and(|t| (0..WARM_UP).contains(&(now - t)));
+    let watching = match (live, waker) {
+        (true, _) => streams.map(|s| s.streams.clone()),
+        (false, WakerState::Down | WakerState::Waking) => Some(Vec::new()),
         _ => None,
     };
     let audiobook_downloads = match (local.abr_downloading, local.abr_queued) {
@@ -226,30 +266,37 @@ pub fn view(now: i64, snap: Option<&Snapshot>, waker: WakerState, local: &Local,
         beefy: match waker {
             WakerState::Up => "up",
             WakerState::Down => "asleep",
+            WakerState::Waking => "waking",
+            WakerState::Broken => "broken",
             WakerState::Unknown => "unknown",
         },
-        beefy_data: if trusted { "live" } else if snap.is_some() { "stale" } else { "none" },
+        beefy_data: if live { "live" } else if streams.is_some() || downloads.is_some() { "stale" } else { "none" },
         watching,
-        downloads: snap.map(|s| s.downloads.clone()),
-        downloads_as_of: snap.filter(|_| !trusted).map(|s| s.at),
+        downloads: downloads.map(|d| d.list.clone()),
+        downloads_as_of: downloads.filter(|_| !downloads_live).map(|d| d.at),
         listening: local.listening.map(|sessions| Listening { sessions }),
         audiobook_downloads,
         polled_at: polled.at,
-        gate_failed: polled.gate_failed && waker == WakerState::Up,
+        streams_failed: up && !warming && polled.streams_failed,
+        downloads_failed: up && !warming && polled.downloads_failed,
+        beefy_starting: warming && !live,
     }
 }
 
-/// Last snapshot from a previous run; anything unreadable, of another version or with unknown categories is ignored.
-pub fn load(path: &Path) -> Option<Snapshot> {
+/// Last downloads from a previous run; anything unreadable, of another version or with unknown categories is ignored.
+pub fn load(path: &Path) -> Option<DownloadsPart> {
     let raw = std::fs::read(path).ok()?;
-    let s: Snapshot = serde_json::from_slice(&raw).ok()?;
-    (s.v == SNAPSHOT_VERSION).then_some(s)
+    if let Ok(s) = serde_json::from_slice::<Saved>(&raw) {
+        return (s.v == SNAPSHOT_VERSION).then_some(s.downloads);
+    }
+    let old: SavedV1 = serde_json::from_slice(&raw).ok()?;
+    (old.v == 1).then_some(DownloadsPart { at: old.at, list: old.downloads })
 }
 
 /// Atomic write: temp file in the same directory, then rename.
-pub fn save(path: &Path, snap: &Snapshot) -> std::io::Result<()> {
+pub fn save(path: &Path, downloads: &DownloadsPart) -> std::io::Result<()> {
     let tmp = path.with_extension("json.tmp");
-    let body = serde_json::to_vec(snap).map_err(std::io::Error::other)?;
+    let body = serde_json::to_vec(&Saved { v: SNAPSHOT_VERSION, downloads: downloads.clone() }).map_err(std::io::Error::other)?;
     std::fs::write(&tmp, body)?;
     std::fs::rename(&tmp, path)
 }
@@ -258,101 +305,129 @@ pub fn save(path: &Path, snap: &Snapshot) -> std::io::Result<()> {
 pub mod tests {
     use super::*;
 
-    pub fn sample(at: i64) -> Snapshot {
-        Snapshot {
-            v: 1,
-            at,
-            streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1 }],
-            downloads: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }],
-        }
+    pub fn streams_part(at: i64) -> StreamsPart {
+        StreamsPart { at, streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1 }] }
+    }
+    pub fn downloads_part(at: i64) -> DownloadsPart {
+        DownloadsPart { at, list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }] }
     }
 
     const NOW: i64 = 1_794_430_000;
 
-    #[test]
-    fn view_fresh_snapshot_and_waker_up_shows_streams() {
-        let s = sample(NOW - 30);
-        let v = view(NOW, Some(&s), WakerState::Up, &Local::default(), Polled::default());
-        assert_eq!(v.beefy, "up");
-        assert_eq!(v.beefy_data, "live");
-        assert_eq!(v.watching, Some(s.streams.clone()));
-        assert_eq!(v.downloads, Some(s.downloads.clone()));
-        assert_eq!(v.downloads_as_of, None);
+    fn v(s: Option<i64>, d: Option<i64>, w: WakerState, p: Polled) -> View {
+        view(NOW, s.map(streams_part).as_ref(), d.map(downloads_part).as_ref(), w, &Local::default(), p)
     }
 
     #[test]
-    fn view_snapshot_older_than_90s_shows_nobody_watching_and_downloads_as_of() {
-        let s = sample(NOW - 600);
-        let v = view(NOW, Some(&s), WakerState::Down, &Local::default(), Polled::default());
-        assert_eq!(v.beefy, "asleep");
-        assert_eq!(v.beefy_data, "stale");
-        assert_eq!(v.watching, Some(vec![]));
-        assert_eq!(v.downloads, Some(s.downloads.clone()));
-        assert_eq!(v.downloads_as_of, Some(NOW - 600));
-        let v = view(NOW, Some(&sample(NOW - 90)), WakerState::Up, &Local::default(), Polled::default());
-        assert_eq!(v.beefy_data, "stale");
-        assert_eq!(v.watching, None, "awake but no fresh data = unavailable, never old streams");
-        assert_eq!(v.downloads_as_of, Some(NOW - 90));
+    fn view_fresh_parts_and_waker_up_shows_streams() {
+        let x = v(Some(NOW - 30), Some(NOW - 30), WakerState::Up, Polled::default());
+        assert_eq!(x.beefy, "up");
+        assert_eq!(x.beefy_data, "live");
+        assert_eq!(x.watching, Some(streams_part(0).streams));
+        assert_eq!(x.downloads, Some(downloads_part(0).list));
+        assert_eq!(x.downloads_as_of, None);
     }
 
     #[test]
-    fn view_waker_down_ignores_fresh_snapshot_streams() {
-        let s = sample(NOW - 5);
-        let v = view(NOW, Some(&s), WakerState::Down, &Local::default(), Polled::default());
-        assert_eq!(v.beefy, "asleep");
-        assert_eq!(v.watching, Some(vec![]));
-        assert_eq!(v.downloads_as_of, Some(NOW - 5));
+    fn a_failed_downloads_part_keeps_the_streams_live() {
+        let p = Polled { at: Some(NOW - 5), downloads_failed: true, ..Polled::default() };
+        let x = v(Some(NOW - 5), Some(NOW - 900), WakerState::Up, p);
+        assert_eq!(x.beefy_data, "live");
+        assert_eq!(x.watching, Some(streams_part(0).streams), "the streams do not depend on the queues");
+        assert_eq!(x.downloads_as_of, Some(NOW - 900), "the downloads stay as last known");
+        assert!(x.downloads_failed && !x.streams_failed);
+        let p = Polled { at: Some(NOW - 5), streams_failed: true, ..Polled::default() };
+        let x = v(Some(NOW - 900), Some(NOW - 5), WakerState::Up, p);
+        assert_eq!(x.watching, None, "no fresh streams while awake = unavailable");
+        assert_eq!(x.downloads_as_of, None, "the downloads are live");
+        assert!(x.streams_failed && !x.downloads_failed);
     }
 
     #[test]
-    fn view_waker_unknown_never_trusts_the_snapshot() {
-        let fresh = sample(NOW - 10);
-        let v = view(NOW, Some(&fresh), WakerState::Unknown, &Local::default(), Polled::default());
-        assert_eq!(v.beefy, "unknown");
-        assert_eq!(v.beefy_data, "stale", "only a fresh snapshot with the Waker saying up is live");
-        assert_eq!(v.watching, None, "unknown = unavailable, even with a fresh snapshot");
-        assert_eq!(v.downloads, Some(fresh.downloads.clone()));
-        assert_eq!(v.downloads_as_of, Some(NOW - 10));
-        let old = sample(NOW - 200);
-        let v = view(NOW, Some(&old), WakerState::Unknown, &Local::default(), Polled::default());
-        assert_eq!(v.watching, None);
-        assert_eq!(v.downloads_as_of, Some(NOW - 200));
+    fn view_old_parts_show_nobody_watching_and_downloads_as_of() {
+        let x = v(Some(NOW - 600), Some(NOW - 600), WakerState::Down, Polled::default());
+        assert_eq!(x.beefy, "asleep");
+        assert_eq!(x.beefy_data, "stale");
+        assert_eq!(x.watching, Some(vec![]));
+        assert_eq!(x.downloads_as_of, Some(NOW - 600));
+        let x = v(Some(NOW - 90), Some(NOW - 90), WakerState::Up, Polled::default());
+        assert_eq!(x.beefy_data, "stale");
+        assert_eq!(x.watching, None, "awake but no fresh data = unavailable, never old streams");
+        assert_eq!(x.downloads_as_of, Some(NOW - 90));
     }
 
     #[test]
-    fn view_without_any_snapshot_has_no_beefy_data() {
-        let v = view(NOW, None, WakerState::Up, &Local::default(), Polled::default());
-        assert_eq!((v.beefy_data, v.watching, v.downloads, v.downloads_as_of), ("none", None, None, None));
-        let v = view(NOW, None, WakerState::Down, &Local::default(), Polled::default());
-        assert_eq!(v.watching, Some(vec![]));
+    fn a_future_dated_part_is_stale_not_live() {
+        let x = v(Some(NOW + 600), Some(NOW + 600), WakerState::Up, Polled::default());
+        assert_eq!(x.beefy_data, "stale", "clock skew: a snapshot from the future is never fresh");
+        assert_eq!(x.watching, None);
+        assert_eq!(x.downloads_as_of, Some(NOW + 600));
+    }
+
+    #[test]
+    fn view_waker_down_ignores_fresh_streams() {
+        let x = v(Some(NOW - 5), Some(NOW - 5), WakerState::Down, Polled::default());
+        assert_eq!(x.watching, Some(vec![]));
+        assert_eq!(x.downloads_as_of, Some(NOW - 5));
+    }
+
+    #[test]
+    fn waking_and_broken_are_not_asleep() {
+        let x = v(None, None, WakerState::Waking, Polled::default());
+        assert_eq!(x.beefy, "waking");
+        assert_eq!(x.watching, Some(vec![]), "still off while it wakes: nobody can be watching yet");
+        let x = v(Some(NOW - 5), None, WakerState::Broken, Polled::default());
+        assert_eq!(x.beefy, "broken");
+        assert_eq!(x.watching, None, "a failed wake: state unknown");
+    }
+
+    #[test]
+    fn view_waker_unknown_never_trusts_the_parts() {
+        let x = v(Some(NOW - 10), Some(NOW - 10), WakerState::Unknown, Polled::default());
+        assert_eq!(x.beefy, "unknown");
+        assert_eq!(x.beefy_data, "stale", "only fresh streams with the Waker saying up are live");
+        assert_eq!(x.watching, None);
+        assert_eq!(x.downloads_as_of, Some(NOW - 10));
+    }
+
+    #[test]
+    fn view_without_any_part_has_no_beefy_data() {
+        let x = v(None, None, WakerState::Up, Polled::default());
+        assert_eq!((x.beefy_data, x.watching, x.downloads, x.downloads_as_of), ("none", None, None, None));
+        assert_eq!(v(None, None, WakerState::Down, Polled::default()).watching, Some(vec![]));
     }
 
     #[test]
     fn view_local_figures_or_unavailable() {
         let l = Local { listening: Some(2), abr_downloading: Some(1), abr_queued: Some(3) };
-        let v = view(NOW, None, WakerState::Down, &l, Polled::default());
-        assert_eq!(v.listening, Some(Listening { sessions: 2 }));
-        assert_eq!(v.audiobook_downloads, Some(AudiobookDownloads { downloading: 1, queued: 3 }));
-        let v = view(NOW, None, WakerState::Down, &Local::default(), Polled::default());
-        assert_eq!((v.listening, v.audiobook_downloads), (None, None));
+        let x = view(NOW, None, None, WakerState::Down, &l, Polled::default());
+        assert_eq!(x.listening, Some(Listening { sessions: 2 }));
+        assert_eq!(x.audiobook_downloads, Some(AudiobookDownloads { downloading: 1, queued: 3 }));
+        let x = view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default());
+        assert_eq!((x.listening, x.audiobook_downloads), (None, None));
     }
 
     #[test]
-    fn view_reports_the_last_poll_and_a_failed_gate_only_while_up() {
-        let failed = Polled { at: Some(NOW - 5), gate_failed: true };
-        let v = view(NOW, None, WakerState::Up, &Local::default(), failed);
-        assert_eq!((v.polled_at, v.gate_failed), (Some(NOW - 5), true));
-        assert!(!view(NOW, None, WakerState::Down, &Local::default(), failed).gate_failed, "asleep: the gate is not asked");
-        assert!(!view(NOW, None, WakerState::Unknown, &Local::default(), failed).gate_failed);
-        let v = view(NOW, None, WakerState::Up, &Local::default(), Polled::default());
-        assert_eq!((v.polled_at, v.gate_failed), (None, false));
-        let j = serde_json::to_string(&view(NOW, None, WakerState::Up, &Local::default(), failed)).unwrap();
-        assert!(j.contains(r#""polled_at":1794429995,"gate_failed":true"#), "{j}");
+    fn failures_are_reported_only_while_up_and_after_the_warm_up() {
+        let failed = Polled { at: Some(NOW - 5), streams_failed: true, downloads_failed: true, up_since: None };
+        let x = v(None, None, WakerState::Up, failed);
+        assert_eq!((x.polled_at, x.streams_failed, x.downloads_failed, x.beefy_starting), (Some(NOW - 5), true, true, false));
+        assert!(!v(None, None, WakerState::Down, failed).streams_failed, "asleep: the gate is not asked");
+        assert!(!v(None, None, WakerState::Unknown, failed).downloads_failed);
+        let woke = Polled { up_since: Some(NOW - 20), ..failed };
+        let x = v(None, None, WakerState::Up, woke);
+        assert_eq!((x.streams_failed, x.downloads_failed, x.beefy_starting), (false, false, true), "just woke: services still starting, no false alarm");
+        let x = v(Some(NOW - 3), Some(NOW - 3), WakerState::Up, Polled { streams_failed: false, downloads_failed: false, ..woke });
+        assert!(!x.beefy_starting, "live data: no longer starting");
+        let x = v(None, None, WakerState::Up, Polled { up_since: Some(NOW - WARM_UP), ..failed });
+        assert!(x.streams_failed && !x.beefy_starting, "after the warm-up a failure counts");
+        let j = serde_json::to_string(&v(None, None, WakerState::Up, failed)).unwrap();
+        assert!(j.contains(r#""polled_at":1794429995,"streams_failed":true,"downloads_failed":true,"beefy_starting":false"#), "{j}");
     }
 
     #[test]
     fn category_strings_are_exact() {
-        let j = serde_json::to_string(&sample(1)).unwrap();
+        let j = serde_json::to_string(&streams_part(1)).unwrap() + &serde_json::to_string(&downloads_part(1)).unwrap();
         assert!(j.contains(r#""kind":"Episode","quality":"1080p SDR","mode":"direct play""#), "{j}");
         assert!(j.contains(r#""state":"downloading","kind":"Movie","quality":"4K HDR""#), "{j}");
         for (m, s) in [(Mode::DirectStream, "direct stream"), (Mode::Transcode, "transcode"), (Mode::TranscodeAudio, "transcode (audio)")] {
@@ -376,18 +451,30 @@ pub mod tests {
         assert_eq!(Quality::from_frame(0, 0, false), None);
     }
 
-    #[test]
-    fn persisted_snapshot_round_trips_and_rejects_unknown() {
-        let dir = std::env::temp_dir().join(format!("activity-test-{}", std::process::id()));
+    fn tmp(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("activity-test-{name}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let p = dir.join("last.json");
-        let s = sample(NOW);
-        save(&p, &s).unwrap();
-        assert_eq!(load(&p), Some(s));
-        std::fs::write(&p, br#"{"v":2,"at":1,"streams":[],"downloads":[]}"#).unwrap();
+        dir.join("last.json")
+    }
+
+    #[test]
+    fn persisted_downloads_round_trip_and_reject_unknown() {
+        let p = tmp("rt");
+        let d = downloads_part(NOW);
+        save(&p, &d).unwrap();
+        assert_eq!(load(&p), Some(d));
+        std::fs::write(&p, br#"{"v":3,"downloads":{"at":1,"list":[]}}"#).unwrap();
         assert_eq!(load(&p), None);
-        std::fs::write(&p, br#"{"v":1,"at":1,"streams":[{"kind":"Cartoon","quality":null,"mode":"direct play","paused":false,"n":1}],"downloads":[]}"#).unwrap();
+        std::fs::write(&p, br#"{"v":2,"downloads":{"at":1,"list":[{"state":"exploded","kind":"Movie","quality":null,"items":1,"seasons":0,"episodes":0}]}}"#).unwrap();
         assert_eq!(load(&p), None);
-        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_version_1_file_keeps_its_downloads() {
+        let p = tmp("v1");
+        std::fs::write(&p, br#"{"v":1,"at":7,"streams":[{"kind":"Movie","quality":null,"mode":"direct play","paused":false,"n":1}],"downloads":[{"state":"downloading","kind":"Movie","quality":"4K HDR","items":1,"seasons":0,"episodes":0}]}"#).unwrap();
+        assert_eq!(load(&p), Some(downloads_part(7)));
+        std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
     }
 }

@@ -67,6 +67,15 @@ function el(tag, attrs, ...kids) {
 function hhmm(t) {
   return new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+// "14:05" today, "yesterday 22:40", "Mon 3 Nov 22:40" before that
+function when(t, now) {
+  const d = new Date(t * 1000), n = new Date(now * 1000);
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(n) - day(d)) / 86400000);
+  if (diff === 0) return hhmm(t);
+  if (diff === 1) return "yesterday " + hhmm(t);
+  return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + " " + hhmm(t);
+}
 function hhmmss(t) {
   return new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
@@ -80,11 +89,13 @@ function watching(s) {
   box.replaceChildren();
   n.textContent = "";
   if (s.watching === null) {
-    box.append(empty(s.beefy === "unknown" ? "❔ beefy state unknown — watching unavailable" : "❔ beefy is awake, its data is unavailable right now"));
+    const why = { unknown: "❔ beefy state unknown — watching unavailable", broken: "⚠️ beefy did not wake — watching unknown" }[s.beefy]
+      || (s.beefy_starting ? "⏳ beefy just woke, its services are starting" : "❔ beefy is awake, its data is unavailable right now");
+    box.append(empty(why));
     return;
   }
   if (s.watching.length === 0) {
-    box.append(empty(s.beefy === "asleep" ? "💤 beefy asleep — nobody watching" : "nobody watching"));
+    box.append(empty({ asleep: "💤 beefy asleep — nobody watching", waking: "⏳ beefy is waking up — nobody watching yet" }[s.beefy] || "nobody watching"));
     n.textContent = "0";
     return;
   }
@@ -147,25 +158,36 @@ function downloads(s) {
     box.append(empty("nothing downloading"));
   }
   if (s.downloads === null) box.append(el("p", { class: "note" }, "❔ beefy downloads unavailable (no data yet)"));
-  else if (s.downloads_as_of) box.append(el("p", { class: "note" }, "beefy part as of " + hhmm(s.downloads_as_of) + (s.beefy === "asleep" ? " (beefy asleep)" : "")));
+  else if (s.downloads_as_of) box.append(el("p", { class: "note" }, "beefy part as of " + when(s.downloads_as_of, s.now) + (s.beefy === "asleep" ? " (beefy asleep)" : "")));
   if (!s.audiobook_downloads) box.append(el("p", { class: "note" }, "❔ audiobook downloads unavailable"));
 }
 
 function render(s) {
   const b = document.getElementById("beefy");
-  b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", unknown: "❔ beefy state unknown" }[s.beefy] || s.beefy;
+  b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", waking: "⏳ beefy waking", broken: "⚠️ beefy wake failed", unknown: "❔ beefy state unknown" }[s.beefy] || s.beefy;
   document.getElementById("updated").textContent = "updated " + hhmmss(s.polled_at || s.now);
-  document.getElementById("gate").hidden = !(s.beefy === "up" && s.gate_failed);
+  const gate = document.getElementById("gate");
+  gate.hidden = !(s.beefy === "up" && (s.streams_failed || s.downloads_failed));
+  gate.textContent = "⚠️ beefy " + (s.streams_failed && s.downloads_failed ? "data" : s.streams_failed ? "streams" : "downloads") + " unavailable (gate not answering)";
   watching(s);
   listening(s);
   downloads(s);
 }
 
+// beefy awake but its first poll not in yet: ask again soon instead of waiting the full 30 s (a few times at most)
+let quick = 0;
 async function refresh() {
   try {
     const r = await fetch("api/state", { cache: "no-store", credentials: "same-origin" });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    render(await r.json());
+    const s = await r.json();
+    render(s);
+    if (s.beefy === "up" && s.beefy_data !== "live" && quick < 3 && timer !== null) {
+      quick++;
+      setTimeout(refresh, 5000);
+    } else if (s.beefy_data === "live") {
+      quick = 0;
+    }
   } catch (e) {
     document.getElementById("updated").textContent = "⚠️ not updated (" + e.message + ")";
   }
