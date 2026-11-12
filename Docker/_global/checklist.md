@@ -43,6 +43,7 @@ tell them apart.
 | Wiki | ❌ | ❌ | | |  |
 | Notes | ❌ | ❌ | | |  |
 | Activity | ❌ | ❌ | | |  |
+| Tech-Radar | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 

@@ -1,0 +1,94 @@
+{
+  "basePath": "/",
+  "baseUrl": "https://stack.holy-grail.ch",
+  "editUrl": "",
+  "social": [],
+  "imprint": "",
+  "logoFile": "logo.svg",
+  "jsFile": "",
+  "toggles": {
+    "showSearch": true,
+    "showChart": true,
+    "showTagFilter": true,
+    "showQuadrantList": true,
+    "showEmptyRings": true
+  },
+  "sections": ["radar", "tags", "list"],
+  "colors": {
+    "foreground": "#e8eaf0",
+    "background": "#12141c",
+    "highlight": "#f2b84b",
+    "content": "#1b1e29",
+    "text": "#c9ced9",
+    "link": "#f2b84b",
+    "border": "rgba(255, 255, 255, 0.1)",
+    "tag": "rgba(255, 255, 255, 0.1)"
+  },
+  "quadrants": [
+    {
+      "id": "languages",
+      "title": "Languages & frameworks",
+      "description": "Programming languages and the frameworks used with them.",
+      "color": "#7aa2f7"
+    },
+    {
+      "id": "hardware",
+      "title": "Hardware & devices",
+      "description": "Servers, computers and gadgets, and how they are powered.",
+      "color": "#9ece6a"
+    },
+    {
+      "id": "devops",
+      "title": "DevOps & sysops",
+      "description": "Tools and practices for running, securing and observing systems.",
+      "color": "#bb9af7"
+    },
+    {
+      "id": "services",
+      "title": "Deployed services",
+      "description": "Services that run in the homelab or that it depends on.",
+      "color": "#e0af68"
+    }
+  ],
+  "rings": [
+    {
+      "id": "production",
+      "title": "Production",
+      "description": "Runs 24/7 here.",
+      "color": "#9ece6a",
+      "radius": 0.5,
+      "strokeWidth": 5
+    },
+    {
+      "id": "daily",
+      "title": "Daily use",
+      "description": "Used regularly, not a hosted service.",
+      "color": "#7aa2f7",
+      "radius": 0.69,
+      "strokeWidth": 3
+    },
+    {
+      "id": "learning",
+      "title": "Learning",
+      "description": "Tried out or being learned.",
+      "color": "#e0af68",
+      "radius": 0.85,
+      "strokeWidth": 2
+    },
+    {
+      "id": "retired",
+      "title": "Retired",
+      "description": "Replaced, kept for history.",
+      "color": "#8a8fa0",
+      "radius": 1,
+      "strokeWidth": 0.75
+    }
+  ],
+  "labels": {
+    "title": "Holy Grail - Tech Stack",
+    "footer": "Everything I run and know, on one page.",
+    "pageAbout": "About this radar",
+    "pageOverview": "All items",
+    "metaDescription": "Holy Grail tech stack radar"
+  }
+}

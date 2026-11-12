@@ -1,0 +1,2 @@
+/* No imprint link in the footer */
+footer a[target="_blank"] { display: none; }

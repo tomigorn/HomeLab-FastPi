@@ -62,12 +62,13 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65058 | books-proxy (nginx in front of ABR) | | | ✅ |
 | 65059 | notes (Caddy) and its `mkdocs build` run (`Notes/build.sh`) | | NET_BIND_SERVICE (Caddy only) | ✅ |
 | 65060 | activity (Rust, scratch) | | | ✅ |
+| 65061 | tech-radar (Caddy, built AOE radar baked in) | | NET_BIND_SERVICE | ✅ |
 | 1101:1100 | sabnzbd, qbittorrent (lsio non-root) | | | |
 | 70 | authentik-postgresql | | | |
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65013 (was autoheal-nzb), 65029, 65031, 65061+.
+Free: 65013 (was autoheal-nzb), 65029, 65031, 65062+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |

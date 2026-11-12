@@ -1,0 +1,44 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Tech-Radar ##############################################
+# #########################################################
+  tech-radar:
+    build: .
+    image: tech-radar:local
+    container_name: tech-radar
+    user: "65061:65061"
+    mem_limit: 32m
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE       # bind :80 as non-root
+    environment:
+      - XDG_CONFIG_HOME=/tmp
+      - XDG_DATA_HOME=/tmp
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================

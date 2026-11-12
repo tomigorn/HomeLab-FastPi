@@ -1,0 +1,7 @@
+node_modules
+.techradar
+build
+.next
+out
+tests
+.env
