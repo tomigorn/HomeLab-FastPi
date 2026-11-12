@@ -67,7 +67,7 @@ Job `authentik` scrapes `authentik-server:9300` over the `authentik_authentik_in
 
 ## Activity metrics
 
-Job `activity` scrapes `activity:8080/metrics` every 30 s over the internal `activity_metrics` network (10.24.40.0/29, defined by `../Activity`; Prometheus joins it). Anonymous counts only: `activity_streams{kind,quality,mode}`, `activity_watching_streams`, `activity_downloads{state,kind,quality}`, `activity_listening_sessions`, `activity_audiobook_downloads{state}`, `activity_beefy_up`, `activity_beefy_snapshot_age_seconds` (`../Activity/README.md`).
+Job `activity` scrapes `activity:8080/metrics` every 30 s over the internal `activity_metrics` network (10.24.40.0/29, defined by `../Activity`; Prometheus joins it). Anonymous counts only: `activity_streams{kind,quality,mode}`, `activity_watching_streams`, `activity_downloads{state,kind,quality}`, `activity_listening_sessions`, `activity_audiobook_downloads{state}`, `activity_beefy_up`, `activity_beefy_snapshot_age_seconds`, `activity_viewer_active`, `activity_last_poll_timestamp_seconds`: last-known values, refreshed only while someone views the page (`../Activity/README.md`).
 
 ## Prometheus self-monitoring
 
@@ -137,12 +137,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 ## Activity page
 
-`prometheus/rules/activity.yml`, test `prometheus/tests/activity_test.yml`. Source: job `activity` (`Docker/Activity`, `/metrics`). The service down is `TargetDown`.
-
-| Alert | When |
-|---|---|
-| `ActivityBeefyDataStale` | `activity_beefy_up == 1` and `activity_beefy_snapshot_age_seconds` > 300 or absent, for 10 min (gate stopped, rotated key, broken Traefik route); warning, normal Telegram route |
-| `ActivityLocalSourcesMissing` | service up, `activity_listening_sessions` or `activity_audiobook_downloads` absent for 15 min (label `source`: ABS key copy stale / ABS down, or the qBittorrent route broken); warning, normal Telegram route |
+No alert rules (removed 2026-11-12): the service polls only while the page is viewed, so its data is stale by design when nobody looks, and a viewer sees the failure on the page. The service down is `TargetDown`.
 
 ## Authentik service tokens
 
