@@ -33,6 +33,7 @@ APPS = {
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
     "activity":          ("Media", "Who is watching & downloading", "fa://fa-signal"),
+    "tech-radar":        ("Utilities", "My tech stack", "fa://fa-layer-group"),
     "nextcloud":         ("Utilities", "Files & calendar" + TOWER, None),
     "radarr":            ("Downloads · Beefy", "Film downloads" + BEEFY, None),
     "sonarr":            ("Downloads · Beefy", "Series downloads" + BEEFY, None),

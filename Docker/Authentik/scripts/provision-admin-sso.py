@@ -186,5 +186,10 @@ app_for("activity", "Activity",
         proxy("activity-proxy", "https://activity.holy-grail.ch"),
         "https://activity.holy-grail.ch")
 
+# 11. Tech Stack radar (forward auth; route in Docker/Traefik/traefik/dynamic/tech-radar.yml), static pages.
+app_for("tech-radar", "Tech Stack",
+        proxy("tech-radar-proxy", "https://stack.holy-grail.ch"),
+        "https://stack.holy-grail.ch")
+
 outpost.save()
 print("OK provisioned")

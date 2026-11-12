@@ -24,6 +24,11 @@ class Sections(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(m.group(1), "Media")
 
+    def test_tech_radar_has_section_description_and_icon(self):
+        m = re.search(r'"tech-radar":\s*\("(\w+)",\s*"([^"]+)",\s*"(fa://[\w-]+)"\)', SOURCE)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.groups(), ("Utilities", "My tech stack", "fa://fa-layer-group"))
+
     def test_nextcloud_is_a_utility(self):
         self.assertEqual(re.search(r'"nextcloud":\s*\("(\w+)"', SOURCE).group(1), "Utilities")
 
