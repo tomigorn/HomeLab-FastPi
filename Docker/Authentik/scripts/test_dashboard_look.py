@@ -19,6 +19,11 @@ class PhoneScrolling(unittest.TestCase):
 
 
 class Sections(unittest.TestCase):
+    def test_activity_has_section_description_and_icon(self):
+        m = re.search(r'"activity":\s*\("(\w+)",\s*"([^"]+)",\s*"(fa://[\w-]+)"\)', SOURCE)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "Media")
+
     def test_nextcloud_is_a_utility(self):
         self.assertEqual(re.search(r'"nextcloud":\s*\("(\w+)"', SOURCE).group(1), "Utilities")
 

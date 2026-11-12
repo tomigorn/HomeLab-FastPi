@@ -32,6 +32,7 @@ APPS = {
     "tracker":           ("Media", "Ratings & watchlists" + BEEFY, None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
+    "activity":          ("Media", "Who is watching & downloading", "fa://fa-signal"),
     "nextcloud":         ("Utilities", "Files & calendar" + TOWER, None),
     "radarr":            ("Downloads · Beefy", "Film downloads" + BEEFY, None),
     "sonarr":            ("Downloads · Beefy", "Series downloads" + BEEFY, None),
