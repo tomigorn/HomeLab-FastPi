@@ -399,9 +399,17 @@ class Awake(Base):
         self.assertIn(b"<html", page)
 
     def test_access_rules_and_headers(self):
-        s, h, _ = get("/")
+        s, h, page = get("/")
         self.assertEqual(s, 200)
-        self.assertIn("frame-ancestors 'none'", h["content-security-policy"])
+        csp = h["content-security-policy"]
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertNotIn("unsafe-inline", csp)
+        import base64, hashlib, re
+        for tag, directive in (("script", "script-src"), ("style", "style-src")):
+            blocks = re.findall(rf"<{tag}>(.*?)</{tag}>".encode(), page, re.S)
+            self.assertEqual(len(blocks), 1, tag)
+            digest = base64.b64encode(hashlib.sha256(blocks[0]).digest()).decode()
+            self.assertIn(f"{directive} 'sha256-{digest}'", csp)
         self.assertEqual(h["cache-control"], "no-store")
         for path in ("/api/state", "/", "/metrics", "/health"):
             with self.assertRaises(OSError, msg=f"{path}: a peer in neither allow-list is dropped at accept"):

@@ -5,7 +5,7 @@ Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), wh
 - **URL:** https://activity.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`; LAN/VPN now, internet after [Owner steps](#owner-steps))
 - **Polls only while someone looks:** nothing (no Waker, no gate, no ABS, no qBittorrent) while nobody has the page open; see [Polling](#polling).
 - **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher.
-- Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port. Connections from addresses in neither `PAGE_ALLOW` nor `METRICS_ALLOW` are closed right after accept (no slot taken), so a neighbour on traefik_proxy cannot starve Traefik or the healthcheck.
+- Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port. Connections from addresses in neither `PAGE_ALLOW` nor `METRICS_ALLOW` are closed right after accept (no slot taken), so a neighbour on traefik_proxy cannot starve Traefik or the healthcheck. The page's Content-Security-Policy is set by the service: the one inline script and style allowed by their SHA-256 hashes (computed from the embedded page at start, `rust/src/csp.rs`), no `'unsafe-inline'`.
 
 ## Data flow
 

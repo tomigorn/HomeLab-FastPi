@@ -18,6 +18,9 @@ function playwright() {
 }
 const { chromium } = playwright();
 const PAGE = fs.readFileSync(process.env.PAGE || path.join(__dirname, "../../www/index.html"), "utf8");
+// The policy the service sends (rust/src/csp.rs): the inline script and style by hash, nothing else inline.
+const hash = (tag) => [...PAGE.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "g"))].map((m) => `'sha256-${require("node:crypto").createHash("sha256").update(m[1]).digest("base64")}'`).join(" ");
+const CSP = `default-src 'none'; script-src ${hash("script")}; style-src ${hash("style")}; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 // Zurich, Thu 12 Nov 2026 14:00 (UTC+1)
 const NOW = Date.UTC(2026, 10, 12, 13, 0, 0) / 1000;
 
@@ -39,6 +42,7 @@ async function open(answers, opts = {}) {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => { if (/Content.Security.Policy/i.test(m.text())) errors.push(m.text()); });
   if (opts.clock !== false) await page.clock.install({ time: new Date(NOW * 1000) });
   const calls = { n: 0 };
   await page.route("**/api/state", (r) => {
@@ -47,12 +51,19 @@ async function open(answers, opts = {}) {
     if (typeof a === "number") return r.fulfill({ status: a, body: "no" });
     return r.fulfill({ contentType: "application/json", body: JSON.stringify(a) });
   });
-  await page.route("http://activity.test/", (r) => r.fulfill({ contentType: "text/html", body: PAGE }));
+  await page.route("http://activity.test/", (r) => r.fulfill({ contentType: "text/html", headers: { "content-security-policy": CSP }, body: PAGE }));
   await page.goto("http://activity.test/");
   await page.waitForFunction(() => !document.getElementById("watching").textContent.includes("loading"));
   const text = async (sel) => (await page.locator(sel).innerText()).replace(/\s+/g, " ").trim();
   return { page, calls, text, errors, ctx };
 }
+
+test("the page runs under the hashed CSP without violations", async () => {
+  const p = await open([base({ watching: [{ kind: "Movie", quality: "4K HDR", mode: "direct play", paused: false, n: 1 }] })]);
+  assert.match(await p.text("#watching"), /Movie/);
+  assert.deepEqual(p.errors, []);
+  await p.ctx.close();
+});
 
 test("as of shows the time today and the day before that", async () => {
   let p = await open([base({ beefy: "asleep", beefy_data: "stale", downloads: [{ state: "downloading", kind: "Movie", quality: null, items: 1, seasons: 0, episodes: 0 }], downloads_as_of: NOW - 2 * 3600 })]);

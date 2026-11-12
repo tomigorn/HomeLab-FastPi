@@ -5,6 +5,7 @@
 mod api;
 mod beefy;
 mod client;
+mod csp;
 mod demand;
 mod local;
 mod state;
@@ -309,7 +310,8 @@ impl Drop for Alive {
 }
 
 fn respond(r: api::Resp, head: bool) -> Response<Full<Bytes>> {
-    let csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    static CSP: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    let csp = CSP.get_or_init(|| csp::policy(api::PAGE)).as_str();
     let body = if head { Bytes::new() } else { Bytes::from(r.body) };
     let mut b = Response::builder()
         .status(r.status)
