@@ -6,4 +6,4 @@ tags: [device, media]
 ---
 
 Everyday streaming box on the Sony TV.
-Plays the Jellyfin library through a native client (Moonfin, Infuse) and sends audio to the soundbar over HDMI.
+Plays the Jellyfin library through a native client (Moonfin, Infuse) and sends audio to the soundbar through the TV's eARC port.
