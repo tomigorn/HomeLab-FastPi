@@ -108,12 +108,7 @@ fn accel(t: &TranscodingInfo) -> Option<Accel> {
 /// A private, loopback or link-local address (home, VPN); None = not an address. Accepts `[v6]:port` and `v4:port`.
 pub fn is_lan(addr: &str) -> Option<bool> {
     use std::net::IpAddr;
-    let a = addr.trim();
-    let ip: IpAddr = a
-        .parse()
-        .ok()
-        .or_else(|| a.strip_prefix('[').and_then(|r| r.split_once(']')).and_then(|(h, _)| h.parse().ok()))
-        .or_else(|| a.rsplit_once(':').and_then(|(h, _)| h.parse().ok()))?;
+    let ip = ip_of(addr)?;
     let v4 = match ip {
         IpAddr::V4(v) => Some(v),
         IpAddr::V6(v) => v.to_ipv4_mapped(),
@@ -123,6 +118,20 @@ pub fn is_lan(addr: &str) -> Option<bool> {
         (None, IpAddr::V6(v)) => v.is_loopback() || (v.segments()[0] & 0xfe00) == 0xfc00 || (v.segments()[0] & 0xffc0) == 0xfe80,
         _ => false,
     })
+}
+
+fn ip_of(addr: &str) -> Option<std::net::IpAddr> {
+    let a = addr.trim();
+    let a = a.split_once('%').map_or(a, |(h, _)| h);
+    a.parse().ok().or_else(|| a.strip_prefix('[').and_then(|r| r.split_once(']')).and_then(|(h, _)| h.parse().ok())).or_else(|| a.rsplit_once(':').and_then(|(h, _)| h.parse().ok()))
+}
+
+/// Some(true) = LAN, Some(false) = remote. A tunnel peer (`TUNNEL_PEERS`, the docker gateway the Cloudflare tunnel's requests arrive from) is remote although private.
+pub fn location(addr: &str, tunnel: &crate::api::Allow) -> Option<bool> {
+    if ip_of(addr).is_some_and(|ip| tunnel.contains(ip)) {
+        return Some(false);
+    }
+    is_lan(addr)
 }
 
 /// bits/s a session sends now: the transcode's output, else the video stream plus the selected (or first) audio stream.
@@ -141,12 +150,12 @@ fn bitrate(s: &Session, item: &Item) -> Option<u64> {
 }
 
 /// Bitrate, LAN/remote and distinct users over the playing sessions; the addresses and ids die with the sessions.
-pub fn summary(sessions: &[Session]) -> WatchSummary {
+pub fn summary(sessions: &[Session], tunnel: &crate::api::Allow) -> WatchSummary {
     let mut out = WatchSummary::default();
     let mut people: HashSet<&str> = HashSet::new();
     let mut bits: Option<u64> = None;
     for (s, item) in sessions.iter().filter_map(|s| s.now_playing_item.as_ref().map(|i| (s, i))) {
-        match s.remote_end_point.as_deref().and_then(is_lan) {
+        match s.remote_end_point.as_deref().and_then(|a| location(a, tunnel)) {
             Some(true) => out.lan += 1,
             Some(false) => out.remote += 1,
             None => {}
@@ -716,6 +725,7 @@ mod tests {
             got,
             vec![
                 st(Kind::Movie, Some(Quality::Uhd4kHdr), Mode::DirectPlay, false, 2),
+                st(Kind::Movie, Some(Quality::Uhd4kHdr), Mode::DirectPlay, true, 1),
                 st(Kind::Movie, Some(Quality::Fhd1080Hdr), Mode::DirectStream, false, 1),
                 tr(st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, false, 1), Some(Accel::Qsv), &[Reason::HdrToneMap, Reason::Bitrate]),
                 tr(st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, true, 1), Some(Accel::Qsv), &[Reason::Subtitles]),
@@ -753,9 +763,27 @@ mod tests {
 
     #[test]
     fn bitrate_location_and_people_without_keeping_them() {
-        let s = summary(&sessions());
-        assert_eq!(s, WatchSummary { bitrate_kbps: Some(142_960), lan: 4, remote: 3, people: 4 }, "paused streams send nothing; direct = video + selected audio, transcode = its output bitrate");
-        assert_eq!(summary(&[]), WatchSummary { bitrate_kbps: None, lan: 0, remote: 0, people: 0 });
+        let s = summary(&sessions(), &tunnel());
+        assert_eq!(s, WatchSummary { bitrate_kbps: Some(142_960), lan: 4, remote: 4, people: 5 }, "paused streams send nothing; direct = video + selected audio, transcode = its output bitrate; the tunnel peer is remote");
+        assert_eq!(summary(&[], &tunnel()), WatchSummary { bitrate_kbps: None, lan: 0, remote: 0, people: 0 });
+        let lan_only = summary(&sessions(), &crate::api::Allow::default());
+        assert_eq!((lan_only.lan, lan_only.remote), (5, 3), "without TUNNEL_PEERS 172.24.0.1 is just a private address");
+    }
+
+    fn tunnel() -> crate::api::Allow {
+        crate::api::Allow::parse("172.24.0.1/32").unwrap()
+    }
+
+    #[test]
+    fn tunnel_peers_are_remote_other_private_addresses_lan() {
+        let loc = |a: &str| location(a, &tunnel());
+        assert_eq!(loc("172.24.0.1"), Some(false), "internet clients reach Jellyfin through the tunnel from the docker gateway");
+        assert_eq!(loc("::ffff:172.24.0.1"), Some(false));
+        assert_eq!(loc("172.24.0.5"), Some(true), "the VPN container stays LAN");
+        assert_eq!(loc("192.168.1.50"), Some(true));
+        assert_eq!(loc("fe80::1%eth0"), Some(true), "IPv6 link-local with a zone");
+        assert_eq!(loc("fd00::5"), Some(true));
+        assert_eq!(loc("203.0.113.7"), Some(false));
     }
 
     #[test]
@@ -886,8 +914,8 @@ mod tests {
     fn snapshot_has_no_titles_or_users() {
         let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false, summary: Default::default() }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
-        let out = out + &serde_json::to_string(&summary(&sessions())).unwrap();
-        for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data", "u-", "203.0.113", "192.168", "10.8.0", "fe80", "ffff"] {
+        let out = out + &serde_json::to_string(&summary(&sessions(), &tunnel())).unwrap();
+        for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data", "u-", "tess", "tablet", "omega", "172.24", "203.0.113", "192.168", "10.8.0", "fe80", "ffff"] {
             assert!(!out.contains(secret), "{secret} leaked into {out}");
         }
     }

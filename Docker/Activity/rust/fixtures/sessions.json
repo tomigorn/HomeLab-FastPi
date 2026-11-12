@@ -209,5 +209,30 @@
   },
   "UserId": "u-jane",
   "RemoteEndPoint": "192.168.1.51"
+ },
+ {
+  "Id": "s9",
+  "UserName": "Tunnel Tess",
+  "UserId": "u-tunnel",
+  "DeviceName": "Fixture Tablet",
+  "RemoteEndPoint": "172.24.0.1",
+  "NowPlayingItem": {
+   "Name": "Fixture Movie Omega",
+   "Type": "Movie",
+   "MediaStreams": [
+    {
+     "Type": "Video",
+     "Index": 0,
+     "Height": 2160,
+     "Width": 3840,
+     "VideoRangeType": "HDR10",
+     "BitRate": 30000000
+    }
+   ]
+  },
+  "PlayState": {
+   "PlayMethod": "DirectPlay",
+   "IsPaused": true
+  }
  }
 ]

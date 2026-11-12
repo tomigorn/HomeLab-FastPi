@@ -89,6 +89,7 @@ struct App {
     demand: Demand,
     poller_alive: AtomicBool,
     cache: Mutex<BeefyCache>,
+    tunnel: api::Allow,
 }
 
 impl App {
@@ -175,7 +176,7 @@ async fn fetch_request_state(gate: &BaseUrl, cache: &mut Option<(String, beefy::
 }
 
 /// One poll through the gate, one attempt per path, side by side; raw answers are dropped as soon as they are grouped.
-async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache) -> BeefyPoll {
+async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache, tunnel: &api::Allow) -> BeefyPoll {
     let at = now();
     let (sessions, rs, night, radarr, sonarr) = tokio::join!(
         fetch::<Vec<beefy::Session>>(gate, beefy::PATH_SESSIONS, SMALL),
@@ -199,7 +200,7 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache) -> BeefyPoll {
     let empty_idx = beefy::SeriesIndex::default();
     let index = cache.series.as_ref().unwrap_or(&empty_idx);
     let streams = match sessions {
-        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s) }),
+        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s, tunnel) }),
         Err(e) => {
             problems.insert(0, e);
             Err(())
@@ -248,7 +249,7 @@ async fn poll_beefy_side(app: &App, waker: Option<&BaseUrl>, gate: Option<&BaseU
     let Some(gate) = gate.filter(|_| w == WakerState::Up) else { return (false, false) };
     // single-flight: the poll loop is the only user, so the cache is taken out and put back
     let mut cache = app.cache.lock().map(|mut c| std::mem::take(&mut *c)).unwrap_or_default();
-    let p = poll_beefy(gate, &mut cache).await;
+    let p = poll_beefy(gate, &mut cache, &app.tunnel).await;
     if let Ok(mut c) = app.cache.lock() {
         *c = cache;
     }
@@ -406,6 +407,8 @@ fn main() {
         page: api::Allow::parse(&env_or("PAGE_ALLOW", "172.24.255.3/32,127.0.0.1/32")).unwrap_or_else(|e| fail(&format!("PAGE_ALLOW: {e}"))),
         metrics: api::Allow::parse(&env_or("METRICS_ALLOW", "10.24.40.0/29,127.0.0.1/32")).unwrap_or_else(|e| fail(&format!("METRICS_ALLOW: {e}"))),
     };
+    // Jellyfin reports internet clients (Cloudflare tunnel → Traefik) with the docker gateway as their address
+    let tunnel = api::Allow::parse(&env_or("TUNNEL_PEERS", "172.24.0.1/32")).unwrap_or_else(|e| fail(&format!("TUNNEL_PEERS: {e}")));
     let data = Some(env_or("DATA_DIR", "/data")).filter(|d| d != "off").map(|d| PathBuf::from(d).join("last.json"));
     let last = data.as_deref().and_then(state::load);
     if let Some(d) = &last {
@@ -425,6 +428,7 @@ fn main() {
         demand: Demand::new(poll, window),
         poller_alive: AtomicBool::new(true),
         cache: Mutex::new(BeefyCache::default()),
+        tunnel,
     });
     let src = local::Sources::new(abs, qbit);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));
