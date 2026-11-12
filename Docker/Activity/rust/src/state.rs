@@ -16,6 +16,9 @@ pub enum Kind {
     Episode,
     Anime,
     Audiobook,
+    Music,
+    #[serde(rename = "Live TV")]
+    LiveTv,
     Other,
 }
 
@@ -107,6 +110,8 @@ impl Kind {
             Kind::Episode => "Episode",
             Kind::Anime => "Anime",
             Kind::Audiobook => "Audiobook",
+            Kind::Music => "Music",
+            Kind::LiveTv => "Live TV",
             Kind::Other => "Other",
         }
     }
@@ -187,6 +192,9 @@ pub struct DownloadsPart {
     pub list: Vec<Download>,
     #[serde(default)]
     pub gaps: Gaps,
+    /// night-waiting.json `low_tariff`: the night window (22:00–06:00, Sundays all day) is open
+    #[serde(default)]
+    pub night_open: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -251,6 +259,8 @@ pub struct View {
     pub downloads_as_of: Option<i64>,
     /// what the downloads may be missing (None = no downloads)
     pub downloads_gaps: Option<Gaps>,
+    /// the night window was open at the last downloads poll (None = unknown)
+    pub night_open: Option<bool>,
     /// the live streams were grouped without the Sonarr series list (anime shows as Episode)
     pub streams_series_unavailable: bool,
     pub listening: Option<Listening>,
@@ -303,6 +313,7 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         downloads: downloads.map(|d| d.list.clone()),
         downloads_as_of: downloads.filter(|_| !downloads_live).map(|d| d.at),
         downloads_gaps: downloads.map(|d| d.gaps),
+        night_open: downloads.and_then(|d| d.night_open),
         streams_series_unavailable: live && streams.is_some_and(|s| s.series_unavailable),
         listening: local.listening.map(|sessions| Listening { sessions }),
         audiobook_downloads: local.abr,
@@ -320,7 +331,7 @@ pub fn load(path: &Path) -> Option<DownloadsPart> {
         return (s.v == SNAPSHOT_VERSION).then_some(s.downloads);
     }
     let old: SavedV1 = serde_json::from_slice(&raw).ok()?;
-    (old.v == 1).then_some(DownloadsPart { at: old.at, list: old.downloads, gaps: Gaps::default() })
+    (old.v == 1).then_some(DownloadsPart { at: old.at, list: old.downloads, gaps: Gaps::default(), night_open: None })
 }
 
 /// Atomic write: temp file in the same directory, then rename.
@@ -339,7 +350,7 @@ pub mod tests {
         StreamsPart { at, series_unavailable: false, streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1 }] }
     }
     pub fn downloads_part(at: i64) -> DownloadsPart {
-        DownloadsPart { at, gaps: Gaps::default(), list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }] }
+        DownloadsPart { at, gaps: Gaps::default(), night_open: None, list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }] }
     }
 
     const NOW: i64 = 1_794_430_000;
@@ -489,6 +500,21 @@ pub mod tests {
             assert_eq!(serde_json::to_string(&d).unwrap(), format!("\"{s}\""));
             assert_eq!(d.label(), s);
         }
+    }
+
+    #[test]
+    fn kind_strings_are_exact() {
+        for (k, s) in [(Kind::Movie, "Movie"), (Kind::Episode, "Episode"), (Kind::Anime, "Anime"), (Kind::Audiobook, "Audiobook"), (Kind::Music, "Music"), (Kind::LiveTv, "Live TV"), (Kind::Other, "Other")] {
+            assert_eq!(serde_json::to_string(&k).unwrap(), format!("\"{s}\""));
+            assert_eq!(k.label(), s);
+        }
+    }
+
+    #[test]
+    fn the_night_window_state_is_shown_with_the_downloads() {
+        let d = DownloadsPart { night_open: Some(true), ..downloads_part(NOW - 5) };
+        assert_eq!(view(NOW, None, Some(&d), WakerState::Up, &Local::default(), Polled::default()).night_open, Some(true));
+        assert_eq!(view(NOW, None, None, WakerState::Up, &Local::default(), Polled::default()).night_open, None);
     }
 
     #[test]

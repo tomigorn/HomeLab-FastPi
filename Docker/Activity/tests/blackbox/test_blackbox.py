@@ -278,7 +278,7 @@ EXPECTED_WATCHING = [
     {"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": False, "n": 1},
     {"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": True, "n": 1},
     {"kind": "Anime", "quality": "1080p SDR", "mode": "transcode (audio)", "paused": False, "n": 1},
-    {"kind": "Other", "quality": None, "mode": "direct play", "paused": False, "n": 1},
+    {"kind": "Music", "quality": None, "mode": "direct play", "paused": False, "n": 1},
 ]
 
 
@@ -292,6 +292,7 @@ class Awake(Base):
         self.assertIn({"state": "waiting for night", "kind": "Episode", "quality": None, "items": 1, "seasons": 2, "episodes": 18}, s["downloads"])
         self.assertIn({"state": "downloading", "kind": "Anime", "quality": "1080p SDR", "items": 1, "seasons": 2, "episodes": 4}, s["downloads"])
         self.assertIsNone(s["downloads_as_of"])
+        self.assertIs(s["night_open"], False, "night-waiting.json low_tariff")
         self.assertEqual(s["listening"], {"sessions": 3})
         self.assertEqual(s["audiobook_downloads"], ABR)
 

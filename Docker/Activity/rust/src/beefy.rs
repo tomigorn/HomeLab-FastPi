@@ -144,11 +144,13 @@ fn is_hdr(range: Option<&str>, range_type: Option<&str>) -> bool {
 fn stream_of(s: &Session, anime: &SeriesIndex) -> Option<Stream> {
     let item = s.now_playing_item.as_ref()?;
     let video = item.media_streams.as_deref().unwrap_or_default().iter().find(|m| m.kind.as_deref() == Some("Video"));
-    let kind = match (item.kind.as_deref(), video) {
-        (_, None) => Kind::Other,
-        (Some("Movie"), _) => Kind::Movie,
-        (Some("Episode"), _) if anime.is_anime_item(item) => Kind::Anime,
-        (Some("Episode"), _) => Kind::Episode,
+    let kind = match item.kind.as_deref() {
+        Some("Movie") => Kind::Movie,
+        Some("Episode") if anime.is_anime_item(item) => Kind::Anime,
+        Some("Episode") => Kind::Episode,
+        Some("Audio") => Kind::Music,
+        Some("AudioBook") => Kind::Audiobook,
+        Some("TvChannel" | "LiveTvChannel" | "Program" | "LiveTvProgram") => Kind::LiveTv,
         _ => Kind::Other,
     };
     let quality = video.and_then(|v| {
@@ -315,9 +317,15 @@ impl RequestState {
 #[serde(default)]
 pub struct NightWaiting {
     waiting: Option<Vec<String>>,
+    low_tariff: Option<bool>,
 }
 
 impl NightWaiting {
+    /// The night window is open (night-downloads.py `low_tariff`).
+    pub fn open(&self) -> Option<bool> {
+        self.low_tariff
+    }
+
     pub fn ids(&self) -> HashSet<String> {
         self.waiting.iter().flatten().map(|s| s.to_lowercase()).collect()
     }
@@ -516,11 +524,19 @@ mod tests {
     }
 
     #[test]
-    fn session_without_video_is_other() {
+    fn sessions_are_kinds_by_item_type() {
+        let kind = |t: &str| one(&format!(r#"{{"NowPlayingItem":{{"Type":"{t}","MediaStreams":[{{"Type":"Audio"}}]}},"PlayState":{{"PlayMethod":"DirectPlay"}}}}"#))[0].kind;
+        assert_eq!(kind("Audio"), Kind::Music);
+        assert_eq!(kind("AudioBook"), Kind::Audiobook);
+        assert_eq!(kind("TvChannel"), Kind::LiveTv);
+        assert_eq!(kind("LiveTvChannel"), Kind::LiveTv);
+        assert_eq!(kind("Program"), Kind::LiveTv);
+        assert_eq!(kind("MusicVideo"), Kind::Other);
+        assert_eq!(kind("Trailer"), Kind::Other);
         let s = one(r#"{"NowPlayingItem":{"Type":"AudioBook","MediaStreams":[{"Type":"Audio"}]},"PlayState":{"PlayMethod":"DirectPlay"}}"#);
-        assert_eq!(s, vec![st(Kind::Other, None, Mode::DirectPlay, false, 1)]);
+        assert_eq!(s, vec![st(Kind::Audiobook, None, Mode::DirectPlay, false, 1)]);
         let s = one(r#"{"NowPlayingItem":{"Type":"Movie","MediaStreams":null},"PlayState":null}"#);
-        assert_eq!(s, vec![st(Kind::Other, None, Mode::DirectPlay, false, 1)]);
+        assert_eq!(s, vec![st(Kind::Movie, None, Mode::DirectPlay, false, 1)], "the type decides; no video stream known = no quality");
         assert_eq!(one(r#"{"UserName":"Idle","PlayState":{}}"#), vec![], "a session without a playing item is no stream");
     }
 
@@ -547,7 +563,7 @@ mod tests {
                 st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, false, 1),
                 st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, true, 1),
                 st(Kind::Anime, Some(Quality::Fhd1080Sdr), Mode::TranscodeAudio, false, 1),
-                st(Kind::Other, None, Mode::DirectPlay, false, 1),
+                st(Kind::Music, None, Mode::DirectPlay, false, 1),
             ]
         );
         assert!(wants_series(&sessions()));
@@ -640,6 +656,13 @@ mod tests {
     }
 
     #[test]
+    fn night_window_state_from_night_waiting() {
+        assert_eq!(serde_json::from_str::<NightWaiting>(NIGHT).unwrap().open(), Some(false));
+        assert_eq!(serde_json::from_str::<NightWaiting>(r#"{"waiting":[],"low_tariff":true}"#).unwrap().open(), Some(true));
+        assert_eq!(serde_json::from_str::<NightWaiting>(r#"{"waiting":[]}"#).unwrap().open(), None);
+    }
+
+    #[test]
     fn empty_and_null_sources_give_nothing() {
         let q: Queue = serde_json::from_str(r#"{"records":null}"#).unwrap();
         let rs: RequestState = serde_json::from_str("{}").unwrap();
@@ -650,7 +673,7 @@ mod tests {
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default() });
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
         for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data"] {
             assert!(!out.contains(secret), "{secret} leaked into {out}");

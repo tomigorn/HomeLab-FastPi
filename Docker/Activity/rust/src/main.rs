@@ -206,6 +206,7 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache) -> BeefyPoll {
         }
     };
     let night_unavailable = night.is_err();
+    let night_open = night.as_ref().ok().and_then(|n| n.open());
     let night = night.map(|n| n.ids()).unwrap_or_else(|e| {
         problems.push(e);
         HashSet::new()
@@ -220,7 +221,7 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache) -> BeefyPoll {
                 }
             }
             let gaps = state::Gaps { series_unavailable, night_unavailable, truncated };
-            Ok(DownloadsPart { at, list: beefy::downloads(&radarr, &sonarr, &rs, index, &night), gaps })
+            Ok(DownloadsPart { at, list: beefy::downloads(&radarr, &sonarr, &rs, index, &night), gaps, night_open })
         }
         (rs, radarr, sonarr) => {
             problems.extend([rs.err(), radarr.err(), sonarr.err()].into_iter().flatten());

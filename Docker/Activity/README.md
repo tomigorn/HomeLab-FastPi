@@ -76,7 +76,7 @@ The last downloads are kept in the volume `activity_data` (`/data/last.json`, `{
 
 | Field | Values |
 |---|---|
-| kind | `Movie`, `Episode` (series), `Anime`, `Other` (no video stream: music, audiobooks in Jellyfin) |
+| kind | by the Jellyfin item type: `Movie`, `Episode` (series), `Anime`, `Music` (Audio), `Audiobook` (AudioBook), `Live TV` (TvChannel, LiveTvChannel, Program, LiveTvProgram), `Other` (music videos, trailers, …); quality only when a video stream is known |
 | quality | `4K HDR`, `4K SDR`, `1080p HDR`, `1080p SDR`, `720p`, `SD`: height ≥ 2000 or width ≥ 3800 → 4K, ≥ 1000 / 1900 → 1080p, ≥ 700 / 1260 → 720p (width catches letterboxed films); HDR = VideoRangeType HDR10/HDR10+/DOVI*/HLG; queue items: Radarr/Sonarr resolution, HDR from the custom format names (HDR, DV, Dolby Vision, HLG); waiting requests have no quality yet |
 | mode | `direct play`, `direct stream`, `transcode`, `transcode (audio)` (Transcode with `IsVideoDirect`) |
 | state | `downloading`, `importing`, `queued`, `stalled`, `paused`, `waiting for night`, `waiting for release`, `problem` |
@@ -86,6 +86,7 @@ The last downloads are kept in the volume `activity_data` (`/data/last.json`, `{
 | Jellyfin sessions | only sessions with a playing item; paused = `PlayState.IsPaused` |
 | Anime | Sonarr `seriesType == "anime"`: queue items by their series, playing episodes by series name or series folder in the item path, requests by tmdb id; unknown → `Episode` |
 | Queue state | see the table below; a title with several records shows the highest: problem > stalled > importing > downloading > queued > paused > waiting for night |
+| Night window | `night-waiting.json` `low_tariff` → `night_open` (22:00–06:00 and Sundays, night-downloads.py on beefy); the page shows "from 22:05" (fastpi's night-download wake of beefy) while closed |
 | Requests | `request-state.json`: `unreleased` + `noRelease` → waiting for release; `canWait` → waiting for night; titles already in its `queue` are counted from the arr queues |
 | Series counts | queue: distinct series, seasons, episode records; waiting for night: missing episodes of the monitored seasons (specials skipped) |
 | Listening | ABS open sessions (and share sessions) synced within 5 min (ABS keeps stale sessions open 36 h) |
