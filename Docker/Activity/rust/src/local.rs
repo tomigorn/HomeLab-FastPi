@@ -7,14 +7,16 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::client::{self, BaseUrl};
-use crate::state::Local;
+use crate::state::{Abr, Local};
 
 pub const TIMEOUT: Duration = Duration::from_secs(3);
 /// An open ABS session counts as listening when its progress was synced within this window (ABS keeps stale sessions open for 36 h).
 pub const ACTIVE_MS: i64 = 5 * 60 * 1000;
 const LIMIT: usize = 4 << 20;
-const DOWNLOADING: [&str; 7] = ["downloading", "stalledDL", "metaDL", "forcedDL", "forcedMetaDL", "allocating", "checkingDL"];
+const DOWNLOADING: [&str; 9] = ["downloading", "stalledDL", "metaDL", "forcedDL", "forcedMetaDL", "allocating", "checkingDL", "moving", "checkingResumeData"];
 const QUEUED: [&str; 1] = ["queuedDL"];
+const PAUSED: [&str; 2] = ["stoppedDL", "pausedDL"];
+const PROBLEM: [&str; 2] = ["error", "missingFiles"];
 
 #[derive(Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
@@ -42,11 +44,11 @@ pub fn count_abs(body: &[u8], now_ms: i64) -> Result<u32, String> {
     Ok(n as u32)
 }
 
-/// qBittorrent `GET /api/v2/torrents/info?category=abr`: (downloading, queued).
-pub fn count_qbit(body: &[u8]) -> Result<(u32, u32), String> {
+/// qBittorrent `GET /api/v2/torrents/info?category=abr`: unfinished torrents by state (seeding and finished ones are not counted).
+pub fn count_qbit(body: &[u8]) -> Result<Abr, String> {
     let t: Vec<Torrent> = serde_json::from_slice(body).map_err(|_| "unreadable answer".to_string())?;
     let count = |set: &[&str]| t.iter().filter(|t| t.state.as_deref().is_some_and(|s| set.contains(&s))).count() as u32;
-    Ok((count(&DOWNLOADING), count(&QUEUED)))
+    Ok(Abr { downloading: count(&DOWNLOADING), queued: count(&QUEUED), paused: count(&PAUSED), problem: count(&PROBLEM) })
 }
 
 fn read_secret(path: &PathBuf) -> Result<String, String> {
@@ -72,7 +74,7 @@ impl Sources {
         count_abs(&body, now_ms)
     }
 
-    async fn qbit(&self) -> Result<(u32, u32), String> {
+    async fn qbit(&self) -> Result<Abr, String> {
         let base = self.qbit.as_ref().ok_or("not configured")?;
         let body = client::get(base, "/api/v2/torrents/info?category=abr", &[("accept", "application/json")], LIMIT, TIMEOUT).await?;
         count_qbit(&body)
@@ -88,14 +90,14 @@ impl Sources {
                 None
             }
         };
-        let (abr_downloading, abr_queued) = match self.qbit().await {
-            Ok((d, q)) => (Some(d), Some(q)),
+        let abr = match self.qbit().await {
+            Ok(a) => Some(a),
             Err(e) => {
                 errors.push(format!("qbittorrent: {e}"));
-                (None, None)
+                None
             }
         };
-        (Local { listening, abr_downloading, abr_queued }, errors)
+        (Local { listening, abr }, errors)
     }
 }
 
@@ -118,8 +120,8 @@ mod tests {
 
     #[test]
     fn qbit_abr_downloading_and_queued_counted() {
-        assert_eq!(count_qbit(QBIT.as_bytes()), Ok((3, 1)), "downloading + stalledDL + metaDL; queuedDL; seeding ignored");
-        assert_eq!(count_qbit(b"[]"), Ok((0, 0)));
+        assert_eq!(count_qbit(QBIT.as_bytes()), Ok(Abr { downloading: 5, queued: 1, paused: 2, problem: 2 }), "downloading + stalledDL + metaDL + moving + checkingResumeData; queuedDL; stoppedDL + pausedDL; error + missingFiles; seeding ignored");
+        assert_eq!(count_qbit(b"[]"), Ok(Abr::default()));
         assert!(count_qbit(b"Forbidden").is_err());
     }
 
@@ -157,7 +159,7 @@ mod tests {
             Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/activity/qbit")).unwrap()),
         );
         let (local, errors) = src.refresh(0).await;
-        assert_eq!(local, Local { listening: None, abr_downloading: Some(3), abr_queued: Some(1) }, "{errors:?}");
+        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2 }) }, "{errors:?}");
         assert_eq!(errors.len(), 1);
         assert!(errors[0].starts_with("audiobookshelf: "), "{errors:?}");
         let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()));

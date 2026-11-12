@@ -79,17 +79,32 @@ The last downloads are kept in the volume `activity_data` (`/data/last.json`, `{
 | kind | `Movie`, `Episode` (series), `Anime`, `Other` (no video stream: music, audiobooks in Jellyfin) |
 | quality | `4K HDR`, `4K SDR`, `1080p HDR`, `1080p SDR`, `720p`, `SD`: height ≥ 2000 or width ≥ 3800 → 4K, ≥ 1000 / 1900 → 1080p, ≥ 700 / 1260 → 720p (width catches letterboxed films); HDR = VideoRangeType HDR10/HDR10+/DOVI*/HLG; queue items: Radarr/Sonarr resolution, HDR from the custom format names (HDR, DV, Dolby Vision, HLG); waiting requests have no quality yet |
 | mode | `direct play`, `direct stream`, `transcode`, `transcode (audio)` (Transcode with `IsVideoDirect`) |
-| state | `downloading`, `importing`, `waiting for night`, `waiting for release`, `problem` |
+| state | `downloading`, `importing`, `queued`, `stalled`, `paused`, `waiting for night`, `waiting for release`, `problem` |
 
 | Source | Rule |
 |---|---|
 | Jellyfin sessions | only sessions with a playing item; paused = `PlayState.IsPaused` |
 | Anime | Sonarr `seriesType == "anime"`: queue items by their series, playing episodes by series name or series folder in the item path, requests by tmdb id; unknown → `Episode` |
-| Queue state | as `night-downloads.py`: import blocked/failed → problem > importPending/importing → importing > paused and download id in `night-waiting.json` → waiting for night > downloading |
+| Queue state | see the table below; a title with several records shows the highest: problem > stalled > importing > downloading > queued > paused > waiting for night |
 | Requests | `request-state.json`: `unreleased` + `noRelease` → waiting for release; `canWait` → waiting for night; titles already in its `queue` are counted from the arr queues |
 | Series counts | queue: distinct series, seasons, episode records; waiting for night: missing episodes of the monitored seasons (specials skipped) |
 | Listening | ABS open sessions (and share sessions) synced within 5 min (ABS keeps stale sessions open 36 h) |
-| Audiobook downloads | qBittorrent category `abr`: downloading = downloading, stalledDL, metaDL, forcedDL, forcedMetaDL, allocating, checkingDL; queued = queuedDL |
+| Audiobook downloads | qBittorrent category `abr`: downloading = downloading, stalledDL, metaDL, forcedDL, forcedMetaDL, allocating, checkingDL, moving, checkingResumeData; queued = queuedDL; paused = stoppedDL, pausedDL; problem = error, missingFiles; seeding and finished ones are not counted |
+
+Radarr/Sonarr v3 queue records (`trackedDownloadState`, `trackedDownloadStatus`, `status` from the download client), first match wins:
+
+| Record | State |
+|---|---|
+| tracked state `imported` or `ignored` | not shown (done) |
+| tracked state importBlocked, failedPending, failed; tracked status `error`; status `failed` | problem |
+| tracked state importPending, importing; status `completed` | importing |
+| status `paused`, download id in `night-waiting.json` | waiting for night |
+| status `paused`, otherwise (paused by hand) | paused |
+| status `queued` (client queue) or `delay` (delay profile) | queued |
+| status `warning` (e.g. stalled, no connections) or `downloadClientUnavailable`; tracked status `warning` | stalled |
+| anything else | downloading |
+
+Gaps are flagged in `downloads_gaps` and named under Downloads: `truncated` (a queue reports more records than its page: `pageSize` 200 Radarr / 500 Sonarr, fixed by the gate contract), `series_unavailable` (no anime, no season counts; also `streams_series_unavailable` for the streams), `night_unavailable` (night-held items show as paused). Each also gets one log line per change ("beefy poll incomplete: …").
 
 ## Gate path contract
 
@@ -99,10 +114,10 @@ The gate on beefy (`activity-gate`, port 8095; 8097 is jellyfin-popular) allow-l
 |---|---|---|
 | `/jellyfin/Sessions?ActiveWithinSeconds=60` | Jellyfin `/Sessions` | yes |
 | `/seerr/request-state.json` | Seerr bar `/srv/appdata/indexer-bar/request-state.json` | yes |
-| `/seerr/night-waiting.json` | Seerr bar `/srv/appdata/indexer-bar/night-waiting.json` | no (paused items count as downloading) |
+| `/seerr/night-waiting.json` | Seerr bar `/srv/appdata/indexer-bar/night-waiting.json` | no (night-held items show as paused, flagged) |
 | `/radarr/api/v3/queue?pageSize=200&includeMovie=true` | Radarr | yes |
 | `/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true` | Sonarr | yes |
-| `/sonarr/api/v3/series` | Sonarr, only when an episode plays or a series request waits | no (no anime, no series counts) |
+| `/sonarr/api/v3/series` | Sonarr, only when an episode plays or a series request waits | no (no anime, no series counts, flagged) |
 
 Paths are asked side by side (the series list after the others, only when needed). Sessions failing = no new streams for that tick; request state or a queue failing = no new downloads for that tick (the last ones stay, "as of"). One log line per change names the failed paths.
 
@@ -138,6 +153,6 @@ LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 
 ## Metrics
 
-Last-known values (from the last poll, `activity_last_poll_timestamp_seconds`; nothing is refreshed while nobody views): `activity_viewer_active` (1 = page viewed within 120 s, polling), `activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `quality="unknown"` = no quality known (waiting requests, a stream or queue item without resolution), `activity_listening_sessions`, `activity_audiobook_downloads{state}`. Job `activity` in `../grafana/prometheus/prometheus.yml`.
+Last-known values (from the last poll, `activity_last_poll_timestamp_seconds`; nothing is refreshed while nobody views): `activity_viewer_active` (1 = page viewed within 120 s, polling), `activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `quality="unknown"` = no quality known (waiting requests, a stream or queue item without resolution), `activity_listening_sessions`, `activity_audiobook_downloads{state}` (downloading, queued, paused, problem). Job `activity` in `../grafana/prometheus/prometheus.yml`.
 
 No alerts on these: without a viewer the data is stale by design, and with one the page shows the failure itself. The service down is `TargetDown`/`ContainerDown`; broken routes show in the post-update checks (`activity.waker-route`, `activity.qbit-route`).

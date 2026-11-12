@@ -129,6 +129,12 @@ class World:
             return 503, [], b"gate down"
         if self.gate_mode == "sonarr-down" and path.startswith("/sonarr/api/v3/queue"):
             return 503, [], b"sonarr restarting"
+        if self.gate_mode == "gaps" and path in ("/sonarr/api/v3/series", "/seerr/night-waiting.json"):
+            return 503, [], b"busy"
+        if self.gate_mode == "gaps" and path.startswith("/radarr/"):
+            q = json.loads((FIX / "radarr-queue.json").read_text())
+            q["totalRecords"] = 999
+            return 200, [("Content-Type", "application/json")], json.dumps(q).encode()
         if self.gate_mode == "huge" and path.startswith("/radarr/"):
             return 200, [("Content-Type", "application/json")], b'{"records": [' + b'{"movieId": 1, "title": "Fixture filler"},' * 120000 + b"{}]}"
         name = CONTRACT.get(path)
@@ -254,6 +260,7 @@ class Base(unittest.TestCase):
         return box["s"]
 
 
+ABR = {"downloading": 5, "queued": 1, "paused": 2, "problem": 2}
 EXPECTED_WATCHING = [
     {"kind": "Movie", "quality": "4K HDR", "mode": "direct play", "paused": False, "n": 2},
     {"kind": "Movie", "quality": "1080p HDR", "mode": "direct stream", "paused": False, "n": 1},
@@ -269,12 +276,13 @@ class Awake(Base):
         s = self.wait_state(lambda s: s["beefy_data"] == "live" and s["listening"] is not None and s["audiobook_downloads"] is not None)
         self.assertEqual(s["beefy"], "up")
         self.assertEqual(s["watching"], EXPECTED_WATCHING)
-        self.assertEqual(len(s["downloads"]), 11)
+        self.assertEqual(len(s["downloads"]), 15)
+        self.assertEqual(s["downloads_gaps"], {"series_unavailable": False, "night_unavailable": False, "truncated": False})
         self.assertIn({"state": "waiting for night", "kind": "Episode", "quality": None, "items": 1, "seasons": 2, "episodes": 18}, s["downloads"])
         self.assertIn({"state": "downloading", "kind": "Anime", "quality": "1080p SDR", "items": 1, "seasons": 2, "episodes": 4}, s["downloads"])
         self.assertIsNone(s["downloads_as_of"])
         self.assertEqual(s["listening"], {"sessions": 3})
-        self.assertEqual(s["audiobook_downloads"], {"downloading": 3, "queued": 1})
+        self.assertEqual(s["audiobook_downloads"], ABR)
 
     def test_gate_requests_are_contract_gets_with_connection_close(self):
         self.wait_state(lambda s: s["beefy_data"] == "live")
@@ -325,6 +333,20 @@ class Awake(Base):
         time.sleep(1.5)
         self.assertEqual(state()["downloads"], live["downloads"])
         self.assertIn("/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true: HTTP 503", self.sut.log())
+
+    def test_gaps_are_flagged_and_logged(self):
+        W.gate_mode = "gaps"
+        s = self.wait_state(lambda s: s["downloads"] is not None)
+        self.assertEqual(s["downloads_gaps"], {"series_unavailable": True, "night_unavailable": True, "truncated": True})
+        self.assertTrue(s["streams_series_unavailable"])
+        self.assertEqual(s["beefy_data"], "live", "a missing series list does not fail the streams")
+        kinds = {w["kind"] for w in s["watching"]}
+        self.assertNotIn("Anime", kinds, "without the series list anime counts as Episode")
+        log = self.sut.log()
+        self.assertIn("beefy poll incomplete: /sonarr/api/v3/series: HTTP 503", log)
+        self.assertIn("/seerr/night-waiting.json: HTTP 503", log)
+        self.assertIn("radarr queue truncated: 9 of 999 records", log)
+        self.assertEqual(log.count("beefy poll incomplete"), 1, "once per change")
 
     def test_oversized_answer_fails_the_poll_without_crash(self):
         W.gate_mode = "huge"
@@ -541,7 +563,7 @@ class LocalSources(Base):
         W.abs_mode = "deny"
         s = self.wait_state(lambda s: s["audiobook_downloads"] is not None and s["listening"] is None)
         self.assertIsNone(s["listening"])
-        self.assertEqual(s["audiobook_downloads"], {"downloading": 3, "queued": 1})
+        self.assertEqual(s["audiobook_downloads"], ABR)
         self.assertEqual(s["beefy"], "asleep")
         self.assertIn("local source unavailable: audiobookshelf: HTTP 401", self.sut.log())
 
@@ -552,7 +574,7 @@ class QbitThroughTraefik(Base):
 
     def test_qbit_counted_without_login_or_cookie(self):
         s = self.wait_state(lambda s: s["audiobook_downloads"] is not None)
-        self.assertEqual(s["audiobook_downloads"], {"downloading": 3, "queued": 1})
+        self.assertEqual(s["audiobook_downloads"], ABR)
         seen = W.qbit.seen()
         self.assertTrue(seen)
         for method, path, h in seen:

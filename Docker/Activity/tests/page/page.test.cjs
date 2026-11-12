@@ -94,3 +94,21 @@ test("an awake beefy without live data is asked again after 5 s, not 30 s", asyn
   assert.equal(p.calls.n, 2, "live: back to every 30 s");
   await p.ctx.close();
 });
+
+test("queued, stalled and paused queue items and audiobook problems get their own rows", async () => {
+  const d = (state) => ({ state, kind: "Movie", quality: null, items: 1, seasons: 0, episodes: 0 });
+  const p = await open([base({ downloads: [d("queued"), d("stalled"), d("paused")], audiobook_downloads: { downloading: 0, queued: 0, paused: 1, problem: 2 } })]);
+  const t = await p.text("#downloads");
+  for (const want of [/queued/, /stalled/, /paused/, /Audiobook\s*problem/]) assert.match(t, want);
+  assert.equal(await p.page.locator("#downloads tr").count(), 5);
+  await p.ctx.close();
+});
+
+test("gaps in the downloads are named", async () => {
+  const p = await open([base({ downloads: [], downloads_gaps: { series_unavailable: true, night_unavailable: true, truncated: true }, streams_series_unavailable: true })]);
+  const t = await p.text("#downloads");
+  assert.match(t, /more in the queue than shown/);
+  assert.match(t, /series list unavailable/);
+  assert.match(t, /night list unavailable/);
+  await p.ctx.close();
+});

@@ -53,8 +53,8 @@
 </main>
 <script>
 "use strict";
-const STATE_ICON = { "downloading": "⬇️", "importing": "📥", "waiting for night": "🌙", "waiting for release": "📅", "problem": "⚠️" };
-const STATE_ORDER = ["downloading", "importing", "waiting for night", "waiting for release", "problem"];
+const STATE_ICON = { "downloading": "⬇️", "importing": "📥", "queued": "⏳", "stalled": "🐢", "paused": "⏸", "waiting for night": "🌙", "waiting for release": "📅", "problem": "⚠️" };
+const STATE_ORDER = ["downloading", "importing", "queued", "stalled", "paused", "waiting for night", "waiting for release", "problem"];
 const DL_KIND = { "Movie": "Movie", "Episode": "Series", "Anime": "Anime series", "Audiobook": "Audiobook", "Other": "Other" };
 const REQUESTS = "https://requests.holy-grail.ch/requests";
 
@@ -141,6 +141,8 @@ function downloads(s) {
     const a = s.audiobook_downloads;
     if (a.downloading) rows.push(["⬇️", "Audiobook", "downloading", a.downloading]);
     if (a.queued) rows.push(["⏳", "Audiobook", "queued", a.queued]);
+    if (a.paused) rows.push(["⏸", "Audiobook", "paused", a.paused]);
+    if (a.problem) rows.push(["⚠️", "Audiobook", "problem (error or missing files)", a.problem]);
   }
   const list = (s.downloads || []).slice().sort((x, y) => STATE_ORDER.indexOf(x.state) - STATE_ORDER.indexOf(y.state));
   for (const d of list) {
@@ -157,6 +159,10 @@ function downloads(s) {
   } else if (s.downloads !== null || s.audiobook_downloads) {
     box.append(empty("nothing downloading"));
   }
+  const g = s.downloads_gaps || {};
+  if (g.truncated) box.append(el("p", { class: "note" }, "⚠️ more in the queue than shown (queue page full)"));
+  if (g.series_unavailable) box.append(el("p", { class: "note" }, "⚠️ Sonarr series list unavailable: anime counted as series, no season counts"));
+  if (g.night_unavailable) box.append(el("p", { class: "note" }, "⚠️ night list unavailable: items held for the night show as paused"));
   if (s.downloads === null) box.append(el("p", { class: "note" }, "❔ beefy downloads unavailable (no data yet)"));
   else if (s.downloads_as_of) box.append(el("p", { class: "note" }, "beefy part as of " + when(s.downloads_as_of, s.now) + (s.beefy === "asleep" ? " (beefy asleep)" : "")));
   if (!s.audiobook_downloads) box.append(el("p", { class: "note" }, "❔ audiobook downloads unavailable"));

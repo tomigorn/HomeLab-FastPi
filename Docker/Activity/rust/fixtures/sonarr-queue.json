@@ -1,7 +1,7 @@
 {
  "page": 1,
  "pageSize": 500,
- "totalRecords": 8,
+ "totalRecords": 10,
  "records": [
   {
    "id": 10,
@@ -200,6 +200,55 @@
     "quality": {
      "resolution": 1080
     }
+   }
+  },
+  {
+   "id": 40,
+   "seriesId": 207,
+   "episodeId": 2700,
+   "seasonNumber": 1,
+   "title": "Fixture.Show.Queued.S01E01.1080p",
+   "status": "queued",
+   "trackedDownloadStatus": "ok",
+   "trackedDownloadState": "downloading",
+   "downloadId": "Q1",
+   "quality": {
+    "quality": {
+     "resolution": 1080
+    }
+   },
+   "customFormats": [],
+   "series": {
+    "title": "Fixture Show Queued",
+    "seriesType": "standard"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 1
+   }
+  },
+  {
+   "id": 41,
+   "seriesId": 208,
+   "episodeId": 2800,
+   "seasonNumber": 1,
+   "title": "Fixture.Show.Ignored.S01E01.1080p",
+   "status": "completed",
+   "trackedDownloadStatus": "warning",
+   "trackedDownloadState": "ignored",
+   "downloadId": "IGN1",
+   "quality": {
+    "quality": {
+     "resolution": 1080
+    }
+   },
+   "series": {
+    "title": "Fixture Show Ignored",
+    "seriesType": "standard"
+   },
+   "episode": {
+    "seasonNumber": 1,
+    "episodeNumber": 1
    }
   }
  ]

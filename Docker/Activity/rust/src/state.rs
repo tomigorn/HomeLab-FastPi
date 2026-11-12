@@ -53,6 +53,15 @@ pub enum DlState {
     Downloading,
     #[serde(rename = "importing")]
     Importing,
+    /// waiting to start: the client's queue, or a delay profile holding the release back
+    #[serde(rename = "queued")]
+    Queued,
+    /// the client reports a warning (stalled, no connections) or is unavailable
+    #[serde(rename = "stalled")]
+    Stalled,
+    /// paused in the client, not by the night rules
+    #[serde(rename = "paused")]
+    Paused,
     #[serde(rename = "waiting for night")]
     WaitingNight,
     #[serde(rename = "waiting for release")]
@@ -119,6 +128,9 @@ impl DlState {
         match self {
             DlState::Downloading => "downloading",
             DlState::Importing => "importing",
+            DlState::Queued => "queued",
+            DlState::Stalled => "stalled",
+            DlState::Paused => "paused",
             DlState::WaitingNight => "waiting for night",
             DlState::WaitingRelease => "waiting for release",
             DlState::Problem => "problem",
@@ -153,6 +165,18 @@ pub struct Download {
 pub struct StreamsPart {
     pub at: i64,
     pub streams: Vec<Stream>,
+    /// the Sonarr series list was not available: anime counts as Episode
+    #[serde(default)]
+    pub series_unavailable: bool,
+}
+
+/// What a downloads part may be missing: the series list (anime, series counts), the night list (night-held items look paused), or queue records beyond the page.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Gaps {
+    pub series_unavailable: bool,
+    pub night_unavailable: bool,
+    pub truncated: bool,
 }
 
 /// The queue side of one successful poll of beefy; kept on disk for "as of" after a restart.
@@ -161,6 +185,8 @@ pub struct StreamsPart {
 pub struct DownloadsPart {
     pub at: i64,
     pub list: Vec<Download>,
+    #[serde(default)]
+    pub gaps: Gaps,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -189,23 +215,25 @@ pub enum WakerState {
     Unknown,
 }
 
+/// qBittorrent category abr torrents by state.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Abr {
+    pub downloading: u32,
+    pub queued: u32,
+    pub paused: u32,
+    pub problem: u32,
+}
+
 /// fastpi-local audiobook figures; None = source unavailable.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Local {
     pub listening: Option<u32>,
-    pub abr_downloading: Option<u32>,
-    pub abr_queued: Option<u32>,
+    pub abr: Option<Abr>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Listening {
     pub sessions: u32,
-}
-
-#[derive(Debug, PartialEq, Serialize)]
-pub struct AudiobookDownloads {
-    pub downloading: u32,
-    pub queued: u32,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -221,8 +249,12 @@ pub struct View {
     pub downloads: Option<Vec<Download>>,
     /// set when `downloads` is the last known state, not live
     pub downloads_as_of: Option<i64>,
+    /// what the downloads may be missing (None = no downloads)
+    pub downloads_gaps: Option<Gaps>,
+    /// the live streams were grouped without the Sonarr series list (anime shows as Episode)
+    pub streams_series_unavailable: bool,
     pub listening: Option<Listening>,
-    pub audiobook_downloads: Option<AudiobookDownloads>,
+    pub audiobook_downloads: Option<Abr>,
     /// when the last poll finished (None = no poll since the start)
     pub polled_at: Option<i64>,
     /// the Waker says up (past the warm-up) but the last poll got no sessions / no queues from the gate
@@ -257,10 +289,6 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         (false, WakerState::Down | WakerState::Waking) => Some(Vec::new()),
         _ => None,
     };
-    let audiobook_downloads = match (local.abr_downloading, local.abr_queued) {
-        (Some(downloading), Some(queued)) => Some(AudiobookDownloads { downloading, queued }),
-        _ => None,
-    };
     View {
         now,
         beefy: match waker {
@@ -274,8 +302,10 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         watching,
         downloads: downloads.map(|d| d.list.clone()),
         downloads_as_of: downloads.filter(|_| !downloads_live).map(|d| d.at),
+        downloads_gaps: downloads.map(|d| d.gaps),
+        streams_series_unavailable: live && streams.is_some_and(|s| s.series_unavailable),
         listening: local.listening.map(|sessions| Listening { sessions }),
-        audiobook_downloads,
+        audiobook_downloads: local.abr,
         polled_at: polled.at,
         streams_failed: up && !warming && polled.streams_failed,
         downloads_failed: up && !warming && polled.downloads_failed,
@@ -290,7 +320,7 @@ pub fn load(path: &Path) -> Option<DownloadsPart> {
         return (s.v == SNAPSHOT_VERSION).then_some(s.downloads);
     }
     let old: SavedV1 = serde_json::from_slice(&raw).ok()?;
-    (old.v == 1).then_some(DownloadsPart { at: old.at, list: old.downloads })
+    (old.v == 1).then_some(DownloadsPart { at: old.at, list: old.downloads, gaps: Gaps::default() })
 }
 
 /// Atomic write: temp file in the same directory, then rename.
@@ -306,10 +336,10 @@ pub mod tests {
     use super::*;
 
     pub fn streams_part(at: i64) -> StreamsPart {
-        StreamsPart { at, streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1 }] }
+        StreamsPart { at, series_unavailable: false, streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1 }] }
     }
     pub fn downloads_part(at: i64) -> DownloadsPart {
-        DownloadsPart { at, list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }] }
+        DownloadsPart { at, gaps: Gaps::default(), list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }] }
     }
 
     const NOW: i64 = 1_794_430_000;
@@ -399,12 +429,25 @@ pub mod tests {
 
     #[test]
     fn view_local_figures_or_unavailable() {
-        let l = Local { listening: Some(2), abr_downloading: Some(1), abr_queued: Some(3) };
+        let abr = Abr { downloading: 1, queued: 3, paused: 1, problem: 0 };
+        let l = Local { listening: Some(2), abr: Some(abr) };
         let x = view(NOW, None, None, WakerState::Down, &l, Polled::default());
         assert_eq!(x.listening, Some(Listening { sessions: 2 }));
-        assert_eq!(x.audiobook_downloads, Some(AudiobookDownloads { downloading: 1, queued: 3 }));
+        assert_eq!(x.audiobook_downloads, Some(abr));
         let x = view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default());
         assert_eq!((x.listening, x.audiobook_downloads), (None, None));
+    }
+
+    #[test]
+    fn gaps_in_the_downloads_are_shown() {
+        let mut d = downloads_part(NOW - 5);
+        d.gaps = Gaps { series_unavailable: true, night_unavailable: false, truncated: true };
+        let x = view(NOW, None, Some(&d), WakerState::Up, &Local::default(), Polled::default());
+        assert_eq!(x.downloads_gaps, Some(Gaps { series_unavailable: true, night_unavailable: false, truncated: true }));
+        let j = serde_json::to_string(&x).unwrap();
+        assert!(j.contains(r#""downloads_gaps":{"series_unavailable":true,"night_unavailable":false,"truncated":true}"#), "{j}");
+        let x = view(NOW, Some(&StreamsPart { series_unavailable: true, ..streams_part(NOW - 5) }), None, WakerState::Up, &Local::default(), Polled::default());
+        assert!(x.streams_series_unavailable, "anime cannot be told apart without the series list");
     }
 
     #[test]
@@ -434,7 +477,15 @@ pub mod tests {
             assert_eq!(serde_json::to_string(&m).unwrap(), format!("\"{s}\""));
             assert_eq!(m.label(), s);
         }
-        for (d, s) in [(DlState::WaitingNight, "waiting for night"), (DlState::WaitingRelease, "waiting for release"), (DlState::Importing, "importing"), (DlState::Problem, "problem")] {
+        for (d, s) in [
+            (DlState::WaitingNight, "waiting for night"),
+            (DlState::WaitingRelease, "waiting for release"),
+            (DlState::Importing, "importing"),
+            (DlState::Queued, "queued"),
+            (DlState::Stalled, "stalled"),
+            (DlState::Paused, "paused"),
+            (DlState::Problem, "problem"),
+        ] {
             assert_eq!(serde_json::to_string(&d).unwrap(), format!("\"{s}\""));
             assert_eq!(d.label(), s);
         }

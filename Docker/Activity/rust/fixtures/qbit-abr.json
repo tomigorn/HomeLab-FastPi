@@ -34,5 +34,41 @@
   "name": "Fixture Book Done",
   "category": "abr",
   "state": "stalledUP"
+ },
+ {
+  "hash": "h7",
+  "name": "Fixture Book Error",
+  "category": "abr",
+  "state": "error"
+ },
+ {
+  "hash": "h8",
+  "name": "Fixture Book Missing",
+  "category": "abr",
+  "state": "missingFiles"
+ },
+ {
+  "hash": "h9",
+  "name": "Fixture Book Stopped",
+  "category": "abr",
+  "state": "stoppedDL"
+ },
+ {
+  "hash": "h10",
+  "name": "Fixture Book Paused",
+  "category": "abr",
+  "state": "pausedDL"
+ },
+ {
+  "hash": "h11",
+  "name": "Fixture Book Moving",
+  "category": "abr",
+  "state": "moving"
+ },
+ {
+  "hash": "h12",
+  "name": "Fixture Book Checking",
+  "category": "abr",
+  "state": "checkingResumeData"
  }
 ]

@@ -138,9 +138,18 @@ pub fn wants_series(sessions: &[Session]) -> bool {
 // ---------- Radarr / Sonarr ----------
 
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Queue {
+    total_records: Option<u32>,
     records: Option<Vec<QueueRecord>>,
+}
+
+impl Queue {
+    /// (records read, records in the queue) when the page holds fewer than the queue reports.
+    pub fn truncated(&self) -> Option<(usize, u32)> {
+        let n = self.records.as_ref().map_or(0, Vec::len);
+        self.total_records.filter(|&t| t as usize > n).map(|t| (n, t))
+    }
 }
 
 #[derive(Deserialize, Default)]
@@ -266,29 +275,43 @@ impl NightWaiting {
 
 const PROBLEM_STATES: [&str; 3] = ["importBlocked", "failedPending", "failed"];
 const IMPORT_STATES: [&str; 2] = ["importPending", "importing"];
+const DONE_STATES: [&str; 2] = ["imported", "ignored"];
 
-/// Same order as night-downloads.py: problem > importing > downloading > held for the night.
+/// Which state a title with several queue records shows (night-downloads.py order, extended): problem > stalled > importing > downloading > queued > paused > held for the night.
 fn rank(s: DlState) -> u8 {
     match s {
-        DlState::Problem => 3,
-        DlState::Importing => 2,
-        DlState::Downloading => 1,
-        _ => 0,
+        DlState::Problem => 7,
+        DlState::Stalled => 6,
+        DlState::Importing => 5,
+        DlState::Downloading => 4,
+        DlState::Queued => 3,
+        DlState::Paused => 2,
+        DlState::WaitingNight => 1,
+        DlState::WaitingRelease => 0,
     }
 }
 
-fn record_state(r: &QueueRecord, night: &HashSet<String>) -> DlState {
+/// Radarr/Sonarr v3 `status` (from the download client) and `trackedDownloadState`/`trackedDownloadStatus` → state; None = done (imported, ignored), not shown.
+fn record_state(r: &QueueRecord, night: &HashSet<String>) -> Option<DlState> {
     let tds = r.tracked_download_state.as_deref().unwrap_or("");
+    let tstatus = r.tracked_download_status.as_deref().unwrap_or("");
     let status = r.status.as_deref().unwrap_or("").to_ascii_lowercase();
-    if PROBLEM_STATES.contains(&tds) || r.tracked_download_status.as_deref() == Some("error") || status == "failed" {
+    let st = if DONE_STATES.contains(&tds) {
+        return None;
+    } else if PROBLEM_STATES.contains(&tds) || tstatus == "error" || status == "failed" {
         DlState::Problem
-    } else if IMPORT_STATES.contains(&tds) {
+    } else if IMPORT_STATES.contains(&tds) || status == "completed" {
         DlState::Importing
-    } else if status == "paused" && r.download_id.as_deref().is_some_and(|id| night.contains(&id.to_lowercase())) {
-        DlState::WaitingNight
+    } else if status == "paused" {
+        if r.download_id.as_deref().is_some_and(|id| night.contains(&id.to_lowercase())) { DlState::WaitingNight } else { DlState::Paused }
+    } else if status == "queued" || status == "delay" {
+        DlState::Queued
+    } else if status == "warning" || status == "downloadclientunavailable" || tstatus == "warning" {
+        DlState::Stalled
     } else {
         DlState::Downloading
-    }
+    };
+    Some(st)
 }
 
 fn record_quality(r: &QueueRecord) -> Option<Quality> {
@@ -320,7 +343,8 @@ pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &[Se
     let mut movies: HashMap<i64, (DlState, Option<Quality>)> = HashMap::new();
     for r in radarr.records.iter().flatten() {
         let Some(id) = r.movie_id.filter(|&id| id > 0) else { continue };
-        let (st, q) = (record_state(r, night), record_quality(r));
+        let Some(st) = record_state(r, night) else { continue };
+        let q = record_quality(r);
         match movies.get(&id) {
             Some((old, _)) if rank(*old) >= rank(st) => {}
             _ => {
@@ -334,8 +358,9 @@ pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &[Se
 
     for r in sonarr.records.iter().flatten() {
         let Some(id) = r.series_id.filter(|&id| id > 0) else { continue };
+        let Some(st) = record_state(r, night) else { continue };
         let anime = r.series.as_ref().and_then(|s| s.series_type.as_deref()).is_some_and(|t| t.eq_ignore_ascii_case("anime"));
-        let b = buckets.entry((record_state(r, night), if anime { Kind::Anime } else { Kind::Episode }, record_quality(r))).or_default();
+        let b = buckets.entry((st, if anime { Kind::Anime } else { Kind::Episode }, record_quality(r))).or_default();
         b.items.insert(format!("s{id}"));
         if let Some(season) = r.episode.as_ref().and_then(|e| e.season_number).or(r.season_number) {
             b.seasons.insert((format!("s{id}"), season));
@@ -502,6 +527,10 @@ mod tests {
                 dl(DlState::Downloading, Kind::Movie, Some(Quality::Uhd4kHdr), 1, 0, 0),
                 dl(DlState::Downloading, Kind::Anime, Some(Quality::Fhd1080Sdr), 1, 2, 4),
                 dl(DlState::Importing, Kind::Movie, Some(Quality::Fhd1080Sdr), 1, 0, 0),
+                dl(DlState::Queued, Kind::Movie, Some(Quality::Fhd1080Sdr), 1, 0, 0),
+                dl(DlState::Queued, Kind::Episode, Some(Quality::Fhd1080Sdr), 1, 1, 1),
+                dl(DlState::Stalled, Kind::Movie, Some(Quality::Uhd4kSdr), 1, 0, 0),
+                dl(DlState::Paused, Kind::Movie, Some(Quality::Hd720), 1, 0, 0),
                 dl(DlState::WaitingNight, Kind::Movie, None, 1, 0, 0),
                 dl(DlState::WaitingNight, Kind::Movie, Some(Quality::Fhd1080Sdr), 1, 0, 0),
                 dl(DlState::WaitingNight, Kind::Episode, None, 1, 2, 18),
@@ -514,12 +543,48 @@ mod tests {
         );
     }
 
+    fn state_of(json: &str, night: &[&str]) -> Option<DlState> {
+        let r: QueueRecord = serde_json::from_str(json).unwrap();
+        record_state(&r, &night.iter().map(|s| s.to_string()).collect())
+    }
+
+    #[test]
+    fn every_queue_state_maps_to_a_category() {
+        let cases: [(&str, Option<DlState>); 14] = [
+            (r#"{"status":"downloading","trackedDownloadState":"downloading"}"#, Some(DlState::Downloading)),
+            (r#"{"status":"delay","trackedDownloadState":"downloading"}"#, Some(DlState::Queued)),
+            (r#"{"status":"queued","trackedDownloadState":"downloading"}"#, Some(DlState::Queued)),
+            (r#"{"status":"warning","trackedDownloadStatus":"warning","trackedDownloadState":"downloading"}"#, Some(DlState::Stalled)),
+            (r#"{"status":"downloadClientUnavailable","trackedDownloadState":"downloading"}"#, Some(DlState::Stalled)),
+            (r#"{"status":"downloading","trackedDownloadStatus":"warning","trackedDownloadState":"downloading"}"#, Some(DlState::Stalled)),
+            (r#"{"status":"paused","downloadId":"HAND"}"#, Some(DlState::Paused)),
+            (r#"{"status":"paused","downloadId":"NIGHT"}"#, Some(DlState::WaitingNight)),
+            (r#"{"status":"completed","trackedDownloadState":"importPending"}"#, Some(DlState::Importing)),
+            (r#"{"status":"completed","trackedDownloadState":"downloading"}"#, Some(DlState::Importing)),
+            (r#"{"status":"completed","trackedDownloadStatus":"warning","trackedDownloadState":"importBlocked"}"#, Some(DlState::Problem)),
+            (r#"{"status":"failed","trackedDownloadState":"downloading"}"#, Some(DlState::Problem)),
+            (r#"{"status":"completed","trackedDownloadState":"imported"}"#, None),
+            (r#"{"status":"completed","trackedDownloadStatus":"warning","trackedDownloadState":"ignored"}"#, None),
+        ];
+        for (json, want) in cases {
+            assert_eq!(state_of(json, &["night"]), want, "{json}");
+        }
+    }
+
+    #[test]
+    fn truncated_queues_are_detected() {
+        let q: Queue = serde_json::from_str(r#"{"page":1,"pageSize":1,"totalRecords":250,"records":[{"movieId":1}]}"#).unwrap();
+        assert_eq!(q.truncated(), Some((1, 250)));
+        assert_eq!(serde_json::from_str::<Queue>(RADARR).unwrap().truncated(), None);
+        assert_eq!(serde_json::from_str::<Queue>(r#"{"records":[]}"#).unwrap().truncated(), None, "no total: nothing to say");
+    }
+
     #[test]
     fn night_label_needs_paused_and_listed_id() {
         let q: Queue = serde_json::from_str(r#"{"records":[{"movieId":1,"status":"paused","downloadId":"X"},{"movieId":2,"status":"downloading","downloadId":"Y"}]}"#).unwrap();
         let night: HashSet<String> = ["y".to_string()].into();
         let got = downloads(&q, &Queue::default(), &RequestState::default(), &[], &night);
-        assert_eq!(got, vec![dl(DlState::Downloading, Kind::Movie, None, 2, 0, 0)]);
+        assert_eq!(got, vec![dl(DlState::Downloading, Kind::Movie, None, 1, 0, 0), dl(DlState::Paused, Kind::Movie, None, 1, 0, 0)], "paused but not held for the night = paused by hand");
     }
 
     #[test]
@@ -533,7 +598,7 @@ mod tests {
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &AnimeIndex::from_series(&series())) }, crate::state::DownloadsPart { at: 1, list: all_downloads() });
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &AnimeIndex::from_series(&series())), series_unavailable: false }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default() });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
         for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data"] {
             assert!(!out.contains(secret), "{secret} leaked into {out}");

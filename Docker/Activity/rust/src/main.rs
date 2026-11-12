@@ -162,9 +162,11 @@ async fn poll_beefy(gate: &BaseUrl) -> BeefyPoll {
     );
     let mut problems = Vec::new();
     let wanted = sessions.as_ref().is_ok_and(|s| beefy::wants_series(s)) || rs.as_ref().is_ok_and(|r| r.has_tv());
+    let mut series_unavailable = false;
     let series: Vec<beefy::Series> = if wanted {
         fetch(gate, beefy::PATH_SONARR_SERIES, LARGE).await.unwrap_or_else(|e| {
             problems.push(e);
+            series_unavailable = true;
             Vec::new()
         })
     } else {
@@ -172,18 +174,29 @@ async fn poll_beefy(gate: &BaseUrl) -> BeefyPoll {
     };
     let anime = beefy::AnimeIndex::from_series(&series);
     let streams = match sessions {
-        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, &anime) }),
+        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, &anime), series_unavailable }),
         Err(e) => {
             problems.insert(0, e);
             Err(())
         }
     };
+    let night_unavailable = night.is_err();
     let night = night.map(|n| n.ids()).unwrap_or_else(|e| {
         problems.push(e);
         HashSet::new()
     });
     let downloads = match (rs, radarr, sonarr) {
-        (Ok(rs), Ok(radarr), Ok(sonarr)) => Ok(DownloadsPart { at, list: beefy::downloads(&radarr, &sonarr, &rs, &series, &night) }),
+        (Ok(rs), Ok(radarr), Ok(sonarr)) => {
+            let mut truncated = false;
+            for (name, q) in [("radarr", &radarr), ("sonarr", &sonarr)] {
+                if let Some((n, total)) = q.truncated() {
+                    problems.push(format!("{name} queue truncated: {n} of {total} records"));
+                    truncated = true;
+                }
+            }
+            let gaps = state::Gaps { series_unavailable, night_unavailable, truncated };
+            Ok(DownloadsPart { at, list: beefy::downloads(&radarr, &sonarr, &rs, &series, &night), gaps })
+        }
         (rs, radarr, sonarr) => {
             problems.extend([rs.err(), radarr.err(), sonarr.err()].into_iter().flatten());
             Err(())

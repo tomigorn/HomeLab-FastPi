@@ -138,7 +138,10 @@ pub fn metrics(v: &View, snapshot_age: Option<i64>, viewer: bool) -> String {
         let _ = writeln!(o, "# HELP activity_listening_sessions Audiobookshelf sessions synced in the last 5 minutes.\n# TYPE activity_listening_sessions gauge\nactivity_listening_sessions {}", l.sessions);
     }
     if let Some(a) = &v.audiobook_downloads {
-        let _ = writeln!(o, "# HELP activity_audiobook_downloads qBittorrent (mouse) category abr torrents by state.\n# TYPE activity_audiobook_downloads gauge\nactivity_audiobook_downloads{{state=\"downloading\"}} {}\nactivity_audiobook_downloads{{state=\"queued\"}} {}", a.downloading, a.queued);
+        o.push_str("# HELP activity_audiobook_downloads qBittorrent (mouse) category abr torrents by state.\n# TYPE activity_audiobook_downloads gauge\n");
+        for (st, n) in [("downloading", a.downloading), ("queued", a.queued), ("paused", a.paused), ("problem", a.problem)] {
+            let _ = writeln!(o, "activity_audiobook_downloads{{state=\"{st}\"}} {n}");
+        }
     }
     o
 }
@@ -157,7 +160,7 @@ mod tests {
         s.parse().unwrap()
     }
     fn live() -> Seen {
-        let l = Local { listening: Some(2), abr_downloading: Some(1), abr_queued: Some(0) };
+        let l = Local { listening: Some(2), abr: Some(crate::state::Abr { downloading: 1, queued: 0, paused: 0, problem: 1 }) };
         (view(NOW, Some(&streams_part(NOW - 10)), Some(&downloads_part(NOW - 10)), WakerState::Up, &l, Polled { at: Some(NOW - 10), ..Polled::default() }), Some(10), true)
     }
 
@@ -174,6 +177,8 @@ mod tests {
         assert!(m.contains("activity_downloads{state=\"downloading\",kind=\"Movie\",quality=\"4K HDR\"} 1\n"), "{m}");
         assert!(m.contains("activity_listening_sessions 2\n"), "{m}");
         assert!(m.contains("activity_audiobook_downloads{state=\"downloading\"} 1\n"), "{m}");
+        assert!(m.contains("activity_audiobook_downloads{state=\"problem\"} 1\n"), "{m}");
+        assert!(m.contains("activity_audiobook_downloads{state=\"paused\"} 0\n"), "{m}");
         for line in m.lines().filter(|l| !l.starts_with('#')) {
             let labels = line.split_once('{').map(|(_, r)| r.split_once('}').unwrap().0).unwrap_or("");
             for pair in labels.split(',').filter(|p| !p.is_empty()) {
