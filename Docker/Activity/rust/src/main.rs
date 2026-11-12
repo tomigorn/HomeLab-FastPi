@@ -199,7 +199,7 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache) -> BeefyPoll {
     let empty_idx = beefy::SeriesIndex::default();
     let index = cache.series.as_ref().unwrap_or(&empty_idx);
     let streams = match sessions {
-        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable }),
+        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s) }),
         Err(e) => {
             problems.insert(0, e);
             Err(())

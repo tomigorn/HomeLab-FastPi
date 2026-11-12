@@ -73,6 +73,64 @@ pub enum DlState {
     Problem,
 }
 
+/// Why a stream transcodes, grouped from Jellyfin's TranscodeReasons.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum Reason {
+    #[serde(rename = "video codec")]
+    VideoCodec,
+    #[serde(rename = "container")]
+    Container,
+    /// subtitles burned into the picture
+    #[serde(rename = "subtitles")]
+    Subtitles,
+    #[serde(rename = "HDR tone-mapping")]
+    HdrToneMap,
+    #[serde(rename = "bitrate limit")]
+    Bitrate,
+    #[serde(rename = "audio")]
+    Audio,
+    #[serde(rename = "other")]
+    Other,
+}
+
+/// The video encoder of a transcode: Jellyfin's HardwareAccelerationType (the server's encoding setting).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum Accel {
+    #[serde(rename = "QSV")]
+    Qsv,
+    #[serde(rename = "VA-API")]
+    Vaapi,
+    #[serde(rename = "hardware")]
+    OtherHardware,
+    #[serde(rename = "software")]
+    Software,
+}
+
+impl Reason {
+    pub fn label(self) -> &'static str {
+        match self {
+            Reason::VideoCodec => "video codec",
+            Reason::Container => "container",
+            Reason::Subtitles => "subtitles",
+            Reason::HdrToneMap => "HDR tone-mapping",
+            Reason::Bitrate => "bitrate limit",
+            Reason::Audio => "audio",
+            Reason::Other => "other",
+        }
+    }
+}
+
+impl Accel {
+    pub fn label(self) -> &'static str {
+        match self {
+            Accel::Qsv => "QSV",
+            Accel::Vaapi => "VA-API",
+            Accel::OtherHardware => "hardware",
+            Accel::Software => "software",
+        }
+    }
+}
+
 impl Quality {
     /// Resolution bucket from the frame size (height, or width for letterboxed films) plus dynamic range.
     pub fn from_frame(height: u32, width: u32, hdr: bool) -> Option<Quality> {
@@ -151,6 +209,23 @@ pub struct Stream {
     pub mode: Mode,
     pub paused: bool,
     pub n: u32,
+    /// video transcodes only
+    pub accel: Option<Accel>,
+    /// transcodes only, sorted, no duplicates
+    pub reasons: Vec<Reason>,
+}
+
+/// Over all playing Jellyfin sessions, counts only: addresses and user ids are dropped right after counting.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WatchSummary {
+    /// sum over the streams not paused (None = no bitrate known)
+    pub bitrate_kbps: Option<u64>,
+    /// client address private (home, VPN) or public
+    pub lan: u32,
+    pub remote: u32,
+    /// distinct users
+    pub people: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -162,6 +237,12 @@ pub struct Download {
     pub items: u32,
     pub seasons: u32,
     pub episodes: u32,
+    /// the longest time left of the row's downloads, seconds (None = none known)
+    #[serde(default)]
+    pub eta: Option<u64>,
+    /// download size still to fetch, bytes (each download once)
+    #[serde(default)]
+    pub left: Option<u64>,
 }
 
 /// The Jellyfin side of one successful poll of beefy, already aggregated: categories and counts only.
@@ -173,6 +254,8 @@ pub struct StreamsPart {
     /// the Sonarr series list was not available: anime counts as Episode
     #[serde(default)]
     pub series_unavailable: bool,
+    #[serde(default)]
+    pub summary: WatchSummary,
 }
 
 /// What a downloads part may be missing: the series list (anime, series counts), the night list (night-held items look paused), or queue records beyond the page.
@@ -230,6 +313,10 @@ pub struct Abr {
     pub queued: u32,
     pub paused: u32,
     pub problem: u32,
+    /// the longest finite ETA of the downloading ones, seconds
+    pub eta: Option<u64>,
+    /// download size still to fetch of the downloading ones, bytes
+    pub left: u64,
 }
 
 /// fastpi-local audiobook figures; None = source unavailable.
@@ -253,6 +340,8 @@ pub struct View {
     pub beefy_data: &'static str,
     /// None = unavailable (awake without fresh data, wake failed, or Waker state unknown); empty while asleep or waking = nobody watching
     pub watching: Option<Vec<Stream>>,
+    /// bitrate, LAN/remote and people of the live streams
+    pub watching_summary: Option<WatchSummary>,
     /// None = never polled
     pub downloads: Option<Vec<Download>>,
     /// set when `downloads` is the last known state, not live
@@ -310,6 +399,7 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         },
         beefy_data: if live { "live" } else if streams.is_some() || downloads.is_some() { "stale" } else { "none" },
         watching,
+        watching_summary: streams.filter(|_| live).map(|s| s.summary),
         downloads: downloads.map(|d| d.list.clone()),
         downloads_as_of: downloads.filter(|_| !downloads_live).map(|d| d.at),
         downloads_gaps: downloads.map(|d| d.gaps),
@@ -347,10 +437,15 @@ pub mod tests {
     use super::*;
 
     pub fn streams_part(at: i64) -> StreamsPart {
-        StreamsPart { at, series_unavailable: false, streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1 }] }
+        StreamsPart {
+            at,
+            series_unavailable: false,
+            summary: WatchSummary { bitrate_kbps: Some(8000), lan: 1, remote: 0, people: 1 },
+            streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1, accel: None, reasons: vec![] }],
+        }
     }
     pub fn downloads_part(at: i64) -> DownloadsPart {
-        DownloadsPart { at, gaps: Gaps::default(), night_open: None, list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0 }] }
+        DownloadsPart { at, gaps: Gaps::default(), night_open: None, list: vec![Download { state: DlState::Downloading, kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), items: 1, seasons: 0, episodes: 0, eta: Some(600), left: Some(1_000_000) }] }
     }
 
     const NOW: i64 = 1_794_430_000;
@@ -440,7 +535,7 @@ pub mod tests {
 
     #[test]
     fn view_local_figures_or_unavailable() {
-        let abr = Abr { downloading: 1, queued: 3, paused: 1, problem: 0 };
+        let abr = Abr { downloading: 1, queued: 3, paused: 1, problem: 0, eta: Some(60), left: 5 };
         let l = Local { listening: Some(2), abr: Some(abr) };
         let x = view(NOW, None, None, WakerState::Down, &l, Polled::default());
         assert_eq!(x.listening, Some(Listening { sessions: 2 }));
@@ -503,6 +598,21 @@ pub mod tests {
     }
 
     #[test]
+    fn the_watch_summary_comes_only_with_live_streams() {
+        let x = v(Some(NOW - 5), None, WakerState::Up, Polled::default());
+        assert_eq!(x.watching_summary, Some(WatchSummary { bitrate_kbps: Some(8000), lan: 1, remote: 0, people: 1 }));
+        assert_eq!(v(Some(NOW - 5), None, WakerState::Down, Polled::default()).watching_summary, None);
+        let j = serde_json::to_string(&streams_part(1)).unwrap();
+        assert!(j.contains(r#""accel":null,"reasons":[]"#), "{j}");
+        for (r, s) in [(Reason::VideoCodec, "video codec"), (Reason::Container, "container"), (Reason::Subtitles, "subtitles"), (Reason::HdrToneMap, "HDR tone-mapping"), (Reason::Bitrate, "bitrate limit"), (Reason::Audio, "audio"), (Reason::Other, "other")] {
+            assert_eq!(serde_json::to_string(&r).unwrap(), format!("\"{s}\""));
+        }
+        for (a, s) in [(Accel::Qsv, "QSV"), (Accel::Vaapi, "VA-API"), (Accel::OtherHardware, "hardware"), (Accel::Software, "software")] {
+            assert_eq!(serde_json::to_string(&a).unwrap(), format!("\"{s}\""));
+        }
+    }
+
+    #[test]
     fn kind_strings_are_exact() {
         for (k, s) in [(Kind::Movie, "Movie"), (Kind::Episode, "Episode"), (Kind::Anime, "Anime"), (Kind::Audiobook, "Audiobook"), (Kind::Music, "Music"), (Kind::LiveTv, "Live TV"), (Kind::Other, "Other")] {
             assert_eq!(serde_json::to_string(&k).unwrap(), format!("\"{s}\""));
@@ -551,7 +661,9 @@ pub mod tests {
     fn a_version_1_file_keeps_its_downloads() {
         let p = tmp("v1");
         std::fs::write(&p, br#"{"v":1,"at":7,"streams":[{"kind":"Movie","quality":null,"mode":"direct play","paused":false,"n":1}],"downloads":[{"state":"downloading","kind":"Movie","quality":"4K HDR","items":1,"seasons":0,"episodes":0}]}"#).unwrap();
-        assert_eq!(load(&p), Some(downloads_part(7)));
+        let mut want = downloads_part(7);
+        (want.list[0].eta, want.list[0].left) = (None, None);
+        assert_eq!(load(&p), Some(want), "fields added since then are empty");
         std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
     }
 }

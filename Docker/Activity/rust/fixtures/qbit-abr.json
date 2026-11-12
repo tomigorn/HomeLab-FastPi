@@ -3,25 +3,33 @@
   "hash": "h1",
   "name": "Fixture Book DL",
   "category": "abr",
-  "state": "downloading"
+  "state": "downloading",
+  "eta": 600,
+  "amount_left": 100000000
  },
  {
   "hash": "h2",
   "name": "Fixture Book Stalled",
   "category": "abr",
-  "state": "stalledDL"
+  "state": "stalledDL",
+  "eta": 8640000,
+  "amount_left": 50000000
  },
  {
   "hash": "h3",
   "name": "Fixture Book Meta",
   "category": "abr",
-  "state": "metaDL"
+  "state": "metaDL",
+  "eta": 8640000,
+  "amount_left": 0
  },
  {
   "hash": "h4",
   "name": "Fixture Book Queued",
   "category": "abr",
-  "state": "queuedDL"
+  "state": "queuedDL",
+  "eta": 8640000,
+  "amount_left": 70000000
  },
  {
   "hash": "h5",
@@ -63,12 +71,16 @@
   "hash": "h11",
   "name": "Fixture Book Moving",
   "category": "abr",
-  "state": "moving"
+  "state": "moving",
+  "eta": 0,
+  "amount_left": 0
  },
  {
   "hash": "h12",
   "name": "Fixture Book Checking",
   "category": "abr",
-  "state": "checkingResumeData"
+  "state": "checkingResumeData",
+  "eta": 8640000,
+  "amount_left": 20000000
  }
 ]

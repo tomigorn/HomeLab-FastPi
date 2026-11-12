@@ -28,7 +28,10 @@
     "seasonNumber": 1,
     "episodeNumber": 1,
     "title": "Ep 1"
-   }
+   },
+   "size": 8000000000.0,
+   "sizeleft": 4000000000.0,
+   "timeleft": "1.02:03:04"
   },
   {
    "id": 11,
@@ -55,7 +58,10 @@
     "seasonNumber": 1,
     "episodeNumber": 2,
     "title": "Ep 2"
-   }
+   },
+   "size": 8000000000.0,
+   "sizeleft": 4000000000.0,
+   "timeleft": "1.02:03:04"
   },
   {
    "id": 12,
@@ -82,7 +88,10 @@
     "seasonNumber": 1,
     "episodeNumber": 3,
     "title": "Ep 3"
-   }
+   },
+   "size": 8000000000.0,
+   "sizeleft": 4000000000.0,
+   "timeleft": "1.02:03:04"
   },
   {
    "id": 13,
@@ -109,7 +118,10 @@
     "seasonNumber": 2,
     "episodeNumber": 1,
     "title": "Ep 1"
-   }
+   },
+   "size": 8000000000.0,
+   "sizeleft": 4000000000.0,
+   "timeleft": "1.02:03:04"
   },
   {
    "id": 20,

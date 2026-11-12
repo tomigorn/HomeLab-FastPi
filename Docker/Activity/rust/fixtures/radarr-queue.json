@@ -27,7 +27,10 @@
    "movie": {
     "title": "Fixture Movie Alpha",
     "tmdbId": 5101
-   }
+   },
+   "size": 9000000000.0,
+   "sizeleft": 5000000000.0,
+   "timeleft": "00:40:00"
   },
   {
    "id": 2,
@@ -46,7 +49,10 @@
     {
      "name": "HDR"
     }
-   ]
+   ],
+   "size": 4000000000.0,
+   "sizeleft": 3000000000.0,
+   "timeleft": "01:10:05"
   },
   {
    "id": 3,
@@ -136,7 +142,10 @@
       "The download is stalled with no connections"
      ]
     }
-   ]
+   ],
+   "size": 6000000000.0,
+   "sizeleft": 2000000000.0,
+   "timeleft": null
   },
   {
    "id": 8,

@@ -35,7 +35,9 @@ CONTRACT = {
 }
 # Every invented title, user, device, path and id in the fixtures: none may leave the service.
 LEAKS = ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "fakesid", "night1", "abc123",
-         "nzo_", "/data/", "movie/", "tv/", "displaytitle", "username", "fixture-key", "fixture-pass"]
+         "nzo_", "/data/", "movie/", "tv/", "displaytitle", "username", "fixture-key", "fixture-pass",
+         "u-jane", "u-john", "u-max", "u-erika", "u-idle", "userid", "203.0.113", "192.168.1.5", "192.168.1.6", "10.8.0.3", "fe80", "::ffff",
+         "remoteendpoint", "jellyfin web", "android tv", "devicename", "abc1", "ani1", "stl1"]
 
 
 def wait_for(cond, timeout, step=0.1):
@@ -271,14 +273,15 @@ class Base(unittest.TestCase):
         return box["s"]
 
 
-ABR = {"downloading": 5, "queued": 1, "paused": 2, "problem": 2}
+ABR = {"downloading": 5, "queued": 1, "paused": 2, "problem": 2, "eta": 600, "left": 170000000}
+NO_TC = {"accel": None, "reasons": []}
 EXPECTED_WATCHING = [
-    {"kind": "Movie", "quality": "4K HDR", "mode": "direct play", "paused": False, "n": 2},
-    {"kind": "Movie", "quality": "1080p HDR", "mode": "direct stream", "paused": False, "n": 1},
-    {"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": False, "n": 1},
-    {"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": True, "n": 1},
-    {"kind": "Anime", "quality": "1080p SDR", "mode": "transcode (audio)", "paused": False, "n": 1},
-    {"kind": "Music", "quality": None, "mode": "direct play", "paused": False, "n": 1},
+    {"kind": "Movie", "quality": "4K HDR", "mode": "direct play", "paused": False, "n": 2, **NO_TC},
+    {"kind": "Movie", "quality": "1080p HDR", "mode": "direct stream", "paused": False, "n": 1, **NO_TC},
+    {"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": False, "n": 1, "accel": "QSV", "reasons": ["HDR tone-mapping", "bitrate limit"]},
+    {"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": True, "n": 1, "accel": "QSV", "reasons": ["subtitles"]},
+    {"kind": "Anime", "quality": "1080p SDR", "mode": "transcode (audio)", "paused": False, "n": 1, "accel": None, "reasons": ["audio"]},
+    {"kind": "Music", "quality": None, "mode": "direct play", "paused": False, "n": 1, **NO_TC},
 ]
 
 
@@ -289,8 +292,9 @@ class Awake(Base):
         self.assertEqual(s["watching"], EXPECTED_WATCHING)
         self.assertEqual(len(s["downloads"]), 15)
         self.assertEqual(s["downloads_gaps"], {"series_unavailable": False, "night_unavailable": False, "truncated": False})
-        self.assertIn({"state": "waiting for night", "kind": "Episode", "quality": None, "items": 1, "seasons": 2, "episodes": 18}, s["downloads"])
-        self.assertIn({"state": "downloading", "kind": "Anime", "quality": "1080p SDR", "items": 1, "seasons": 2, "episodes": 4}, s["downloads"])
+        self.assertIn({"state": "waiting for night", "kind": "Episode", "quality": None, "items": 1, "seasons": 2, "episodes": 18, "eta": None, "left": None}, s["downloads"])
+        self.assertIn({"state": "downloading", "kind": "Anime", "quality": "1080p SDR", "items": 1, "seasons": 2, "episodes": 4, "eta": 93784, "left": 4000000000}, s["downloads"])
+        self.assertEqual(s["watching_summary"], {"bitrate_kbps": 142960, "lan": 4, "remote": 3, "people": 4})
         self.assertIsNone(s["downloads_as_of"])
         self.assertIs(s["night_open"], False, "night-waiting.json low_tariff")
         self.assertEqual(s["listening"], {"sessions": 3})

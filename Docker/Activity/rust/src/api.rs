@@ -123,10 +123,35 @@ pub fn metrics(v: &View, snapshot_age: Option<i64>, viewer: bool) -> String {
             *groups.entry((s.kind.label(), q(s.quality), s.mode.label())).or_default() += s.n;
         }
         let _ = writeln!(o, "# HELP activity_watching_streams Jellyfin streams now (0 while beefy sleeps).\n# TYPE activity_watching_streams gauge\nactivity_watching_streams {}", ws.iter().map(|s| s.n).sum::<u32>());
+        let mut reasons: std::collections::BTreeMap<&str, u32> = Default::default();
+        let mut accels: std::collections::BTreeMap<&str, u32> = Default::default();
+        for s in ws {
+            for r in &s.reasons {
+                *reasons.entry(r.label()).or_default() += s.n;
+            }
+            if let Some(a) = s.accel {
+                *accels.entry(a.label()).or_default() += s.n;
+            }
+        }
+        o.push_str("# HELP activity_transcode_reasons Streams transcoding for this reason (a stream can have several).\n# TYPE activity_transcode_reasons gauge\n");
+        for (r, n) in reasons {
+            let _ = writeln!(o, "activity_transcode_reasons{{reason=\"{r}\"}} {n}");
+        }
+        o.push_str("# HELP activity_transcodes Video transcodes by encoder.\n# TYPE activity_transcodes gauge\n");
+        for (a, n) in accels {
+            let _ = writeln!(o, "activity_transcodes{{accel=\"{a}\"}} {n}");
+        }
         o.push_str("# HELP activity_streams Jellyfin streams by kind, quality and playback mode.\n# TYPE activity_streams gauge\n");
         for ((k, ql, m), n) in groups {
             let _ = writeln!(o, "activity_streams{{kind=\"{k}\",quality=\"{ql}\",mode=\"{m}\"}} {n}");
         }
+    }
+    if let Some(w) = &v.watching_summary {
+        if let Some(b) = w.bitrate_kbps {
+            let _ = writeln!(o, "# HELP activity_watching_bitrate_kbps Sum of the bitrates of the playing streams.\n# TYPE activity_watching_bitrate_kbps gauge\nactivity_watching_bitrate_kbps {b}");
+        }
+        let _ = writeln!(o, "# HELP activity_watching_location Playing sessions by client address: private (home, VPN) or public.\n# TYPE activity_watching_location gauge\nactivity_watching_location{{location=\"lan\"}} {}\nactivity_watching_location{{location=\"remote\"}} {}", w.lan, w.remote);
+        let _ = writeln!(o, "# HELP activity_watching_people Distinct users with a playing session.\n# TYPE activity_watching_people gauge\nactivity_watching_people {}", w.people);
     }
     if let Some(ds) = &v.downloads {
         o.push_str("# HELP activity_downloads Titles in the download pipeline by state, kind and quality (last known while beefy sleeps).\n# TYPE activity_downloads gauge\n");
@@ -160,7 +185,7 @@ mod tests {
         s.parse().unwrap()
     }
     fn live() -> Seen {
-        let l = Local { listening: Some(2), abr: Some(crate::state::Abr { downloading: 1, queued: 0, paused: 0, problem: 1 }) };
+        let l = Local { listening: Some(2), abr: Some(crate::state::Abr { downloading: 1, queued: 0, paused: 0, problem: 1, eta: None, left: 0 }) };
         (view(NOW, Some(&streams_part(NOW - 10)), Some(&downloads_part(NOW - 10)), WakerState::Up, &l, Polled { at: Some(NOW - 10), ..Polled::default() }), Some(10), true)
     }
 
@@ -174,6 +199,9 @@ mod tests {
         assert!(m.contains("activity_beefy_snapshot_age_seconds 10\n"), "{m}");
         assert!(m.contains("activity_streams{kind=\"Episode\",quality=\"1080p SDR\",mode=\"direct play\"} 1\n"), "{m}");
         assert!(m.contains("activity_watching_streams 1\n"), "{m}");
+        assert!(m.contains("activity_watching_bitrate_kbps 8000\n"), "{m}");
+        assert!(m.contains("activity_watching_location{location=\"lan\"} 1\n") && m.contains("activity_watching_location{location=\"remote\"} 0\n"), "{m}");
+        assert!(m.contains("activity_watching_people 1\n"), "{m}");
         assert!(m.contains("activity_downloads{state=\"downloading\",kind=\"Movie\",quality=\"4K HDR\"} 1\n"), "{m}");
         assert!(m.contains("activity_listening_sessions 2\n"), "{m}");
         assert!(m.contains("activity_audiobook_downloads{state=\"downloading\"} 1\n"), "{m}");
@@ -183,13 +211,24 @@ mod tests {
             let labels = line.split_once('{').map(|(_, r)| r.split_once('}').unwrap().0).unwrap_or("");
             for pair in labels.split(',').filter(|p| !p.is_empty()) {
                 let k = pair.split_once('=').unwrap().0;
-                assert!(["kind", "quality", "mode", "state"].contains(&k), "unexpected label {k} in {line}");
+                assert!(["kind", "quality", "mode", "state", "location", "reason", "accel"].contains(&k), "unexpected label {k} in {line}");
             }
         }
         let asleep = view(NOW, Some(&streams_part(NOW - 999)), Some(&downloads_part(NOW - 999)), WakerState::Down, &Local::default(), Polled::default());
         let m = metrics(&asleep, Some(999), false);
         assert!(m.contains("activity_viewer_active 0\n") && !m.contains("activity_last_poll_timestamp_seconds"), "{m}");
         assert!(m.contains("activity_beefy_up 0\n") && m.contains("activity_watching_streams 0\n") && !m.contains("activity_streams{"), "{m}");
+    }
+
+    #[test]
+    fn transcodes_by_reason_and_encoder() {
+        use crate::state::{Accel, Kind, Mode, Reason, Stream, StreamsPart, WatchSummary};
+        let t = |paused, accel, reasons: Vec<Reason>| Stream { kind: Kind::Movie, quality: None, mode: Mode::Transcode, paused, n: 2, accel, reasons };
+        let sp = StreamsPart { at: NOW, series_unavailable: false, summary: WatchSummary::default(), streams: vec![t(false, Some(Accel::Qsv), vec![Reason::Subtitles, Reason::Audio]), t(true, Some(Accel::Software), vec![Reason::Subtitles])] };
+        let v = view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default());
+        let m = metrics(&v, None, true);
+        assert!(m.contains("activity_transcode_reasons{reason=\"subtitles\"} 4\n") && m.contains("activity_transcode_reasons{reason=\"audio\"} 2\n"), "{m}");
+        assert!(m.contains("activity_transcodes{accel=\"QSV\"} 2\n") && m.contains("activity_transcodes{accel=\"software\"} 2\n"), "{m}");
     }
 
     #[test]

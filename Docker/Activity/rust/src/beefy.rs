@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde::Deserialize;
 
-use crate::state::{DlState, Download, Kind, Mode, Quality, Stream};
+use crate::state::{Accel, DlState, Download, Kind, Mode, Quality, Reason, Stream, WatchSummary};
 
 /// Paths on the gate (`GATE_URL`); the gate on beefy allow-lists exactly these GET paths and injects the API keys.
 pub const PATH_SESSIONS: &str = "/jellyfin/Sessions?ActiveWithinSeconds=60";
@@ -27,6 +27,10 @@ pub struct Session {
     now_playing_item: Option<Item>,
     play_state: Option<PlayState>,
     transcoding_info: Option<TranscodingInfo>,
+    /// only counted (distinct users), never kept
+    user_id: Option<String>,
+    /// only classified LAN/remote, never kept
+    remote_end_point: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -48,6 +52,8 @@ struct MediaStream {
     width: Option<u32>,
     video_range: Option<String>,
     video_range_type: Option<String>,
+    index: Option<i64>,
+    bit_rate: Option<u64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -55,12 +61,107 @@ struct MediaStream {
 struct PlayState {
     play_method: Option<String>,
     is_paused: Option<bool>,
+    audio_stream_index: Option<i64>,
 }
 
 #[derive(Deserialize, Default)]
 #[serde(default, rename_all = "PascalCase")]
 struct TranscodingInfo {
     is_video_direct: Option<bool>,
+    /// a list of reason names, or one comma-separated string on older servers
+    transcode_reasons: Option<serde_json::Value>,
+    hardware_acceleration_type: Option<String>,
+    bitrate: Option<u64>,
+}
+
+fn reason(name: &str) -> Reason {
+    match name.trim() {
+        "ContainerNotSupported" => Reason::Container,
+        "SubtitleCodecNotSupported" => Reason::Subtitles,
+        "VideoRangeTypeNotSupported" => Reason::HdrToneMap,
+        "ContainerBitrateExceedsLimit" | "VideoBitrateNotSupported" | "AudioBitrateNotSupported" => Reason::Bitrate,
+        n if n.starts_with("Audio") || n == "SecondaryAudioNotSupported" => Reason::Audio,
+        n if n.starts_with("Video") || matches!(n, "RefFramesNotSupported" | "AnamorphicVideoNotSupported" | "InterlacedVideoNotSupported") => Reason::VideoCodec,
+        _ => Reason::Other,
+    }
+}
+
+fn reasons(t: &TranscodingInfo) -> Vec<Reason> {
+    let names: Vec<String> = match &t.transcode_reasons {
+        Some(serde_json::Value::Array(a)) => a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect(),
+        Some(serde_json::Value::String(s)) => s.split(',').map(str::to_string).collect(),
+        _ => Vec::new(),
+    };
+    let set: std::collections::BTreeSet<Reason> = names.iter().filter(|n| !n.trim().is_empty()).map(|n| reason(n)).collect();
+    set.into_iter().collect()
+}
+
+fn accel(t: &TranscodingInfo) -> Option<Accel> {
+    Some(match t.hardware_acceleration_type.as_deref()?.to_ascii_lowercase().as_str() {
+        "none" | "" => Accel::Software,
+        "qsv" => Accel::Qsv,
+        "vaapi" => Accel::Vaapi,
+        _ => Accel::OtherHardware,
+    })
+}
+
+/// A private, loopback or link-local address (home, VPN); None = not an address. Accepts `[v6]:port` and `v4:port`.
+pub fn is_lan(addr: &str) -> Option<bool> {
+    use std::net::IpAddr;
+    let a = addr.trim();
+    let ip: IpAddr = a
+        .parse()
+        .ok()
+        .or_else(|| a.strip_prefix('[').and_then(|r| r.split_once(']')).and_then(|(h, _)| h.parse().ok()))
+        .or_else(|| a.rsplit_once(':').and_then(|(h, _)| h.parse().ok()))?;
+    let v4 = match ip {
+        IpAddr::V4(v) => Some(v),
+        IpAddr::V6(v) => v.to_ipv4_mapped(),
+    };
+    Some(match (v4, ip) {
+        (Some(v), _) => v.is_private() || v.is_loopback() || v.is_link_local() || (v.octets()[0] == 100 && (v.octets()[1] & 0xC0) == 64),
+        (None, IpAddr::V6(v)) => v.is_loopback() || (v.segments()[0] & 0xfe00) == 0xfc00 || (v.segments()[0] & 0xffc0) == 0xfe80,
+        _ => false,
+    })
+}
+
+/// bits/s a session sends now: the transcode's output, else the video stream plus the selected (or first) audio stream.
+fn bitrate(s: &Session, item: &Item) -> Option<u64> {
+    if let Some(b) = s.transcoding_info.as_ref().and_then(|t| t.bitrate).filter(|_| s.play_state.as_ref().and_then(|p| p.play_method.as_deref()) == Some("Transcode")) {
+        return Some(b);
+    }
+    let ms = item.media_streams.as_deref().unwrap_or_default();
+    let video = ms.iter().find(|m| m.kind.as_deref() == Some("Video")).and_then(|m| m.bit_rate);
+    let want = s.play_state.as_ref().and_then(|p| p.audio_stream_index);
+    let audio = ms.iter().filter(|m| m.kind.as_deref() == Some("Audio")).find(|m| want.is_none() || m.index == want).and_then(|m| m.bit_rate);
+    match (video, audio) {
+        (None, None) => None,
+        (v, a) => Some(v.unwrap_or(0) + a.unwrap_or(0)),
+    }
+}
+
+/// Bitrate, LAN/remote and distinct users over the playing sessions; the addresses and ids die with the sessions.
+pub fn summary(sessions: &[Session]) -> WatchSummary {
+    let mut out = WatchSummary::default();
+    let mut people: HashSet<&str> = HashSet::new();
+    let mut bits: Option<u64> = None;
+    for (s, item) in sessions.iter().filter_map(|s| s.now_playing_item.as_ref().map(|i| (s, i))) {
+        match s.remote_end_point.as_deref().and_then(is_lan) {
+            Some(true) => out.lan += 1,
+            Some(false) => out.remote += 1,
+            None => {}
+        }
+        if let Some(u) = s.user_id.as_deref() {
+            people.insert(u);
+        }
+        let paused = s.play_state.as_ref().and_then(|p| p.is_paused).unwrap_or(false);
+        if let Some(b) = bitrate(s, item).filter(|_| !paused) {
+            bits = Some(bits.unwrap_or(0) + b);
+        }
+    }
+    out.people = people.len() as u32;
+    out.bitrate_kbps = bits.map(|b| b / 1000);
+    out
 }
 
 /// The Sonarr series list boiled down to what the categories need, kept between polls (refreshed every SERIES_TTL or on an unknown series):
@@ -163,16 +264,26 @@ fn stream_of(s: &Session, anime: &SeriesIndex) -> Option<Stream> {
         Some("Transcode") => Mode::Transcode,
         _ => Mode::DirectPlay,
     };
-    Some(Stream { kind, quality, mode, paused: ps.and_then(|p| p.is_paused).unwrap_or(false), n: 1 })
+    let t = s.transcoding_info.as_ref().filter(|_| matches!(mode, Mode::Transcode | Mode::TranscodeAudio));
+    Some(Stream {
+        kind,
+        quality,
+        mode,
+        paused: ps.and_then(|p| p.is_paused).unwrap_or(false),
+        n: 1,
+        accel: t.filter(|_| mode == Mode::Transcode).and_then(accel),
+        reasons: t.map(reasons).unwrap_or_default(),
+    })
 }
 
 /// Playing sessions grouped by kind × quality × mode × paused; sessions without a playing item are not streams.
 pub fn streams(sessions: &[Session], anime: &SeriesIndex) -> Vec<Stream> {
-    let mut groups: BTreeMap<(Kind, Option<Quality>, Mode, bool), u32> = BTreeMap::new();
+    type G = (Kind, Option<Quality>, Mode, bool, Option<Accel>, Vec<Reason>);
+    let mut groups: BTreeMap<G, u32> = BTreeMap::new();
     for s in sessions.iter().filter_map(|s| stream_of(s, anime)) {
-        *groups.entry((s.kind, s.quality, s.mode, s.paused)).or_default() += 1;
+        *groups.entry((s.kind, s.quality, s.mode, s.paused, s.accel, s.reasons)).or_default() += 1;
     }
-    groups.into_iter().map(|((kind, quality, mode, paused), n)| Stream { kind, quality, mode, paused, n }).collect()
+    groups.into_iter().map(|((kind, quality, mode, paused, accel, reasons), n)| Stream { kind, quality, mode, paused, n, accel, reasons }).collect()
 }
 
 pub fn wants_series(sessions: &[Session]) -> bool {
@@ -206,6 +317,8 @@ struct QueueRecord {
     tracked_download_state: Option<String>,
     tracked_download_status: Option<String>,
     download_id: Option<String>,
+    sizeleft: Option<f64>,
+    timeleft: Option<String>,
     quality: Option<QualityModel>,
     custom_formats: Option<Vec<CustomFormat>>,
     series: Option<SeriesRef>,
@@ -384,12 +497,43 @@ fn record_quality(r: &QueueRecord) -> Option<Quality> {
     Quality::from_frame(res, 0, hdr)
 }
 
+/// Radarr/Sonarr `timeleft`: `hh:mm:ss` or `d.hh:mm:ss` → seconds.
+fn parse_timeleft(t: &str) -> Option<u64> {
+    let (days, hms) = match t.split_once('.') {
+        Some((d, rest)) if !d.contains(':') => (d.parse::<u64>().ok()?, rest),
+        _ => (0, t),
+    };
+    let p: Vec<u64> = hms.split(':').map(|x| x.split('.').next().unwrap_or("").parse().ok()).collect::<Option<_>>()?;
+    let [h, m, s] = p[..] else { return None };
+    Some(days * 86_400 + h * 3600 + m * 60 + s)
+}
+
+/// (download key, size left, time left) of a queue record; a record without download id counts as its own download.
+fn progress(r: &QueueRecord, n: usize) -> (String, Option<u64>, Option<u64>) {
+    let key = r.download_id.as_deref().map(str::to_lowercase).unwrap_or_else(|| format!("#{n}"));
+    (key, r.sizeleft.filter(|x| x.is_finite() && *x >= 0.0).map(|x| x as u64), r.timeleft.as_deref().and_then(parse_timeleft))
+}
+
 #[derive(Default)]
 struct Bucket {
     items: HashSet<String>,
     seasons: HashSet<(String, i64)>,
     episodes: u32,
     extra_seasons: u32,
+    eta: Option<u64>,
+    left: HashMap<String, u64>,
+}
+
+impl Bucket {
+    fn add_progress(&mut self, (key, left, eta): (String, Option<u64>, Option<u64>)) {
+        if let Some(l) = left {
+            let e = self.left.entry(key).or_default();
+            *e = (*e).max(l);
+        }
+        if eta.is_some() {
+            self.eta = self.eta.max(eta);
+        }
+    }
 }
 
 type Key = (DlState, Kind, Option<Quality>);
@@ -398,28 +542,33 @@ type Key = (DlState, Kind, Option<Quality>);
 pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &SeriesIndex, night: &HashSet<String>) -> Vec<Download> {
     let mut buckets: BTreeMap<Key, Bucket> = BTreeMap::new();
 
-    let mut movies: HashMap<i64, (DlState, Option<Quality>)> = HashMap::new();
-    for r in radarr.records.iter().flatten() {
+    type Movie = (DlState, Option<Quality>, Vec<(String, Option<u64>, Option<u64>)>);
+    let mut movies: HashMap<i64, Movie> = HashMap::new();
+    for (n, r) in radarr.records.iter().flatten().enumerate() {
         let Some(id) = r.movie_id.filter(|&id| id > 0) else { continue };
         let Some(st) = record_state(r, night) else { continue };
         let q = record_quality(r);
-        match movies.get(&id) {
-            Some((old, _)) if rank(*old) >= rank(st) => {}
-            _ => {
-                movies.insert(id, (st, q));
-            }
+        let m = movies.entry(id).or_insert((st, q, Vec::new()));
+        if rank(st) > rank(m.0) {
+            (m.0, m.1) = (st, q);
+        }
+        m.2.push(progress(r, n));
+    }
+    for (id, (st, q, prog)) in movies {
+        let b = buckets.entry((st, Kind::Movie, q)).or_default();
+        b.items.insert(format!("m{id}"));
+        for p in prog {
+            b.add_progress(p);
         }
     }
-    for (id, (st, q)) in movies {
-        buckets.entry((st, Kind::Movie, q)).or_default().items.insert(format!("m{id}"));
-    }
 
-    for r in sonarr.records.iter().flatten() {
+    for (n, r) in sonarr.records.iter().flatten().enumerate() {
         let Some(id) = r.series_id.filter(|&id| id > 0) else { continue };
         let Some(st) = record_state(r, night) else { continue };
         let anime = r.series.as_ref().and_then(|s| s.series_type.as_deref()).is_some_and(|t| t.eq_ignore_ascii_case("anime"));
         let b = buckets.entry((st, if anime { Kind::Anime } else { Kind::Episode }, record_quality(r))).or_default();
         b.items.insert(format!("s{id}"));
+        b.add_progress(progress(r, n));
         if let Some(season) = r.episode.as_ref().and_then(|e| e.season_number).or(r.season_number) {
             b.seasons.insert((format!("s{id}"), season));
         }
@@ -461,6 +610,8 @@ pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &Ser
             items: b.items.len() as u32,
             seasons: b.seasons.len() as u32 + b.extra_seasons,
             episodes: b.episodes,
+            eta: b.eta,
+            left: (!b.left.is_empty()).then(|| b.left.values().sum()),
         })
         .collect()
 }
@@ -490,10 +641,16 @@ mod tests {
         streams(&[s], &index())
     }
     fn st(kind: Kind, quality: Option<Quality>, mode: Mode, paused: bool, n: u32) -> Stream {
-        Stream { kind, quality, mode, paused, n }
+        Stream { kind, quality, mode, paused, n, accel: None, reasons: vec![] }
+    }
+    fn tr(s: Stream, accel: Option<Accel>, reasons: &[Reason]) -> Stream {
+        Stream { accel, reasons: reasons.to_vec(), ..s }
     }
     fn dl(state: DlState, kind: Kind, quality: Option<Quality>, items: u32, seasons: u32, episodes: u32) -> Download {
-        Download { state, kind, quality, items, seasons, episodes }
+        Download { state, kind, quality, items, seasons, episodes, eta: None, left: None }
+    }
+    fn left(d: Download, eta: Option<u64>, left: Option<u64>) -> Download {
+        Download { eta, left, ..d }
     }
     fn all_downloads() -> Vec<Download> {
         downloads(
@@ -560,9 +717,9 @@ mod tests {
             vec![
                 st(Kind::Movie, Some(Quality::Uhd4kHdr), Mode::DirectPlay, false, 2),
                 st(Kind::Movie, Some(Quality::Fhd1080Hdr), Mode::DirectStream, false, 1),
-                st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, false, 1),
-                st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, true, 1),
-                st(Kind::Anime, Some(Quality::Fhd1080Sdr), Mode::TranscodeAudio, false, 1),
+                tr(st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, false, 1), Some(Accel::Qsv), &[Reason::HdrToneMap, Reason::Bitrate]),
+                tr(st(Kind::Episode, Some(Quality::Fhd1080Sdr), Mode::Transcode, true, 1), Some(Accel::Qsv), &[Reason::Subtitles]),
+                tr(st(Kind::Anime, Some(Quality::Fhd1080Sdr), Mode::TranscodeAudio, false, 1), None, &[Reason::Audio]),
                 st(Kind::Music, None, Mode::DirectPlay, false, 1),
             ]
         );
@@ -570,9 +727,63 @@ mod tests {
     }
 
     #[test]
+    fn transcode_reasons_grouped_readably() {
+        let reasons = |r: &str| one(&format!(r#"{{"NowPlayingItem":{{"Type":"Movie"}},"PlayState":{{"PlayMethod":"Transcode"}},"TranscodingInfo":{{"IsVideoDirect":false,"TranscodeReasons":{r}}}}}"#))[0].reasons.clone();
+        assert_eq!(
+            reasons(r#"["DirectPlayError","AudioChannelsNotSupported","ContainerBitrateExceedsLimit","VideoRangeTypeNotSupported","SubtitleCodecNotSupported","ContainerNotSupported","VideoLevelNotSupported","VideoCodecNotSupported","AudioBitrateNotSupported"]"#),
+            vec![Reason::VideoCodec, Reason::Container, Reason::Subtitles, Reason::HdrToneMap, Reason::Bitrate, Reason::Audio, Reason::Other]
+        );
+        assert_eq!(reasons(r#""SubtitleCodecNotSupported, AudioCodecNotSupported""#), vec![Reason::Subtitles, Reason::Audio], "older servers send one comma-separated string");
+        assert_eq!(reasons("null"), vec![]);
+        let direct = one(r#"{"NowPlayingItem":{"Type":"Movie"},"PlayState":{"PlayMethod":"DirectPlay"},"TranscodingInfo":{"TranscodeReasons":["ContainerNotSupported"],"HardwareAccelerationType":"qsv"}}"#);
+        assert_eq!((direct[0].reasons.len(), direct[0].accel), (0, None), "only a transcode has reasons and an encoder");
+    }
+
+    #[test]
+    fn hardware_or_software_transcode() {
+        let accel = |a: &str| one(&format!(r#"{{"NowPlayingItem":{{"Type":"Movie"}},"PlayState":{{"PlayMethod":"Transcode"}},"TranscodingInfo":{{"IsVideoDirect":false,"HardwareAccelerationType":{a}}}}}"#))[0].accel;
+        assert_eq!(accel(r#""qsv""#), Some(Accel::Qsv));
+        assert_eq!(accel(r#""vaapi""#), Some(Accel::Vaapi));
+        assert_eq!(accel(r#""nvenc""#), Some(Accel::OtherHardware));
+        assert_eq!(accel(r#""none""#), Some(Accel::Software));
+        assert_eq!(accel("null"), None);
+        let audio = one(r#"{"NowPlayingItem":{"Type":"Movie"},"PlayState":{"PlayMethod":"Transcode"},"TranscodingInfo":{"IsVideoDirect":true,"HardwareAccelerationType":"qsv"}}"#);
+        assert_eq!(audio[0].accel, None, "an audio-only transcode does not use the video encoder");
+    }
+
+    #[test]
+    fn bitrate_location_and_people_without_keeping_them() {
+        let s = summary(&sessions());
+        assert_eq!(s, WatchSummary { bitrate_kbps: Some(142_960), lan: 4, remote: 3, people: 4 }, "paused streams send nothing; direct = video + selected audio, transcode = its output bitrate");
+        assert_eq!(summary(&[]), WatchSummary { bitrate_kbps: None, lan: 0, remote: 0, people: 0 });
+    }
+
+    #[test]
+    fn private_addresses_are_lan() {
+        for a in ["192.168.1.5", "10.8.0.3", "172.24.0.5", "127.0.0.1", "100.64.1.1", "169.254.1.1", "::1", "fe80::1", "fd00::5", "::ffff:192.168.1.9", "[::1]:8096", "192.168.1.5:51000"] {
+            assert_eq!(is_lan(a), Some(true), "{a}");
+        }
+        for a in ["203.0.113.7", "8.8.8.8", "172.32.0.1", "2001:db8::1", "::ffff:203.0.113.9"] {
+            assert_eq!(is_lan(a), Some(false), "{a}");
+        }
+        assert_eq!(is_lan("nonsense"), None);
+    }
+
+    #[test]
+    fn time_and_size_left_per_row() {
+        assert_eq!(parse_timeleft("00:40:00"), Some(2400));
+        assert_eq!(parse_timeleft("1.02:03:04"), Some(93_784));
+        assert_eq!(parse_timeleft("bad"), None);
+        let got = all_downloads();
+        assert!(got.contains(&left(dl(DlState::Downloading, Kind::Movie, Some(Quality::Uhd4kHdr), 1, 0, 0), Some(4205), Some(8_000_000_000))), "two downloads of one movie: longest time, both sizes: {got:?}");
+        assert!(got.contains(&left(dl(DlState::Downloading, Kind::Anime, Some(Quality::Fhd1080Sdr), 1, 2, 4), Some(93_784), Some(4_000_000_000))), "one season pack on four episode records counts once: {got:?}");
+        assert!(got.contains(&left(dl(DlState::Stalled, Kind::Movie, Some(Quality::Uhd4kSdr), 1, 0, 0), None, Some(2_000_000_000))), "no time known: {got:?}");
+    }
+
+    #[test]
     fn queue_series_aggregates_seasons_and_episodes() {
         let got = all_downloads();
-        assert!(got.contains(&dl(DlState::Downloading, Kind::Anime, Some(Quality::Fhd1080Sdr), 1, 2, 4)), "{got:?}");
+        assert!(got.contains(&left(dl(DlState::Downloading, Kind::Anime, Some(Quality::Fhd1080Sdr), 1, 2, 4), Some(93_784), Some(4_000_000_000))), "{got:?}");
         assert!(got.contains(&dl(DlState::Problem, Kind::Episode, Some(Quality::Uhd4kSdr), 1, 1, 1)), "{got:?}");
         assert!(got.contains(&dl(DlState::WaitingNight, Kind::Episode, None, 1, 2, 18)), "requested series: monitored seasons with missing episodes, specials ignored: {got:?}");
     }
@@ -592,12 +803,12 @@ mod tests {
         assert_eq!(
             all_downloads(),
             vec![
-                dl(DlState::Downloading, Kind::Movie, Some(Quality::Uhd4kHdr), 1, 0, 0),
-                dl(DlState::Downloading, Kind::Anime, Some(Quality::Fhd1080Sdr), 1, 2, 4),
+                left(dl(DlState::Downloading, Kind::Movie, Some(Quality::Uhd4kHdr), 1, 0, 0), Some(4205), Some(8_000_000_000)),
+                left(dl(DlState::Downloading, Kind::Anime, Some(Quality::Fhd1080Sdr), 1, 2, 4), Some(93_784), Some(4_000_000_000)),
                 dl(DlState::Importing, Kind::Movie, Some(Quality::Fhd1080Sdr), 1, 0, 0),
                 dl(DlState::Queued, Kind::Movie, Some(Quality::Fhd1080Sdr), 1, 0, 0),
                 dl(DlState::Queued, Kind::Episode, Some(Quality::Fhd1080Sdr), 1, 1, 1),
-                dl(DlState::Stalled, Kind::Movie, Some(Quality::Uhd4kSdr), 1, 0, 0),
+                left(dl(DlState::Stalled, Kind::Movie, Some(Quality::Uhd4kSdr), 1, 0, 0), None, Some(2_000_000_000)),
                 dl(DlState::Paused, Kind::Movie, Some(Quality::Hd720), 1, 0, 0),
                 dl(DlState::WaitingNight, Kind::Movie, None, 1, 0, 0),
                 dl(DlState::WaitingNight, Kind::Movie, Some(Quality::Fhd1080Sdr), 1, 0, 0),
@@ -673,9 +884,10 @@ mod tests {
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false, summary: Default::default() }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
-        for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data"] {
+        let out = out + &serde_json::to_string(&summary(&sessions())).unwrap();
+        for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data", "u-", "203.0.113", "192.168", "10.8.0", "fe80", "ffff"] {
             assert!(!out.contains(secret), "{secret} leaked into {out}");
         }
     }

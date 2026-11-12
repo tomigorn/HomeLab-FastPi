@@ -35,7 +35,12 @@ struct AbsSession {
 #[serde(default)]
 struct Torrent {
     state: Option<String>,
+    eta: Option<i64>,
+    amount_left: Option<u64>,
 }
+
+/// qBittorrent's ETA for "never" (100 days).
+const ETA_NEVER: i64 = 8_640_000;
 
 /// Audiobookshelf `GET /api/sessions/open`: sessions (and share sessions) synced within ACTIVE_MS.
 pub fn count_abs(body: &[u8], now_ms: i64) -> Result<u32, String> {
@@ -48,7 +53,10 @@ pub fn count_abs(body: &[u8], now_ms: i64) -> Result<u32, String> {
 pub fn count_qbit(body: &[u8]) -> Result<Abr, String> {
     let t: Vec<Torrent> = serde_json::from_slice(body).map_err(|_| "unreadable answer".to_string())?;
     let count = |set: &[&str]| t.iter().filter(|t| t.state.as_deref().is_some_and(|s| set.contains(&s))).count() as u32;
-    Ok(Abr { downloading: count(&DOWNLOADING), queued: count(&QUEUED), paused: count(&PAUSED), problem: count(&PROBLEM) })
+    let dl = || t.iter().filter(|t| t.state.as_deref().is_some_and(|s| DOWNLOADING.contains(&s)));
+    let eta = dl().filter_map(|t| t.eta).filter(|e| (0..ETA_NEVER).contains(e)).max().map(|e| e as u64);
+    let left = dl().filter_map(|t| t.amount_left).sum();
+    Ok(Abr { downloading: count(&DOWNLOADING), queued: count(&QUEUED), paused: count(&PAUSED), problem: count(&PROBLEM), eta, left })
 }
 
 fn read_secret(path: &PathBuf) -> Result<String, String> {
@@ -120,7 +128,7 @@ mod tests {
 
     #[test]
     fn qbit_abr_downloading_and_queued_counted() {
-        assert_eq!(count_qbit(QBIT.as_bytes()), Ok(Abr { downloading: 5, queued: 1, paused: 2, problem: 2 }), "downloading + stalledDL + metaDL + moving + checkingResumeData; queuedDL; stoppedDL + pausedDL; error + missingFiles; seeding ignored");
+        assert_eq!(count_qbit(QBIT.as_bytes()), Ok(Abr { downloading: 5, queued: 1, paused: 2, problem: 2, eta: Some(600), left: 170_000_000 }), "eta: the longest finite one of the downloading; left: their amount_left; downloading + stalledDL + metaDL + moving + checkingResumeData; queuedDL; stoppedDL + pausedDL; error + missingFiles; seeding ignored");
         assert_eq!(count_qbit(b"[]"), Ok(Abr::default()));
         assert!(count_qbit(b"Forbidden").is_err());
     }
@@ -159,7 +167,7 @@ mod tests {
             Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/activity/qbit")).unwrap()),
         );
         let (local, errors) = src.refresh(0).await;
-        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2 }) }, "{errors:?}");
+        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2, eta: Some(600), left: 170_000_000 }) }, "{errors:?}");
         assert_eq!(errors.len(), 1);
         assert!(errors[0].starts_with("audiobookshelf: "), "{errors:?}");
         let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()));
