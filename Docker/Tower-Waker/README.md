@@ -85,8 +85,12 @@ array/pool config, shares, users, secrets, plugins). A systemd **user timer on
 fastpi** (`tower-flash-backup.timer`, hourly, units in
 `~/.config/systemd/user/`) runs the script, which copies `/boot/config` to
 `~/backups/tower-flash/<date>/` once a day — **only when tower is already
-awake** (it checks the waker's `/status`, never sends a WoL), with 30
-hard-linked daily snapshots and `latest` pointing at the newest. The tree is
+awake** (a direct `ssh true` to the IP with `~/.ssh/tower`, never a WoL; the waker's
+`/status` is not used, its probe is Nextcloud), with 30 hard-linked daily
+snapshots (real directories) and `latest` pointing at the newest. On success it
+writes `tower_flash_backup_last_success_timestamp_seconds` to the node-exporter
+textfile dir; alert `TowerFlashBackupStale` fires after 8 days without one.
+Test (offline, fake ssh/rsync): `bash tests/test-flash-backup.sh`. The tree is
 mode 700 and outside git (it contains `shadow`, SSH keys, WireGuard keys).
 Logs: `journalctl --user -u tower-flash-backup.service`.
 Restore: new stick via the USB creator, copy a snapshot onto its `/config`,
