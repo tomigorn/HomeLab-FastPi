@@ -45,11 +45,11 @@ The page fetches `/api/state` every 30 s only while its tab is visible (stops on
 |---|---|---|---|
 | `activity-waker` | GET `/activity/waker/status` | Waker 192.168.1.2:9001 | HOST-GUARD admits Traefik 172.24.255.3 |
 | `activity-gate` | GET `/activity/gate/*` (the gate allow-lists the contract) | gate 192.168.1.102:8095 | beefy admits fastpi 192.168.1.2 (NAT source) |
-| `activity-qbit` | GET `/activity/qbit/api/v2/torrents/info?category=abr` | qBittorrent 10.24.25.2:8080 | gluetun admits Traefik 10.24.25.3; qBittorrent skips its login for it |
+| `activity-qbit` | GET `/activity/qbit/api/v2/torrents/info?category=abr`: every `category` value exactly `abr`, the other torrents/info parameters (filter, tag, sort, reverse, limit, offset, hashes, private, includeTrackers, include_trackers, includeFiles) refused | qBittorrent 10.24.25.2:8080 | gluetun admits Traefik 10.24.25.3; qBittorrent skips its login for it |
 
-All three: `ipAllowList` 172.24.255.10 (activity, pinned) only; everyone else 403 (`activity.internal-only`).
+All three: `ipAllowList` 172.24.255.10 (activity, pinned) only; everyone else 403 (`activity.internal-only`); no access-log lines (`observability.accessLogs: false`, ~850 lines/h of disk log while the page is viewed). Traefik cannot match the raw query string, so `category=abr&category=abr` still passes (harmless); an unknown parameter is ignored by qBittorrent. Route test in a real Traefik: `bash tests/traefik/run.sh` (`activity.qbit-rule` checks the rule text).
 
-`activity-gate` has no `healthCheck` (Traefik would poll beefy regardless of the Waker) and `serversTransport` `activity-gate-no-idle` (`idleConnTimeout: 1s`), so Traefik holds no idle connection to beefy even if the gate's `keepalive_timeout 0` went away (`activity.gate-transport`).
+`activity-gate` has no `healthCheck` (Traefik would poll beefy regardless of the Waker) and `serversTransport` `activity-gate-no-idle` (`idleConnTimeout: 1s`, `responseHeaderTimeout: 5s`), so Traefik holds no idle connection to beefy even if the gate's `keepalive_timeout 0` went away, and gives up on an unanswered request after 5 s (`activity.gate-transport`). The service's own client closes its connection at its 3 s timeout.
 
 Audiobook downloads: the Audiobook-Requests importer has no download counts, so qBittorrent is read directly, through the route, limited to the one read.
 
