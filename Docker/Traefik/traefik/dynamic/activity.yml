@@ -22,7 +22,8 @@ http:
         certResolver: cloudflare
 
   middlewares:
-    # NOTE: authentication is Authentik forward auth (authentik@file); application "Activity" bound to group homelab-admins (Docker/Authentik/scripts/provision-admin-sso.py).
+    # NOTE: authentication is Authentik forward auth (authentik@file); application "Activity" bound to groups homelab-admins and homelab-users (Docker/Authentik/scripts/provision-admin-sso.py, provision-media-groups.py).
+    # No contentSecurityPolicy here: the service sends the page's CSP with the hashes of its inline script and style (../../../Activity/rust/src/csp.rs); a value here would replace it.
     # The service answers / and /api/state only from Traefik's pinned 172.24.255.3 (PAGE_ALLOW), so other containers on traefik_proxy cannot skip this.
     activity-secure-headers:
       headers:
@@ -33,7 +34,6 @@ http:
         referrerPolicy: "no-referrer"
         frameDeny: true
         permissionsPolicy: "camera=(), microphone=(), geolocation=()"
-        contentSecurityPolicy: "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         customResponseHeaders:
           Server: ""
           Cache-Control: "private, no-store"

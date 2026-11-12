@@ -4,13 +4,18 @@
 # activity calls http://traefik:8080/activity/{waker,gate,qbit}/... and Traefik forwards from addresses the firewalls and backends already admit:
 #   - Waker 192.168.1.2:9001: HOST-GUARD admits 172.24.255.3
 #   - activity-gate 192.168.1.102:8095: DOCKER-USER admits 172.24.255.3 to beefy, the gate admits 192.168.1.2 (the NAT source); read-only GET allow-list on the gate
-#   - qBittorrent 10.24.25.2:8080: gluetun admits 10.24.25.3, qBittorrent skips its login for it, so this route allows only the one read (GET torrents/info?category=abr)
+#   - qBittorrent 10.24.25.2:8080: gluetun admits 10.24.25.3, qBittorrent skips its login for it, so this route allows only the one read (GET torrents/info?category=abr):
+#     Traefik cannot match the raw query, so every `category` value must be exactly abr (a second value would widen the list) and every other torrents/info parameter is refused.
+# The activity service polls these every 30 s while its page is viewed: no access-log lines for them (observability.accessLogs).
+# Tested in a real Traefik: ../../../Activity/tests/traefik/run.sh
 # No Authentik here: only the activity container's pinned 172.24.255.10 gets through (activity-internal-only).
 http:
   routers:
     activity-waker:
       rule: "Host(`traefik`) && Method(`GET`) && Path(`/activity/waker/status`)"
       entryPoints: ["internal"]
+      observability:
+        accessLogs: false
       service: activity-waker
       middlewares:
         - activity-internal-only
@@ -20,14 +25,23 @@ http:
     activity-gate:
       rule: "Host(`traefik`) && Method(`GET`) && PathPrefix(`/activity/gate/`)"
       entryPoints: ["internal"]
+      observability:
+        accessLogs: false
       service: activity-gate
       middlewares:
         - activity-internal-only
         - activity-internal-strip
 
     activity-qbit:
-      rule: "Host(`traefik`) && Method(`GET`) && Path(`/activity/qbit/api/v2/torrents/info`) && Query(`category`, `abr`)"
+      rule: >-
+        Host(`traefik`) && Method(`GET`) && Path(`/activity/qbit/api/v2/torrents/info`)
+        && Query(`category`, `abr`) && !QueryRegexp(`category`, `(?s)^(?:|[^a].*|a|a[^b].*|ab|ab[^r].*|abr.+)$`)
+        && !QueryRegexp(`filter`, `.*`) && !QueryRegexp(`tag`, `.*`) && !QueryRegexp(`sort`, `.*`) && !QueryRegexp(`reverse`, `.*`)
+        && !QueryRegexp(`limit`, `.*`) && !QueryRegexp(`offset`, `.*`) && !QueryRegexp(`hashes`, `.*`) && !QueryRegexp(`private`, `.*`)
+        && !QueryRegexp(`includeTrackers`, `.*`) && !QueryRegexp(`include_trackers`, `.*`) && !QueryRegexp(`includeFiles`, `.*`)
       entryPoints: ["internal"]
+      observability:
+        accessLogs: false
       service: activity-qbit
       middlewares:
         - activity-internal-only
@@ -70,7 +84,9 @@ http:
           - url: "http://10.24.25.2:8080"
 
   # fastpi's side of "no idle connection to beefy": an idle connection is dropped after 1 s (the gate also answers Connection: close).
+  # No answer within 5 s (beefy powered off mid-request): Traefik gives up instead of waiting for TCP keepalive; the service's own timeout is 3 s.
   serversTransports:
     activity-gate-no-idle:
       forwardingTimeouts:
         idleConnTimeout: 1s
+        responseHeaderTimeout: 5s
