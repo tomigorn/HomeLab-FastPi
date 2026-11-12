@@ -94,7 +94,16 @@ function empty(text) { return el("p", { class: "empty" }, text); }
 function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
 function label(kind, quality) { const k = KIND[kind] || kind; return quality ? k + " · " + quality : k; }
 const sum = (xs, f) => (xs || []).reduce((a, x) => a + f(x), 0);
-const ACCEL = { "QSV": "hardware (QSV)", "VA-API": "hardware (VA-API)", "hardware": "hardware", "software": "software" };
+// Jellyfin's HardwareAccelerationType is the server's encoder setting, not proof that this transcode ran on it
+const ACCEL = { "QSV": "configured encoder: QSV", "VA-API": "configured encoder: VA-API", "hardware": "configured encoder: hardware", "software": "configured encoder: software" };
+function streamRow(w) {
+  return el("tr", {},
+    el("td", { class: "e" }, w.paused ? "⏸" : "▶️"),
+    el("td", {}, label(w.kind, w.quality), el("div", { class: "sub" }, w.mode + (w.accel ? " · " + (ACCEL[w.accel] || w.accel) : "") + (w.reasons && w.reasons.length ? " · " + w.reasons.join(", ") : "") + (w.paused ? " · paused" : ""))),
+    el("td", { class: "n" }, String(w.n)));
+}
+const video = (s) => (s.watching || []).filter((w) => !AUDIO.includes(w.kind));
+const jellyfinAudio = (s) => (s.watching || []).filter((w) => AUDIO.includes(w.kind));
 function duration(sec) {
   if (sec < 60) return "<1 min";
   const m = Math.round(sec / 60), h = Math.floor(m / 60), d = Math.floor(h / 24);
@@ -120,12 +129,18 @@ function headline(s) {
   const parts = [];
   const live = (s.watching || []).filter((w) => !w.paused);
   const watching = sum(live.filter((w) => !AUDIO.includes(w.kind)), (w) => w.n);
-  const transcoding = sum(live.filter((w) => !AUDIO.includes(w.kind) && w.mode.startsWith("transcode")), (w) => w.n);
+  const transcoding = sum(live.filter((w) => !AUDIO.includes(w.kind) && w.mode === "transcode"), (w) => w.n);
+  const audioOnly = sum(live.filter((w) => !AUDIO.includes(w.kind) && w.mode === "transcode (audio)"), (w) => w.n);
   const paused = sum((s.watching || []).filter((w) => w.paused), (w) => w.n);
   const listening = sum(live.filter((w) => AUDIO.includes(w.kind)), (w) => w.n) + (s.listening ? s.listening.sessions : 0);
   const downloading = sum((s.downloads || []).filter((d) => d.state === "downloading"), (d) => d.items) + (s.audiobook_downloads ? s.audiobook_downloads.downloading : 0);
   if (s.watching === null) parts.push("watching unknown");
-  else if (watching) parts.push(watching + " watching" + (transcoding ? " (" + transcoding + " transcoding)" : ""));
+  else if (watching) {
+    const tc = [];
+    if (transcoding) tc.push(transcoding + " transcoding");
+    if (audioOnly) tc.push(audioOnly + " audio-only");
+    parts.push(watching + " watching" + (tc.length ? " (" + tc.join(", ") + ")" : ""));
+  }
   if (paused) parts.push(paused + " paused");
   if (listening) parts.push(listening + " listening");
   if (downloading) parts.push(downloading + " downloading");
@@ -143,30 +158,24 @@ function watching(s) {
     box.append(empty(why));
     return;
   }
-  if (s.watching.length === 0) {
+  const vs = video(s);
+  if (vs.length === 0) {
     box.append(empty({ asleep: "💤 beefy asleep — nobody watching", waking: "⏳ beefy is waking up — nobody watching yet" }[s.beefy] || "nobody watching"));
     n.textContent = "0";
-    return;
+  } else {
+    n.textContent = String(sum(vs, (w) => w.n));
+    box.append(el("table", {}, ...vs.map(streamRow)));
   }
-  n.textContent = String(s.watching.reduce((a, w) => a + w.n, 0));
-  const t = el("table");
-  for (const w of s.watching) {
-    t.append(el("tr", {},
-      el("td", { class: "e" }, w.paused ? "⏸" : "▶️"),
-      el("td", {}, label(w.kind, w.quality), el("div", { class: "sub" }, w.mode + (w.accel ? " · " + (ACCEL[w.accel] || w.accel) : "") + (w.reasons && w.reasons.length ? " · " + w.reasons.join(", ") : "") + (w.paused ? " · paused" : ""))),
-      el("td", { class: "n" }, String(w.n))));
-  }
-  box.append(t);
   const ws = s.watching_summary;
   if (ws) {
     const parts = [];
-    if (ws.bitrate_kbps !== null && ws.bitrate_kbps !== undefined) parts.push("≈ " + Math.round(ws.bitrate_kbps / 1000) + " Mbit/s");
+    if (ws.bitrate_kbps !== null && ws.bitrate_kbps !== undefined) parts.push(ws.bitrate_kbps < 1000 ? "≈ " + ws.bitrate_kbps + " kbit/s" : "≈ " + Math.round(ws.bitrate_kbps / 1000) + " Mbit/s");
     const where = [];
     if (ws.lan) where.push(ws.lan + " LAN");
     if (ws.remote) where.push(ws.remote + " remote");
     if (where.length) parts.push(where.join(", "));
     const streams = s.watching.reduce((a, w) => a + w.n, 0);
-    parts.push(plural(ws.people, "person", "people") + " on " + plural(streams, "stream", "streams"));
+    parts.push(plural(ws.people, "person", "people") + " on " + plural(streams, "stream", "streams") + (jellyfinAudio(s).length ? " (with music and audiobooks)" : ""));
     box.append(el("p", { class: "note" }, parts.join(" · ")));
   }
 }
@@ -175,13 +184,15 @@ function listening(s) {
   const box = document.getElementById("listening");
   const n = document.getElementById("listening-n");
   box.replaceChildren();
-  if (s.listening === null) {
-    n.textContent = "";
-    box.append(empty("❔ Audiobookshelf unavailable"));
-  } else {
-    n.textContent = String(s.listening.sessions);
-    box.append(empty(s.listening.sessions === 0 ? "nobody listening" : plural(s.listening.sessions, "audiobook session", "audiobook sessions") + " now"));
-  }
+  // Audiobookshelf sessions plus Jellyfin music and audiobook streams, the same count as the headline
+  const ja = jellyfinAudio(s);
+  const jn = sum(ja.filter((w) => !w.paused), (w) => w.n);
+  const abs = s.listening ? s.listening.sessions : null;
+  n.textContent = abs === null && !ja.length ? "" : String((abs || 0) + jn);
+  if (abs === null) box.append(empty("❔ Audiobookshelf unavailable"));
+  else if (abs === 0 && !ja.length) box.append(empty("nobody listening"));
+  else if (abs) box.append(empty(abs + " in Audiobookshelf now"));
+  if (ja.length) box.append(el("table", {}, ...ja.map(streamRow)));
 }
 
 function amount(d) {
@@ -194,8 +205,9 @@ function amount(d) {
   return "";
 }
 
+// night window and time left only for live downloads: an old snapshot says nothing about now
 function stateText(d, s) {
-  if (d.state !== "waiting for night") return d.state;
+  if (d.state !== "waiting for night" || s.downloads_as_of) return d.state;
   return d.state + (s.night_open ? " · night window open" : " · from " + NIGHT_WAKE);
 }
 
@@ -213,7 +225,7 @@ function downloads(s) {
   const list = (s.downloads || []).slice().sort((x, y) => STATE_ORDER.indexOf(x.state) - STATE_ORDER.indexOf(y.state));
   const release = list.filter((d) => d.state === "waiting for release");
   for (const d of list.filter((d) => d.state !== "waiting for release")) {
-    rows.push([STATE_ICON[d.state] || "•", label(d.kind, d.quality), stateText(d, s) + amount(d) + (MOVING.includes(d.state) ? progress(d.eta, d.left) : ""), d.items, d.state === "problem"]);
+    rows.push([STATE_ICON[d.state] || "•", label(d.kind, d.quality), stateText(d, s) + amount(d) + (MOVING.includes(d.state) && !s.downloads_as_of ? progress(d.eta, d.left) : ""), d.items, d.state === "problem"]);
   }
   const table = (rs) => {
     const t = el("table");
@@ -261,6 +273,7 @@ function render(s) {
 
 // beefy awake but its first poll not in yet: ask again soon instead of waiting the full 30 s (a few times at most)
 let quick = 0;
+let quickTimer = null;
 async function refresh() {
   try {
     const r = await fetch("api/state", { cache: "no-store", credentials: "same-origin", redirect: "error" });
@@ -269,7 +282,8 @@ async function refresh() {
     render(s);
     if (s.beefy === "up" && s.beefy_data !== "live" && quick < 3 && timer !== null) {
       quick++;
-      setTimeout(refresh, 5000);
+      clearTimeout(quickTimer);
+      quickTimer = setTimeout(refresh, 5000);
     } else if (s.beefy_data === "live") {
       quick = 0;
     }
@@ -290,6 +304,7 @@ function start() {
 }
 function stop() {
   clearInterval(timer);
+  clearTimeout(quickTimer);
   timer = null;
 }
 document.addEventListener("visibilitychange", () => document.hidden ? stop() : start());

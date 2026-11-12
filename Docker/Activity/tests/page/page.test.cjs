@@ -135,6 +135,7 @@ test("the headline sums up who is on and what moves", async () => {
     audiobook_downloads: { downloading: 1, queued: 0, paused: 0, problem: 0 },
   })]);
   assert.equal(await p.text("#headline"), "2 watching (1 transcoding) · 1 paused · 2 listening · 4 downloading");
+  assert.equal(await p.text("#listening-n"), "2", "the Listening card counts what the headline counts");
   await p.ctx.close();
   p = await open([base({ beefy: "asleep", beefy_data: "stale", downloads: [D("waiting for release", "Movie", 3)], downloads_as_of: NOW - 60 })]);
   assert.equal(await p.text("#headline"), "All quiet");
@@ -185,7 +186,7 @@ test("Watching and Downloads use the same kind labels", async () => {
   assert.match(w, /Series/);
   assert.doesNotMatch(w, /Episode/);
   assert.match(w, /Live TV/);
-  assert.match(w, /Audiobook/);
+  assert.match(await p.text("#listening"), /Audiobook/, "Jellyfin audiobooks are listed under Listening");
   assert.match(await p.text("#downloads"), /Series/);
   assert.doesNotMatch(await p.text("#downloads"), /Anime series|1 title/);
   await p.ctx.close();
@@ -194,8 +195,8 @@ test("Watching and Downloads use the same kind labels", async () => {
 test("a transcode says why and on which encoder", async () => {
   const p = await open([base({ watching: [Object.assign(W("Movie", "transcode", false, 1), { accel: "QSV", reasons: ["subtitles", "HDR tone-mapping"] }), Object.assign(W("Episode", "transcode", false, 1), { accel: "software", reasons: [] })] })]);
   const t = await p.text("#watching");
-  assert.match(t, /transcode · hardware \(QSV\) · subtitles, HDR tone-mapping/);
-  assert.match(t, /transcode · software/);
+  assert.match(t, /transcode · configured encoder: QSV · subtitles, HDR tone-mapping/, "HardwareAccelerationType is the server setting, not this transcode");
+  assert.match(t, /transcode · configured encoder: software/);
   await p.ctx.close();
 });
 
@@ -220,5 +221,47 @@ test("download rows show the longest time and the size left", async () => {
   assert.match(row(/stalled/), /2\.0 GB to download/);
   assert.doesNotMatch(row(/problem/), /left|to download/);
   assert.match(row(/Audiobook downloading/), /~10 min left · 170 MB to download/);
+  await p.ctx.close();
+});
+
+test("Jellyfin music and audiobooks sit under Listening, not Watching", async () => {
+  const p = await open([base({ watching: [W("Movie", "direct play", false, 1), W("Music", "direct play", false, 1)], listening: { sessions: 1 } })]);
+  assert.equal(await p.text("#watching-n"), "1");
+  assert.doesNotMatch(await p.text("#watching"), /Music/);
+  assert.equal(await p.text("#listening-n"), "2");
+  const l = await p.text("#listening");
+  assert.match(l, /1 in Audiobookshelf/);
+  assert.match(l, /Music/);
+  assert.equal(await p.text("#headline"), "1 watching · 2 listening");
+  await p.ctx.close();
+});
+
+test("audio-only transcodes are not counted as transcoding", async () => {
+  const p = await open([base({ watching: [W("Movie", "transcode", false, 1), W("Episode", "transcode (audio)", false, 1)] })]);
+  assert.equal(await p.text("#headline"), "2 watching (1 transcoding, 1 audio-only)");
+  await p.ctx.close();
+});
+
+test("old downloads do not claim an open night window or a time left", async () => {
+  const p = await open([base({ beefy: "asleep", beefy_data: "stale", night_open: true, downloads_as_of: NOW - 15 * 3600,
+    downloads: [D("waiting for night", "Movie", 1), D("downloading", "Movie", 1, { eta: 600, left: 5e9 })] })]);
+  const t = await p.text("#downloads");
+  assert.match(t, /waiting for night/);
+  assert.doesNotMatch(t, /night window open|from 22:05|left|to download/);
+  await p.ctx.close();
+});
+
+test("a hidden tab cancels the pending quick refresh", async () => {
+  const p = await open([base({ beefy_data: "none", watching: null }), base()]);
+  assert.equal(p.calls.n, 1);
+  await p.page.evaluate(() => { Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await p.page.clock.runFor(40000);
+  assert.equal(p.calls.n, 1);
+  await p.ctx.close();
+});
+
+test("a low bitrate shows in kbit/s", async () => {
+  const p = await open([base({ watching: [W("Movie", "direct play", false, 1)], watching_summary: { bitrate_kbps: 320, lan: 1, remote: 0, people: 1 } })]);
+  assert.match(await p.text("#watching"), /≈ 320 kbit\/s/);
   await p.ctx.close();
 });
