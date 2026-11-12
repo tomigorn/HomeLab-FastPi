@@ -123,3 +123,70 @@ test("gaps in the downloads are named", async () => {
   assert.match(t, /night list unavailable/);
   await p.ctx.close();
 });
+
+const W = (kind, mode, paused, n) => ({ kind, quality: null, mode, paused, n });
+const D = (state, kind, items, extra) => Object.assign({ state, kind, quality: null, items, seasons: 0, episodes: 0 }, extra);
+
+test("the headline sums up who is on and what moves", async () => {
+  let p = await open([base({
+    watching: [W("Movie", "direct play", false, 1), W("Episode", "transcode", false, 1), W("Anime", "direct play", true, 1), W("Music", "direct play", false, 1)],
+    listening: { sessions: 1 },
+    downloads: [D("downloading", "Movie", 2), D("downloading", "Episode", 1), D("waiting for night", "Movie", 4)],
+    audiobook_downloads: { downloading: 1, queued: 0, paused: 0, problem: 0 },
+  })]);
+  assert.equal(await p.text("#headline"), "2 watching (1 transcoding) · 1 paused · 2 listening · 4 downloading");
+  await p.ctx.close();
+  p = await open([base({ beefy: "asleep", beefy_data: "stale", downloads: [D("waiting for release", "Movie", 3)], downloads_as_of: NOW - 60 })]);
+  assert.equal(await p.text("#headline"), "All quiet");
+  await p.ctx.close();
+  p = await open([base({ beefy: "unknown", beefy_data: "none", watching: null, listening: { sessions: 1 } })]);
+  assert.equal(await p.text("#headline"), "watching unknown · 1 listening");
+  await p.ctx.close();
+});
+
+test("waiting for night says when the window opens", async () => {
+  let p = await open([base({ downloads: [D("waiting for night", "Movie", 2)], night_open: false })]);
+  assert.match(await p.text("#downloads"), /waiting for night · from 22:05/);
+  await p.ctx.close();
+  p = await open([base({ downloads: [D("waiting for night", "Movie", 2)], night_open: true })]);
+  assert.match(await p.text("#downloads"), /night window open/);
+  await p.ctx.close();
+});
+
+test("waiting for release is one folded line, not rows", async () => {
+  const p = await open([base({ downloads: [D("downloading", "Movie", 1), D("waiting for release", "Movie", 6), D("waiting for release", "Episode", 3), D("waiting for release", "Anime", 1)] })]);
+  assert.equal(await p.page.locator("#downloads > table tr").count(), 1);
+  const fold = p.page.locator("#downloads details");
+  assert.equal((await fold.locator("summary").innerText()).replace(/\s+/g, " ").trim(), "📅 waiting for release: 6 movies, 3 series, 1 anime");
+  assert.equal(await fold.locator("tr").first().isVisible(), false, "collapsed");
+  await fold.locator("summary").click();
+  assert.equal(await fold.locator("tr").count(), 3);
+  await p.ctx.close();
+});
+
+test("a failed refresh greys the page and says how to recover", async () => {
+  const p = await open([base({ watching: [W("Movie", "direct play", false, 1)] }), 302]);
+  assert.equal(await p.page.locator("main.stale").count(), 0);
+  await p.page.clock.runFor(30500);
+  await p.page.waitForSelector("main.stale");
+  const t = await p.text("#stale");
+  assert.match(t, /not updated since 14:00/);
+  assert.match(t, /reload/);
+  assert.equal(await p.page.locator("#stale a").getAttribute("href"), "./");
+  await p.ctx.close();
+});
+
+test("Watching and Downloads use the same kind labels", async () => {
+  const p = await open([base({
+    watching: [W("Episode", "direct play", false, 1), W("Live TV", "direct stream", false, 1), W("Audiobook", "direct play", false, 1)],
+    downloads: [D("downloading", "Episode", 1, { seasons: 1, episodes: 2 })],
+  })]);
+  const w = await p.text("#watching");
+  assert.match(w, /Series/);
+  assert.doesNotMatch(w, /Episode/);
+  assert.match(w, /Live TV/);
+  assert.match(w, /Audiobook/);
+  assert.match(await p.text("#downloads"), /Series/);
+  assert.doesNotMatch(await p.text("#downloads"), /Anime series|1 title/);
+  await p.ctx.close();
+});

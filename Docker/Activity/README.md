@@ -35,6 +35,16 @@ activity, per poll:   traefik:8080/activity/waker/status ─► Waker 192.168.1.
 
 The page fetches `/api/state` every 30 s only while its tab is visible (stops on `hidden`, fetches at once on `visible`); while beefy is up but its data is not live yet it asks again after 5 s (at most 3 times). It shows "updated HH:MM:SS" (the last poll) and "⚠️ beefy streams/downloads/data unavailable (gate not answering)" when the Waker says up but that part failed (`streams_failed`, `downloads_failed`); not in the first 90 s after a wake (`beefy_starting`: Jellyfin and the arrs start after sshd). The post-update checks read `/api/state`, so each run counts as a viewer for 2 min.
 
+## Page
+
+| Part | Shows |
+|---|---|
+| Headline | "2 watching (1 transcoding) · 1 paused · 2 listening · 4 downloading", or "All quiet": watching = playing Jellyfin streams that are not Music/Audiobook; transcoding = mode transcode or transcode (audio); paused = paused Jellyfin streams; listening = Audiobookshelf sessions + playing Jellyfin Music/Audiobook; downloading = titles in state downloading + audiobook torrents downloading |
+| Watching / Downloads | one label per kind in both: Movie, Series (`Episode`), Anime, Audiobook, Music, Live TV, Other |
+| 🌙 waiting for night | "from 22:05" (fastpi's night-download wake of beefy) or "night window open" (`night_open`) |
+| 📅 waiting for release | one folded line at the end of Downloads ("6 movies, 3 series"), rows on tap |
+| Refresh failed | page greyed, "⚠️ not updated since HH:MM — reload (sign in again if asked)"; an expired sign-in makes the fetch fail on the SSO redirect |
+
 `/health` is 503 when the poll loop has stopped or a due poll has not run for 2 × `POLL_SECONDS` + 60 s (Docker marks the container unhealthy, autoheal restarts it).
 
 ### Internal routes (Traefik)

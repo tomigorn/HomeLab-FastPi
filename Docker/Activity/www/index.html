@@ -27,6 +27,10 @@
   .note { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 0; }
   .warn { background: #3d2e00; border: 1px solid #9e6a03; border-radius: 10px; padding: 0.5rem 0.8rem; margin: 0 0 0.8rem; }
   a { color: var(--accent); }
+  #headline { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.8rem; }
+  main.stale section, main.stale #headline { opacity: 0.45; }
+  details.release { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+  details.release summary { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -36,6 +40,8 @@
     <span id="beefy">…</span>
     <span class="muted" id="updated"></span>
   </header>
+  <p id="headline" aria-live="polite">…</p>
+  <p class="warn" id="stale" hidden></p>
   <p class="warn" id="gate" hidden>⚠️ beefy data unavailable (gate not answering)</p>
   <section>
     <h2>📺 Watching <span class="n" id="watching-n"></span></h2>
@@ -55,7 +61,12 @@
 "use strict";
 const STATE_ICON = { "downloading": "⬇️", "importing": "📥", "queued": "⏳", "stalled": "🐢", "paused": "⏸", "waiting for night": "🌙", "waiting for release": "📅", "problem": "⚠️" };
 const STATE_ORDER = ["downloading", "importing", "queued", "stalled", "paused", "waiting for night", "waiting for release", "problem"];
-const DL_KIND = { "Movie": "Movie", "Episode": "Series", "Anime": "Anime series", "Audiobook": "Audiobook", "Other": "Other" };
+// one label per kind for both cards
+const KIND = { "Movie": "Movie", "Episode": "Series", "Anime": "Anime", "Audiobook": "Audiobook", "Music": "Music", "Live TV": "Live TV", "Other": "Other" };
+const AUDIO = ["Music", "Audiobook"];
+// fastpi wakes beefy for the night downloads at 22:05 (night window 22:00–06:00, Sundays all day)
+const NIGHT_WAKE = "22:05";
+const RELEASE_KIND = { "Movie": ["movie", "movies"], "Episode": ["series", "series"], "Anime": ["anime", "anime"] };
 const REQUESTS = "https://requests.holy-grail.ch/requests";
 
 function el(tag, attrs, ...kids) {
@@ -81,7 +92,24 @@ function hhmmss(t) {
 }
 function empty(text) { return el("p", { class: "empty" }, text); }
 function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
-function label(kind, quality) { return quality ? kind + " · " + quality : kind; }
+function label(kind, quality) { const k = KIND[kind] || kind; return quality ? k + " · " + quality : k; }
+const sum = (xs, f) => (xs || []).reduce((a, x) => a + f(x), 0);
+
+function headline(s) {
+  const parts = [];
+  const live = (s.watching || []).filter((w) => !w.paused);
+  const watching = sum(live.filter((w) => !AUDIO.includes(w.kind)), (w) => w.n);
+  const transcoding = sum(live.filter((w) => !AUDIO.includes(w.kind) && w.mode.startsWith("transcode")), (w) => w.n);
+  const paused = sum((s.watching || []).filter((w) => w.paused), (w) => w.n);
+  const listening = sum(live.filter((w) => AUDIO.includes(w.kind)), (w) => w.n) + (s.listening ? s.listening.sessions : 0);
+  const downloading = sum((s.downloads || []).filter((d) => d.state === "downloading"), (d) => d.items) + (s.audiobook_downloads ? s.audiobook_downloads.downloading : 0);
+  if (s.watching === null) parts.push("watching unknown");
+  else if (watching) parts.push(watching + " watching" + (transcoding ? " (" + transcoding + " transcoding)" : ""));
+  if (paused) parts.push(paused + " paused");
+  if (listening) parts.push(listening + " listening");
+  if (downloading) parts.push(downloading + " downloading");
+  return parts.length ? parts.join(" · ") : "All quiet";
+}
 
 function watching(s) {
   const box = document.getElementById("watching");
@@ -128,9 +156,14 @@ function amount(d) {
     const parts = [];
     if (d.seasons) parts.push(plural(d.seasons, "season", "seasons"));
     if (d.episodes) parts.push(plural(d.episodes, "episode", "episodes"));
-    return plural(d.items, "series", "series") + " · " + parts.join(", ") + " remaining";
+    return " · " + plural(d.items, "series", "series") + " · " + parts.join(", ") + (d.state === "problem" ? "" : " remaining");
   }
-  return plural(d.items, "title", "titles");
+  return "";
+}
+
+function stateText(d, s) {
+  if (d.state !== "waiting for night") return d.state;
+  return d.state + (s.night_open ? " · night window open" : " · from " + NIGHT_WAKE);
 }
 
 function downloads(s) {
@@ -145,19 +178,27 @@ function downloads(s) {
     if (a.problem) rows.push(["⚠️", "Audiobook", "problem (error or missing files)", a.problem]);
   }
   const list = (s.downloads || []).slice().sort((x, y) => STATE_ORDER.indexOf(x.state) - STATE_ORDER.indexOf(y.state));
-  for (const d of list) {
-    rows.push([STATE_ICON[d.state] || "•", label(DL_KIND[d.kind] || d.kind, d.quality), d.state + " · " + amount(d), d.items, d.state === "problem"]);
+  const release = list.filter((d) => d.state === "waiting for release");
+  for (const d of list.filter((d) => d.state !== "waiting for release")) {
+    rows.push([STATE_ICON[d.state] || "•", label(d.kind, d.quality), stateText(d, s) + amount(d), d.items, d.state === "problem"]);
   }
-  if (rows.length) {
+  const table = (rs) => {
     const t = el("table");
-    for (const [icon, what, sub, n, problem] of rows) {
+    for (const [icon, what, sub, n, problem] of rs) {
       const subEl = el("div", { class: "sub" }, sub);
       if (problem) subEl.append(" · ", el("a", { href: REQUESTS, rel: "noopener" }, "details"));
       t.append(el("tr", {}, el("td", { class: "e" }, icon), el("td", {}, what, subEl), el("td", { class: "n" }, String(n))));
     }
-    box.append(t);
-  } else if (s.downloads !== null || s.audiobook_downloads) {
-    box.append(empty("nothing downloading"));
+    return t;
+  };
+  if (rows.length) box.append(table(rows));
+  else if (s.downloads !== null || s.audiobook_downloads) box.append(empty("nothing downloading"));
+  if (release.length) {
+    const byKind = {};
+    for (const d of release) byKind[d.kind] = (byKind[d.kind] || 0) + d.items;
+    const what = Object.entries(byKind).map(([k, n]) => { const w = RELEASE_KIND[k] || [KIND[k] || k, KIND[k] || k]; return n + " " + (n === 1 ? w[0] : w[1]); });
+    box.append(el("details", { class: "release" }, el("summary", {}, "📅 waiting for release: " + what.join(", ")),
+      table(release.map((d) => ["📅", label(d.kind, d.quality), d.state + amount(d), d.items, false]))));
   }
   const g = s.downloads_gaps || {};
   if (g.truncated) box.append(el("p", { class: "note" }, "⚠️ more in the queue than shown (queue page full)"));
@@ -168,7 +209,12 @@ function downloads(s) {
   if (!s.audiobook_downloads) box.append(el("p", { class: "note" }, "❔ audiobook downloads unavailable"));
 }
 
+let lastGood = null;
 function render(s) {
+  lastGood = s.polled_at || s.now;
+  document.querySelector("main").classList.remove("stale");
+  document.getElementById("stale").hidden = true;
+  document.getElementById("headline").textContent = headline(s);
   const b = document.getElementById("beefy");
   b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", waking: "⏳ beefy waking", broken: "⚠️ beefy wake failed", unknown: "❔ beefy state unknown" }[s.beefy] || s.beefy;
   document.getElementById("updated").textContent = "updated " + hhmmss(s.polled_at || s.now);
@@ -184,7 +230,7 @@ function render(s) {
 let quick = 0;
 async function refresh() {
   try {
-    const r = await fetch("api/state", { cache: "no-store", credentials: "same-origin" });
+    const r = await fetch("api/state", { cache: "no-store", credentials: "same-origin", redirect: "error" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const s = await r.json();
     render(s);
@@ -196,6 +242,11 @@ async function refresh() {
     }
   } catch (e) {
     document.getElementById("updated").textContent = "⚠️ not updated (" + e.message + ")";
+    // an expired sign-in turns the fetch into a redirect to the SSO, which fails here
+    document.querySelector("main").classList.add("stale");
+    const box = document.getElementById("stale");
+    box.replaceChildren("⚠️ not updated since " + (lastGood ? hhmm(lastGood) : "the start") + " — ", el("a", { href: "./" }, "reload"), " (sign in again if asked)");
+    box.hidden = false;
   }
 }
 let timer = null;
