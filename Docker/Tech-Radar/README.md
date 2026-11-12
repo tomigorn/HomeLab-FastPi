@@ -10,6 +10,13 @@ Tech stack showcase at `stack.holy-grail.ch` (Holy Grail login). Static [AOE Tec
 | Config, about, logo | `config.json`, `about.md`, `public/`, `custom.css` |
 | Built output | `/srv` in the image; item URL `/<quadrant>/<id>/` |
 
+## Access
+| What | Where |
+|---|---|
+| Route, headers, CSP | `../Traefik/traefik/dynamic/tech-radar.yml` (`script-src 'self'`: the pages have no executable inline script; `style-src` keeps `unsafe-inline` for style attributes) |
+| Login | Authentik app `Tech Stack` (`../Authentik/scripts/provision-admin-sso.py`), groups homelab-admins and homelab-users, Utilities tile (`dashboard-look.py`) |
+| Checks | `../_global/post-update.d/Tech-Radar.sh`, `smoke-test.sh`, Prometheus probes of `stack.holy-grail.ch` |
+
 ## Update
 ```
 free -m   # available >= 1500 MB first

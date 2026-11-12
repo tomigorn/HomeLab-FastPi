@@ -1,0 +1,47 @@
+http:
+  routers:
+    # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
+    tech-radar-outpost:
+      rule: "Host(`stack.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    tech-radar:
+      rule: "Host(`stack.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: tech-radar
+      middlewares:
+        - authentik@file
+        - default-rate-limit@file
+        - tech-radar-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # NOTE: authentication is Authentik forward auth (authentik@file); application "Tech Stack" bound to groups homelab-admins and homelab-users (Docker/Authentik/scripts/provision-admin-sso.py, provision-media-groups.py).
+    # CSP: the built pages have no executable inline script (only the __NEXT_DATA__ JSON), so script-src is 'self'; style-src keeps 'unsafe-inline' because the pages set style attributes.
+    tech-radar-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "no-referrer"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        contentSecurityPolicy: "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        customResponseHeaders:
+          Server: ""
+          Cache-Control: "private, max-age=300"
+          X-Robots-Tag: "noindex, nofollow"
+
+  services:
+    tech-radar:
+      loadBalancer:
+        servers:
+          - url: "http://tech-radar:80"
+        passHostHeader: true
