@@ -244,6 +244,13 @@ def test_help_and_unknown_options_print_usage_and_do_nothing():
         assert calls == "" and made == [], (args, calls, made)
 
 
+def test_tech_radar_is_rebuilt_weekly_with_its_post_update_check():
+    rows = {r["project"]: r for r in parse_conf((Path(__file__).parent.parent / "rebuild-local.conf").read_text())}
+    if not (Path(__file__).parent.parent.parent / "Tech-Radar").exists():
+        return
+    assert "Tech-Radar" in rows and rows["Tech-Radar"]["check"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
@@ -256,9 +263,3 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     sys.exit(1 if fails else 0)
 
-
-def test_tech_radar_is_rebuilt_weekly_with_its_post_update_check():
-    rows = {r["project"]: r for r in parse_conf((Path(__file__).parent.parent / "rebuild-local.conf").read_text())}
-    if not (Path(__file__).parent.parent.parent / "Tech-Radar").exists():
-        return
-    assert "Tech-Radar" in rows and rows["Tech-Radar"]["check"]
