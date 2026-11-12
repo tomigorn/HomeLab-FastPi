@@ -50,7 +50,7 @@ class ContentTest(unittest.TestCase):
             "languages": ["rust", "python", "bash"],
             "hardware": ["fastpi", "beefy", "tower", "bazzite-pc", "macbook", "bambu-lab", "sony-tv", "apple-tv"],
             "devops": ["docker", "cup", "security-monitoring", "wake-on-lan"],
-            "services": ["traefik", "cloudflare", "authentik", "ldaps", "wireguard", "godaddy", "no-ip", "duckdns", "crowdsec", "adguard", "jellyfin"],
+            "services": ["traefik", "cloudflare", "authentik", "wireguard", "godaddy", "no-ip", "duckdns", "crowdsec", "adguard", "jellyfin"],
         }
         found = {p.stem: parse(p)[1].get("quadrant") for p in items()}
         for quadrant, ids in required.items():
@@ -59,6 +59,11 @@ class ContentTest(unittest.TestCase):
                     self.assertEqual(found.get(i), quadrant)
         self.assertGreaterEqual(len(found), 40)
         self.assertLessEqual(len(found), 60)
+
+    def test_no_ldaps_item(self):
+        self.assertFalse(list((ROOT / "radar").glob("**/ldaps.md")))
+        text = (ROOT / "radar/2026-11-12/authentik.md").read_text(encoding="utf-8")
+        self.assertIn("OIDC/OAuth2", text)
 
     def test_config(self):
         cfg = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
