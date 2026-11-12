@@ -10,7 +10,7 @@ Private research notes for one person. MkDocs Material, like the [Wiki](../Wiki/
 
 ```bash
 $EDITOR ~/notes/docs/<topic>.md                 # plus a row in its chapter page docs/chapter-*.md and a nav entry under that chapter in mkdocs.yml
-~/Projects/Docker/Notes/build.sh               # strict build, live at once
+~/Projects/Docker/Notes/build.sh               # strict build, live at once; also regenerates docs/recent.md (Recently changed) from the notes history
 git -C ~/notes add -A && git -C ~/notes commit -m "notes: <topic>"
 ```
 
