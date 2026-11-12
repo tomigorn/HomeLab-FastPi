@@ -104,6 +104,38 @@ rule (jellyfin-web clients send their first connect check without the Jellyfin h
 
 Design: `docs/superpowers/specs/2026-10-11-jellyfin-signin-wake-design.md`.
 
+## Jellyfin: background requests (v2.1.0)
+
+Found 2026-11-12 in the observe log: an Android TV with "Moonfin for Android TV" woke beefy about every 61 min, day and night, with a lone `GET /UserItems/Resume` (Android TV home-screen row refresh); each wake kept beefy up ~16 min. While beefy is down, every non-browser Jellyfin request is now classified per client (the `DeviceId` from the Jellyfin header, else client IP + client name):
+
+| Request | Class |
+|---|---|
+| `GET` of `/UserItems/Resume`, `/Shows/NextUp`, `/Items/Latest`, `/Users/<id>/Items/Latest`, `/Users/<id>/Items/Resume` | background |
+| ... but the same client sent a foreground request in the last 60 s (`BACKGROUND_FOREGROUND_SECONDS`) | foreground |
+| ... or a different background path in the last 2 s (home rows loading in parallel = app start) | foreground |
+| anything else (`/System/Info/Public`, `/Users/<id>`, `/UserViews`, `/Users/<id>/Items`, playback, `/socket`, ...) | foreground |
+
+`BACKGROUND_SKIP` decides what a background request does when it would start a wake:
+
+| Mode | Effect |
+|---|---|
+| `observe` (default; unknown values fall back to it) | wakes as before, logs `"would": "skip-background"`, counts `beefy_wake_background_total{mode="observe"}` |
+| `enforce` | no wake, no hold: instant 503 "Jellyfin is asleep" page (the app shows its offline state), decision `background`, counts `{mode="enforce"}` |
+| `off` | no classification at all (pre-2.1.0) |
+
+Beefy up, browsers, and requests during a running wake (`starting`) are never changed. Device ids are never logged.
+
+Reading the observe lines (`class` = the classification, on every app line while beefy is down):
+
+```bash
+sudo grep -a '"would": "skip-background"' "$(docker inspect -f '{{.LogPath}}' beefy-waker)" | wc -l   # wakes enforce would have saved
+sudo grep -a '"observe ' "$(docker inspect -f '{{.LogPath}}' beefy-waker)" | grep -a '"up": false' | grep -a '"decision": "starting"' | grep -a '"class": "foreground"' | tail   # follow-ups that would still wake in enforce
+```
+
+Check the follow-ups before switching: a background wake is followed by more requests from the same TV while beefy boots (`starting`); one with `"class": "foreground"` (e.g. `/Users/<id>/Items`) would start the wake anyway in enforce mode.
+
+Switch to enforce: set `BACKGROUND_SKIP=enforce` in `.env`, then `docker compose up -d` (recreate). Back: `observe`, or `off`.
+
 ## Wake recovery (v1.6.2)
 
 A signed-in wake that does not come up gets one hard power-cycle via beefy's plug, then a Telegram alarm. Code: `rust/src/recovery.rs` (Python original `app/recovery.py`). Design: `docs/superpowers/specs/2026-11-02-wake-recovery-design.md`.
@@ -227,10 +259,11 @@ curl -s http://127.0.0.1:9001/history | python3 -c \
 | File | Purpose |
 |------|---------|
 | `rust/src/main.rs` | Routes: gate, Jellyfin policy + holds, public-info cache, stream auth, status/wake, pages. |
+| `rust/src/background.rs` | Background-request classification (`BACKGROUND_SKIP`). |
 | `rust/src/recovery.rs` | Wake recovery state machine, myStrom plug, alert POST, textfile writer. |
 | `rust/src/history.rs` | `/history` over SSH in-process (russh, host key pinned from `known_hosts`, wrong key = refused). |
 | `rust/src/{web,wol,client,pyfmt}.rs` | HTTP server layer and magic packet (identical copies in Tower-Waker), LAN HTTP client, Python-compatible JSON/float output. |
-| `tests/blackbox/` | Black-box suite (97 tests, fakes for beefy, Jellyfin, myStrom, Alertmanager, WoL; network-less `ctest.sh` container): `run.sh old` (Python) / `run.sh new` (binary from `beefy-waker:local`, or `IMAGE=`). `bench.py`: latency of read-only endpoints. |
+| `tests/blackbox/` | Black-box suite (127 tests, fakes for beefy, Jellyfin, myStrom, Alertmanager, WoL; network-less `ctest.sh` container): `run.sh old` (Python) / `run.sh new` (binary from `beefy-waker:local`, or `IMAGE=`). `bench.py`: latency of read-only endpoints. |
 | `app/` | Legacy Python app (`waker.py`, `recovery.py`, unit tests, `Dockerfile.python`) + `VERSION` (mounted at `/app/VERSION`, shown in the footer). |
 | `Dockerfile` | Rust build stage (`cargo test` + build, `rust:1-alpine` pinned by digest), final `scratch` image with the static binary and a uid-65005 `/tmp`. |
 | `docker-compose.yaml` | Host network, uid 65005, read-only root, volume `cache` at `/tmp` (public-info cache). |
@@ -287,6 +320,8 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `ALERTMANAGER_URL` | Where wake alarms go. `http://127.0.0.1:9093` |
 | `WAKE_METRICS` | Textfile in the container. `/textfile/beefy_wake.prom` |
 | `WAKE_STATE_FILE` | Power-cycle state (plug-off window), in the `cache` volume. `/tmp/power-cycle.state` |
+| `BACKGROUND_SKIP` | Lone background app requests while beefy sleeps: `observe` (default), `enforce`, `off`. See "Jellyfin: background requests". |
+| `BACKGROUND_FOREGROUND_SECONDS` | A foreground request from the same client within this many seconds makes background requests wake. Default `60`. |
 
 ## Operations & known limitations
 

@@ -172,6 +172,7 @@ pub struct Snapshot {
     power_cycles: u64,
     failures: BTreeMap<&'static str, u64>,
     recoveries: [u64; 2],
+    background: [u64; 2],
     last: BTreeMap<&'static str, f64>,
 }
 
@@ -192,6 +193,8 @@ pub fn textfile(s: &Snapshot) -> String {
         REASONS.iter().map(|r| (format!("{{reason=\"{r}\"}}"), s.failures.get(r).copied().unwrap_or(0).to_string())).collect());
     metric("recoveries_total", "counter", "Times beefy came back after a power cycle or broken.",
         vec![("{after=\"power_cycle\"}".into(), s.recoveries[0].to_string()), ("{after=\"broken\"}".into(), s.recoveries[1].to_string())]);
+    metric("background_total", "counter", "Lone background app requests that would not (observe) or did not (enforce) wake beefy.",
+        vec![("{mode=\"observe\"}".into(), s.background[0].to_string()), ("{mode=\"enforce\"}".into(), s.background[1].to_string())]);
     metric("last_event_timestamp_seconds", "gauge", "Unix time of the last event.",
         s.last.iter().map(|(e, t)| (format!("{{event=\"{e}\"}}"), pyfmt::float(*t))).collect());
     out.join("\n") + "\n"
@@ -221,6 +224,7 @@ struct State {
     power_cycles: u64,
     failures: BTreeMap<&'static str, u64>,
     recoveries: [u64; 2],
+    background: [u64; 2],
     last: BTreeMap<&'static str, f64>,
     last_cycle_t: Option<f64>,
     // campaign
@@ -305,6 +309,7 @@ impl Recovery {
             power_cycles: 0,
             failures: REASONS.iter().map(|r| (*r, 0)).collect(),
             recoveries: [0, 0],
+            background: [0, 0],
             last: BTreeMap::new(),
             last_cycle_t: None,
             ports: Vec::new(),
@@ -394,13 +399,19 @@ impl Recovery {
         Status { phase: s.phase, seconds_left: left.map(|l| (l.trunc() as i64).max(0)), reason: s.reason }
     }
 
+    /// A background request that would not (observe) or did not (enforce) wake beefy.
+    pub fn count_background(&self, enforce: bool) {
+        self.s().background[enforce as usize] += 1;
+        self.emit();
+    }
+
     pub fn in_progress(&self) -> bool {
         matches!(self.s().phase, "waking" | "power_cycle" | "retrying")
     }
 
     fn snapshot(&self) -> Snapshot {
         let s = self.s();
-        Snapshot { phase: s.phase, campaigns: s.campaigns, power_cycles: s.power_cycles, failures: s.failures.clone(), recoveries: s.recoveries, last: s.last.clone() }
+        Snapshot { phase: s.phase, campaigns: s.campaigns, power_cycles: s.power_cycles, failures: s.failures.clone(), recoveries: s.recoveries, background: s.background, last: s.last.clone() }
     }
 
     fn emit(&self) {
@@ -790,7 +801,7 @@ mod tests {
 
     #[test]
     fn textfile_initial() {
-        let s = Snapshot { phase: "idle", campaigns: [0, 0], power_cycles: 0, failures: REASONS.iter().map(|r| (*r, 0)).collect(), recoveries: [0, 0], last: BTreeMap::new() };
+        let s = Snapshot { phase: "idle", campaigns: [0, 0], power_cycles: 0, failures: REASONS.iter().map(|r| (*r, 0)).collect(), recoveries: [0, 0], background: [0, 0], last: BTreeMap::new() };
         let t = textfile(&s);
         assert!(t.starts_with("# HELP beefy_wake_phase Current wake recovery phase (1 = active).\n# TYPE beefy_wake_phase gauge\nbeefy_wake_phase{phase=\"idle\"} 1\n"));
         assert!(t.ends_with("# TYPE beefy_wake_last_event_timestamp_seconds gauge\n"));
@@ -802,11 +813,12 @@ mod tests {
         let mut last = BTreeMap::new();
         last.insert("power_cycle", 2.5);
         last.insert("campaign", 1.0);
-        let s = Snapshot { phase: "broken", campaigns: [1, 2], power_cycles: 1, failures: REASONS.iter().map(|r| (*r, 0)).collect(), recoveries: [0, 1], last };
+        let s = Snapshot { phase: "broken", campaigns: [1, 2], power_cycles: 1, failures: REASONS.iter().map(|r| (*r, 0)).collect(), recoveries: [0, 1], background: [3, 0], last };
         let t = textfile(&s);
         assert!(t.ends_with("beefy_wake_last_event_timestamp_seconds{event=\"campaign\"} 1.0\nbeefy_wake_last_event_timestamp_seconds{event=\"power_cycle\"} 2.5\n"));
         assert!(t.contains("beefy_wake_campaigns_total{signed_in=\"1\"} 2\n"));
         assert!(t.contains("beefy_wake_recoveries_total{after=\"broken\"} 1\n"));
+        assert!(t.contains("beefy_wake_background_total{mode=\"observe\"} 3\nbeefy_wake_background_total{mode=\"enforce\"} 0\n"));
     }
 
     #[test]

@@ -72,6 +72,10 @@ beefy_wake_failures_total{reason="plug_unreachable"} 0
 # TYPE beefy_wake_recoveries_total counter
 beefy_wake_recoveries_total{after="power_cycle"} 0
 beefy_wake_recoveries_total{after="broken"} 0
+# HELP beefy_wake_background_total Lone background app requests that would not (observe) or did not (enforce) wake beefy.
+# TYPE beefy_wake_background_total counter
+beefy_wake_background_total{mode="observe"} 0
+beefy_wake_background_total{mode="enforce"} 0
 # HELP beefy_wake_last_event_timestamp_seconds Unix time of the last event.
 # TYPE beefy_wake_last_event_timestamp_seconds gauge
 """
@@ -821,9 +825,10 @@ class JellyfinGate(Base):
         rec = obs[0]
         self.assertEqual(sorted(rec), sorted(["up", "decision", "method", "path", "query_keys", "auth_mediabrowser", "x_emby_authorization",
                                               "x_emby_token", "x_mediabrowser_token", "client", "ua", "accept", "sec_fetch_mode",
-                                              "sec_fetch_dest", "ip", "held"]))
+                                              "sec_fetch_dest", "ip", "held", "class"]))
         self.assertEqual(rec["up"], False)
         self.assertEqual(rec["decision"], "wake")
+        self.assertEqual(rec["class"], "foreground")
         self.assertEqual(rec["method"], "GET")
         self.assertEqual(rec["path"], "/Items")
         self.assertEqual(rec["query_keys"], ["Fields", "api_key", "b"])
@@ -1314,6 +1319,217 @@ class ResumePlugAlreadyOn(InterruptedStateOnStart):
         self.wait_done()
         self.assertEqual(self.plug.relay_calls(), [])
         self.assertEqual(self.am.alerts(), [])
+
+
+# --- background requests (BACKGROUND_SKIP) ---------------------------------------
+def tv(device="dev-a", path="/UserItems/Resume?Limit=12&Fields=x", ip="198.51.100.20", client="Moonfin for Android TV"):
+    auth = 'MediaBrowser Client="%s", Device="tv"' % client
+    if device:
+        auth += ', DeviceId="%s"' % device
+    return {"Authorization": auth + ', Version="3.0.0", Token="goodtoken123"', "X-Forwarded-Uri": path,
+            "X-Forwarded-Method": "GET", "CF-Connecting-IP": ip, "User-Agent": "Mozilla/5.0 (compatible; Moonfin/3.0.0)"}
+
+
+class BackgroundBase(Base):
+    def metric(self, mode):
+        with open(BASE_ENV["WAKE_METRICS"]) as f:
+            m = re.search(r'^beefy_wake_background_total\{mode="%s"\} (\d+)$' % mode, f.read(), re.M)
+        return int(m.group(1)) if m else None
+
+    def wait_idle(self):
+        self.assertTrue(wait_for(lambda: self.status()["phase"] == "idle", 8), self.sut.log())
+
+    def last_observe(self, path):
+        return [o for o in self.observe() if o["path"] == path][-1]
+
+
+class BackgroundObserve(BackgroundBase):
+    def test_default_mode_is_observe(self):
+        self.assertTrue(self.wait_log("background-skip: observe"), self.sut.log())
+
+    def test_lone_resume_still_wakes_and_logs_would_skip(self):
+        s, h, b, el = req("GET", JF, tv())
+        self.assertEqual((s, h.get("retry-after")), (503, "5"))
+        self.assertGreaterEqual(el, 0.8)
+        self.assertGreaterEqual(self.wol.count(), 1)
+        rec = self.last_observe("/UserItems/Resume")
+        self.assertEqual((rec["decision"], rec["would"], rec["class"]), ("wake", "skip-background", "background"))
+        self.assertTrue(wait_for(lambda: self.metric("observe") == 1, 2), self.metric("observe"))
+        self.assertEqual(self.metric("enforce"), 0)
+
+    def test_device_id_never_logged(self):
+        req("GET", JF, tv(device="secret-device-id-42"))
+        self.assertNotIn("secret-device-id-42", self.sut.log())
+
+    def test_follow_up_during_campaign_is_classified_not_counted(self):
+        req("GET", JF, tv())
+        req("GET", JF, tv(path="/Users/u1/Items?Filters=x"))
+        rec = self.last_observe("/Users/u1/Items")
+        self.assertEqual((rec["decision"], rec["class"]), ("starting", "foreground"))
+        self.assertNotIn("would", rec)
+        self.assertEqual(self.metric("observe"), 1)
+
+
+class BackgroundEnforce(BackgroundBase):
+    env = {"BACKGROUND_SKIP": "enforce"}
+
+    def test_mode_logged(self):
+        self.assertTrue(self.wait_log("background-skip: enforce"), self.sut.log())
+
+    def test_lone_resume_does_not_wake(self):
+        s, h, b, el = req("GET", JF, tv())
+        self.assertEqual(s, 503)
+        self.assertNotIn("retry-after", h)
+        self.assertIn(b"Jellyfin is asleep", b)
+        self.assertLess(el, 0.8)
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+        self.assertEqual(self.status()["phase"], "idle")
+        rec = self.last_observe("/UserItems/Resume")
+        self.assertEqual((rec["decision"], rec["class"], rec["held"]), ("background", "background", 0.0))
+        self.assertNotIn("would", rec)
+        self.assertTrue(wait_for(lambda: self.metric("enforce") == 1, 2))
+        self.assertEqual(self.metric("observe"), 0)
+
+    def test_background_paths(self):
+        paths = ["/UserItems/Resume", "/Shows/NextUp?UserId=u", "/Items/Latest", "/Users/u1/Items/Latest?Limit=1",
+                 "/Users/u1/Items/Resume", "//useritems/RESUME/"]
+        for i, p in enumerate(paths):
+            s, _, _, _ = req("GET", JF, tv(device="dev-%d" % i, path=p))
+            self.assertEqual(s, 503, p)
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+        self.assertEqual([o["decision"] for o in self.observe()], ["background"] * len(paths))
+
+    def test_other_paths_still_wake(self):
+        for i, p in enumerate(["/Users/u1/Items?Filters=x", "/Users/u1", "/UserViews"]):
+            self.wol.reset()
+            req("GET", JF, tv(device="fg-%d" % i, path=p))
+            self.assertGreaterEqual(self.wol.count(), 1, p)
+            self.wait_idle()
+
+    def test_non_get_is_not_background(self):
+        req("GET", JF, dict(tv(), **{"X-Forwarded-Method": "POST"}))
+        self.assertGreaterEqual(self.wol.count(), 1)
+
+    def test_same_path_repeated_stays_background(self):
+        for _ in range(3):
+            req("GET", JF, tv())
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+
+    def test_app_start_sequence_wakes(self):
+        s, _, _, _ = req("GET", "/jf/public-info", tv(path="/System/Info/Public"))
+        self.assertEqual(s, 503)
+        self.assertGreaterEqual(self.wol.count(), 1)
+        req("GET", JF, tv(path="/Users/u1"))
+        req("GET", JF, tv())
+        self.assertNotIn("background", [o["decision"] for o in self.observe()])
+
+    def test_resume_after_foreground_from_same_device_wakes(self):
+        req("GET", "/jf/public-info", tv(path="/System/Info/Public"))
+        self.wait_idle()
+        self.wol.reset()
+        req("GET", JF, tv())
+        self.assertGreaterEqual(self.wol.count(), 1)
+        self.assertEqual(self.last_observe("/UserItems/Resume")["decision"], "wake")
+        self.assertEqual(self.metric("enforce"), 0)
+
+    def test_foreground_through_gate_counts_too(self):
+        req("GET", JF, tv(path="/UserViews"))
+        self.wait_idle()
+        self.wol.reset()
+        req("GET", JF, tv())
+        self.assertGreaterEqual(self.wol.count(), 1)
+
+    def test_other_device_foreground_does_not_count(self):
+        req("GET", JF, tv(device="dev-b", path="/UserViews"))
+        self.wait_idle()
+        self.wol.reset()
+        s, _, _, _ = req("GET", JF, tv(device="dev-a"))
+        self.assertEqual(s, 503)
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+
+    def test_without_device_id_ip_and_client_are_the_key(self):
+        req("GET", JF, tv(device=None, path="/UserViews"))
+        self.wait_idle()
+        self.wol.reset()
+        req("GET", JF, tv(device=None, ip="203.0.113.99"))
+        req("GET", JF, tv(device=None, client="Other App"))
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+        req("GET", JF, tv(device=None))
+        self.assertGreaterEqual(self.wol.count(), 1)
+
+    def test_parallel_rows_burst_wakes(self):
+        req("GET", JF, tv())
+        self.assertEqual(self.wol.count(), 0)
+        req("GET", JF, tv(path="/Shows/NextUp"))
+        self.assertGreaterEqual(self.wol.count(), 1)
+        self.assertEqual(self.last_observe("/Shows/NextUp")["decision"], "wake")
+
+    def test_spaced_background_paths_do_not_wake(self):
+        req("GET", JF, tv())
+        time.sleep(2.5)
+        req("GET", JF, tv(path="/Shows/NextUp"))
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+
+    def test_foreground_window_expires(self):
+        self.sut.stop()
+        self.sut = Sut(dict(self.env, BACKGROUND_FOREGROUND_SECONDS="1"))
+        self.sut.start()
+        self.addCleanup(self.sut.stop)
+        req("GET", JF, tv(path="/UserViews"))
+        self.wait_idle()
+        self.wol.reset()
+        req("GET", JF, tv())
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+
+    def test_beefy_up_passes_unclassified(self):
+        self.jf.start()
+        s, _, b, _ = req("GET", JF, tv())
+        self.assertEqual((s, b), (200, b""))
+        self.assertEqual(self.observe(), [])
+
+    def test_starting_is_unchanged(self):
+        self.ssh.start()
+        s, h, _, el = req("GET", JF, tv())
+        self.assertEqual((s, h.get("retry-after")), (503, "5"))
+        self.assertGreaterEqual(el, 0.8)
+        self.assertEqual(self.last_observe("/UserItems/Resume")["decision"], "starting")
+
+    def test_browser_still_gets_signin(self):
+        s, _, b, _ = req("GET", JF, dict(BROWSER, **{"X-Forwarded-Uri": "/UserItems/Resume"}))
+        self.assertEqual(s, 503)
+        rec = self.observe()[0]
+        self.assertEqual(rec["decision"], "signin")
+        self.assertNotIn("class", rec)
+
+
+class BackgroundOff(BackgroundBase):
+    env = {"BACKGROUND_SKIP": "off"}
+
+    def test_lone_resume_wakes_without_classification(self):
+        self.assertTrue(self.wait_log("background-skip: off"))
+        req("GET", JF, tv())
+        self.assertGreaterEqual(self.wol.count(), 1)
+        rec = self.observe()[0]
+        self.assertEqual(rec["decision"], "wake")
+        self.assertNotIn("would", rec)
+        self.assertNotIn("class", rec)
+        self.assertEqual((self.metric("observe"), self.metric("enforce")), (0, 0))
+
+
+class BackgroundInvalid(BackgroundBase):
+    env = {"BACKGROUND_SKIP": "Enforce!"}
+
+    def test_invalid_value_falls_back_to_observe(self):
+        self.assertTrue(self.wait_log("background-skip: observe (invalid BACKGROUND_SKIP"), self.sut.log())
+        req("GET", JF, tv())
+        self.assertGreaterEqual(self.wol.count(), 1)
 
 
 @RUST_ONLY

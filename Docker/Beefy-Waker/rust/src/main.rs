@@ -2,6 +2,7 @@
 //! Jellyfin sign-in-to-wake and cold-start holds, stream-token check, and wake recovery (plug power-cycle + alert).
 #![forbid(unsafe_code)]
 
+mod background;
 mod client;
 mod history;
 mod pyfmt;
@@ -18,6 +19,7 @@ use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 
+use background::Mode;
 use recovery::{mono, tcp_up, Recovery, Timings};
 use web::{html_escape, log, parse_qsl, py_int, qs_first, take_chars, Req, Resp};
 
@@ -76,6 +78,8 @@ struct App {
     hold_slots: Semaphore,
     public_info: Mutex<Option<Vec<u8>>>,
     stream_cache: Mutex<Vec<(String, f64)>>,
+    bg_mode: Mode,
+    bg: background::Tracker,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -226,17 +230,32 @@ fn stream_token(r: &Req) -> Option<String> {
 
 /// regex `(?i)(?:^|[\s,])Token="([^"]*)"`
 fn token_param(s: &str) -> Option<&str> {
+    auth_param(s, "token")
+}
+
+/// regex `(?i)(?:^|[\s,])<name>="([^"]*)"`, `name` in lower case.
+fn auth_param<'a>(s: &'a str, name: &str) -> Option<&'a str> {
     let lower = s.to_ascii_lowercase();
+    let needle = format!("{name}=\"");
     let mut from = 0;
-    while let Some(i) = lower[from..].find("token=\"").map(|i| i + from) {
+    while let Some(i) = lower[from..].find(&needle).map(|i| i + from) {
         let ok_prefix = i == 0 || s[..i].chars().next_back().is_some_and(|c| c.is_whitespace() || c == ',');
         if ok_prefix {
-            let rest = &s[i + 7..];
+            let rest = &s[i + needle.len()..];
             return rest.find('"').map(|j| &rest[..j]);
         }
         from = i + 1;
     }
     None
+}
+
+/// The app's DeviceId from the Jellyfin header, else client IP + client name.
+fn client_key(r: &Req) -> String {
+    let auth = if is_mediabrowser_client(r) { r.header_or("Authorization") } else { r.header_or("X-Emby-Authorization") };
+    match auth_param(auth, "deviceid").filter(|d| !d.is_empty()) {
+        Some(d) => format!("d:{}", take_chars(d, 128)),
+        None => format!("a:{}|{}", client_ip(r), take_chars(client_name(auth).unwrap_or(""), 40)),
+    }
 }
 
 /// CSRF guard: a cross-site page cannot add X-Wake without a CORS preflight, which the waker never answers.
@@ -532,8 +551,27 @@ impl App {
     }
 
     /// Browsers asleep get the sign-in page (no wake); apps wake and are held until Jellyfin is healthy (bounded).
+    /// Background (true) or foreground (false) for an app request while beefy is down; None = not classified.
+    fn classify(&self, r: &Req, up: bool, path: &str) -> Option<bool> {
+        if up || self.bg_mode == Mode::Off || is_browser(r) {
+            return None;
+        }
+        Some(self.bg.classify(&client_key(r), r.header_or("X-Forwarded-Method"), path, mono()))
+    }
+
     async fn gate_jellyfin(&self, r: &Req, up: bool, port: u16, started: f64) -> Resp {
-        let decision = self.jellyfin_decision(up, r).await;
+        let mut decision = self.jellyfin_decision(up, r).await;
+        let (fwd_path, _) = forwarded_path_query(r);
+        let class = self.classify(r, up, &fwd_path);
+        let mut would = None;
+        if decision == "wake" && class == Some(true) {
+            if self.bg_mode == Mode::Enforce {
+                decision = "background";
+            } else {
+                would = Some("skip-background");
+            }
+            self.recovery.count_background(self.bg_mode == Mode::Enforce);
+        }
         let mut outcome = decision;
         let mut held = 0.0;
         if decision == "wake" {
@@ -547,15 +585,20 @@ impl App {
                 outcome = "pass";
             }
         }
-        let (fwd_path, _) = forwarded_path_query(r);
         if !up || format!("/{}", fwd_path.trim_start_matches('/')).to_lowercase() == "/system/info/public" {
             let mut rec = observe_record(r, up, decision);
             rec.insert("held".into(), float_value(pyfmt::round1(held)));
+            if let Some(bg) = class {
+                rec.insert("class".into(), Value::String(if bg { "background" } else { "foreground" }.into()));
+            }
+            if let Some(w) = would {
+                rec.insert("would".into(), Value::String(w.into()));
+            }
             log_observe(r, rec);
         }
         match outcome {
             "pass" => Resp::text(200, ""),
-            "signin" => Resp::html(503, self.signin_page()),
+            "signin" | "background" => Resp::html(503, self.signin_page()),
             _ => self.waking_resp(),
         }
     }
@@ -565,6 +608,7 @@ impl App {
         let started = mono();
         let up = self.jellyfin_ready(self.jellyfin_port).await;
         let decision = self.jellyfin_decision(up, r).await;
+        self.classify(r, up, "/System/Info/Public");
         let mut held = 0.0;
         let mut cached = false;
         let mut body: Option<Vec<u8>> = None;
@@ -696,6 +740,14 @@ fn clamp_hold_seconds(v: &str) -> f64 {
     }
 }
 
+/// 0..3600; 60 on bad input.
+fn clamp_foreground_seconds(v: &str) -> f64 {
+    match v.trim().parse::<f64>() {
+        Ok(f) if !f.is_nan() => f.clamp(0.0, 3600.0),
+        _ => 60.0,
+    }
+}
+
 /// At least 1; 16 on bad input.
 fn clamp_hold_slots(v: &str) -> usize {
     py_int(v).map(|n| n.max(1) as usize).unwrap_or(16)
@@ -734,6 +786,9 @@ fn main() {
     let hold_slots = clamp_hold_slots(&env_or("HOLD_SLOTS", "16"));
     let public_info_cache = env_or("PUBLIC_INFO_CACHE", "/tmp/public-info.json");
     let state_file = env_or("WAKE_STATE_FILE", "/tmp/power-cycle.state");
+    let bg_raw = env_or("BACKGROUND_SKIP", "observe");
+    let (bg_mode, bg_valid) = Mode::parse(&bg_raw);
+    let bg_foreground = clamp_foreground_seconds(&env_or("BACKGROUND_FOREGROUND_SECONDS", "60"));
 
     let missing: Vec<&str> = [("BEEFY_MAC", &mac_str), ("BEEFY_PROBE_HOST", &probe_host)].iter().filter(|(_, v)| v.is_empty()).map(|(k, _)| *k).collect();
     if !missing.is_empty() {
@@ -773,6 +828,8 @@ fn main() {
         hold_slots: Semaphore::new(hold_slots),
         public_info: Mutex::new(None),
         stream_cache: Mutex::new(Vec::new()),
+        bg_mode,
+        bg: background::Tracker::new(bg_foreground),
     });
     app.load_public_info();
     mono();
@@ -785,6 +842,8 @@ fn main() {
             "beefy-waker listening on {bind}:{port} - page=/ gate=/gate, wake {} via {}, probe {}:{}",
             app.mac_str, app.broadcast, app.probe_host, app.probe_port
         );
+        let invalid = if bg_valid { String::new() } else { format!(" (invalid BACKGROUND_SKIP '{}')", take_chars(&bg_raw, 40)) };
+        println!("background-skip: {}{invalid}", bg_mode.name());
         let a = app.clone();
         tokio::select! {
             _ = web::serve(listener, move |r| a.clone().handle(r)) => {}
@@ -826,6 +885,16 @@ mod tests {
     }
 
     #[test]
+    fn client_keys() {
+        let mb = r#"MediaBrowser Client="Moonfin", Device="tv", DeviceId="abc", Token="t""#;
+        assert_eq!(client_key(&req(&[("Authorization", mb)])), "d:abc");
+        assert_eq!(client_key(&req(&[("X-Emby-Authorization", mb)])), "d:abc");
+        assert_eq!(client_key(&req(&[("Authorization", r#"MediaBrowser Client="Moonfin", Device="tv""#), ("CF-Connecting-IP", "198.51.100.1")])), "a:198.51.100.1|Moonfin");
+        assert_eq!(client_key(&req(&[("X-Real-Ip", "203.0.113.2")])), "a:203.0.113.2|");
+        assert_eq!(auth_param(r#"a, XDeviceId="x", DeviceId="y""#, "deviceid"), Some("y"));
+    }
+
+    #[test]
     fn client_and_keys() {
         assert_eq!(client_name(r#"MediaBrowser Client="Jellyfin Web", Device="x""#), Some("Jellyfin Web"));
         assert_eq!(client_name(r#"Client="open"#), None);
@@ -853,5 +922,7 @@ mod tests {
         assert_eq!(clamp_hold_seconds("x"), 18.0);
         assert_eq!(clamp_hold_slots("0"), 1);
         assert_eq!(clamp_hold_slots("x"), 16);
+        assert_eq!(clamp_foreground_seconds("x"), 60.0);
+        assert_eq!(clamp_foreground_seconds("99999"), 3600.0);
     }
 }
