@@ -2,7 +2,9 @@
 title: "fastpi"
 ring: production
 quadrant: hardware
-tags: [fastpi]
+tags: [fastpi, device]
 ---
 
-Raspberry Pi 5, always on. Runs the edge (Cloudflare Tunnel, Traefik, Authentik) plus monitoring, and wakes the other servers on demand.
+Raspberry Pi 5 with 8 GB RAM and an NVMe drive, always on.
+Runs the edge (Cloudflare Tunnel, Traefik, CrowdSec, Authentik), monitoring and the wakers, and wakes the other two servers on demand.
+More than 60 containers on one small board.

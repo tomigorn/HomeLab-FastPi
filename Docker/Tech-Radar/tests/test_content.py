@@ -45,6 +45,21 @@ class ContentTest(unittest.TestCase):
                 self.assertIsNone(IPV4.search(text))
                 self.assertIsNone(MAIL.search(text))
 
+    def test_required_items(self):
+        required = {
+            "languages": ["rust", "python", "bash"],
+            "hardware": ["fastpi", "beefy", "tower", "bazzite-pc", "macbook", "bambu-lab", "sony-tv", "apple-tv"],
+            "devops": ["docker", "cup", "security-monitoring", "wake-on-lan"],
+            "services": ["traefik", "cloudflare", "authentik", "ldaps", "wireguard", "godaddy", "no-ip", "duckdns", "crowdsec", "adguard", "jellyfin"],
+        }
+        found = {p.stem: parse(p)[1].get("quadrant") for p in items()}
+        for quadrant, ids in required.items():
+            for i in ids:
+                with self.subTest(item=i):
+                    self.assertEqual(found.get(i), quadrant)
+        self.assertGreaterEqual(len(found), 40)
+        self.assertLessEqual(len(found), 60)
+
     def test_config(self):
         cfg = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
         self.assertEqual({q["id"] for q in cfg["quadrants"]}, QUADRANTS)
