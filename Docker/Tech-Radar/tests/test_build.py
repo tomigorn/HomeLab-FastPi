@@ -7,6 +7,7 @@ from test_content import items, parse
 
 BUILD = os.environ.get("TECH_RADAR_BUILD_DIR")
 EXT = re.compile(r"""<(?:script|link|img)\b[^>]*?\b(?:src|href)\s*=\s*["']?(?:https?:)?//""", re.I)
+JS_LOAD = re.compile(r"""(?:\.src\s*=|\bimport\s*\(|importScripts\s*\(|fetch\s*\()\s*["'`]https?://""")
 CSS_URL = re.compile(r"""url\(\s*["']?(?:https?:)?//""", re.I)
 
 
@@ -33,6 +34,8 @@ class BuildTest(unittest.TestCase):
             with self.subTest(file=str(f.relative_to(self.out))):
                 if f.suffix == ".html":
                     self.assertIsNone(EXT.search(text))
+                if f.suffix == ".js":
+                    self.assertIsNone(JS_LOAD.search(text))
                 if f.suffix in (".css", ".html"):
                     self.assertIsNone(CSS_URL.search(text))
 
