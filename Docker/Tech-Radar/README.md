@@ -32,8 +32,8 @@ TECH_RADAR_BUILD_DIR=<extracted /srv> python3 -m unittest discover -s Docker/Tec
 
 ## Notes
 - Pinned: `package.json`/`package-lock.json` pin the package (exact `4.6.1`, 0 vulnerabilities). The package ships no lockfile and would run an unlocked `npm install` of its own tree (~1400 packages) while building, so `builder-lock.json` (its lockfile, generated from the 4.6.1 tarball) is copied into the build dir and installed with `npm ci` in the Dockerfile.
-- Audit of that inner tree (2026-11-12): `npm audit` reports 9 vulnerabilities (6 moderate, 2 high, 1 critical: next, postcss, sharp, minimatch), all dev-time; `npm audit --omit=dev` finds 0. They live only in the throwaway Node build stage: the image holds just Caddy plus static files, no Next server or sharp.
-- Update the inner lock: extract the new tarball (`npm pack aoe_technology_radar@<v>`), `npm install --package-lock-only --ignore-scripts` there, copy `package-lock.json` to `builder-lock.json`.
+- Patched inner tree: `builder-package.json` is the package's own manifest with `next`/`eslint-config-next` raised to 15.5.29 and `overrides` for `postcss` (^8.5.32) and the lint chain's `minimatch` (^11.0.8); the Dockerfile copies it and `builder-lock.json` into the build dir before `npm ci`. `npm audit` on that tree (2026-11-12): 0 vulnerabilities. It lives only in the throwaway Node build stage; the image holds just Caddy plus static files.
+- Update the inner tree: `npm pack aoe_technology_radar@<v>`, take its `package.json`, reapply the bumps/overrides above, `npm install --package-lock-only --ignore-scripts`, `npm audit` → 0, copy both files to `builder-package.json`/`builder-lock.json`; `tests/test_content.py` checks the minimum versions.
 - Image size on disk: 63.7 MB.
 - Measured container RAM (docker stats, idle, 2026-11-12): 22.9 MiB of the 32 MiB limit.
 - `config.json` sets `social: []` and `imprint: ""` because the package otherwise falls back to AOE defaults; `custom.css` hides the footer link.

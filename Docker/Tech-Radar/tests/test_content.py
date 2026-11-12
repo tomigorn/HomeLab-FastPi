@@ -71,5 +71,22 @@ class ContentTest(unittest.TestCase):
         self.assertFalse(cfg.get("editUrl"))
 
 
+def version(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+
+
+class BuilderTreeTest(unittest.TestCase):
+    def test_builder_tree_uses_patched_versions(self):
+        manifest = json.loads((ROOT / "builder-package.json").read_text())
+        lock = json.loads((ROOT / "builder-lock.json").read_text())["packages"]
+        self.assertEqual(lock[""].get("devDependencies"), manifest.get("devDependencies"))
+        self.assertGreaterEqual(version(lock["node_modules/next"]["version"]), (15, 5, 29))
+        for key, entry in lock.items():
+            if key.endswith("node_modules/postcss"):
+                self.assertGreaterEqual(version(entry["version"]), (8, 5, 32), key)
+            if key.endswith("typescript-estree/node_modules/minimatch"):
+                self.assertGreaterEqual(version(entry["version"]), (11, 0, 1), key)
+
+
 if __name__ == "__main__":
     unittest.main()
