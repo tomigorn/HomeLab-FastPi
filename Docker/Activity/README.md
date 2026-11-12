@@ -41,6 +41,9 @@ The page fetches `/api/state` every 30 s only while its tab is visible (stops on
 |---|---|
 | Headline | "2 watching (1 transcoding) · 1 paused · 2 listening · 4 downloading", or "All quiet": watching = playing Jellyfin streams that are not Music/Audiobook; transcoding = mode transcode or transcode (audio); paused = paused Jellyfin streams; listening = Audiobookshelf sessions + playing Jellyfin Music/Audiobook; downloading = titles in state downloading + audiobook torrents downloading |
 | Watching / Downloads | one label per kind in both: Movie, Series (`Episode`), Anime, Audiobook, Music, Live TV, Other |
+| Watching rows | kind · quality, mode; transcodes add the encoder ("hardware (QSV)", "software") and the reasons ("subtitles, HDR tone-mapping") |
+| Under Watching | "≈ 143 Mbit/s · 4 LAN, 3 remote · 4 people on 7 streams" (`watching_summary`) |
+| Download rows | "~1 h 10 min left · 8.0 GB to download" (longest time, download size left) for downloading, importing, queued, stalled, paused rows and audiobook downloads; not for problems or waiting titles |
 | 🌙 waiting for night | "from 22:05" (fastpi's night-download wake of beefy) or "night window open" (`night_open`) |
 | 📅 waiting for release | one folded line at the end of Downloads ("6 movies, 3 series"), rows on tap |
 | Refresh failed | page greyed, "⚠️ not updated since HH:MM — reload (sign in again if asked)"; an expired sign-in makes the fetch fail on the SSO redirect |

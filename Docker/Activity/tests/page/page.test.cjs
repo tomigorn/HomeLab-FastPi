@@ -190,3 +190,35 @@ test("Watching and Downloads use the same kind labels", async () => {
   assert.doesNotMatch(await p.text("#downloads"), /Anime series|1 title/);
   await p.ctx.close();
 });
+
+test("a transcode says why and on which encoder", async () => {
+  const p = await open([base({ watching: [Object.assign(W("Movie", "transcode", false, 1), { accel: "QSV", reasons: ["subtitles", "HDR tone-mapping"] }), Object.assign(W("Episode", "transcode", false, 1), { accel: "software", reasons: [] })] })]);
+  const t = await p.text("#watching");
+  assert.match(t, /transcode · hardware \(QSV\) · subtitles, HDR tone-mapping/);
+  assert.match(t, /transcode · software/);
+  await p.ctx.close();
+});
+
+test("bitrate, LAN or remote and people under Watching", async () => {
+  let p = await open([base({ watching: [W("Movie", "direct play", false, 7)], watching_summary: { bitrate_kbps: 142960, lan: 4, remote: 3, people: 4 } })]);
+  assert.match(await p.text("#watching"), /≈ 143 Mbit\/s · 4 LAN, 3 remote · 4 people on 7 streams/);
+  await p.ctx.close();
+  p = await open([base({ watching: [W("Movie", "direct play", false, 1)], watching_summary: { bitrate_kbps: null, lan: 0, remote: 1, people: 1 } })]);
+  assert.match(await p.text("#watching"), /1 remote · 1 person on 1 stream/);
+  assert.doesNotMatch(await p.text("#watching"), /Mbit/);
+  await p.ctx.close();
+});
+
+test("download rows show the longest time and the size left", async () => {
+  const p = await open([base({
+    downloads: [D("downloading", "Movie", 1, { eta: 4205, left: 8000000000 }), D("problem", "Movie", 1, { eta: 60, left: 1000 }), D("stalled", "Movie", 1, { eta: null, left: 2000000000 })],
+    audiobook_downloads: { downloading: 5, queued: 0, paused: 0, problem: 0, eta: 600, left: 170000000 },
+  })]);
+  const rows = await p.page.locator("#downloads tr").allInnerTexts();
+  const row = (re) => rows.map((r) => r.replace(/\s+/g, " ")).find((r) => re.test(r)) || "";
+  assert.match(row(/Movie downloading/), /~1 h 10 min left · 8\.0 GB to download/);
+  assert.match(row(/stalled/), /2\.0 GB to download/);
+  assert.doesNotMatch(row(/problem/), /left|to download/);
+  assert.match(row(/Audiobook downloading/), /~10 min left · 170 MB to download/);
+  await p.ctx.close();
+});

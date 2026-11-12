@@ -94,6 +94,27 @@ function empty(text) { return el("p", { class: "empty" }, text); }
 function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
 function label(kind, quality) { const k = KIND[kind] || kind; return quality ? k + " · " + quality : k; }
 const sum = (xs, f) => (xs || []).reduce((a, x) => a + f(x), 0);
+const ACCEL = { "QSV": "hardware (QSV)", "VA-API": "hardware (VA-API)", "hardware": "hardware", "software": "software" };
+function duration(sec) {
+  if (sec < 60) return "<1 min";
+  const m = Math.round(sec / 60), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  if (d) return d + " d " + (h % 24) + " h";
+  if (h) return h + " h " + (m % 60) + " min";
+  return m + " min";
+}
+function bytes(b) {
+  if (b >= 1e9) return (b / 1e9).toFixed(1) + " GB";
+  if (b >= 1e6) return Math.round(b / 1e6) + " MB";
+  return Math.max(1, Math.round(b / 1e3)) + " kB";
+}
+// time and download size left; not for problems or titles not started
+function progress(eta, left) {
+  const parts = [];
+  if (eta !== null && eta !== undefined) parts.push("~" + duration(eta) + " left");
+  if (left) parts.push(bytes(left) + " to download");
+  return parts.length ? " · " + parts.join(" · ") : "";
+}
+const MOVING = ["downloading", "importing", "queued", "stalled", "paused"];
 
 function headline(s) {
   const parts = [];
@@ -132,10 +153,22 @@ function watching(s) {
   for (const w of s.watching) {
     t.append(el("tr", {},
       el("td", { class: "e" }, w.paused ? "⏸" : "▶️"),
-      el("td", {}, label(w.kind, w.quality), el("div", { class: "sub" }, w.mode + (w.paused ? " · paused" : ""))),
+      el("td", {}, label(w.kind, w.quality), el("div", { class: "sub" }, w.mode + (w.accel ? " · " + (ACCEL[w.accel] || w.accel) : "") + (w.reasons && w.reasons.length ? " · " + w.reasons.join(", ") : "") + (w.paused ? " · paused" : ""))),
       el("td", { class: "n" }, String(w.n))));
   }
   box.append(t);
+  const ws = s.watching_summary;
+  if (ws) {
+    const parts = [];
+    if (ws.bitrate_kbps !== null && ws.bitrate_kbps !== undefined) parts.push("≈ " + Math.round(ws.bitrate_kbps / 1000) + " Mbit/s");
+    const where = [];
+    if (ws.lan) where.push(ws.lan + " LAN");
+    if (ws.remote) where.push(ws.remote + " remote");
+    if (where.length) parts.push(where.join(", "));
+    const streams = s.watching.reduce((a, w) => a + w.n, 0);
+    parts.push(plural(ws.people, "person", "people") + " on " + plural(streams, "stream", "streams"));
+    box.append(el("p", { class: "note" }, parts.join(" · ")));
+  }
 }
 
 function listening(s) {
@@ -172,7 +205,7 @@ function downloads(s) {
   const rows = [];
   if (s.audiobook_downloads) {
     const a = s.audiobook_downloads;
-    if (a.downloading) rows.push(["⬇️", "Audiobook", "downloading", a.downloading]);
+    if (a.downloading) rows.push(["⬇️", "Audiobook", "downloading" + progress(a.eta, a.left), a.downloading]);
     if (a.queued) rows.push(["⏳", "Audiobook", "queued", a.queued]);
     if (a.paused) rows.push(["⏸", "Audiobook", "paused", a.paused]);
     if (a.problem) rows.push(["⚠️", "Audiobook", "problem (error or missing files)", a.problem]);
@@ -180,7 +213,7 @@ function downloads(s) {
   const list = (s.downloads || []).slice().sort((x, y) => STATE_ORDER.indexOf(x.state) - STATE_ORDER.indexOf(y.state));
   const release = list.filter((d) => d.state === "waiting for release");
   for (const d of list.filter((d) => d.state !== "waiting for release")) {
-    rows.push([STATE_ICON[d.state] || "•", label(d.kind, d.quality), stateText(d, s) + amount(d), d.items, d.state === "problem"]);
+    rows.push([STATE_ICON[d.state] || "•", label(d.kind, d.quality), stateText(d, s) + amount(d) + (MOVING.includes(d.state) ? progress(d.eta, d.left) : ""), d.items, d.state === "problem"]);
   }
   const table = (rs) => {
     const t = el("table");
