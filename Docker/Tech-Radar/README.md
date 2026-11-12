@@ -35,4 +35,5 @@ TECH_RADAR_BUILD_DIR=<extracted /srv> python3 -m unittest discover -s Docker/Tec
 - Audit of that inner tree (2026-11-12): `npm audit` reports 9 vulnerabilities (6 moderate, 2 high, 1 critical: next, postcss, sharp, minimatch), all dev-time; `npm audit --omit=dev` finds 0. They live only in the throwaway Node build stage: the image holds just Caddy plus static files, no Next server or sharp.
 - Update the inner lock: extract the new tarball (`npm pack aoe_technology_radar@<v>`), `npm install --package-lock-only --ignore-scripts` there, copy `package-lock.json` to `builder-lock.json`.
 - Image size on disk: 63.7 MB.
+- Measured container RAM (docker stats, idle, 2026-11-12): 22.9 MiB of the 32 MiB limit.
 - `config.json` sets `social: []` and `imprint: ""` because the package otherwise falls back to AOE defaults; `custom.css` hides the footer link.
