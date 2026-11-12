@@ -63,34 +63,76 @@ struct TranscodingInfo {
     is_video_direct: Option<bool>,
 }
 
-/// Anime series of Sonarr (`seriesType == "anime"`), by lower-case title and by series folder name; built per poll, never kept.
-#[derive(Default)]
-pub struct AnimeIndex {
-    names: HashSet<String>,
-    folders: HashSet<String>,
+/// The Sonarr series list boiled down to what the categories need, kept between polls (refreshed every SERIES_TTL or on an unknown series):
+/// anime series as keyed hashes of their lower-case title and folder name (no title is kept), series ids, and per tmdb id anime or not plus the missing (seasons, episodes).
+#[derive(Debug, Default)]
+pub struct SeriesIndex {
+    pub at: i64,
+    built: bool,
+    hasher: std::collections::hash_map::RandomState,
+    anime_names: HashSet<u64>,
+    anime_folders: HashSet<u64>,
+    ids: HashSet<i64>,
+    by_tmdb: HashMap<i64, (bool, (u32, u32))>,
+    /// ids that were unknown when this index was built: not looked up again before SERIES_TTL
+    tried: HashSet<String>,
 }
 
-impl AnimeIndex {
-    pub fn from_series(series: &[Series]) -> AnimeIndex {
-        let mut idx = AnimeIndex::default();
-        for s in series.iter().filter(|s| s.is_anime()) {
-            if let Some(t) = &s.title {
-                idx.names.insert(t.to_lowercase());
+/// The series list is read again after this many seconds.
+pub const SERIES_TTL: i64 = 1800;
+
+impl SeriesIndex {
+    pub fn build(series: &[Series], at: i64, sonarr: &Queue, rs: &RequestState) -> SeriesIndex {
+        let mut idx = SeriesIndex { at, built: true, ..SeriesIndex::default() };
+        for s in series {
+            if let Some(id) = s.id {
+                idx.ids.insert(id);
             }
-            if let Some(f) = s.path.as_deref().and_then(|p| p.trim_end_matches('/').rsplit('/').next()) {
-                if !f.is_empty() {
-                    idx.folders.insert(f.to_lowercase());
-                }
+            if let Some(t) = s.tmdb_id {
+                idx.by_tmdb.insert(t, (s.is_anime(), s.missing()));
+            }
+            if !s.is_anime() {
+                continue;
+            }
+            if let Some(t) = &s.title {
+                let h = idx.hash(t);
+                idx.anime_names.insert(h);
+            }
+            if let Some(f) = s.path.as_deref().and_then(|p| p.trim_end_matches('/').rsplit('/').next()).filter(|f| !f.is_empty()) {
+                let h = idx.hash(f);
+                idx.anime_folders.insert(h);
             }
         }
+        idx.tried = idx.unknown(sonarr, rs);
         idx
     }
 
-    fn matches(&self, item: &Item) -> bool {
-        if item.series_name.as_deref().is_some_and(|n| self.names.contains(&n.to_lowercase())) {
+    fn hash(&self, s: &str) -> u64 {
+        use std::hash::BuildHasher;
+        self.hasher.hash_one(s.to_lowercase())
+    }
+
+    /// Sonarr queue series ids and requested tv tmdb ids this index does not know.
+    fn unknown(&self, sonarr: &Queue, rs: &RequestState) -> HashSet<String> {
+        let queue = sonarr.records.iter().flatten().filter_map(|r| r.series_id).filter(|id| *id > 0 && !self.ids.contains(id)).map(|id| format!("s{id}"));
+        let requested = rs.tv_tmdb_ids().filter(|t| !self.by_tmdb.contains_key(t)).map(|t| format!("t{t}"));
+        queue.chain(requested).collect()
+    }
+
+    /// Never built, SERIES_TTL old (or from the future), or an id appeared that was not looked up yet.
+    pub fn needs_refresh(&self, now: i64, sonarr: &Queue, rs: &RequestState) -> bool {
+        !self.built || !(0..SERIES_TTL).contains(&(now - self.at)) || self.unknown(sonarr, rs).iter().any(|u| !self.tried.contains(u))
+    }
+
+    fn is_anime_item(&self, item: &Item) -> bool {
+        if item.series_name.as_deref().is_some_and(|n| self.anime_names.contains(&self.hash(n))) {
             return true;
         }
-        item.path.as_deref().is_some_and(|p| p.split('/').any(|c| self.folders.contains(&c.to_lowercase())))
+        item.path.as_deref().is_some_and(|p| p.split('/').filter(|c| !c.is_empty()).any(|c| self.anime_folders.contains(&self.hash(c))))
+    }
+
+    fn tmdb(&self, tmdb: i64) -> Option<(bool, (u32, u32))> {
+        self.by_tmdb.get(&tmdb).copied()
     }
 }
 
@@ -99,13 +141,13 @@ fn is_hdr(range: Option<&str>, range_type: Option<&str>) -> bool {
     t.starts_with("HDR") || t.starts_with("DOVI") || t == "HLG" || range.unwrap_or("").eq_ignore_ascii_case("HDR")
 }
 
-fn stream_of(s: &Session, anime: &AnimeIndex) -> Option<Stream> {
+fn stream_of(s: &Session, anime: &SeriesIndex) -> Option<Stream> {
     let item = s.now_playing_item.as_ref()?;
     let video = item.media_streams.as_deref().unwrap_or_default().iter().find(|m| m.kind.as_deref() == Some("Video"));
     let kind = match (item.kind.as_deref(), video) {
         (_, None) => Kind::Other,
         (Some("Movie"), _) => Kind::Movie,
-        (Some("Episode"), _) if anime.matches(item) => Kind::Anime,
+        (Some("Episode"), _) if anime.is_anime_item(item) => Kind::Anime,
         (Some("Episode"), _) => Kind::Episode,
         _ => Kind::Other,
     };
@@ -123,7 +165,7 @@ fn stream_of(s: &Session, anime: &AnimeIndex) -> Option<Stream> {
 }
 
 /// Playing sessions grouped by kind × quality × mode × paused; sessions without a playing item are not streams.
-pub fn streams(sessions: &[Session], anime: &AnimeIndex) -> Vec<Stream> {
+pub fn streams(sessions: &[Session], anime: &SeriesIndex) -> Vec<Stream> {
     let mut groups: BTreeMap<(Kind, Option<Quality>, Mode, bool), u32> = BTreeMap::new();
     for s in sessions.iter().filter_map(|s| stream_of(s, anime)) {
         *groups.entry((s.kind, s.quality, s.mode, s.paused)).or_default() += 1;
@@ -201,6 +243,7 @@ struct EpisodeRef {
 #[derive(Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Series {
+    id: Option<i64>,
     tmdb_id: Option<i64>,
     title: Option<String>,
     series_type: Option<String>,
@@ -244,7 +287,7 @@ impl Series {
 }
 
 /// Seerr `request-state.json` (written on beefy by Movie-Downloads/scripts/night-downloads.py): ids only, keys `movie/<tmdb>` | `tv/<tmdb>`.
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Clone)]
 #[serde(default, rename_all = "camelCase")]
 pub struct RequestState {
     can_wait: Option<Vec<String>>,
@@ -254,9 +297,16 @@ pub struct RequestState {
 }
 
 impl RequestState {
+    fn keys(&self) -> impl Iterator<Item = &String> {
+        self.can_wait.iter().flatten().chain(self.unreleased.iter().flat_map(|m| m.keys())).chain(self.no_release.iter().flat_map(|m| m.keys()))
+    }
+
     pub fn has_tv(&self) -> bool {
-        let keys = self.can_wait.iter().flatten().chain(self.unreleased.iter().flat_map(|m| m.keys())).chain(self.no_release.iter().flat_map(|m| m.keys()));
-        keys.into_iter().any(|k| k.starts_with("tv/"))
+        self.keys().any(|k| k.starts_with("tv/"))
+    }
+
+    fn tv_tmdb_ids(&self) -> impl Iterator<Item = i64> + '_ {
+        self.keys().filter_map(|k| k.strip_prefix("tv/")?.parse().ok())
     }
 }
 
@@ -337,7 +387,7 @@ struct Bucket {
 type Key = (DlState, Kind, Option<Quality>);
 
 /// Queues, request state and series grouped into state × kind × quality with item, season and episode counts.
-pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &[Series], night: &HashSet<String>) -> Vec<Download> {
+pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &SeriesIndex, night: &HashSet<String>) -> Vec<Download> {
     let mut buckets: BTreeMap<Key, Bucket> = BTreeMap::new();
 
     let mut movies: HashMap<i64, (DlState, Option<Quality>)> = HashMap::new();
@@ -368,21 +418,20 @@ pub fn downloads(radarr: &Queue, sonarr: &Queue, rs: &RequestState, series: &[Se
         b.episodes += 1;
     }
 
-    let by_tmdb: HashMap<i64, &Series> = series.iter().filter_map(|s| s.tmdb_id.map(|t| (t, s))).collect();
     let in_queue: HashSet<&String> = rs.queue.iter().flat_map(|m| m.keys()).collect();
     let release: HashSet<&String> = rs.unreleased.iter().flat_map(|m| m.keys()).chain(rs.no_release.iter().flat_map(|m| m.keys())).collect();
     let mut add = |key: &String, state: DlState| {
         let (kind, show) = match key.split_once('/') {
             Some(("movie", _)) => (Kind::Movie, None),
             Some(("tv", id)) => {
-                let s = id.parse::<i64>().ok().and_then(|t| by_tmdb.get(&t).copied());
-                (if s.is_some_and(|s| s.is_anime()) { Kind::Anime } else { Kind::Episode }, s)
+                let s = id.parse::<i64>().ok().and_then(|t| series.tmdb(t));
+                (if s.is_some_and(|(anime, _)| anime) { Kind::Anime } else { Kind::Episode }, s)
             }
             _ => return,
         };
         let b = buckets.entry((state, kind, None)).or_default();
         if b.items.insert(format!("r{key}")) && state == DlState::WaitingNight {
-            if let Some((seasons, episodes)) = show.map(|s| s.missing()) {
+            if let Some((_, (seasons, episodes))) = show {
                 b.extra_seasons += seasons;
                 b.episodes += episodes;
             }
@@ -425,9 +474,12 @@ mod tests {
     fn series() -> Vec<Series> {
         serde_json::from_str(SERIES).unwrap()
     }
+    fn index() -> SeriesIndex {
+        SeriesIndex::build(&series(), 1000, &Queue::default(), &RequestState::default())
+    }
     fn one(json: &str) -> Vec<Stream> {
         let s: Session = serde_json::from_str(json).unwrap();
-        streams(&[s], &AnimeIndex::from_series(&series()))
+        streams(&[s], &index())
     }
     fn st(kind: Kind, quality: Option<Quality>, mode: Mode, paused: bool, n: u32) -> Stream {
         Stream { kind, quality, mode, paused, n }
@@ -440,7 +492,7 @@ mod tests {
             &serde_json::from_str(RADARR).unwrap(),
             &serde_json::from_str(SONARR).unwrap(),
             &serde_json::from_str(REQUESTS).unwrap(),
-            &series(),
+            &index(),
             &serde_json::from_str::<NightWaiting>(NIGHT).unwrap().ids(),
         )
     }
@@ -481,12 +533,12 @@ mod tests {
         let plain = one(r#"{"NowPlayingItem":{"Type":"Episode","SeriesName":"Fixture Show Epsilon","MediaStreams":[{"Type":"Video","Height":1080}]}}"#);
         assert_eq!(plain[0].kind, Kind::Episode, "a standard Sonarr series stays Episode");
         let s: Vec<Session> = serde_json::from_str(r#"[{"NowPlayingItem":{"Type":"Episode","SeriesName":"Fixture Anime Gamma","MediaStreams":[{"Type":"Video","Height":1080}]}}]"#).unwrap();
-        assert_eq!(streams(&s, &AnimeIndex::default())[0].kind, Kind::Episode, "no Sonarr data = Episode");
+        assert_eq!(streams(&s, &SeriesIndex::default())[0].kind, Kind::Episode, "no Sonarr data = Episode");
     }
 
     #[test]
     fn fixture_sessions_grouped() {
-        let got = streams(&sessions(), &AnimeIndex::from_series(&series()));
+        let got = streams(&sessions(), &index());
         assert_eq!(
             got,
             vec![
@@ -583,7 +635,7 @@ mod tests {
     fn night_label_needs_paused_and_listed_id() {
         let q: Queue = serde_json::from_str(r#"{"records":[{"movieId":1,"status":"paused","downloadId":"X"},{"movieId":2,"status":"downloading","downloadId":"Y"}]}"#).unwrap();
         let night: HashSet<String> = ["y".to_string()].into();
-        let got = downloads(&q, &Queue::default(), &RequestState::default(), &[], &night);
+        let got = downloads(&q, &Queue::default(), &RequestState::default(), &SeriesIndex::default(), &night);
         assert_eq!(got, vec![dl(DlState::Downloading, Kind::Movie, None, 1, 0, 0), dl(DlState::Paused, Kind::Movie, None, 1, 0, 0)], "paused but not held for the night = paused by hand");
     }
 
@@ -591,18 +643,41 @@ mod tests {
     fn empty_and_null_sources_give_nothing() {
         let q: Queue = serde_json::from_str(r#"{"records":null}"#).unwrap();
         let rs: RequestState = serde_json::from_str("{}").unwrap();
-        assert_eq!(downloads(&q, &q, &rs, &[], &HashSet::new()), vec![]);
+        assert_eq!(downloads(&q, &q, &rs, &SeriesIndex::default(), &HashSet::new()), vec![]);
         assert!(!rs.has_tv());
         assert!(serde_json::from_str::<RequestState>(REQUESTS).unwrap().has_tv());
     }
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &AnimeIndex::from_series(&series())), series_unavailable: false }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default() });
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default() });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
         for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data"] {
             assert!(!out.contains(secret), "{secret} leaked into {out}");
         }
+    }
+
+    #[test]
+    fn the_series_index_is_reused_until_old_or_an_unknown_series_appears() {
+        let rs: RequestState = serde_json::from_str(REQUESTS).unwrap();
+        let sonarr: Queue = serde_json::from_str(SONARR).unwrap();
+        let idx = SeriesIndex::build(&series(), 1000, &sonarr, &rs);
+        assert!(!idx.needs_refresh(1000 + 60, &sonarr, &rs), "every series known or already looked up once");
+        assert!(idx.needs_refresh(1000 + SERIES_TTL, &sonarr, &rs), "30 min old");
+        assert!(idx.needs_refresh(900, &sonarr, &rs), "built in the future (clock step)");
+        let more: Queue = serde_json::from_str(r#"{"records":[{"seriesId":299,"status":"downloading"}]}"#).unwrap();
+        assert!(idx.needs_refresh(1060, &more, &rs), "a series id not seen before");
+        let rs_more: RequestState = serde_json::from_str(r#"{"canWait":["tv/9999"]}"#).unwrap();
+        assert!(idx.needs_refresh(1060, &sonarr, &rs_more), "a requested series not seen before");
+        let again = SeriesIndex::build(&series(), 1060, &more, &rs_more);
+        assert!(!again.needs_refresh(1120, &more, &rs_more), "still unknown after one lookup: no lookup every poll");
+        assert!(SeriesIndex::default().needs_refresh(1060, &Queue::default(), &RequestState::default()), "never built");
+    }
+
+    #[test]
+    fn the_series_index_keeps_no_titles() {
+        let dbg = format!("{:?}", index()).to_lowercase();
+        assert!(!dbg.contains("fixture") && !dbg.contains("/data"), "{dbg}");
     }
 
     #[test]

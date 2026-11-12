@@ -137,10 +137,21 @@ class World:
             return 200, [("Content-Type", "application/json")], json.dumps(q).encode()
         if self.gate_mode == "huge" and path.startswith("/radarr/"):
             return 200, [("Content-Type", "application/json")], b'{"records": [' + b'{"movieId": 1, "title": "Fixture filler"},' * 120000 + b"{}]}"
+        if self.gate_mode == "new-series" and path.startswith("/sonarr/api/v3/queue"):
+            q = json.loads((FIX / "sonarr-queue.json").read_text())
+            q["records"].append({"id": 99, "seriesId": 299, "status": "downloading", "trackedDownloadState": "downloading", "series": {"seriesType": "standard"}})
+            return 200, [("Content-Type", "application/json")], json.dumps(q).encode()
         name = CONTRACT.get(path)
         if method != "GET" or name is None:
             return 403, [], b"not allowed"
-        return 200, [("Content-Type", "application/json")], (FIX / name).read_bytes()
+        data = (FIX / name).read_bytes()
+        if path.startswith("/seerr/"):
+            # like nginx serving a static file: ETag, and 304 for a matching If-None-Match
+            etag = '"%x-%x"' % (len(data), hash(data) & 0xFFFFFF)
+            if h.get("if-none-match") == etag:
+                return 304, [("ETag", etag)], b""
+            return 200, [("Content-Type", "application/json"), ("ETag", etag)], data
+        return 200, [("Content-Type", "application/json")], data
 
     def on_abs(self, method, path, h, body):
         if self.abs_mode != "ok" or h.get("authorization") != "Bearer fixture-key":
@@ -333,6 +344,23 @@ class Awake(Base):
         time.sleep(1.5)
         self.assertEqual(state()["downloads"], live["downloads"])
         self.assertIn("/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true: HTTP 503", self.sut.log())
+
+    def test_series_list_is_cached_and_request_state_conditional(self):
+        self.wait_state(lambda s: s["beefy_data"] == "live")
+        time.sleep(3.5)
+        paths = [p for _, p, _ in W.gate.seen()]
+        polls = paths.count("/jellyfin/Sessions?ActiveWithinSeconds=60")
+        self.assertGreaterEqual(polls, 3)
+        self.assertEqual(paths.count("/sonarr/api/v3/series"), 1, "the series list is read once, then reused")
+        conds = [h.get("if-none-match") for _, p, h in W.gate.seen() if p == "/seerr/request-state.json"]
+        self.assertIsNone(conds[0])
+        self.assertTrue(all(conds[1:]), "later reads of request-state.json are conditional")
+        self.assertEqual(len(state()["downloads"]), 15, "a 304 keeps the last request state")
+        self.assertLessEqual(abs(len(W.waker.seen()) - polls), 1, "the Waker is asked once per poll")
+        W.gate_mode = "new-series"
+        time.sleep(3)
+        paths = [p for _, p, _ in W.gate.seen()]
+        self.assertEqual(paths.count("/sonarr/api/v3/series"), 2, "an unknown series id refreshes the list once, not every poll")
 
     def test_gaps_are_flagged_and_logged(self):
         W.gate_mode = "gaps"

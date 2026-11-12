@@ -87,6 +87,7 @@ struct App {
     polled: Mutex<Polled>,
     demand: Demand,
     poller_alive: AtomicBool,
+    cache: Mutex<BeefyCache>,
 }
 
 impl App {
@@ -150,31 +151,54 @@ struct BeefyPoll {
     problems: Vec<String>,
 }
 
+/// What one poll leaves for the next: the series index and the last request state with its ETag (ids only, no titles).
+#[derive(Default)]
+struct BeefyCache {
+    series: Option<beefy::SeriesIndex>,
+    request_state: Option<(String, beefy::RequestState)>,
+}
+
+/// request-state.json, conditional on the ETag of the last answer (a 304 reuses the cached state).
+async fn fetch_request_state(gate: &BaseUrl, cache: &mut Option<(String, beefy::RequestState)>) -> Result<beefy::RequestState, String> {
+    let path = beefy::PATH_REQUEST_STATE;
+    let etag = cache.as_ref().map(|(e, _)| e.clone());
+    let r = client::get_cond(gate, path, &[("accept", "application/json")], etag.as_deref(), SMALL, GATE_TIMEOUT).await.map_err(|e| format!("{path}: {e}"))?;
+    match r {
+        client::Cond::NotModified => cache.as_ref().map(|(_, rs)| rs.clone()).ok_or_else(|| format!("{path}: 304 without a cached copy")),
+        client::Cond::Body(body, etag) => {
+            let rs: beefy::RequestState = serde_json::from_slice(&body).map_err(|_| format!("{path}: unreadable answer"))?;
+            *cache = etag.map(|e| (e, rs.clone()));
+            Ok(rs)
+        }
+    }
+}
+
 /// One poll through the gate, one attempt per path, side by side; raw answers are dropped as soon as they are grouped.
-async fn poll_beefy(gate: &BaseUrl) -> BeefyPoll {
+async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache) -> BeefyPoll {
     let at = now();
     let (sessions, rs, night, radarr, sonarr) = tokio::join!(
         fetch::<Vec<beefy::Session>>(gate, beefy::PATH_SESSIONS, SMALL),
-        fetch::<beefy::RequestState>(gate, beefy::PATH_REQUEST_STATE, SMALL),
+        fetch_request_state(gate, &mut cache.request_state),
         fetch::<beefy::NightWaiting>(gate, beefy::PATH_NIGHT_WAITING, SMALL),
         fetch::<beefy::Queue>(gate, beefy::PATH_RADARR_QUEUE, LARGE),
         fetch::<beefy::Queue>(gate, beefy::PATH_SONARR_QUEUE, LARGE),
     );
     let mut problems = Vec::new();
     let wanted = sessions.as_ref().is_ok_and(|s| beefy::wants_series(s)) || rs.as_ref().is_ok_and(|r| r.has_tv());
-    let mut series_unavailable = false;
-    let series: Vec<beefy::Series> = if wanted {
-        fetch(gate, beefy::PATH_SONARR_SERIES, LARGE).await.unwrap_or_else(|e| {
-            problems.push(e);
-            series_unavailable = true;
-            Vec::new()
-        })
-    } else {
-        Vec::new()
-    };
-    let anime = beefy::AnimeIndex::from_series(&series);
+    let (empty_q, empty_rs) = (beefy::Queue::default(), beefy::RequestState::default());
+    let (sq, rsr) = (sonarr.as_ref().unwrap_or(&empty_q), rs.as_ref().unwrap_or(&empty_rs));
+    if wanted && cache.series.as_ref().is_none_or(|i| i.needs_refresh(at, sq, rsr)) {
+        match fetch::<Vec<beefy::Series>>(gate, beefy::PATH_SONARR_SERIES, LARGE).await {
+            Ok(list) => cache.series = Some(beefy::SeriesIndex::build(&list, at, sq, rsr)),
+            Err(e) => problems.push(e),
+        }
+    }
+    // a failed refresh keeps the last index; without any, anime counts as Episode
+    let series_unavailable = wanted && cache.series.is_none();
+    let empty_idx = beefy::SeriesIndex::default();
+    let index = cache.series.as_ref().unwrap_or(&empty_idx);
     let streams = match sessions {
-        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, &anime), series_unavailable }),
+        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable }),
         Err(e) => {
             problems.insert(0, e);
             Err(())
@@ -195,7 +219,7 @@ async fn poll_beefy(gate: &BaseUrl) -> BeefyPoll {
                 }
             }
             let gaps = state::Gaps { series_unavailable, night_unavailable, truncated };
-            Ok(DownloadsPart { at, list: beefy::downloads(&radarr, &sonarr, &rs, &series, &night), gaps })
+            Ok(DownloadsPart { at, list: beefy::downloads(&radarr, &sonarr, &rs, index, &night), gaps })
         }
         (rs, radarr, sonarr) => {
             problems.extend([rs.err(), radarr.err(), sonarr.err()].into_iter().flatten());
@@ -220,7 +244,12 @@ async fn poll_beefy_side(app: &App, waker: Option<&BaseUrl>, gate: Option<&BaseU
         };
     }
     let Some(gate) = gate.filter(|_| w == WakerState::Up) else { return (false, false) };
-    let p = poll_beefy(gate).await;
+    // single-flight: the poll loop is the only user, so the cache is taken out and put back
+    let mut cache = app.cache.lock().map(|mut c| std::mem::take(&mut *c)).unwrap_or_default();
+    let p = poll_beefy(gate, &mut cache).await;
+    if let Ok(mut c) = app.cache.lock() {
+        *c = cache;
+    }
     let failed = (p.streams.is_err(), p.downloads.is_err());
     if let Ok(s) = p.streams {
         if let Ok(mut slot) = app.streams.lock() {
@@ -392,6 +421,7 @@ fn main() {
         polled: Mutex::new(Polled::default()),
         demand: Demand::new(poll, window),
         poller_alive: AtomicBool::new(true),
+        cache: Mutex::new(BeefyCache::default()),
     });
     let src = local::Sources::new(abs, qbit);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));

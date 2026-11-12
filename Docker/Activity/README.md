@@ -119,7 +119,12 @@ The gate on beefy (`activity-gate`, port 8095; 8097 is jellyfin-popular) allow-l
 | `/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true` | Sonarr | yes |
 | `/sonarr/api/v3/series` | Sonarr, only when an episode plays or a series request waits | no (no anime, no series counts, flagged) |
 
-Paths are asked side by side (the series list after the others, only when needed). Sessions failing = no new streams for that tick; request state or a queue failing = no new downloads for that tick (the last ones stay, "as of"). One log line per change names the failed paths.
+Paths are asked side by side (the series list after the others, only when needed). Per poll: the Waker once, then one request per path.
+
+| Path | Read |
+|---|---|
+| `/sonarr/api/v3/series` (the largest answer, ~100 KB) | only when needed, then kept as an index (anime titles and folders as keyed hashes, ids, missing counts; no titles) and read again after 30 min, or once when the Sonarr queue or a request names a series the index does not know |
+| `/seerr/request-state.json` (~17 KB) | conditional: `If-None-Match` with the last ETag (nginx serves it as a static file); a 304 reuses the cached copy | Sessions failing = no new streams for that tick; request state or a queue failing = no new downloads for that tick (the last ones stay, "as of"). One log line per change names the failed paths.
 
 ## Secrets
 
