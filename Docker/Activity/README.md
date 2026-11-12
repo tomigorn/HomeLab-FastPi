@@ -3,7 +3,8 @@
 Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), what is downloading or waiting. Anonymous counts only: categories, no titles, no names.
 
 - **URL:** https://activity.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`; LAN/VPN now, internet after [Owner steps](#owner-steps))
-- **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher. A page view never causes a request to beefy: the page reads the service's memory.
+- **Polls only while someone looks:** nothing (no Waker, no gate, no ABS, no qBittorrent) while nobody has the page open; see [Polling](#polling).
+- **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher.
 - Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port.
 
 ## Data flow
@@ -12,11 +13,22 @@ Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), wh
 browser ─► Cloudflare/AdGuard ─► Traefik (authentik@file) ─► activity:8080  /  /api/state  (answers only Traefik 172.24.255.3)
 Prometheus ─► activity_metrics (10.24.40.0/29) ─► activity:8080/metrics
 
-activity, every 15 s: traefik:8080/activity/waker/status ─► Waker 192.168.1.2:9001/status
-activity, every 30 s: Waker up? ─► GET traefik:8080/activity/gate/<contract paths> ─► gate 192.168.1.102:8095, one attempt each, 3 s timeout, Connection: close
+activity, per poll:   traefik:8080/activity/waker/status ─► Waker 192.168.1.2:9001/status
+                      Waker up? ─► GET traefik:8080/activity/gate/<contract paths> ─► gate 192.168.1.102:8095, one attempt each, 3 s timeout, Connection: close
                       Audiobookshelf audiobookshelf:8080 /api/sessions/open
                       traefik:8080/activity/qbit/api/v2/torrents/info?category=abr ─► qBittorrent 10.24.25.2:8080 (no login)
 ```
+
+## Polling
+
+| Situation | Polls |
+|---|---|
+| no `/api/state` within `VIEWER_SECONDS` (120) | none |
+| first `/api/state` after that | one poll at once; that request and concurrent ones wait for it (max 4 s), then answer what is there |
+| `/api/state` within the last 120 s | every `POLL_SECONDS` (30) |
+| `/metrics`, `/health`, `/` (HTML) | never count as a viewer |
+
+The page fetches `/api/state` every 30 s only while its tab is visible (stops on `hidden`, fetches at once on `visible`); it shows "updated HH:MM:SS" (the last poll) and "⚠️ beefy data unavailable (gate not answering)" when the Waker says up but the gate failed (`gate_failed`). The post-update checks read `/api/state`, so each run counts as a viewer for 2 min.
 
 ### Internal routes (Traefik)
 
@@ -112,9 +124,6 @@ LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 
 ## Metrics
 
-`activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `quality="unknown"` = no quality known (waiting requests, a stream or queue item without resolution), `activity_listening_sessions`, `activity_audiobook_downloads{state}`. Job `activity` in `../grafana/prometheus/prometheus.yml`.
+Last-known values (from the last poll, `activity_last_poll_timestamp_seconds`; nothing is refreshed while nobody views): `activity_viewer_active` (1 = page viewed within 120 s, polling), `activity_beefy_up` (1/0, absent = unknown), `activity_beefy_snapshot_age_seconds`, `activity_watching_streams`, `activity_streams{kind,quality,mode}`, `activity_downloads{state,kind,quality}` (titles), `quality="unknown"` = no quality known (waiting requests, a stream or queue item without resolution), `activity_listening_sessions`, `activity_audiobook_downloads{state}`. Job `activity` in `../grafana/prometheus/prometheus.yml`.
 
-| Alert (`../grafana/prometheus/rules/activity.yml`) | When | Check |
-|---|---|---|
-| `ActivityBeefyDataStale` | beefy up, no good poll for > 5 min, for 10 min | gate on beefy, its API keys, Traefik route `activity-gate` |
-| `ActivityLocalSourcesMissing` | `activity_listening_sessions` or `activity_audiobook_downloads` absent for 15 min | ABS key copy `secrets/abs_api_key`, Traefik route `activity-qbit` |
+No alerts on these: without a viewer the data is stale by design, and with one the page shows the failure itself. The service down is `TargetDown`/`ContainerDown`; broken routes show in the post-update checks (`activity.waker-route`, `activity.qbit-route`).

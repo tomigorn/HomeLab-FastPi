@@ -25,6 +25,7 @@
   .sub { color: var(--muted); font-size: 0.85rem; }
   .empty { color: var(--muted); margin: 0.2rem 0; }
   .note { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 0; }
+  .warn { background: #3d2e00; border: 1px solid #9e6a03; border-radius: 10px; padding: 0.5rem 0.8rem; margin: 0 0 0.8rem; }
   a { color: var(--accent); }
 </style>
 </head>
@@ -35,6 +36,7 @@
     <span id="beefy">…</span>
     <span class="muted" id="updated"></span>
   </header>
+  <p class="warn" id="gate" hidden>⚠️ beefy data unavailable (gate not answering)</p>
   <section>
     <h2>📺 Watching <span class="n" id="watching-n"></span></h2>
     <div id="watching"><p class="empty">loading…</p></div>
@@ -47,7 +49,7 @@
     <h2>⬇️ Downloads and requests</h2>
     <div id="downloads"><p class="empty">loading…</p></div>
   </section>
-  <p class="note">Anonymous counts only: no titles, no names. Refreshes every 30 s. beefy is only asked while it is already awake.</p>
+  <p class="note">Anonymous counts only: no titles, no names. Refreshes every 30 s while this tab is open; nothing is polled while nobody looks. beefy is only asked while it is already awake.</p>
 </main>
 <script>
 "use strict";
@@ -64,6 +66,9 @@ function el(tag, attrs, ...kids) {
 }
 function hhmm(t) {
   return new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function hhmmss(t) {
+  return new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 function empty(text) { return el("p", { class: "empty" }, text); }
 function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
@@ -149,7 +154,8 @@ function downloads(s) {
 function render(s) {
   const b = document.getElementById("beefy");
   b.textContent = { up: "🟢 beefy awake", asleep: "💤 beefy asleep", unknown: "❔ beefy state unknown" }[s.beefy] || s.beefy;
-  document.getElementById("updated").textContent = "updated " + hhmm(s.now);
+  document.getElementById("updated").textContent = "updated " + hhmmss(s.polled_at || s.now);
+  document.getElementById("gate").hidden = !(s.beefy === "up" && s.gate_failed);
   watching(s);
   listening(s);
   downloads(s);
@@ -164,8 +170,18 @@ async function refresh() {
     document.getElementById("updated").textContent = "⚠️ not updated (" + e.message + ")";
   }
 }
-refresh();
-setInterval(refresh, 30000);
+let timer = null;
+function start() {
+  if (timer !== null) return;
+  refresh();
+  timer = setInterval(refresh, 30000);
+}
+function stop() {
+  clearInterval(timer);
+  timer = null;
+}
+document.addEventListener("visibilitychange", () => document.hidden ? stop() : start());
+if (!document.hidden) start();
 </script>
 </body>
 </html>

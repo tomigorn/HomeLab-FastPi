@@ -56,7 +56,15 @@ pub struct Access {
     pub metrics: Allow,
 }
 
-pub fn route(method: &str, path: &str, peer: IpAddr, access: &Access, view: impl FnOnce() -> (View, Option<i64>)) -> Resp {
+/// The view, the snapshot age and whether a viewer counts right now.
+pub type Seen = (View, Option<i64>, bool);
+
+/// Only the page's own `/api/state` counts as a viewer (and starts polling); `/metrics`, `/health` and the HTML never do.
+pub fn is_viewer(method: &str, path: &str, peer: IpAddr, access: &Access) -> bool {
+    (method == "GET" || method == "HEAD") && path == "/api/state" && access.page.contains(peer)
+}
+
+pub fn route(method: &str, path: &str, peer: IpAddr, access: &Access, view: impl FnOnce() -> Seen) -> Resp {
     if method != "GET" && method != "HEAD" {
         return Resp::text(405, "GET only\n");
     }
@@ -65,13 +73,13 @@ pub fn route(method: &str, path: &str, peer: IpAddr, access: &Access, view: impl
         "/" | "/index.html" | "/api/state" if !access.page.contains(peer) => Resp::text(403, "forbidden\n"),
         "/" | "/index.html" => Resp { status: 200, content_type: "text/html; charset=utf-8", body: PAGE.to_string() },
         "/api/state" => {
-            let (v, _) = view();
+            let (v, _, _) = view();
             Resp { status: 200, content_type: "application/json", body: serde_json::to_string(&v).unwrap_or_else(|_| "{}".into()) }
         }
         "/metrics" if !access.metrics.contains(peer) => Resp::text(403, "forbidden\n"),
         "/metrics" => {
-            let (v, age) = view();
-            Resp { status: 200, content_type: "text/plain; version=0.0.4; charset=utf-8", body: metrics(&v, age) }
+            let (v, age, viewer) = view();
+            Resp { status: 200, content_type: "text/plain; version=0.0.4; charset=utf-8", body: metrics(&v, age, viewer) }
         }
         _ => Resp::text(404, "not found\n"),
     }
@@ -82,8 +90,12 @@ fn q(s: Option<crate::state::Quality>) -> &'static str {
 }
 
 /// Prometheus text: category labels only, never titles or users.
-pub fn metrics(v: &View, snapshot_age: Option<i64>) -> String {
+pub fn metrics(v: &View, snapshot_age: Option<i64>, viewer: bool) -> String {
     let mut o = String::new();
+    let _ = writeln!(o, "# HELP activity_viewer_active 1 while the page was viewed within the viewer window (the service polls only then).\n# TYPE activity_viewer_active gauge\nactivity_viewer_active {}", u8::from(viewer));
+    if let Some(at) = v.polled_at {
+        let _ = writeln!(o, "# HELP activity_last_poll_timestamp_seconds When the last poll finished (values below are from then).\n# TYPE activity_last_poll_timestamp_seconds gauge\nactivity_last_poll_timestamp_seconds {at}");
+    }
     o.push_str("# HELP activity_beefy_up beefy awake per Beefy-Waker /status (1 up, 0 asleep; absent when unknown).\n# TYPE activity_beefy_up gauge\n");
     match v.beefy {
         "up" => o.push_str("activity_beefy_up 1\n"),
@@ -122,7 +134,7 @@ pub fn metrics(v: &View, snapshot_age: Option<i64>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{tests::sample, view, Local, WakerState};
+    use crate::state::{tests::sample, view, Local, Polled, WakerState};
 
     const NOW: i64 = 1_794_430_000;
 
@@ -132,15 +144,17 @@ mod tests {
     fn ip(s: &str) -> IpAddr {
         s.parse().unwrap()
     }
-    fn live() -> (View, Option<i64>) {
+    fn live() -> Seen {
         let l = Local { listening: Some(2), abr_downloading: Some(1), abr_queued: Some(0) };
-        (view(NOW, Some(&sample(NOW - 10)), WakerState::Up, &l), Some(10))
+        (view(NOW, Some(&sample(NOW - 10)), WakerState::Up, &l, Polled { at: Some(NOW - 10), gate_failed: false }), Some(10), true)
     }
 
     #[test]
     fn metrics_lists_categories_without_titles() {
-        let (v, age) = live();
-        let m = metrics(&v, age);
+        let (v, age, viewer) = live();
+        let m = metrics(&v, age, viewer);
+        assert!(m.contains("activity_viewer_active 1\n"), "{m}");
+        assert!(m.contains("activity_last_poll_timestamp_seconds 1794429990\n"), "{m}");
         assert!(m.contains("activity_beefy_up 1\n"), "{m}");
         assert!(m.contains("activity_beefy_snapshot_age_seconds 10\n"), "{m}");
         assert!(m.contains("activity_streams{kind=\"Episode\",quality=\"1080p SDR\",mode=\"direct play\"} 1\n"), "{m}");
@@ -155,8 +169,9 @@ mod tests {
                 assert!(["kind", "quality", "mode", "state"].contains(&k), "unexpected label {k} in {line}");
             }
         }
-        let asleep = view(NOW, Some(&sample(NOW - 999)), WakerState::Down, &Local::default());
-        let m = metrics(&asleep, Some(999));
+        let asleep = view(NOW, Some(&sample(NOW - 999)), WakerState::Down, &Local::default(), Polled::default());
+        let m = metrics(&asleep, Some(999), false);
+        assert!(m.contains("activity_viewer_active 0\n") && !m.contains("activity_last_poll_timestamp_seconds"), "{m}");
         assert!(m.contains("activity_beefy_up 0\n") && m.contains("activity_watching_streams 0\n") && !m.contains("activity_streams{"), "{m}");
     }
 
@@ -173,6 +188,18 @@ mod tests {
         assert_eq!(route("GET", "/metrics", ip("172.24.255.3"), &a, live).status, 403);
         assert_eq!(route("GET", "/metrics", ip("10.24.40.3"), &a, live).status, 200);
         assert_eq!(route("GET", "/health", ip("172.24.0.6"), &a, live).status, 200);
+    }
+
+    #[test]
+    fn only_the_state_from_the_page_counts_as_viewer() {
+        let a = access();
+        assert!(is_viewer("GET", "/api/state", ip("172.24.255.3"), &a));
+        assert!(is_viewer("HEAD", "/api/state", ip("127.0.0.1"), &a));
+        assert!(!is_viewer("GET", "/metrics", ip("10.24.40.3"), &a), "Prometheus is no viewer");
+        assert!(!is_viewer("GET", "/health", ip("127.0.0.1"), &a), "the healthcheck is no viewer");
+        assert!(!is_viewer("GET", "/", ip("172.24.255.3"), &a), "the HTML alone is no viewer");
+        assert!(!is_viewer("GET", "/api/state", ip("172.24.0.6"), &a), "a refused peer is no viewer");
+        assert!(!is_viewer("POST", "/api/state", ip("127.0.0.1"), &a));
     }
 
     #[test]

@@ -196,9 +196,20 @@ pub struct View {
     pub downloads_as_of: Option<i64>,
     pub listening: Option<Listening>,
     pub audiobook_downloads: Option<AudiobookDownloads>,
+    /// when the last poll finished (None = no poll since the start)
+    pub polled_at: Option<i64>,
+    /// the Waker says up but the last poll of the beefy gate failed
+    pub gate_failed: bool,
 }
 
-pub fn view(now: i64, snap: Option<&Snapshot>, waker: WakerState, local: &Local) -> View {
+/// What the last poll left behind besides the data.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Polled {
+    pub at: Option<i64>,
+    pub gate_failed: bool,
+}
+
+pub fn view(now: i64, snap: Option<&Snapshot>, waker: WakerState, local: &Local, polled: Polled) -> View {
     let fresh = snap.is_some_and(|s| now - s.at < STALE_AFTER);
     let trusted = fresh && waker == WakerState::Up;
     let watching = match (trusted, waker) {
@@ -223,6 +234,8 @@ pub fn view(now: i64, snap: Option<&Snapshot>, waker: WakerState, local: &Local)
         downloads_as_of: snap.filter(|_| !trusted).map(|s| s.at),
         listening: local.listening.map(|sessions| Listening { sessions }),
         audiobook_downloads,
+        polled_at: polled.at,
+        gate_failed: polled.gate_failed && waker == WakerState::Up,
     }
 }
 
@@ -259,7 +272,7 @@ pub mod tests {
     #[test]
     fn view_fresh_snapshot_and_waker_up_shows_streams() {
         let s = sample(NOW - 30);
-        let v = view(NOW, Some(&s), WakerState::Up, &Local::default());
+        let v = view(NOW, Some(&s), WakerState::Up, &Local::default(), Polled::default());
         assert_eq!(v.beefy, "up");
         assert_eq!(v.beefy_data, "live");
         assert_eq!(v.watching, Some(s.streams.clone()));
@@ -270,13 +283,13 @@ pub mod tests {
     #[test]
     fn view_snapshot_older_than_90s_shows_nobody_watching_and_downloads_as_of() {
         let s = sample(NOW - 600);
-        let v = view(NOW, Some(&s), WakerState::Down, &Local::default());
+        let v = view(NOW, Some(&s), WakerState::Down, &Local::default(), Polled::default());
         assert_eq!(v.beefy, "asleep");
         assert_eq!(v.beefy_data, "stale");
         assert_eq!(v.watching, Some(vec![]));
         assert_eq!(v.downloads, Some(s.downloads.clone()));
         assert_eq!(v.downloads_as_of, Some(NOW - 600));
-        let v = view(NOW, Some(&sample(NOW - 90)), WakerState::Up, &Local::default());
+        let v = view(NOW, Some(&sample(NOW - 90)), WakerState::Up, &Local::default(), Polled::default());
         assert_eq!(v.beefy_data, "stale");
         assert_eq!(v.watching, None, "awake but no fresh data = unavailable, never old streams");
         assert_eq!(v.downloads_as_of, Some(NOW - 90));
@@ -285,7 +298,7 @@ pub mod tests {
     #[test]
     fn view_waker_down_ignores_fresh_snapshot_streams() {
         let s = sample(NOW - 5);
-        let v = view(NOW, Some(&s), WakerState::Down, &Local::default());
+        let v = view(NOW, Some(&s), WakerState::Down, &Local::default(), Polled::default());
         assert_eq!(v.beefy, "asleep");
         assert_eq!(v.watching, Some(vec![]));
         assert_eq!(v.downloads_as_of, Some(NOW - 5));
@@ -294,34 +307,47 @@ pub mod tests {
     #[test]
     fn view_waker_unknown_never_trusts_the_snapshot() {
         let fresh = sample(NOW - 10);
-        let v = view(NOW, Some(&fresh), WakerState::Unknown, &Local::default());
+        let v = view(NOW, Some(&fresh), WakerState::Unknown, &Local::default(), Polled::default());
         assert_eq!(v.beefy, "unknown");
         assert_eq!(v.beefy_data, "stale", "only a fresh snapshot with the Waker saying up is live");
         assert_eq!(v.watching, None, "unknown = unavailable, even with a fresh snapshot");
         assert_eq!(v.downloads, Some(fresh.downloads.clone()));
         assert_eq!(v.downloads_as_of, Some(NOW - 10));
         let old = sample(NOW - 200);
-        let v = view(NOW, Some(&old), WakerState::Unknown, &Local::default());
+        let v = view(NOW, Some(&old), WakerState::Unknown, &Local::default(), Polled::default());
         assert_eq!(v.watching, None);
         assert_eq!(v.downloads_as_of, Some(NOW - 200));
     }
 
     #[test]
     fn view_without_any_snapshot_has_no_beefy_data() {
-        let v = view(NOW, None, WakerState::Up, &Local::default());
+        let v = view(NOW, None, WakerState::Up, &Local::default(), Polled::default());
         assert_eq!((v.beefy_data, v.watching, v.downloads, v.downloads_as_of), ("none", None, None, None));
-        let v = view(NOW, None, WakerState::Down, &Local::default());
+        let v = view(NOW, None, WakerState::Down, &Local::default(), Polled::default());
         assert_eq!(v.watching, Some(vec![]));
     }
 
     #[test]
     fn view_local_figures_or_unavailable() {
         let l = Local { listening: Some(2), abr_downloading: Some(1), abr_queued: Some(3) };
-        let v = view(NOW, None, WakerState::Down, &l);
+        let v = view(NOW, None, WakerState::Down, &l, Polled::default());
         assert_eq!(v.listening, Some(Listening { sessions: 2 }));
         assert_eq!(v.audiobook_downloads, Some(AudiobookDownloads { downloading: 1, queued: 3 }));
-        let v = view(NOW, None, WakerState::Down, &Local::default());
+        let v = view(NOW, None, WakerState::Down, &Local::default(), Polled::default());
         assert_eq!((v.listening, v.audiobook_downloads), (None, None));
+    }
+
+    #[test]
+    fn view_reports_the_last_poll_and_a_failed_gate_only_while_up() {
+        let failed = Polled { at: Some(NOW - 5), gate_failed: true };
+        let v = view(NOW, None, WakerState::Up, &Local::default(), failed);
+        assert_eq!((v.polled_at, v.gate_failed), (Some(NOW - 5), true));
+        assert!(!view(NOW, None, WakerState::Down, &Local::default(), failed).gate_failed, "asleep: the gate is not asked");
+        assert!(!view(NOW, None, WakerState::Unknown, &Local::default(), failed).gate_failed);
+        let v = view(NOW, None, WakerState::Up, &Local::default(), Polled::default());
+        assert_eq!((v.polled_at, v.gate_failed), (None, false));
+        let j = serde_json::to_string(&view(NOW, None, WakerState::Up, &Local::default(), failed)).unwrap();
+        assert!(j.contains(r#""polled_at":1794429995,"gate_failed":true"#), "{j}");
     }
 
     #[test]

@@ -19,4 +19,4 @@ codegen-units = 1
 strip = true
 
 [dev-dependencies]
-tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "macros", "io-util"] }
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "macros", "io-util", "test-util"] }

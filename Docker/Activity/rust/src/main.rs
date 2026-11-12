@@ -1,10 +1,11 @@
 //! Activity: anonymous "who is watching / listening, what is downloading" for the homelab status page.
-//! Pulls beefy only while Beefy-Waker /status says it is up (never wakes it), through the read-only activity-gate.
+//! Polls only while someone views the page; pulls beefy only while Beefy-Waker /status says it is up (never wakes it), through the read-only activity-gate.
 #![forbid(unsafe_code)]
 
 mod api;
 mod beefy;
 mod client;
+mod demand;
 mod local;
 mod state;
 mod waker;
@@ -27,7 +28,8 @@ use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 
 use client::BaseUrl;
-use state::{Local, Snapshot, WakerState};
+use demand::Demand;
+use state::{Local, Polled, Snapshot, WakerState};
 
 const GATE_TIMEOUT: Duration = Duration::from_secs(3);
 const SMALL: usize = 2 << 20;
@@ -35,6 +37,8 @@ const LARGE: usize = 4 << 20;
 /// The last snapshot is rewritten when the downloads change, else at most this often.
 const SAVE_EVERY: i64 = 600;
 const MAX_CONNECTIONS: usize = 64;
+/// The first view after an idle spell waits at most this long for its immediate poll.
+const FIRST_VIEW_WAIT: Duration = Duration::from_secs(4);
 
 fn now() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
@@ -77,16 +81,20 @@ struct App {
     data: Option<PathBuf>,
     saved: Mutex<(i64, Option<Vec<state::Download>>)>,
     last_error: Mutex<String>,
+    local_errors: Mutex<Vec<String>>,
+    polled: Mutex<Polled>,
+    demand: Demand,
 }
 
 impl App {
-    fn view(&self) -> (state::View, Option<i64>) {
+    fn view(&self) -> api::Seen {
         let t = now();
         let snap = self.snap.lock().map(|s| s.clone()).unwrap_or(None);
         let waker = self.waker.lock().map(|w| *w).unwrap_or(WakerState::Unknown);
         let local = self.local.lock().map(|l| *l).unwrap_or_default();
+        let polled = self.polled.lock().map(|p| *p).unwrap_or_default();
         let age = snap.as_ref().map(|s| (t - s.at).max(0));
-        (state::view(t, snap.as_ref(), waker, &local), age)
+        (state::view(t, snap.as_ref(), waker, &local, polled), age, self.demand.active())
     }
 
     /// Logs a poll problem once per change, never a response body.
@@ -145,59 +153,49 @@ async fn poll_beefy(gate: &BaseUrl) -> Result<Snapshot, String> {
     Ok(Snapshot { v: state::SNAPSHOT_VERSION, at, streams, downloads })
 }
 
-async fn waker_loop(app: Arc<App>, waker: Option<BaseUrl>, every: Duration) {
-    let mut tick = tokio::time::interval(every);
-    loop {
-        tick.tick().await;
-        let w = match &waker {
-            Some(u) => waker::status(u).await,
-            None => WakerState::Unknown,
-        };
-        if let Ok(mut s) = app.waker.lock() {
-            *s = w;
+/// Waker, then beefy if it says up; returns whether the gate failed.
+async fn poll_beefy_side(app: &App, waker: Option<&BaseUrl>, gate: Option<&BaseUrl>) -> bool {
+    let w = match waker {
+        Some(u) => waker::status(u).await,
+        None => WakerState::Unknown,
+    };
+    if let Ok(mut s) = app.waker.lock() {
+        *s = w;
+    }
+    let Some(gate) = gate.filter(|_| w == WakerState::Up) else { return false };
+    match poll_beefy(gate).await {
+        Ok(s) => {
+            app.note("");
+            app.store(s);
+            false
+        }
+        Err(e) => {
+            app.note(&format!("beefy poll failed: {e}"));
+            true
         }
     }
 }
 
-async fn beefy_loop(app: Arc<App>, waker: Option<BaseUrl>, gate: Option<BaseUrl>, every: Duration) {
-    let (Some(waker), Some(gate)) = (waker, gate) else { return };
-    let mut tick = tokio::time::interval(every);
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    loop {
-        tick.tick().await;
-        let w = waker::status(&waker).await;
-        if let Ok(mut s) = app.waker.lock() {
-            *s = w;
-        }
-        if w != WakerState::Up {
-            continue;
-        }
-        match poll_beefy(&gate).await {
-            Ok(s) => {
-                app.note("");
-                app.store(s);
-            }
-            Err(e) => app.note(&format!("beefy poll failed: {e}")),
-        }
-    }
-}
-
-async fn local_loop(app: Arc<App>, src: local::Sources, every: Duration) {
-    let mut tick = tokio::time::interval(every);
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    let mut last = Vec::new();
-    loop {
-        tick.tick().await;
-        let (l, errors) = src.refresh(now_ms()).await;
-        if errors != last {
+async fn poll_local(app: &App, src: &local::Sources) {
+    let (l, errors) = src.refresh(now_ms()).await;
+    if let Ok(mut last) = app.local_errors.lock() {
+        if errors != *last {
             for e in &errors {
                 log(&format!("local source unavailable: {e}"));
             }
-            last = errors;
+            *last = errors;
         }
-        if let Ok(mut s) = app.local.lock() {
-            *s = l;
-        }
+    }
+    if let Ok(mut s) = app.local.lock() {
+        *s = l;
+    }
+}
+
+/// One poll of every source: Waker (and beefy behind it) alongside the fastpi sources.
+async fn poll_once(app: &App, waker: Option<&BaseUrl>, gate: Option<&BaseUrl>, src: &local::Sources) {
+    let (gate_failed, ()) = tokio::join!(poll_beefy_side(app, waker, gate.filter(|_| waker.is_some())), poll_local(app, src));
+    if let Ok(mut p) = app.polled.lock() {
+        *p = Polled { at: Some(now()), gate_failed };
     }
 }
 
@@ -232,6 +230,11 @@ async fn serve(listener: TcpListener, app: Arc<App>) {
                 async move {
                     let method = req.method().as_str().to_string();
                     let path = req.uri().path().to_string();
+                    if api::is_viewer(&method, &path, peer.ip(), &app.access) {
+                        if let Some(target) = app.demand.viewer() {
+                            app.demand.wait(target, FIRST_VIEW_WAIT).await;
+                        }
+                    }
                     let r = api::route(&method, &path, peer.ip(), &app.access, || app.view());
                     Ok::<_, Infallible>(respond(r, method == "HEAD"))
                 }
@@ -282,7 +285,7 @@ fn main() {
     let abs = url("ABS_URL", "http://audiobookshelf:8080").map(|u| (u, PathBuf::from(env_or("ABS_KEY_FILE", "/run/secrets/abs_api_key"))));
     let qbit = url("QBIT_URL", "http://traefik:8080/activity/qbit");
     let poll = env_secs("POLL_SECONDS", 30);
-    let waker_every = env_secs("WAKER_SECONDS", 15);
+    let window = env_secs("VIEWER_SECONDS", 120);
     let access = api::Access {
         page: api::Allow::parse(&env_or("PAGE_ALLOW", "172.24.255.3/32,127.0.0.1/32")).unwrap_or_else(|e| fail(&format!("PAGE_ALLOW: {e}"))),
         metrics: api::Allow::parse(&env_or("METRICS_ALLOW", "10.24.40.0/29,127.0.0.1/32")).unwrap_or_else(|e| fail(&format!("METRICS_ALLOW: {e}"))),
@@ -300,17 +303,23 @@ fn main() {
         access,
         data,
         last_error: Mutex::new(String::new()),
+        local_errors: Mutex::new(Vec::new()),
+        polled: Mutex::new(Polled::default()),
+        demand: Demand::new(poll, window),
     });
+    let src = local::Sources::new(abs, qbit);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));
     rt.block_on(async move {
         let listener = TcpListener::bind((bind.as_str(), port)).await.unwrap_or_else(|e| fail(&format!("bind {bind}:{port}: {e}")));
         match (&gate, &waker) {
-            (Some(g), Some(w)) => log(&format!("listening on {bind}:{port}; beefy via {}:{}{} only while {}:{}{} says up, every {} s", g.host, g.port, g.base, w.host, w.port, w.base, poll.as_secs())),
-            _ => log(&format!("listening on {bind}:{port}; beefy polling off (WAKER_URL or GATE_URL = off)")),
+            (Some(g), Some(w)) => log(&format!("listening on {bind}:{port}; polls every {} s only within {} s of a page view; beefy via {}:{}{} only while {}:{}{} says up", poll.as_secs(), window.as_secs(), g.host, g.port, g.base, w.host, w.port, w.base)),
+            _ => log(&format!("listening on {bind}:{port}; polls every {} s only within {} s of a page view; beefy polling off (WAKER_URL or GATE_URL = off)", poll.as_secs(), window.as_secs())),
         }
-        tokio::spawn(waker_loop(app.clone(), waker.clone(), waker_every));
-        tokio::spawn(beefy_loop(app.clone(), waker, gate, poll));
-        tokio::spawn(local_loop(app.clone(), local::Sources::new(abs, qbit), poll));
+        let poller = app.clone();
+        tokio::spawn(async move {
+            let app = poller.clone();
+            poller.demand.run(|| poll_once(&app, waker.as_ref(), gate.as_ref(), &src)).await
+        });
         tokio::select! {
             _ = serve(listener, app) => {}
             _ = shutdown() => {}

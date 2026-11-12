@@ -4,6 +4,8 @@ if want activity; then
   check activity.hardening '^65060:65060 ro=true caps=\[ALL\] nnp mem=33554432$' "$(docker inspect -f '{{.Config.User}} ro={{.HostConfig.ReadonlyRootfs}} caps={{.HostConfig.CapDrop}} {{range .HostConfig.SecurityOpt}}{{if eq . "no-new-privileges:true"}}nnp{{end}}{{end}} mem={{.HostConfig.Memory}}' activity 2>&1)"
   # never served without a login: 302 to the SSO (Authentik application Activity)
   check activity.page-sso '^302 https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{http_code} %{redirect_url}' --resolve activity.holy-grail.ch:443:192.168.1.2 https://activity.holy-grail.ch/ | cut -c1-60)"
+  # polls only while viewed: the first /api/state after idle waits for one immediate poll (max 4 s), so these reads count as a viewer for 2 min
+  check activity.viewer-gated '^activity_viewer_active [01]$' "$(docker exec prometheus wget -qO- -T 5 http://activity:8080/metrics 2>&1 | grep '^activity_viewer_active ')"
   check activity.api '^"beefy":"(up|asleep|unknown)"$' "$(docker exec traefik wget -qO- -T 5 http://activity:8080/api/state 2>&1 | grep -o '"beefy":"[a-z]*"')"
   # only Traefik's pinned address may read the page and the state: another container on traefik_proxy gets 403
   check activity.traefik-only '^403,403$' "$(st() { docker exec server-specs wget -qO /dev/null -T 5 "http://activity:8080$1" 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | cut -d' ' -f2 || true; }; echo "$(st /api/state),$(st /)")"

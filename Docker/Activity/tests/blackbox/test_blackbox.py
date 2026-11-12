@@ -165,7 +165,7 @@ class Sut:
             "WAKER_URL": "http://127.0.0.3:9001/activity/waker", "GATE_URL": "http://127.0.0.2:8095/activity/gate",
             "ABS_URL": "http://127.0.0.4:8080", "ABS_KEY_FILE": str(TMP / "key"),
             "QBIT_URL": "http://127.0.0.5:8080/activity/qbit",
-            "DATA_DIR": str(TMP / "data"), "POLL_SECONDS": "1", "WAKER_SECONDS": "1",
+            "DATA_DIR": str(TMP / "data"), "POLL_SECONDS": "1", "VIEWER_SECONDS": "10",
             "PAGE_ALLOW": "127.0.0.1/32", "METRICS_ALLOW": "127.0.0.1/32", "PATH": "/usr/bin:/bin",
         }
         self.env.update(env)
@@ -297,15 +297,19 @@ class Awake(Base):
         s = state()
         self.assertIsNone(s["watching"])
         self.assertEqual(s["beefy_data"], "none")
+        self.assertTrue(s["gate_failed"], "the page warns: beefy data unavailable (gate not answering)")
         self.assertIn("beefy poll failed: /jellyfin/Sessions?ActiveWithinSeconds=60: HTTP 503", self.sut.log())
         self.assertEqual(self.sut.log().count("beefy poll failed"), 1, "logged once per change, not every tick")
 
     def test_oversized_answer_fails_the_poll_without_crash(self):
         W.gate_mode = "huge"
+        state()
         time.sleep(3)
         self.assertIsNone(self.sut.proc.poll())
         self.assertIn("answer over", self.sut.log())
-        self.assertEqual(state()["beefy_data"], "none")
+        s = state()
+        self.assertEqual(s["beefy_data"], "none")
+        self.assertTrue(s["gate_failed"])
 
     def test_nothing_identifying_leaves_the_service(self):
         self.wait_state(lambda s: s["beefy_data"] == "live" and s["listening"] is not None)
@@ -334,18 +338,74 @@ class Awake(Base):
         self.assertEqual(r.returncode, 0)
 
 
-class PageViews(Base):
-    env = {"POLL_SECONDS": "3600", "WAKER_SECONDS": "3600"}
+def requests_made():
+    return {"waker": len(W.waker.seen()), "gate": len(W.gate.seen()), "abs": len(W.abs.seen()), "qbit": len(W.qbit.seen())}
 
-    def test_page_views_never_reach_beefy(self):
-        self.wait_state(lambda s: s["beefy_data"] == "live")
-        before = len(W.gate.seen())
+
+NOTHING = {"waker": 0, "gate": 0, "abs": 0, "qbit": 0}
+
+
+class PageViews(Base):
+    env = {"POLL_SECONDS": "3600"}
+
+    def test_idle_service_asks_nobody(self):
+        time.sleep(4)
+        self.assertEqual(requests_made(), NOTHING)
+
+    def test_metrics_health_and_html_are_no_viewers(self):
+        for _ in range(10):
+            get("/metrics")
+            get("/health")
+            get("/")
+        time.sleep(2)
+        self.assertEqual(requests_made(), NOTHING)
+        _, _, m = get("/metrics")
+        self.assertIn("activity_viewer_active 0\n", m.decode())
+        self.assertNotIn("activity_last_poll_timestamp_seconds", m.decode())
+
+    def test_first_view_polls_once_at_once(self):
+        s = state()
+        self.assertEqual(s["beefy_data"], "live", "the first answer already carries the immediate poll")
+        self.assertEqual(s["listening"], {"sessions": 3})
+        self.assertIsInstance(s["polled_at"], int)
+        made = requests_made()
+        self.assertEqual((made["waker"], made["abs"], made["qbit"]), (1, 1, 1))
+        paths = [p for _, p, _ in W.gate.seen()]
+        self.assertEqual(sorted(paths), sorted(set(paths)), "one request per gate path")
         for _ in range(20):
             get("/")
             get("/api/state")
             get("/metrics")
         time.sleep(1)
-        self.assertEqual(len(W.gate.seen()), before)
+        self.assertEqual(requests_made(), made, "views within the window add no poll")
+        _, _, m = get("/metrics")
+        self.assertIn("activity_viewer_active 1\n", m.decode())
+        self.assertIn("activity_last_poll_timestamp_seconds ", m.decode())
+
+    def test_concurrent_first_views_share_one_poll(self):
+        out = []
+        ts = [threading.Thread(target=lambda: out.append(state())) for _ in range(6)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        self.assertEqual(len(out), 6)
+        self.assertTrue(all(s["beefy_data"] == "live" for s in out), out)
+        self.assertEqual(requests_made()["waker"], 1)
+
+
+class ViewerWindow(Base):
+    env = {"VIEWER_SECONDS": "2"}
+
+    def test_polling_stops_after_the_window(self):
+        state()
+        time.sleep(1.5)
+        self.assertGreaterEqual(requests_made()["waker"], 2, "polls every POLL_SECONDS while viewed")
+        time.sleep(1.5)
+        for f in (W.waker, W.gate, W.abs, W.qbit):
+            f.reset()
+        time.sleep(3)
+        self.assertEqual(requests_made(), NOTHING)
 
 
 class Asleep(Base):
