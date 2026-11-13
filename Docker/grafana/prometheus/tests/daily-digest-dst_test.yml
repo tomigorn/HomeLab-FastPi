@@ -19,8 +19,8 @@ tests:
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Daily digest"
-              description: "📅 1970-06-01 · last 24 h · ⏳ still firing, ✔️ cleared\n\n<b>🔕 Digest only</b>\n• none\n\n<b>🔔 Other alerts</b> (sent, or muted overnight)\n• none\n\n<b>🛡️ New fixable CVEs</b>\n• none\n\n<b>📦 Auto-updates</b>\n• no run in the last 24 h\n\n<b>💤 Awake</b> (24 h) · beefy 0.0 h\n<blockquote expandable>Non-critical alerts are muted 22:00-07:00; one still firing at 07:00 is sent then. Updates, Unraid and standing CVE counts: Monday digest. History: Grafana dashboard updates-security.</blockquote>"
+              summary: "Morning summary – 1 Jun (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b> · beefy 0.0 h\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
       - eval_time: 151d5h
         alertname: DailyDigest
         exp_alerts: []
