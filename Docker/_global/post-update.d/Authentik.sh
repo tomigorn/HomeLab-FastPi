@@ -40,6 +40,18 @@ out("footer", any("holy-grail.ch" in (l.get("href") or "") for l in (tn.footer_l
 from authentik.policies.password.models import PasswordPolicy
 out("pw-min", " ".join(sorted({str(x.length_min) for x in PasswordPolicy.objects.all()})))
 from authentik.core.models import User as _U
+from authentik.stages.prompt.models import PromptStage as _PS
+from authentik.policies.expression.models import ExpressionPolicy as _EP
+from authentik.policies.types import PolicyRequest as _PR
+_pw = [s for s in _PS.objects.all() if s.fields.filter(type="password").exists()]
+_ok = sum([x.name for x in s.validation_policies.all()] == ["password-check-vault-hint"] for s in _pw)
+_hint = _EP.objects.filter(name="password-check-vault-hint").first()
+_tip = "no policy"
+if _hint:
+    _r = _PR(_U.objects.get(username="tomigorn-admin")); _r.context["prompt_data"] = {"password": "short"}
+    _res = _hint.passes(_r)
+    _tip = "tip" if not _res.passing and any("KeePassXC" in str(m) for m in _res.messages) else "no tip"
+out("pw-hint", f"{_ok}/{len(_pw)} {_tip}")
 out("akadmin", _U.objects.filter(username="akadmin", is_active=True).count())
 out("footer-help", any((l.get("href") or "") == "https://wiki.holy-grail.ch/getting-started/" for l in (tn.footer_links or [])))
 out("avatars", tn.avatars)
@@ -90,6 +102,7 @@ PY
   check authentik.footer '^True$' "$(akv footer)"
   check authentik.footer-help '^True$' "$(akv footer-help)"
   check authentik.password-min '^15$' "$(akv pw-min)"
+  check authentik.password-vault-hint '^([1-9][0-9]*)/\1 tip$' "$(akv pw-hint)"
   check authentik.akadmin-off '^0$' "$(akv akadmin)"
   check authentik.avatar-source '^attributes\.avatar,initials$' "$(akv avatars)"
   check authentik.groups '^7/7$' "$(akv groups)"

@@ -3,7 +3,8 @@
 from authentik.policies.password.models import PasswordPolicy
 
 RULES = {"length_min": 15, "check_have_i_been_pwned": True, "hibp_allowed_count": 0,
-         "check_zxcvbn": True, "zxcvbn_score_threshold": 2, "check_static_rules": True}
+         "check_zxcvbn": True, "zxcvbn_score_threshold": 2, "check_static_rules": True,
+         "error_message": "Password must be ≥ 15 chars with upper, lower, a digit and a symbol"}
 
 for p in PasswordPolicy.objects.all():
     changed = [k for k, v in RULES.items() if getattr(p, k) != v]

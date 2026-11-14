@@ -27,14 +27,16 @@ this is just where things stand.
 
 A scripted browser (Playwright) walked the whole path with a throwaway account: invite link → warning → form → email-sent page → email link → "Continue to confirm this email address" → TOTP setup → logged in → avatar picker, about 15 s of flow time. Invitation consumed, user only in `streaming-users`, admin mail sent; test user deleted afterwards.
 
-| Step | Page | Help link in footer |
-|---|---|---|
-| 1 | warning (order 1) | yes |
-| 2 | form (order 10) | yes |
-| 3 | "check your email" (order 30) | yes |
-| 4 | email link → confirm page (stock consent, guards against link scanners) | yes |
-| 5 | TOTP setup (order 40) | yes |
-| 6 | login (order 100) → redirect (order 110) → `https://avatars.holy-grail.ch/`, signed in | page navigates at once |
+| Step | Page | Help link in footer | Help link in the page |
+|---|---|---|---|
+| 1 | warning (order 1) | yes | yes, checklist box |
+| 2 | form (order 10) | yes | yes, "Need help?" box |
+| 3 | "check your email" (order 30) | yes | no text field; the email has it |
+| 4 | email link → confirm page (stock consent, guards against link scanners) | yes | no |
+| 5 | TOTP setup (order 40) | yes | no text field |
+| 6 | login (order 100) → redirect (order 110) → `https://avatars.holy-grail.ch/`, signed in | page navigates at once | yes, under the title |
+
+Password check: every form with a password field (sign-up, change, forgot, first setup) is validated by the expression policy `password-check-vault-hint` (`scripts/password-vault-hint.py`). It runs `enrollment-password-policy` and adds a KeePassXC/Bitwarden tip to every failure; the password policies themselves are not bound.
 
 Still unproven: the verification mail landing in a real inbox (the test read the email token from the DB).
 
