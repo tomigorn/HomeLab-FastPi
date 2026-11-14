@@ -17,7 +17,7 @@ You get an invite link from the admin. Accounts are by invite only.
 5. At the end you pick a profile picture (step 5).
 
 !!! info "Password rules"
-    All of these: at least **15 characters**, an **uppercase** letter, a **lowercase** letter, a **digit** and a **symbol** (like `!` or `-`). It is rejected if it appears in a known data breach or is easy to guess. Easiest: let a password manager (Bitwarden, 1Password or KeePassXC) create and remember it for you.
+    All of these: at least **15 characters**, an **uppercase** letter, a **lowercase** letter, a **digit** and a **symbol** (like `!` or `-`). It is rejected if it appears in a known data breach or is easy to guess. Easiest: let a password manager (KeePassXC or Bitwarden) create and remember it for you.
 
 !!! warning "Open the invite link once"
     The invite works one time. If the page shows an error after you already got in once, ask the admin for a new one.

@@ -12,7 +12,7 @@ if result.passing:
     return True
 for message in result.messages:
     ak_message(message)
-ak_message("Tip: use a password manager like Bitwarden, 1Password or KeePassXC. It creates a long random password and remembers it for you.")
+ak_message("Tip: use a password manager like KeePassXC or Bitwarden. It creates a long random password and remembers it for you.")
 return False
 '''
 

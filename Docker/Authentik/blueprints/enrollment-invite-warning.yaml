@@ -137,7 +137,7 @@ entries:
         <li><strong>A password</strong> with all of these: at least 15 characters,
         an uppercase letter, a lowercase letter, a digit and a symbol (like ! or -).
         It is rejected if it appears in a known data breach or is easy to guess.
-        Easiest: let a password manager (Bitwarden, 1Password or KeePassXC) create
+        Easiest: let a password manager (KeePassXC or Bitwarden) create
         and remember it for you.</li>
         <li><strong>An authenticator app on your phone</strong> - Aegis, Google
         Authenticator, 1Password or similar. Two-factor is mandatory and you set
