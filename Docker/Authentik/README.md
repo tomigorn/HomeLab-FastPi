@@ -23,17 +23,20 @@ this is just where things stand.
 | Mandatory MFA | enforced | TOTP at order 40 + login-flow backstop denying device-less accounts |
 | Nextcloud SSO (OIDC) | **working end to end** | 2026-08-16: a real login provisioned `user_oidc` account with groups `cloud-users`, `cloud-admins`, `admin` — Nextcloud admin rights confirmed |
 
-### Not done yet — this is the next step
+### Invite sign-up (walked end to end 2026-11-14)
 
-**The enrollment path has still never been walked by a person.** An invitation is
-issued and outstanding, and every component is configured and individually
-verified, but the end-to-end path — invite link → warning page → form → Brevo
-email → click → TOTP → logged in — is **unproven in practice**.
+A scripted browser (Playwright) walked the whole path with a throwaway account: invite link → warning → form → email-sent page → email link → "Continue to confirm this email address" → TOTP setup → logged in → avatar picker, about 15 s of flow time. Invitation consumed, user only in `streaming-users`, admin mail sent; test user deleted afterwards.
 
-Brevo has now been shown to *send*: the admin-notification rule below delivered a
-real message to the admin address on 2026-09-25. That proves the relay accepts
-and sends our mail; it still does not prove the enrollment verification mail
-lands in an arbitrary inbox rather than a spam folder.
+| Step | Page | Help link in footer |
+|---|---|---|
+| 1 | warning (order 1) | yes |
+| 2 | form (order 10) | yes |
+| 3 | "check your email" (order 30) | yes |
+| 4 | email link → confirm page (stock consent, guards against link scanners) | yes |
+| 5 | TOTP setup (order 40) | yes |
+| 6 | login (order 100) → redirect (order 110) → `https://avatars.holy-grail.ch/`, signed in | page navigates at once |
+
+Still unproven: the verification mail landing in a real inbox (the test read the email token from the DB).
 
 Next time, start here:
 
@@ -41,7 +44,7 @@ Next time, start here:
 2. Open the link: `https://sso.holy-grail.ch/if/flow/enrollment/?itoken=<token>`
    Opening it is safe — the warning stage at order 1 means nothing is consumed
    until **Continue** is pressed.
-3. Walk the whole flow through with a throwaway address.
+3. The person ends on the avatar picker, signed in.
 4. New users are auto-added to `streaming-users` (and nothing else) by the
    enrollment user-write stage. Everything else is by hand (Directory → Groups → group → Users → Add existing user):
    `streaming-requesters` (Requests), `streaming-admins` (download apps, Jellyfin admin),
@@ -175,6 +178,8 @@ Authentik on first apply and read back from the provider, never written here.
 
 - **`enrollment-invite-warning.yaml`** — the order-1 warning page described above.
 
+- **`enrollment-redirect-avatars.yaml`** — built-in Redirect stage (static, `https://avatars.holy-grail.ch/`) bound last (order 110), after the login stage, so a new user lands signed in on the avatar picker.
+
 - **`enrollment-defaults-and-notify.yaml`** — two things that make an invited
   account usable and visible. It sets the enrollment user-write stage's
   `create_users_group` to **`streaming-users`** (previously unset, so an invited
@@ -275,6 +280,7 @@ is consumed until they press **Continue**.
     30  email verify
     40  TOTP setup
     100 login
+    110 redirect to https://avatars.holy-grail.ch/  (enrollment-redirect-avatars.yaml)
 
 Verified end to end:
 
@@ -528,13 +534,13 @@ authentik. Three separate mechanisms, because authentik has no single switch:
 | `branding_title` | `Holy Grail` |
 | `branding_logo` | `holy-grail-logo.png` (the grail icon, 1024px) |
 | `branding_favicon` | `holy-grail-icon.svg` (scales crisply in the tab) |
-| `footer_links` (on the **Tenant**, not the Brand) | holy-grail.ch + a small authentik credit |
+| `footer_links` (on the **Tenant**, not the Brand) | holy-grail.ch, "Help: create your account" (`https://wiki.holy-grail.ch/getting-started/`), a small authentik credit. Set by `docker exec -i authentik-server ak shell < scripts/footer-links.py` (blueprints can't reach the Tenant); shows on every flow page |
 
 **2. Flow titles.** The big "Welcome to authentik!" line is the *flow's* `title`,
 not a brand setting. Four flows carried it: `default-authentication-flow`,
 `default-source-authentication`, `default-source-enrollment` and `initial-setup`.
 
-**3. Emails** — see `custom-templates/email/base.html`.
+**3. Emails** — see `custom-templates/email/base.html`. `account_confirmation.html` (sign-up verification) is the stock template plus a "Help: create your account" link; diff it against upstream after an upgrade (command in the file).
 
 ### Where the logo files live, and why
 
