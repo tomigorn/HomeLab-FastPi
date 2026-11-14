@@ -59,6 +59,7 @@ APPS = {
     "notes":             ("Utilities", "Private research notes", "fa://fa-sticky-note"),
     "avatar-picker":     ("Account", "Your profile picture", None),
     "wiki":              ("Account", "How to use everything", "fa://fa-book"),
+    "wiki-admin":        ("Account", "Admin guide", "fa://fa-user-shield"),
 }
 
 # Technical helpers: hidden from the dashboard with meta_hide. Their providers,

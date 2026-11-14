@@ -29,6 +29,11 @@ class Sections(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(m.groups(), ("Utilities", "My tech stack", "fa://fa-layer-group"))
 
+    def test_wiki_admin_has_section_description_and_icon(self):
+        m = re.search(r'"wiki-admin":\s*\("(\w+)",\s*"([^"]+)",\s*"(fa://[\w-]+)"\)', SOURCE)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.groups(), ("Account", "Admin guide", "fa://fa-user-shield"))
+
     def test_nextcloud_is_a_utility(self):
         self.assertEqual(re.search(r'"nextcloud":\s*\("(\w+)"', SOURCE).group(1), "Utilities")
 
