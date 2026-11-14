@@ -254,6 +254,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
 | Static site served read-only from www/ (built by build.sh), 404 page | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `wiki.caddyfile`: caddy validate → Valid configuration; `wiki.site`: index → 200 + bytes; `wiki.not-found`: unknown path → 404 | caddy directive changes (auto-updated) |
+| Admin guide: same container serves `wiki-admin.holy-grail.ch` from `www-admin/` (second read-only mount, built from `site-admin/`); Traefik route `wiki-admin` + Authentik app `wiki-admin` bound to `homelab-admins` (friends never reach it) | `Caddyfile` (host block), `docker-compose.yaml`, `Traefik/traefik/dynamic/wiki-admin.yml`, `Authentik/scripts/provision-wiki-admin-sso.py` | `./build.sh && docker compose up -d --force-recreate`; Authentik: `docker compose exec -T server ak shell < scripts/provision-wiki-admin-sso.py` | `wiki.admin-site`: admin Host header → 200 + bytes; `wiki.admin-not-found`: unknown path → 404; `wiki.guide-unchanged`: plain host still serves the guide | Caddy host-matcher changes; removing the Authentik binding opens the page to every logged-in user |
 
 ## Notes
 

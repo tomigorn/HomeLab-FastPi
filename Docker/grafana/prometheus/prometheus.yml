@@ -128,6 +128,8 @@ scrape_configs:
           - https://avatars.holy-grail.ch/
           - https://activity.holy-grail.ch/
           - https://stack.holy-grail.ch/
+          - https://wiki.holy-grail.ch/
+          - https://wiki-admin.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
