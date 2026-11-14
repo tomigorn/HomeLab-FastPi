@@ -1,3 +1,10 @@
+---
+template: public.html
+hide:
+  - navigation
+  - toc
+---
+
 # Getting started
 
 ## 1. Accept your invite
@@ -7,6 +14,7 @@ You get a link like `https://sso.holy-grail.ch/if/flow/enrollment/?itoken=…`. 
 2. Choose a **username** and enter your **name**, **email** and a **password** (twice).
 3. Check your email and click the confirmation link.
 4. Set up your authenticator app (next step).
+5. After sign-up you land on the profile picture page (step 5).
 
 !!! info "Password rules"
     At least **15 characters**, not found in known data breaches, and not trivially guessable. A passphrase of several random words works well.
@@ -38,9 +46,14 @@ Open `https://sso.holy-grail.ch` and go to your **Application Dashboard**: every
 
 | Group | What's there |
 |---|---|
-| Media | Films & series, requests, watch history, audiobooks |
+| Media | Jellyfin (films & series), Tracker (ratings & watchlists), Audiobookshelf (audiobooks) |
 | Account | Your profile picture, this guide |
-| Homelab | Machines |
+| Homelab | Our machines & hardware |
 
 !!! note "A tile is missing?"
-    New accounts get Jellyfin and the Tracker automatically. Requests are switched on by the admin: just ask.
+    New accounts get Jellyfin, Tracker and Audiobookshelf automatically. Requests (films, series, audiobooks) are switched on by the admin: just ask.
+
+## 5. Pick your profile picture
+Open `https://avatars.holy-grail.ch` and choose a picture. Pick once: it shows in Jellyfin, Requests and Home Assistant (Nextcloud later).
+
+The sign-up now ends on this page automatically. You can come back any time.

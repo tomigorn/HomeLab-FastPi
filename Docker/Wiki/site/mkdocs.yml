@@ -3,6 +3,7 @@ site_description: How to use the Holy Grail apps
 use_directory_urls: true
 theme:
   name: material
+  custom_dir: overrides
   font: false
   palette:
     - media: "(prefers-color-scheme: light)"

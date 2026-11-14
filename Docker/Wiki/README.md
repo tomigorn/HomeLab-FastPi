@@ -2,7 +2,7 @@
 
 "Holy Grail Guide": how-to pages for friends (Jellyfin, Requests, audio & subtitles, audiobooks, tracker, profile picture) and a "What's new" page. English, MkDocs Material, no external requests (`theme.font: false`).
 
-- **URL:** https://wiki.holy-grail.ch (Holy Grail SSO, any logged-in user)
+- **URL:** https://wiki.holy-grail.ch (Holy Grail SSO, any logged-in user). Public without login: only `/getting-started/` and its theme assets (`skip_path_regex` in `provision-wiki-sso.py`; page template `site/overrides/public.html` has no menu)
 - **Server:** one `caddy:alpine` container serving `www/` read-only, uid 65053
 
 ## Edit and rebuild

@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, where to click, and the page with the details.
 
+## 14 November 2026
+
+**The sign-up guide is open to everyone.** [Getting started](getting-started.md) can be read without an account, and now ends with picking your profile picture.
+
 ## 9 November 2026
 
 **No more trailers playing on their own in Moonfin.** The big banner at the top of the home screen shows pictures only; a trailer plays only when you press it. Restart the Moonfin app once. [Media guide](apps/media-guide.md)
