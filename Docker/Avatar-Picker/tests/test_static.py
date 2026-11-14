@@ -156,5 +156,11 @@ class StaticPageTest(unittest.TestCase):
         self.assertIn("aspect-ratio:1", self.css_rule("button.av img"))
         self.assertIn("background-clip:padding-box", self.css_rule("button.av img"))  # colour stays off the border
 
+    def test_intro_links_the_getting_started_guide(self):
+        links = self.find("a", href="https://wiki.holy-grail.ch/getting-started/")
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0].get("target"), "_blank")
+        self.assertIn("noopener", links[0].get("rel", ""))
+
 if __name__ == "__main__":
     unittest.main()
