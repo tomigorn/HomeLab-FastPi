@@ -8,13 +8,13 @@ hide:
 # Getting started
 
 ## 1. Accept your invite
-You get a link like `https://sso.holy-grail.ch/if/flow/enrollment/?itoken=…`. Account creation is by invite only.
+You get an invite link from the admin. Accounts are by invite only.
 
 1. Open the link on the device you're setting up on. A short notice page appears first: read it and press **Continue**.
 2. Choose a **username** and enter your **name**, **email** and a **password** (twice).
 3. Check your email and click the confirmation link.
 4. Set up your authenticator app (next step).
-5. After sign-up you land on the profile picture page (step 5).
+5. At the end you pick a profile picture (step 5).
 
 !!! info "Password rules"
     At least **15 characters**, not found in known data breaches, and not trivially guessable. A passphrase of several random words works well.
@@ -42,18 +42,13 @@ Open any app. If you're not logged in you land on the Holy Grail login page: ent
 Forgot your password? Use **Forgot password?** on the login page. You get an email link and must also enter a code from your authenticator.
 
 ## 4. Your dashboard
-Open `https://sso.holy-grail.ch` and go to your **Application Dashboard**: every app you may use has a tile. Click a tile to open it.
+After you log in, your dashboard shows a tile for every app you may use. Click a tile to open it.
 
-| Group | What's there |
-|---|---|
-| Media | Jellyfin (films & series), Tracker (ratings & watchlists), Audiobookshelf (audiobooks) |
-| Account | Your profile picture, this guide |
-| Homelab | Our machines & hardware |
-
-!!! note "A tile is missing?"
-    New accounts get Jellyfin, Tracker and Audiobookshelf automatically. Requests (films, series, audiobooks) are switched on by the admin: just ask.
+!!! note "Missing something?"
+    Some apps are switched on by the admin. Just ask.
 
 ## 5. Pick your profile picture
-Open `https://avatars.holy-grail.ch` and choose a picture. Pick once: it shows in Jellyfin, Requests and Home Assistant (Nextcloud later).
+The sign-up ends on the profile picture page: choose a picture once and it shows in the apps. To change it later, use the **Profile picture** tile on your dashboard.
 
-The sign-up now ends on this page automatically. You can come back any time.
+!!! tip "More help"
+    After you have an account, the full guide is on your dashboard (tile **Guide**).
