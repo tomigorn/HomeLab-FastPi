@@ -4,9 +4,27 @@
 
 Also in Requests: the **Audiobooks** entry in the menu (after Series) opens it.
 
-1. Open the address and sign in with **Holy Grail**.
-2. Search for a book and pick the right **edition** (see below).
-3. Press the request button. The download starts at once, no approval needed.
+## Who can request
+Accounts with the **requester** right. No **Audiobooks** tile or "no permission"? Ask the admin.
+
+## Baby steps
+1. Open `https://books.holy-grail.ch`.
+2. Press **Holy Grail** to sign in.
+3. Type the book title in the search box.
+4. For a German book: switch the search **region to `de`** first.
+5. Pick the right **edition** (language and narrator, see below).
+6. Press the request button.
+7. The download starts at once. No approval needed.
+8. Later: open [Audiobookshelf](audiobookshelf.md) and look in the library of its language.
+
+## How long
+| Step | Time |
+|---|---|
+| Download and import | normally minutes to hours |
+| Book in the request list shows **in library** | ready to listen |
+| No release found | the request stays open. Nothing is lost |
+
+Not there yet? Open **All requests** (top menu) and look at the status. More: [Help & FAQ](../help.md#audiobooks).
 
 ## Requesting
 

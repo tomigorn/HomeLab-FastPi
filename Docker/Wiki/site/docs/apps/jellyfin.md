@@ -1,5 +1,7 @@
 # Watching with Jellyfin
 
+Short version for every device: [How to watch](watch.md).
+
 **Address:** `https://jellyfin.holy-grail.ch`
 
 **Server version:** Jellyfin **12.2** (October 2026). TV and phone apps must be made for version **12**: an older app (10.x) can't connect.
@@ -45,7 +47,7 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
 5. The TV app is now signed in.
 
 !!! tip "App can't connect?"
-    Opening an app also wakes a sleeping server. Wait a minute and try again.
+    Opening an app wakes a sleeping server. Wait a minute, then close and open the app again. A TV that only refreshes its home screen in the background does not wake it. See [Why you sometimes wait](waiting.md).
 
 **Recommended app on TVs and phones: [Moonfin](moonfin.md)** (home rows like the web, requests with 🌙 Tonight / ⚡ Now). The steps below are for the official Jellyfin apps.
 

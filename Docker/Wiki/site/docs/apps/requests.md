@@ -2,18 +2,32 @@
 
 **Address:** `https://requests.holy-grail.ch`
 
-1. Open the address and press **Holy Grail** to sign in. Your account is created on the first login.
-2. Search for a title (or browse with **Discover**), open it and press **Request**.
-3. Your request is approved automatically. The title is downloaded and appears in Jellyfin on its own.
-4. Follow its status under **Requests**.
+## Who can request
+Accounts with the **requester** right (Jellyfin, Moonfin: any account, see [Popular](#from-jellyfin-popular-movies-and-shows)). No **Request** button or "no permission"? Ask the admin.
+
+## Baby steps
+1. Open `https://requests.holy-grail.ch`.
+2. Press **Holy Grail** to sign in (first time: your account is created).
+3. Type the title in the search box. Press Enter.
+4. Press the right film or series.
+5. Press **Request**. A box opens.
+6. Leave **Can wait, download tonight** ticked, or untick it to download now.
+7. Press the confirm button in the box. It is approved automatically.
+8. Follow it under **Requests** in the menu.
+
+## How long
+| You picked | Ready |
+|---|---|
+| **Can wait** ticked (default) | downloads from 22:00, ready in the morning |
+| **Can wait** unticked, or **⚡ Download now** | starts at once. Ready when the download ends |
+| Rare film | can take longer, or may not be found |
+
+Not there yet? [My request isn't there yet](request-help.md).
 
 Looking for an audiobook? Use the **Audiobooks** entry in the menu (after Series), see [Requesting audiobooks](audiobook-requests.md).
 
-!!! info "Needs the requester role"
-    Requests are not switched on for every account. If the tile is missing or you get "no permission", ask the admin.
-
 !!! info "The media server sleeps"
-    Requests runs on the media server. If it is asleep you see a **"Requests is starting"** page: wait about a minute and it opens by itself (reload if it doesn't). If your browser shows the "asleep, sign in to start" page instead, log in and wait, see [Watching](jellyfin.md).
+    Requests runs on the media server. If it is asleep you see a **"Requests is starting"** page: wait about a minute and it opens by itself (reload if it doesn't). More: [Why you sometimes wait](waiting.md).
 
 ## Requesting
 

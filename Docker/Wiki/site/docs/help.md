@@ -9,7 +9,7 @@
     On the login page press **Forgot password?**. You need access to your email and your authenticator.
 
 ??? question "A tile is missing on my dashboard"
-    Jellyfin and the Tracker come with your invite. Requests are switched on by the admin: ask.
+    Jellyfin and the Tracker come with your invite. Requests and Request audiobooks are switched on by the admin: ask. Audiobooks, Profile picture and this guide are for everyone.
 
 ??? question "How do I log in to the Tracker?"
     Press the **Holy Grail** button on its login page. See [Tracker](apps/tracker.md).
@@ -17,7 +17,7 @@
 ## Watching
 
 ??? question "Jellyfin, Requests or the Tracker is slow to open"
-    The media server sleeps when nobody uses it and takes about a minute to wake. Wait on the waiting page ("asleep, sign in to start" or "Requests is starting") and reload if it doesn't open by itself.
+    The media server sleeps when nobody uses it and takes about a minute to wake. Wait on the waiting page ("asleep, sign in to start" or "Requests is starting") and reload if it doesn't open by itself. Nothing after 2 minutes: see [Why you sometimes wait](apps/waiting.md).
 
 ??? question "The TV app asks for a password"
     There are no passwords in Jellyfin. Use **Quick Connect**, see [Watching](apps/jellyfin.md).
@@ -37,7 +37,7 @@
 ## Requests
 
 ??? question "A film I requested isn't there yet"
-    Rare films can take longer to find. Check the status under **Requests**. If **Can wait** was ticked in the request, the download starts at night. Need it sooner? Ask the admin, or untick the box next time. See [Requesting](apps/requests.md#can-wait-download-tonight).
+    Steps: [My request isn't there yet](apps/request-help.md). Rare films can take longer to find. Check the status under **Requests**. If **Can wait** was ticked in the request, the download starts at night. Need it sooner? Ask the admin, or untick the box next time. See [Requesting](apps/requests.md#can-wait-download-tonight).
 
 ??? question "Requests says 'Waiting for the night'"
     The download starts at night when power is cheaper. See [Requesting](apps/requests.md#can-wait-download-tonight).

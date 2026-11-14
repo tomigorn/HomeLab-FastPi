@@ -1,6 +1,6 @@
 # How to use the media stack
 
-The short guide: which app where, how to watch, find and request. Details are one click away.
+The short guide: which app where, how to watch, find and request. Step by step: [How to watch](watch.md), [Why you sometimes wait](waiting.md), [My request isn't there yet](request-help.md).
 
 ## 1. Which app where
 
@@ -88,6 +88,6 @@ The server picks the best one by itself (4K before 1080p, original language plus
 | It says "requested" for a long time | nothing to do, it comes by itself; **⚡ Download now** speeds it up |
 | Wrong subtitle track | pick another while playing; never choose **Forced** for full subtitles: [Audio & subtitles](../audio-subtitles.md) |
 | No TV in the Play on TV list | open **Moonfin on the TV** first, then try again |
-| First start is slow | the media server sleeps to save power: wait about 45 seconds to a minute |
+| First start is slow | the media server sleeps to save power: wait about a minute. [More](waiting.md) |
 
 More: [Help & FAQ](../help.md).
