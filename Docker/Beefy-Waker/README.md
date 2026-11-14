@@ -14,7 +14,7 @@ beefy can be woken **two ways**, both served by one small Rust binary (`rust/`, 
 1. **Automatically** — Traefik's `forwardAuth` gate (`/gate`) fires the WoL when a
    request arrives for a beefy service that's asleep.
 2. **Manually** — open the **LAN wake page** (`/`) in a browser to wake beefy on
-   demand, with a countdown and live status.
+   demand, with a wait timer and live status.
 
 ## 1. Automatic gate (`/gate`)
 
@@ -184,7 +184,7 @@ The LAN route `beefy-wol.fastpi.homelab` blanks `X-Authentik-*` (`beefy-wol-stri
 **Test:**
 ```sh
 (cd app && python3 -m unittest -q)                     # state machine, arming, pages
-curl -s http://192.168.1.2:9001/status                  # phase, seconds_left, reason
+curl -s http://192.168.1.2:9001/status                  # phase, seconds_left, reason, waited_seconds
 cat /var/lib/node-exporter/textfile/beefy_wake.prom
 ../_global/scripts/post-update-check.sh Beefy-Waker     # beefy-waker.recovery, beefy-waker.recovery-auth
 ```
@@ -196,11 +196,22 @@ Open **`https://beefy-wol.fastpi.homelab/`** in a browser:
 - **`/`** (root) — shows beefy's **current state** and a big **Wake** button; it does
   **not** wake beefy just because you opened it. Asleep → "beefy is asleep" + Wake
   button; up → "beefy is up and running". It polls `/status` every 3 s and live-updates.
-  Pressing **Wake** fires the packet and switches to the countdown.
+  Pressing **Wake** fires the packet and switches to the wait timer.
 - **`/wol`** — the one-click variant: on load it **immediately** fires the WoL packet,
-  shows a ~`WAKE_COUNTDOWN`s countdown, and polls `/status` until beefy answers.
+  shows the wait timer, and polls `/status` until beefy answers.
 
 Both show the collapsed **beefy history** panel and the app version in the footer.
+
+**Wait timer** (wake page, `/jf` cold-start page, 503 "Waking up beefy..." page):
+
+| Part | Shows |
+|------|-------|
+| big number `m:ss` | time waited since the current wake began (`waited_seconds` from the server): a reload, a second tab or the 5 s refresh keep counting, no reset |
+| line + bar | "Usually ready after about `WAKE_COUNTDOWN` s"; bar fills to 95 %, full + "Taking longer than usual, still trying…" after that |
+| power cycle / retry | count keeps going, bar hidden, "About N s to go." from `seconds_left` |
+| broken, idle, beefy up | no timer |
+
+The 503 page renders the number server-side (works without JS) and ticks it every second with a tiny inline script. The "Jellyfin is asleep" page says "It usually takes about `WAKE_COUNTDOWN` s".
 
 - Routed by Traefik (`dynamic/beefy-wol.yml`) on **websecure with the default
   self-signed cert** (`tls: {}`) — a `.homelab` name can't get a public cert, so
@@ -217,8 +228,8 @@ Both show the collapsed **beefy history** panel and the app version in the foote
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/` | State + manual wake page (HTML) — shows beefy's status + a Wake button; does **not** auto-wake |
-| GET | `/wol` | Same page, but **auto-fires** WoL on load (countdown) |
-| GET | `/status` | `{"up": …, "phase": …, "seconds_left": …, "reason": …}` — TCP-probes beefy + wake recovery phase |
+| GET | `/wol` | Same page, but **auto-fires** WoL on load (wait timer) |
+| GET | `/status` | `{"up": …, "phase": …, "seconds_left": …, "reason": …, "waited_seconds": …}` — TCP-probes beefy + wake recovery phase; `waited_seconds` = seconds since the wake began (`null` when none runs or `broken`) |
 | POST | `/wake` | Fire the WoL magic packet → `{"sent": …}`. Needs header `X-Wake: 1`; a browser `Origin` must be this host, else 403 (CSRF guard, D-11). Same for `/jf/wake` |
 | GET | `/history` | beefy's boot/sleep timeline (JSON) — fetched from its journal |
 | GET | `/gate` | forwardAuth gate; `?port=` override (host is hard-wired to beefy) |
@@ -312,7 +323,7 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `BEEFY_MAC` | MAC to wake. |
 | `BEEFY_BROADCAST` | LAN subnet broadcast (`192.168.1.255`, not `255.255.255.255` — fastpi has many docker bridges). |
 | `BEEFY_PROBE_HOST` / `BEEFY_PROBE_PORT` | TCP probe target for "is beefy up". `22` = booted. |
-| `WAKE_COUNTDOWN` | Manual page countdown seconds (typical cold boot). Default `60`. |
+| `WAKE_COUNTDOWN` | Usual wake time in seconds shown on the wait pages ("Usually ready after about N s", bar target). Default `60`. |
 | `BEEFY_SSH_USER` | SSH user for the `/history` boot-list fetch. Default `buntu`. |
 | `BEEFY_HISTORY_SINCE` | Hide boots that started before this epoch-µs cutoff (`0` = show all). See "Starting the history fresh" below. |
 | `TRUSTED_PROXY` | Traefik's IP; only its requests count as signed in. `172.24.255.3` |

@@ -1,7 +1,7 @@
 # Beefy waker customizations (Docker/CUSTOMIZATIONS.md "Beefy-Waker"): the app plus the host wake timers.
 BWD=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../Beefy-Waker" && pwd)
 if want waker; then
-  check waker.status '"up"' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
+  check waker.status '"up": (true|false), .*"waited_seconds": ' "$(curl -s -m 5 http://192.168.1.2:9001/status)"
   # Rust binary on scratch (no shell to exec into); /history speaks SSH itself with the pinned host key, checked only while beefy is up (never wakes)
   check waker.rust '^\[/beefy-waker\] 65005:65005 true$' "$(docker inspect -f '{{.Config.Entrypoint}} {{.Config.User}} {{.HostConfig.ReadonlyRootfs}}' beefy-waker 2>&1)"
   check waker.history '^(200|asleep)$' "$(if curl -s -m 5 http://192.168.1.2:9001/status | grep -q '"up": true'; then curl -s -m 15 -o /dev/null -w '%{http_code}' http://192.168.1.2:9001/history; else echo asleep; fi)"
