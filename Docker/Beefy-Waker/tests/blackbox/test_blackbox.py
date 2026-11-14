@@ -81,6 +81,8 @@ beefy_wake_background_total{mode="enforce"} 0
 """
 
 BROKEN_TITLE = "The server can't be started right now"
+RETRY_TITLE = "Taking longer than it should"
+USUAL_LINE = "Usually ready after about 60 s"
 
 
 def wait_for(cond, timeout, step=0.05):
@@ -404,12 +406,15 @@ class Pages(Base):
         self.assertEqual(int(h["content-length"]), len(b))
         t = b.decode()
         self.assertIn("const AUTOWAKE = false;", t)
-        self.assertIn("const TOTAL = 60;", t)
-        self.assertIn('<div class="count" id="count">~60s</div>', t)
+        self.assertIn("const USUAL = 60;", t)
+        self.assertIn('<div class="count" id="count">0:00</div>', t)
+        self.assertIn('<p id="usual">%s</p>' % USUAL_LINE, t)
+        self.assertIn("waited_seconds", t)
+        self.assertNotIn("almost", t)
         self.assertIn("<title>Wake beefy</title>", t)
         self.assertIn('<div class="ver">v%s</div>' % VERSION, t)
         self.assertIn("fetch('/history'", t)
-        for ph in ("__COUNTDOWN__", "__AUTOWAKE__", "__VERSION__", "__BASE__"):
+        for ph in ("__COUNTDOWN__", "__AUTOWAKE__", "__VERSION__", "__BASE__", "__WAITJS__", "__WAITCSS__"):
             self.assertNotIn(ph, t)
         self.assertEqual(self.wol.count(), 0)
 
@@ -442,7 +447,13 @@ class Pages(Base):
             t = b.decode()
             self.assertIn("const BASE = '/beefy-wake/';", t)
             self.assertIn('<a id="retry" href="/beefy-wake/" hidden>Try again</a>', t)
-            self.assertIn("let left = 60;", t)
+            self.assertIn("const USUAL = 60;", t)
+            self.assertIn('<div class="count" id="count">0:00</div>', t)
+            self.assertIn('<p id="usual">%s</p>' % USUAL_LINE, t)
+            self.assertIn("waited_seconds", t)
+            self.assertNotIn("almost", t)
+            for ph in ("__COUNTDOWN__", "__WAITJS__", "__WAITCSS__"):
+                self.assertNotIn(ph, t)
             self.assertIn('<div class="ver">v%s</div>' % VERSION, t)
             self.assertIn("location.replace('/web/')", t)
         self.assertEqual(self.wol.count(), 0)
@@ -494,11 +505,11 @@ class StatusAndWake(Base):
     def test_status_down_idle(self):
         s, h, b, _ = req("GET", "/status")
         self.assertEqual((s, h["content-type"]), (200, "application/json"))
-        self.assertEqual(b, b'{"up": false, "phase": "idle", "seconds_left": null, "reason": ""}')
+        self.assertEqual(b, b'{"up": false, "phase": "idle", "seconds_left": null, "reason": "", "waited_seconds": null}')
 
     def test_status_up(self):
         self.ssh.start()
-        self.assertEqual(self.status(), {"up": True, "phase": "idle", "seconds_left": None, "reason": ""})
+        self.assertEqual(self.status(), {"up": True, "phase": "idle", "seconds_left": None, "reason": "", "waited_seconds": None})
 
     def test_wake_get_is_405(self):
         s, h, b, _ = req("GET", "/wake", {"X-Wake": "1"})
@@ -527,13 +538,24 @@ class StatusAndWake(Base):
     def test_wake_campaign_resends_then_gives_up(self):
         req("POST", "/wake", {"X-Wake": "1"})
         st = self.status()
+        self.assertIn(st.pop("waited_seconds"), (0, 1))
         self.assertEqual(st, {"up": False, "phase": "waking", "seconds_left": None, "reason": ""})
         self.assertTrue(wait_for(lambda: self.wol.count() >= 3, 4), self.wol.count())
         self.assertTrue(wait_for(lambda: self.status()["phase"] == "idle", 6))
+        self.assertIsNone(self.status()["waited_seconds"])
         n = self.wol.count()
         time.sleep(1.5)
         self.assertEqual(self.wol.count(), n)
         self.assertEqual(self.plug.requests, [])
+
+    def test_waited_seconds_grows_and_survives_a_second_wake(self):
+        req("POST", "/wake", {"X-Wake": "1"})
+        w1 = self.status()["waited_seconds"]
+        time.sleep(1.2)
+        req("POST", "/wake", {"X-Wake": "1"})
+        w2 = self.status()["waited_seconds"]
+        self.assertIsInstance(w2, int)
+        self.assertGreaterEqual(w2, w1 + 1)
 
     def test_second_wake_joins_campaign(self):
         req("POST", "/wake", {"X-Wake": "1"})
@@ -623,7 +645,14 @@ class Gate(Base):
         self.assertIn("<title>Waking up beefy...</title>", t)
         self.assertIn('<div class="spin"></div>', t)
         self.assertIn("<p>A magic packet is on its way. This page refreshes automatically.</p>", t)
-        self.assertIn("<p>The server should be ready in under a minute.</p>", t)
+        self.assertNotIn("under a minute", t)
+        self.assertIn('<div class="count" id="count" data-waited="0">0:00</div>', t)
+        self.assertIn('<p id="usual">%s</p>' % USUAL_LINE, t)
+        self.assertIn('<div class="fill" id="fill" style="width:0%"></div>', t)
+        self.assertIn("setInterval", t)
+        time.sleep(1.2)
+        t2 = req("GET", "/gate", {"Accept": "text/html"})[2].decode()
+        self.assertIn('<div class="count" id="count" data-waited="1">0:01</div>', t2)
         self.assertTrue(wait_for(lambda: self.wol.count() >= 1, 2))
         self.assertTrue(self.wait_log("beefy down (127.0.0.2:22) - sent WoL to %s via 127.0.0.3" % MAC))
 
@@ -735,6 +764,8 @@ class JellyfinGate(Base):
         self.assertIn("<title>Jellyfin is asleep</title>", t)
         self.assertIn('<a class="btn" href="/beefy-wake/">Sign in to start it</a>', t)
         self.assertIn('<div class="moon">&#128164;</div>', t)
+        self.assertIn("<p>It usually takes about 60 s to start after you sign in.</p>", t)
+        self.assertNotIn("about a minute", t)
         self.assertNotIn("refresh", t)
         time.sleep(0.3)
         self.assertEqual(self.wol.count(), 0)
@@ -886,7 +917,7 @@ class JellyfinGate(Base):
 class JfEndpoints(Base):
     def test_jf_status_uses_health(self):
         self.ssh.start()
-        self.assertEqual(self.status("/jf/status"), {"up": False, "phase": "idle", "seconds_left": None, "reason": ""})
+        self.assertEqual(self.status("/jf/status"), {"up": False, "phase": "idle", "seconds_left": None, "reason": "", "waited_seconds": None})
         self.jf.start()
         self.assertEqual(self.status("/jf/status")["up"], True)
         self.assertIn("/health", self.jf.paths())
@@ -1110,10 +1141,16 @@ class Recovery(Base):
         self.assertTrue(wait_for(lambda: self.phase() == "power_cycle", 6))
         st = self.status()
         self.assertTrue(15 <= st["seconds_left"] <= 18, st)
+        self.assertTrue(2 <= st["waited_seconds"] <= 8, st)
+        t = req("GET", "/gate")[2].decode()
+        self.assertIn("<h1>%s</h1>" % RETRY_TITLE, t)
+        self.assertRegex(t, r'<div class="count" id="count" data-waited="\d+">0:0\d</div>')
+        self.assertRegex(t, r"<p>About 1[5-8] s to go\.</p>")
+        self.assertIn('<div id="usualbox" hidden>', t)
         self.assertEqual(self.plug.relay_calls(), ["/relay?state=0"])
         self.assertTrue(wait_for(lambda: self.phase() == "broken", 30))
         self.assertEqual(self.plug.relay_calls(), ["/relay?state=0", "/relay?state=1"])
-        self.assertEqual(self.status(), {"up": False, "phase": "broken", "seconds_left": None, "reason": "no_boot"})
+        self.assertEqual(self.status(), {"up": False, "phase": "broken", "seconds_left": None, "reason": "no_boot", "waited_seconds": None})
         alerts = self.am.alerts()
         self.assertEqual(len(alerts), 1)
         path, body = alerts[0]
@@ -1143,6 +1180,7 @@ class Recovery(Base):
         self.assertIn('<meta http-equiv="refresh" content="30">', t)
         self.assertIn("<h1>%s</h1>" % BROKEN_TITLE, t)
         self.assertNotIn('class="spin"', t)
+        self.assertNotIn('id="count"', t)
         s, h, b, _ = req("GET", JF, BROWSER)
         self.assertIn(("<h1>%s</h1>" % BROKEN_TITLE).encode(), b)
         self.assertNotIn(b"Sign in to start it", b)

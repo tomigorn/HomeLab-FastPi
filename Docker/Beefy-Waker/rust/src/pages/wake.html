@@ -20,8 +20,7 @@
       background:#1f6f3f;display:flex;align-items:center;justify-content:center;font-size:2rem}
   h1{font-size:1.4rem;margin:.4rem 0}
   p{color:#8b949e;margin:.3rem 0}
-  .count{font-size:2.6rem;font-variant-numeric:tabular-nums;margin:.4rem 0;color:#58a6ff}
-  .hidden{display:none}
+__WAITCSS__  .hidden{display:none}
   details.hist{margin-top:2.2rem;text-align:left;border-top:1px solid #21262d;padding-top:1rem}
   summary{cursor:pointer;color:#8b949e;font-size:.95rem;user-select:none}
   .tl{margin:.9rem 0 0;font-size:.85rem;line-height:1.7;
@@ -47,8 +46,14 @@
   <div id="waiting" class="hidden">
     <div class="spin"></div>
     <h1 id="waittitle">Waking up beefy&hellip;</h1>
-    <div class="count" id="count">~__COUNTDOWN__s</div>
+    <div class="count" id="count">0:00</div>
+    <div id="usualbox">
+    <p id="usual">Usually ready after about __COUNTDOWN__ s</p>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <p id="longer" hidden>Taking longer than usual, still trying&hellip;</p>
+    </div>
     <p id="sub">Magic packet sent. Checking when it answers&hellip;</p>
+    <p id="togo" hidden></p>
   </div>
   <div id="done" class="hidden">
     <div class="ok">&#10003;</div>
@@ -59,14 +64,16 @@
   <div class="ver">v__VERSION__</div>
 <script>
 const AUTOWAKE = __AUTOWAKE__;
-const TOTAL = __COUNTDOWN__;
-let left = TOTAL;
-let mode = 'idle';            // 'idle' = live state view, 'waking' = countdown
+__WAITJS__let waited = 0;
+let mode = 'idle';            // 'idle' = live state view, 'waking' = wait view
 let countTimer = null;
 const countEl = document.getElementById('count');
 const subEl = document.getElementById('sub');
+const togoEl = document.getElementById('togo');
+const usualEl = document.getElementById('usualbox');
 const titleEl = document.getElementById('waittitle');
 const spinEl = document.querySelector('#waiting .spin');
+const WAKING_TEXT = 'Magic packet sent. Checking when it answers\u2026';
 const RETRY_TITLE = "Taking longer than it should";
 const RETRY_TEXT = "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more\u2026";
 const BROKEN_TITLE = "The server can't be started right now";
@@ -77,14 +84,17 @@ function applyPhase(st){
   phase = st.phase || 'idle';
   const broken = phase === 'broken', retry = phase === 'power_cycle' || phase === 'retrying';
   spinEl.style.display = broken ? 'none' : '';
+  countEl.hidden = broken;
+  usualEl.hidden = broken || retry;
+  togoEl.hidden = !(retry && typeof st.seconds_left === 'number');
+  if(typeof st.waited_seconds === 'number'){ waited = st.waited_seconds; showWait(waited); }
   if(broken){
-    titleEl.textContent = BROKEN_TITLE; subEl.textContent = BROKEN_TEXT; countEl.textContent = '';
+    titleEl.textContent = BROKEN_TITLE; subEl.textContent = BROKEN_TEXT;
   } else if(retry){
     titleEl.textContent = RETRY_TITLE; subEl.textContent = RETRY_TEXT;
-    if(typeof st.seconds_left === 'number'){ left = st.seconds_left; countEl.textContent = '~' + left + 's'; }
-    else countEl.textContent = '';
+    if(!togoEl.hidden) togoEl.textContent = 'About ' + st.seconds_left + ' s to go.';
   } else {
-    titleEl.textContent = 'Waking up beefy\u2026';
+    titleEl.textContent = 'Waking up beefy\u2026'; subEl.textContent = WAKING_TEXT;
   }
 }
 function show(id){
@@ -93,38 +103,41 @@ function show(id){
 }
 function showUp(){ show('done'); document.title = 'beefy is up'; }
 function tick(){
-  if(phase === 'broken' || ((phase === 'power_cycle' || phase === 'retrying') && left <= 0)) return;
-  left -= 1;
-  if(left > 0){ countEl.textContent = '~' + left + 's'; }
-  else if(phase === 'waking' || phase === 'idle') {
-    countEl.textContent = 'almost\u2026';
-    subEl.textContent = 'Taking a little longer than usual, still trying\u2026';
-  }
+  if(phase === 'broken') return;
+  waited += 1;
+  showWait(waited);
 }
-function startWaking(){
-  mode = 'waking'; left = TOTAL; phase = 'waking';
-  titleEl.textContent = 'Waking up beefy\u2026';
-  spinEl.style.display = '';
-  countEl.textContent = '~' + TOTAL + 's';
-  subEl.textContent = 'Magic packet sent. Checking when it answers\u2026';
+function enterWaiting(){
+  mode = 'waking';
   show('waiting');
-  fetch('/wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
   if(!countTimer) countTimer = setInterval(tick, 1000);
 }
-async function poll(){
-  let up = false, st = {}, ok = true;
+async function fetchStatus(){
   try{
     const r = await fetch('/status', {cache:'no-store'});
-    if(!r.ok) throw 0;
-    st = await r.json(); up = st.up;
+    if(!r.ok) return null;
+    return await r.json();
   }
-  catch(e){ ok = false; }
-  if(!ok){ setTimeout(poll, 3000); return; }
-  if(mode === 'waking' && !up) applyPhase(st);
-  if(up){
+  catch(e){ return null; }
+}
+function startWaking(){
+  waited = 0; phase = 'waking';
+  applyPhase({phase: 'waking', waited_seconds: 0});
+  enterWaiting();
+  fetch('/wake', {method:'POST', headers:{'X-Wake': '1'}})
+    .then(fetchStatus).then(st => { if(st && !st.up) applyPhase(st); }).catch(()=>{});
+}
+async function poll(){
+  const st = await fetchStatus();
+  if(!st){ setTimeout(poll, 3000); return; }
+  if(st.up){
     if(countTimer){ clearInterval(countTimer); countTimer = null; }
     mode = 'idle'; showUp();
-  } else if(mode === 'idle'){
+  } else if(mode === 'waking'){
+    applyPhase(st);
+  } else if(typeof st.waited_seconds === 'number'){
+    applyPhase(st); enterWaiting();
+  } else {
     show('asleep');
   }
   setTimeout(poll, 3000);

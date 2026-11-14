@@ -232,6 +232,8 @@ struct State {
     armed: bool,
     user: String,
     service: String,
+    // start_t restarts when beefy drops off mid-wake; begin_t is what the wait pages count from
+    begin_t: f64,
     start_t: f64,
     last_wol: f64,
     last_watch: f64,
@@ -253,6 +255,7 @@ impl State {
         self.armed = false;
         self.user.clear();
         self.service.clear();
+        self.begin_t = 0.0;
         self.start_t = 0.0;
         self.last_wol = 0.0;
         self.last_watch = 0.0;
@@ -281,6 +284,7 @@ pub struct Status {
     pub phase: &'static str,
     pub seconds_left: Option<i64>,
     pub reason: &'static str,
+    pub waited_seconds: Option<i64>,
 }
 
 pub struct Recovery {
@@ -316,6 +320,7 @@ impl Recovery {
             armed: false,
             user: String::new(),
             service: String::new(),
+            begin_t: 0.0,
             start_t: 0.0,
             last_wol: 0.0,
             last_watch: 0.0,
@@ -353,6 +358,7 @@ impl Recovery {
                 s.reset_campaign();
                 s.phase = "waking";
                 s.reason = "";
+                s.begin_t = now;
                 s.start_t = now;
                 s.campaigns[signed_in as usize] += 1;
                 s.last.insert("campaign", wall());
@@ -396,7 +402,8 @@ impl Recovery {
         } else {
             None
         };
-        Status { phase: s.phase, seconds_left: left.map(|l| (l.trunc() as i64).max(0)), reason: s.reason }
+        let waited = matches!(s.phase, "waking" | "power_cycle" | "retrying").then(|| ((now - s.begin_t).trunc() as i64).max(0));
+        Status { phase: s.phase, seconds_left: left.map(|l| (l.trunc() as i64).max(0)), reason: s.reason, waited_seconds: waited }
     }
 
     /// A background request that would not (observe) or did not (enforce) wake beefy.
@@ -830,5 +837,19 @@ mod tests {
         r.s().armed = true;
         r.s().start_t = mono();
         assert_eq!(r.status().seconds_left, Some(119));
+    }
+
+    #[test]
+    fn waited_counts_from_campaign_start() {
+        let r = Recovery::new(Timings::new(120.0, 150.0, 20.0, 300.0), "127.0.0.1".into(), 1, [0; 6], "127.0.0.1".into(), "http://127.0.0.1:1", "http://127.0.0.1:1".into(), "/nonexistent/x".into(), "/nonexistent/s".into());
+        assert_eq!(r.status().waited_seconds, None);
+        r.s().phase = "waking";
+        r.s().begin_t = mono() - 23.7;
+        r.s().start_t = mono();
+        assert_eq!(r.status().waited_seconds, Some(23));
+        r.s().phase = "retrying";
+        assert_eq!(r.status().waited_seconds, Some(23));
+        r.s().phase = "broken";
+        assert_eq!(r.status().waited_seconds, None);
     }
 }

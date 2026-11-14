@@ -35,6 +35,9 @@ const STREAM_AUTH_CACHE_MAX: usize = 512;
 const WAKE_PAGE: &str = include_str!("pages/wake.html");
 const JF_PAGE: &str = include_str!("pages/jf.html");
 const CARD_CSS: &str = include_str!("pages/card.css");
+const WAIT_JS: &str = include_str!("pages/wait.js");
+const WAIT_CSS: &str = include_str!("pages/wait.css");
+const LONGER_TEXT: &str = "Taking longer than usual, still trying\u{2026}";
 
 const RETRY_TITLE: &str = "Taking longer than it should";
 const RETRY_TEXT: &str = "The server didn't start normally, so it is being restarted the hard way (power off and on). Trying once more\u{2026}";
@@ -73,6 +76,8 @@ struct App {
     page: String,
     page_auto: String,
     jf_page: String,
+    countdown: i64,
+    wait_js: String,
     recovery: Arc<Recovery>,
     ready_until: Mutex<f64>,
     hold_slots: Semaphore,
@@ -94,8 +99,26 @@ fn py_strip(s: &str) -> &str {
 fn card_page(title: &str, body: &str, refresh: Option<u32>) -> String {
     let meta = refresh.map(|r| format!("<meta http-equiv=\"refresh\" content=\"{r}\">")).unwrap_or_default();
     format!(
-        "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n{meta}<title>{}</title>\n<style>{CARD_CSS}</style></head>\n<body><div class=\"card\">\n{body}\n</div></body></html>",
+        "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n{meta}<title>{}</title>\n<style>{CARD_CSS}{WAIT_CSS}</style></head>\n<body><div class=\"card\">\n{body}\n</div></body></html>",
         html_escape(title, false)
+    )
+}
+
+fn fmt_waited(secs: i64) -> String {
+    let s = secs.max(0);
+    format!("{}:{:02}", s / 60, s % 60)
+}
+
+/// Count-up since the wake began, the usual wait and a bar towards it; the bar part is hidden while recovering.
+fn wait_html(waited: i64, usual: i64, retry: bool) -> String {
+    let waited = waited.max(0);
+    let late = waited > usual || usual <= 0;
+    let pct = if late { 100 } else { (waited * 100 / usual).min(95) };
+    format!(
+        "<div class=\"count\" id=\"count\" data-waited=\"{waited}\">{}</div>\n  <div id=\"usualbox\"{}>\n  <p id=\"usual\">Usually ready after about {usual} s</p>\n  <div class=\"bar\"><div class=\"fill\" id=\"fill\" style=\"width:{pct}%\"></div></div>\n  <p id=\"longer\"{}>{LONGER_TEXT}</p>\n  </div>",
+        fmt_waited(waited),
+        if retry { " hidden" } else { "" },
+        if late { "" } else { " hidden" },
     )
 }
 
@@ -286,12 +309,14 @@ fn origin_netloc(origin: &str) -> &str {
 impl App {
     fn status_json(&self, up: bool) -> Resp {
         let st = self.recovery.status();
-        let left = st.seconds_left.map(|l| l.to_string()).unwrap_or_else(|| "null".into());
-        Resp::json(200, format!("{{\"up\": {up}, \"phase\": \"{}\", \"seconds_left\": {left}, \"reason\": \"{}\"}}", st.phase, st.reason))
+        let num = |v: Option<i64>| v.map(|l| l.to_string()).unwrap_or_else(|| "null".into());
+        let (left, waited) = (num(st.seconds_left), num(st.waited_seconds));
+        Resp::json(200, format!("{{\"up\": {up}, \"phase\": \"{}\", \"seconds_left\": {left}, \"reason\": \"{}\", \"waited_seconds\": {waited}}}", st.phase, st.reason))
     }
 
     fn waking_page(&self) -> String {
         let st = self.recovery.status();
+        let retry = matches!(st.phase, "power_cycle" | "retrying");
         let (title, paras, spin): (&str, Vec<String>, bool) = match st.phase {
             "broken" => (BROKEN_TITLE, vec![BROKEN_TEXT.into()], false),
             "power_cycle" | "retrying" => {
@@ -301,12 +326,19 @@ impl App {
                 }
                 (RETRY_TITLE, p, true)
             }
-            _ => ("Waking up beefy...", vec!["A magic packet is on its way. This page refreshes automatically.".into(), "The server should be ready in under a minute.".into()], true),
+            _ => ("Waking up beefy...", vec!["A magic packet is on its way. This page refreshes automatically.".into()], true),
         };
         let mut body = if spin { "<div class=\"spin\"></div>\n  ".to_string() } else { String::new() };
         body.push_str(&format!("<h1>{}</h1>", html_escape(title, false)));
+        let waited = st.waited_seconds.filter(|_| spin);
+        if let Some(w) = waited {
+            body.push_str(&format!("\n  {}", wait_html(w, self.countdown, retry)));
+        }
         for t in paras {
             body.push_str(&format!("\n  <p>{}</p>", html_escape(&t, false)));
+        }
+        if waited.is_some() {
+            body.push_str(&format!("\n<script>\n{}let w = +document.getElementById('count').dataset.waited;\nsetInterval(() => showWait(++w), 1000);\n</script>", self.wait_js));
         }
         card_page(title, &body, Some(if title == BROKEN_TITLE { 30 } else { 5 }))
     }
@@ -316,8 +348,8 @@ impl App {
             let body = format!("<h1>{}</h1>\n  <p>{}</p>", html_escape(BROKEN_TITLE, false), html_escape(BROKEN_TEXT, false));
             return card_page(BROKEN_TITLE, &body, None);
         }
-        let body = "<div class=\"moon\">&#128164;</div>\n  <h1>Jellyfin is asleep</h1>\n  <p>The media server sleeps to save power.</p>\n  <a class=\"btn\" href=\"/beefy-wake/\">Sign in to start it</a>\n  <p>It takes about a minute to start after you sign in.</p>";
-        card_page("Jellyfin is asleep", body, None)
+        let body = format!("<div class=\"moon\">&#128164;</div>\n  <h1>Jellyfin is asleep</h1>\n  <p>The media server sleeps to save power.</p>\n  <a class=\"btn\" href=\"/beefy-wake/\">Sign in to start it</a>\n  <p>It usually takes about {} s to start after you sign in.</p>", self.countdown);
+        card_page("Jellyfin is asleep", &body, None)
     }
 
     fn waking_resp(&self) -> Resp {
@@ -796,7 +828,9 @@ fn main() {
     }
     let mac = wol::parse_mac(&mac_str).unwrap_or_else(|| fail(&format!("invalid MAC: '{mac_str}'")));
     let version = read_version();
-    let page = |auto: &str| WAKE_PAGE.replace("__COUNTDOWN__", &countdown.to_string()).replace("__AUTOWAKE__", auto).replace("__VERSION__", &version);
+    let wait_js = WAIT_JS.replace("__COUNTDOWN__", &countdown.to_string());
+    let fill = |p: &str| p.replace("__WAITJS__", &wait_js).replace("__WAITCSS__", WAIT_CSS).replace("__COUNTDOWN__", &countdown.to_string()).replace("__VERSION__", &version);
+    let page = |auto: &str| fill(WAKE_PAGE).replace("__AUTOWAKE__", auto);
     let recovery = Arc::new(Recovery::new(
         Timings::new(t1 as f64, t2 as f64, retry_interval as f64, retry_window as f64),
         probe_host.clone(),
@@ -822,7 +856,9 @@ fn main() {
         public_info_cache,
         page: page("false"),
         page_auto: page("true"),
-        jf_page: JF_PAGE.replace("__COUNTDOWN__", &countdown.to_string()).replace("__VERSION__", &version).replace("__BASE__", &format!("{PUBLIC_WAKE_PREFIX}/")),
+        jf_page: fill(JF_PAGE).replace("__BASE__", &format!("{PUBLIC_WAKE_PREFIX}/")),
+        countdown,
+        wait_js,
         recovery: recovery.clone(),
         ready_until: Mutex::new(f64::NEG_INFINITY),
         hold_slots: Semaphore::new(hold_slots),
@@ -913,6 +949,31 @@ mod tests {
         let p = card_page("A & B", "<p>x</p>", Some(5));
         assert!(p.contains("<meta http-equiv=\"refresh\" content=\"5\"><title>A &amp; B</title>"));
         assert!(!card_page("t", "", None).contains("refresh"));
+    }
+
+    #[test]
+    fn waited_format() {
+        assert_eq!(fmt_waited(0), "0:00");
+        assert_eq!(fmt_waited(23), "0:23");
+        assert_eq!(fmt_waited(65), "1:05");
+        assert_eq!(fmt_waited(600), "10:00");
+        assert_eq!(fmt_waited(-3), "0:00");
+    }
+
+    #[test]
+    fn wait_block_normal_and_late() {
+        let w = wait_html(23, 60, false);
+        assert!(w.contains("<div class=\"count\" id=\"count\" data-waited=\"23\">0:23</div>"), "{w}");
+        assert!(w.contains("<p id=\"usual\">Usually ready after about 60 s</p>"));
+        assert!(w.contains("<div class=\"fill\" id=\"fill\" style=\"width:38%\"></div>"));
+        assert!(w.contains("<p id=\"longer\" hidden>Taking longer than usual, still trying\u{2026}</p>"));
+        assert!(wait_html(59, 60, false).contains("width:95%"));
+        let late = wait_html(61, 60, false);
+        assert!(late.contains("width:100%"));
+        assert!(late.contains("<p id=\"longer\">Taking longer"));
+        assert!(wait_html(5, 60, true).contains("<div id=\"usualbox\" hidden>"));
+        assert!(wait_html(5, 60, false).contains("<div id=\"usualbox\">"));
+        assert!(wait_html(5, 0, false).contains("width:100%"));
     }
 
     #[test]
