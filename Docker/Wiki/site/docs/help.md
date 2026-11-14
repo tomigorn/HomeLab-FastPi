@@ -36,18 +36,33 @@
 
 ## Requests
 
+<!-- only: streaming-requesters -->
 ??? question "A film I requested isn't there yet"
     Steps: [My request isn't there yet](apps/request-help.md). Rare films can take longer to find. Check the status under **Requests**. If **Can wait** was ticked in the request, the download starts at night. Need it sooner? Ask the admin, or untick the box next time. See [Requesting](apps/requests.md#can-wait-download-tonight).
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+??? question "A film I requested isn't there yet"
+    Steps: [My request isn't there yet](apps/request-help.md). Rare films can take longer to find. **🌙 Download tonight** starts the download at night. Need it sooner? Ask the admin.
+<!-- /only -->
+<!-- only: streaming-requesters -->
 
 ??? question "Requests says 'Waiting for the night'"
     The download starts at night when power is cheaper. See [Requesting](apps/requests.md#can-wait-download-tonight).
+<!-- /only -->
 
+<!-- only: streaming-requesters -->
 ??? question "Why did a series arrive as one big download?"
     Complete season packs are preferred over single episodes: fewer, faster downloads. See [Requesting](apps/requests.md#which-version-gets-downloaded).
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+??? question "Why did a series arrive as one big download?"
+    Complete season packs are preferred over single episodes: fewer, faster downloads.
+<!-- /only -->
 
 ??? question "A download failed"
     Nothing to do. A failed download is noticed within seconds and another release is searched automatically. Downloaded files are virus-scanned: executables and archives are blocked at once, video files are scanned in the background.
 
+<!-- only: streaming-requesters -->
 ## Audiobooks
 
 ??? question "Audiobook request: limit reached"
@@ -56,6 +71,7 @@
 ??? question "My audiobook isn't in Audiobookshelf yet"
     It appears after download and import, normally within minutes to hours, in the library of its language. If no release exists in that language, the request stays open. Check **All requests** at `books.holy-grail.ch`.
 
+<!-- /only -->
 ## Anything else
 
 ??? question "Something else"

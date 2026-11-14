@@ -49,7 +49,12 @@ The apps can't show the Holy Grail login page, so you connect them with **Quick 
 !!! tip "App can't connect?"
     Opening an app wakes a sleeping server. Wait a minute, then close and open the app again. A TV that only refreshes its home screen in the background does not wake it. See [Why you sometimes wait](waiting.md).
 
+<!-- only: streaming-requesters -->
 **Recommended app on TVs and phones: [Moonfin](moonfin.md)** (home rows like the web, requests with 🌙 Tonight / ⚡ Now). The steps below are for the official Jellyfin apps.
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+**Recommended app on TVs and phones: [Moonfin](moonfin.md)** (home rows like the web). The steps below are for the official Jellyfin apps.
+<!-- /only -->
 
 ## Samsung TV: install the app yourself
 Use this when Jellyfin is **not in the Samsung app store** on your TV, or the store app says the **server version is not supported**. Looking for [Moonfin](moonfin.md#samsung-tv-tizen) instead? Same steps, with Moonfin's own files. Tested on a 2021 Samsung TV (Tizen 6.0) with the app version 12.2. A reinstall takes about 15 minutes.

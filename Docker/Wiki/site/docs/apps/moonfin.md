@@ -1,6 +1,11 @@
 # Moonfin apps
 
+<!-- only: streaming-requesters -->
 Moonfin is an app for our Jellyfin server. Same login as Jellyfin, plus requests inside the app.
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+Moonfin is an app for our Jellyfin server. Same login as Jellyfin.
+<!-- /only -->
 
 ## Install {#1-install}
 
@@ -54,7 +59,12 @@ Developer Mode has no timer on Samsung: once installed, Moonfin stays.
 7. On the TV: **Apps** → **Moonfin**. To put it on the home row: highlight it, hold **Enter**, **Move**.
 
 #### D. First start
+<!-- only: streaming-requesters -->
 Enter the server `https://jellyfin.holy-grail.ch`, then [sign in with Quick Connect](#2-sign-in-quick-connect-all-devices-incl-samsung) and, for requests, [Code for TV](#4-samsung-requests-sign-in-with-code-for-tv).
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+Enter the server `https://jellyfin.holy-grail.ch`, then [sign in with Quick Connect](#2-sign-in-quick-connect-all-devices-incl-samsung).
+<!-- /only -->
 
 #### Update later
 Repeat C with the newest release (B only if the Apps screen no longer says DEVELOP MODE or the PC IP changed: enter the new IP in Developer Mode, restart the TV). Installing over the old app keeps the server and sign-in on the TV. If it fails with *Author certificate not match*, delete Moonfin on the TV (highlight, hold Enter, **Delete**) and install again; you sign in once more.
@@ -106,6 +116,7 @@ Use this when Google Play still has an older version. Download page: https://git
 3. On a phone or PC: Jellyfin web > your **profile** > **Quick Connect** > enter the code > confirm.
 4. The app signs in by itself.
 
+<!-- only: streaming-requesters -->
 ### Samsung: requests sign-in with "Code for TV" {#4-samsung-requests-sign-in-with-code-for-tv}
 The Samsung app signs in to Jellyfin with Quick Connect like the others, but its **requests** sign-in needs a username and password. Use a one-time code instead of a password:
 1. On a phone or PC: Jellyfin web → **Popular movies** or **Popular shows** → **Code for TV** (top right).
@@ -126,6 +137,7 @@ The Samsung app signs in to Jellyfin with Quick Connect like the others, but its
 
 Limit: **10 requests per person per 7 days**. At the limit you see **"Request limit reached"** and Submit is greyed out.
 
+<!-- /only -->
 ## Playback problems on Apple TV {#7-playback-problems-on-apple-tv}
 | Problem | Try this |
 |---|---|

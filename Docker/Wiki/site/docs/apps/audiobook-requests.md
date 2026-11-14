@@ -1,3 +1,6 @@
+---
+groups: [streaming-requesters]
+---
 # Requesting audiobooks
 
 **Address:** `https://books.holy-grail.ch`

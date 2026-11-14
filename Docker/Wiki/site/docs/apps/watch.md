@@ -50,4 +50,9 @@ You only do this **once** per device. Next time the app opens straight away.
 | change audio or subtitles | [Audio & subtitles](../audio-subtitles.md) |
 | skip an intro | [Skip buttons](skip-buttons.md) |
 | find something new | [Home screen](jellyfin-home.md) |
+<!-- only: streaming-requesters -->
 | the film is not there | [Request it](requests.md) |
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+| the film is not there | request it in [Popular movies and shows](jellyfin-home.md#requesting-from-here) |
+<!-- /only -->

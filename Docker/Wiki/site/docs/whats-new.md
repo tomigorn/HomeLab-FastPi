@@ -12,32 +12,42 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 **No more trailers playing on their own in Moonfin.** The big banner at the top of the home screen shows pictures only; a trailer plays only when you press it. Restart the Moonfin app once. [Media guide](apps/media-guide.md)
 
+<!-- only: streaming-requesters -->
 **New longer cuts are picked up.** Re-released longer versions such as *Avengers: Endgame Encore* now count as a longer cut: once one can be downloaded, films you have are upgraded to it at night. [Upgrades and editions](apps/requests.md#upgrades-and-editions)
 
+<!-- /only -->
+<!-- only: streaming-requesters -->
 **Requests say why a download is stuck.** ⚠️ now shows the reason when you hover or tap it, for example **Wrong film downloaded, being replaced** or **Needs a manual import**, and the size reads `≈ 5.4 GB · problem`. Wrong films and fake downloads (a program instead of a video) are removed and searched again automatically. [Requests](apps/requests.md)
 
+<!-- /only -->
 ## 3 November 2026
 
 **The server restarts itself if it doesn't wake up.** If the media server doesn't start within about two minutes, the waiting page now says **"Taking longer than it should"**, the server is restarted the hard way and tried once more. If that fails too, the page says so and the admin is notified, instead of waiting forever. [The media server sleeps](apps/jellyfin.md)
 
 **How many can watch at once.** Measured with films from our library: about 50 people at home and 30–40 from outside can watch 4K HDR in original quality at once, and 4 conversions run at the same time. The page also says which format we download. Original quality is easiest on the server. [How many can watch at once](apps/machines.md#how-many-can-watch-at-once)
 
+<!-- only: streaming-requesters -->
 ## 2 November 2026
 
 **Audiobooks: the edition you picked.** A request now downloads only releases by the book's author, and the one read by the narrator of the edition you picked comes first. A different book with the same title is no longer grabbed. [Which release gets downloaded](apps/audiobook-requests.md#which-release-gets-downloaded)
 
 **Audiobooks: one file with chapters again.** A book that arrives as many MP3s is merged into a single M4B with chapters again, a few minutes after it lands in Audiobookshelf (this had quietly stopped in October). Chapter list and skipping work as for any other book. [Audiobook requests](apps/audiobook-requests.md)
 
+<!-- /only -->
+<!-- only: streaming-requesters -->
 ## 1 November 2026
 
 **Admins: no weekly request limit.** Jellyfin admins are no longer held to the 10 requests per 7 days from Popular and the TV; their requests still count toward the 30 per day for everyone. [Requests](apps/requests.md)
 
+<!-- /only -->
 ## 31 October 2026
 
 **Translated subtitles.** No German or English subtitle after two days? A machine-translated one appears, labelled **German (translated)** / **English (translated)**, and is replaced automatically when a human one is found. [Translated subtitles](audio-subtitles.md#translated-subtitles)
 
+<!-- only: streaming-requesters -->
 **Subtitle sources in the bar.** The bar above Requests now also shows the subtitle providers: SubDL ≈ searches/2000 and downloads/50 per day, OpenSubtitles downloads; red with the retry time when paused. Resets at 01:00. [The indexer bar](apps/requests.md#the-indexer-bar-at-the-top)
 
+<!-- /only -->
 **Remove from Continue watching.** Not interested anymore? On the website, point at the title in **Continue watching** and click the **crossed-out eye** (phone: tap it top right), with 5 s **Undo**. Only the resume point is cleared; watched status, favourites, My List and Next up stay. In Moonfin: long press → **Hide from Continue Watching** (also clears the play history). [Remove from Continue watching](apps/jellyfin-home.md#remove-from-continue-watching)
 
 **Play on TV: one subtle TV icon everywhere.** Top 10 and Popular cards of titles you own now have it too. [Play on TV](apps/jellyfin-home.md#play-on-tv)
@@ -48,20 +58,32 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ![Continue on TV in the player menu](assets/whats-new/continue-on-tv.jpg){ loading=lazy }
 
+<!-- only: streaming-requesters -->
 **Smarter version choice.** Better picture and sound win. Extra dubs, bonus material and season packs only break ties between otherwise equal versions. [Which version gets downloaded](apps/requests.md#which-version-gets-downloaded)
 
+<!-- /only -->
+<!-- only: streaming-requesters -->
 **Who requested what.** On the Requests page and on a title page, a small pill shows where a request came from (**via Jellyfin**, **via Moonfin**, **via TV**), with the right person's name. [Who requested what](apps/requests.md#who-requested-what)
 
+<!-- /only -->
 **Skip intros automatically, per person.** Profile picture → **Settings** → **Playback** → **Media Segment Actions** → **Intro** → **Skip**. In Moonfin: **Settings** → **Playback** → **Skipping & Autoplay**. [Skip intros automatically](apps/jellyfin.md#skip-intros-automatically)
 
 **New guide pages:** [How to use the media stack](apps/media-guide.md) (one page, all apps) and [Which subtitle track is which?](audio-subtitles.md#which-subtitle-track-is-which)
 
 ## 30 October 2026
 
+<!-- only: streaming-requesters -->
 **Moonfin app on TV and phone.** Install it, sign in with **Quick Connect**, and request films right in the app (**Request** → under *Advanced*: 🌙 Tonight or ⚡ Now). [Moonfin app](apps/moonfin.md)
 
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+**Moonfin app on TV and phone.** Install it and sign in with **Quick Connect**. [Moonfin app](apps/moonfin.md)
+
+<!-- /only -->
+<!-- only: streaming-requesters -->
 **Code for TV (Samsung).** Jellyfin website → **Popular movies** or **Popular shows** → **Code for TV** (top right). Type the code into Moonfin within 10 minutes. [Code for TV](apps/moonfin.md#4-samsung-requests-sign-in-with-code-for-tv)
 
+<!-- /only -->
 **New home rows.** A random showcase at the top, Continue Watching and Next Up as separate rows, and **Hidden Gems**: well-rated titles you have not watched. Top 10 posters show a 🇨🇭 rank badge. [Home screen](apps/jellyfin-home.md#rows-top-to-bottom)
 
 ## 29 October 2026
@@ -72,8 +94,11 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ![The new Jellyfin home rows](assets/whats-new/home-rows.jpg){ loading=lazy }
 
+<!-- only: streaming-requesters -->
 **Audiobook library and sizes.** On the audiobook requests site: **Library** page and a size column. [Library](apps/audiobook-requests.md#library)
 
+<!-- /only -->
+<!-- only: streaming-requesters -->
 ## 28 October 2026
 
 **My request card.** On a title page in Requests, open **My request** to change the quality, languages or delete your request (the files stay). [My request](apps/requests.md#my-request-see-and-change-it)
@@ -82,18 +107,23 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 **Clear status badges and sizes.** Every request shows a symbol (🌙 tonight, ✅ available, ◐ partly, 📅 not released); tap it for a hint. Sizes on the Requests page (sortable). [Sizes](apps/requests.md#sizes)
 
+<!-- /only -->
 ## 27 October 2026
 
 **Skip intro and credits buttons** in Jellyfin. Press **Skip intro** when it appears. [Skip intro & credits](apps/skip-buttons.md)
 
 **Your profile picture everywhere.** Pick it once; it is copied to Jellyfin, Requests and Home Assistant. [Profile picture](apps/profile-picture.md)
 
+<!-- only: streaming-requesters -->
 **Can wait: download tonight.** In the request dialog, ticked by default: downloads at night when power is cheaper. [Can wait](apps/requests.md#can-wait-download-tonight)
 
+<!-- /only -->
 ## 26 October 2026
 
+<!-- only: streaming-requesters -->
 **Audiobook requests.** Request audiobooks (5 a week); they appear in Audiobookshelf. Open `books.holy-grail.ch`, or **Audiobooks** in the Requests menu. [Requesting audiobooks](apps/audiobook-requests.md)
 
+<!-- /only -->
 **New watch history.** The Tracker starts fresh; Jellyfin, Requests and Audiobookshelf sync on their own. [Watch history](apps/tracker.md)
 
 ## 25 October 2026

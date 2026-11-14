@@ -5,9 +5,16 @@ Our media server **sleeps when nobody uses it**. This saves electricity. When yo
 | What | Sleeps? |
 |---|---|
 | Jellyfin (films, series) | yes |
+<!-- only: streaming-requesters -->
 | Requests (films, series) | yes |
+<!-- /only -->
 | Tracker | yes |
+<!-- only: streaming-requesters -->
 | Audiobooks (Audiobookshelf), Request audiobooks | no, always ready |
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+| Audiobooks (Audiobookshelf) | no, always ready |
+<!-- /only -->
 
 ## How long
 | Step | Time |
@@ -20,7 +27,9 @@ Our media server **sleeps when nobody uses it**. This saves electricity. When yo
 | Where | What you see | What to do |
 |---|---|---|
 | Browser, Jellyfin | page **"asleep, sign in to start"** | press the sign-in button, log in, then wait. A countdown runs. Jellyfin opens by itself |
+<!-- only: streaming-requesters -->
 | Browser, Requests | page **"Requests is starting"** | wait. Reload if nothing happens |
+<!-- /only -->
 | TV or phone app | "can't connect", or an empty screen | wait 1 minute, open the app again |
 
 ## Baby steps: the browser

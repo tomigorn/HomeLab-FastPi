@@ -33,7 +33,12 @@ Tip: download a book in the app to listen without internet.
 Inside: author, then series.
 
 ## A book is missing
+<!-- only: streaming-requesters -->
 [Request it](audiobook-requests.md). It appears here after the download, normally within minutes to hours.
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+Ask the admin.
+<!-- /only -->
 
 !!! tip "Bounced back to the login page?"
     Press **Login with Holy Grail** once more. Typing password and code slowly can make the first attempt time out.

@@ -1,3 +1,6 @@
+---
+groups: [streaming-requesters]
+---
 # Requesting films & series
 
 **Address:** `https://requests.holy-grail.ch`

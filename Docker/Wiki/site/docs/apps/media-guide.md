@@ -48,9 +48,11 @@ Not here yet? Ask for it. Pick one way:
 | Where | Steps |
 |---|---|
 | **Jellyfin website** (Popular cards) | press **🌙 Download tonight** or **⚡ Download now** on the card |
+<!-- only: streaming-requesters -->
 | **Moonfin** (TV, phone) | open the title → **Request** → **Advanced** → **🌙 Tonight** or **⚡ Now** → Submit |
 | **Samsung TV** | website → Popular → **Code for TV**, then enter it in Moonfin: [steps](moonfin.md#4-samsung-requests-sign-in-with-code-for-tv) |
 | **requests.holy-grail.ch** | search, open the title, **Request**; the box **Can wait, download tonight** is ticked by default |
+<!-- /only -->
 
 | | 🌙 Tonight | ⚡ Now |
 |---|---|---|
@@ -58,6 +60,7 @@ Not here yet? Ask for it. Pick one way:
 | Electricity | cheaper | daytime price |
 | Choose it | default, when you can wait | when you want to watch soon |
 
+<!-- only: streaming-requesters -->
 Every path at a glance: [When will it download?](requests.md#when-will-it-download).
 
 ### On requests.holy-grail.ch
@@ -66,6 +69,7 @@ Every path at a glance: [When will it download?](requests.md#when-will-it-downlo
 - **All requests:** the **Requests** page shows everyone's, marked **via Jellyfin**, **via Moonfin** or **via TV**.
 - **Status pills** (e.g. Waiting for the night, Downloading, Available): all icons in [Requesting](requests.md#status-icons).
 
+<!-- /only -->
 ### Limits
 
 | Limit | Value |
@@ -78,14 +82,23 @@ Every path at a glance: [When will it download?](requests.md#when-will-it-downlo
 - Timing: **Tonight** downloads between 22:00 and 06:00, **Now** starts right away. Rare titles can take longer or may not be found.
 
 ### Which version gets downloaded
-The server picks the best one by itself (4K before 1080p, original language plus English and German). Nothing to choose: [Which version gets downloaded](requests.md#which-version-gets-downloaded).
+The server picks the best one by itself (4K before 1080p, original language plus English and German). Nothing to choose.
+<!-- only: streaming-requesters -->
+Details: [Which version gets downloaded](requests.md#which-version-gets-downloaded).
+<!-- /only -->
 
 ## 5. Problems
 
 | Problem | What to do |
 |---|---|
+<!-- only: streaming-requesters -->
 | The title isn't there yet | check the card or [Requests](requests.md#status-icons): 🌙 waits for tonight, 🔍 is searching, 📅 is not released yet |
 | It says "requested" for a long time | nothing to do, it comes by itself; **⚡ Download now** speeds it up |
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+| The title isn't there yet | check the card: 🌙 waits for tonight, 🔍 is searching, 📅 is not released yet |
+| It says "requested" for a long time | nothing to do, it comes by itself |
+<!-- /only -->
 | Wrong subtitle track | pick another while playing; never choose **Forced** for full subtitles: [Audio & subtitles](../audio-subtitles.md) |
 | No TV in the Play on TV list | open **Moonfin on the TV** first, then try again |
 | First start is slow | the media server sleeps to save power: wait about a minute. [More](waiting.md) |

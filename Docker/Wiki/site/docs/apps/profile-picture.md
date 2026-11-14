@@ -12,7 +12,9 @@ Pick **once**: it becomes your picture in all these apps.
 | App | Picture |
 |---|---|
 | Jellyfin | yes |
+<!-- only: streaming-requesters -->
 | Requests | yes |
+<!-- /only -->
 | Home Assistant | yes |
 | Nextcloud | later |
 

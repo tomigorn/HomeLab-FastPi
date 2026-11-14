@@ -54,7 +54,12 @@ Press the **poster** of a title that isn't here yet: a details page opens (story
 - A series is requested for the season shown on the card (e.g. **S4**).
 - On a computer or TV all 10 cards fit next to each other; on a phone swipe sideways.
 - On the TV the two buttons show only **🌙** and **⚡**; the line next to the row title says what they do.
+<!-- only: streaming-requesters -->
 - The lists are refreshed every night; a title shows up in Jellyfin after its download. Details on requests: [Requesting films & series](requests.md).
+<!-- /only -->
+<!-- only: !streaming-requesters -->
+- The lists are refreshed every night; a title shows up in Jellyfin after its download. Not there yet? [My request isn't there yet](request-help.md).
+<!-- /only -->
 
 ## On a title
 

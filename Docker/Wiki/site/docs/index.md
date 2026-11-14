@@ -30,8 +30,10 @@ Everything you need to watch, request and listen, with one login.
 
 <div class="grid cards" markdown>
 
+<!-- only: streaming-requesters -->
 - :material-magnify: **[Requesting](apps/requests.md)**: find a film or series and ask for it
 - :material-book-plus: **[Request audiobooks](apps/audiobook-requests.md)**: ask for a book
+<!-- /only -->
 - :material-clock-alert: **[My request isn't there yet](apps/request-help.md)**: what the icons mean, get it sooner
 
 </div>
