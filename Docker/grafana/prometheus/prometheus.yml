@@ -129,7 +129,6 @@ scrape_configs:
           - https://activity.holy-grail.ch/
           - https://stack.holy-grail.ch/
           - https://wiki.holy-grail.ch/
-          - https://wiki-admin.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -183,6 +182,7 @@ scrape_configs:
           - https://adguard.holy-grail.ch/
           - https://vpn-status-beefy.holy-grail.ch/
           - https://vpn-status-mouse.holy-grail.ch/
+          - https://wiki-admin.holy-grail.ch/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
