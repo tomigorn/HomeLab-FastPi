@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./blueprint.schema.json
+#
+# Last step of the invite sign-up: send the new, already logged-in user to the
+# avatar picker, so the first thing they do is pick a profile picture.
+#
+# Built-in Redirect stage, static mode. It runs after the user-login stage
+# (order 100), so the session exists and avatars.holy-grail.ch's forward auth
+# lets them straight in. The browser navigates away on the redirect challenge;
+# the remaining flow plan is simply dropped, nothing is lost.
+#
+# Apply with:
+#   docker cp blueprints/enrollment-redirect-avatars.yaml \
+#     authentik-server:/blueprints/enrollment-redirect-avatars.yaml
+#   docker exec -i authentik-server ak apply_blueprint enrollment-redirect-avatars.yaml
+#
+# Resulting stage order: 1 warning -> 5 invitation -> 10 prompt -> 20 user-write
+#                        -> 30 email verify -> 40 TOTP -> 100 login -> 110 redirect
+version: 1
+metadata:
+  name: enrollment-redirect-avatars
+  labels:
+    blueprints.goauthentik.io/description: |
+      After sign-up, hand the new user to the avatar picker.
+
+entries:
+  - model: authentik_stages_redirect.redirectstage
+    id: stage-redirect-avatars
+    identifiers:
+      name: enrollment-redirect-avatars
+    attrs:
+      mode: static
+      target_static: https://avatars.holy-grail.ch/
+      keep_context: false
+
+  - model: authentik_flows.flowstagebinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, enrollment]]
+      stage: !KeyOf stage-redirect-avatars
+    attrs:
+      order: 110
+      evaluate_on_plan: true
+      re_evaluate_policies: false
