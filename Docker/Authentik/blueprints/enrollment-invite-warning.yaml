@@ -127,6 +127,9 @@ entries:
       order: 10
       label: Before you press Continue, have these ready
       initial_value: >-
+        <p><strong>First time?</strong> The <a href="https://wiki.holy-grail.ch/getting-started/"
+        target="_blank" rel="noopener noreferrer">step-by-step guide</a> shows every step
+        (opens in a new tab). It might help.</p>
         <ul>
         <li><strong>A username</strong> - your login name, lowercase, no spaces.</li>
         <li><strong>An email address you can open right now</strong> - we send a
@@ -139,6 +142,37 @@ entries:
         it up now, not afterwards.</li>
         </ul>
         <p>It takes about two minutes, in one sitting.</p>
+
+  # Guide link at the top of the sign-up form (order -1 puts it above the username).
+  - model: authentik_stages_prompt.prompt
+    id: prompt-credentials-help
+    identifiers:
+      name: enrollment-credentials-help
+    attrs:
+      field_key: credentials_help
+      placeholder: ""
+      sub_text: ""
+      type: alert_info
+      required: false
+      order: -1
+      label: Need help?
+      initial_value: >-
+        <p>The <a href="https://wiki.holy-grail.ch/getting-started/" target="_blank"
+        rel="noopener noreferrer">step-by-step guide</a> explains this form and the next
+        steps: confirm your email, then set up your authenticator app.</p>
+
+  # Re-lists the base form's fields: blueprint attrs replace the whole field list.
+  - model: authentik_stages_prompt.promptstage
+    identifiers:
+      name: invitation-enrollment-prompt-credentials-enrollment
+    attrs:
+      fields:
+        - !KeyOf prompt-credentials-help
+        - !Find [authentik_stages_prompt.prompt, [name, invitation-enrollment-field-username-enrollment]]
+        - !Find [authentik_stages_prompt.prompt, [name, invitation-enrollment-field-name-enrollment]]
+        - !Find [authentik_stages_prompt.prompt, [name, invitation-enrollment-field-email-enrollment]]
+        - !Find [authentik_stages_prompt.prompt, [name, invitation-enrollment-field-password-enrollment]]
+        - !Find [authentik_stages_prompt.prompt, [name, invitation-enrollment-field-password-repeat-enrollment]]
 
   # ---------------------------------------------------------------------------
   # The interstitial stage itself
