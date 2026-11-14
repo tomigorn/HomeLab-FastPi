@@ -45,7 +45,7 @@ Add a page: write `site-admin/docs/<name>.md`, add it to `nav` in `site-admin/mk
 Internet → Cloudflare Tunnel (route wiki.holy-grail.ch → https://192.168.1.2:443, No TLS Verify)
   → Traefik router wiki (authentik@file, default-rate-limit, wiki-secure-headers)
   → http://wiki:80
-Same for wiki-admin.holy-grail.ch (router wiki-admin, own Cloudflare Tunnel hostname)
+wiki-admin.holy-grail.ch (router wiki-admin): **LAN + VPN only** (`local-networks@file`, owner 2026-11-14), no Cloudflare hostname; then Authentik app `wiki-admin` (homelab-admins only)
 ```
 
 ## Deploy

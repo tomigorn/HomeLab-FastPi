@@ -1,3 +1,4 @@
+# Admin guide - https://wiki-admin.holy-grail.ch, LAN + VPN only (local-networks@file; owner 2026-11-14: no Cloudflare hostname).
 http:
   routers:
     # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
@@ -6,6 +7,8 @@ http:
       entryPoints: ["websecure"]
       priority: 10
       service: authentik@file
+      middlewares:
+        - local-networks@file
       tls:
         certResolver: cloudflare
 
@@ -15,6 +18,7 @@ http:
       priority: 1
       service: wiki-admin
       middlewares:
+        - local-networks@file
         - authentik@file
         - default-rate-limit@file
         - wiki-admin-secure-headers
