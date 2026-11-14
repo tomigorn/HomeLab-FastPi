@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 14 November 2026
 
+**New step-by-step pages.** [How to watch](apps/watch.md) (browser, phone, TV, first login with Quick Connect), [Why you sometimes wait](apps/waiting.md) (the media server sleeps), [My request isn't there yet](apps/request-help.md) and a new [Listen to audiobooks](apps/audiobookshelf.md) with the phone app. A TV that only refreshes its home screen no longer wakes the server.
+
 **The sign-up guide is open to everyone.** [Getting started](getting-started.md) can be read without an account, and now ends with picking your profile picture.
 
 ## 9 November 2026
