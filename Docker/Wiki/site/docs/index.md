@@ -16,7 +16,9 @@ Everything you need to watch, request and listen, with one login.
 
 <div class="grid cards" markdown>
 
-- :material-television-play: **[Watching](apps/jellyfin.md)**: films and series in the browser or on your TV
+- :material-play-circle: **[How to watch](apps/watch.md)**: browser, phone and TV, first login step by step
+- :material-sleep: **[Why you sometimes wait](apps/waiting.md)**: the media server sleeps, how long, what to do
+- :material-television-play: **[Watching (Jellyfin)](apps/jellyfin.md)**: all apps, Samsung TV install
 - :material-home-variant: **[Home screen](apps/jellyfin-home.md)**: what each row shows
 - :material-cellphone-play: **[Moonfin app](apps/moonfin.md)**: TV and phone app, install and sign in
 - :material-skip-next: **[Skip buttons](apps/skip-buttons.md)**: skip intros and credits
@@ -30,6 +32,7 @@ Everything you need to watch, request and listen, with one login.
 
 - :material-magnify: **[Requesting](apps/requests.md)**: find a film or series and ask for it
 - :material-book-plus: **[Request audiobooks](apps/audiobook-requests.md)**: ask for a book
+- :material-clock-alert: **[My request isn't there yet](apps/request-help.md)**: what the icons mean, get it sooner
 
 </div>
 
@@ -37,7 +40,7 @@ Everything you need to watch, request and listen, with one login.
 
 <div class="grid cards" markdown>
 
-- :material-headphones: **[Audiobooks](apps/audiobookshelf.md)**: listen in the browser or on your phone
+- :material-headphones: **[Listen to audiobooks](apps/audiobookshelf.md)**: browser or phone app, first login
 
 </div>
 

@@ -39,6 +39,8 @@ nav:
       - How to use the media stack: apps/media-guide.md
       - What's new: whats-new.md
   - Watching:
+      - How to watch: apps/watch.md
+      - Why you sometimes wait: apps/waiting.md
       - Watching (Jellyfin): apps/jellyfin.md
       - Home screen: apps/jellyfin-home.md
       - Moonfin app (TV & phone): apps/moonfin.md
@@ -47,8 +49,9 @@ nav:
   - Requesting:
       - Films & series: apps/requests.md
       - Audiobooks: apps/audiobook-requests.md
+      - My request isn't there yet: apps/request-help.md
   - Audiobooks:
-      - Listening (Audiobookshelf): apps/audiobookshelf.md
+      - Listen to audiobooks: apps/audiobookshelf.md
   - Your account:
       - Profile picture: apps/profile-picture.md
       - Watch history (Tracker): apps/tracker.md
