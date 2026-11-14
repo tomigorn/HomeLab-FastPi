@@ -7,12 +7,12 @@ always-on Traefik edge, on host network port **`:9002`** (`:9001` is
 for the endpoints, the gate, the wake page and the deploy steps; everything
 below is only what differs for tower).
 
-Since v2.0.0 the waker is Rust (`rust/`, static binary in a `scratch` image, uid 65006); the old Python app stays in `app/` (`app/Dockerfile.python`) until the owner removes it. Behaviour, pages, log lines and env vars are unchanged; the black-box suite proves it against both.
+Since v2.0.0 the waker is Rust (`rust/`, static binary in a `scratch` image, uid 65006); the old Python app stays in `app/` (`app/Dockerfile.python`) until the owner removes it. Since 2026-11-14 the wait pages count up and `/status` has `waited_seconds` (see Wait pages), so the black-box suite matches only the Rust binary; `run.sh old` fails on those tests.
 
 | Path | What |
 |---|---|
 | `rust/` | the waker (`src/main.rs` routes + Nextcloud policy, `web.rs` HTTP layer, `wol.rs` magic packet; `web.rs`/`wol.rs` are identical copies of Beefy-Waker's) |
-| `tests/blackbox/` | black-box suite (32 tests, fakes for tower and the WoL broadcast, network-less `ctest.sh` container): `tests/blackbox/run.sh old` (Python) / `run.sh new` (binary from `tower-waker:local`) |
+| `tests/blackbox/` | black-box suite (34 tests, fakes for tower and the WoL broadcast, network-less `ctest.sh` container): `tests/blackbox/run.sh old` (Python) / `run.sh new` (binary from `tower-waker:local`) |
 | `app/` | legacy Python app + `VERSION` (mounted at `/app/VERSION`, shown in the pages) |
 
 ## How tower sleeps and wakes (the beefy logic, Unraid flavour)
@@ -70,6 +70,23 @@ Where the time goes and what could change it:
 - The ~46 s kernel→sshd is Unraid's USB-flash boot (bzroot extraction + plugin
   install). A faster USB stick helps a little; nothing in the BIOS does.
 - Array start (+20–25 s) is the HDD spin-up plus pool mount; inherent.
+
+## Wait pages
+
+All pages count **up** from the server's wake start, so a reload, a second tab or the 5-s refresh show the same number. Below it: `Usually ready after about 2 min` (from `WAKE_COUNTDOWN`: under 90 → seconds, else whole minutes) and a bar that fills to 95 % at `WAKE_COUNTDOWN`; after that: full bar + "Taking longer than usual, still trying…".
+
+| Page | Where | Timer |
+|---|---|---|
+| `waking.html` | 503 from `/gate` (meta refresh 5 s) | rendered by the server, works without JS; a small script ticks between refreshes; hidden when no wake is running (Nextcloud "starting" because tower's ssh answers) |
+| `wake.html` | `/`, `/wol` (LAN) | ticks every second, re-syncs to `/status` every 3 s; a running wake opens straight in the waiting view |
+| `nc.html` | `/tower-wake/` on cloud | same; gives up after `WAKE_RETRY_WINDOW` + 60 s of server time |
+| `nc-signin.html` | Nextcloud asleep, anonymous browser | text only: "It usually takes about 2 min to start after you sign in." |
+
+Wake start: set when a magic packet is sent and no wake is running (a wake with no resend campaign left and older than `WAKE_RETRY_WINDOW` + 60 s counts as over), cleared when Nextcloud (`TARGET_PROBE_PORT`) answers.
+
+```
+curl -s http://192.168.1.2:9002/status    # {"up": false, "waited_seconds": 23}; null when no wake is running
+```
 
 ## Config (`.env`)
 

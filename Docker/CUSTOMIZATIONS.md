@@ -246,7 +246,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Wake CSRF guard: `POST /wake`, `/nc/wake` need `X-Wake: 1`, browser `Origin` must be this host (D-11); rust build base pinned by digest (A-30) | `rust/src/main.rs`, `Dockerfile` | `docker compose up -d --build` | `tower-waker.status`: → up key; `tower-waker.wake-csrf`: no header / foreign origin → 403 403 (never wakes) | none |
+| Wake CSRF guard: `POST /wake`, `/nc/wake` need `X-Wake: 1`, browser `Origin` must be this host (D-11); rust build base pinned by digest (A-30) | `rust/src/main.rs`, `Dockerfile` | `docker compose up -d --build` | `tower-waker.status`: → up and waited_seconds keys; `tower-waker.wake-csrf`: no header / foreign origin → 403 403 (never wakes) | none |
 | Rust rewrite (v2.0.0): scratch image, `read_only`, 16 MB / 0.5 CPU / 32 pids, healthcheck `/tower-waker --health`; legacy Python in `app/` | `rust/`, `docker-compose.yaml`, `tests/blackbox/` | `flock ~/.cache/claude-work/rust-build.lock _global/scripts/update-project.sh Docker/Tower-Waker build` | `tower-waker.version`: `/nc` footer vs `app/VERSION` → same | rust base image, hyper/tokio API changes (caught by `cargo test` in the build and `tests/blackbox/run.sh new`) |
 
 ## Claude-Mockups
