@@ -1,6 +1,8 @@
 site_name: Holy Grail Guide
 site_description: How to use the Holy Grail apps
 use_directory_urls: true
+hooks:
+  - hooks/groups.py
 theme:
   name: material
   custom_dir: overrides

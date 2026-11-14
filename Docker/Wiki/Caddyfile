@@ -1,4 +1,4 @@
-# Static server for www/ (guide) and www-admin/ (admin guide), built by build.sh. Login, TLS, rate limit and headers are handled by Traefik.
+# Static server for www/<variant>/ (guide) and www-admin/ (admin guide), built by build.sh. Login, TLS, rate limit and headers are handled by Traefik.
 # The admin host answers only Traefik (admin-bound Authentik app in front); anything else is the plain guide.
 wiki-admin.holy-grail.ch:80 {
 	# Only Traefik (pinned 172.24.255.3) and the container's own checks; other containers on traefik_proxy would skip the login.
@@ -9,6 +9,16 @@ wiki-admin.holy-grail.ch:80 {
 }
 
 :80 {
-	root * /srv
-	file_server
+	# One build per permission level (build.sh GATES): the groups Authentik's forward auth sends pick www/base+<group>…, one map per gate, in GATES order.
+	map {header.X-Authentik-Groups} {wiki_requesters} {
+		~(^|\|)streaming-requesters(\||$) "+streaming-requesters"
+		default ""
+	}
+	route {
+		# The groups header only counts from Traefik, which replaces it with Authentik's answer.
+		@not_traefik not remote_ip 172.24.255.3 127.0.0.1
+		request_header @not_traefik -X-Authentik-Groups
+		root * /srv/base{wiki_requesters}
+		file_server
+	}
 }
