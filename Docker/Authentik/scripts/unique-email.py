@@ -14,13 +14,17 @@ others = User.objects.filter(email__iexact=email)
 if request.user.is_authenticated:
     others = others.exclude(pk=request.user.pk)
 if others.exists():
-    ak_message("This email address is already used by another account. Use a different one, or ask the admin.")
+    ak_message("This email address can't be used. Use a different one, or ask the admin.")
     return False
 return True
 '''
 
-policy, created = ExpressionPolicy.objects.update_or_create(name=NAME, defaults={"expression": EXPRESSION})
-print(f"POLICY {NAME}: {'created' if created else 'ok'}")
+policy, created = ExpressionPolicy.objects.get_or_create(name=NAME, defaults={"expression": EXPRESSION})
+if policy.expression != EXPRESSION:
+    policy.expression = EXPRESSION
+    policy.save()
+    created = "updated"
+print(f"POLICY {NAME}: {created if created == 'updated' else ('created' if created else 'ok')}")
 for name in STAGES:
     stage = PromptStage.objects.get(name=name)
     missing = not stage.validation_policies.filter(pk=policy.pk).exists()
