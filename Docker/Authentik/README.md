@@ -37,7 +37,7 @@ lands in an arbitrary inbox rather than a spam folder.
 
 Next time, start here:
 
-1. Admin interface → **Directory → Invitations → Create**, flow `enrollment`, set an expiry.
+1. Admin interface → **Directory → Invitations → Create**, flow `enrollment` (shown as "Enrollment Holy Grail"; its name was set by hand 2026-11-14, the slug and the title "Create your account" are unchanged), set an expiry.
 2. Open the link: `https://sso.holy-grail.ch/if/flow/enrollment/?itoken=<token>`
    Opening it is safe — the warning stage at order 1 means nothing is consumed
    until **Continue** is pressed.
