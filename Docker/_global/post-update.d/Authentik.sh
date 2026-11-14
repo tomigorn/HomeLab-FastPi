@@ -39,6 +39,8 @@ tn = Tenant.objects.get(schema_name="public")
 out("footer", any("holy-grail.ch" in (l.get("href") or "") for l in (tn.footer_links or [])))
 from authentik.policies.password.models import PasswordPolicy
 out("pw-min", " ".join(sorted({str(x.length_min) for x in PasswordPolicy.objects.all()})))
+from authentik.core.models import User as _U
+out("akadmin", _U.objects.filter(username="akadmin", is_active=True).count())
 out("footer-help", any((l.get("href") or "") == "https://wiki.holy-grail.ch/getting-started/" for l in (tn.footer_links or [])))
 out("avatars", tn.avatars)
 G = ["authentik Admins", "homelab-admins", "streaming-users", "streaming-requesters", "streaming-admins", "cloud-users", "cloud-admins"]
@@ -88,6 +90,7 @@ PY
   check authentik.footer '^True$' "$(akv footer)"
   check authentik.footer-help '^True$' "$(akv footer-help)"
   check authentik.password-min '^15$' "$(akv pw-min)"
+  check authentik.akadmin-off '^0$' "$(akv akadmin)"
   check authentik.avatar-source '^attributes\.avatar,initials$' "$(akv avatars)"
   check authentik.groups '^7/7$' "$(akv groups)"
   check authentik.bind-homelab-admins '^([0-9]+)/\1 $' "$(akv bind-homelab-admins)"

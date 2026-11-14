@@ -138,7 +138,7 @@ authentik-worker ──SMTP 587 (STARTTLS)──> Brevo ──> recipient inbox
 
 6. **Create the admin** — browse to
    `https://sso.holy-grail.ch/if/flow/initial-setup/` and set the password for
-   the `akadmin` user (the default superuser).
+   the `akadmin` user (the default superuser). **akadmin is deactivated since 2026-11-14** (owner: no second superuser with an unchecked password reachable from the internet); the admin account is `tomigorn-admin`. Emergency admin login on fastpi: `docker compose exec server ak create_recovery_key 1 tomigorn-admin` (one-time link, 1 year → use 1).
 
 7. **Verify email** — in the Authentik admin UI, edit the built-in email stage
    (or trigger a password-reset / enrollment flow) and confirm a message
