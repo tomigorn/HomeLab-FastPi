@@ -16,11 +16,14 @@
   .moon{font-size:3rem;line-height:1;margin:0 auto 1rem}
   .spin{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border:4px solid #30363d;
         border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
   .ok{width:3.5rem;height:3.5rem;margin:0 auto 1.5rem;border-radius:50%;
       background:#1f6f3f;display:flex;align-items:center;justify-content:center;font-size:2rem}
   h1{font-size:1.4rem;margin:.4rem 0}
   p{color:#8b949e;margin:.3rem 0}
   .count{font-size:2.6rem;font-variant-numeric:tabular-nums;margin:.4rem 0;color:#58a6ff}
+  .bar{height:6px;max-width:16rem;margin:0 auto .8rem;background:#30363d;border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:#58a6ff;transition:width 1s linear}
   .hidden{display:none}
   details.hist{margin-top:2.2rem;text-align:left;border-top:1px solid #21262d;padding-top:1rem}
   summary{cursor:pointer;color:#8b949e;font-size:.95rem;user-select:none}
@@ -47,8 +50,11 @@
   <div id="waiting" class="hidden">
     <div class="spin"></div>
     <h1>Waking up tower&hellip;</h1>
-    <div class="count" id="count">~__COUNTDOWN__s</div>
-    <p id="sub">Magic packet sent. Checking when it answers&hellip;</p>
+    <div class="count" id="count">0:00</div>
+    <div class="bar"><i id="bar"></i></div>
+    <p id="usual">__USUAL__</p>
+    <p id="late" class="hidden">Taking longer than usual, still trying&hellip;</p>
+    <p>Magic packet sent. Checking when it answers&hellip;</p>
   </div>
   <div id="done" class="hidden">
     <div class="ok">&#10003;</div>
@@ -59,41 +65,43 @@
   <div class="ver">v__VERSION__</div>
 <script>
 const AUTOWAKE = __AUTOWAKE__;
-const TOTAL = __COUNTDOWN__;
-let left = TOTAL;
-let mode = 'idle';            // 'idle' = live state view, 'waking' = countdown
+const N = __COUNTDOWN__;
+let waited = 0;
+let mode = 'idle';            // 'idle' = live state view, 'waking' = count-up
 let countTimer = null;
 const countEl = document.getElementById('count');
-const subEl = document.getElementById('sub');
 
 function show(id){
   for(const v of ['checking','asleep','waiting','done'])
     document.getElementById(v).classList.toggle('hidden', v !== id);
 }
 function showUp(){ show('done'); document.title = 'tower is up'; }
-function tick(){
-  left -= 1;
-  if(left > 0){ countEl.textContent = '~' + left + 's'; }
-  else {
-    countEl.textContent = 'almost\u2026';
-    subEl.textContent = 'Taking a little longer than usual, still trying\u2026';
-  }
+function draw(){
+  countEl.textContent = Math.floor(waited / 60) + ':' + String(waited % 60).padStart(2, '0');
+  document.getElementById('bar').style.width = (waited > N ? 100 : Math.min(95, Math.floor(waited * 100 / N))) + '%';
+  document.getElementById('late').classList.toggle('hidden', waited <= N);
+}
+function showWaiting(){
+  mode = 'waking';
+  show('waiting');
+  draw();
+  if(!countTimer) countTimer = setInterval(() => { waited++; draw(); }, 1000);
 }
 function startWaking(){
-  mode = 'waking'; left = TOTAL;
-  countEl.textContent = '~' + TOTAL + 's';
-  subEl.textContent = 'Magic packet sent. Checking when it answers\u2026';
-  show('waiting');
+  waited = 0;
+  showWaiting();
   fetch('/wake', {method:'POST', headers:{'X-Wake': '1'}}).catch(()=>{});
-  if(!countTimer) countTimer = setInterval(tick, 1000);
 }
 async function poll(){
-  let up = false;
-  try{ up = (await (await fetch('/status', {cache:'no-store'})).json()).up; }
+  let st = null;
+  try{ st = await (await fetch('/status', {cache:'no-store'})).json(); }
   catch(e){}
-  if(up){
+  if(st && st.up){
     if(countTimer){ clearInterval(countTimer); countTimer = null; }
     mode = 'idle'; showUp();
+  } else if(st && st.waited_seconds != null){
+    waited = st.waited_seconds;
+    showWaiting();
   } else if(mode === 'idle'){
     show('asleep');
   }

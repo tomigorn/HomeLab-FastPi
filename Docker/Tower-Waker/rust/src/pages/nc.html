@@ -8,35 +8,54 @@
        font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
   .card{text-align:center;max-width:28rem;padding:2rem}
   h1{font-size:1.3rem;margin:.5rem 0} p{color:#8b949e;margin:.25rem 0}
-  .n{font-size:2.4rem;font-weight:700;margin:1rem 0}
+  .n{font-size:2.4rem;font-weight:700;font-variant-numeric:tabular-nums;margin:1rem 0 .4rem}
+  .bar{height:6px;max-width:16rem;margin:0 auto .8rem;background:#30363d;border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:#58a6ff;transition:width 1s linear}
+  [hidden]{display:none}
   footer{color:#484f58;font-size:.75rem;margin-top:1.5rem}
 </style></head>
 <body><div class="card">
   <h1 id="title">Starting Nextcloud&hellip;</h1>
   <p id="sub">The storage server is booting. You will be taken to Nextcloud automatically.</p>
-  <div class="n" id="n">__COUNTDOWN__</div>
+  <div id="timer">
+    <div class="n" id="n">0:00</div>
+    <div class="bar"><i id="bar"></i></div>
+    <p>__USUAL__</p>
+    <p id="late" hidden>Taking longer than usual, still trying&hellip;</p>
+  </div>
   <footer>tower-waker __VERSION__</footer>
 </div>
 <script>
 const base = "/tower-wake/";
-let left = __COUNTDOWN__, waited = 0;
+const N = __COUNTDOWN__, GIVEUP = __GIVEUP__;
+let waited = 0, gaveUp = false;
 fetch(base + "wake", {method: "POST", headers: {"X-Wake": "1"}}).catch(() => {});
-const tick = setInterval(() => {
-  left = Math.max(0, left - 1); waited++;
-  document.getElementById("n").textContent = left > 0 ? left : "…";
-  if (waited > __GIVEUP__) {
+function draw() {
+  if (gaveUp) return;
+  document.getElementById("n").textContent = Math.floor(waited / 60) + ":" + String(waited % 60).padStart(2, "0");
+  document.getElementById("bar").style.width = (waited > N ? 100 : Math.min(95, Math.floor(waited * 100 / N))) + "%";
+  document.getElementById("late").hidden = waited <= N;
+  if (waited > GIVEUP) {
+    gaveUp = true;
     clearInterval(tick);
+    document.getElementById("timer").hidden = true;
     document.getElementById("title").textContent = "Nextcloud did not start";
     document.getElementById("sub").textContent = "Try again in a few minutes, or tell the admin.";
   }
-}, 1000);
+}
+const tick = setInterval(() => { waited++; draw(); }, 1000);
 async function poll() {
   try {
     const r = await fetch(base + "status", {cache: "no-store"});
-    if ((await r.json()).up) {
+    const st = await r.json();
+    if (st.up) {
       document.getElementById("title").textContent = "Nextcloud is ready";
       location.replace("/");
       return;
+    }
+    if (st.waited_seconds != null) {
+      waited = st.waited_seconds;
+      draw();
     }
   } catch (e) {}
   setTimeout(poll, 3000);

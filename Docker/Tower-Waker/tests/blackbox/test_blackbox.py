@@ -187,28 +187,23 @@ class Base(unittest.TestCase):
         return self.log_lines(needle)
 
 
-WAKING_PAGE = b"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="5">
-<title>Waking tower...</title>
-<style>
-  html,body{height:100%;margin:0}
-  body{display:flex;align-items:center;justify-content:center;
-       font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
-  .card{text-align:center;max-width:28rem;padding:2rem}
-  .spin{width:3rem;height:3rem;margin:0 auto 1.5rem;border:4px solid #30363d;
-        border-top-color:#58a6ff;border-radius:50%;animation:s 1s linear infinite}
-  @keyframes s{to{transform:rotate(360deg)}}
-  h1{font-size:1.3rem;margin:.5rem 0}
-  p{color:#8b949e;margin:.25rem 0}
-</style></head>
-<body><div class="card">
-  <div class="spin"></div>
-  <h1>Waking up tower...</h1>
-  <p>A magic packet is on its way. This page refreshes automatically.</p>
-  <p>The server should be ready in under a minute.</p>
-</div></body></html>"""
+def status(path="/status"):
+    return json.loads(req("GET", path)[2])
+
+
+def assert_waking(tc, b, timer=True):
+    t = b.decode()
+    tc.assertIn('<meta http-equiv="refresh" content="5">', t)
+    tc.assertIn("<title>Waking tower...</title>", t)
+    tc.assertIn("<h1>Waking up tower...</h1>", t)
+    tc.assertIn("<p>Usually ready after about 2 min</p>", t)
+    tc.assertNotIn("under a minute", t)
+    tc.assertNotIn("__", t)
+    if timer:
+        tc.assertRegex(t, r'<div class="n" id="n">0:0\d</div>')
+        tc.assertIn('<div class="timer">', t)
+    else:
+        tc.assertIn('<div class="timer" hidden>', t)
 
 
 class Pages(Base):
@@ -219,11 +214,15 @@ class Pages(Base):
         t = b.decode()
         self.assertIn("<title>Wake tower</title>", t)
         self.assertIn("const AUTOWAKE = false;", t)
-        self.assertIn("const TOTAL = 120;", t)
-        self.assertIn('<div class="count" id="count">~120s</div>', t)
+        self.assertIn("const N = 120;", t)
+        self.assertIn('<div class="count" id="count">0:00</div>', t)
+        self.assertIn('<p id="usual">Usually ready after about 2 min</p>', t)
+        self.assertIn("waited = st.waited_seconds;", t)
+        for gone in ("almost", "left -= 1", "~120s"):
+            self.assertNotIn(gone, t)
         self.assertIn('<div class="ver">v%s</div>' % VERSION, t)
         self.assertIn("<summary>tower history</summary>", t)
-        for ph in ("__COUNTDOWN__", "__AUTOWAKE__", "__VERSION__"):
+        for ph in ("__COUNTDOWN__", "__AUTOWAKE__", "__VERSION__", "__USUAL__"):
             self.assertNotIn(ph, t)
         self.assertEqual(self.wol.count(), 0)
 
@@ -239,12 +238,16 @@ class Pages(Base):
             s, h, b, _ = req("GET", p)
             self.assertEqual((s, h["content-type"]), (200, "text/html; charset=utf-8"), p)
             t = b.decode()
-            self.assertIn('<div class="n" id="n">120</div>', t)
-            self.assertIn("let left = 120, waited = 0;", t)
-            self.assertIn("if (waited > 63) {", t)
+            self.assertIn('<div class="n" id="n">0:00</div>', t)
+            self.assertIn("const N = 120, GIVEUP = 63;", t)
+            self.assertIn("if (waited > GIVEUP) {", t)
+            self.assertIn("waited = st.waited_seconds;", t)
+            self.assertIn("<p>Usually ready after about 2 min</p>", t)
+            self.assertNotIn("__", t)
             self.assertIn("<footer>tower-waker %s</footer>" % VERSION, t)
             self.assertIn('const base = "/tower-wake/";', t)
-            self.assertIn('textContent = left > 0 ? left : "\u2026";', t)
+            for gone in ("left", "\u2026\";", "almost"):
+                self.assertNotIn(gone, t)
         self.assertEqual(self.wol.count(), 0)
 
     def test_unknown_404_and_methods_501(self):
@@ -282,12 +285,33 @@ class Status(Base):
     def test_status_and_nc_status(self):
         for p in ("/status", "/nc/status"):
             s, h, b, _ = req("GET", p)
-            self.assertEqual((s, h["content-type"], b), (200, "application/json", b'{"up": false}'), p)
+            self.assertEqual((s, h["content-type"], b), (200, "application/json", b'{"up": false, "waited_seconds": null}'), p)
         self.ssh.start()
-        self.assertEqual(req("GET", "/status")[2], b'{"up": false}')
+        self.assertEqual(req("GET", "/status")[2], b'{"up": false, "waited_seconds": null}')
         self.nc.start()
         for p in ("/status", "/nc/status"):
-            self.assertEqual(req("GET", p)[2], b'{"up": true}', p)
+            self.assertEqual(req("GET", p)[2], b'{"up": true, "waited_seconds": null}', p)
+
+    def test_waited_seconds_grows_during_wake_and_clears_when_up(self):
+        req("POST", "/wake", {"X-Wake": "1"})
+        first = status()["waited_seconds"]
+        self.assertIn(first, (0, 1))
+        time.sleep(2.1)
+        self.assertGreaterEqual(status("/nc/status")["waited_seconds"], first + 2)
+        req("POST", "/wake", {"X-Wake": "1"})
+        self.assertGreaterEqual(status()["waited_seconds"], first + 2)
+        s, _, b, _ = req("GET", "/gate")
+        self.assertEqual(s, 503)
+        self.assertRegex(b.decode(), r'<div class="n" id="n">0:0[2-4]</div>')
+        self.nc.start()
+        self.assertEqual(status(), {"up": True, "waited_seconds": None})
+        self.nc.stop()
+        self.assertEqual(status(), {"up": False, "waited_seconds": None})
+
+    def test_waited_survives_campaign_end(self):
+        req("POST", "/wake", {"X-Wake": "1"})
+        time.sleep(4)
+        self.assertGreaterEqual(status()["waited_seconds"], 4)
 
 
 class Wake(Base):
@@ -356,7 +380,9 @@ class WolFailure(Base):
         self.assertEqual((s, b), (200, b'{"sent": false}'))
         self.assertTrue(self.wait_log("WoL send failed: "))
         s, _, b, _ = req("GET", "/gate")
-        self.assertEqual((s, b), (503, WAKING_PAGE))
+        self.assertEqual(s, 503)
+        assert_waking(self, b, timer=False)
+        self.assertIsNone(status()["waited_seconds"])
 
 
 class Gate(Base):
@@ -368,7 +394,8 @@ class Gate(Base):
 
     def test_down_wakes(self):
         s, h, b, _ = req("GET", "/gate?port=8080")
-        self.assertEqual((s, h["content-type"], h.get("retry-after"), b), (503, "text/html; charset=utf-8", "5", WAKING_PAGE))
+        self.assertEqual((s, h["content-type"], h.get("retry-after")), (503, "text/html; charset=utf-8", "5"))
+        assert_waking(self, b)
         self.assertTrue(wait_for(lambda: self.wol.count() >= 1, 2))
         self.assertTrue(self.wait_log("tower down (127.0.0.2:8080) - sent WoL to %s via 127.0.0.3" % MAC))
 
@@ -405,7 +432,7 @@ class NextcloudGate(Base):
         t = b.decode()
         self.assertIn("<title>Nextcloud is asleep</title>", t)
         self.assertIn('<a class="btn" href="/tower-wake/">Sign in to start it</a>', t)
-        self.assertIn("<p>It takes about two minutes to start after you sign in.</p>", t)
+        self.assertIn("<p>It usually takes about 2 min to start after you sign in.</p>", t)
         self.assertEqual(self.wol.count(), 0)
         self.assertTrue(self.wait_log("nextcloud signin (no wake) 198.51.100.1 / -"))
 
@@ -416,7 +443,8 @@ class NextcloudGate(Base):
         for hd in cases:
             self.wol.reset()
             s, h, b, _ = req("GET", NC, hd)
-            self.assertEqual((s, h.get("retry-after"), b), (503, "5", WAKING_PAGE), hd)
+            self.assertEqual((s, h.get("retry-after")), (503, "5"), hd)
+            assert_waking(self, b)
             self.assertTrue(wait_for(lambda: self.wol.count() >= 1, 2), hd)
             self.sut.stop()
             self.sut = Sut({})
@@ -430,7 +458,8 @@ class NextcloudGate(Base):
     def test_starting_when_ssh_answers(self):
         self.ssh.start()
         s, h, b, _ = req("GET", NC, {"Accept": "text/html", "X-Forwarded-Uri": "/apps/files/?dir=/"})
-        self.assertEqual((s, h.get("retry-after"), b), (503, "5", WAKING_PAGE))
+        self.assertEqual((s, h.get("retry-after")), (503, "5"))
+        assert_waking(self, b, timer=False)
         self.assertEqual(self.wol.count(), 0)
         self.assertTrue(self.wait_log("nextcloud starting (no wake) ? /apps/files/ -"))
 
@@ -438,7 +467,8 @@ class NextcloudGate(Base):
         req("POST", "/wake", {"X-Wake": "1"})
         n = self.wol.count()
         s, _, b, _ = req("GET", NC, {"Cookie": "nc_token=1"})
-        self.assertEqual((s, b), (503, WAKING_PAGE))
+        self.assertEqual(s, 503)
+        assert_waking(self, b)
         self.assertTrue(self.wait_log("nextcloud starting (no wake)"))
 
     def test_log_fields_truncated(self):

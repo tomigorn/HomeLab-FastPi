@@ -5,7 +5,7 @@ mod web;
 mod wol;
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use tokio::net::{TcpListener, TcpStream};
@@ -31,7 +31,74 @@ struct App {
     page: String,
     page_auto: String,
     nc_page: String,
+    signin_page: String,
     campaign: AtomicBool,
+    countdown: u64,
+    giveup: Duration,
+    clock: Mutex<WakeClock>,
+}
+
+/// When the current wake started; a wake with no campaign left that is older than the give-up time is over.
+#[derive(Default)]
+struct WakeClock {
+    started: Option<Instant>,
+}
+
+impl WakeClock {
+    fn waited(&self, now: Instant, campaign: bool, giveup: Duration) -> Option<u64> {
+        let d = now.saturating_duration_since(self.started?);
+        (campaign || d <= giveup).then_some(d.as_secs())
+    }
+
+    fn start(&mut self, now: Instant, campaign: bool, giveup: Duration) {
+        if self.waited(now, campaign, giveup).is_none() {
+            self.started = Some(now);
+        }
+    }
+
+    fn clear(&mut self) {
+        self.started = None;
+    }
+}
+
+fn mss(secs: u64) -> String {
+    format!("{}:{:02}", secs / 60, secs % 60)
+}
+
+fn about(n: u64) -> String {
+    if n < 90 {
+        format!("about {n} s")
+    } else {
+        format!("about {} min", (n + 30) / 60)
+    }
+}
+
+fn usual_text(n: u64) -> String {
+    format!("Usually ready after {}", about(n))
+}
+
+fn usual_signin(n: u64) -> String {
+    format!("It usually takes {} to start after you sign in.", about(n))
+}
+
+fn bar_pct(waited: u64, n: u64) -> u64 {
+    if waited > n {
+        100
+    } else {
+        (waited * 100 / n.max(1)).min(95)
+    }
+}
+
+fn waking_page(waited: Option<u64>, n: u64) -> String {
+    let w = waited.unwrap_or(0);
+    WAKING_PAGE
+        .replace("__TIMER_HIDDEN__", if waited.is_some() { "" } else { " hidden" })
+        .replace("__LATE_HIDDEN__", if waited.is_some() && w > n { "" } else { " hidden" })
+        .replace("__MSS__", &mss(w))
+        .replace("__PCT__", &bar_pct(w, n).to_string())
+        .replace("__WAITED__", &w.to_string())
+        .replace("__COUNTDOWN__", &n.to_string())
+        .replace("__USUAL__", &usual_text(n))
 }
 
 fn env_or(k: &str, d: &str) -> String {
@@ -60,6 +127,7 @@ impl App {
     /// Send a packet now (error = not sent), then resend in one background campaign until tower answers.
     fn wake(self: &Arc<Self>) -> std::io::Result<()> {
         self.send_wol()?;
+        self.clock.lock().unwrap_or_else(|e| e.into_inner()).start(Instant::now(), self.wake_in_progress(), self.giveup);
         if self.campaign.swap(true, Ordering::SeqCst) {
             return Ok(());
         }
@@ -68,7 +136,7 @@ impl App {
             let deadline = Instant::now() + app.retry_window;
             while Instant::now() < deadline {
                 tokio::time::sleep(app.retry_interval).await;
-                if is_up(&app.probe_host, app.probe_port).await {
+                if app.probe(app.probe_port).await {
                     break;
                 }
                 let _ = app.send_wol();
@@ -82,11 +150,31 @@ impl App {
         self.campaign.load(Ordering::SeqCst)
     }
 
+    /// Probe tower; seeing the readiness port up ends the current wake.
+    async fn probe(&self, port: u16) -> bool {
+        let up = is_up(&self.probe_host, port).await;
+        if up && port == self.probe_port {
+            self.clock.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        }
+        up
+    }
+
+    fn waited(&self) -> Option<u64> {
+        self.clock.lock().unwrap_or_else(|e| e.into_inner()).waited(Instant::now(), self.wake_in_progress(), self.giveup)
+    }
+
+    fn waking(&self) -> Resp {
+        Resp::html(503, waking_page(self.waited(), self.countdown)).retry_after(5)
+    }
+
     async fn handle(self: Arc<Self>, r: Req) -> Resp {
         match r.route().as_str() {
             "/" => Resp::html(200, self.page.clone()),
             "/wol" => Resp::html(200, self.page_auto.clone()),
-            "/status" | "/nc/status" => status_json(is_up(&self.probe_host, self.probe_port).await),
+            "/status" | "/nc/status" => {
+                let up = self.probe(self.probe_port).await;
+                Resp::json(200, status_body(up, self.waited()))
+            }
             "/wake" => self.manual_wake(&r, None),
             "/nc/wake" => {
                 let user = take_chars(r.header("X-Authentik-Username").filter(|v| !v.is_empty()).unwrap_or("?"), 64).to_string();
@@ -133,18 +221,18 @@ impl App {
         if qs_first(&q, "policy").as_deref() == Some("nextcloud") {
             return self.gate_nextcloud(r, port).await;
         }
-        if is_up(&self.probe_host, port).await {
+        if self.probe(port).await {
             return Resp::text(200, "");
         }
         match self.wake() {
             Ok(()) => log(&r.peer, &format!("tower down ({}:{port}) - sent WoL to {} via {}", self.probe_host, self.mac_str, self.broadcast)),
             Err(e) => log(&r.peer, &format!("WoL send failed: {e}")),
         }
-        Resp::html(503, WAKING_PAGE).retry_after(5)
+        self.waking()
     }
 
     async fn gate_nextcloud(self: &Arc<Self>, r: &Req, port: u16) -> Resp {
-        let up = is_up(&self.probe_host, port).await;
+        let up = self.probe(port).await;
         let starting = !up && (self.wake_in_progress() || is_up(&self.probe_host, SSH_PORT).await);
         let decision = nextcloud_decision(up, starting, r);
         if decision == "pass" {
@@ -163,15 +251,16 @@ impl App {
             log(&r.peer, &format!("nextcloud {decision} (no wake) {ip} {path} {ua}"));
         }
         match decision {
-            "signin" => Resp::html(503, NC_SIGNIN_PAGE),
+            "signin" => Resp::html(503, self.signin_page.clone()),
             "refuse" => Resp::new(503, "text/plain; charset=utf-8", "Nextcloud is asleep.\n"),
-            _ => Resp::html(503, WAKING_PAGE).retry_after(5),
+            _ => self.waking(),
         }
     }
 }
 
-fn status_json(up: bool) -> Resp {
-    Resp::json(200, if up { r#"{"up": true}"# } else { r#"{"up": false}"# })
+fn status_body(up: bool, waited: Option<u64>) -> String {
+    let w = waited.map_or("null".to_string(), |w| w.to_string());
+    format!(r#"{{"up": {up}, "waited_seconds": {w}}}"#)
 }
 
 /// Only positive evidence of a Nextcloud user wakes tower: Authorization, a Nextcloud client UA, or Nextcloud cookies.
@@ -253,12 +342,17 @@ fn main() {
     }
     let mac = wol::parse_mac(&mac_str).unwrap_or_else(|| fail(&format!("invalid MAC: '{mac_str}'")));
     let probe_port = u16::try_from(env_int("TARGET_PROBE_PORT", "22")).unwrap_or_else(|_| fail("TARGET_PROBE_PORT out of range"));
-    let countdown = env_int("WAKE_COUNTDOWN", "60");
+    let countdown = env_int("WAKE_COUNTDOWN", "60").max(1) as u64;
+    let usual = usual_text(countdown);
     let retry_interval = env_int("WAKE_RETRY_INTERVAL", "20").max(0) as u64;
     let retry_window = env_int("WAKE_RETRY_WINDOW", "300");
     let version = read_version();
     let page = |auto: &str| {
-        WAKE_PAGE.replace("__COUNTDOWN__", &countdown.to_string()).replace("__AUTOWAKE__", auto).replace("__VERSION__", &version)
+        WAKE_PAGE
+            .replace("__COUNTDOWN__", &countdown.to_string())
+            .replace("__USUAL__", &usual)
+            .replace("__AUTOWAKE__", auto)
+            .replace("__VERSION__", &version)
     };
     let app = Arc::new(App {
         mac,
@@ -270,9 +364,14 @@ fn main() {
         page_auto: page("true"),
         nc_page: NC_PAGE
             .replace("__COUNTDOWN__", &countdown.to_string())
+            .replace("__USUAL__", &usual)
             .replace("__GIVEUP__", &(retry_window + 60).to_string())
             .replace("__VERSION__", &version),
+        signin_page: NC_SIGNIN_PAGE.replace("__USUAL_SIGNIN__", &usual_signin(countdown)),
         campaign: AtomicBool::new(false),
+        countdown,
+        giveup: Duration::from_secs((retry_window + 60).max(0) as u64),
+        clock: Mutex::new(WakeClock::default()),
         mac_str,
         probe_host,
     });
@@ -328,6 +427,80 @@ mod tests {
         assert!(!wake_request_allowed(&req(&[("X-Wake", "1"), ("Origin", "https://a.example.evil"), ("Host", "a.example")])));
         assert!(!wake_request_allowed(&req(&[("X-Wake", "1"), ("Origin", "null"), ("Host", "a.example")])));
         assert!(!wake_request_allowed(&req(&[("X-Wake", "1"), ("Origin", "https://a.example")])));
+    }
+
+    #[test]
+    fn waited_formats_as_m_ss() {
+        assert_eq!(mss(0), "0:00");
+        assert_eq!(mss(23), "0:23");
+        assert_eq!(mss(125), "2:05");
+        assert_eq!(mss(3600), "60:00");
+    }
+
+    #[test]
+    fn usual_text_seconds_below_90_else_minutes() {
+        assert_eq!(usual_text(60), "Usually ready after about 60 s");
+        assert_eq!(usual_text(89), "Usually ready after about 89 s");
+        assert_eq!(usual_text(90), "Usually ready after about 2 min");
+        assert_eq!(usual_text(120), "Usually ready after about 2 min");
+        assert_eq!(usual_text(149), "Usually ready after about 2 min");
+        assert_eq!(usual_text(150), "Usually ready after about 3 min");
+        assert_eq!(usual_signin(120), "It usually takes about 2 min to start after you sign in.");
+        assert_eq!(usual_signin(60), "It usually takes about 60 s to start after you sign in.");
+    }
+
+    #[test]
+    fn bar_caps_at_95_until_late() {
+        assert_eq!(bar_pct(0, 120), 0);
+        assert_eq!(bar_pct(60, 120), 50);
+        assert_eq!(bar_pct(119, 120), 95);
+        assert_eq!(bar_pct(120, 120), 95);
+        assert_eq!(bar_pct(121, 120), 100);
+    }
+
+    #[test]
+    fn wake_clock_keeps_start_until_up_or_stale() {
+        let giveup = Duration::from_secs(63);
+        let t0 = Instant::now();
+        let mut c = WakeClock::default();
+        assert_eq!(c.waited(t0, false, giveup), None);
+        c.start(t0, false, giveup);
+        assert_eq!(c.waited(t0 + Duration::from_secs(23), true, giveup), Some(23));
+        c.start(t0 + Duration::from_secs(30), true, giveup);
+        assert_eq!(c.waited(t0 + Duration::from_secs(40), false, giveup), Some(40));
+        assert_eq!(c.waited(t0 + Duration::from_secs(64), true, giveup), Some(64));
+        assert_eq!(c.waited(t0 + Duration::from_secs(64), false, giveup), None);
+        c.start(t0 + Duration::from_secs(70), false, giveup);
+        assert_eq!(c.waited(t0 + Duration::from_secs(75), false, giveup), Some(5));
+        c.clear();
+        assert_eq!(c.waited(t0 + Duration::from_secs(75), true, giveup), None);
+    }
+
+    #[test]
+    fn status_has_waited_seconds() {
+        assert_eq!(&status_body(true, None)[..], r#"{"up": true, "waited_seconds": null}"#);
+        assert_eq!(&status_body(false, None)[..], r#"{"up": false, "waited_seconds": null}"#);
+        assert_eq!(&status_body(false, Some(23)), r#"{"up": false, "waited_seconds": 23}"#);
+    }
+
+    #[test]
+    fn waking_page_counts_up() {
+        let p = waking_page(Some(23), 120);
+        assert!(p.contains(r#"<div class="n" id="n">0:23</div>"#));
+        assert!(p.contains(r#"style="width:19%""#));
+        assert!(p.contains("<p>Usually ready after about 2 min</p>"));
+        assert!(p.contains("let w = 23;"));
+        assert!(p.contains(r#"<p id="late" hidden>"#));
+        assert!(p.contains(r#"<meta http-equiv="refresh" content="5">"#));
+        assert!(!p.contains("under a minute"));
+        assert!(!p.contains("__"));
+        let late = waking_page(Some(130), 120);
+        assert!(late.contains(r#"style="width:100%""#));
+        assert!(late.contains(r#"<p id="late">Taking longer than usual, still trying&hellip;</p>"#));
+        let none = waking_page(None, 120);
+        assert!(none.contains(r#"<div class="timer" hidden>"#));
+        assert!(none.contains("<p>Usually ready after about 2 min</p>"));
+        assert!(!none.contains("__"));
     }
 
     #[test]

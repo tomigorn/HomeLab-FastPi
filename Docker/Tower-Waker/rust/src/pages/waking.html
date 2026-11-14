@@ -13,10 +13,32 @@
   @keyframes s{to{transform:rotate(360deg)}}
   h1{font-size:1.3rem;margin:.5rem 0}
   p{color:#8b949e;margin:.25rem 0}
+  .n{font-size:2.6rem;font-weight:700;font-variant-numeric:tabular-nums;color:#58a6ff;margin:1rem 0 .4rem}
+  .bar{height:6px;max-width:16rem;margin:0 auto .8rem;background:#30363d;border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;background:#58a6ff;transition:width 1s linear}
+  [hidden]{display:none}
 </style></head>
 <body><div class="card">
   <div class="spin"></div>
   <h1>Waking up tower...</h1>
+  <div class="timer"__TIMER_HIDDEN__>
+    <div class="n" id="n">__MSS__</div>
+    <div class="bar"><i id="bar" style="width:__PCT__%"></i></div>
+  </div>
+  <p>__USUAL__</p>
+  <p id="late"__LATE_HIDDEN__>Taking longer than usual, still trying&hellip;</p>
   <p>A magic packet is on its way. This page refreshes automatically.</p>
-  <p>The server should be ready in under a minute.</p>
-</div></body></html>
+</div>
+<script>
+(function () {
+  if (document.querySelector(".timer").hidden) return;
+  const N = __COUNTDOWN__;
+  let w = __WAITED__;
+  setInterval(function () {
+    w++;
+    document.getElementById("n").textContent = Math.floor(w / 60) + ":" + String(w % 60).padStart(2, "0");
+    document.getElementById("bar").style.width = (w > N ? 100 : Math.min(95, Math.floor(w * 100 / N))) + "%";
+    document.getElementById("late").hidden = w <= N;
+  }, 1000);
+})();
+</script></body></html>
