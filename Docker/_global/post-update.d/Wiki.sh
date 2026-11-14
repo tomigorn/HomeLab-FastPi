@@ -5,7 +5,9 @@ if want wiki; then
   check wiki.not-found '^1$' "$(docker exec wiki wget -qO /dev/null -T 5 http://127.0.0.1/no-such-page 2>&1 | grep -c '404')"
   check wiki.admin-site '^200 [1-9][0-9]*$' "$(docker exec wiki sh -c 'wget -qO /tmp/a -T 5 --header "Host: wiki-admin.holy-grail.ch" http://127.0.0.1/ && echo 200 $(wc -c < /tmp/a)' 2>&1 | tail -1)"
   check wiki.admin-not-found '^1$' "$(docker exec wiki wget -qO /dev/null -T 5 --header 'Host: wiki-admin.holy-grail.ch' http://127.0.0.1/no-such-page 2>&1 | grep -c '404')"
+  check wiki.admin-only-via-traefik '^403 200$' "$(h='--header Host:wiki-admin.holy-grail.ch'; echo "$(docker exec claude-mockups wget -S -qO /dev/null -T 5 $h http://wiki/ 2>&1 | awk '/^ *HTTP\//{print $2}' | tail -1) $(docker exec traefik wget -S -qO /dev/null -T 5 $h http://wiki/ 2>&1 | awk '/^ *HTTP\//{print $2}' | tail -1)")"
   check wiki.guide-unchanged '^1$' "$(docker exec wiki sh -c 'wget -qO- -T 5 http://127.0.0.1/' 2>&1 | grep -c '<title>Home - Holy Grail Guide')"
   check wiki.public-getting-started '^200 [1-9][0-9]* 302$' "$(c='curl -sk -m 10 --resolve wiki.holy-grail.ch:443:192.168.1.2'; echo "$($c -o /dev/null -w '%{http_code}' https://wiki.holy-grail.ch/getting-started/) $($c https://wiki.holy-grail.ch/getting-started/ | wc -c) $($c -o /dev/null -w '%{http_code}' https://wiki.holy-grail.ch/)")"
+  check wiki.public-no-wiki-links '^0 0$' "$(p=$(docker exec wiki cat /srv/getting-started/index.html 2>&1); echo "$(printf '%s' "$p" | grep -oE 'href="\.\.(/[^"]*)?"' | grep -vc '/assets/') $(printf '%s' "$p" | grep -c 'data-md-component="search"')")"
   check wiki.private-rest '^302 302 302$' "$(c='curl -sk -m 10 -o /dev/null -w %{http_code} --path-as-is --resolve wiki.holy-grail.ch:443:192.168.1.2'; echo "$($c https://wiki.holy-grail.ch/search/search_index.json) $($c https://wiki.holy-grail.ch/apps/jellyfin/) $($c https://wiki.holy-grail.ch/assets/../apps/jellyfin/)")"
 fi

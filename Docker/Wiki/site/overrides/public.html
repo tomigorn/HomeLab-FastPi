@@ -1,4 +1,27 @@
 {% extends "main.html" %}
+{# Public page: no link, prefetch hint or search into the signed-in wiki (a click there mid-sign-up loses the invite). #}
+{% block site_meta %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  {% if page.meta and page.meta.description %}
+    <meta name="description" content="{{ page.meta.description }}">
+  {% elif config.site_description %}
+    <meta name="description" content="{{ config.site_description }}">
+  {% endif %}
+  <link rel="icon" href="{{ config.theme.favicon | url }}">
+{% endblock %}
+{% block header %}
+  <header class="md-header md-header--shadow" data-md-component="header">
+    <nav class="md-header__inner md-grid" aria-label="{{ lang.t('header') }}">
+      <span class="md-header__button md-logo" aria-hidden="true">{% include "partials/logo.html" %}</span>
+      <div class="md-header__title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic"><span class="md-ellipsis">{{ config.site_name }}</span></div>
+        </div>
+      </div>
+    </nav>
+  </header>
+{% endblock %}
 {% block site_nav %}{% endblock %}
 {% block tabs %}{% endblock %}
 {% block footer %}{% endblock %}

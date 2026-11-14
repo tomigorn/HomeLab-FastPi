@@ -2,7 +2,7 @@
 
 "Holy Grail Guide": how-to pages for friends (Jellyfin, Requests, audio & subtitles, audiobooks, tracker, profile picture) and a "What's new" page. English, MkDocs Material, no external requests (`theme.font: false`).
 
-- **URL:** https://wiki.holy-grail.ch (Holy Grail SSO, any logged-in user). Public without login: only `/getting-started/` and its theme assets (`skip_path_regex` in `provision-wiki-sso.py`; page template `site/overrides/public.html` has no menu)
+- **URL:** https://wiki.holy-grail.ch (Holy Grail SSO, any logged-in user). Public without login: only `/getting-started/` and its theme assets (`skip_path_regex` in `provision-wiki-sso.py`; page template `site/overrides/public.html` has no menu, search or link into the signed-in wiki, so a click mid-sign-up cannot lose the invite)
 - **Server:** one `caddy:alpine` container serving `www/` read-only, uid 65053
 
 ## Edit and rebuild
@@ -17,7 +17,7 @@ $EDITOR site/docs/apps/jellyfin.md   # pages: site/docs, menu: site/mkdocs.yml
 
 ## Admin guide
 
-Second site for admins only: https://wiki-admin.holy-grail.ch (Authentik app `wiki-admin`, bound to group `homelab-admins`; friends get no access). Same container: Caddy picks `/srv-admin` for that host name, everything else is the guide.
+Second site for admins only: https://wiki-admin.holy-grail.ch (Authentik app `wiki-admin`, bound to group `homelab-admins`; friends get no access). Same container: Caddy picks `/srv-admin` for that host name and answers it only to Traefik (`remote_ip 172.24.255.3`), everything else is the guide.
 
 Add a page: write `site-admin/docs/<name>.md`, add it to `nav` in `site-admin/mkdocs.yml`, run `./build.sh`. Plain simple English, short numbered steps, tables; no secrets, real names, mail addresses or usernames (use `anna`).
 
