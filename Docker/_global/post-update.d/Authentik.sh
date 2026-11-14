@@ -37,6 +37,7 @@ t = Flow.objects.filter(slug__in=["default-authentication-flow", "default-source
 out("flows", f"{t.count()} flows, authentik in title: {sum('authentik' in (f.title or '').lower() for f in t)}")
 tn = Tenant.objects.get(schema_name="public")
 out("footer", any("holy-grail.ch" in (l.get("href") or "") for l in (tn.footer_links or [])))
+out("footer-help", any((l.get("href") or "") == "https://wiki.holy-grail.ch/getting-started/" for l in (tn.footer_links or [])))
 out("avatars", tn.avatars)
 G = ["authentik Admins", "homelab-admins", "streaming-users", "streaming-requesters", "streaming-admins", "cloud-users", "cloud-admins"]
 out("groups", f"{Group.objects.filter(name__in=G).count()}/{len(G)}")
@@ -62,6 +63,10 @@ out("enroll", w.create_users_group.name if w and w.create_users_group else None)
 out("notify", NotificationRule.objects.filter(name="notify-admins-user-created").exists())
 f = FlowStageBinding.objects.filter(target__slug="enrollment", stage__name="enrollment-invite-warning").first()
 out("invite", f"order={f.order if f else None}")
+from authentik.stages.redirect.models import RedirectStage
+last = FlowStageBinding.objects.filter(target__slug="enrollment").order_by("-order").first()
+rs = RedirectStage.objects.filter(pk=last.stage_id).first() if last else None
+out("enroll-redirect", f"{rs.name} {rs.mode} {rs.target_static}" if rs else (last.stage.name if last else None))
 op = Outpost.objects.get(name="authentik Embedded Outpost")
 miss = [p.name for p in ProxyProvider.objects.exclude(pk__in=op.providers.values("pk"))]
 out("outpost", f"missing={len(miss)} {' '.join(miss)}")
@@ -79,6 +84,7 @@ PY
   check authentik.dashboard-hidden '^([0-9]+)/\1 $' "$(akv hidden)"
   check authentik.flow-titles '^[1-9] flows, authentik in title: 0$' "$(akv flows)"
   check authentik.footer '^True$' "$(akv footer)"
+  check authentik.footer-help '^True$' "$(akv footer-help)"
   check authentik.avatar-source '^attributes\.avatar,initials$' "$(akv avatars)"
   check authentik.groups '^7/7$' "$(akv groups)"
   check authentik.bind-homelab-admins '^([0-9]+)/\1 $' "$(akv bind-homelab-admins)"
@@ -93,12 +99,13 @@ PY
   check authentik.enroll-group '^streaming-users$' "$(akv enroll)"
   check authentik.notify-new-user '^True$' "$(akv notify)"
   check authentik.invite-warning '^order=1$' "$(akv invite)"
+  check authentik.enroll-redirect '^enrollment-redirect-avatars static https://avatars\.holy-grail\.ch/$' "$(akv enroll-redirect)"
   check authentik.outpost-providers '^missing=0 $' "$(akv outpost)"
   check authentik.avatar-picker-sa '^True$' "$(akv avatar-sa)"
   check authentik.admin-account '^True$' "$(akv admin)"
   check authentik.canary-off '^False$' "$(akv canary)"
   check authentik.trusted-proxy '^127\.0\.0\.0/8,::1/128,10\.24\.15\.3/32$' "$(docker exec authentik-server printenv AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS)"
-  check authentik.email-templates '^ok$' "$(docker exec authentik-server sh -c 'test -s /templates/email/base.html && test -s /templates/email/new_account.html && test -s /templates/email/password_reset.html' && echo ok)"
+  check authentik.email-templates '^ok$' "$(docker exec authentik-server sh -c 'test -s /templates/email/base.html && test -s /templates/email/new_account.html && test -s /templates/email/password_reset.html && grep -q wiki.holy-grail.ch/getting-started/ /templates/email/account_confirmation.html' && echo ok)"
   check authentik.brand-mounts '^ok ok$' "$(for c in authentik-server authentik-worker; do docker exec $c sh -c 'test -s /web/icons/icon_left_brand.png && test -n "$(ls /home/pi/Projects/HolyGrail-Branding/icons)"' && echo ok; done | xargs)"
   check authentik.app-icons '^[1-9][0-9]+$' "$(ls "$AKD/data/media/public/apps" 2>/dev/null | grep -c '\.svg$')"
   check authentik.login-page '^200$' "$(curl -s -m 10 -o /dev/null -w '%{http_code}' https://sso.holy-grail.ch/if/flow/default-authentication-flow/)"
