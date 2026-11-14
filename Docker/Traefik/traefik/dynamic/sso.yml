@@ -39,6 +39,15 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Authentik only refuses a next= URL with a host, so ///x, /\x, \\x, http:x or javascript: still redirect off-site after login (review 2026-11-14). Such requests never reach Authentik.
+    authentik-open-redirect-guard:
+      rule: 'Host(`sso.holy-grail.ch`) && QueryRegexp(`next`, `^[\x00-\x20]*([/\\]{2}|\\|[A-Za-z][A-Za-z0-9+.-]*:)`)'
+      entryPoints: ["websecure"]
+      priority: 100
+      service: noop@internal
+      tls:
+        certResolver: cloudflare
+
   middlewares:
     authentik-secure-headers:
       headers:
