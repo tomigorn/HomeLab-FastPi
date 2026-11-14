@@ -24,6 +24,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./www:/srv:ro
+      - ./www-admin:/srv-admin:ro
     tmpfs:
       - /tmp
     networks:

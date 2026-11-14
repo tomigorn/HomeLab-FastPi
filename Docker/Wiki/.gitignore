@@ -24,3 +24,4 @@ auth.json
 
 # Generated: built site (owned by the build uid)
 /www/
+/www-admin/

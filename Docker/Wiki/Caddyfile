@@ -1,4 +1,10 @@
-# Static server for www/ (built by build.sh). Login, TLS, rate limit and headers are handled by Traefik.
+# Static server for www/ (guide) and www-admin/ (admin guide), built by build.sh. Login, TLS, rate limit and headers are handled by Traefik.
+# The admin host is only reachable through Traefik's admin-bound Authentik app; anything else is the plain guide.
+wiki-admin.holy-grail.ch:80 {
+	root * /srv-admin
+	file_server
+}
+
 :80 {
 	root * /srv
 	file_server
