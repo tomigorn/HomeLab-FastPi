@@ -37,7 +37,7 @@ Send your friend two things:
 | What | Detail |
 |---|---|
 | Group `streaming-users` | Jellyfin and the watch history (Tracker) |
-| Login | Password (at least 15 characters) and an authenticator app |
+| Login | Password (15+ characters with upper, lower, digit and symbol) and an authenticator app |
 
 Requests are **not** automatic. See [Give or remove access](access.md).
 
