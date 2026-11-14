@@ -471,6 +471,8 @@ helpers, but the group is per app); the older arr apps were created by hand (see
 | Audiobook requests login (`books-login`, hidden) | OIDC `books-login`, confidential, scopes openid/email/profile + `abr` | `streaming-requesters` | ABR's OIDC login. Redirect `/auth/oidc`. Scope mapping `AudioBookRequest groups` sends `abr_groups`: `admin` for `streaming-admins`, `trusted` (auto-download) for `streaming-requesters`, else `untrusted`. Limit 5 books / 7 days for everyone: `Audiobook-Requests` books-proxy. Client id + secret go to `Audiobook-Requests/secrets/abr_oidc_client.json`, then `Audiobook-Requests/scripts/abr-setup.py` |
 | Machines (`server-specs`) | forward auth `server-specs-proxy` | none: every logged-in user | specs.holy-grail.ch (Server-Specs). In `scripts/provision-specs-sso.py` (`REMOVE = True` takes it out again) |
 
+**Wiki public page:** `provision-wiki-sso.py` sets `skip_path_regex` on `wiki-proxy`, so only `/getting-started/` and `/assets/{stylesheets,javascripts,css,images}/…` need no login (anchored regexes, no dot-leading path segments); everything else, `search_index.json` included, stays behind the SSO. Check: `wiki.public-getting-started` and `wiki.private-rest` in `_global/post-update.d/Wiki.sh`.
+
 Run it (the ENV lines carry the Seerr client id/secret to beefy, key names only on screen):
 
 ```bash
