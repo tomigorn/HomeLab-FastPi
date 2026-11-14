@@ -36,7 +36,7 @@ A scripted browser (Playwright) walked the whole path with a throwaway account: 
 | 5 | TOTP setup (order 40) | yes | no text field |
 | 6 | login (order 100) → redirect (order 110) → `https://avatars.holy-grail.ch/`, signed in | page navigates at once | yes, under the title |
 
-Unique email: sign-up and the user settings refuse an address another account uses (expression policy `unique-email`, `scripts/unique-email.py`). Email links (sign-up, forgot password) expire after 10 min (`scripts/flow-hardening.py`).
+Unique email: sign-up and the user settings refuse an address another account uses, with a neutral message and at most 10 checks per hour per account or client IP (expression policy `unique-email`, `scripts/unique-email.py`). Email links (sign-up, forgot password) expire after 10 min (`scripts/flow-hardening.py`).
 
 Password check: every form with a password field (sign-up, change, forgot, first setup) is validated by the expression policy `password-check-vault-hint` (`scripts/password-vault-hint.py`). It runs `enrollment-password-policy` and adds a KeePassXC/Bitwarden tip to every failure; the password policies themselves are not bound.
 

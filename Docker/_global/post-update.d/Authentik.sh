@@ -64,6 +64,16 @@ if _ue:
     _r2 = _PR(_U.objects.get(username="tomigorn-admin")); _r2.context["prompt_data"] = {"email": "nobody@example.com"}
     _ue_res = ("blocks" if not _a.passing else "lets through") + " " + ("free ok" if _ue.passes(_r2).passing else "free blocked")
 _ue_on = sum(_PS.objects.get(name=n).validation_policies.filter(name="unique-email").exists() for n in ["invitation-enrollment-prompt-credentials-enrollment", "default-user-settings"])
+if _ue:
+    from django.core.cache import cache as _cache
+    _adm = _U.objects.get(username="tomigorn-admin")
+    _cache.delete(f"unique-email:u{_adm.pk}")
+    _seq = []
+    for _ in range(11):
+        _r3 = _PR(_adm); _r3.context["prompt_data"] = {"email": "nobody@example.com"}
+        _seq.append(_ue.passes(_r3).passing)
+    _cache.delete(f"unique-email:u{_adm.pk}")
+    _ue_res += " throttle " + ("ok" if all(_seq[:10]) and not _seq[10] else "missing")
 out("unique-email", f"{_ue_on}/2 {_ue_res}")
 out("flow-hardening", f"{_rm.not_configured_action} {','.join(sorted(_rm.device_classes))} {' '.join(sorted({s.token_expiry for s in _ES.objects.all()}))}")
 out("akadmin", _U.objects.filter(username="akadmin", is_active=True).count())
@@ -118,7 +128,7 @@ PY
   check authentik.password-min '^15$' "$(akv pw-min)"
   check authentik.password-vault-hint '^([1-9][0-9]*)/\1 tip$' "$(akv pw-hint)"
   check authentik.flow-hardening '^deny static,totp,webauthn minutes=10$' "$(akv flow-hardening)"
-  check authentik.unique-email '^2/2 blocks free ok$' "$(akv unique-email)"
+  check authentik.unique-email '^2/2 blocks free ok throttle ok$' "$(akv unique-email)"
   check authentik.akadmin-off '^0$' "$(akv akadmin)"
   check authentik.avatar-source '^attributes\.avatar,initials$' "$(akv avatars)"
   check authentik.groups '^7/7$' "$(akv groups)"
