@@ -22,7 +22,9 @@ print(f"POLICY {NAME}: {'created' if created else 'ok'}")
 for stage in PromptStage.objects.all():
     if not stage.fields.filter(type="password").exists():
         continue
-    before = [p.name for p in stage.validation_policies.all()]
-    if before != [NAME]:
-        stage.validation_policies.set([policy])
-    print(f"STAGE {stage.name}: {'was ' + ','.join(before or ['none']) if before != [NAME] else 'ok'}")
+    stale = [p for p in stage.validation_policies.all() if isinstance(p, PasswordPolicy)]
+    missing = not stage.validation_policies.filter(pk=policy.pk).exists()
+    stage.validation_policies.remove(*stale)
+    if missing:
+        stage.validation_policies.add(policy)
+    print(f"STAGE {stage.name}: {'removed ' + ','.join(p.name for p in stale) + ' ' if stale else ''}{'added' if missing else 'ok'}")

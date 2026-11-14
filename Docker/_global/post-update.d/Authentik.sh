@@ -44,7 +44,8 @@ from authentik.stages.prompt.models import PromptStage as _PS
 from authentik.policies.expression.models import ExpressionPolicy as _EP
 from authentik.policies.types import PolicyRequest as _PR
 _pw = [s for s in _PS.objects.all() if s.fields.filter(type="password").exists()]
-_ok = sum([x.name for x in s.validation_policies.all()] == ["password-check-vault-hint"] for s in _pw)
+from authentik.policies.password.models import PasswordPolicy as _PP
+_ok = sum(s.validation_policies.filter(name="password-check-vault-hint").exists() and not any(isinstance(x, _PP) for x in s.validation_policies.all()) for s in _pw)
 _hint = _EP.objects.filter(name="password-check-vault-hint").first()
 _tip = "no policy"
 if _hint:
@@ -52,6 +53,19 @@ if _hint:
     _res = _hint.passes(_r)
     _tip = "tip" if not _res.passing and any("KeePassXC" in str(m) for m in _res.messages) else "no tip"
 out("pw-hint", f"{_ok}/{len(_pw)} {_tip}")
+from authentik.stages.authenticator_validate.models import AuthenticatorValidateStage as _AV
+from authentik.stages.email.models import EmailStage as _ES
+_rm = _AV.objects.get(name="default-recovery-mfa")
+_ue = _EP.objects.filter(name="unique-email").first()
+_ue_res = "no policy"
+if _ue:
+    _r = _PR(_U.objects.get(username="tomigorn-admin")); _r.context["prompt_data"] = {"email": _U.objects.get(username="tomigorn").email.upper()}
+    _a = _ue.passes(_r)
+    _r2 = _PR(_U.objects.get(username="tomigorn-admin")); _r2.context["prompt_data"] = {"email": "nobody@example.com"}
+    _ue_res = ("blocks" if not _a.passing else "lets through") + " " + ("free ok" if _ue.passes(_r2).passing else "free blocked")
+_ue_on = sum(_PS.objects.get(name=n).validation_policies.filter(name="unique-email").exists() for n in ["invitation-enrollment-prompt-credentials-enrollment", "default-user-settings"])
+out("unique-email", f"{_ue_on}/2 {_ue_res}")
+out("flow-hardening", f"{_rm.not_configured_action} {','.join(sorted(_rm.device_classes))} {' '.join(sorted({s.token_expiry for s in _ES.objects.all()}))}")
 out("akadmin", _U.objects.filter(username="akadmin", is_active=True).count())
 out("footer-help", any((l.get("href") or "") == "https://wiki.holy-grail.ch/getting-started/" for l in (tn.footer_links or [])))
 out("avatars", tn.avatars)
@@ -103,6 +117,8 @@ PY
   check authentik.footer-help '^True$' "$(akv footer-help)"
   check authentik.password-min '^15$' "$(akv pw-min)"
   check authentik.password-vault-hint '^([1-9][0-9]*)/\1 tip$' "$(akv pw-hint)"
+  check authentik.flow-hardening '^deny static,totp,webauthn minutes=10$' "$(akv flow-hardening)"
+  check authentik.unique-email '^2/2 blocks free ok$' "$(akv unique-email)"
   check authentik.akadmin-off '^0$' "$(akv akadmin)"
   check authentik.avatar-source '^attributes\.avatar,initials$' "$(akv avatars)"
   check authentik.groups '^7/7$' "$(akv groups)"

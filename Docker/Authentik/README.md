@@ -20,7 +20,7 @@ this is just where things stand.
 | Outbound mail (Brevo) | **working** | 2026-08-17: connected from `authentik-worker`, `EHLO 250`, STARTTLS offered, **SMTP AUTH succeeded**. No mail sent. |
 | Brevo domain auth | in place | `brevo-code` TXT at root, DKIM at `brevo1._domainkey` + `brevo2._domainkey`, DMARC present. (`mail._domainkey` is Brevo's *old* selector and is empty — that is expected, not a fault. No root SPF: normal for Brevo's automatic flow, which uses its own return-path.) |
 | Invite-only enrollment | **built and gated** | Invitation stage has `continue_flow_without_invitation=False`, so the flow refuses without a valid `itoken`. Stage order matches SETUP.md §3. |
-| Mandatory MFA | enforced | TOTP at order 40 + login-flow backstop denying device-less accounts |
+| Mandatory MFA | enforced | TOTP at order 40; login flow forces TOTP setup on device-less accounts (`configure`); "Forgot password" refuses them (`deny`, TOTP/WebAuthn/recovery codes only, `scripts/flow-hardening.py`) |
 | Nextcloud SSO (OIDC) | **working end to end** | 2026-08-16: a real login provisioned `user_oidc` account with groups `cloud-users`, `cloud-admins`, `admin` — Nextcloud admin rights confirmed |
 
 ### Invite sign-up (walked end to end 2026-11-14)
@@ -35,6 +35,8 @@ A scripted browser (Playwright) walked the whole path with a throwaway account: 
 | 4 | email link → confirm page (stock consent, guards against link scanners) | yes | no |
 | 5 | TOTP setup (order 40) | yes | no text field |
 | 6 | login (order 100) → redirect (order 110) → `https://avatars.holy-grail.ch/`, signed in | page navigates at once | yes, under the title |
+
+Unique email: sign-up and the user settings refuse an address another account uses (expression policy `unique-email`, `scripts/unique-email.py`). Email links (sign-up, forgot password) expire after 10 min (`scripts/flow-hardening.py`).
 
 Password check: every form with a password field (sign-up, change, forgot, first setup) is validated by the expression policy `password-check-vault-hint` (`scripts/password-vault-hint.py`). It runs `enrollment-password-policy` and adds a KeePassXC/Bitwarden tip to every failure; the password policies themselves are not bound.
 
