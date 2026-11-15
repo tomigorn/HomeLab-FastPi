@@ -50,6 +50,7 @@ CONFIG = Path(os.environ.get("SECSCAN_CONFIG", "/home/pi/Projects/.gitleaks.toml
 REPOS = {
     "fastpi": "https://github.com/tomigorn/HomeLab-FastPi.git",
     "beefy": "https://github.com/tomigorn/HomeLab-BeefyServer.git",
+    "wg-chores": "https://github.com/tomigorn/WG-Chores.git",
 }
 
 # Dotted basename components that mean "this file holds key material or
@@ -1368,7 +1369,9 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
 
 # ---- hourly code scan: images the repos refer to, matched against a fresh DB via cached SBOMs
 
-CODE_REPOS = {"fastpi": "linux/arm64", "beefy": "linux/amd64"}
+CODE_REPOS = {"fastpi": "linux/arm64", "beefy": "linux/amd64", "wg-chores": "linux/arm64"}
+# Repos whose lockfiles (Cargo.lock, package-lock.json, gradle.lockfile) are scanned too, from the published mirror
+LIB_REPOS = ("wg-chores",)
 SBOM_DIR = STATE / "sbom"
 SBOM_MAX_AGE = 86400
 # Docker Hub allows 100 manifest requests an hour and answers bursts with 429; the nightly scan and Cup need it too.
@@ -1491,6 +1494,40 @@ def resource_floor() -> str:
     return f"{avail} MB available, {disk} GB free" if avail < 1200 or disk < 20 else ""
 
 
+def lib_findings(repo: str, report: dict) -> tuple[dict[str, str], set[str]]:
+    """Fixable CRITICAL/HIGH of a `trivy fs` report as {<repo>:<lockfile>|id|pkg: severity}, plus every lockfile it parsed (clean ones included)."""
+    current: dict[str, str] = {}
+    scanned: set[str] = set()
+    for res in report.get("Results") or []:
+        name = f"{repo}:{res.get('Target', '?')}"
+        scanned.add(name)
+        for v in res.get("Vulnerabilities") or []:
+            sev = (v.get("Severity") or "").upper()
+            if sev in ("CRITICAL", "HIGH") and v.get("FixedVersion"):
+                current[f"{name}|{v.get('VulnerabilityID', '?')}|{v.get('PkgName', '?')}"] = sev
+    return current, scanned
+
+
+def scan_libs(repo: str) -> dict:
+    """`trivy fs` over HEAD of the repo's mirror, offline against the current DB. A failed scan raises: no lockfile is a normal, empty result."""
+    mirror = STATE / "mirrors" / f"{repo}.git"
+    with tempfile.TemporaryDirectory(dir=str(STATE), prefix=f"libs-{repo}-") as tmp:
+        tar = subprocess.run(["git", "-C", str(mirror), "archive", "HEAD"], capture_output=True, timeout=300)
+        if tar.returncode != 0:
+            raise RuntimeError(f"archive {repo}: {tar.stderr.decode()[:200]}")
+        r = subprocess.run(["tar", "-x", "-C", tmp], input=tar.stdout, capture_output=True, timeout=300)
+        if r.returncode != 0:
+            raise RuntimeError(f"unpack {repo}: {r.stderr.decode()[:200]}")
+        cmd = _trivy_cmd("fastpi", ["fs", "--scanners", "vuln", "--skip-db-update", "--skip-java-db-update", "--quiet",
+                                    "--format", "json", *accept_args(), "--timeout", "10m", "/src"], attach_proxy=False)
+        i = cmd.index(TRIVY_IMAGE)
+        cmd[i:i] = ["-v", f"{tmp}:/src:ro"]
+        out = run(cmd, timeout=1800)
+    if out.returncode != 0 or not out.stdout.strip():
+        raise RuntimeError(f"trivy fs {repo}: rc={out.returncode} {out.stderr.strip()[-200:]}")
+    return json.loads(out.stdout)
+
+
 def collect_code(repo: str) -> list:
     if floor := resource_floor():
         raise NoData(f"resource floor: {floor}")
@@ -1522,6 +1559,17 @@ def collect_code(repo: str) -> list:
         a = count_accepted(rep)
         for k in acc:
             acc[k] += a.get(k, 0)
+    scanned_imgs = {names[n] for n in reports}
+    if repo in LIB_REPOS:
+        lib_cur, lib_scanned = lib_findings(repo, scan_libs(repo))
+        for name in sorted(lib_scanned):
+            c = sum(1 for k, v in lib_cur.items() if k.rsplit("|", 2)[0] == name and v == "CRITICAL")
+            h = sum(1 for k, v in lib_cur.items() if k.rsplit("|", 2)[0] == name) - c
+            sev["CRITICAL"] += c
+            sev["HIGH"] += h
+            rows.append((c, h, f"{name} (lockfile)"))
+        current.update(lib_cur)
+        scanned_imgs |= lib_scanned
     rows.sort(reverse=True)
     lines += [f"{c:>8}  {h:>4}  {img}" for c, h, img in rows]
     missing = sorted(set(refs) - {names[n] for n in reports})
@@ -1534,7 +1582,7 @@ def collect_code(repo: str) -> list:
            ("security_code_images_unresolved", {"scope": scope}, unresolved)]
     out += [("security_code_vulnerabilities_fixable", {"scope": scope, "severity": k}, v) for k, v in sorted(sev.items())]
     out += [("security_code_vulnerabilities_accepted", {"scope": scope, "severity": k}, v) for k, v in sorted(acc.items())]
-    return out + findings_samples(scope, current, {names[n] for n in reports})
+    return out + findings_samples(scope, current, scanned_imgs)
 
 
 class NoData(Exception):

@@ -2422,6 +2422,30 @@ def _run_cli(script, args, env_paths):
         return r.returncode, r.stdout + r.stderr, calls, made
 
 
+def test_wg_chores_is_in_the_secret_and_code_scans():
+    assert security_scan.REPOS["wg-chores"] == "https://github.com/tomigorn/WG-Chores.git"
+    assert security_scan.CODE_REPOS["wg-chores"] == "linux/arm64"
+    assert "wg-chores" in security_scan.LIB_REPOS and "fastpi" not in security_scan.LIB_REPOS
+
+
+def test_lib_findings_keeps_fixable_critical_high_per_lockfile_and_lists_clean_targets_as_scanned():
+    report = {"Results": [
+        {"Target": "Cargo.lock", "Vulnerabilities": [
+            {"VulnerabilityID": "CVE-1", "PkgName": "rustls", "Severity": "HIGH", "FixedVersion": "0.23.5"},
+            {"VulnerabilityID": "CVE-2", "PkgName": "x", "Severity": "HIGH"},
+            {"VulnerabilityID": "CVE-3", "PkgName": "y", "Severity": "MEDIUM", "FixedVersion": "2"}]},
+        {"Target": "web/package-lock.json"},
+    ]}
+    cur, scanned = security_scan.lib_findings("wg-chores", report)
+    assert cur == {"wg-chores:Cargo.lock|CVE-1|rustls": "HIGH"}
+    assert scanned == {"wg-chores:Cargo.lock", "wg-chores:web/package-lock.json"}
+
+
+def test_lib_findings_without_lockfiles_is_empty_not_an_error():
+    for rep in ({}, {"Results": None}, {"Results": []}):
+        assert security_scan.lib_findings("wg-chores", rep) == ({}, set())
+
+
 def test_help_and_unknown_groups_print_usage_and_do_nothing():
     script = Path(__file__).parent / "security_scan.py"
     for args, want in ((["--help"], 0), (["-h"], 0), (["--bogus"], 2), (["secrets", "nonsense"], 2)):

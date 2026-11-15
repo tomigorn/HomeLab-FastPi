@@ -5,7 +5,7 @@ pipeline that already exists (`security_scan.py <group>`; `--help` lists the gro
 
 | Concern | Group | What answers it | Hosts | Cadence |
 |---|---|---|---|---|
-| Are any secrets public? | `secrets` | gitleaks over the published GitHub history of both repos | repos | daily 04:05 |
+| Are any secrets public? | `secrets` | gitleaks over the published GitHub history of the three repos (fastpi, beefy, `wg-chores` = WG-Chores) | repos | daily 04:05 |
 | Could a secret become public? | `secrets` | filename hygiene check + a pre-commit hook | fastpi | daily / every commit |
 | Is the OS patched? | `patches` | `apt list --upgradable`, security updates counted separately | fastpi, beefy | daily 04:05 |
 | Is Unraid patched? | `patches` | `plugin checkall` + `unraidcheck` (json, no Unraid notification) | tower | daily 04:05 |
@@ -17,7 +17,7 @@ pipeline that already exists (`security_scan.py <group>`; `--help` lists the gro
 | Malware? | `av` | pulls the ClamAV results of the nightly scans (`Docker/antivirus`; beefy 04:05, fastpi and tower 05:00) | all three | daily 04:20 (beefy), 05:40, 05:50 (fastpi, tower); never wakes beefy or tower, a sleeping host is skipped |
 | Was anything quarantined (nightly, beefy's download hook and queue)? | `avhits` (also inside `av`) | each host's quarantine `index.txt`, see "Quarantined hits" | all three | every 15 min (`security-av-hits.timer`); beefy/tower only while the Waker sees them up, always via `-direct` (never wakes) |
 | Are container images vulnerable? | `images` | Trivy across the images actually running; new fixable CRITICAL/HIGH findings diffed against `vulns-seen-<host>.json`; reviewed misreports counted apart as accepted (`trivy-accepted.yaml`) | all three | daily 04:10 |
-| Do the images in the code have a NEW CVE? | `code` | every image the two repos refer to (compose `image:`, Dockerfile `FROM`; a variable `FROM ${X}` is skipped, so beefy's FlareSolverr build is only scanned as the local image `flaresolverr-local:current` by the image scan), cached SBOMs matched against the current Trivy DB; alert per new finding | repos | daily 03:40 (`security-code-scan.timer`) |
+| Do the images in the code have a NEW CVE? | `code` | every image the three repos refer to (compose `image:`, Dockerfile `FROM`; a variable `FROM ${X}` is skipped, so beefy's FlareSolverr build is only scanned as the local image `flaresolverr-local:current` by the image scan), cached SBOMs matched against the current Trivy DB; alert per new finding. `wg-chores` (`LIB_REPOS`, platform linux/arm64) also gets `trivy fs` over its mirror's lockfiles (`Cargo.lock`, `web/package-lock.json`, `gradle.lockfile`; a Gradle version catalog alone is not read by Trivy): reported as `wg-chores:<lockfile>`, no lockfile or no finding = empty, never an alert | repos | daily 03:40 (`security-code-scan.timer`) |
 | One CVE dashboard over everything that runs? | `dt` | CycloneDX SBOM per running image (fastpi: local Docker; beefy: registry copy of the running digest, built on fastpi; local beefy builds from the image scan's exported tar, else via their Dockerfile base) + one OS SBOM per host (Trivy `rootfs` over os-release, lsb-release (Ubuntu), debian_version, dpkg status) uploaded to Dependency-Track on beefy, see "Dependency-Track" | fastpi, beefy (tower: Unraid/Slackware, no Trivy OS support) | daily 04:02 (`security-dt.timer`), only if DT answers |
 | Are images updated? | `updates` (beefy's result) | tiered auto-update with rollback, see [auto-updates.md](auto-updates.md); beefy's `auto_update.prom` republished as `auto_update_beefy.prom` | fastpi, beefy | daily 03:10 fastpi, 04:12 beefy (`auto-update.timer`); pull 04:20 (with `av`) |
 | Are the lists and scanners current? | `freshness` | AdGuard filter, Trivy databases, scanner versions | fastpi | daily 04:05 |
@@ -41,7 +41,7 @@ Metrics:
 | `security_data_updated_timestamp_seconds` | source |
 | `security_scanner_version_info`, `security_scanner_behind` | tool |
 | `security_lynis_hardening_index`, `security_lynis_warnings` | host |
-| `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`) / + severity |
+| `security_code_images`, `…_scanned`, `…_unresolved`, `security_code_vulnerabilities_fixable` | scope (`code-fastpi`, `code-beefy`, `code-wg-chores`) / + severity |
 | `security_new_vulns`, `security_new_vuln_info` (first seen < 24 h, newest 20) | scope (host or `code-<repo>`) / + image, id, pkg, severity |
 | `security_image_vulnerabilities_accepted`, `security_code_vulnerabilities_accepted` (suppressed by the acceptance list, not in the fixable counts) | host / scope, severity |
 | `security_accept_entries`, `security_accept_expiry_timestamp_seconds` (active and expired entries) | state (`active`, `expired`, `invalid`) / id, scope |
