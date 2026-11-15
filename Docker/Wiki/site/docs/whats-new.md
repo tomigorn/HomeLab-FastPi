@@ -5,6 +5,10 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 ## 15 November 2026
 
 <!-- only: streaming-requesters -->
+**New page: Manual interaction.** In the Requests site's menu (German: *Manuell beheben*), with a number when something needs a hand: downloads that went wrong, titles nothing was found for, files that could not be sorted in. Anyone with request access can help: pick the right title, assign files to episodes, block a wrong release and search again, or switch an old title to "older versions allowed".
+<!-- /only -->
+
+<!-- only: streaming-requesters -->
 **Requests page: more at a glance.** Next to the seasons you see how many episodes there are; the size line shows the average per episode (`⌀ 4.2 GB/ep`) and per hour (`10.1 GB/h`), with ⚠️ **Remux** or ⚠️ **very big** for unusually large files. The **GB** sort now also sorts per file and per hour. A title that was removed from the server says so (⚠️) instead of "waiting for the night". [Requests](apps/requests.md)
 <!-- /only -->
 
