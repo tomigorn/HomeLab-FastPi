@@ -18,7 +18,7 @@ test("bottom bar: Seerr's six entries, Audiobooks active", async () => {
   const active = [...w.document.querySelectorAll("#hg-nav a.hg-nav-active")];
   assert.deepEqual(active.map((a) => a.textContent.trim()), ["Audiobooks"]);
   assert.equal(active[0].getAttribute("aria-current"), "page");
-  assert.equal(w.document.querySelectorAll("#hg-nav svg").length, 6);
+  assert.equal(w.document.querySelectorAll("#hg-nav a svg").length, 6);
   w.close();
 });
 
@@ -39,15 +39,51 @@ test("no bar on login, auth and init pages", async () => {
   }
 });
 
-test("added once, styles narrow-only with safe area and body padding", async () => {
+test("added once, styles below lg only with safe area and body padding", async () => {
   const w = load("nav.js", NAVBAR, null, "https://books.example.com/wishlist", "");
   await tick();
   w.eval(require_nav());
   assert.equal(w.document.querySelectorAll("#hg-nav").length, 1);
   const css = w.document.getElementById("hg-nav-style").textContent;
-  assert.match(css, /max-width:\s*639px/);
+  assert.match(css, /max-width:\s*1023px/);
   assert.match(css, /safe-area-inset-bottom/);
   assert.match(css, /body\s*\{[^}]*padding-bottom/);
+  w.close();
+});
+
+test("desktop sidebar: Seerr's lg breakpoint, 16rem wide, content shifted, indexer bar stays on top", async () => {
+  const w = load("nav.js", NAVBAR, null, "https://books.example.com/search", "");
+  await tick();
+  const css = w.document.getElementById("hg-nav-style").textContent;
+  const wide = css.slice(css.indexOf("min-width:1024px"));
+  assert.ok(css.includes("@media (min-width:1024px)"));
+  assert.match(wide, /#hg-nav\{[^}]*position:fixed[^}]*width:16rem/);
+  assert.match(wide, /top:var\(--ib-h,0px\)/);
+  assert.match(wide, /linear-gradient\(#1f2937/);
+  assert.match(wide, /body\{[^}]*padding-left:16rem/);
+  assert.match(wide, /hg-nav-active\{[^}]*linear-gradient\([^}]*#4f46e5/);
+  assert.match(wide, /#hg-nav a span\{[^}]*position:static/);
+  w.close();
+});
+
+test("logo block: book icon and the title, EN and DE, not a link", async () => {
+  const en = load("nav.js", NAVBAR, null, "https://books.example.com/", "");
+  await tick();
+  const logo = en.document.querySelector("#hg-nav .hg-nav-logo");
+  assert.equal(logo.textContent.trim(), "Audiobooks");
+  assert.ok(logo.querySelector("svg"));
+  assert.equal(logo.closest("a"), null);
+  en.close();
+  const de = load("nav.js", NAVBAR, (win) => Object.defineProperty(win.navigator, "language", { value: "de-DE" }), "https://books.example.com/", "");
+  await tick();
+  assert.equal(de.document.querySelector("#hg-nav .hg-nav-logo").textContent.trim(), "Hörbücher");
+  de.close();
+});
+
+test("logo is hidden below lg", async () => {
+  const w = load("nav.js", NAVBAR, null, "https://books.example.com/", "");
+  await tick();
+  assert.match(w.document.getElementById("hg-nav-style").textContent, /\.hg-nav-logo\{display:none\}/);
   w.close();
 });
 

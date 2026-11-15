@@ -1,5 +1,5 @@
 // Seerr-style phone bottom bar (Discover, Movies, Series, Audiobooks, Manual interaction, Requests), so books and Seerr feel like one app.
-// Below 640 px only; icons are Seerr's own (Heroicons outline). No Manual count: Seerr's count endpoint needs Seerr's session cookie, not reachable from this origin.
+// Phone bar below 1024 px (Seerr's lg), left sidebar from 1024 px; icons are Seerr's own (Heroicons outline). No Manual count: Seerr's count endpoint needs Seerr's session cookie, not reachable from this origin.
 (function () {
   var S = "https://requests.holy-grail.ch";
   var LINKS = [
@@ -10,14 +10,27 @@
     { label: "Manual interaction", de: "Manuell beheben", href: S + "/_manual/", deHref: S + "/_manual/?lang=de", icon: "M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" },
     { label: "Requests", de: "Anfragen", href: S + "/requests", icon: "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" }
   ];
-  var CSS = "#hg-nav{display:none}" +
-    "@media (max-width:639px){" +
+  var CSS = "#hg-nav{display:none}.hg-nav-logo{display:none}" +
+    "@media (max-width:1023px){" +
     "#hg-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:#1f2937;border-top:1px solid #374151;padding-bottom:env(safe-area-inset-bottom)}" +
     "#hg-nav a{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:3.5rem;color:#9ca3af;text-decoration:none;font:500 10px/1.1 system-ui,sans-serif;text-align:center;padding:0 2px}" +
     "#hg-nav a span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
     "#hg-nav a svg{width:1.5rem;height:1.5rem}" +
     "#hg-nav a.hg-nav-active{color:#6366f1}" +
     "body{padding-bottom:calc(3.5rem + env(safe-area-inset-bottom))}" +
+    "}" +
+    "@media (min-width:1024px){" +
+    "#hg-nav{display:flex;flex-direction:column;position:fixed;left:0;top:var(--ib-h,0px);bottom:0;width:16rem;z-index:30;box-sizing:border-box;background:linear-gradient(#1f2937 0%,#131928 100%);border-right:1px solid #374151;padding:0 1rem 1rem;overflow-y:auto}" +
+    "#hg-nav .hg-nav-logo{display:flex;align-items:center;gap:.75rem;height:6rem;flex:none;padding:0 .5rem;color:#f9fafb;font:600 1.5rem/1 Inter,ui-sans-serif,system-ui,sans-serif}" +
+    "#hg-nav .hg-nav-logo svg{width:2.5rem;height:2.5rem;flex:none;padding:.5rem;box-sizing:border-box;border-radius:9999px;background:linear-gradient(135deg,#4f46e5,#9333ea);color:#fff}" +
+    "#hg-nav a{display:flex;align-items:center;gap:.75rem;margin-top:1rem;padding:.5rem;border-radius:.375rem;color:#fff;text-decoration:none;font:500 1.125rem/1.5rem Inter,ui-sans-serif,system-ui,sans-serif;transition:background .15s}" +
+    "#hg-nav .hg-nav-logo+a{margin-top:2rem}" +
+    "#hg-nav a:hover,#hg-nav a:focus-visible{background:#374151;outline:none}" +
+    "#hg-nav a svg{width:1.5rem;height:1.5rem;flex:none}" +
+    "#hg-nav a span{position:static;width:auto;height:auto;overflow:visible;clip:auto;white-space:normal}" +
+    "#hg-nav a.hg-nav-active{color:#fff;background:linear-gradient(135deg,#4f46e5,#9333ea)}" +
+    "#hg-nav a.hg-nav-active:hover{background:linear-gradient(135deg,#6366f1,#a855f7)}" +
+    "body{padding-left:16rem}" +
     "}";
   function add() {
     if (document.getElementById("hg-nav") || /^\/(auth|login|init)/.test(location.pathname)) return;
@@ -45,6 +58,12 @@
       a.appendChild(svg); a.appendChild(t);
       nav.appendChild(a);
     });
+    var book = LINKS[3], logo = document.createElement("div");
+    logo.className = "hg-nav-logo";
+    var lsvg = nav.querySelector("a.hg-nav-active svg").cloneNode(true), lt = document.createElement("span");
+    lt.textContent = de ? book.de : book.label;
+    logo.appendChild(lsvg); logo.appendChild(lt);
+    nav.insertBefore(logo, nav.firstChild);
     document.body.appendChild(nav);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", add); else add();
