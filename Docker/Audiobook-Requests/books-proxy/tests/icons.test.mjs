@@ -63,3 +63,11 @@ test("manifest: Audiobooks, our android icons", () => {
   ]);
   for (const i of m.icons) assert.ok(existsSync(new URL(i.src.replace("/_hg/icons/", ""), ICONS)), i.src);
 });
+
+test("pages point to our icon URLs, never ABR's /static ones (browsers keep those cached for a year)", () => {
+  const conf = readFileSync(new URL("../nginx.conf", import.meta.url), "utf8");
+  const root = conf.slice(conf.indexOf("        location / {"));
+  for (const file of ["apple-touch-icon.png", "favicon.svg", "favicon-32x32.png", "favicon-16x16.png", "site.webmanifest"]) {
+    assert.ok(root.includes(`sub_filter '/static/${file}?v=' '/_hg/icons/${file}?hg=1&v=';`), file);
+  }
+});

@@ -75,6 +75,7 @@ Our favicon set instead of ABR's dark gift box: purple gradient circle (sidebar 
 |---|---|
 | files | `books-proxy/www/icons/`: `favicon.svg` (master), `favicon-16x16.png`, `favicon-32x32.png`, `favicon.ico` (16/32/48), `apple-touch-icon.png` (180, square for iOS), `android-chrome-{192,512}.png`, `site.webmanifest` ("Audiobooks") |
 | served | `books-proxy/nginx.conf`: `location =` for every icon URL ABR's `BaseLayout.jinja` links (`/static/favicon.svg`, `-32x32.png`, `-16x16.png`, `apple-touch-icon.png`, `site.webmanifest`) and `/favicon.ico`; 1 h cache (ABR's `?v=` only changes with ABR); android icons via `/_hg/icons/` |
+| page links | `sub_filter` rewrites the 5 `/static/…?v=` icon links to `/_hg/icons/…?hg=1&v=…`: ABR serves its own icons with `max-age=31536000`, so a browser that saw them keeps the old icon under the old URL. Bump `hg=` when the icons change |
 | PNGs / ICO | rendered from `favicon.svg` with headless Chromium (apple icon: same SVG with a square background), ICO packed with Pillow |
 | tests | `books-proxy/tests/icons.test.mjs` (files, sizes, nginx locations), `bash books-proxy/tests/icons-live.sh` (running proxy: our bytes, types, not ABR's, the page links nothing else) |
 

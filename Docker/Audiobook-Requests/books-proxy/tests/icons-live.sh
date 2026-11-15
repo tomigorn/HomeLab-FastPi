@@ -30,7 +30,7 @@ done <<'EOF'
 EOF
 
 links=$(docker exec books-proxy curl -s -m 5 "$BP/auth/login?backup=1" | tr '\n' ' ' | grep -oE '<link[^>]*rel="(icon|apple-touch-icon|manifest)"[^>]*>' | grep -oE 'href="[^"?]*' | cut -d'"' -f2 | sort | xargs)
-want="/static/apple-touch-icon.png /static/favicon-16x16.png /static/favicon-32x32.png /static/favicon.svg /static/site.webmanifest"
-[[ $links == "$want" ]] && ok "page icon links all overridden" || bad "page icon links changed: $links"
+want="/_hg/icons/apple-touch-icon.png /_hg/icons/favicon-16x16.png /_hg/icons/favicon-32x32.png /_hg/icons/favicon.svg /_hg/icons/site.webmanifest"
+[[ $links == "$want" ]] && ok "page icon links point to our /_hg/icons URLs" || bad "page icon links changed: $links"
 
 ((fail == 0)) && echo "icons-live: all passed" || { echo "icons-live: FAILED"; exit 1; }
