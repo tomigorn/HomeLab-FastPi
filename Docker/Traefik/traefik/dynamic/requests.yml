@@ -27,6 +27,21 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Static build files (Seerr's /_next/static, our versioned /_indexer-bar scripts and styles, the icons) skip forward
+    # auth: public code (Seerr is open source, our scripts are in the public repo), and the SSO round trip on each of them
+    # made page loads slow (owner 2026-11-15). No requests-wake: an anonymous hit must never boot beefy (502 while it
+    # sleeps; the pages that load these files already woke it). Pages, /api, /_indexer-bar data and /_next/image stay gated.
+    requests-static:
+      rule: "Host(`requests.holy-grail.ch`) && (PathPrefix(`/_next/static/`) || PathRegexp(`^/_indexer-bar/[a-z0-9-]+\\.(js|css)$`) || Path(`/favicon.ico`) || Path(`/favicon-16x16.png`) || Path(`/favicon-32x32.png`) || Path(`/apple-touch-icon.png`) || Path(`/site.webmanifest`) || PathRegexp(`^/android-chrome-[0-9]+x[0-9]+\\.png$`))"
+      entryPoints: ["websecure"]
+      priority: 5
+      service: requests
+      middlewares:
+        - default-rate-limit@file
+        - requests-secure-headers
+      tls:
+        certResolver: cloudflare
+
     requests:
       rule: "Host(`requests.holy-grail.ch`)"
       entryPoints: ["websecure"]
