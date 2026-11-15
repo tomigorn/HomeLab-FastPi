@@ -1,0 +1,53 @@
+# WG Chores v2 (code: ~/Documents/development/WG-Chores, deploy: Docker/WG-Chores-v2, Docker/WG-Chores-Demo).
+#
+# https://wg-chores.holy-grail.ch/        the WG's server, SSO only (app OIDC "wg-chores", group WG)
+# https://wg-chores-demo.holy-grail.ch/   public demo, local accounts, reset every night
+#
+# No authentik@file on purpose: the app does OIDC itself (/auth/oidc/*) because the Android app needs the API; Authentik's policy binding (group WG) is the gate.
+# real-ip + crowdsec come from the websecure entrypoint. The app sends its own CSP, X-Frame-Options, Permissions-Policy, nosniff and Referrer-Policy: only HSTS is added here.
+# The v1 route (wg-aemtli.ddns.net) stays in wg-chores.yml until the switch.
+http:
+  routers:
+    wg-chores-v2:
+      rule: "Host(`wg-chores.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: wg-chores-v2
+      middlewares:
+        - default-rate-limit@file
+        - wg-chores-v2-secure-headers
+      tls:
+        certResolver: cloudflare
+
+    wg-chores-demo:
+      rule: "Host(`wg-chores-demo.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: wg-chores-demo
+      middlewares:
+        - default-rate-limit@file
+        - wg-chores-v2-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    wg-chores-v2-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    wg-chores-v2:
+      loadBalancer:
+        servers:
+          - url: "http://wg-chores-v2:8080"
+        passHostHeader: true
+
+    wg-chores-demo:
+      loadBalancer:
+        servers:
+          - url: "http://wg-chores-demo:8080"
+        passHostHeader: true
