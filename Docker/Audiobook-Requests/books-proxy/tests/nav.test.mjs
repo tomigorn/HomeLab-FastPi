@@ -89,3 +89,18 @@ test("logo is hidden below lg", async () => {
 
 import { readFileSync } from "node:fs";
 function require_nav() { return readFileSync(new URL("../www/nav.js", import.meta.url), "utf8"); }
+
+test("bottom bar colours match Seerr's mobile menu, active icon filled", async () => {
+  const w = load("nav.js", NAVBAR, null, "https://books.example.com/search", "");
+  await tick();
+  const css = w.document.getElementById("hg-nav-style").textContent;
+  const narrow = css.slice(css.indexOf("max-width:1023px"), css.indexOf("min-width:1024px"));
+  assert.match(narrow, /#hg-nav\{[^}]*background:rgba\(31,41,55,\.9\)/);
+  assert.match(narrow, /#hg-nav\{[^}]*backdrop-filter:blur/);
+  assert.match(narrow, /#hg-nav\{[^}]*border-top:1px solid #4b5563/);
+  assert.match(narrow, /#hg-nav a\{[^}]*color:#f3f4f6/);
+  const svg = w.document.querySelector("#hg-nav a.hg-nav-active svg");
+  assert.equal(svg.getAttribute("fill"), "currentColor");
+  assert.equal(w.document.querySelector("#hg-nav a:not(.hg-nav-active) svg").getAttribute("fill"), "none");
+  w.close();
+});
