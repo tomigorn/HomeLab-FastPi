@@ -138,6 +138,11 @@ The Samsung app signs in to Jellyfin with Quick Connect like the others, but its
 Limit: **10 requests per person per 7 days**. At the limit you see **"Request limit reached"** and Submit is greyed out.
 
 <!-- /only -->
+## Picture in picture (iPhone) {#8-picture-in-picture}
+While a video plays, swipe up to the home screen: the video keeps playing in a small window. There is no button or setting for it in Moonfin.
+
+Nothing happens? iPhone **Settings → General → Picture in Picture → Start PiP Automatically**: on.
+
 ## Playback problems on Apple TV {#7-playback-problems-on-apple-tv}
 | Problem | Try this |
 |---|---|
