@@ -11,6 +11,7 @@ UNITS=(
   Server/4-Security-Monitoring/security-av.service Server/4-Security-Monitoring/security-av-hits.service
   Server/4-Security-Monitoring/security-code-scan.service Server/4-Security-Monitoring/security-dt.service
   Server/4-Security-Monitoring/beefy-idle-pull.service
+  Docker/mouse/systemd/mouse-netns-watch.service
 )
 NEED=(NoNewPrivileges=true ProtectSystem=strict ProtectHome=read-only PrivateTmp=true PrivateDevices=true
   ProtectKernelTunables=true ProtectKernelModules=true ProtectKernelLogs=true ProtectControlGroups=true

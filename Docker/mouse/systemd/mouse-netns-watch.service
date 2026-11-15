@@ -1,0 +1,34 @@
+[Unit]
+Description=Restart mouse containers left in a dead network namespace after gluetun_mouse restarted (alert via oob-alert.sh when restarts do not help)
+Documentation=file:///home/pi/Projects/Docker/mouse/README.md
+After=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+SupplementaryGroups=docker
+StateDirectory=mouse-netns-watch
+Environment=HOME=/home/pi
+# CAP_SYS_PTRACE only to read other uids' /proc/<pid>/ns/net
+AmbientCapabilities=CAP_SYS_PTRACE
+CapabilityBoundingSet=CAP_SYS_PTRACE
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/mouse/scripts/netns-watch.py
+TimeoutStartSec=180
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

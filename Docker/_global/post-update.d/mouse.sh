@@ -48,6 +48,11 @@ if want gluetun; then
   check mouse.gluetun-control-auth '^401 401$' "$(echo "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:8000/v1/portforward) $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:8000/v1/vpn/status)")"
   check mouse.vpn-egress '^vpn$' "$(h=$(curl -s -m 8 https://ifconfig.me/ip); q=$(docker exec qbittorrent_mouse wget -qO- -T 8 https://ifconfig.me/ip 2>/dev/null); [[ -n $q && -n $h && $q != "$h" ]] && echo vpn || echo "home or none")"
 fi
+if want gluetun qbittorrent sabnzbd mousehole prowlarr prowlarr-gate; then
+  # timer on, units as in the repo, last pass under 3 min ago, no container left outside gluetun's netns
+  check mouse.netns-watch '^active same fresh 0$' "$(systemctl is-active mouse-netns-watch.timer) $(for u in service timer; do cmp -s "$(dirname "${BASH_SOURCE[0]}")/../../mouse/systemd/mouse-netns-watch.$u" /etc/systemd/system/mouse-netns-watch.$u || echo differ; done | grep -q . && echo differ || echo same) $(python3 -c 'import json,sys,time
+s = json.load(open(sys.argv[1])); print("fresh" if time.time() - s.get("checked", 0) < 180 else "old", len(s.get("stale", [])))' /var/lib/mouse-netns-watch/state.json 2>&1 | tail -1)"
+fi
 if want sabnzbd; then
   check mouse.sab-whitelist '^10\.24\.32\.0/24, 192\.168\.1\.0/24, 10\.24\.25\.3/32, 10\.24\.5\.5/32 \| True$' "$(python3 -c 'import re,sys
 m = open(sys.argv[1]).read().split("[misc]")[1].split("\n[")[0]

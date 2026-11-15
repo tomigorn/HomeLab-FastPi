@@ -1,0 +1,11 @@
+[Unit]
+Description=Every 30 s: mouse containers back into gluetun_mouse's network namespace
+Documentation=file:///home/pi/Projects/Docker/mouse/README.md
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

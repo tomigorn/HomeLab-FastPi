@@ -33,7 +33,7 @@ Host network, but smbd/nmbd, wsdd2 (Windows discovery) and avahi (`_smb._tcp`, F
 ## Prowlarr (audiobooks)
 Indexer for AudioBookRequest (`Docker/Audiobook-Requests`), container `prowlarr_mouse` in gluetun's netns (MAM sees the VPN IP), uid 65054, listens on `127.0.0.1:9696` only, auth External (Holy Grail).
 
-After a gluetun restart Prowlarr and the gate are left in the old, loopback-only netns (`/ping` on lo still answers): their healthcheck also needs `eth0` in `/proc/net/dev`, so they turn unhealthy and `autoheal-mouse` (every 5 min) restarts them into the new netns; compose restarts them with gluetun (`depends_on … restart: true`). qBittorrent, SABnzbd and Mousehole are reattached by port-updater. Drill 2026-11-02: `docker restart gluetun_mouse` → Prowlarr back without help.
+After a gluetun restart Prowlarr and the gate are left in the old, loopback-only netns (`/ping` on lo still answers): their healthcheck also needs `eth0` in `/proc/net/dev`, so they turn unhealthy and `autoheal-mouse` (every 5 min) restarts them into the new netns; compose restarts them with gluetun (`depends_on … restart: true`). The netns watch below does all five within a minute.
 
 `prowlarr-gate` (nginx, uid 65057, same netns, `:9697`, `prowlarr-gate/nginx.conf`) is the only way in: Traefik (`10.24.25.3`, after Holy Grail) gets the UI; everyone else only `/api/` and download paths with the API key (403 otherwise; e.g. ABR, the importer pass-through, ABR's requests bar collector `abr-bar-usage`). Prowlarr 2.x has only Forms login (no Basic, no header login), so Holy Grail stays the one login and the gate replaces it for everyone else.
 
@@ -49,3 +49,18 @@ The netns neighbours (qBittorrent, SABnzbd, Mousehole) cannot skip the gate: `gl
 | AudioBookBay | not in Prowlarr's indexer list (removed upstream); ABR cannot use it |
 | Tests | `python3 -m unittest discover -s Docker/mouse/scripts` |
 | After an image bump | `sudo python3 scripts/prowlarr-setup.py --check` |
+
+## netns watch (gluetun restarts)
+Containers sharing gluetun's netns (`network_mode: service:gluetun`) keep the old, dead one when gluetun restarts outside compose or port-updater (crash, autoheal, `docker restart`): no network, no leak. `mouse-netns-watch.timer` fixes that.
+
+| What | Value |
+|---|---|
+| How | every 30 s `scripts/netns-watch.py`: when gluetun runs and is healthy, each running `mouse` container whose `/proc/<pid>/ns/net` differs from gluetun's is restarted; nothing while gluetun is down or starting |
+| Limits | 2 restarts per container, 60 s apart; still outside → one Telegram (`_global/scripts/oob-alert.sh`), no more restarts until it is back; a container joined to a removed gluetun → alert only (`docker compose up -d <service>`) |
+| Units | `systemd/mouse-netns-watch.{service,timer}`, user pi + docker group, only `CAP_SYS_PTRACE` (reads other uids' netns), state `/var/lib/mouse-netns-watch/state.json` |
+| Install | `sudo install -m 0644 systemd/mouse-netns-watch.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mouse-netns-watch.timer` |
+| Look | `sudo python3 scripts/netns-watch.py --check`, `journalctl -u mouse-netns-watch -n 20` |
+| Drill 2026-11-15 | `docker restart gluetun_mouse`: healthy after 9 s, all five restarted from +11 s, back with VPN egress at +28 s |
+| Tests | `python3 -m unittest discover -s Docker/mouse/scripts` |
+
+Why gluetun restarted on 2026-11-07 19:11: Proton's NAT-PMP answered "connection refused" (it does every few days); gluetun then removed its port rule, parsed INPUT, hit the jump to the custom chain `MOUSE-TRAEFIK` and crashed (crashes until 2026-11-09 00:51). Fixed by the plain INPUT rules in `gluetun/post-rules.txt` (2026-11-09); the eth0/eth1 swap after that restart is why the rules go by address (2026-11-07). The Traefik recreate 14 s earlier was most likely a coincidence: the same NAT-PMP error came on 11-11 and 11-15 without any Traefik change.
