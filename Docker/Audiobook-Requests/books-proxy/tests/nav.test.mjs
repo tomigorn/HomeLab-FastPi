@@ -4,7 +4,7 @@ import { load, NAVBAR, tick } from "./fixture.mjs";
 
 const items = (w) => [...w.document.querySelectorAll("#hg-nav a")].map((a) => [a.getAttribute("href"), a.textContent.trim()]);
 
-test("bottom bar: Seerr's six entries, Audiobooks active", async () => {
+test("bottom bar: Seerr's seven entries, Audiobooks active", async () => {
   const w = load("nav.js", NAVBAR, null, "https://books.example.com/search", "");
   await tick();
   assert.deepEqual(items(w), [
@@ -13,19 +13,20 @@ test("bottom bar: Seerr's six entries, Audiobooks active", async () => {
     ["https://requests.holy-grail.ch/discover/tv", "Series"],
     ["/", "Audiobooks"],
     ["https://requests.holy-grail.ch/_manual/", "Manual interaction"],
+    ["https://requests.holy-grail.ch/collections", "Collections"],
     ["https://requests.holy-grail.ch/requests", "Requests"],
   ]);
   const active = [...w.document.querySelectorAll("#hg-nav a.hg-nav-active")];
   assert.deepEqual(active.map((a) => a.textContent.trim()), ["Audiobooks"]);
   assert.equal(active[0].getAttribute("aria-current"), "page");
-  assert.equal(w.document.querySelectorAll("#hg-nav a svg").length, 6);
+  assert.equal(w.document.querySelectorAll("#hg-nav a svg").length, 7);
   w.close();
 });
 
 test("German browser: German labels and manual link", async () => {
   const w = load("nav.js", NAVBAR, (win) => Object.defineProperty(win.navigator, "language", { value: "de-CH" }), "https://books.example.com/", "");
   await tick();
-  assert.deepEqual(items(w).map((i) => i[1]), ["Entdecken", "Filme", "Serien", "Hörbücher", "Manuell beheben", "Anfragen"]);
+  assert.deepEqual(items(w).map((i) => i[1]), ["Entdecken", "Filme", "Serien", "Hörbücher", "Manuell beheben", "Sammlungen", "Anfragen"]);
   assert.equal(w.document.querySelector('#hg-nav a[href*="_manual"]').getAttribute("href"), "https://requests.holy-grail.ch/_manual/?lang=de");
   w.close();
 });
