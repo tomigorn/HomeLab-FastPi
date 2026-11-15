@@ -57,6 +57,7 @@ APPS = {
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
     "dt":                ("Homelab", "CVE overview" + BEEFY, None),
     "notes":             ("Utilities", "Private research notes", "fa://fa-sticky-note"),
+    "wg-chores":         ("Utilities", "Shared household chores", None),
     "avatar-picker":     ("Account", "Your profile picture", None),
     "wiki":              ("Account", "How to use everything", "fa://fa-book"),
     "wiki-admin":        ("Account", "Admin guide", "fa://fa-user-shield"),

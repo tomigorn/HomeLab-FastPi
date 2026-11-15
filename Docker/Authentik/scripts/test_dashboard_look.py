@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the custom CSS in dashboard-look.py. python3 test_dashboard_look.py"""
 import ast
+import os
 import re
 import unittest
 from pathlib import Path
@@ -36,6 +37,14 @@ class Sections(unittest.TestCase):
 
     def test_nextcloud_is_a_utility(self):
         self.assertEqual(re.search(r'"nextcloud":\s*\("(\w+)"', SOURCE).group(1), "Utilities")
+
+    def test_wg_chores_is_a_utility_with_its_app_icon(self):
+        m = re.search(r'"wg-chores":\s*\("(\w+)",\s*"([^"]+)",\s*None\)', SOURCE)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.groups(), ("Utilities", "Shared household chores"))
+        icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icons", "wg-chores.svg")
+        self.assertTrue(os.path.exists(icon))
+        self.assertIn("#2a55c5", open(icon).read())
 
 
 if __name__ == "__main__":
