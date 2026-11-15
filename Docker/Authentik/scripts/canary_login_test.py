@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Real end-to-end login + MFA against the live SSO using the canary account.
-# Walks the flow executor: identification -> password -> TOTP -> success.
+# Walks the flow executor: identification (+ password on the same page, or a password stage) -> TOTP -> success.
 # Exit 0 = the auth flow completed (SSO + MFA work); non-zero = it did not.
 import base64, hashlib, hmac, http.cookiejar, json, struct, sys, time, urllib.request
 
@@ -48,6 +48,11 @@ def open_app(opener, url, expect):
 
 def main():
     user, pw, b32 = load_creds()
+    wrong = "--wrong-password" in sys.argv
+    if wrong:
+        # negative check: a wrong password must be refused before the 2FA step
+        sys.argv.remove("--wrong-password")
+        pw += "-wrong"
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
@@ -69,10 +74,17 @@ def main():
         errs = d.get("response_errors")
         print(f"stage: {comp} errors: {errs}")
         if errs:
+            if wrong and comp in ("ak-stage-identification", "ak-stage-password"):
+                print("WRONG_PASSWORD_REFUSED: before 2FA")
+                return 0
             print("LOGIN_FAIL: stage reported errors")
             return 1
+        if wrong and comp == "ak-stage-authenticator-validate":
+            print("LOGIN_FAIL: wrong password reached the 2FA step")
+            return 1
         if comp == "ak-stage-identification":
-            d = req("POST", {"uid_field": user})
+            # one page (username + password) when the identification stage carries the password field
+            d = req("POST", {"uid_field": user, "password": pw} if d.get("password_fields") else {"uid_field": user})
         elif comp == "ak-stage-password":
             d = req("POST", {"password": pw})
         elif comp == "ak-stage-authenticator-validate":

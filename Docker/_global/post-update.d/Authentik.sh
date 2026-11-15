@@ -76,6 +76,9 @@ if _ue:
     _ue_res += " throttle " + ("ok" if all(_seq[:10]) and not _seq[10] else "missing")
 out("unique-email", f"{_ue_on}/2 {_ue_res}")
 out("flow-hardening", f"{_rm.not_configured_action} {','.join(sorted(_rm.device_classes))} {' '.join(sorted({s.token_expiry for s in _ES.objects.all()}))}")
+from authentik.stages.identification.models import IdentificationStage as _IS
+_idst = _IS.objects.get(name="default-authentication-identification")
+out("login-one-page", _idst.password_stage.name if _idst.password_stage else "none")
 out("akadmin", _U.objects.filter(username="akadmin", is_active=True).count())
 out("footer-help", any((l.get("href") or "") == "https://wiki.holy-grail.ch/getting-started/" for l in (tn.footer_links or [])))
 out("avatars", tn.avatars)
@@ -128,6 +131,8 @@ PY
   check authentik.password-min '^15$' "$(akv pw-min)"
   check authentik.password-vault-hint '^([1-9][0-9]*)/\1 tip$' "$(akv pw-hint)"
   check authentik.flow-hardening '^deny static,totp,webauthn minutes=10$' "$(akv flow-hardening)"
+  # owner 2026-11-15: username and password on one page, then 2FA (scripts/login-one-page.py)
+  check authentik.login-one-page '^default-authentication-password$' "$(akv login-one-page)"
   check authentik.unique-email '^2/2 blocks free ok throttle ok$' "$(akv unique-email)"
   check authentik.akadmin-off '^0$' "$(akv akadmin)"
   check authentik.avatar-source '^attributes\.avatar,initials$' "$(akv avatars)"

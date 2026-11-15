@@ -21,6 +21,7 @@ this is just where things stand.
 | Brevo domain auth | in place | `brevo-code` TXT at root, DKIM at `brevo1._domainkey` + `brevo2._domainkey`, DMARC present. (`mail._domainkey` is Brevo's *old* selector and is empty — that is expected, not a fault. No root SPF: normal for Brevo's automatic flow, which uses its own return-path.) |
 | Invite-only enrollment | **built and gated** | Invitation stage has `continue_flow_without_invitation=False`, so the flow refuses without a valid `itoken`. Stage order matches SETUP.md §3. |
 | Mandatory MFA | enforced | TOTP at order 40; login flow forces TOTP setup on device-less accounts (`configure`); "Forgot password" refuses them (`deny`, TOTP/WebAuthn/recovery codes only, `scripts/flow-hardening.py`) |
+| Login page | one page | username and password together, then 2FA (owner 2026-11-15): `scripts/login-one-page.py`, rollback `-e LOGIN_ONE_PAGE=rollback`; verify `scripts/canary-verify.sh` and `--wrong-password` (one neutral error, refused before 2FA) |
 | Nextcloud SSO (OIDC) | **working end to end** | 2026-08-16: a real login provisioned `user_oidc` account with groups `cloud-users`, `cloud-admins`, `admin` — Nextcloud admin rights confirmed |
 
 ### Invite sign-up (walked end to end 2026-11-14)
