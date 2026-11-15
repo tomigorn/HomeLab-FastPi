@@ -122,7 +122,7 @@ tests:
           - exp_labels: {severity: info}
             exp_annotations:
               summary: "Morning summary – 2 Jan (last 24 h)"
-              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• ✅ <b>Computer restarted</b> (fastpi)\n• ⏳ <b>Security check keeps failing</b> ×3 (cup-beefy, cup-fastpi …)\n• ✅ <b>SSH login from outside the home network</b> (fastpi, via VPN)\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• ✅ <b>App keeps crashing and restarting</b> (authentik-server)\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• <b>CVE-2026-84782</b> CRITICAL · in openssl · 1 image: influxdb:2.9.1\n• <b>CVE-2026-92392</b> HIGH · in curl, libcurl · 5 images: home-assistant:stable, grafana:13.2.4, bazarr …\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• beefy: nothing changed\n• fastpi: 🔁 Docker-Socket-Proxy, ✅ Grafana, ⏳ Traefik · ⏳ 1 waiting\n\n<b>💤 Time switched on (24 h)</b> · beefy 6.0 h · tower 0.0 h\n\n<b>🗄️ beefy disks</b> · HDD 50 % full · SSD 70 % full\n• SSD has written 1.0 TB in total\n• last 24 h: HDD started 7×, beefy switched on 2×\n• moved from SSD to HDD: 12 titles, 85 GB (SSD was 78 % full, now 66 %)\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• wrong release removed · Wrong Film &amp; Co (2024)\n• season only partly added · Some Show (2019) S04: imported 8 of 10, searching E09, E10\n• subtitle fixed (broken letters) · Some Film (2023)\n• please check this subtitle (odd letters) · Other Show S02E03\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• ✅ <b>Computer restarted</b> (fastpi)\n• ⏳ <b>Security check keeps failing</b> ×3 (cup-beefy, cup-fastpi …)\n• ✅ <b>SSH login from outside the home network</b> (fastpi, via VPN)\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• ✅ <b>App keeps crashing and restarting</b> (authentik-server)\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• <b>CVE-2026-84782</b> CRITICAL · in openssl · 1 image: influxdb:2.9.1\n• <b>CVE-2026-92392</b> HIGH · in curl, libcurl · 5 images: home-assistant:stable, grafana:13.2.4, bazarr …\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• beefy: nothing changed\n• fastpi: 🔁 Docker-Socket-Proxy, ✅ Grafana, ⏳ Traefik · ⏳ 1 waiting\n\n<b>💤 Time switched on (24 h)</b> · beefy 6.0 h · tower 0.0 h\n\n<b>🗄️ beefy disks</b> · HDD 50 % full · SSD 70 % full\n• SSD has written 1.0 TB in total\n• last 24 h: HDD started 7×, beefy switched on 2×\n• moved from SSD to HDD: 12 titles, 85 GB (SSD was 78 % full, now 66 %)\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• wrong release removed · Wrong Film &amp; Co (2024)\n• season only partly added · Some Show (2019) S04: imported 8 of 10, searching E09, E10\n• subtitle fixed (broken letters) · Some Film (2023)\n• please check this subtitle (odd letters) · Other Show S02E03\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
       - eval_time: 1d6h
         alertname: DailyDigest
         exp_alerts: []
@@ -153,7 +153,7 @@ tests:
           - exp_labels: {severity: info}
             exp_annotations:
               summary: "Morning summary – 2 Jan (last 24 h)"
-              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Disk has unreadable spots</b> (fastpi)\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>⏰ Act soon</b>\n• 🔐 sso.holy-grail.ch: certificate ends in 10 days\n• 🌐 holy-grail.ch: domain renewal due in 20 days\n• 💳 Eweka subscription ends in 5 days\n• 💳 Old &amp; Gone subscription has ended\n• 💽 fastpi seagate-red: disk problem (SmartPendingSectors)\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Disk has unreadable spots</b> (fastpi)\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n\n<b>⏰ Act soon</b>\n• 🔐 sso.holy-grail.ch: certificate ends in 10 days\n• 🌐 holy-grail.ch: domain renewal due in 20 days\n• 💳 Eweka subscription ends in 5 days\n• 💳 Old &amp; Gone subscription has ended\n• 💽 fastpi seagate-red: disk problem (SmartPendingSectors)\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
   - name: silenced alerts marked, rate-limit events merged, No-IP only within 5 days
@@ -199,7 +199,7 @@ tests:
           - exp_labels: {severity: info}
             exp_annotations:
               summary: "Morning summary – 2 Jan (last 24 h)"
-              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• ⏳ <b>Virus scan has not run for a long time</b> (beefy)\n• 🔇 2 switched off on purpose: Virus scan has not run for a long time, tower is on but Nextcloud is broken\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• brand new thing · Something\n• indexer 1337x works again\n• fake download removed · Fake Show S01: Fake.S01E01\n• 1337x, 1337x (old-rare) ×2 paused: too many searches\n\n<b>⏰ Act soon</b>\n• 💳 Eweka subscription ends in 29 days\n• 💳 near.ddns.net hostname: confirm within 4 days\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• ⏳ <b>Virus scan has not run for a long time</b> (beefy)\n• 🔇 2 switched off on purpose: Virus scan has not run for a long time, tower is on but Nextcloud is broken\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• brand new thing · Something\n• indexer 1337x works again\n• fake download removed · Fake Show S01: Fake.S01E01\n• 1337x, 1337x (old-rare) ×2 paused: too many searches\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n\n<b>⏰ Act soon</b>\n• 💳 Eweka subscription ends in 29 days\n• 💳 near.ddns.net hostname: confirm within 4 days\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
   - name: only silenced alerts, downloads capped at 5 lines with the merged rate-limit line, No-IP alone at 29 d shows no expiry section
@@ -232,4 +232,139 @@ tests:
           - exp_labels: {severity: info}
             exp_annotations:
               summary: "Morning summary – 2 Jan (last 24 h)"
-              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• 🔇 1 switched off on purpose: Security check has not run for a long time\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• added to the library · Film D (2020)\n• failed, searching again · Show A S01E01\n• failed, searching again · Show B S01E01\n• stuck, searching again · Show C S01E01\n• 1337x ×2 paused: too many searches\n• … 7 events in total\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• 🔇 1 switched off on purpose: Security check has not run for a long time\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• added to the library · Film D (2020)\n• failed, searching again · Show A S01E01\n• failed, searching again · Show B S01E01\n• stuck, searching again · Show C S01E01\n• 1337x ×2 paused: too many searches\n• … 7 events in total\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+
+
+  - name: playback - one picture conversion with HDR to SDR and one sound conversion, newest first
+    interval: 1m
+    input_series:
+      # at 1d5h30m (106200 s): last poll 20 min ago
+      - series: 'jellyfin_playback_plays_24h{method="direct"}'
+        values: '12x1800'
+      - series: 'jellyfin_playback_plays_24h{method="remux"}'
+        values: '2x1800'
+      - series: 'jellyfin_playback_plays_24h{method="audio"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_plays_24h{method="video"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
+        values: '105000x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Some Show S03E01",method="video",reasons="ContainerNotSupported,VideoCodecTagNotSupported",hdr_to_sdr="yes",started="100000"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="bob",client="Infuse",device="Apple TV",title="Some Film (2021)",method="audio",reasons="AudioCodecNotSupported,AudioChannelsNotSupported",hdr_to_sdr="no",started="103000"}'
+        values: '1x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Morning summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n16 plays: 12 direct · 2 repackaged · 1 sound converted · 1 picture converted\n• bob · Infuse on Apple TV · Some Film (2021) · sound converted (sound codec, sound channels)\n• jane · Jellyfin Web on Safari iPhone · Some Show S03E01 · picture converted (file format, picture codec tag, HDR → SDR)\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+
+
+  - name: playback - conversions capped at 6, unknown reasons raw, missing methods count 0, html escaped
+    interval: 1m
+    input_series:
+      - series: 'jellyfin_playback_plays_24h{method="audio"}'
+        values: '3x1800'
+      - series: 'jellyfin_playback_plays_24h{method="video"}'
+        values: '5x1800'
+      - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
+        values: '105000x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Android",device="Pixel 9",title="Tom & Jerry (1940)",method="video",reasons="",hdr_to_sdr="yes",started="100008"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="bob",client="Jellyfin Web",device="Firefox Windows",title="A Very Long Series Name That Goes On S01E01",method="audio",reasons="",hdr_to_sdr="no",started="100007"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Infuse",device="Apple TV",title="Other Show S02E03",method="audio",reasons="BrandNewReason,AudioIsExternal",hdr_to_sdr="no",started="100006"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="bob",client="Jellyfin Web",device="Edge Windows",title="Film E (2020)",method="video",reasons="VideoRangeTypeNotSupported,ContainerBitrateExceedsLimit,SubtitleCodecNotSupported",hdr_to_sdr="no",started="100005"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Chrome Linux",title="Film D (2019)",method="video",reasons="VideoCodecNotSupported,VideoBitDepthNotSupported,VideoProfileNotSupported",hdr_to_sdr="no",started="100004"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="bob",client="Jellyfin Web",device="Safari Mac",title="Film C (2018)",method="audio",reasons="AudioCodecNotSupported",hdr_to_sdr="no",started="100003"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari Mac",title="Film B (2017)",method="video",reasons="ContainerNotSupported",hdr_to_sdr="no",started="100002"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari Mac",title="Film A (2016)",method="video",reasons="ContainerNotSupported",hdr_to_sdr="no",started="100001"}'
+        values: '1x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Morning summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n8 plays: 0 direct · 0 repackaged · 3 sound converted · 5 picture converted\n• jane · Jellyfin Android on Pixel 9 · Tom &amp; Jerry (1940) · picture converted (HDR → SDR)\n• bob · Jellyfin Web on Firefox Windows · A Very Long Series Name That Goes On S01… · sound converted\n• jane · Infuse on Apple TV · Other Show S02E03 · sound converted (BrandNewReason, external sound file)\n• bob · Jellyfin Web on Edge Windows · Film E (2020) · picture converted (HDR type, bitrate limit, subtitles burned in)\n• jane · Jellyfin Web on Chrome Linux · Film D (2019) · picture converted (picture codec, picture bit depth, picture profile)\n• bob · Jellyfin Web on Safari Mac · Film C (2018) · sound converted (sound codec)\n• … 8 conversions in total\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+
+
+  - name: playback - one direct play, no conversion bullets
+    interval: 1m
+    input_series:
+      - series: 'jellyfin_playback_plays_24h{method="direct"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_plays_24h{method="remux"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="audio"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="video"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
+        values: '105000x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Morning summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n1 play: 1 direct · 0 repackaged · 0 sound converted · 0 picture converted\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+
+
+  - name: playback - no plays, no section
+    interval: 1m
+    input_series:
+      - series: 'jellyfin_playback_plays_24h{method="direct"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="remux"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="audio"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="video"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
+        values: '105000x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Morning summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+
+
+  - name: playback - watch last polled more than 24 h ago, no data
+    interval: 1m
+    input_series:
+      # at 1d5h30m (106200 s): last poll more than 24 h before (beefy-idle-pull keeps the old copy)
+      - series: 'jellyfin_playback_plays_24h{method="direct"}'
+        values: '3x1800'
+      - series: 'jellyfin_playback_plays_24h{method="remux"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="audio"}'
+        values: '0x1800'
+      - series: 'jellyfin_playback_plays_24h{method="video"}'
+        values: '1x1800'
+      - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
+        values: '19000x1800'
+      - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Old Show S01E01",method="video",reasons="ContainerNotSupported",hdr_to_sdr="no",started="10000"}'
+        values: '1x1800'
+    alert_rule_test:
+      - eval_time: 1d5h30m
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Morning summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
