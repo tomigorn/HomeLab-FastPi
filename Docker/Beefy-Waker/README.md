@@ -113,7 +113,7 @@ Found 2026-11-12 in the observe log: an Android TV with "Moonfin for Android TV"
 | `GET` of `/UserItems/Resume`, `/Shows/NextUp`, `/Items/Latest`, `/Users/<id>/Items/Latest`, `/Users/<id>/Items/Resume` | background |
 | ... but the same client sent a foreground request in the last 60 s (`BACKGROUND_FOREGROUND_SECONDS`) | foreground |
 | ... or a different background path in the last 2 s (home rows loading in parallel = app start) | foreground |
-| `GET /Users/<id>/Items` with `Limit`, no `ParentId`, within 10 s (`BACKGROUND_FOLLOWUP_SECONDS`) after a background request of the same client was skipped (enforce) or would be (observe) (v2.2.0: Moonfin's library list right after its home rows) | background, logged `"followup": true`; it does not count as foreground and does not restart the 10 s |
+| `GET /Users/<id>/Items` with `Limit`, no `ParentId`, within 20 s (`BACKGROUND_FOLLOWUP_SECONDS`, default 10; 20 here because the TV sends it 16–17 s later) after a background request of the same client was skipped (enforce) or would be (observe) (v2.2.0: Moonfin's library list right after its home rows) | background, logged `"followup": true`; it does not count as foreground and does not restart the 10 s |
 | anything else (`/System/Info/Public`, `/Users/<id>`, `/UserViews`, `/Users/<id>/Items`, playback, `/socket`, ...) | foreground |
 
 `BACKGROUND_SKIP` decides what a background request does when it would start a wake:
