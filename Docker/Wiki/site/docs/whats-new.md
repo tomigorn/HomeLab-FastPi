@@ -4,6 +4,10 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 15 November 2026
 
+<!-- only: streaming-requesters -->
+**Requests page: more at a glance.** Next to the seasons you see how many episodes there are; the size line shows the average per episode (`⌀ 4.2 GB/ep`) and per hour (`10.1 GB/h`), with ⚠️ **Remux** or ⚠️ **very big** for unusually large files. The **GB** sort now also sorts per file and per hour. A title that was removed from the server says so (⚠️) instead of "waiting for the night". [Requests](apps/requests.md)
+<!-- /only -->
+
 **Anime: smaller files, same picture.** Anime series are downloaded in the best 1080p version without huge disc copies (remuxes), anime films up to 4K HDR, with the same sound and language rules as everything else. Existing remux episodes are replaced over the next nights.
 <!-- only: streaming-requesters -->
 [Which version gets downloaded](apps/requests.md#which-version-gets-downloaded)
