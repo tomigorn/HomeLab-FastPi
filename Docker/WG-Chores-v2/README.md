@@ -9,7 +9,7 @@ WG Chores v2 for the WG, `https://wg-chores.holy-grail.ch` (SSO only, group WG).
 | Secret | `secrets/oidc_client_secret`, 65035:65037 0400, written by the provisioning |
 | Data | volume `wg-chores-v2_wg-chores-v2-data` (`/data/wg-chores.db`, `vapid.key`, `secret.key`) |
 | Route | `../Traefik/traefik/dynamic/wg-chores-v2.yml` |
-| Update | `auto-update.conf` row `notify` (the app migrates its DB one way): Telegram names the command, it backs up the volume first |
+| Update | `auto-update.conf` row `auto`: a new `latest` digest (Renovate merge or weekly rebuild) is pulled after the 24 h cool-down, volume backed up first, health check, rolled back on failure |
 | Check | `../_global/scripts/post-update-check.sh WG-Chores-v2` |
 
 ```

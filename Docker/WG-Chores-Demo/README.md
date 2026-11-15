@@ -7,5 +7,5 @@ Public demo of WG Chores, `https://wg-chores-demo.holy-grail.ch` (local accounts
 | Account | `reviewer`, password in `secrets/demo_password` (65035:65037 0400, 12+ characters) |
 | Reset | every night 03:17 by `wg-chores-demo-reset.timer` (units in `systemd/`), by hand `docker exec wg-chores-demo /wg-chores demo-reset` |
 | Route | `../Traefik/traefik/dynamic/wg-chores-v2.yml` router `wg-chores-demo` |
-| Update | `auto-update.conf` row `notify` |
+| Update | `auto-update.conf` row `auto` |
 | Check | `../_global/scripts/post-update-check.sh WG-Chores-Demo` |
