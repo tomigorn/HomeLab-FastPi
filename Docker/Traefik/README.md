@@ -37,7 +37,7 @@ Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%
 | Service | Host | Entrypoint | Login |
 |---|---|---|---|
 | LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
-| WG-Chores | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | outside SSO, owner's choice, app's household code; never route `wg-chores-sqliteweb` |
+| WG-Chores (old v1 URL) | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | permanent redirect to `wg-chores.holy-grail.ch` (v2) since 2026-11-15; v1 containers stopped, data kept |
 
 No-IP stays for `lang-tool.ddns.net` and `wg-aemtli.ddns.net` (owner 2026-11-01: URLs can't change); needs the 30-day No-IP confirmation (`confirmed` date in `grafana/status-exporter/domains.toml`, Telegram reminder).
 
