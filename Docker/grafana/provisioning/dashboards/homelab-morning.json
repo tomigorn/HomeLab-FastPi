@@ -1675,6 +1675,482 @@
    "panels": []
   },
   {
+   "id": 48,
+   "type": "stat",
+   "title": "Direct play (24 h)",
+   "description": "Playbacks started in the last 24 h (jellyfin_playback_plays_24h, beefy playback-watch); n/a when the watch has not polled for 24 h. File played as is.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(jellyfin_playback_plays_24h{method=\"direct\"}) and on() (max(jellyfin_playback_watch_last_poll_timestamp_seconds) > time() - 86400)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 36,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 49,
+   "type": "stat",
+   "title": "Repackaged (24 h)",
+   "description": "Playbacks started in the last 24 h (jellyfin_playback_plays_24h, beefy playback-watch); n/a when the watch has not polled for 24 h. Container repackaged, picture and sound copied.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(jellyfin_playback_plays_24h{method=\"remux\"}) and on() (max(jellyfin_playback_watch_last_poll_timestamp_seconds) > time() - 86400)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 36,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 50,
+   "type": "stat",
+   "title": "Sound converted (24 h)",
+   "description": "Playbacks started in the last 24 h (jellyfin_playback_plays_24h, beefy playback-watch); n/a when the watch has not polled for 24 h. Picture copied, sound converted on beefy.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(jellyfin_playback_plays_24h{method=\"audio\"}) and on() (max(jellyfin_playback_watch_last_poll_timestamp_seconds) > time() - 86400)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 36,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 51,
+   "type": "stat",
+   "title": "Picture converted (24 h)",
+   "description": "Playbacks started in the last 24 h (jellyfin_playback_plays_24h, beefy playback-watch); n/a when the watch has not polled for 24 h. Picture converted on beefy (expensive, may turn HDR into SDR).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(jellyfin_playback_plays_24h{method=\"video\"}) and on() (max(jellyfin_playback_watch_last_poll_timestamp_seconds) > time() - 86400)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "n/a",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 36,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "id": 52,
+   "type": "table",
+   "title": "Converted (24 h)",
+   "description": "Newest 20 playbacks converted on beefy in the last 24 h (jellyfin_playback_converted_info). Reasons are Jellyfin's TranscodeReasons; the morning summary shows them in plain English. Details: ssh beefy playback-watch report --plays",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "dfc6abdxzsem8a"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "(jellyfin_playback_converted_info{method=~\"audio|video\"} == 1) and on() (max(jellyfin_playback_watch_last_poll_timestamp_seconds) > time() - 86400)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "dfc6abdxzsem8a"
+     },
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "convertFieldType",
+     "options": {
+      "fields": {},
+      "conversions": [
+       {
+        "targetField": "started",
+        "destinationType": "number"
+       }
+      ]
+     }
+    },
+    {
+     "id": "calculateField",
+     "options": {
+      "mode": "binary",
+      "binary": {
+       "left": "started",
+       "operator": "*",
+       "right": "1000"
+      },
+      "alias": "started_ms",
+      "replaceFields": false
+     }
+    },
+    {
+     "id": "sortBy",
+     "options": {
+      "fields": {},
+      "sort": [
+       {
+        "field": "started",
+        "desc": true
+       }
+      ]
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true,
+       "Value": true,
+       "started": true
+      },
+      "renameByName": {
+       "user": "User",
+       "client": "App",
+       "device": "Device",
+       "title": "Title",
+       "method": "How",
+       "reasons": "Reasons",
+       "hdr_to_sdr": "HDR → SDR",
+       "started_ms": "Started"
+      },
+      "indexByName": {
+       "user": 0,
+       "client": 1,
+       "device": 2,
+       "title": 3,
+       "method": 4,
+       "reasons": 5,
+       "hdr_to_sdr": 6,
+       "started_ms": 7
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "noValue": "–"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "How"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "video": {
+            "text": "picture converted",
+            "color": "red"
+           },
+           "audio": {
+            "text": "sound converted",
+            "color": "orange"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "HDR → SDR"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "yes": {
+            "text": "yes",
+            "color": "red"
+           },
+           "no": {
+            "text": "–"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Started"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "dateTimeAsLocalNoDateIfToday"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Reasons"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "auto",
+         "wrapText": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 40,
+    "w": 24,
+    "h": 8
+   }
+  },
+  {
    "id": 44,
    "type": "timeseries",
    "title": "Incidents by kind (per 15 min)",
@@ -1725,7 +2201,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 36,
+    "y": 48,
     "w": 12,
     "h": 7
    }
@@ -1780,7 +2256,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 36,
+    "y": 48,
     "w": 12,
     "h": 7
    }
@@ -1839,7 +2315,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 43,
+    "y": 55,
     "w": 12,
     "h": 7
    }
@@ -1906,7 +2382,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 43,
+    "y": 55,
     "w": 12,
     "h": 7
    }
@@ -1918,7 +2394,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 50,
+    "y": 62,
     "w": 24,
     "h": 1
    },
@@ -2006,7 +2482,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 51,
+    "y": 63,
     "w": 6,
     "h": 4
    }
@@ -2071,7 +2547,7 @@
    },
    "gridPos": {
     "x": 6,
-    "y": 51,
+    "y": 63,
     "w": 6,
     "h": 4
    }
@@ -2144,7 +2620,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 51,
+    "y": 63,
     "w": 12,
     "h": 4
    }
@@ -2156,7 +2632,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 55,
+    "y": 67,
     "w": 24,
     "h": 1
    },
@@ -2333,7 +2809,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 56,
+    "y": 68,
     "w": 12,
     "h": 10
    }
@@ -2500,7 +2976,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 56,
+    "y": 68,
     "w": 12,
     "h": 4
    }
@@ -2617,7 +3093,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 60,
+    "y": 72,
     "w": 12,
     "h": 3
    }
@@ -2749,7 +3225,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 63,
+    "y": 75,
     "w": 12,
     "h": 5
    }
@@ -2761,7 +3237,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 66,
+    "y": 78,
     "w": 24,
     "h": 1
    },
@@ -3241,7 +3717,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 67,
+    "y": 79,
     "w": 24,
     "h": 9
    }
@@ -3253,7 +3729,7 @@
    "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 76,
+    "y": 88,
     "w": 24,
     "h": 1
    },
@@ -3329,7 +3805,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 77,
+    "y": 89,
     "w": 12,
     "h": 7
    }
@@ -3402,7 +3878,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 77,
+    "y": 89,
     "w": 12,
     "h": 7
    }
