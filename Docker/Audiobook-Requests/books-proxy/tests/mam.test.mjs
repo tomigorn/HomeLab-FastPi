@@ -51,7 +51,7 @@ test("MAM unsatisfied chip right after the MyAnonamouse chip", async () => {
   assert.ok(chip(w).querySelector(".ib-meter.ib-ok"));
   const h = hintOf(w, chip(w));
   assert.equal(h.title, "Unsatisfied MAM torrents: 12 of 150 (VIP)");
-  assert.match(h.text, /^Unsatisfied MAM torrents: 12 of 150 \(VIP\)\nEach must seed 72 h within 30 days\nOldest frees at \d\d:\d\d$/);
+  assert.match(h.text, /^Unsatisfied MAM torrents: 12 of 150 \(VIP\)\nEach must seed 72 h within 30 days\nOldest frees at (\w{3} \d{1,2} \w{3} )?\d\d:\d\d$/);
   assert.equal(chip(w).hasAttribute("title"), false);
   assert.equal(chip(w).tabIndex, 0);
 });
