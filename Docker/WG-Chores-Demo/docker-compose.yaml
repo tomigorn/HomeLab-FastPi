@@ -1,0 +1,58 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# WG-Chores-Demo ##########################################
+# #########################################################
+  wg-chores-demo:
+    image: tomigorn/wg-chores:latest
+    container_name: wg-chores-demo
+    user: "65035:65037"
+    mem_limit: 128m
+    pids_limit: 128
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      PUBLIC_URL: https://wg-chores-demo.holy-grail.ch
+      TZ: Europe/Zurich
+      LOCAL_ACCOUNTS: "true"
+      OPEN_REGISTRATION: "false"
+      DEMO_MODE: "true"
+      DEMO_PASSWORD_FILE: /run/secrets/demo_password # leak-check: ok
+      TRUSTED_PROXIES: 10.24.24.3   # Traefik's pinned address on traefik_wg_chores
+    secrets:
+      - demo_password
+    volumes:
+      - wg-chores-demo-data:/data
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    networks:
+      - traefik_wg_chores   # shared only with Traefik
+    healthcheck:
+      test: ["CMD", "/wg-chores", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+secrets:
+  demo_password:
+    file: ./secrets/demo_password
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_wg_chores:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  wg-chores-demo-data:

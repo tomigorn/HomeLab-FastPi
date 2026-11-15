@@ -44,6 +44,8 @@ tell them apart.
 | Notes | ❌ | ❌ | | |  |
 | Activity | ❌ | ❌ | | |  |
 | Tech-Radar | ❌ | ❌ | | |  |
+| WG-Chores-v2 | ❌ | ❌ | | |  |
+| WG-Chores-Demo | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 

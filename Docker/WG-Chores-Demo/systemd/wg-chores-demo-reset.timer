@@ -1,0 +1,10 @@
+# system unit, see wg-chores-demo-reset.service
+[Unit]
+Description=WG Chores demo reset every night
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

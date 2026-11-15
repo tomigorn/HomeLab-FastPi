@@ -1,0 +1,7 @@
+# system unit: sudo cp ~/Projects/Docker/WG-Chores-Demo/systemd/wg-chores-demo-reset.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now wg-chores-demo-reset.timer
+[Unit]
+Description=WG Chores demo: wipe data and load the sample household
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec wg-chores-demo /wg-chores demo-reset

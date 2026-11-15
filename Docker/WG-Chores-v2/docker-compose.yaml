@@ -1,0 +1,65 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# WG-Chores-v2 ############################################
+# #########################################################
+  wg-chores-v2:
+    image: tomigorn/wg-chores:latest
+    container_name: wg-chores-v2
+    user: "65035:65037"
+    mem_limit: 128m
+    pids_limit: 128
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      PUBLIC_URL: https://wg-chores.holy-grail.ch
+      TZ: Europe/Zurich
+      LOCAL_ACCOUNTS: "false"
+      MEMBER_DIRECTORY: "true"
+      OIDC_NAME: Holy Grail
+      OIDC_REQUIRED_GROUP: WG
+      OIDC_ISSUER: https://sso.holy-grail.ch/application/o/wg-chores/
+      OIDC_CLIENT_ID: wg-chores
+      OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret # leak-check: ok
+      OIDC_ACCOUNT_URL: https://sso.holy-grail.ch/if/user/#/settings
+      TRUSTED_PROXIES: 10.24.24.3   # Traefik's pinned address on traefik_wg_chores
+    secrets:
+      - oidc_client_secret
+    volumes:
+      - wg-chores-v2-data:/data
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    # Discovery/token calls go straight to Traefik on the shared network (valid public cert), not out through the tunnel.
+    extra_hosts:
+      - "sso.holy-grail.ch:10.24.24.3"
+    networks:
+      - traefik_wg_chores   # shared only with Traefik
+    healthcheck:
+      test: ["CMD", "/wg-chores", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+secrets:
+  oidc_client_secret:
+    file: ./secrets/oidc_client_secret
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_wg_chores:
+    external: true   # defined in Docker/Traefik/docker-compose.yaml
+
+# =========================================================
+# Volumes =================================================
+# =========================================================
+volumes:
+  wg-chores-v2-data:
