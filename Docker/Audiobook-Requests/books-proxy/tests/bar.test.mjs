@@ -1,6 +1,7 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { load, NAVBAR, tick } from "./fixture.mjs";
+import { readFileSync } from "node:fs";
+import { load, NAVBAR, tick, hintOf } from "./fixture.mjs";
 
 const TB = 1024 ** 4, GB = 1024 ** 3;
 // Texts as scripts/abr_bar_usage.py writes them.
@@ -28,7 +29,7 @@ afterEach(() => { while (open.length) open.pop().close(); });
 function respond(data, status = 200) {
   return Promise.resolve({ ok: status === 200, status, json: () => Promise.resolve(data) });
 }
-async function bar({ data = usage(), quota = QUOTA, status = 200, url, lang, calls = [] } = {}) {
+async function bar({ data = usage(), quota = QUOTA, status = 200, url, lang, calls = [], tip = true } = {}) {
   const w = load("bar/bar.js", NAVBAR, (win) => {
     win.fetch = (u, opts) => {
       calls.push([u, opts]);
@@ -36,7 +37,7 @@ async function bar({ data = usage(), quota = QUOTA, status = 200, url, lang, cal
       return typeof status === "function" ? status(u) : status === "reject" ? Promise.reject(new TypeError("cors")) : respond(data, status);
     };
     if (lang) Object.defineProperty(win.navigator, "language", { value: lang });
-  }, url);
+  }, url, undefined, { tip });
   open.push(w);
   for (let i = 0; i < 6; i++) await tick();
   return w;
@@ -59,17 +60,21 @@ test("disk colour follows the collector's level", async () => {
   assert.ok($(w, "#indexer-bar .ib-title .ib-dot.ib-full"));
 });
 
-test("disk hints in English", async () => {
+test("disk hints in English: headline, used, free, the rule one sentence per row", async () => {
   const w = await bar();
-  assert.equal(disk(w, "library").title, "Library: 1.4 TB free. Audiobookshelf library. From 70 % plan more space, from 80 % new books may soon not fit. Nothing is deleted automatically.");
-  assert.equal(disk(w, "downloads").title, "Downloads: 1.6 TB free. Torrents keep seeding (MyAnonamouse rules), so this only grows. From 80 % make room by hand; nothing is removed automatically.");
+  assert.deepEqual(hintOf(w, disk(w, "library")), { title: "Library — books in Audiobookshelf", sections: 2, text: ["Library — books in Audiobookshelf", "Used: 377 GB/1.8 TB · 22 %", "Free: 1.4 TB",
+    "Audiobookshelf library", "From 70 % plan more space, from 80 % new books may soon not fit", "Nothing is deleted automatically"].join("\n") });
+  assert.equal(hintOf(w, disk(w, "downloads")).text, ["Downloads — torrents (seeding) + Usenet", "Used: 253 GB/1.8 TB · 14 %", "Free: 1.6 TB",
+    "Torrents keep seeding (MyAnonamouse rules), so this only grows", "From 80 % make room by hand", "Nothing is removed automatically"].join("\n"));
+  assert.equal(disk(w, "library").hasAttribute("title"), false);
 });
 
 test("German browser: German disk names, hints and decimal comma", async () => {
   const w = await bar({ lang: "de-CH" });
   assert.match(disk(w, "library").textContent, /^Bibliothek\s*377 GB\/1,8 TB/);
-  assert.equal(disk(w, "library").title, "Bibliothek: 1,4 TB frei. Audiobookshelf-Bibliothek. Ab 70 % mehr Platz einplanen, ab 80 % passen neue Bücher bald nicht mehr. Es wird nichts automatisch gelöscht.");
-  assert.match(disk(w, "downloads").title, /^Downloads: 1,6 TB frei\. Torrents seeden weiter/);
+  assert.equal(hintOf(w, disk(w, "library")).text, ["Bibliothek — Bücher in Audiobookshelf", "Belegt: 377 GB/1,8 TB · 22 %", "Frei: 1,4 TB",
+    "Audiobookshelf-Bibliothek", "Ab 70 % mehr Platz einplanen, ab 80 % passen neue Bücher bald nicht mehr", "Es wird nichts automatisch gelöscht"].join("\n"));
+  assert.match(hintOf(w, disk(w, "downloads")).text, /^Downloads — Torrents \(seeden\) \+ Usenet\nBelegt: 253 GB\/1,8 TB · 14 %\nFrei: 1,6 TB\nTorrents seeden weiter/);
 });
 
 test("one filesystem for both: one chip, both hints", async () => {
@@ -77,7 +82,7 @@ test("one filesystem for both: one chip, both hints", async () => {
     label: { en: "Library + Downloads", de: "Bibliothek + Downloads" }, hint: { en: LIB.hint.en + " " + DL.hint.en, de: LIB.hint.de + " " + DL.hint.de } }] }) });
   const c = disk(w, "library+downloads");
   assert.match(c.textContent, /^Library \+ Downloads/);
-  assert.match(c.title, /Audiobookshelf library\..*Torrents keep seeding/);
+  assert.match(hintOf(w, c).text, /\nNothing is deleted automatically\nTorrents keep seeding/);
 });
 
 test("unlimited indexer: counts with ∞ in the bar", async () => {
@@ -90,7 +95,8 @@ test("own request quota chip", async () => {
   const w = await bar();
   const c = $(w, "#indexer-bar [data-ib-quota]");
   assert.match(c.textContent, /^My requests\s*2\/5 in 7 days$/);
-  assert.equal(c.title, "5 requests per person in 7 days, deleted requests count too.");
+  assert.deepEqual(hintOf(w, c), { title: "My requests", sections: 1, text: "My requests\n5 requests per person in 7 days\nDeleted requests count too" });
+  assert.equal(c.tabIndex, 0);
   assert.ok(c.querySelector(".ib-meter.ib-ok"));
 });
 
@@ -192,4 +198,19 @@ test("Prowlarr down: usage unavailable, disks still shown", async () => {
   const w = await bar({ data: usage({ ok: false, indexers: [] }) });
   assert.match($(w, "#indexer-bar .ib-chips").textContent, /Indexer usage unavailable/);
   assert.ok(disk(w, "library"));
+});
+
+test("books-proxy injects the vendored tip.js before bar.js", () => {
+  const conf = readFileSync(new URL("../nginx.conf", import.meta.url), "utf8");
+  const inject = conf.match(/sub_filter '<\/head>' '([^']*)'/)[1];
+  const tipAt = inject.indexOf('<script src="/_hg/bar/tip.js" defer></script>');
+  assert.ok(tipAt >= 0, "tip.js injected");
+  assert.ok(tipAt < inject.indexOf('src="/_hg/bar/bar.js"'), "tip.js before bar.js");
+});
+
+test("without tip.js (stale cache, blocked): bar still drawn, no hints, no title", async () => {
+  const w = await bar({ tip: false });
+  assert.equal(w.hgTip, undefined);
+  assert.match(disk(w, "library").textContent, /^Library/);
+  assert.equal(w.document.querySelector("#indexer-bar [title]"), null);
 });

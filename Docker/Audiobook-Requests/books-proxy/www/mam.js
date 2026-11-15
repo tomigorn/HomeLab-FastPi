@@ -32,7 +32,12 @@
     fill.style.display = "block";
     return add(box, fill);
   }
-  function hint(m, l) { return tr(m.hint, l).replace("{freesAt}", m.freesAt ? at(m.freesAt) : ""); }
+  // "Head — a; b." → bold "Head", rows "A", "B" (tip.js, README "Requests bar")
+  function hint(m, l) {
+    var s = tr(m.hint, l).replace("{freesAt}", m.freesAt ? at(m.freesAt) : ""), i = s.indexOf(" — ");
+    var rows = (i < 0 ? "" : s.slice(i + 3)).split(/[.;]\s+/).map(function (x) { x = x.trim().replace(/\.$/, ""); return x.charAt(0).toUpperCase() + x.slice(1); }).filter(Boolean);
+    return { title: i < 0 ? s : s.slice(0, i), rows: rows };
+  }
   function risks(m) { return Array.isArray(m.risks) ? m.risks : []; }
 
   function chip(l) {
@@ -42,7 +47,8 @@
       var r = risks(mam);
       c = add(el("span", "ib-chip"), el("span", "ib-name", tr(mam.label, l)), meter(mam),
         el("span", textCls(mam.level), mam.unsatisfied + "/" + mam.limit), r.length ? el("span", "ib-full-text", w.risk(r.length)) : null);
-      c.title = hint(mam, l);
+      c.tabIndex = 0;
+      if (window.hgTip) window.hgTip.set(c, hint(mam, l));
     }
     c.setAttribute("data-ib-mam", "");
     return c;

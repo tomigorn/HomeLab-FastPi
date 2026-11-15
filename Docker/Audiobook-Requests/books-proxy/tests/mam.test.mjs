@@ -1,7 +1,7 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { load, NAVBAR, tick } from "./fixture.mjs";
+import { load, NAVBAR, tick, hintOf } from "./fixture.mjs";
 
 const MAMIX = { name: "MyAnonamouse", limited: false, window: "rolling", level: "ok",
   searches: { used: 4, limit: null, level: "ok" }, downloads: { used: 2, limit: null, level: "ok" } };
@@ -49,7 +49,11 @@ test("MAM unsatisfied chip right after the MyAnonamouse chip", async () => {
   assert.equal(chip(w).previousElementSibling.dataset.ibIndexer, "MyAnonamouse");
   assert.equal(chip(w).querySelector(".ib-fill").style.width, "8%");
   assert.ok(chip(w).querySelector(".ib-meter.ib-ok"));
-  assert.match(chip(w).title, /^Unsatisfied MAM torrents: 12 of 150 \(VIP\) — each must seed 72 h within 30 days; oldest frees at \d\d:\d\d\.$/);
+  const h = hintOf(w, chip(w));
+  assert.equal(h.title, "Unsatisfied MAM torrents: 12 of 150 (VIP)");
+  assert.match(h.text, /^Unsatisfied MAM torrents: 12 of 150 \(VIP\)\nEach must seed 72 h within 30 days\nOldest frees at \d\d:\d\d$/);
+  assert.equal(chip(w).hasAttribute("title"), false);
+  assert.equal(chip(w).tabIndex, 0);
 });
 
 test("colour follows the collector's level, the bar dot too", async () => {
@@ -102,5 +106,5 @@ test("no mam data or no session: no chip", async () => {
 test("German browser: German texts", async () => {
   const w = await page({ lang: "de-CH", data: usage(mam({ risks: [{ name: "Some Book", reason: "paused", seededHours: 5 }], level: "full" })) });
   assert.match(chip(w).textContent, /^MAM unerfüllt\s*12\/150\s*1 Risiko$/);
-  assert.match(chip(w).title, /^Unerfüllte MAM-Torrents: 12 von 150/);
+  assert.match(hintOf(w, chip(w)).text, /^Unerfüllte MAM-Torrents: 12 von 150/);
 });
