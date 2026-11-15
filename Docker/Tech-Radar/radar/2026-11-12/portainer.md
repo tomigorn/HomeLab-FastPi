@@ -6,4 +6,4 @@ tags: [fastpi, beefy]
 ---
 
 Container management UI for fastpi and, through its agent, beefy.
-Read-only by design: it shows stacks and logs but cannot change anything.
+Read-only on fastpi by design: its socket proxy refuses every change, so it shows stacks and logs only. beefy's agent still has full access.

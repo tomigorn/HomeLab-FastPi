@@ -6,4 +6,4 @@ tags: [device]
 ---
 
 Gaming PC running Bazzite, a Linux gaming distribution.
-Has an RTX 3060 with 12 GB graphics memory, the only real GPU in the lab.
+Ryzen 7 7800X3D, 64 GB DDR5-6400 and an ASUS TUF Radeon RX 7800 XT with 16 GB graphics memory, the only dedicated GPU at home.

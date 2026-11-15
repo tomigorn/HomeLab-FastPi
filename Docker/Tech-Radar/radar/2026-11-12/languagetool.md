@@ -7,3 +7,4 @@ tags: [fastpi]
 
 Self-hosted grammar and spell checker for British English and Swiss German.
 Rule-based on purpose: every finding traces to a named rule that can be switched off.
+Shared with a few people through per-person token links on a No-IP hostname, outside the single login.

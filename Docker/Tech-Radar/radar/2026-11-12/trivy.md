@@ -5,5 +5,5 @@ quadrant: devops
 tags: [security, fastpi, beefy, tower]
 ---
 
-Daily vulnerability scan of every running container image on all three hosts.
-Only new fixable critical and high findings alert; reviewed false alarms are listed and counted separately.
+Daily vulnerability scan of every running container image on all three hosts, plus the images named in the repos.
+New fixable critical and high findings are listed in the daily digest; reviewed false alarms are listed and counted separately.

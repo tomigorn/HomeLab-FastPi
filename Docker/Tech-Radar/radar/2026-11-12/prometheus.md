@@ -5,5 +5,5 @@ quadrant: devops
 tags: [monitoring, fastpi]
 ---
 
-Metrics store that scrapes node, container, probe and security exporters from all three hosts.
-The security checks also write their results into it.
+Metrics store on fastpi: scrapes fastpi's exporters and the edge services, and probes the public routes, beefy and tower.
+beefy's own metrics and the security checks arrive as files, so sleeping hosts are never woken for a scrape.

@@ -5,5 +5,5 @@ quadrant: services
 tags: [network, fastpi]
 ---
 
-Dynamic DNS container that keeps a free hostname pointing at the home connection.
+Dynamic DNS for the two apps served outside the single login: LanguageTool and a flatmates' chore app, reached through a direct port forward.
 Free hostnames need confirming every 30 days, so the due date is tracked and alerted.
