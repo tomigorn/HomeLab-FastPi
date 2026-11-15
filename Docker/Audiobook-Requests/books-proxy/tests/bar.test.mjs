@@ -214,3 +214,16 @@ test("without tip.js (stale cache, blocked): bar still drawn, no hints, no title
   assert.match(disk(w, "library").textContent, /^Library/);
   assert.equal(w.document.querySelector("#indexer-bar [title]"), null);
 });
+
+test("books-proxy injects bar-early.js first, render-blocking, with bar.js's no-bar pattern; the static pages too", () => {
+  const conf = readFileSync(new URL("../nginx.conf", import.meta.url), "utf8");
+  const inject = conf.match(/sub_filter '<\/head>' '([^']*)'/)[1];
+  const noBar = (tag) => tag.match(/data-ib-no-bar="([^"]*)"/)[1];
+  for (const [name, html] of [["nginx", inject], ...["library", "requests"].map((p) => [p, readFileSync(new URL(`../www/${p}/index.html`, import.meta.url), "utf8")])]) {
+    const early = html.match(/<script src="\/_hg\/bar\/bar-early\.js"[^>]*>/);
+    assert.ok(early, name + ": bar-early.js");
+    assert.doesNotMatch(early[0], /\b(defer|async)\b/, name);
+    assert.ok(early.index < html.indexOf("/_hg/bar/bar.css"), name + ": before bar.css");
+    assert.equal(noBar(early[0]), noBar(html.match(/<script src="\/_hg\/bar\/bar\.js"[^>]*>/)[0]), name);
+  }
+});

@@ -9,7 +9,7 @@
 
   var DATA = cfg.ibData, QUOTA = cfg.ibQuota || null, REFRESH = 60000, STALE = 10 * 60000, KEY = "indexer-bar-mini";
   var RANK = { ok: 0, yellow: 1, warn: 2, orange: 3, full: 4 };
-  var bar, data = null, quota = null, panelOpen = false, mini = false, authed = false, lastLoad = 0, RETRY = 4000;
+  var bar, data = null, quota = null, panelOpen = false, mini = false, authed = null, lastLoad = 0, RETRY = 4000;
   var NO_BAR = cfg.ibNoBar ? new RegExp(cfg.ibNoBar) : null;
 
   try { mini = localStorage.getItem(KEY) === "1"; } catch (e) {}
@@ -358,6 +358,8 @@
 
   function sync() {
     if (visible()) { mount(); render(); return; }
+    // first answer pending (Next's replaceState at start): keep the strip bar-early.js reserved
+    if (authed === null && !(NO_BAR && NO_BAR.test(location.pathname))) return;
     if (bar && bar.isConnected) bar.parentNode.removeChild(bar);
     document.documentElement.classList.remove("ib-on", "ib-mini");
   }
@@ -372,18 +374,24 @@
       get(DATA)
         .then(function (r) {
           if (r.status === 401 || r.status === 403 || r.type === "opaqueredirect" || (r.status >= 300 && r.status < 400)) { authed = false; data = null; return null; }
-          if (r.ok) authed = true;
-          return r.ok ? r.json() : null;
+          if (r.ok) return r.json().then(function (j) { return { j: j }; });
+          if (authed) return { j: null };
+          authed = false;
+          return null;
         })
-        .then(function (j) {
-          data = j && Array.isArray(j.indexers) ? j : null;
-          if (!QUOTA || !authed) { quota = null; return sync(); }
+        .then(function (got) {
+          if (!got) return sync();
+          var j = got.j;
+          // authed only together with the data: a navigation during the first load must not draw "usage unavailable"
+          if (!QUOTA) { data = j && Array.isArray(j.indexers) ? j : null; authed = true; quota = null; return sync(); }
           return get(QUOTA).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (q) {
+            data = j && Array.isArray(j.indexers) ? j : null;
+            authed = true;
             quota = q && typeof q.used === "number" && typeof q.limit === "number" ? q : null;
             sync();
           });
         })
-        .catch(function () { data = null; sync(); });
+        .catch(function () { data = null; if (authed === null) authed = false; sync(); });
     } catch (e) {}
   }
 

@@ -12,12 +12,12 @@ f=${last##*HEAD:Docker/Seerr/}; f=${f%% *}
 cat "$FAKE_REMOTE/$f"
 SH
 chmod +x "$T/bin/ssh"
-echo js > "$T/remote/indexer-bar/www/bar.js"; echo css > "$T/remote/indexer-bar/www/bar.css"; echo tip > "$T/remote/indexer-bar/www/tip.js"; echo md > "$T/remote/indexer-bar/schema.md"
+echo early > "$T/remote/indexer-bar/www/bar-early.js"; echo js > "$T/remote/indexer-bar/www/bar.js"; echo css > "$T/remote/indexer-bar/www/bar.css"; echo tip > "$T/remote/indexer-bar/www/tip.js"; echo md > "$T/remote/indexer-bar/schema.md"
 run() { PATH="$T/bin:$PATH" FAKE_REMOTE="$T/remote" ABR_DIR="$T/abr" bash "$HERE/sync-bar.sh" "$@"; }
 fail=0
 expect() { if [[ $2 == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: want [$2] got [$3]"; fail=1; fi; }
 out=$(run --check); expect "missing copy differs" "1" "$?"
-run >/dev/null; expect "copy writes all four" "js css tip md" "$(cat "$T/abr/books-proxy/www/bar/bar.js" "$T/abr/books-proxy/www/bar/bar.css" "$T/abr/books-proxy/www/bar/tip.js" "$T/abr/abr-bar/indexer-bar-schema.md" | xargs)"
+run >/dev/null; expect "copy writes all five" "early js css tip md" "$(cat "$T/abr/books-proxy/www/bar/bar-early.js" "$T/abr/books-proxy/www/bar/bar.js" "$T/abr/books-proxy/www/bar/bar.css" "$T/abr/books-proxy/www/bar/tip.js" "$T/abr/abr-bar/indexer-bar-schema.md" | xargs)"
 out=$(run --check); expect "after copy same" "0 same" "$? $out"
 echo changed > "$T/abr/books-proxy/www/bar/bar.css"
 out=$(run --check); expect "local edit differs" "1 differs: bar.css" "$? $out"
