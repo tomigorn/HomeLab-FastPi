@@ -2,6 +2,10 @@
 
 Newest first. Each entry: what changed, where to click, and the page with the details.
 
+## 15 November 2026
+
+**On a phone, Jellyfin in the browser points you to the Moonfin app.** Phone browsers can't play most of our films directly, so the server has to convert them (no 4K HDR, slower start). When you open Jellyfin or press play in a phone browser, you are offered the free Moonfin app, with a direct link to the App Store or Google Play. [Moonfin app](apps/moonfin.md)
+
 ## 14 November 2026
 
 **New step-by-step pages.** [How to watch](apps/watch.md) (browser, phone, TV, first login with Quick Connect), [Why you sometimes wait](apps/waiting.md) (the media server sleeps), [My request isn't there yet](apps/request-help.md) and a new [Listen to audiobooks](apps/audiobookshelf.md) with the phone app. A TV that only refreshes its home screen no longer wakes the server.
