@@ -58,9 +58,9 @@ test("desktop sidebar: Seerr's lg breakpoint, 16rem wide, content shifted, index
   const wide = css.slice(css.indexOf("min-width:1024px"));
   assert.ok(css.includes("@media (min-width:1024px)"));
   assert.match(wide, /#hg-nav\{[^}]*position:fixed[^}]*width:16rem/);
-  // same geometry as Seerr's sidebar (fixed top-0 under the indexer bar, logo block py-2 + h-24, nav mt-8), so switching sites does not move the entries
+  // same geometry as Seerr's sidebar (below the indexer bar like Seerr's under html.ib-on, logo block py-2 + h-24, nav mt-8), so switching sites does not move the entries
   assert.match(wide, /#hg-nav\{[^}]*top:0[;}]/);
-  assert.doesNotMatch(wide, /--ib-h/);
+  assert.match(wide, /html\.ib-on #hg-nav\{top:var\(--ib-h\)\}/);
   assert.match(wide, /\.hg-nav-logo\{[^}]*height:7rem/);
   assert.match(wide, /\.hg-nav-logo\+a\{margin-top:2rem\}/);
   assert.match(wide, /linear-gradient\(#1f2937/);

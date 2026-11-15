@@ -30,6 +30,7 @@
     "#hg-nav a span{position:static;width:auto;height:auto;overflow:visible;clip:auto;white-space:normal}" +
     "#hg-nav a.hg-nav-active{color:#fff;background:linear-gradient(135deg,#4f46e5,#9333ea)}" +
     "#hg-nav a.hg-nav-active:hover{background:linear-gradient(135deg,#6366f1,#a855f7)}" +
+    "html.ib-on #hg-nav{top:var(--ib-h)}" +
     "body{padding-left:16rem}" +
     "}";
   function add() {
