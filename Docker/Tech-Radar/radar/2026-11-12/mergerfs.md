@@ -1,7 +1,7 @@
 ---
 title: "mergerfs"
 ring: production
-quadrant: services
+quadrant: devops
 tags: [beefy]
 ---
 

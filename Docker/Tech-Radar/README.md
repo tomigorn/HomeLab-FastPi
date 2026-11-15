@@ -30,6 +30,8 @@ python3 -m unittest discover -s Docker/Tech-Radar/tests          # content lint
 TECH_RADAR_BUILD_DIR=<extracted /srv> python3 -m unittest discover -s Docker/Tech-Radar/tests   # build checks
 ```
 
+Build checks include: no two dots closer than the blip size (owner 2026-11-15: dots must never overlap; positions are baked into `_app-*.js` at build time). Content lint: 40 to 80 items.
+
 ## Notes
 - Pinned: `package.json`/`package-lock.json` pin the package (exact `4.6.1`, 0 vulnerabilities). The package ships no lockfile and would run an unlocked `npm install` of its own tree (~1400 packages) while building, so `builder-lock.json` (its lockfile, generated from the 4.6.1 tarball) is copied into the build dir and installed with `npm ci` in the Dockerfile.
 - Patched inner tree: `builder-package.json` is the package's own manifest with `next`/`eslint-config-next` raised to 15.5.29 and `overrides` for `postcss` (^8.5.32) and the lint chain's `minimatch` (^11.0.8); the Dockerfile copies it and `builder-lock.json` into the build dir before `npm ci`. `npm audit` on that tree (2026-11-12): 0 vulnerabilities. It lives only in the throwaway Node build stage; the image holds just Caddy plus static files.

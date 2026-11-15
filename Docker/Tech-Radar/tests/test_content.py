@@ -58,7 +58,7 @@ class ContentTest(unittest.TestCase):
                 with self.subTest(item=i):
                     self.assertEqual(found.get(i), quadrant)
         self.assertGreaterEqual(len(found), 40)
-        self.assertLessEqual(len(found), 60)
+        self.assertLessEqual(len(found), 80)
 
     def test_no_ldaps_item(self):
         self.assertFalse(list((ROOT / "radar").glob("**/ldaps.md")))

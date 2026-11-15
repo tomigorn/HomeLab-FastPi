@@ -2,7 +2,7 @@
 title: "Home Assistant"
 ring: production
 quadrant: services
-tags: [fastpi, monitoring]
+tags: [fastpi, monitoring, sso]
 ---
 
 Container install on fastpi that reads and switches smart plugs.
