@@ -90,6 +90,8 @@ scrape_configs:
       module: [http_public]
     static_configs:
       - targets:
+          - https://wg-chores.holy-grail.ch/
+          - https://wg-chores-demo.holy-grail.ch/
           - https://audiobookshelf.holy-grail.ch/
           - https://sso.holy-grail.ch/
           # Jellyfin is deliberately NOT probed. Its route has no forward auth,
@@ -206,6 +208,8 @@ scrape_configs:
       module: [http_public_wan]
     static_configs:
       - targets:
+          - https://wg-chores.holy-grail.ch/
+          - https://wg-chores-demo.holy-grail.ch/
           - https://audiobookshelf.holy-grail.ch/
           - https://sso.holy-grail.ch/
     relabel_configs:
