@@ -171,7 +171,9 @@ running gluetun_mouse qbittorrent_mouse mousehole samba port_updater sabnzbd
 check "gluetun_mouse version"      'v3\.41\.3' "$(docker inspect -f '{{.Config.Image}}' gluetun_mouse)"
 q=$(docker exec qbittorrent_mouse wget -qO- -T 8 https://ifconfig.me/ip 2>/dev/null)
 if [[ -n $q && $q != "$HOME_IP" ]]; then ok "qbittorrent egress via VPN" "$q"; else bad "qbittorrent egress via VPN" "got: ${q:-none} (home $HOME_IP)"; fi
-check "qbittorrent on Proton ASN"  'AS209103' "$(curl -s -m 8 https://ipinfo.io/$q/org)"
+# no egress: ipinfo.io//org would describe the host's own IP and read like a leak
+if [[ -n $q ]]; then check "qbittorrent on Proton ASN"  'AS209103' "$(curl -s -m 8 "https://ipinfo.io/$q/org")"
+else bad "qbittorrent on Proton ASN" "no VPN egress to look up"; fi
 # SABnzbd shares gluetun_mouse since 2026-10-24 (Docker/nzb retired).
 check "sabnzbd egress via VPN"     "^${q:-none}\$" "$(docker exec sabnzbd curl -s -m 8 https://ifconfig.me/ip 2>/dev/null)"
 check "port-updater in sync"       'Port (OK|updated)' "$(docker logs --since 30m port_updater 2>&1 | grep -E 'Port (OK|updated)' | tail -1)"
