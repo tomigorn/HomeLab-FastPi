@@ -78,4 +78,4 @@ fetch "$MV_SRC" "$MV_DEST" 'beefy_mover_last_run_timestamp_seconds ' 'beefy_move
 fetch "$SM_SRC" "$SM_DEST" 'smart_exporter_last_run_timestamp_seconds{' 'smart_[a-z_]+' 'smart_[a-z_]+' || true
 fetch "$MM_SRC" "$MM_DEST" 'beefy_media_metrics_updated_timestamp_seconds ' 'beefy_(downloads_[a-z_]+|requests|request_badges|media_metrics_[a-z_]+)|indexer_(used|limit|bar_[a-z_]+)' 'indexer_[a-z_]+' || true
 fetch "$JP_SRC" "$JP_DEST" 'jf_popular_last_run_timestamp_seconds ' 'jf_popular_[a-z_]+' || true
-fetch "$PB_SRC" "$PB_DEST" 'jellyfin_playback_watch_last_poll_timestamp_seconds ' 'jellyfin_playback_[a-z_]+' || true
+fetch "$PB_SRC" "$PB_DEST" 'jellyfin_playback_watch_last_poll_timestamp_seconds ' 'jellyfin_playback_[a-z0-9_]+' || true

@@ -29,7 +29,7 @@ printf '%s\n' 'beefy_mover_last_run_success 1' 'beefy_mover_last_run_timestamp_s
 printf '%s\n' 'smart_standby{host="beefy",disk="hdd-cold"} 1' 'smart_exporter_last_run_timestamp_seconds{host="beefy"} 400' > "$T/sm"
 printf '%s\n' 'beefy_requests{state="total"} 4' 'indexer_used{host="beefy",indexer="Some \"Name\"",kind="searches"} 3' 'beefy_media_metrics_updated_timestamp_seconds 500' > "$T/mm"
 printf '%s\n' 'jf_popular_last_run_timestamp_seconds 600' > "$T/jp"
-printf '%s\n' 'jellyfin_playback_active{method="DirectPlay"} 1' 'jellyfin_playback_incidents_total{kind="stall",client="TV"} 2' 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' > "$T/pb"
+printf '%s\n' 'jellyfin_playback_active{method="DirectPlay"} 1' 'jellyfin_playback_incidents_total{kind="stall",client="TV"} 2' 'jellyfin_playback_plays_24h{method="video"} 1' 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Some \"Show\" S01E02",method="video",reasons="ContainerNotSupported,VideoCodecTagNotSupported",hdr_to_sdr="yes",started="1700000000"} 1' 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' > "$T/pb"
 export PB_DEST="$T/pb.prom" FAKE_PB="$T/pb"
 export FAKE_ID="$T/id" SM_DEST="$T/sm.prom" MM_DEST="$T/mm.prom" JP_DEST="$T/jp.prom" FAKE_SM="$T/sm" FAKE_MM="$T/mm" FAKE_JP="$T/jp"
 export PATH="$T:$PATH" DEST="$T/idle.prom" WD_DEST="$T/wd.prom" FAKE_WD="$T/wd" ST_DEST="$T/st.prom" MV_DEST="$T/mv.prom" FAKE_ST="$T/st" FAKE_MV="$T/mv"
@@ -47,6 +47,7 @@ grep -q 'timestamp_seconds{host="beefy"} 400' "$T/sm.prom" && ok "smart metrics 
 grep -q 'beefy_media_metrics_updated_timestamp_seconds 500' "$T/mm.prom" && ok "media metrics copied" || bad "media metrics copied"
 grep -q 'jf_popular_last_run_timestamp_seconds 600' "$T/jp.prom" && ok "popular metrics copied" || bad "popular metrics copied"
 grep -q 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' "$T/pb.prom" && ok "playback metrics copied" || bad "playback metrics copied"
+grep -q '^jellyfin_playback_plays_24h{method="video"} 1' "$T/pb.prom" && grep -q '^jellyfin_playback_converted_info{user="jane"' "$T/pb.prom" && ok "playback plays and conversions copied" || bad "playback plays and conversions copied"
 
 FAKE_DOWN=1 "$S"
 [[ ! -e $T/idle.prom ]] && ok "idle metrics removed while beefy is down" || bad "idle metrics removed while beefy is down"
