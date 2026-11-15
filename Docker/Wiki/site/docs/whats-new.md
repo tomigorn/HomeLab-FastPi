@@ -4,6 +4,11 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 15 November 2026
 
+**Anime: smaller files, same picture.** Anime series are downloaded in the best 1080p version without huge disc copies (remuxes), anime films up to 4K HDR, with the same sound and language rules as everything else. Existing remux episodes are replaced over the next nights.
+<!-- only: streaming-requesters -->
+[Which version gets downloaded](apps/requests.md#which-version-gets-downloaded)
+<!-- /only -->
+
 **On a phone, Jellyfin in the browser points you to the Moonfin app.** Phone browsers can't play most of our films directly, so the server has to convert them (no 4K HDR, slower start). When you open Jellyfin or press play in a phone browser, you are offered the free Moonfin app, with a direct link to the App Store or Google Play. [Moonfin app](apps/moonfin.md)
 
 ## 14 November 2026

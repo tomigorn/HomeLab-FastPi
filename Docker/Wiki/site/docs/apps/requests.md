@@ -182,9 +182,10 @@ You don't need to choose anything: the server picks the best version automatical
 | A **remux** (untouched disc copy, largest) is the last resort | good encodes look the same at a fraction of the size, so they win |
 | Torrents need at least **5 seeders** (old & rare titles: 1) | rare old films can take longer, or may not be found |
 | **Usenet** is preferred when everything else is equal | |
+| **Anime**: series at most 1080p, films up to 4K HDR, never a remux | anime is drawn in 1080p, so "4K" anime episodes are just enlarged; anime films get real 4K HDR when it exists. Otherwise the same rules as above |
 
 ### Upgrades and editions
-A film you already have is replaced only when the new version looks or sounds better (never just bigger, never for an extra dub), until it is 4K HDR with the original language and English (for English films: with German; anime: 1080p with original + English); after that it stays. German-only dubs are never downloaded.
+A film you already have is replaced only when the new version looks or sounds better (never just bigger, never for an extra dub), until it is 4K HDR with the original language and English (for English films: with German; anime series: 1080p with original + English; anime films like other films); after that it stays. German-only dubs are never downloaded.
 
 If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically. Fake downloads (a program instead of a video) are removed and searched again automatically.
 
