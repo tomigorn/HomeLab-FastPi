@@ -274,11 +274,28 @@ function render(s) {
 // beefy awake but its first poll not in yet: ask again soon instead of waiting the full 30 s (a few times at most)
 let quick = 0;
 let quickTimer = null;
+// a failure is tried again once after 5 s; a second one reloads the page, which renews an expired sign-in through the SSO (at most every 2 min)
+let retried = false;
+function recover() {
+  if (document.hidden) return;
+  if (!retried) {
+    retried = true;
+    clearTimeout(quickTimer);
+    quickTimer = setTimeout(refresh, 5000);
+    return;
+  }
+  let last = 0;
+  try { last = Number(sessionStorage.getItem("activityReloadAt")) || 0; } catch { /* no storage: never reload */ return; }
+  if (Date.now() - last < 120000) return;
+  try { sessionStorage.setItem("activityReloadAt", String(Date.now())); } catch { return; }
+  location.reload();
+}
 async function refresh() {
   try {
     const r = await fetch("api/state", { cache: "no-store", credentials: "same-origin", redirect: "error" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const s = await r.json();
+    retried = false;
     render(s);
     if (s.beefy === "up" && s.beefy_data !== "live" && quick < 3 && timer !== null) {
       quick++;
@@ -294,6 +311,7 @@ async function refresh() {
     const box = document.getElementById("stale");
     box.replaceChildren("⚠️ not updated since " + (lastGood ? hhmm(lastGood) : "the start") + " — ", el("a", { href: "./" }, "reload"), " (sign in again if asked)");
     box.hidden = false;
+    recover();
   }
 }
 let timer = null;

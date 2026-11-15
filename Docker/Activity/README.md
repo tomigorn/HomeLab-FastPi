@@ -47,7 +47,7 @@ The page fetches `/api/state` every 30 s only while its tab is visible (stops on
 | Download rows | "~1 h 10 min left · 8.0 GB to download" (longest time, download size left) for downloading, importing, queued, stalled, paused rows and audiobook downloads; not for problems, waiting titles or an "as of" snapshot |
 | 🌙 waiting for night | "from 22:05" (fastpi's night-download wake of beefy) or "night window open" (`night_open`); only for live downloads, not for an "as of" snapshot |
 | 📅 waiting for release | one folded line at the end of Downloads ("6 movies, 3 series"), rows on tap |
-| Refresh failed | page greyed, "⚠️ not updated since HH:MM — reload (sign in again if asked)"; an expired sign-in makes the fetch fail on the SSO redirect |
+| Refresh failed | page greyed, "⚠️ not updated since HH:MM — reload (sign in again if asked)"; an expired sign-in makes the fetch fail on the SSO redirect. Visible tab only: tried again after 5 s, a second failure reloads the page (renews the sign-in through the SSO), at most once per 2 min (`sessionStorage` `activityReloadAt`) |
 
 `/health` is 503 when the poll loop has stopped or a due poll has not run for 2 × `POLL_SECONDS` + 60 s (Docker marks the container unhealthy, autoheal restarts it).
 

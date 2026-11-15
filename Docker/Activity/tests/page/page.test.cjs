@@ -51,7 +51,8 @@ async function open(answers, opts = {}) {
     if (typeof a === "number") return r.fulfill({ status: a, body: "no" });
     return r.fulfill({ contentType: "application/json", body: JSON.stringify(a) });
   });
-  await page.route("http://activity.test/", (r) => r.fulfill({ contentType: "text/html", headers: { "content-security-policy": CSP }, body: PAGE }));
+  calls.pages = 0;
+  await page.route("http://activity.test/", (r) => (calls.pages++, r.fulfill({ contentType: "text/html", headers: { "content-security-policy": CSP }, body: PAGE })));
   await page.goto("http://activity.test/");
   await page.waitForFunction(() => !document.getElementById("watching").textContent.includes("loading"));
   const text = async (sel) => (await page.locator(sel).innerText()).replace(/\s+/g, " ").trim();
@@ -174,6 +175,42 @@ test("a failed refresh greys the page and says how to recover", async () => {
   assert.match(t, /not updated since 14:00/);
   assert.match(t, /reload/);
   assert.equal(await p.page.locator("#stale a").getAttribute("href"), "./");
+  await p.ctx.close();
+});
+
+test("a failed refresh is tried again after 5 s and the page recovers", async () => {
+  const p = await open([base(), 302, base()]);
+  await p.page.clock.runFor(30500);
+  await p.page.waitForSelector("main.stale");
+  assert.equal(p.calls.n, 2);
+  await p.page.clock.runFor(5500);
+  await p.page.waitForTimeout(300);
+  assert.equal(p.calls.n, 3, "tried again after 5 s");
+  assert.equal(await p.page.locator("main.stale").count(), 0);
+  assert.equal(p.calls.pages, 1, "no reload needed");
+  await p.ctx.close();
+});
+
+test("a second failure reloads the page to renew the sign-in, at most once per 2 min", async () => {
+  const p = await open([base(), 302]);
+  await p.page.clock.runFor(30500);
+  await p.page.clock.runFor(5500);
+  await p.page.waitForFunction(() => document.readyState === "complete" && document.getElementById("watching"));
+  await p.page.waitForTimeout(300);
+  assert.equal(p.calls.pages, 2, "reloaded once");
+  await p.page.clock.runFor(45000);
+  await p.page.waitForTimeout(300);
+  assert.equal(p.calls.pages, 2, "no reload loop");
+  await p.ctx.close();
+});
+
+test("a hidden tab never reloads itself", async () => {
+  const p = await open([base(), 302]);
+  await p.page.clock.runFor(30500);
+  await p.page.waitForSelector("main.stale");
+  await p.page.evaluate(() => { Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await p.page.clock.runFor(60000);
+  assert.equal(p.calls.pages, 1);
   await p.ctx.close();
 });
 
