@@ -21,7 +21,7 @@ importer: torrent complete ──► COPY to library LANG/Author/[Series]/NN - T
 |---|---|---|---|
 | `audiobookrequest` | 65055 | `egress`, `traefik_mouse` 10.24.25.4 | request UI (markbeep/audiobookrequest, digest-pinned) |
 | `audiobook-importer` | 65056 (+1100) | `egress`, `traefik_mouse` 10.24.25.5 | `importer/rust/` (Rust, static binary in a `scratch` image `audiobook-importer:local`, see "Rust importer"); callers checked by peer IP (`CALLERS`/`POST_CALLERS`, else 403): `/quota`, `/my-quota`, `/all-requests`, `/library*`, `/sizes` only from books-proxy; `GET /prowlarr/torrent`, `POST /abr`, `POST /prowlarr/*` only from ABR; POST bodies over 1 MB → 413 |
-| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`) and `www/sizes.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
+| `books-proxy` | 65058 | `traefik_mouse` 10.24.25.6 | `books-proxy/` (nginx-unprivileged, digest-pinned): injects `www/links.js`, the requests bar (`www/bar/`, `www/mam.js`), `www/sizes.js` and `www/nav.js` before `</head>` ("Movies / Series" next to Wishlist, else a small fixed bar; survives ABR updates), `auth_request` to `/quota` on request endpoints; admits only Traefik (10.24.25.3) and itself (127.0.0.1), every other peer 403, so the `X-authentik-*` headers it trusts always come from Traefik's forward auth |
 
 ## Release policy (`importer/rust/src/ranking.rs`, owner's order 2026-10-26, author + narrator 2026-11-02)
 
@@ -62,6 +62,10 @@ Placement: a books-proxy page under `/_hg/` like All requests, not inside ABR: A
 | ABS access | importer's key `audiobook-importer` (ABS admin, GET only here): `/api/libraries`, `/api/libraries/<id>/items?minified=1`, `/api/users` (permissions; tokens and mails never leave the importer); cached 5 min (users 1 min). Keys never reach the browser |
 | no ABS account yet | the page says to open Audiobookshelf once (Holy Grail login creates it) |
 | page | `books-proxy/www/library/` (`index.html`, `library.js`) |
+
+## Phone bottom bar
+
+`books-proxy/www/nav.js` (injected after `sizes.js`): Seerr's phone bar (Discover, Movies, Series, Audiobooks active, Manual interaction, Requests) below 640 px, same icons, icons only like Seerr (labels visually hidden, kept for screen readers and as tooltips), EN/DE by browser language, not on `/login`, `/auth`, `/init`; body gets bottom padding, `z-index` 40 stays under ABR's modals. No Manual count: Seerr's `/_download-now/manual/count` needs Seerr's session cookie, not available on books.holy-grail.ch.
 
 ## Requests bar
 
