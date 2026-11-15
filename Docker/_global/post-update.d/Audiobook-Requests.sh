@@ -38,6 +38,8 @@ try: print(urllib.request.urlopen("http://books-proxy:8080/_hg/requests/data.jso
 except urllib.error.HTTPError as e: print(e.code)' 2>&1 | tail -1) $(docker exec traefik wget -q -S -O /dev/null http://10.24.25.6:8080/_hg/health 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}'))"
   check books.requests-unauth '^302 sso$' "$(curl -s -m 10 -o /dev/null --resolve books.holy-grail.ch:443:192.168.1.2 -w '%{http_code} %{redirect_url}' https://books.holy-grail.ch/_hg/requests/data.json | sed -E 's#https://(sso)\.holy-grail\.ch/.*#\1#')"
   check books.bar-shared '^(same|skipped: beefy not reachable \(not woken\))$' "$(bash "$ARD/scripts/sync-bar.sh" --check 2>&1 | tail -1)"
+  ours() { [[ $(bp "$BP$1" | sha256sum) == "$(sha256sum 2>/dev/null < "$ARD/books-proxy/www/icons/${1##*/}")" ]]; }
+  check books.icons '^5/5 ours, favicon\.ico ours$' "$(n=0 t=0; for h in $(bp "$BP/auth/login?backup=1" | tr '\n' ' ' | grep -oE '<link[^>]*rel="(icon|apple-touch-icon|manifest)"[^>]*>' | grep -oE 'href="[^"?]*' | cut -d'"' -f2); do t=$((t+1)); ours "$h" && n=$((n+1)); done; echo "$n/$t ours, favicon.ico $(ours /favicon.ico && echo ours || echo other)")"
   check books.admin-only-downloads '^403 403$' "$(for p in /wishlist/hx-auto-download/B000CHECK0 /api/requests/B000CHECK0/auto-download; do bp -o /dev/null -w '%{http_code}\n' -X POST -H 'X-authentik-groups: streaming-requesters' "$BP$p"; done | xargs)"
 fi
 if want importer; then

@@ -67,6 +67,17 @@ Placement: a books-proxy page under `/_hg/` like All requests, not inside ABR: A
 
 `books-proxy/www/nav.js` (injected after `sizes.js`): Seerr's phone bar (Discover, Movies, Series, Audiobooks active, Manual interaction, Requests) below 1024 px (Seerr's `lg`), same icons and colours (active icon filled), icons only like Seerr (labels visually hidden, kept for screen readers and as tooltips), EN/DE by browser language, not on `/login`, `/auth`, `/init`; body gets bottom padding, `z-index` 40 stays under ABR's modals. From 1024 px the same links are Seerr's left sidebar (16 rem, Seerr's gradient and purple active style, logo block "Audiobooks" / "Hörbücher" with a book icon, labels visible); the body shifts right by 16 rem, the sidebar starts at the top like Seerr's (indexer bar over it, 7 rem logo block, first entry 2 rem below), so switching between the sites moves nothing. No Manual count: Seerr's `/_download-now/manual/count` needs Seerr's session cookie, not available on books.holy-grail.ch.
 
+## Tab icon
+
+Our favicon set instead of ABR's dark gift box: purple gradient circle (sidebar logo colours `#4f46e5` → `#9333ea`) with the white book-open glyph; at ≤ 24 px a simpler two-page glyph (media query in the SVG). Seerr has the same purple orb style.
+
+| Part | Where |
+|---|---|
+| files | `books-proxy/www/icons/`: `favicon.svg` (master), `favicon-16x16.png`, `favicon-32x32.png`, `favicon.ico` (16/32/48), `apple-touch-icon.png` (180, square for iOS), `android-chrome-{192,512}.png`, `site.webmanifest` ("Audiobooks") |
+| served | `books-proxy/nginx.conf`: `location =` for every icon URL ABR's `BaseLayout.jinja` links (`/static/favicon.svg`, `-32x32.png`, `-16x16.png`, `apple-touch-icon.png`, `site.webmanifest`) and `/favicon.ico`; 1 h cache (ABR's `?v=` only changes with ABR); android icons via `/_hg/icons/` |
+| PNGs / ICO | rendered from `favicon.svg` with headless Chromium (apple icon: same SVG with a square background), ICO packed with Pillow |
+| tests | `books-proxy/tests/icons.test.mjs` (files, sizes, nginx locations), `bash books-proxy/tests/icons-live.sh` (running proxy: our bytes, types, not ABR's, the page links nothing else) |
+
 ## Requests bar
 
 The bar Seerr has (requests.holy-grail.ch), on every ABR page and the All requests page. Only after login: Traefik forward auth covers `/_hg/bar/*` (no Holy Grail session → 302 to sso), and books-proxy asks ABR `GET /api/users/me` with the caller's cookie (`auth_request`; no ABR session → 401). `bar.js` draws nothing until `usage.json` answers 200, never on `/login`, `/auth/*`, `/init`; a later 401/redirect removes it.
@@ -118,7 +129,7 @@ Caveat: the match uses the requested Audible edition; the MAM upload can be anot
 | ABR settings | `sudo python3 scripts/abr-setup.py` (Prowlarr via policy pass-through, flags, auto-download, webhook, ABS, OIDC) |
 | Login check | `bash scripts/verify-login.sh` (canary real login + MFA, ABR OIDC, Seerr link, search; canary disabled afterwards); `PUBLIC=1` = through the Cloudflare tunnel; `QUOTA_ASINS="6 ASINs"` also checks the limit (switch auto-download off first, delete the canary's requests after) |
 | Requests bar | `systemd/abr-bar-usage.timer`, see "Requests bar" |
-| Tests | importer: see "Rust importer"; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar, MAM chip, sizes, library, all requests, links: `cd books-proxy/tests && npm ci && npm test`; sync: `bash scripts/test_sync_bar.sh` |
+| Tests | importer: see "Rust importer"; `python3 -m unittest discover -s Docker/Audiobook-Requests/scripts`; bar, MAM chip, sizes, library, all requests, links, icons: `cd books-proxy/tests && npm ci && npm test`, live icons `bash books-proxy/tests/icons-live.sh`; sync: `bash scripts/test_sync_bar.sh` |
 
 ## Rust importer
 
