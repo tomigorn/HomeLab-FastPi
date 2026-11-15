@@ -1526,6 +1526,45 @@ class BackgroundEnforce(BackgroundBase):
         time.sleep(0.3)
         self.assertEqual(self.wol.count(), 0)
 
+    def test_followup_window_logged(self):
+        self.assertTrue(self.wait_log("background-followup: 10s"), self.sut.log())
+
+    def test_followup_after_skip_does_not_wake(self):
+        req("GET", JF, tv())
+        s, _, b, _ = req("GET", JF, tv(path="/Users/u1/Items?Limit=24&Recursive=true"))
+        self.assertEqual(s, 503)
+        self.assertIn(b"Jellyfin is asleep", b)
+        time.sleep(0.3)
+        self.assertEqual(self.wol.count(), 0)
+        rec = self.last_observe("/Users/u1/Items")
+        self.assertEqual((rec["decision"], rec["class"], rec.get("followup")), ("background", "background", True))
+        self.assertTrue(wait_for(lambda: self.metric("enforce") == 2, 2), self.metric("enforce"))
+
+    def test_followup_after_window_wakes(self):
+        self.sut.stop()
+        self.sut = Sut(dict(self.env, BACKGROUND_FOLLOWUP_SECONDS="1"))
+        self.sut.start()
+        self.addCleanup(self.sut.stop)
+        req("GET", JF, tv())
+        time.sleep(1.3)
+        req("GET", JF, tv(path="/Users/u1/Items?Limit=24"))
+        self.assertGreaterEqual(self.wol.count(), 1)
+        self.assertNotIn("followup", self.last_observe("/Users/u1/Items"))
+
+    def test_followup_from_other_device_wakes(self):
+        req("GET", JF, tv(device="dev-a"))
+        req("GET", JF, tv(device="dev-b", path="/Users/u1/Items?Limit=24"))
+        self.assertGreaterEqual(self.wol.count(), 1)
+
+    def test_other_foreground_after_skip_wakes(self):
+        for i, p in enumerate(["/UserViews", "/Users/u1/Items?Limit=5&ParentId=p", "/Users/u1/Items?Fields=x"]):
+            self.wol.reset()
+            req("GET", JF, tv(device="fg-%d" % i))
+            self.assertEqual(self.wol.count(), 0, p)
+            req("GET", JF, tv(device="fg-%d" % i, path=p))
+            self.assertGreaterEqual(self.wol.count(), 1, p)
+            self.wait_idle()
+
     def test_beefy_up_passes_unclassified(self):
         self.jf.start()
         s, _, b, _ = req("GET", JF, tv())

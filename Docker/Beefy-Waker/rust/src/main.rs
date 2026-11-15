@@ -584,19 +584,20 @@ impl App {
 
     /// Browsers asleep get the sign-in page (no wake); apps wake and are held until Jellyfin is healthy (bounded).
     /// Background (true) or foreground (false) for an app request while beefy is down; None = not classified.
-    fn classify(&self, r: &Req, up: bool, path: &str) -> Option<bool> {
+    fn classify(&self, r: &Req, up: bool, path: &str, query: &str) -> Option<background::Class> {
         if up || self.bg_mode == Mode::Off || is_browser(r) {
             return None;
         }
-        Some(self.bg.classify(&client_key(r), r.header_or("X-Forwarded-Method"), path, mono()))
+        Some(self.bg.classify(&client_key(r), r.header_or("X-Forwarded-Method"), path, query, mono()))
     }
 
     async fn gate_jellyfin(&self, r: &Req, up: bool, port: u16, started: f64) -> Resp {
         let mut decision = self.jellyfin_decision(up, r).await;
-        let (fwd_path, _) = forwarded_path_query(r);
-        let class = self.classify(r, up, &fwd_path);
+        let (fwd_path, fwd_query) = forwarded_path_query(r);
+        let class = self.classify(r, up, &fwd_path, &fwd_query);
         let mut would = None;
-        if decision == "wake" && class == Some(true) {
+        if decision == "wake" && class.is_some_and(|c| c.is_background()) {
+            self.bg.skipped(&client_key(r), r.header_or("X-Forwarded-Method"), &fwd_path, mono());
             if self.bg_mode == Mode::Enforce {
                 decision = "background";
             } else {
@@ -620,8 +621,11 @@ impl App {
         if !up || format!("/{}", fwd_path.trim_start_matches('/')).to_lowercase() == "/system/info/public" {
             let mut rec = observe_record(r, up, decision);
             rec.insert("held".into(), float_value(pyfmt::round1(held)));
-            if let Some(bg) = class {
-                rec.insert("class".into(), Value::String(if bg { "background" } else { "foreground" }.into()));
+            if let Some(c) = class {
+                rec.insert("class".into(), Value::String(if c.is_background() { "background" } else { "foreground" }.into()));
+                if c == background::Class::FollowUp {
+                    rec.insert("followup".into(), Value::Bool(true));
+                }
             }
             if let Some(w) = would {
                 rec.insert("would".into(), Value::String(w.into()));
@@ -640,7 +644,7 @@ impl App {
         let started = mono();
         let up = self.jellyfin_ready(self.jellyfin_port).await;
         let decision = self.jellyfin_decision(up, r).await;
-        self.classify(r, up, "/System/Info/Public");
+        self.classify(r, up, "/System/Info/Public", "");
         let mut held = 0.0;
         let mut cached = false;
         let mut body: Option<Vec<u8>> = None;
@@ -773,10 +777,10 @@ fn clamp_hold_seconds(v: &str) -> f64 {
 }
 
 /// 0..3600; 60 on bad input.
-fn clamp_foreground_seconds(v: &str) -> f64 {
+fn clamp_seconds(v: &str, default: f64) -> f64 {
     match v.trim().parse::<f64>() {
         Ok(f) if !f.is_nan() => f.clamp(0.0, 3600.0),
-        _ => 60.0,
+        _ => default,
     }
 }
 
@@ -820,7 +824,8 @@ fn main() {
     let state_file = env_or("WAKE_STATE_FILE", "/tmp/power-cycle.state");
     let bg_raw = env_or("BACKGROUND_SKIP", "observe");
     let (bg_mode, bg_valid) = Mode::parse(&bg_raw);
-    let bg_foreground = clamp_foreground_seconds(&env_or("BACKGROUND_FOREGROUND_SECONDS", "60"));
+    let bg_foreground = clamp_seconds(&env_or("BACKGROUND_FOREGROUND_SECONDS", "60"), 60.0);
+    let bg_followup = clamp_seconds(&env_or("BACKGROUND_FOLLOWUP_SECONDS", "10"), 10.0);
 
     let missing: Vec<&str> = [("BEEFY_MAC", &mac_str), ("BEEFY_PROBE_HOST", &probe_host)].iter().filter(|(_, v)| v.is_empty()).map(|(k, _)| *k).collect();
     if !missing.is_empty() {
@@ -865,7 +870,7 @@ fn main() {
         public_info: Mutex::new(None),
         stream_cache: Mutex::new(Vec::new()),
         bg_mode,
-        bg: background::Tracker::new(bg_foreground),
+        bg: background::Tracker::new(bg_foreground, bg_followup),
     });
     app.load_public_info();
     mono();
@@ -880,6 +885,7 @@ fn main() {
         );
         let invalid = if bg_valid { String::new() } else { format!(" (invalid BACKGROUND_SKIP '{}')", take_chars(&bg_raw, 40)) };
         println!("background-skip: {}{invalid}", bg_mode.name());
+        println!("background-followup: {}s", pyfmt::round1(bg_followup));
         let a = app.clone();
         tokio::select! {
             _ = web::serve(listener, move |r| a.clone().handle(r)) => {}
@@ -983,7 +989,10 @@ mod tests {
         assert_eq!(clamp_hold_seconds("x"), 18.0);
         assert_eq!(clamp_hold_slots("0"), 1);
         assert_eq!(clamp_hold_slots("x"), 16);
-        assert_eq!(clamp_foreground_seconds("x"), 60.0);
-        assert_eq!(clamp_foreground_seconds("99999"), 3600.0);
+        assert_eq!(clamp_seconds("x", 60.0), 60.0);
+        assert_eq!(clamp_seconds("99999", 60.0), 3600.0);
+        assert_eq!(clamp_seconds("", 10.0), 10.0);
+        assert_eq!(clamp_seconds("-3", 10.0), 0.0);
+        assert_eq!(clamp_seconds(" 20 ", 10.0), 20.0);
     }
 }

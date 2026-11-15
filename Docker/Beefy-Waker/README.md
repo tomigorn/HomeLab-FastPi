@@ -113,6 +113,7 @@ Found 2026-11-12 in the observe log: an Android TV with "Moonfin for Android TV"
 | `GET` of `/UserItems/Resume`, `/Shows/NextUp`, `/Items/Latest`, `/Users/<id>/Items/Latest`, `/Users/<id>/Items/Resume` | background |
 | ... but the same client sent a foreground request in the last 60 s (`BACKGROUND_FOREGROUND_SECONDS`) | foreground |
 | ... or a different background path in the last 2 s (home rows loading in parallel = app start) | foreground |
+| `GET /Users/<id>/Items` with `Limit`, no `ParentId`, within 10 s (`BACKGROUND_FOLLOWUP_SECONDS`) after a background request of the same client was skipped (enforce) or would be (observe) (v2.2.0: Moonfin's library list right after its home rows) | background, logged `"followup": true`; it does not count as foreground and does not restart the 10 s |
 | anything else (`/System/Info/Public`, `/Users/<id>`, `/UserViews`, `/Users/<id>/Items`, playback, `/socket`, ...) | foreground |
 
 `BACKGROUND_SKIP` decides what a background request does when it would start a wake:
@@ -135,6 +136,13 @@ sudo grep -a '"observe ' "$(docker inspect -f '{{.LogPath}}' beefy-waker)" | gre
 Check the follow-ups before switching: a background wake is followed by more requests from the same TV while beefy boots (`starting`); one with `"class": "foreground"` (e.g. `/Users/<id>/Items`) would start the wake anyway in enforce mode.
 
 Switch to enforce: set `BACKGROUND_SKIP=enforce` in `.env`, then `docker compose up -d` (recreate). Back: `observe`, or `off`.
+
+Effect: follow-ups skipped, and beefy power-ons in the last 24 h (each boot is an up and a down of the `blackbox-beefy` probe; 21-27/day before enforce):
+
+```bash
+sudo grep -a '"followup": true' "$(docker inspect -f '{{.LogPath}}' beefy-waker)" | wc -l
+curl -s 'http://127.0.0.1:9090/api/v1/query' --data-urlencode 'query=changes(probe_success{job="blackbox-beefy"}[24h]) / 2'
+```
 
 ## Wake recovery (v1.6.2)
 
@@ -333,6 +341,7 @@ middleware whose `address` ends in `/?port=<service-port>`.
 | `WAKE_STATE_FILE` | Power-cycle state (plug-off window), in the `cache` volume. `/tmp/power-cycle.state` |
 | `BACKGROUND_SKIP` | Lone background app requests while beefy sleeps: `observe` (default), `enforce`, `off`. See "Jellyfin: background requests". |
 | `BACKGROUND_FOREGROUND_SECONDS` | A foreground request from the same client within this many seconds makes background requests wake. Default `60`. |
+| `BACKGROUND_FOLLOWUP_SECONDS` | After a skipped background request, the same client's `/Users/<id>/Items` (`Limit`, no `ParentId`) within this many seconds is background too. Default `10`. |
 
 ## Operations & known limitations
 
