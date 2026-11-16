@@ -11,4 +11,9 @@ if want miniflux; then
   check mf.page-sso '^302 https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{http_code} %{redirect_url}' --resolve news.holy-grail.ch:443:192.168.1.2 https://news.holy-grail.ch/ | cut -c1-60)"
   # the login header counts only from Traefik's pinned address: another container on traefik_proxy lands on the sign-in page
   check mf.proxy-auth-traefik-only '^Sign In' "$(docker exec server-specs wget -qO- -T 10 --header 'X-authentik-username: nobody-real' http://miniflux:8080/unread 2>&1 | grep -o '<title>[^<]*' | head -1 | cut -c8-)"
+  # user creation is on: the refused header must not leave an account behind
+  check mf.no-forged-user '^0$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*) from users where username = 'nobody-real'" 2>&1)"
+  # only the admin sends to the alert chat (users created on first visit get no copy of the integration)
+  check mf.telegram-admin-only '^0$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*) from integrations i, integrations a where a.user_id = 1 and i.user_id <> 1 and i.telegram_bot_enabled and i.telegram_bot_token = a.telegram_bot_token" 2>&1)"
+  check mf.user-sync '^active success$' "$(systemctl is-active miniflux-feed-sync.timer 2>&1) $(systemctl show -p Result --value miniflux-feed-sync.service 2>&1)"
 fi

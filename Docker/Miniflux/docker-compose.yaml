@@ -6,7 +6,7 @@ services:
 # Miniflux ################################################
 # #########################################################
   # Feed reader for the CVE feeds (Vulnerability-Lookup) and release notes; Telegram integration. news.holy-grail.ch behind the Holy Grail forward auth;
-  # the login is the forwarded X-authentik-username (trusted only from Traefik's pinned address), local login off.
+  # the login is the forwarded X-authentik-username (trusted only from Traefik's pinned address), local login off, accounts created on first visit.
   miniflux:
     image: miniflux/miniflux:2.3.5-distroless
     container_name: miniflux
@@ -27,7 +27,7 @@ services:
       ADMIN_PASSWORD_FILE: /run/secrets/miniflux_admin_password
       BASE_URL: https://news.holy-grail.ch
       AUTH_PROXY_HEADER: X-authentik-username
-      AUTH_PROXY_USER_CREATION: "0"
+      AUTH_PROXY_USER_CREATION: "1"   # every Holy Grail user allowed by the Authentik app gets an account on first visit; feeds from scripts/sync_users.py
       TRUSTED_REVERSE_PROXY_NETWORKS: 172.24.255.3/32   # Traefik's pinned address on traefik_proxy
       DISABLE_LOCAL_AUTH: "1"
       # vl-web is on a private network (vl_feeds)

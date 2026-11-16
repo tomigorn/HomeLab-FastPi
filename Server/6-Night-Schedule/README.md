@@ -1,6 +1,6 @@
 # 6 - Night schedule on fastpi
 
-All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), times `Europe/Zurich`. The live pollers stay live: monitoring, dead-man pings, scrapes, dynamic DNS, `security-access` (5 min), `security-av-hits` (15 min), `container-exporter`, `authentik-app-cache`, `usage-collector`, `beefy-night-downloads-poll` (5 min, only while beefy is up).
+All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), times `Europe/Zurich`. The live pollers stay live: monitoring, dead-man pings, scrapes, dynamic DNS, `security-access` (5 min), `security-av-hits` (15 min), `container-exporter`, `authentik-app-cache`, `usage-collector`, `beefy-night-downloads-poll` (5 min, only while beefy is up), `miniflux-feed-sync` (5 min).
 
 | Job | Was | Now |
 |---|---|---|
