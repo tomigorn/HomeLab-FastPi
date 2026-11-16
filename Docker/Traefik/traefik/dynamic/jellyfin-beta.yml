@@ -1,0 +1,79 @@
+# Jellyfin beta channel on beefy (HomeLab-BeefyServer Docker/Jellyfin-Beta): a copy of prod to try things before prod.
+#
+# https://jellyfin-beta.holy-grail.ch/   (public via the Cloudflare tunnel, like jellyfin.yml)
+#
+# Copied from jellyfin.yml (read its header: no forward auth, SSO inside Jellyfin by OIDC, Quick Connect for apps). Differences:
+#   - service: beefy port 8196; the wake gate probes 8196 (policy=jellyfin: browsers do not wake beefy, apps do).
+#   - streams are LAN/VPN only: the waker's /stream-auth checks tokens against prod (port 8096), so beta tokens would fail there;
+#     an open stream URL without a token must not be public (B-03). Public beta playback needs /stream-auth?port= in Beefy-Waker.
+#   - no signed-in wake page (/beefy-wake is prod's Authentik app); while beefy sleeps, open prod's page first.
+http:
+  routers:
+    jellyfin-beta-startup-block:
+      rule: "Host(`jellyfin-beta.holy-grail.ch`) && PathRegexp(`(?i)^/startup`)"
+      entryPoints: ["websecure"]
+      priority: 30
+      service: jellyfin-beta
+      middlewares:
+        - jellyfin-deny-all@file
+      tls:
+        certResolver: cloudflare
+
+    jellyfin-beta-password-login-block:
+      rule: "Host(`jellyfin-beta.holy-grail.ch`) && PathRegexp(`(?i)/users/(authenticatebyname|[^/]+/authenticate|forgotpassword)(/|$)`)"
+      entryPoints: ["websecure"]
+      priority: 29
+      service: jellyfin-beta
+      middlewares:
+        - jellyfin-deny-all@file
+      tls:
+        certResolver: cloudflare
+
+    jellyfin-beta-stream:
+      rule: "Host(`jellyfin-beta.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/(videos|audio)/[^/]+/(stream|main|master|hls|live)`)"
+      entryPoints: ["websecure"]
+      priority: 5
+      service: jellyfin-beta
+      middlewares:
+        - local-networks@file
+        - jellyfin-beta-wake
+        - jellyfin-secure-headers@file
+      tls:
+        certResolver: cloudflare
+
+    jellyfin-beta-web:
+      rule: "Host(`jellyfin-beta.holy-grail.ch`) && PathPrefix(`/web/`)"
+      entryPoints: ["websecure"]
+      priority: 2
+      service: jellyfin-beta
+      middlewares:
+        - jellyfin-beta-wake
+        - jellyfin-web-no-conditional@file
+        - jellyfin-secure-headers@file
+      tls:
+        certResolver: cloudflare
+
+    jellyfin-beta:
+      rule: "Host(`jellyfin-beta.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: jellyfin-beta
+      middlewares:
+        - jellyfin-beta-wake
+        - jellyfin-secure-headers@file
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    jellyfin-beta-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8196&policy=jellyfin"
+        maxResponseBodySize: 1048576
+        trustForwardHeader: false
+
+  services:
+    jellyfin-beta:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8196"
+        passHostHeader: true
