@@ -295,6 +295,10 @@ services:
       - INFLUXD_QUERY_MEMORY_BYTES=134217728
     secrets:
       - influxdb_admin_password
+    networks:
+      - default
+      # Activity reads Telegraf's container figures here (read-only token, ../Activity/README.md)
+      - activity_influx
     restart: unless-stopped
 
 # #########################################################
@@ -369,6 +373,9 @@ networks:
     name: authentik_authentik_internal
   # Defined by Activity (internal, 10.24.40.0/29). Prometheus joins it to scrape activity:8080/metrics; the service answers /metrics only from this subnet.
   activity_metrics:
+    external: true
+  # Defined by Activity (internal, 10.24.40.8/29). InfluxDB joins it so activity can query Telegraf's container figures.
+  activity_influx:
     external: true
   # Defined by Traefik. Grafana joins it so Traefik can reach grafana:3000.
   traefik_proxy:

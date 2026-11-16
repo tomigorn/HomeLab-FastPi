@@ -7,6 +7,7 @@ Runs inside a network-less container (run.sh):
   127.0.0.3:9001/activity/waker  Beefy-Waker /status behind Traefik's internal route
   127.0.0.4:8080                 Audiobookshelf
   127.0.0.5:8080/activity/qbit   qBittorrent (mouse) behind Traefik's internal route: no login (Traefik is whitelisted), only GET torrents/info?category=abr
+  127.0.0.6:8086                 InfluxDB (Telegraf's container figures): POST /api/v2/query with the read token
 The fakes play the Traefik routes: a request outside the prefix is 404, the recorded path is the one after the prefix.
 """
 import http.client
@@ -38,7 +39,8 @@ CONTRACT = {
 LEAKS = ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "fakesid", "night1", "abc123",
          "nzo_", "/data/", "movie/", "tv/", "displaytitle", "username", "fixture-key", "fixture-pass",
          "u-jane", "u-john", "u-tunnel", "tunnel tess", "fixture tablet", "172.24.0.1", "u-max", "u-erika", "u-idle", "userid", "203.0.113", "192.168.1.5", "192.168.1.6", "10.8.0.3", "fe80", "::ffff",
-         "remoteendpoint", "jellyfin web", "android tv", "devicename", "abc1", "ani1", "stl1"]
+         "remoteendpoint", "jellyfin web", "android tv", "devicename", "abc1", "ani1", "stl1",
+         "455003ea70a9bcad", "9c25045d28f4d7b1", "ffffffffffffffff", "fixture-influx", "gluetun_mouse", "container_name", "something new"]
 
 
 def wait_for(cond, timeout, step=0.1):
@@ -112,10 +114,12 @@ class World:
         self.gate_delay = 0.0
         self.abs_mode = "ok"
         self.qbit_mode = "ok"
+        self.influx_mode = "ok"
         self.waker = Fake("127.0.0.3", 9001, self.on_waker, "/activity/waker")
         self.gate = Fake("127.0.0.2", 8095, self.on_gate, "/activity/gate")
         self.abs = Fake("127.0.0.4", 8080, self.on_abs)
         self.qbit = Fake("127.0.0.5", 8080, self.on_qbit, "/activity/qbit")
+        self.influx = Fake("127.0.0.6", 8086, self.on_influx)
 
     def on_waker(self, method, path, h, body):
         if path != "/status":
@@ -174,6 +178,13 @@ class World:
             s["updatedAt"] += now
         return 200, [("Content-Type", "application/json")], json.dumps(data).encode()
 
+    def on_influx(self, method, path, h, body):
+        if self.influx_mode != "ok" or h.get("authorization") != "Token fixture-influx":
+            return 401, [("Content-Type", "application/json")], b'{"code":"unauthorized","message":"unauthorized access"}'
+        if method != "POST" or path != "/api/v2/query?org=myorg" or b'from(bucket: "rpi")' not in body:
+            return 400, [], b"bad query"
+        return 200, [("Content-Type", "text/csv; charset=utf-8")], (FIX / "influx-load.csv").read_bytes().replace(b"\n", b"\r\n")
+
     def on_qbit(self, method, path, h, body):
         if self.qbit_mode == "ok" and method == "GET" and path == "/api/v2/torrents/info?category=abr":
             return 200, [("Content-Type", "application/json")], (FIX / "qbit-abr.json").read_bytes()
@@ -192,12 +203,14 @@ class Sut:
     def __init__(self, env):
         TMP.mkdir(parents=True, exist_ok=True)
         (TMP / "key").write_text("fixture-key\n")
+        (TMP / "influx").write_text("fixture-influx\n")
         (TMP / "data").mkdir(exist_ok=True)
         self.env = {
             "LISTEN_ADDR": "127.0.0.1", "LISTEN_PORT": str(PORT),
             "WAKER_URL": "http://127.0.0.3:9001/activity/waker", "GATE_URL": "http://127.0.0.2:8095/activity/gate",
             "ABS_URL": "http://127.0.0.4:8080", "ABS_KEY_FILE": str(TMP / "key"),
             "QBIT_URL": "http://127.0.0.5:8080/activity/qbit",
+            "INFLUX_URL": "http://127.0.0.6:8086", "INFLUX_TOKEN_FILE": str(TMP / "influx"),
             "DATA_DIR": str(TMP / "data"), "POLL_SECONDS": "1", "VIEWER_SECONDS": "10",
             "PAGE_ALLOW": "127.0.0.1/32", "METRICS_ALLOW": "127.0.0.1/32", "PATH": "/usr/bin:/bin",
         }
@@ -263,8 +276,8 @@ class Base(unittest.TestCase):
 
     def setUp(self):
         shutil.rmtree(TMP, ignore_errors=True)
-        W.waker_up, W.waker_phase, W.gate_mode, W.gate_delay, W.abs_mode, W.qbit_mode = self.waker, "idle", "ok", 0.0, "ok", "ok"
-        for f in (W.waker, W.gate, W.abs, W.qbit):
+        W.waker_up, W.waker_phase, W.gate_mode, W.gate_delay, W.abs_mode, W.qbit_mode, W.influx_mode = self.waker, "idle", "ok", 0.0, "ok", "ok", "ok"
+        for f in (W.waker, W.gate, W.abs, W.qbit, W.influx):
             f.reset()
         self.sut = Sut(self.env)
         self.sut.start()
@@ -282,6 +295,9 @@ class Base(unittest.TestCase):
 
 
 ABR = {"downloading": 5, "queued": 1, "paused": 2, "problem": 2, "eta": 600, "left": 170000000}
+LISTENING = {"sessions": 3, "modes": ["direct play", "transcode", "other"]}
+FASTPI_LOAD = {"audiobookshelf": {"cpu_pct": 2.1, "mem_bytes": 41730048, "up_kbps": 1293, "down_kbps": None},
+               "downloads": {"cpu_pct": 33.4, "mem_bytes": 147636224, "up_kbps": None, "down_kbps": 54000}}
 NO_TC = {"accel": None, "reasons": []}
 EXPECTED_WATCHING = [
     {"kind": "Movie", "quality": "4K HDR", "mode": "direct play", "paused": False, "n": 2, **NO_TC},
@@ -296,7 +312,7 @@ EXPECTED_WATCHING = [
 
 class Awake(Base):
     def test_live_counts_from_the_gate(self):
-        s = self.wait_state(lambda s: s["beefy_data"] == "live" and s["listening"] is not None and s["audiobook_downloads"] is not None)
+        s = self.wait_state(lambda s: s["beefy_data"] == "live" and s["listening"] is not None and s["audiobook_downloads"] is not None and s["fastpi_load"] is not None)
         self.assertEqual(s["beefy"], "up")
         self.assertEqual(s["watching"], EXPECTED_WATCHING)
         self.assertEqual(len(s["downloads"]), 15)
@@ -307,11 +323,20 @@ class Awake(Base):
         r = s["beefy_resources"]
         self.assertAlmostEqual(r.pop("updated"), time.time() - 20, delta=10)
         self.assertEqual(r, {"cpu_pct": 23.1, "jellyfin_cpu_pct": 18.0, "gpu_pct": 41.0, "mem_used_bytes": 9878000000,
-                             "mem_total_bytes": 65882521600, "jellyfin_mem_bytes": 982011904, "up_kbps": 27013})
+                             "mem_total_bytes": 65882521600, "jellyfin_mem_bytes": 982011904, "up_kbps": 27013,
+                             "dl_cpu_pct": 22.0, "dl_mem_bytes": 1181116006, "dl_down_kbps": 432000, "disk_write_kbps": 960000, "sab_post": "unpacking",
+                             "streams_cpu_pct": 7.5, "streams_gpu_pct": 44.0,
+                             "background": [{"task": "preview images", "cpu_pct": 3.2, "gpu_pct": 22.0}, {"task": "other ffmpeg", "cpu_pct": 0.1, "gpu_pct": None}]})
+        loads = s["stream_loads"]
+        self.assertEqual(len(loads), 8, "one per playing session")
+        self.assertIn({"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": False, "cpu_pct": 2.1, "gpu_pct": 41.0, "kbps": 10000}, loads)
+        self.assertIn({"kind": "Movie", "quality": "1080p HDR", "mode": "direct stream", "paused": False, "cpu_pct": 0.4, "gpu_pct": None, "kbps": 20000}, loads)
+        self.assertEqual(sum(1 for l in loads if l["cpu_pct"] is not None), 2, "only the two matched ffmpeg; the third key is nobody's")
         self.assertIsNone(s["downloads_as_of"])
         self.assertIs(s["night_open"], False, "night-waiting.json low_tariff")
-        self.assertEqual(s["listening"], {"sessions": 3})
+        self.assertEqual(s["listening"], LISTENING)
         self.assertEqual(s["audiobook_downloads"], ABR)
+        self.assertEqual(s["fastpi_load"], FASTPI_LOAD)
 
     def test_gate_requests_are_contract_gets_with_connection_close(self):
         self.wait_state(lambda s: s["beefy_data"] == "live")
@@ -468,10 +493,10 @@ class Awake(Base):
 
 
 def requests_made():
-    return {"waker": len(W.waker.seen()), "gate": len(W.gate.seen()), "abs": len(W.abs.seen()), "qbit": len(W.qbit.seen())}
+    return {"waker": len(W.waker.seen()), "gate": len(W.gate.seen()), "abs": len(W.abs.seen()), "qbit": len(W.qbit.seen()), "influx": len(W.influx.seen())}
 
 
-NOTHING = {"waker": 0, "gate": 0, "abs": 0, "qbit": 0}
+NOTHING = {"waker": 0, "gate": 0, "abs": 0, "qbit": 0, "influx": 0}
 
 
 class PageViews(Base):
@@ -495,10 +520,10 @@ class PageViews(Base):
     def test_first_view_polls_once_at_once(self):
         s = state()
         self.assertEqual(s["beefy_data"], "live", "the first answer already carries the immediate poll")
-        self.assertEqual(s["listening"], {"sessions": 3})
+        self.assertEqual(s["listening"], LISTENING)
         self.assertIsInstance(s["polled_at"], int)
         made = requests_made()
-        self.assertEqual((made["waker"], made["abs"], made["qbit"]), (1, 1, 1))
+        self.assertEqual((made["waker"], made["abs"], made["qbit"], made["influx"]), (1, 1, 1, 1))
         paths = [p for _, p, _ in W.gate.seen()]
         self.assertEqual(sorted(paths), sorted(set(paths)), "one request per gate path")
         for _ in range(20):
@@ -537,7 +562,7 @@ class ViewerWindow(Base):
         time.sleep(1.5)
         self.assertGreaterEqual(requests_made()["waker"], 2, "polls every POLL_SECONDS while viewed")
         time.sleep(1.5)
-        for f in (W.waker, W.gate, W.abs, W.qbit):
+        for f in (W.waker, W.gate, W.abs, W.qbit, W.influx):
             f.reset()
         time.sleep(3)
         self.assertEqual(requests_made(), NOTHING)
@@ -637,6 +662,15 @@ class LocalSources(Base):
         self.assertEqual(s["beefy"], "asleep")
         self.assertIn("local source unavailable: audiobookshelf: HTTP 401", self.sut.log())
 
+    def test_fastpi_load_from_influx_and_its_failure(self):
+        s = self.wait_state(lambda s: s["fastpi_load"] is not None)
+        self.assertEqual(s["fastpi_load"], FASTPI_LOAD, "asleep beefy does not matter for fastpi's figures")
+        self.assertIsNone(s["stream_loads"])
+        W.influx_mode = "deny"
+        s = self.wait_state(lambda s: s["fastpi_load"] is None)
+        self.assertEqual(s["audiobook_downloads"], ABR)
+        self.assertIn("local source unavailable: influxdb: HTTP 401", self.sut.log())
+
 
 
 class QbitThroughTraefik(Base):
@@ -655,7 +689,7 @@ class QbitThroughTraefik(Base):
         W.qbit_mode = "deny"
         s = self.wait_state(lambda s: s["listening"] is not None)
         self.assertIsNone(s["audiobook_downloads"])
-        self.assertEqual(s["listening"], {"sessions": 3})
+        self.assertEqual(s["listening"], LISTENING)
         self.assertIn("qbittorrent: HTTP 403", self.sut.log())
 
 

@@ -3,7 +3,7 @@
 Who is watching (Jellyfin, beefy), who is listening (Audiobookshelf, fastpi), what is downloading or waiting. Anonymous counts only: categories, no titles, no names.
 
 - **URL:** https://activity.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`; LAN/VPN now, internet after [Owner steps](#owner-steps))
-- **Polls only while someone looks:** nothing (no Waker, no gate, no ABS, no qBittorrent) while nobody has the page open; see [Polling](#polling).
+- **Polls only while someone looks:** nothing (no Waker, no gate, no ABS, no qBittorrent, no InfluxDB) while nobody has the page open; see [Polling](#polling).
 - **Never wakes beefy, never keeps it awake:** beefy is asked only while Beefy-Waker `/status` (never wakes) says `up`; the requests go to the read-only `activity-gate` on beefy, whose port is excluded from beefy's idle watcher.
 - Rust, scratch image, uid 65060, read-only, no capabilities, 32 MB, no host port. Connections from addresses in neither `PAGE_ALLOW` nor `METRICS_ALLOW` are closed right after accept (no slot taken), so a neighbour on traefik_proxy cannot starve Traefik or the healthcheck. The page's Content-Security-Policy is set by the service: the one inline script and style allowed by their SHA-256 hashes (computed from the embedded page at start, `rust/src/csp.rs`), no `'unsafe-inline'`; `img-src 'self' data:` for the favicons.
 - **Favicon:** `www/icons/` (purple gradient circle with signal bars, like the books site's), embedded in the binary and served with the page: `/favicon.svg`, `/favicon.ico` (16/32/48), `/icons/favicon-16x16.png`, `/icons/favicon-32x32.png`, `/icons/apple-touch-icon.png` (180, square); same peers as the page, never a viewer, `max-age=86400`.
@@ -18,6 +18,7 @@ activity, per poll:   traefik:8080/activity/waker/status ─► Waker 192.168.1.
                       Waker up? ─► GET traefik:8080/activity/gate/<contract paths> ─► gate 192.168.1.102:8095, side by side, one attempt each, 3 s timeout, Connection: close
                       Audiobookshelf audiobookshelf:8080 /api/sessions/open
                       traefik:8080/activity/qbit/api/v2/torrents/info?category=abr ─► qBittorrent 10.24.25.2:8080 (no login)
+                      InfluxDB influxdb:8086 (network activity_influx, read-only token) POST /api/v2/query: Telegraf's container figures
 ```
 
 ## Polling
@@ -45,7 +46,10 @@ The page fetches `/api/state` every 30 s only while its tab is visible (stops on
 | Watching / Downloads | one label per kind in both: Movie, Series (`Episode`), Anime, Audiobook, Music, Live TV, Other |
 | Watching rows | kind · quality, mode; transcodes add "configured encoder: QSV/software" (Jellyfin's HardwareAccelerationType is the server's encoder setting; a transcode that fell back to software still shows QSV) and the reasons ("subtitles, HDR tone-mapping") |
 | Under Watching | "≈ 143 Mbit/s · 4 LAN, 3 remote · 4 people on 7 streams" (`watching_summary`, over all Jellyfin streams incl. music/audiobooks; below 1 Mbit/s in kbit/s) |
-| beefy load (under that) | "CPU 23 % (Jellyfin 18 %) · GPU 41 % · RAM 9.2 / 61 GiB (Jellyfin 1.0 GiB) · ↑ 27 Mbit/s" (`beefy_resources`, live only, also with nobody watching; a figure beefy did not report is left out; each part wraps as a whole) |
+| beefy load (under that) | "CPU 23 % (Jellyfin 18 %: streams 2.1 %, background: preview images 4.0 %) · GPU 41 % (streams 41 %) · RAM 9.2 / 61 GiB (Jellyfin 1.0 GiB) · ↑ 27 Mbit/s" (`beefy_resources`, live only, also with nobody watching; a figure beefy did not report is left out; each part wraps as a whole). The parentheses name what measured ffmpeg runs account for (parts ≥ 0.1 %); GPU in use with none of it from Jellyfin's ffmpeg: "(not Jellyfin's ffmpeg)" |
+| Per stream (under that) | "Stream 2 · 1080p SDR transcode · CPU 0.6 % · GPU 8.3 % · ≈ ↑ 5 Mbit/s" (`stream_loads`, video only; music and audiobooks go to Listening as "Listener n"): CPU/GPU only when the stream's own ffmpeg was measured (direct play has none: no CPU shown, never a share of Jellyfin); "≈ ↑" is the stream's bitrate, not measured traffic; paused: "paused" |
+| Listening load | "Audiobookshelf · CPU 0.4 % · RAM 45 MiB · ↑ 96 kbit/s" (`fastpi_load.audiobookshelf`), then "Listener 1 · direct play" per ABS session (`listening.modes`), then the Jellyfin music/audiobook streams |
+| Download load (top of Downloads) | "beefy · ↓ 54 MB/s · SAB unpacking · CPU 22 % · RAM 1.1 GiB · disk write 120 MB/s" while a live row downloads or imports, SABnzbd post-processes or ↓ ≥ 0.1 MB/s; "fastpi audiobooks · ↓ 6.8 MB/s · CPU 33 % · RAM 147 MiB" while an audiobook downloads or ↓ ≥ 0.1 MB/s; else hidden |
 | Download rows | "~1 h 10 min left · 8.0 GB to download" (longest time, download size left) for downloading, importing, queued, stalled, paused rows and audiobook downloads; not for problems, waiting titles or an "as of" snapshot |
 | 🌙 waiting for night | "from 22:05" (fastpi's night-download wake of beefy) or "night window open" (`night_open`); only for live downloads, not for an "as of" snapshot |
 | 📅 waiting for release | one folded line at the end of Downloads ("6 movies, 3 series"), rows on tap |
@@ -110,7 +114,11 @@ The last downloads are kept in the volume `activity_data` (`/data/last.json`, `{
 | beefy load (`beefy_resources`, live only) | `/beefy/resources.json`, written every 60 s by beefy's idle watcher (beefy repo `Server/8-Idle-Watcher.md`, Observability), averaged over its last cycle: `cpu_pct` whole host (`/proc/stat`); `jellyfin_cpu_pct` the Jellyfin container's cgroup CPU time (transcodes included) as a share of the whole host; `gpu_pct` the busiest engine of the iGPU (i915 PMU busy counters, what `intel_gpu_top` reads); `mem_used_bytes`/`mem_total_bytes` MemTotal − MemAvailable / MemTotal; `jellyfin_mem_bytes` its cgroup memory without inactive page cache; `up_kbps` everything beefy's NIC sends (streams through fastpi and the tunnel, seeding; buffering clients pull faster than the stream bitrate). Used only when written 0–180 s before the poll (30 s of clock skew allowed) and `v` 1; a percentage outside 0–100 is dropped; missing or old figures only drop the row (one log line per change) |
 | Watch summary (`watching_summary`, live only) | `bitrate_kbps`: sum over the playing, not paused sessions (transcode: `TranscodingInfo.Bitrate`, else the video stream's plus the selected audio stream's `BitRate`); `lan`/`remote`: sessions by `RemoteEndPoint`: an address in `TUNNEL_PEERS` (default `172.24.0.1`) = remote; else private, loopback, link-local (zone ignored), 100.64/10, fc00::/7 = LAN (home, VPN), public = remote. Why the tunnel rule: internet clients come through the Cloudflare tunnel to Traefik from the docker gateway 172.24.0.1; Jellyfin trusts only 192.168.1.2 as proxy, stops at that unknown hop and reports 172.24.0.1 for every internet client. The cleaner fix is adding 172.24.0.1 to Jellyfin's known proxies on beefy (owner decision: it also changes Jellyfin's own remote bitrate rules and client IPs); then `TUNNEL_PEERS` can be emptied (`off` is not a value: set an unused address); `people`: distinct `UserId`. Addresses and ids are read in the poll and dropped with the session list: never stored, logged or served |
 | Time and size left | per Downloads row: `eta` = the longest Radarr/Sonarr `timeleft` (seconds), `left` = `sizeleft` summed over the row's downloads (download size in bytes; a season pack on several episode records counts once, by download id); audiobooks: qBittorrent `eta` (longest finite) and `amount_left` of the downloading torrents |
-| Listening | ABS open sessions (and share sessions) synced within 5 min (ABS keeps stale sessions open 36 h) |
+| Listening | ABS open sessions (and share sessions) synced within 5 min (ABS keeps stale sessions open 36 h); per session its `playMethod` (0 direct play, 1 direct stream, 2 transcode, 3 local, else other). Per-listener traffic is not measurable (one container, one network counter): not shown |
+| Per stream (`stream_loads`, live only) | one row per playing Jellyfin session: kind, quality, mode, paused, `kbps` = the bitrate of Watch summary (paused: none); `cpu_pct`/`gpu_pct` from `resources.json` `streams` (the idle watcher's per-ffmpeg figures, keyed by sha256 of the input file): matched by the hashed `NowPlayingItem.Path`; two sessions on one file get none (cannot be told apart); the keys are used in the poll and dropped. Per-stream network is not measurable: every stream reaches Jellyfin through fastpi (one peer, shared keep-alive connections), so the page shows the bitrate with "≈" |
+| beefy attribution (`beefy_resources`) | `streams_cpu_pct`/`streams_gpu_pct`: all stream ffmpeg summed (matched or not); `background`: Jellyfin's other ffmpeg/ffprobe by job (`preview images` = trickplay, `chapter images`, `intro/credits detection`, `keyframe extraction`, `media probing`, `other ffmpeg`; a word beefy sends that is not in this list = `other ffmpeg`), from their arguments, no titles. Not from Jellyfin `/ScheduledTasks` (another gate path and API key for no extra figure) |
+| beefy downloads (`beefy_resources`) | `dl_cpu_pct`/`dl_mem_bytes` SABnzbd + qBittorrent + their VPN cgroups; `dl_down_kbps` what the VPN tunnel receives (both clients; not split per client or per download); `disk_write_kbps` writes to the data disks; `sab_post` `unpacking`/`verifying` from SABnzbd's running unrar/7-Zip/par2. Per-download speed: not shown (needs the SABnzbd and qBittorrent APIs through the gate; the rows already show time and size left) |
+| fastpi load (`fastpi_load`) | Telegraf's docker input in InfluxDB (bucket `rpi`, every 30 s), one Flux query per poll (~40 ms; plain equality filters only, `contains()` took 4.5 s): CPU = `usage_total` rate ÷ `n_cpus` (share of fastpi), RAM = `usage` − `inactive_file`, traffic = `tx_bytes`/`rx_bytes` rate over the last two samples (90 s window). `audiobookshelf`: its container, ↑ = everything it sends (to Traefik). `downloads`: `MOUSE_DOWNLOAD_CONTAINERS` (`gluetun_mouse qbittorrent_mouse sabnzbd`) summed, ↓ = what `gluetun_mouse` receives (the others share its network) |
 | Audiobook downloads | qBittorrent category `abr`: downloading = downloading, stalledDL, metaDL, forcedDL, forcedMetaDL, allocating, checkingDL, moving, checkingResumeData; queued = queuedDL; paused = stoppedDL, pausedDL; problem = error, missingFiles; seeding and finished ones are not counted |
 
 Radarr/Sonarr v3 queue records (`trackedDownloadState`, `trackedDownloadStatus`, `status` from the download client), first match wins:
@@ -140,7 +148,7 @@ The gate on beefy (`activity-gate`, port 8095; 8097 is jellyfin-popular) allow-l
 | `/radarr/api/v3/queue?pageSize=200&includeMovie=true` | Radarr | yes |
 | `/sonarr/api/v3/queue?pageSize=500&includeSeries=true&includeEpisode=true` | Sonarr | yes |
 | `/sonarr/api/v3/series` | Sonarr, only when an episode plays or a series request waits | no (no anime, no series counts, flagged) |
-| `/beefy/resources.json` | `/run/beefy-activity/resources.json` (beefy's idle watcher; numbers only, ~200 B, read with a 4 KiB limit) | no (no load row) |
+| `/beefy/resources.json` | `/run/beefy-activity/resources.json` (beefy's idle watcher; numbers, hashed file keys and fixed job words, ~500 B, read with a 4 KiB limit) | no (no load row) |
 
 Paths are asked side by side (the series list after the others, only when needed). Per poll: the Waker once, then one request per path.
 
@@ -154,6 +162,7 @@ Paths are asked side by side (the series list after the others, only when needed
 | File | Owner, mode | What |
 |---|---|---|
 | `secrets/abs_api_key` | 65060, 0400 | copy of `../Audiobook-Requests/secrets/abs_api_key` (ABS key `audiobook-importer`; `/api/sessions/open` needs admin) |
+| `secrets/influx_token` | 65060, 0400 | InfluxDB token `activity read (rpi bucket)`: read bucket `rpi` only. New one: `docker exec influxdb influx auth create --org myorg --read-bucket <rpi bucket id> --description "activity read (rpi bucket)" --json \| jq -r .token` |
 
 Rotation: `sudo install -o 65060 -g 65060 -m 0400 <new file> secrets/<name>`; read on every use, no restart.
 
@@ -173,11 +182,11 @@ LAN and VPN work already (AdGuard wildcard; LAN probe in `blackbox-gated`).
 | What | Command |
 |---|---|
 | Build + deploy | `flock ~/.cache/claude-work/rust-build.lock Docker/_global/scripts/update-project.sh Docker/Activity build` (cargo test runs in the build) |
-| Black-box suite (fakes for Waker, gate, ABS, qBittorrent; ~1 min) | `bash tests/blackbox/run.sh` (binary from `activity:local`), `run.sh image IMAGE`, `run.sh bin BINARY` |
+| Black-box suite (fakes for Waker, gate, ABS, qBittorrent, InfluxDB; ~1 min) | `bash tests/blackbox/run.sh` (binary from `activity:local`), `run.sh image IMAGE`, `run.sh bin BINARY` |
 | Page tests (headless Chromium, `/api/state` from fixtures; Playwright from `PLAYWRIGHT`, global, or `~/Documents/development/LoyaltyCards`) | `node --test tests/page/page.test.cjs` |
 | Customization checks | `Docker/_global/scripts/post-update-check.sh Activity` |
 | State | `docker exec traefik wget -qO- http://activity:8080/api/state` |
-| Rollback | `update-project.sh` rolls back on a failed check; remove: `docker compose down` here, delete `../Traefik/traefik/dynamic/activity.yml` and `activity-internal.yml`, the `activity` job and network in `../grafana` |
+| Rollback | `update-project.sh` rolls back on a failed check; remove: `docker compose down` here, delete `../Traefik/traefik/dynamic/activity.yml` and `activity-internal.yml`, the `activity` job and the networks `activity_metrics`, `activity_influx` in `../grafana`, the InfluxDB token |
 
 ## Metrics
 

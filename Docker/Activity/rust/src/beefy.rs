@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde::Deserialize;
 
-use crate::state::{Accel, DlState, Download, Kind, Mode, Quality, Reason, Stream, WatchSummary};
+use crate::state::{Accel, DlState, Download, Kind, Mode, Quality, Reason, SabPost, Stream, StreamLoad, Task, TaskLoad, WatchSummary};
 
 /// Paths on the gate (`GATE_URL`); the gate on beefy allow-lists exactly these GET paths and injects the API keys.
 pub const PATH_SESSIONS: &str = "/jellyfin/Sessions?ActiveWithinSeconds=60";
@@ -40,6 +40,43 @@ pub struct Resources {
     mem_total_bytes: Option<u64>,
     jellyfin_mem_bytes: Option<u64>,
     up_kbps: Option<u64>,
+    dl_cpu_pct: Option<f64>,
+    dl_mem_bytes: Option<u64>,
+    dl_down_kbps: Option<u64>,
+    disk_write_kbps: Option<u64>,
+    sab_post: Option<String>,
+    /// per stream ffmpeg, keyed by the hashed input file (`path_key`); None = not measured
+    streams: Option<Vec<KeyedFigure>>,
+    /// Jellyfin's background ffmpeg/ffprobe jobs
+    background: Option<Vec<TaskFigure>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct TaskFigure {
+    task: String,
+    cpu_pct: Option<f64>,
+    gpu_pct: Option<f64>,
+}
+
+#[derive(Deserialize, Default, Clone, Copy, Debug, PartialEq)]
+#[serde(default)]
+pub struct StreamFigure {
+    cpu_pct: Option<f64>,
+    gpu_pct: Option<f64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct KeyedFigure {
+    key: String,
+    #[serde(flatten)]
+    fig: StreamFigure,
+}
+
+/// The idle watcher's key of a stream's input file: the first 16 hex digits of its SHA-256.
+pub fn path_key(path: &str) -> String {
+    crate::csp::sha256(path.as_bytes()).iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 impl Resources {
@@ -58,7 +95,41 @@ impl Resources {
             mem_total_bytes: self.mem_total_bytes,
             jellyfin_mem_bytes: self.jellyfin_mem_bytes,
             up_kbps: self.up_kbps,
+            dl_cpu_pct: pct(self.dl_cpu_pct),
+            dl_mem_bytes: self.dl_mem_bytes,
+            dl_down_kbps: self.dl_down_kbps,
+            disk_write_kbps: self.disk_write_kbps,
+            sab_post: match self.sab_post.as_deref() {
+                Some("unpacking") => Some(SabPost::Unpacking),
+                Some("verifying") => Some(SabPost::Verifying),
+                _ => None,
+            },
+            streams_cpu_pct: self.streams.as_ref().map(|s| (s.iter().filter_map(|k| pct(k.fig.cpu_pct)).sum::<f64>().min(100.0) * 10.0).round() / 10.0 + 0.0),
+            streams_gpu_pct: self.streams.as_ref().map(|s| (s.iter().filter_map(|k| pct(k.fig.gpu_pct)).sum::<f64>().min(100.0) * 10.0).round() / 10.0 + 0.0),
+            background: self
+                .background
+                .iter()
+                .flatten()
+                .map(|t| TaskLoad {
+                    task: match t.task.as_str() {
+                        "preview images" => Task::PreviewImages,
+                        "chapter images" => Task::ChapterImages,
+                        "intro/credits detection" => Task::IntroDetection,
+                        "keyframe extraction" => Task::Keyframes,
+                        "media probing" => Task::Probing,
+                        _ => Task::Other,
+                    },
+                    cpu_pct: pct(t.cpu_pct),
+                    gpu_pct: pct(t.gpu_pct),
+                })
+                .collect(),
         })
+    }
+
+    /// The per-stream ffmpeg figures by key, percentages outside 0–100 dropped; None = the watcher did not measure them.
+    pub fn stream_figures(&self) -> Option<HashMap<String, StreamFigure>> {
+        let pct = |p: Option<f64>| p.filter(|p| (0.0..=100.0).contains(p));
+        Some(self.streams.as_ref()?.iter().map(|k| (k.key.clone(), StreamFigure { cpu_pct: pct(k.fig.cpu_pct), gpu_pct: pct(k.fig.gpu_pct) })).collect())
     }
 }
 
@@ -336,6 +407,37 @@ pub fn streams(sessions: &[Session], anime: &SeriesIndex) -> Vec<Stream> {
         *groups.entry((s.kind, s.quality, s.mode, s.paused, s.accel, s.reasons)).or_default() += 1;
     }
     groups.into_iter().map(|((kind, quality, mode, paused, accel, reasons), n)| Stream { kind, quality, mode, paused, n, accel, reasons }).collect()
+}
+
+/// One row per playing session: its category, its bitrate, and its ffmpeg's CPU/GPU when the watcher measured one for exactly this session's file.
+/// Two sessions on the same file cannot be told apart: neither gets figures. A file key lives only for this matching.
+pub fn stream_loads(sessions: &[Session], anime: &SeriesIndex, figures: Option<&HashMap<String, StreamFigure>>) -> Vec<StreamLoad> {
+    let playing: Vec<(&Session, &Item, Stream, Option<String>)> = sessions
+        .iter()
+        .filter_map(|s| Some((s, s.now_playing_item.as_ref()?, stream_of(s, anime)?)))
+        .map(|(s, i, st)| (s, i, st, i.path.as_deref().map(path_key)))
+        .collect();
+    let mut seen: HashMap<&str, u32> = HashMap::new();
+    for k in playing.iter().filter_map(|p| p.3.as_deref()) {
+        *seen.entry(k).or_default() += 1;
+    }
+    let mut out: Vec<StreamLoad> = playing
+        .iter()
+        .map(|(s, item, st, key)| {
+            let fig = key.as_deref().filter(|k| seen.get(k) == Some(&1)).and_then(|k| figures?.get(k)).copied().unwrap_or_default();
+            StreamLoad {
+                kind: st.kind,
+                quality: st.quality,
+                mode: st.mode,
+                paused: st.paused,
+                cpu_pct: fig.cpu_pct,
+                gpu_pct: fig.gpu_pct,
+                kbps: bitrate(s, item).filter(|_| !st.paused).map(|b| b / 1000),
+            }
+        })
+        .collect();
+    out.sort_by_key(|l| (l.paused, std::cmp::Reverse(l.kbps), l.kind, l.quality, l.mode));
+    out
 }
 
 pub fn wants_series(sessions: &[Session]) -> bool {
@@ -956,7 +1058,7 @@ mod tests {
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false, summary: Default::default(), resources: None }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false, summary: Default::default(), resources: None, loads: vec![] }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
         let out = out + &serde_json::to_string(&summary(&sessions(), &tunnel())).unwrap();
         for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data", "u-", "tess", "tablet", "omega", "172.24", "203.0.113", "192.168", "10.8.0", "fe80", "ffff"] {
@@ -1008,6 +1110,14 @@ mod tests {
             mem_total_bytes: Some(65_882_521_600),
             jellyfin_mem_bytes: Some(982_011_904),
             up_kbps: Some(27_013),
+            dl_cpu_pct: Some(22.0),
+            dl_mem_bytes: Some(1_181_116_006),
+            dl_down_kbps: Some(432_000),
+            disk_write_kbps: Some(960_000),
+            sab_post: Some(SabPost::Unpacking),
+            streams_cpu_pct: Some(7.5),
+            streams_gpu_pct: Some(44.0),
+            background: vec![TaskLoad { task: Task::PreviewImages, cpu_pct: Some(3.2), gpu_pct: Some(22.0) }, TaskLoad { task: Task::Other, cpu_pct: Some(0.1), gpu_pct: None }],
         };
         assert_eq!(r.figures(at + 30), Some(want.clone()));
         assert_eq!(r.figures(at + RESOURCES_STALE), Some(want));
@@ -1026,5 +1136,60 @@ mod tests {
         let r: Resources = serde_json::from_str(r#"{"v":1,"updated":100,"cpu_pct":-5,"gpu_pct":250}"#).unwrap();
         let f = r.figures(110).unwrap();
         assert_eq!((f.cpu_pct, f.gpu_pct), (None, None), "out of range = not a reading");
+        assert_eq!((f.streams_cpu_pct, f.streams_gpu_pct, f.background), (None, None, vec![]), "no lists = not measured");
+        assert_eq!(r.stream_figures(), None, "no streams list = not measured");
+        let r: Resources = serde_json::from_str(r#"{"v":1,"updated":100,"sab_post":"exploding","streams":[{"key":"a","cpu_pct":140,"gpu_pct":3}]}"#).unwrap();
+        assert_eq!(r.figures(110).unwrap().sab_post, None, "an unknown post-processing word is dropped");
+        let f = r.stream_figures().unwrap();
+        assert_eq!((f["a"].cpu_pct, f["a"].gpu_pct), (None, Some(3.0)));
+        let r: Resources = serde_json::from_str(r#"{"v":1,"updated":100,"streams":[]}"#).unwrap();
+        let f = r.figures(110).unwrap();
+        assert_eq!(serde_json::to_string(&(f.streams_cpu_pct, f.streams_gpu_pct)).unwrap(), "[0.0,0.0]", "no stream running: 0, never -0");
+    }
+
+    #[test]
+    fn path_key_matches_the_idle_watcher() {
+        assert_eq!(path_key("/data/tv/Fixture Show Gamma/Season 01/e7.mkv"), "455003ea70a9bcad", "hashlib.sha256(path).hexdigest()[:16]");
+    }
+
+    fn sl(kind: Kind, quality: Option<Quality>, mode: Mode, paused: bool, cpu: Option<f64>, gpu: Option<f64>, kbps: Option<u64>) -> StreamLoad {
+        StreamLoad { kind, quality, mode, paused, cpu_pct: cpu, gpu_pct: gpu, kbps }
+    }
+
+    #[test]
+    fn one_row_per_session_with_only_measured_figures() {
+        let r: Resources = serde_json::from_str(RESOURCES).unwrap();
+        let figs = r.stream_figures().unwrap();
+        let rows = stream_loads(&sessions(), &index(), Some(&figs));
+        let (q4h, q1h, q1s) = (Some(Quality::Uhd4kHdr), Some(Quality::Fhd1080Hdr), Some(Quality::Fhd1080Sdr));
+        assert_eq!(
+            rows,
+            vec![
+                sl(Kind::Movie, q4h, Mode::DirectPlay, false, None, None, Some(60_640)),
+                sl(Kind::Movie, q4h, Mode::DirectPlay, false, None, None, Some(40_000)),
+                sl(Kind::Movie, q1h, Mode::DirectStream, false, Some(0.4), None, Some(20_000)),
+                sl(Kind::Anime, q1s, Mode::TranscodeAudio, false, None, None, Some(12_000)),
+                sl(Kind::Episode, q1s, Mode::Transcode, false, Some(2.1), Some(41.0), Some(10_000)),
+                sl(Kind::Music, None, Mode::DirectPlay, false, None, None, Some(320)),
+                sl(Kind::Movie, q4h, Mode::DirectPlay, true, None, None, None),
+                sl(Kind::Episode, q1s, Mode::Transcode, true, None, None, None),
+            ],
+            "direct play has no ffmpeg: no CPU; the unmatched key ffff… is nobody's; paused: no bitrate"
+        );
+        let none = stream_loads(&sessions(), &index(), None);
+        assert!(none.iter().all(|l| l.cpu_pct.is_none() && l.gpu_pct.is_none()), "no figures from beefy: nothing measured");
+        assert_eq!(none.len(), 8);
+    }
+
+    #[test]
+    fn two_sessions_on_one_file_get_no_figures() {
+        let s = r#"{"NowPlayingItem":{"Type":"Movie","Path":"/data/tv/Fixture Show Gamma/Season 01/e7.mkv","MediaStreams":[{"Type":"Video","Height":1080}]},"PlayState":{"PlayMethod":"Transcode"},"TranscodingInfo":{"Bitrate":8000000}}"#;
+        let two: Vec<Session> = vec![serde_json::from_str(s).unwrap(), serde_json::from_str(s).unwrap()];
+        let r: Resources = serde_json::from_str(RESOURCES).unwrap();
+        let rows = stream_loads(&two, &index(), r.stream_figures().as_ref());
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|l| l.cpu_pct.is_none() && l.kbps == Some(8000)), "{rows:?}");
+        let rows = stream_loads(&two[..1], &index(), r.stream_figures().as_ref());
+        assert_eq!((rows[0].cpu_pct, rows[0].gpu_pct), (Some(2.1), Some(41.0)));
     }
 }

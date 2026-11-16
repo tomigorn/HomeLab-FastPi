@@ -261,6 +261,107 @@ pub struct Resources {
     pub jellyfin_mem_bytes: Option<u64>,
     /// everything beefy's NIC sends, kbit/s
     pub up_kbps: Option<u64>,
+    /// the download containers (SABnzbd, qBittorrent, their VPN): CPU share of the host, memory
+    #[serde(default)]
+    pub dl_cpu_pct: Option<f64>,
+    #[serde(default)]
+    pub dl_mem_bytes: Option<u64>,
+    /// what the VPN tunnel receives (both download clients), kbit/s
+    #[serde(default)]
+    pub dl_down_kbps: Option<u64>,
+    /// writes to the data disks, kbit/s
+    #[serde(default)]
+    pub disk_write_kbps: Option<u64>,
+    /// SABnzbd post-processing, from its running unrar/7-Zip/par2
+    #[serde(default)]
+    pub sab_post: Option<SabPost>,
+    /// summed over every stream ffmpeg (matched to a session or not): CPU share of the host, iGPU engine busy
+    #[serde(default)]
+    pub streams_cpu_pct: Option<f64>,
+    #[serde(default)]
+    pub streams_gpu_pct: Option<f64>,
+    /// Jellyfin's background ffmpeg/ffprobe jobs by kind (from their arguments)
+    #[serde(default)]
+    pub background: Vec<TaskLoad>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Task {
+    #[serde(rename = "preview images")]
+    PreviewImages,
+    #[serde(rename = "chapter images")]
+    ChapterImages,
+    #[serde(rename = "intro/credits detection")]
+    IntroDetection,
+    #[serde(rename = "keyframe extraction")]
+    Keyframes,
+    #[serde(rename = "media probing")]
+    Probing,
+    #[serde(rename = "other ffmpeg")]
+    Other,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TaskLoad {
+    pub task: Task,
+    pub cpu_pct: Option<f64>,
+    pub gpu_pct: Option<f64>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SabPost {
+    #[serde(rename = "unpacking")]
+    Unpacking,
+    #[serde(rename = "verifying")]
+    Verifying,
+}
+
+/// One playing Jellyfin session, anonymous: its category, and only what was measured for it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StreamLoad {
+    pub kind: Kind,
+    pub quality: Option<Quality>,
+    pub mode: Mode,
+    pub paused: bool,
+    /// its ffmpeg (transcode or remux) as a share of beefy's CPU; None = no ffmpeg measured for it (direct play, or not matched)
+    pub cpu_pct: Option<f64>,
+    /// the busiest iGPU engine its ffmpeg used
+    pub gpu_pct: Option<f64>,
+    /// the stream's bitrate (Jellyfin), not measured traffic; None while paused
+    pub kbps: Option<u64>,
+}
+
+/// Audiobookshelf's play method of a session.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub enum ListenMode {
+    #[serde(rename = "direct play")]
+    DirectPlay,
+    #[serde(rename = "direct stream")]
+    DirectStream,
+    #[serde(rename = "transcode")]
+    Transcode,
+    #[serde(rename = "local")]
+    Local,
+    #[serde(rename = "other")]
+    Other,
+}
+
+/// A fastpi container group's load from Telegraf (InfluxDB): CPU share of fastpi, memory, traffic; None = not reported.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Load {
+    pub cpu_pct: Option<f64>,
+    pub mem_bytes: Option<u64>,
+    pub up_kbps: Option<u64>,
+    pub down_kbps: Option<u64>,
+}
+
+/// Audiobookshelf and the mouse download stack (its VPN, qBittorrent, SABnzbd) on fastpi.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct FastpiLoad {
+    pub audiobookshelf: Option<Load>,
+    pub downloads: Option<Load>,
 }
 
 /// The Jellyfin side of one successful poll of beefy, already aggregated: categories and counts only.
@@ -277,6 +378,9 @@ pub struct StreamsPart {
     /// None = the gate had no fresh figures
     #[serde(default)]
     pub resources: Option<Resources>,
+    /// one per playing session
+    #[serde(default)]
+    pub loads: Vec<StreamLoad>,
 }
 
 /// What a downloads part may be missing: the series list (anime, series counts), the night list (night-held items look paused), or queue records beyond the page.
@@ -341,15 +445,18 @@ pub struct Abr {
 }
 
 /// fastpi-local audiobook figures; None = source unavailable.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Local {
-    pub listening: Option<u32>,
+    /// play method per listening ABS session
+    pub listening: Option<Vec<ListenMode>>,
     pub abr: Option<Abr>,
+    pub load: Option<FastpiLoad>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Listening {
     pub sessions: u32,
+    pub modes: Vec<ListenMode>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -365,6 +472,8 @@ pub struct View {
     pub watching_summary: Option<WatchSummary>,
     /// beefy's CPU, GPU, RAM and upload, with the live streams only
     pub beefy_resources: Option<Resources>,
+    /// one per playing session, with the live streams only
+    pub stream_loads: Option<Vec<StreamLoad>>,
     /// None = never polled
     pub downloads: Option<Vec<Download>>,
     /// set when `downloads` is the last known state, not live
@@ -377,6 +486,8 @@ pub struct View {
     pub streams_series_unavailable: bool,
     pub listening: Option<Listening>,
     pub audiobook_downloads: Option<Abr>,
+    /// Audiobookshelf and the mouse downloads on fastpi (None = InfluxDB unavailable)
+    pub fastpi_load: Option<FastpiLoad>,
     /// when the last poll finished (None = no poll since the start)
     pub polled_at: Option<i64>,
     /// the Waker says up (past the warm-up) but the last poll got no sessions / no queues from the gate
@@ -424,13 +535,15 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         watching,
         watching_summary: streams.filter(|_| live).map(|s| s.summary),
         beefy_resources: streams.filter(|_| live).and_then(|s| s.resources.clone()),
+        stream_loads: streams.filter(|_| live).map(|s| s.loads.clone()),
         downloads: downloads.map(|d| d.list.clone()),
         downloads_as_of: downloads.filter(|_| !downloads_live).map(|d| d.at),
         downloads_gaps: downloads.map(|d| d.gaps),
         night_open: downloads.and_then(|d| d.night_open),
         streams_series_unavailable: live && streams.is_some_and(|s| s.series_unavailable),
-        listening: local.listening.map(|sessions| Listening { sessions }),
+        listening: local.listening.as_ref().map(|m| Listening { sessions: m.len() as u32, modes: m.clone() }),
         audiobook_downloads: local.abr,
+        fastpi_load: local.load,
         polled_at: polled.at,
         streams_failed: up && !warming && polled.streams_failed,
         downloads_failed: up && !warming && polled.downloads_failed,
@@ -466,6 +579,7 @@ pub mod tests {
             series_unavailable: false,
             summary: WatchSummary { bitrate_kbps: Some(8000), lan: 1, remote: 0, people: 1 },
             resources: None,
+            loads: vec![],
             streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1, accel: None, reasons: vec![] }],
         }
     }
@@ -561,12 +675,17 @@ pub mod tests {
     #[test]
     fn view_local_figures_or_unavailable() {
         let abr = Abr { downloading: 1, queued: 3, paused: 1, problem: 0, eta: Some(60), left: 5 };
-        let l = Local { listening: Some(2), abr: Some(abr) };
+        let load = FastpiLoad { audiobookshelf: Some(Load { cpu_pct: Some(0.4), mem_bytes: Some(45), up_kbps: Some(96), down_kbps: None }), downloads: None };
+        let l = Local { listening: Some(vec![ListenMode::DirectPlay, ListenMode::Transcode]), abr: Some(abr), load: Some(load) };
         let x = view(NOW, None, None, WakerState::Down, &l, Polled::default());
-        assert_eq!(x.listening, Some(Listening { sessions: 2 }));
+        assert_eq!(x.listening, Some(Listening { sessions: 2, modes: vec![ListenMode::DirectPlay, ListenMode::Transcode] }));
         assert_eq!(x.audiobook_downloads, Some(abr));
+        assert_eq!(x.fastpi_load, Some(load), "fastpi figures do not depend on beefy");
+        let j = serde_json::to_string(&x).unwrap();
+        assert!(j.contains(r#""listening":{"sessions":2,"modes":["direct play","transcode"]}"#), "{j}");
+        assert!(j.contains(r#""fastpi_load":{"audiobookshelf":{"cpu_pct":0.4,"mem_bytes":45,"up_kbps":96,"down_kbps":null},"downloads":null}"#), "{j}");
         let x = view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default());
-        assert_eq!((x.listening, x.audiobook_downloads), (None, None));
+        assert_eq!((x.listening, x.audiobook_downloads, x.fastpi_load), (None, None, None));
     }
 
     #[test]
@@ -639,17 +758,26 @@ pub mod tests {
 
     #[test]
     fn beefy_resources_come_only_with_live_streams() {
-        let r = Resources { updated: NOW - 20, cpu_pct: Some(23.1), jellyfin_cpu_pct: Some(18.0), gpu_pct: Some(41.0), mem_used_bytes: Some(9), mem_total_bytes: Some(62), jellyfin_mem_bytes: Some(1), up_kbps: Some(27_013) };
-        let sp = StreamsPart { resources: Some(r.clone()), ..streams_part(NOW - 5) };
+        let r = Resources {
+            updated: NOW - 20, cpu_pct: Some(23.1), jellyfin_cpu_pct: Some(18.0), gpu_pct: Some(41.0), mem_used_bytes: Some(9), mem_total_bytes: Some(62), jellyfin_mem_bytes: Some(1), up_kbps: Some(27_013),
+            dl_cpu_pct: Some(22.0), dl_mem_bytes: Some(11), dl_down_kbps: Some(432_000), disk_write_kbps: Some(960_000), sab_post: Some(SabPost::Unpacking),
+            streams_cpu_pct: Some(2.5), streams_gpu_pct: Some(41.0), background: vec![TaskLoad { task: Task::PreviewImages, cpu_pct: Some(4.0), gpu_pct: None }],
+        };
+        let load = StreamLoad { kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), mode: Mode::Transcode, paused: false, cpu_pct: Some(34.0), gpu_pct: Some(41.0), kbps: Some(8000) };
+        let sp = StreamsPart { resources: Some(r.clone()), loads: vec![load.clone()], ..streams_part(NOW - 5) };
         let x = view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default());
         assert_eq!(x.beefy_resources, Some(r));
-        assert_eq!(view(NOW, Some(&sp), None, WakerState::Down, &Local::default(), Polled::default()).beefy_resources, None, "asleep: nothing");
+        assert_eq!(x.stream_loads, Some(vec![load]));
+        let asleep = view(NOW, Some(&sp), None, WakerState::Down, &Local::default(), Polled::default());
+        assert_eq!((asleep.beefy_resources, asleep.stream_loads), (None, None), "asleep: nothing");
         let old = StreamsPart { at: NOW - 600, ..sp.clone() };
-        assert_eq!(view(NOW, Some(&old), None, WakerState::Up, &Local::default(), Polled::default()).beefy_resources, None, "stale: nothing");
+        let stale = view(NOW, Some(&old), None, WakerState::Up, &Local::default(), Polled::default());
+        assert_eq!((stale.beefy_resources, stale.stream_loads), (None, None), "stale: nothing");
         let j = serde_json::to_string(&view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default())).unwrap();
-        assert!(j.contains(r#""beefy_resources":{"updated":1794429980,"cpu_pct":23.1,"jellyfin_cpu_pct":18.0,"gpu_pct":41.0,"mem_used_bytes":9,"mem_total_bytes":62,"jellyfin_mem_bytes":1,"up_kbps":27013}"#), "{j}");
+        assert!(j.contains(r#""beefy_resources":{"updated":1794429980,"cpu_pct":23.1,"jellyfin_cpu_pct":18.0,"gpu_pct":41.0,"mem_used_bytes":9,"mem_total_bytes":62,"jellyfin_mem_bytes":1,"up_kbps":27013,"dl_cpu_pct":22.0,"dl_mem_bytes":11,"dl_down_kbps":432000,"disk_write_kbps":960000,"sab_post":"unpacking","streams_cpu_pct":2.5,"streams_gpu_pct":41.0,"background":[{"task":"preview images","cpu_pct":4.0,"gpu_pct":null}]}"#), "{j}");
+        assert!(j.contains(r#""stream_loads":[{"kind":"Movie","quality":"4K HDR","mode":"transcode","paused":false,"cpu_pct":34.0,"gpu_pct":41.0,"kbps":8000}]"#), "{j}");
         let j = serde_json::to_string(&view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default())).unwrap();
-        assert!(j.contains(r#""beefy_resources":null"#), "{j}");
+        assert!(j.contains(r#""beefy_resources":null,"stream_loads":null"#), "{j}");
     }
 
     #[test]

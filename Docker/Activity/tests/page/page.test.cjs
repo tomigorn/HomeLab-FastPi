@@ -328,6 +328,73 @@ test("no load row while beefy sleeps or has no figures", async () => {
   await p.ctx.close();
 });
 
+test("beefy's GPU and Jellyfin CPU name what measured ffmpeg runs account for", async () => {
+  let p = await open([base({ beefy_resources: { ...LOAD, cpu_pct: 13, jellyfin_cpu_pct: 5, gpu_pct: 24, streams_cpu_pct: 0.4, streams_gpu_pct: 0, background: [{ task: "preview images", cpu_pct: 4.2, gpu_pct: 22.3 }] } })]);
+  assert.equal(await p.text("#watching .load"), "CPU 13 % (Jellyfin 5 %: streams 0.4 %, background: preview images 4.2 %) · GPU 24 % (background: preview images 22 %) · RAM 9.2 / 61 GiB (Jellyfin 1.0 GiB) · ↑ 27 Mbit/s");
+  await p.ctx.close();
+  p = await open([base({ beefy_resources: { ...LOAD, jellyfin_cpu_pct: 5, gpu_pct: 24, streams_cpu_pct: 0, streams_gpu_pct: 0, background: [] } })]);
+  assert.match(await p.text("#watching .load"), /GPU 24 % \(not Jellyfin's ffmpeg\)/, "measured, nothing of Jellyfin's ffmpeg on the GPU");
+  await p.ctx.close();
+});
+
+const SL = (kind, quality, mode, paused, cpu, gpu, kbps) => ({ kind, quality, mode, paused, cpu_pct: cpu, gpu_pct: gpu, kbps });
+
+test("one line per stream under Watching, with only what was measured", async () => {
+  const p = await open([base({
+    watching: [W("Movie", "direct play", false, 1), W("Movie", "transcode", false, 1)], beefy_resources: LOAD,
+    stream_loads: [SL("Movie", "4K HDR", "direct play", false, null, null, 18000), SL("Movie", "1080p SDR", "transcode", false, 34.2, 41, 8000),
+      SL("Episode", "1080p HDR", "direct stream", false, 0.31, null, 12000), SL("Movie", "4K HDR", "direct play", true, null, null, null),
+      SL("Music", null, "direct play", false, null, null, 320)],
+  })]);
+  const lines = await p.page.locator("#watching ul.each li").allInnerTexts();
+  assert.deepEqual(lines.map((l) => l.replace(/\s+/g, " ")), [
+    "Stream 1 · 4K HDR direct play · ≈ ↑ 18 Mbit/s",
+    "Stream 2 · 1080p SDR transcode · CPU 34 % · GPU 41 % · ≈ ↑ 8 Mbit/s",
+    "Stream 3 · 1080p HDR direct stream · CPU 0.3 % · ≈ ↑ 12 Mbit/s",
+    "Stream 4 · 4K HDR direct play · paused",
+  ], "direct play has no ffmpeg: no CPU; music goes to Listening");
+  assert.match(await p.text("#listening"), /Listener 1 · Music · direct play · ≈ ↑ 320 kbit\/s/);
+  assert.deepEqual(p.errors, []);
+  await p.ctx.close();
+});
+
+test("Listening shows Audiobookshelf's load and one line per listener", async () => {
+  const p = await open([base({
+    listening: { sessions: 2, modes: ["direct play", "transcode"] },
+    fastpi_load: { audiobookshelf: { cpu_pct: 0.42, mem_bytes: 45 * 1024 ** 2, up_kbps: 96, down_kbps: null }, downloads: null },
+  })]);
+  assert.equal(await p.text("#listening .load"), "Audiobookshelf · CPU 0.4 % · RAM 45 MiB · ↑ 96 kbit/s");
+  assert.deepEqual(await p.page.locator("#listening ul.each li").allInnerTexts(), ["Listener 1 · direct play", "Listener 2 · transcode"]);
+  await p.ctx.close();
+});
+
+const DL_LOAD = { ...LOAD, dl_cpu_pct: 22.04, dl_mem_bytes: 1.1 * GiB, dl_down_kbps: 432000, disk_write_kbps: 960000, sab_post: "unpacking" };
+const DL = (state) => ({ state, kind: "Movie", quality: null, items: 1, seasons: 0, episodes: 0, eta: null, left: null });
+
+test("download load lines lead the Downloads card only while something downloads", async () => {
+  let p = await open([base({
+    beefy_resources: DL_LOAD, downloads: [DL("downloading")],
+    audiobook_downloads: { downloading: 1, queued: 0, paused: 0, problem: 0, eta: 60, left: 5e6 },
+    fastpi_load: { audiobookshelf: null, downloads: { cpu_pct: 33.4, mem_bytes: 147 * 1024 ** 2, up_kbps: null, down_kbps: 54000 } },
+  })]);
+  const loads = await p.page.locator("#downloads .load").allInnerTexts();
+  assert.deepEqual(loads.map((l) => l.replace(/\s+/g, " ")), [
+    "beefy · ↓ 54 MB/s · SAB unpacking · CPU 22 % · RAM 1.1 GiB · disk write 120 MB/s",
+    "fastpi audiobooks · ↓ 6.8 MB/s · CPU 33 % · RAM 147 MiB",
+  ]);
+  assert.equal(await p.page.locator("#downloads > :first-child").getAttribute("class"), "note load", "totals first");
+  await p.ctx.close();
+  p = await open([base({
+    beefy_resources: { ...DL_LOAD, dl_down_kbps: 300, sab_post: null }, downloads: [DL("paused"), DL("waiting for night")],
+    fastpi_load: { audiobookshelf: null, downloads: { cpu_pct: 1, mem_bytes: 1, up_kbps: null, down_kbps: 40 } },
+  })]);
+  assert.equal(await p.page.locator("#downloads .load").count(), 0, "nothing downloading: no load lines");
+  await p.ctx.close();
+  p = await open([base({ beefy_resources: { ...DL_LOAD, dl_down_kbps: 0 }, downloads: [DL("importing")] })]);
+  assert.equal(await p.text("#downloads .load"), "beefy · ↓ 0.0 MB/s · SAB unpacking · CPU 22 % · RAM 1.1 GiB · disk write 120 MB/s", "importing: the unpack shows");
+  await p.ctx.close();
+});
+
 test("the favicons are linked and load under the CSP", async () => {
   const p = await open([base()]);
   const links = await p.page.evaluate(() => [...document.querySelectorAll("link[rel~=icon], link[rel=apple-touch-icon]")].map((l) => l.rel + " " + l.getAttribute("href") + " " + (l.getAttribute("sizes") || l.type || "")));

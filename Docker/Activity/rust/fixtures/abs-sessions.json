@@ -7,26 +7,30 @@
    "updatedAt": 0,
    "user": {
     "username": "jane"
-   }
+   },
+   "playMethod": 0
   },
   {
    "id": "a2",
    "userId": "u2",
    "displayTitle": "Fixture Audiobook Two",
-   "updatedAt": 0
+   "updatedAt": 0,
+   "playMethod": 2
   },
   {
    "id": "a3",
    "userId": "u3",
    "displayTitle": "Fixture Audiobook Stale",
-   "updatedAt": -3600000
+   "updatedAt": -3600000,
+   "playMethod": 1
   }
  ],
  "shareSessions": [
   {
    "id": "sh1",
    "displayTitle": "Fixture Shared Book",
-   "updatedAt": 0
+   "updatedAt": 0,
+   "playMethod": 7
   }
  ]
 }

@@ -30,6 +30,9 @@
   .empty { color: var(--muted); margin: 0.2rem 0; }
   .note { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 0; }
   .load span { white-space: nowrap; }
+  ul.each { list-style: none; margin: 0.3rem 0 0; padding: 0; color: var(--muted); font-size: 0.8rem; }
+  ul.each li { padding: 0.1rem 0; }
+  ul.each span { white-space: nowrap; }
   .warn { background: #3d2e00; border: 1px solid #9e6a03; border-radius: 10px; padding: 0.5rem 0.8rem; margin: 0 0 0.8rem; }
   a { color: var(--accent); }
   #headline { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.8rem; }
@@ -185,22 +188,86 @@ function watching(s) {
   }
   const l = load(s.beefy_resources);
   if (l) box.append(l);
+  const each = eachList((s.stream_loads || []).filter((x) => !AUDIO.includes(x.kind)), "Stream", (x) => [x.quality ? x.quality + " " + x.mode : x.mode]);
+  if (each) box.append(each);
+}
+
+function pctText(x) { return (x < 10 ? x.toFixed(1) : String(Math.round(x))) + " %"; }
+function ram(b) { return b >= GIB ? (b / GIB).toFixed(1) + " GiB" : Math.round(b / 1024 ** 2) + " MiB"; }
+function mbs(kbps) { const m = kbps / 8000; return (m < 10 ? m.toFixed(1) : String(Math.round(m))) + " MB/s"; }
+// one line per stream or listener: only what was measured for it; the bitrate is Jellyfin's, so "≈"
+function eachList(xs, word, head, start) {
+  if (!xs.length) return null;
+  const ul = el("ul", { class: "each", title: "CPU = its ffmpeg (share of beefy), GPU = busiest iGPU engine it used, both over the last minute; ≈ ↑ = the stream's bitrate, not measured traffic" });
+  xs.forEach((x, i) => {
+    const parts = [word + " " + ((start || 0) + i + 1), ...head(x)];
+    if (known(x.cpu_pct)) parts.push("CPU " + pctText(x.cpu_pct));
+    if (known(x.gpu_pct)) parts.push("GPU " + pctText(x.gpu_pct));
+    if (x.paused) parts.push("paused");
+    else if (known(x.kbps)) parts.push("≈ ↑ " + rate(x.kbps));
+    const li = el("li");
+    parts.forEach((t, j) => { if (j) li.append(" · "); li.append(el("span", {}, t)); });
+    ul.append(li);
+  });
+  return ul;
+}
+function loadLine(parts, title) {
+  const p = el("p", { class: "note load", title });
+  parts.forEach((t, i) => { if (i) p.append(" · "); p.append(el("span", {}, t)); });
+  return p;
+}
+const FAST_DOWN = 800;
+// beefy's download clients: shown only while something downloads, unpacks or arrives
+function beefyDownloadLoad(s) {
+  const r = s.beefy_resources;
+  if (!r) return null;
+  const active = !s.downloads_as_of && (s.downloads || []).some((d) => d.state === "downloading" || d.state === "importing");
+  if (!active && !r.sab_post && !(r.dl_down_kbps >= FAST_DOWN)) return null;
+  const parts = ["beefy"];
+  if (known(r.dl_down_kbps)) parts.push("↓ " + mbs(r.dl_down_kbps));
+  if (r.sab_post) parts.push("SAB " + r.sab_post);
+  if (known(r.dl_cpu_pct)) parts.push("CPU " + pctText(r.dl_cpu_pct));
+  if (known(r.dl_mem_bytes)) parts.push("RAM " + ram(r.dl_mem_bytes));
+  if (known(r.disk_write_kbps)) parts.push("disk write " + mbs(r.disk_write_kbps));
+  return parts.length > 1 ? loadLine(parts, "beefy, average of the last minute (" + hhmm(r.updated) + "): ↓ = what the download VPN receives (SABnzbd and qBittorrent), CPU/RAM = SABnzbd, qBittorrent and their VPN, disk write = the data disks") : null;
+}
+function fastpiDownloadLoad(s) {
+  const d = s.fastpi_load && s.fastpi_load.downloads;
+  if (!d) return null;
+  if (!(s.audiobook_downloads && s.audiobook_downloads.downloading) && !(d.down_kbps >= FAST_DOWN)) return null;
+  const parts = ["fastpi audiobooks"];
+  if (known(d.down_kbps)) parts.push("↓ " + mbs(d.down_kbps));
+  if (known(d.cpu_pct)) parts.push("CPU " + pctText(d.cpu_pct));
+  if (known(d.mem_bytes)) parts.push("RAM " + ram(d.mem_bytes));
+  return parts.length > 1 ? loadLine(parts, "fastpi, Telegraf's last 30 s: ↓ = what the mouse VPN receives, CPU/RAM = its VPN, qBittorrent and SABnzbd") : null;
 }
 
 const known = (x) => x !== null && x !== undefined;
 const GIB = 1024 ** 3;
 function rate(kbps) { return kbps < 1000 ? kbps + " kbit/s" : Math.round(kbps / 1000) + " Mbit/s"; }
+// what measured ffmpeg runs account for: the streams together, then each background job ("preview images" = trickplay)
+function by(r, key) {
+  const src = [];
+  const k = key === "cpu_pct" ? "streams_cpu_pct" : "streams_gpu_pct";
+  if (r[k] >= 0.1) src.push("streams " + pctText(r[k]));
+  for (const t of r.background || []) if (t[key] >= 0.1) src.push("background: " + t.task + " " + pctText(t[key]));
+  return src.length ? ": " + src.join(", ") : "";
+}
 // beefy's load over the idle watcher's last cycle; each part wraps as a whole on a phone
 function load(r) {
   if (!r) return null;
   const pct = (x) => Math.round(x) + " %";
   const parts = [];
-  if (known(r.cpu_pct)) parts.push("CPU " + pct(r.cpu_pct) + (known(r.jellyfin_cpu_pct) ? " (Jellyfin " + pct(r.jellyfin_cpu_pct) + ")" : ""));
-  if (known(r.gpu_pct)) parts.push("GPU " + pct(r.gpu_pct));
+  if (known(r.cpu_pct)) parts.push("CPU " + pct(r.cpu_pct) + (known(r.jellyfin_cpu_pct) ? " (Jellyfin " + pct(r.jellyfin_cpu_pct) + by(r, "cpu_pct") + ")" : ""));
+  if (known(r.gpu_pct)) {
+    const src = by(r, "gpu_pct");
+    // measured streams and tasks explain none of it: say so rather than leave it to Jellyfin
+    parts.push("GPU " + pct(r.gpu_pct) + (src ? " (" + src.slice(2) + ")" : r.gpu_pct >= 1 && known(r.streams_gpu_pct) ? " (not Jellyfin's ffmpeg)" : ""));
+  }
   if (known(r.mem_used_bytes) && known(r.mem_total_bytes)) parts.push("RAM " + (r.mem_used_bytes / GIB).toFixed(1) + " / " + Math.round(r.mem_total_bytes / GIB) + " GiB" + (known(r.jellyfin_mem_bytes) ? " (Jellyfin " + (r.jellyfin_mem_bytes / GIB).toFixed(1) + " GiB)" : ""));
   if (known(r.up_kbps)) parts.push("↑ " + rate(r.up_kbps));
   if (!parts.length) return null;
-  const p = el("p", { class: "note load", title: "beefy, average of the last minute (" + hhmm(r.updated) + "); GPU = busiest iGPU engine; ↑ = everything beefy sends" });
+  const p = el("p", { class: "note load", title: "beefy, average of the last minute (" + hhmm(r.updated) + "); GPU = busiest iGPU engine; streams and background jobs = Jellyfin's ffmpeg processes; ↑ = everything beefy sends" });
   parts.forEach((t, i) => { if (i) p.append(" · "); p.append(el("span", {}, t)); });
   return p;
 }
@@ -218,6 +285,19 @@ function listening(s) {
   else if (abs === 0 && !ja.length) box.append(empty("nobody listening"));
   else if (abs) box.append(empty(abs + " in Audiobookshelf now"));
   if (ja.length) box.append(el("table", {}, ...ja.map(streamRow)));
+  const a = s.fastpi_load && s.fastpi_load.audiobookshelf;
+  if (a) {
+    const parts = ["Audiobookshelf"];
+    if (known(a.cpu_pct)) parts.push("CPU " + pctText(a.cpu_pct));
+    if (known(a.mem_bytes)) parts.push("RAM " + ram(a.mem_bytes));
+    if (known(a.up_kbps)) parts.push("↑ " + rate(a.up_kbps));
+    if (parts.length > 1) box.append(loadLine(parts, "fastpi, Telegraf's last 30 s: the Audiobookshelf container; ↑ = everything it sends"));
+  }
+  const modes = (s.listening && s.listening.modes) || [];
+  const each = eachList(modes.map((m) => ({ mode: m })), "Listener", (x) => [x.mode]);
+  if (each) box.append(each);
+  const jl = eachList((s.stream_loads || []).filter((x) => AUDIO.includes(x.kind)), "Listener", (x) => [KIND[x.kind] || x.kind, x.mode], modes.length);
+  if (jl) box.append(jl);
 }
 
 function amount(d) {
@@ -239,6 +319,7 @@ function stateText(d, s) {
 function downloads(s) {
   const box = document.getElementById("downloads");
   box.replaceChildren();
+  for (const l of [beefyDownloadLoad(s), fastpiDownloadLoad(s)]) if (l) box.append(l);
   const rows = [];
   if (s.audiobook_downloads) {
     const a = s.audiobook_downloads;

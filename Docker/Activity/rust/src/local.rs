@@ -7,7 +7,8 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::client::{self, BaseUrl};
-use crate::state::{Abr, Local};
+use crate::influx::Influx;
+use crate::state::{Abr, FastpiLoad, ListenMode, Local};
 
 pub const TIMEOUT: Duration = Duration::from_secs(3);
 /// An open ABS session counts as listening when its progress was synced within this window (ABS keeps stale sessions open for 36 h).
@@ -29,6 +30,7 @@ struct OpenSessions {
 #[serde(default, rename_all = "camelCase")]
 struct AbsSession {
     updated_at: Option<i64>,
+    play_method: Option<i64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -42,11 +44,25 @@ struct Torrent {
 /// qBittorrent's ETA for "never" (100 days).
 const ETA_NEVER: i64 = 8_640_000;
 
-/// Audiobookshelf `GET /api/sessions/open`: sessions (and share sessions) synced within ACTIVE_MS.
-pub fn count_abs(body: &[u8], now_ms: i64) -> Result<u32, String> {
+/// Audiobookshelf `GET /api/sessions/open`: the play method of each session (and share session) synced within ACTIVE_MS, sorted.
+pub fn count_abs(body: &[u8], now_ms: i64) -> Result<Vec<ListenMode>, String> {
     let o: OpenSessions = serde_json::from_slice(body).map_err(|_| "unreadable answer".to_string())?;
-    let n = o.sessions.iter().flatten().chain(o.share_sessions.iter().flatten()).filter(|s| s.updated_at.is_some_and(|t| now_ms - t < ACTIVE_MS)).count();
-    Ok(n as u32)
+    let mut modes: Vec<ListenMode> = o
+        .sessions
+        .iter()
+        .flatten()
+        .chain(o.share_sessions.iter().flatten())
+        .filter(|s| s.updated_at.is_some_and(|t| now_ms - t < ACTIVE_MS))
+        .map(|s| match s.play_method {
+            Some(0) => ListenMode::DirectPlay,
+            Some(1) => ListenMode::DirectStream,
+            Some(2) => ListenMode::Transcode,
+            Some(3) => ListenMode::Local,
+            _ => ListenMode::Other,
+        })
+        .collect();
+    modes.sort();
+    Ok(modes)
 }
 
 /// qBittorrent `GET /api/v2/torrents/info?category=abr`: unfinished torrents by state (seeding and finished ones are not counted).
@@ -68,14 +84,19 @@ fn read_secret(path: &PathBuf) -> Result<String, String> {
 pub struct Sources {
     pub abs: Option<(BaseUrl, PathBuf)>,
     pub qbit: Option<BaseUrl>,
+    pub influx: Option<Influx>,
 }
 
 impl Sources {
-    pub fn new(abs: Option<(BaseUrl, PathBuf)>, qbit: Option<BaseUrl>) -> Sources {
-        Sources { abs, qbit }
+    pub fn new(abs: Option<(BaseUrl, PathBuf)>, qbit: Option<BaseUrl>, influx: Option<Influx>) -> Sources {
+        Sources { abs, qbit, influx }
     }
 
-    async fn abs(&self, now_ms: i64) -> Result<u32, String> {
+    async fn load(&self) -> Result<FastpiLoad, String> {
+        self.influx.as_ref().ok_or("not configured")?.load().await
+    }
+
+    async fn abs(&self, now_ms: i64) -> Result<Vec<ListenMode>, String> {
         let (base, key_file) = self.abs.as_ref().ok_or("not configured")?;
         let auth = format!("Bearer {}", read_secret(key_file)?);
         let body = client::get(base, "/api/sessions/open", &[("authorization", &auth), ("accept", "application/json")], LIMIT, TIMEOUT).await?;
@@ -88,24 +109,38 @@ impl Sources {
         count_qbit(&body)
     }
 
-    /// One refresh of both sources; a failing source is None (and its reason returned for a log line), the other still counts.
+    /// One refresh of the sources side by side; a failing source is None (and its reason returned for a log line), the others still count.
     pub async fn refresh(&self, now_ms: i64) -> (Local, Vec<String>) {
         let mut errors = Vec::new();
-        let listening = match self.abs(now_ms).await {
+        let (abs, qbit, load) = tokio::join!(self.abs(now_ms), self.qbit(), async {
+            match &self.influx {
+                Some(_) => Some(self.load().await),
+                None => None,
+            }
+        });
+        let listening = match abs {
             Ok(n) => Some(n),
             Err(e) => {
                 errors.push(format!("audiobookshelf: {e}"));
                 None
             }
         };
-        let abr = match self.qbit().await {
+        let abr = match qbit {
             Ok(a) => Some(a),
             Err(e) => {
                 errors.push(format!("qbittorrent: {e}"));
                 None
             }
         };
-        (Local { listening, abr }, errors)
+        let load = match load {
+            Some(Ok(l)) => Some(l),
+            Some(Err(e)) => {
+                errors.push(format!("influxdb: {e}"));
+                None
+            }
+            None => None,
+        };
+        (Local { listening, abr, load }, errors)
     }
 }
 
@@ -120,9 +155,9 @@ mod tests {
 
     #[test]
     fn abs_sessions_counted() {
-        assert_eq!(count_abs(ABS.as_bytes(), 60_000), Ok(3), "two sessions and one share session synced a minute ago, one an hour ago");
-        assert_eq!(count_abs(ABS.as_bytes(), 10 * 60_000), Ok(0));
-        assert_eq!(count_abs(br#"{"sessions":[],"shareSessions":null}"#, 0), Ok(0));
+        assert_eq!(count_abs(ABS.as_bytes(), 60_000), Ok(vec![ListenMode::DirectPlay, ListenMode::Transcode, ListenMode::Other]), "two sessions and one share session synced a minute ago (play methods 0, 2, unknown 7), one an hour ago");
+        assert_eq!(count_abs(ABS.as_bytes(), 10 * 60_000), Ok(vec![]));
+        assert_eq!(count_abs(br#"{"sessions":[],"shareSessions":null}"#, 0), Ok(vec![]));
         assert!(count_abs(b"Unauthorized", 0).is_err());
     }
 
@@ -165,12 +200,13 @@ mod tests {
         let src = Sources::new(
             Some((BaseUrl::parse("http://127.0.0.1:9").unwrap(), dir.join("key"))),
             Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/activity/qbit")).unwrap()),
+            None,
         );
         let (local, errors) = src.refresh(0).await;
-        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2, eta: Some(600), left: 170_000_000 }) }, "{errors:?}");
+        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2, eta: Some(600), left: 170_000_000 }), load: None }, "{errors:?}");
         assert_eq!(errors.len(), 1);
         assert!(errors[0].starts_with("audiobookshelf: "), "{errors:?}");
-        let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()));
+        let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()), None);
         let (local, errors) = refused.refresh(0).await;
         assert_eq!(local, Local::default(), "route refused = unavailable, no crash");
         assert!(errors.contains(&"qbittorrent: HTTP 403".to_string()), "{errors:?}");

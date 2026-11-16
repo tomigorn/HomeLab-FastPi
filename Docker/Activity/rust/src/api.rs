@@ -197,7 +197,7 @@ mod tests {
         s.parse().unwrap()
     }
     fn live() -> Seen {
-        let l = Local { listening: Some(2), abr: Some(crate::state::Abr { downloading: 1, queued: 0, paused: 0, problem: 1, eta: None, left: 0 }) };
+        let l = Local { listening: Some(vec![crate::state::ListenMode::DirectPlay; 2]), load: None, abr: Some(crate::state::Abr { downloading: 1, queued: 0, paused: 0, problem: 1, eta: None, left: 0 }) };
         (view(NOW, Some(&streams_part(NOW - 10)), Some(&downloads_part(NOW - 10)), WakerState::Up, &l, Polled { at: Some(NOW - 10), ..Polled::default() }), Some(10), true)
     }
 
@@ -236,7 +236,7 @@ mod tests {
     fn transcodes_by_reason_and_encoder() {
         use crate::state::{Accel, Kind, Mode, Reason, Stream, StreamsPart, WatchSummary};
         let t = |paused, accel, reasons: Vec<Reason>| Stream { kind: Kind::Movie, quality: None, mode: Mode::Transcode, paused, n: 2, accel, reasons };
-        let sp = StreamsPart { at: NOW, series_unavailable: false, summary: WatchSummary::default(), resources: None, streams: vec![t(false, Some(Accel::Qsv), vec![Reason::Subtitles, Reason::Audio]), t(true, Some(Accel::Software), vec![Reason::Subtitles])] };
+        let sp = StreamsPart { at: NOW, series_unavailable: false, summary: WatchSummary::default(), resources: None, loads: vec![], streams: vec![t(false, Some(Accel::Qsv), vec![Reason::Subtitles, Reason::Audio]), t(true, Some(Accel::Software), vec![Reason::Subtitles])] };
         let v = view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default());
         let m = metrics(&v, None, true);
         assert!(m.contains("activity_transcode_reasons{reason=\"subtitles\"} 4\n") && m.contains("activity_transcode_reasons{reason=\"audio\"} 2\n"), "{m}");

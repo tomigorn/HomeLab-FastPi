@@ -168,7 +168,8 @@
      "Width": 1920,
      "VideoRange": "SDR"
     }
-   ]
+   ],
+   "Path": "/data/tv/Fixture Show Gamma/Season 01/e7.mkv"
   },
   "PlayState": {
    "PlayMethod": "Transcode",
@@ -201,7 +202,8 @@
      "VideoRangeType": "HDR10",
      "BitRate": 20000000
     }
-   ]
+   ],
+   "Path": "/data/movies/Fixture Movie Delta (2019)/d.mkv"
   },
   "PlayState": {
    "PlayMethod": "DirectStream",

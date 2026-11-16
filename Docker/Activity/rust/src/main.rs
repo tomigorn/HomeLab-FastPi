@@ -7,6 +7,7 @@ mod beefy;
 mod client;
 mod csp;
 mod demand;
+mod influx;
 mod local;
 mod state;
 mod waker;
@@ -99,7 +100,7 @@ impl App {
         let streams = self.streams.lock().map(|s| s.clone()).unwrap_or(None);
         let downloads = self.downloads.lock().map(|s| s.clone()).unwrap_or(None);
         let waker = self.waker.lock().map(|w| *w).unwrap_or(WakerState::Unknown);
-        let local = self.local.lock().map(|l| *l).unwrap_or_default();
+        let local = self.local.lock().map(|l| l.clone()).unwrap_or_default();
         let polled = self.polled.lock().map(|p| *p).unwrap_or_default();
         let last = streams.as_ref().map(|s| s.at).max(downloads.as_ref().map(|d| d.at));
         let age = last.map(|at| (t - at).max(0));
@@ -203,7 +204,7 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache, tunnel: &api::Allow)
     let index = cache.series.as_ref().unwrap_or(&empty_idx);
     // missing or old figures only leave the resources row out
     let resources = match resources {
-        Ok(r) => r.figures(at).or_else(|| {
+        Ok(r) => r.figures(at).map(|f| (f, r.stream_figures())).or_else(|| {
             problems.push(format!("{}: no fresh figures", beefy::PATH_RESOURCES));
             None
         }),
@@ -212,8 +213,9 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache, tunnel: &api::Allow)
             None
         }
     };
+    let (resources, figures) = resources.map_or((None, None), |(r, f)| (Some(r), f));
     let streams = match sessions {
-        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s, tunnel), resources }),
+        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s, tunnel), resources, loads: beefy::stream_loads(&s, index, figures.as_ref()) }),
         Err(e) => {
             problems.insert(0, e);
             Err(())
@@ -413,6 +415,17 @@ fn main() {
     let gate = url("GATE_URL", "http://traefik:8080/activity/gate");
     let abs = url("ABS_URL", "http://audiobookshelf:8080").map(|u| (u, PathBuf::from(env_or("ABS_KEY_FILE", "/run/secrets/abs_api_key"))));
     let qbit = url("QBIT_URL", "http://traefik:8080/activity/qbit");
+    let influx = url("INFLUX_URL", "http://influxdb:8086").map(|u| {
+        influx::Influx::new(
+            u,
+            PathBuf::from(env_or("INFLUX_TOKEN_FILE", "/run/secrets/influx_token")),
+            &env_or("INFLUX_ORG", "myorg"),
+            &env_or("INFLUX_BUCKET", "rpi"),
+            &env_or("ABS_CONTAINER", "audiobookshelf"),
+            &env_or("MOUSE_DOWNLOAD_CONTAINERS", "gluetun_mouse qbittorrent_mouse sabnzbd"),
+        )
+        .unwrap_or_else(|| fail("INFLUX_ORG, INFLUX_BUCKET, ABS_CONTAINER, MOUSE_DOWNLOAD_CONTAINERS: names of letters, digits, _ - . only"))
+    });
     let poll = env_secs("POLL_SECONDS", 30);
     let window = env_secs("VIEWER_SECONDS", 120);
     check_timing(poll, window).unwrap_or_else(|e| fail(&e));
@@ -443,7 +456,7 @@ fn main() {
         cache: Mutex::new(BeefyCache::default()),
         tunnel,
     });
-    let src = local::Sources::new(abs, qbit);
+    let src = local::Sources::new(abs, qbit, influx);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));
     rt.block_on(async move {
         let listener = TcpListener::bind((bind.as_str(), port)).await.unwrap_or_else(|e| fail(&format!("bind {bind}:{port}: {e}")));
