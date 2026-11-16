@@ -267,6 +267,8 @@ Disks are never filled to 100 %; each has a limit (`homelab:storage_limit_ratio`
 | `beefy_retention_bytes{state}`, `beefy_retention_leaving_7d_bytes` | beefy `retention.py` summary via `media-metrics.py`: kept forever vs temporary (freed once deletion runs) | 5 min while awake |
 | `fastpi_library_{bytes,items,present}{category}` | `library-exporter/library_exporter.py`: folder sizes of the paths per category in `library-exporter/libraries.toml` (audiobooks, podcasts; ebooks and music have no folder yet: `present 0`, the board shows "no library yet"); item = a folder holding files, CD/Disc folders folded | daily 05:17 (`library-exporter.timer`, `Persistent`) |
 
+The library exporter is Python on purpose (owner 2026-11-16), like the other exporters in this folder; not a Rust candidate.
+
 New library (e.g. ebooks): add its folder to `libraries.toml`, `sudo systemctl start library-exporter.service`. The daily digest line: `🗄️ Storage · SSD 46 % of 80 % — limit in ~N days · HDD 2 % of 90 % · audiobooks 22 % of 80 %` ("limit in" only under a year, "at the limit" once reached).
 
 ```bash
