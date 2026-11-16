@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../../lib/common.sh
+source "$HERE/../../lib/common.sh"
+
+SCENARIO=appsec
+
+# AppSec wiring check: the plugin forwards each request to the AppSec engine and
+# enforces its verdict. The mock emulates one virtual-patching rule (block any
+# URI containing "rpc2"), mirroring examples/appsec-enabled. This proves the
+# plugin's AppSec path end to end (header forwarding + allow/block handling); it
+# does not test the real WAF's detection accuracy.
+body() {
+  echo "[$SCENARIO] benign request must pass (AppSec 200)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 200 -H "X-Forwarded-For: 1.2.3.4"
+
+  echo "[$SCENARIO] request that return 403 must be blocked (AppSec 403)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo/403" 403 -H "X-Forwarded-For: 1.2.3.4"
+
+  echo "[$SCENARIO] request that return http_status 418 must be forwarded (AppSec 403)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo/418" 418 -H "X-Forwarded-For: 1.2.3.4"
+
+  echo "[$SCENARIO] request that return 500 must be blocked (because CrowdsecAppsecFailureBlock = true) (AppSec 500)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo/500" 403 -H "X-Forwarded-For: 1.2.3.4"
+
+  echo "[$SCENARIO] request that return 502 must pass (because CrowdsecAppsecUnreachableBlock = false) (Proxy error 502)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo/502" 200 -H "X-Forwarded-For: 1.2.3.4"
+
+  echo "[$SCENARIO] request that send bad body after crowdsecAppsecBodyLimit must pass (AppSec 200)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 200 -H "X-Forwarded-For: 1.2.3.4" -X POST -d "__________&action=ban"
+
+  echo "[$SCENARIO] request that send bad body before crowdsecAppsecBodyLimit must pass (AppSec 403)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 403 -H "X-Forwarded-For: 1.2.3.4" -X POST -d "action=ban&__________"
+
+  echo "[$SCENARIO] request that send suspicious body (AppSec 403 + Challenge)"
+  assert_body_contains "http://127.0.0.1:${WEB_PORT}/foo" "CHALLENGE" -H "X-Forwarded-For: 1.2.3.4" -X POST -d "action=challenge"
+
+  echo "[$SCENARIO] request that send suspicious body after challenge success (AppSec 200)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 200 -H "X-Forwarded-For: 1.2.3.4" -X POST -d "action=challenge" -H "Cookie: success"
+
+  echo "[$SCENARIO] request http2 that send no body GET (AppSec 200)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 200 -H "X-Forwarded-For: 1.2.3.4" --http2-prior-knowledge -H "Content-Length:"
+
+  echo "[$SCENARIO] request http2 that send unreadable body GET (AppSec 403)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 403 -H "X-Forwarded-For: 1.2.3.4" --http2-prior-knowledge -H "Content-Length:" -d "test"
+
+  echo "[$SCENARIO] request http2 that send unreadable body POST (AppSec 403)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo" 403 -H "X-Forwarded-For: 1.2.3.4" --http2-prior-knowledge -H "Content-Length:" -X POST -d "test"
+
+  echo "[$SCENARIO] request to an excluded location must skip AppSec"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo/excluded/403" 200 -H "X-Forwarded-For: 1.2.3.4"
+
+  echo "[$SCENARIO] request that escapes an excluded location must still be inspected (AppSec 403)"
+  assert_status "http://127.0.0.1:${WEB_PORT}/foo/excluded/..;/403" 403 -H "X-Forwarded-For: 1.2.3.4" --path-as-is
+}
+
+run_scenario "$SCENARIO" "$HERE" body
