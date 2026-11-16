@@ -10,6 +10,8 @@ alert rule reads, so this writes what the rules need (grafana/prometheus/rules/c
     (restart policy always / unless-stopped and not stopped by hand: Docker's own
     HasBeenManuallyStopped flag), so `docker compose stop` never alerts
   * container_running, container_unhealthy, container_restart_count, container_started_timestamp_seconds
+  * container_memory_swap_bytes, container_memory_peak_bytes (cgroup v2 memory.swap.current / memory.peak):
+    Telegraf's docker input has neither (the Docker stats API reports no swap on cgroup v2)
   * host_last_boot_unclean: 1 when journald found a dirty journal at boot (power loss, hard reset)
 
 The rules cannot fire while Prometheus or Alertmanager is down, which is what happened here.
@@ -40,6 +42,7 @@ ALERTMANAGER_DIR = os.environ.get("ALERTMANAGER_DIR", "/home/pi/Projects/Docker/
 CHECKS = json.loads(os.environ.get("WATCH_URLS") or '{"prometheus": "http://127.0.0.1:9090/-/ready", "alertmanager": "http://127.0.0.1:9093/-/healthy"}')
 DOWN_AFTER_S = 600
 EXPECTED_POLICIES = {"always", "unless-stopped"}
+CGROUP_ROOT = os.environ.get("CGROUP_ROOT", "/sys/fs/cgroup")
 
 
 def parse_ts(s: str | None) -> float | None:
@@ -49,7 +52,19 @@ def parse_ts(s: str | None) -> float | None:
     return dt.datetime.fromisoformat(s).timestamp()
 
 
-def rows(containers: list[dict], manually_stopped: set[str]) -> list[dict]:
+def cgroup_memory(container_id: str, root: str = CGROUP_ROOT) -> dict:
+    scope = os.path.join(root, "system.slice", f"docker-{container_id}.scope")
+    out = {}
+    for key, f in (("swap", "memory.swap.current"), ("peak", "memory.peak")):
+        try:
+            with open(os.path.join(scope, f)) as fh:
+                out[key] = int(fh.read().strip())
+        except (OSError, ValueError):
+            out[key] = None
+    return out
+
+
+def rows(containers: list[dict], manually_stopped: set[str], mem=lambda cid: {"swap": None, "peak": None}) -> list[dict]:
     out = []
     for c in containers:
         # `docker compose run` one-offs (clamav-hostscan-run-*) are jobs, not services
@@ -66,6 +81,7 @@ def rows(containers: list[dict], manually_stopped: set[str]) -> list[dict]:
             "unhealthy": None if health is None or st.get("Status") != "running" else int(health == "unhealthy"),
             "restarts": int(c.get("RestartCount") or 0),
             "started": parse_ts(st.get("StartedAt")),
+            **(mem(c["Id"]) if st.get("Status") == "running" else {"swap": None, "peak": None}),
         })
     return sorted(out, key=lambda r: r["name"])
 
@@ -90,6 +106,8 @@ def render(rs: list[dict], unclean: int | None) -> str:
     metric("container_unhealthy", "1 if the container healthcheck reports unhealthy (only containers with a healthcheck).", "unhealthy")
     metric("container_restart_count", "Restarts by the restart policy since the container was created.", "restarts")
     metric("container_started_timestamp_seconds", "Last start of the container.", "started")
+    metric("container_memory_swap_bytes", "Swap used by the running container (cgroup memory.swap.current).", "swap")
+    metric("container_memory_peak_bytes", "Peak RAM of the running container since its start (cgroup memory.peak).", "peak")
     if unclean is not None:
         lines.append("# HELP host_last_boot_unclean 1 if the last shutdown was not clean (journald replaced a dirty journal at boot).")
         lines.append("# TYPE host_last_boot_unclean gauge")
@@ -219,7 +237,7 @@ def main() -> int:
         ids = subprocess.run(["docker", "ps", "-aq"], capture_output=True, text=True, timeout=30, check=True).stdout.split()
         cs = json.loads(subprocess.run(["docker", "inspect", *ids], capture_output=True, text=True,
                                        timeout=60, check=True).stdout) if ids else []
-        rs = rows(cs, manually_stopped(cs))
+        rs = rows(cs, manually_stopped(cs), mem=cgroup_memory)
         write_atomic(os.path.join(TEXTFILE_DIR, "container_status.prom"), render(rs, unclean_this_boot(state)))
         state["last_success"] = now
     except Exception as e:

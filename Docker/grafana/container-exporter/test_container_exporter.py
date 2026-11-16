@@ -57,6 +57,32 @@ class Rows(unittest.TestCase):
         self.assertIsNone(ex.rows([c("n", status="created", started="0001-01-01T00:00:00Z")], set())[0]["started"])
 
 
+class CgroupMemory(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.root = tempfile.mkdtemp()
+        scope = os.path.join(self.root, "system.slice", "docker-abc.scope")
+        os.makedirs(scope)
+        for f, v in (("memory.swap.current", "90669056\n"), ("memory.peak", "806748160\n")):
+            open(os.path.join(scope, f), "w").write(v)
+
+    def test_reads_swap_and_peak_of_a_running_container(self):
+        self.assertEqual(ex.cgroup_memory("abc", self.root), {"swap": 90669056, "peak": 806748160})
+
+    def test_missing_scope_gives_none(self):
+        self.assertEqual(ex.cgroup_memory("gone", self.root), {"swap": None, "peak": None})
+
+    def test_rows_carry_swap_and_peak_only_while_running(self):
+        rs = {r["name"]: r for r in ex.rows([c("vl", cid="abc"), c("off", status="exited", cid="abc")], set(),
+                                            mem=lambda cid: ex.cgroup_memory(cid, self.root))}
+        self.assertEqual((rs["vl"]["swap"], rs["vl"]["peak"]), (90669056, 806748160))
+        self.assertEqual((rs["off"]["swap"], rs["off"]["peak"]), (None, None))
+        out = ex.render(list(rs.values()), None)
+        self.assertIn('container_memory_swap_bytes{name="vl",project="infra__traefik"} 90669056', out)
+        self.assertIn('container_memory_peak_bytes{name="vl",project="infra__traefik"} 806748160', out)
+        self.assertNotIn('container_memory_swap_bytes{name="off"', out)
+
+
 class Render(unittest.TestCase):
     def test_metrics(self):
         out = ex.render(ex.rows([c("traefik", health="healthy", restarts=2), c("vault", status="exited", policy="no", project="")], set()),
