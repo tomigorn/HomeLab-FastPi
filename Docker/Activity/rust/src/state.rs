@@ -245,6 +245,24 @@ pub struct Download {
     pub left: Option<u64>,
 }
 
+/// beefy's load, averaged over the idle watcher's last cycle (`/beefy/resources.json`); numbers only, None = not reported.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Resources {
+    /// when beefy wrote them
+    pub updated: i64,
+    /// whole host, and Jellyfin's share of the whole host (its container, transcodes included)
+    pub cpu_pct: Option<f64>,
+    pub jellyfin_cpu_pct: Option<f64>,
+    /// the busiest engine of the iGPU (QSV)
+    pub gpu_pct: Option<f64>,
+    pub mem_used_bytes: Option<u64>,
+    pub mem_total_bytes: Option<u64>,
+    pub jellyfin_mem_bytes: Option<u64>,
+    /// everything beefy's NIC sends, kbit/s
+    pub up_kbps: Option<u64>,
+}
+
 /// The Jellyfin side of one successful poll of beefy, already aggregated: categories and counts only.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -256,6 +274,9 @@ pub struct StreamsPart {
     pub series_unavailable: bool,
     #[serde(default)]
     pub summary: WatchSummary,
+    /// None = the gate had no fresh figures
+    #[serde(default)]
+    pub resources: Option<Resources>,
 }
 
 /// What a downloads part may be missing: the series list (anime, series counts), the night list (night-held items look paused), or queue records beyond the page.
@@ -342,6 +363,8 @@ pub struct View {
     pub watching: Option<Vec<Stream>>,
     /// bitrate, LAN/remote and people of the live streams
     pub watching_summary: Option<WatchSummary>,
+    /// beefy's CPU, GPU, RAM and upload, with the live streams only
+    pub beefy_resources: Option<Resources>,
     /// None = never polled
     pub downloads: Option<Vec<Download>>,
     /// set when `downloads` is the last known state, not live
@@ -400,6 +423,7 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         beefy_data: if live { "live" } else if streams.is_some() || downloads.is_some() { "stale" } else { "none" },
         watching,
         watching_summary: streams.filter(|_| live).map(|s| s.summary),
+        beefy_resources: streams.filter(|_| live).and_then(|s| s.resources.clone()),
         downloads: downloads.map(|d| d.list.clone()),
         downloads_as_of: downloads.filter(|_| !downloads_live).map(|d| d.at),
         downloads_gaps: downloads.map(|d| d.gaps),
@@ -441,6 +465,7 @@ pub mod tests {
             at,
             series_unavailable: false,
             summary: WatchSummary { bitrate_kbps: Some(8000), lan: 1, remote: 0, people: 1 },
+            resources: None,
             streams: vec![Stream { kind: Kind::Episode, quality: Some(Quality::Fhd1080Sdr), mode: Mode::DirectPlay, paused: false, n: 1, accel: None, reasons: vec![] }],
         }
     }
@@ -610,6 +635,21 @@ pub mod tests {
         for (a, s) in [(Accel::Qsv, "QSV"), (Accel::Vaapi, "VA-API"), (Accel::OtherHardware, "hardware"), (Accel::Software, "software")] {
             assert_eq!(serde_json::to_string(&a).unwrap(), format!("\"{s}\""));
         }
+    }
+
+    #[test]
+    fn beefy_resources_come_only_with_live_streams() {
+        let r = Resources { updated: NOW - 20, cpu_pct: Some(23.1), jellyfin_cpu_pct: Some(18.0), gpu_pct: Some(41.0), mem_used_bytes: Some(9), mem_total_bytes: Some(62), jellyfin_mem_bytes: Some(1), up_kbps: Some(27_013) };
+        let sp = StreamsPart { resources: Some(r.clone()), ..streams_part(NOW - 5) };
+        let x = view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default());
+        assert_eq!(x.beefy_resources, Some(r));
+        assert_eq!(view(NOW, Some(&sp), None, WakerState::Down, &Local::default(), Polled::default()).beefy_resources, None, "asleep: nothing");
+        let old = StreamsPart { at: NOW - 600, ..sp.clone() };
+        assert_eq!(view(NOW, Some(&old), None, WakerState::Up, &Local::default(), Polled::default()).beefy_resources, None, "stale: nothing");
+        let j = serde_json::to_string(&view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default())).unwrap();
+        assert!(j.contains(r#""beefy_resources":{"updated":1794429980,"cpu_pct":23.1,"jellyfin_cpu_pct":18.0,"gpu_pct":41.0,"mem_used_bytes":9,"mem_total_bytes":62,"jellyfin_mem_bytes":1,"up_kbps":27013}"#), "{j}");
+        let j = serde_json::to_string(&view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default())).unwrap();
+        assert!(j.contains(r#""beefy_resources":null"#), "{j}");
     }
 
     #[test]

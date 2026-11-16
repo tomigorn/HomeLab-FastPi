@@ -32,6 +32,7 @@ CONTRACT = {
     "/sonarr/api/v3/series": "sonarr-series.json",
     "/seerr/request-state.json": "request-state.json",
     "/seerr/night-waiting.json": "night-waiting.json",
+    "/beefy/resources.json": "resources.json",
 }
 # Every invented title, user, device, path and id in the fixtures: none may leave the service.
 LEAKS = ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "fakesid", "night1", "abc123",
@@ -143,9 +144,16 @@ class World:
             q = json.loads((FIX / "sonarr-queue.json").read_text())
             q["records"].append({"id": 99, "seriesId": 299, "status": "downloading", "trackedDownloadState": "downloading", "series": {"seriesType": "standard"}})
             return 200, [("Content-Type", "application/json")], json.dumps(q).encode()
+        if self.gate_mode == "no-resources" and path == "/beefy/resources.json":
+            return 404, [], b"not found"
         name = CONTRACT.get(path)
         if method != "GET" or name is None:
             return 403, [], b"not allowed"
+        if path == "/beefy/resources.json":
+            # the idle watcher rewrites it every minute
+            r = json.loads((FIX / name).read_text())
+            r["updated"] = int(time.time()) - (600 if self.gate_mode == "old-resources" else 20)
+            return 200, [("Content-Type", "application/json")], json.dumps(r).encode()
         data = (FIX / name).read_bytes()
         if path.startswith("/seerr/"):
             # like nginx serving a static file: ETag, and 304 for a matching If-None-Match
@@ -296,6 +304,10 @@ class Awake(Base):
         self.assertIn({"state": "waiting for night", "kind": "Episode", "quality": None, "items": 1, "seasons": 2, "episodes": 18, "eta": None, "left": None}, s["downloads"])
         self.assertIn({"state": "downloading", "kind": "Anime", "quality": "1080p SDR", "items": 1, "seasons": 2, "episodes": 4, "eta": 93784, "left": 4000000000}, s["downloads"])
         self.assertEqual(s["watching_summary"], {"bitrate_kbps": 142960, "lan": 4, "remote": 4, "people": 5})
+        r = s["beefy_resources"]
+        self.assertAlmostEqual(r.pop("updated"), time.time() - 20, delta=10)
+        self.assertEqual(r, {"cpu_pct": 23.1, "jellyfin_cpu_pct": 18.0, "gpu_pct": 41.0, "mem_used_bytes": 9878000000,
+                             "mem_total_bytes": 65882521600, "jellyfin_mem_bytes": 982011904, "up_kbps": 27013})
         self.assertIsNone(s["downloads_as_of"])
         self.assertIs(s["night_open"], False, "night-waiting.json low_tariff")
         self.assertEqual(s["listening"], {"sessions": 3})
@@ -320,7 +332,7 @@ class Awake(Base):
         time.sleep(3.5)
         polls, n = len(W.waker.seen()), len(W.gate.seen())
         self.assertGreaterEqual(polls, 2)
-        self.assertLessEqual(n, 5 * polls, "a failing gate gets one request per needed path per tick, no retries")
+        self.assertLessEqual(n, 6 * polls, "a failing gate gets one request per needed path per tick, no retries")
         self.assertGreaterEqual(n, 2)
 
     def test_gate_down_while_awake_shows_unavailable_not_old_streams(self):
@@ -333,6 +345,16 @@ class Awake(Base):
         self.assertTrue(s["streams_failed"] and s["downloads_failed"], "the page warns: beefy data unavailable (gate not answering)")
         self.assertIn("/jellyfin/Sessions?ActiveWithinSeconds=60: HTTP 503", self.sut.log())
         self.assertEqual(self.sut.log().count("beefy poll failed"), 1, "logged once per change, not every tick")
+
+    def test_missing_or_old_resources_only_drop_the_load_row(self):
+        for mode, said in (("no-resources", "/beefy/resources.json: HTTP 404"), ("old-resources", "/beefy/resources.json: no fresh figures")):
+            W.gate_mode = mode
+            time.sleep(2.5)
+            s = self.wait_state(lambda s: s["beefy_data"] == "live")
+            self.assertEqual(s["watching"], EXPECTED_WATCHING)
+            self.assertIsNone(s["beefy_resources"])
+            self.assertFalse(s["streams_failed"] or s["downloads_failed"])
+            self.assertIn(said, self.sut.log())
 
     def test_a_queue_failure_keeps_the_streams(self):
         W.gate_mode = "sonarr-down"
@@ -528,6 +550,7 @@ class Asleep(Base):
         s = state()
         self.assertEqual(s["watching"], [])
         self.assertIsNone(s["downloads"])
+        self.assertIsNone(s["beefy_resources"])
 
     def test_falling_asleep_keeps_downloads_as_of(self):
         W.waker_up = "up"

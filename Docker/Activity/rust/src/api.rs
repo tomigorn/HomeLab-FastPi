@@ -224,7 +224,7 @@ mod tests {
     fn transcodes_by_reason_and_encoder() {
         use crate::state::{Accel, Kind, Mode, Reason, Stream, StreamsPart, WatchSummary};
         let t = |paused, accel, reasons: Vec<Reason>| Stream { kind: Kind::Movie, quality: None, mode: Mode::Transcode, paused, n: 2, accel, reasons };
-        let sp = StreamsPart { at: NOW, series_unavailable: false, summary: WatchSummary::default(), streams: vec![t(false, Some(Accel::Qsv), vec![Reason::Subtitles, Reason::Audio]), t(true, Some(Accel::Software), vec![Reason::Subtitles])] };
+        let sp = StreamsPart { at: NOW, series_unavailable: false, summary: WatchSummary::default(), resources: None, streams: vec![t(false, Some(Accel::Qsv), vec![Reason::Subtitles, Reason::Audio]), t(true, Some(Accel::Software), vec![Reason::Subtitles])] };
         let v = view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default());
         let m = metrics(&v, None, true);
         assert!(m.contains("activity_transcode_reasons{reason=\"subtitles\"} 4\n") && m.contains("activity_transcode_reasons{reason=\"audio\"} 2\n"), "{m}");

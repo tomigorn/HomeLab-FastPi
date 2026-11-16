@@ -14,10 +14,53 @@ pub const PATH_SONARR_QUEUE: &str = "/sonarr/api/v3/queue?pageSize=500&includeSe
 pub const PATH_SONARR_SERIES: &str = "/sonarr/api/v3/series";
 pub const PATH_REQUEST_STATE: &str = "/seerr/request-state.json";
 pub const PATH_NIGHT_WAITING: &str = "/seerr/night-waiting.json";
+/// written every 60 s by beefy's idle watcher (beefy repo Server/8-Idle-Watcher)
+pub const PATH_RESOURCES: &str = "/beefy/resources.json";
 
 #[cfg_attr(not(test), allow(dead_code))]
-pub const GATE_PATHS: [&str; 6] =
-    [PATH_SESSIONS, PATH_RADARR_QUEUE, PATH_SONARR_QUEUE, PATH_SONARR_SERIES, PATH_REQUEST_STATE, PATH_NIGHT_WAITING];
+pub const GATE_PATHS: [&str; 7] =
+    [PATH_SESSIONS, PATH_RADARR_QUEUE, PATH_SONARR_QUEUE, PATH_SONARR_SERIES, PATH_REQUEST_STATE, PATH_NIGHT_WAITING, PATH_RESOURCES];
+
+// ---------- beefy resources ----------
+
+/// Older figures mean the idle watcher stopped writing (it writes every 60 s).
+pub const RESOURCES_STALE: i64 = 180;
+/// Clock skew between beefy and fastpi tolerated for a file "from the future".
+const RESOURCES_SKEW: i64 = 30;
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct Resources {
+    v: u32,
+    updated: i64,
+    cpu_pct: Option<f64>,
+    jellyfin_cpu_pct: Option<f64>,
+    gpu_pct: Option<f64>,
+    mem_used_bytes: Option<u64>,
+    mem_total_bytes: Option<u64>,
+    jellyfin_mem_bytes: Option<u64>,
+    up_kbps: Option<u64>,
+}
+
+impl Resources {
+    /// The figures when fresh at `now` and of the known version; a percentage outside 0–100 is dropped.
+    pub fn figures(&self, now: i64) -> Option<crate::state::Resources> {
+        if self.v != 1 || !(-RESOURCES_SKEW..=RESOURCES_STALE).contains(&(now - self.updated)) {
+            return None;
+        }
+        let pct = |p: Option<f64>| p.filter(|p| (0.0..=100.0).contains(p));
+        Some(crate::state::Resources {
+            updated: self.updated,
+            cpu_pct: pct(self.cpu_pct),
+            jellyfin_cpu_pct: pct(self.jellyfin_cpu_pct),
+            gpu_pct: pct(self.gpu_pct),
+            mem_used_bytes: self.mem_used_bytes,
+            mem_total_bytes: self.mem_total_bytes,
+            jellyfin_mem_bytes: self.jellyfin_mem_bytes,
+            up_kbps: self.up_kbps,
+        })
+    }
+}
 
 // ---------- Jellyfin ----------
 
@@ -635,6 +678,7 @@ mod tests {
     const SERIES: &str = include_str!("../fixtures/sonarr-series.json");
     const REQUESTS: &str = include_str!("../fixtures/request-state.json");
     const NIGHT: &str = include_str!("../fixtures/night-waiting.json");
+    const RESOURCES: &str = include_str!("../fixtures/resources.json");
 
     fn sessions() -> Vec<Session> {
         serde_json::from_str(SESSIONS).unwrap()
@@ -912,7 +956,7 @@ mod tests {
 
     #[test]
     fn snapshot_has_no_titles_or_users() {
-        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false, summary: Default::default() }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
+        let parts = (crate::state::StreamsPart { at: 1, streams: streams(&sessions(), &index()), series_unavailable: false, summary: Default::default(), resources: None }, crate::state::DownloadsPart { at: 1, list: all_downloads(), gaps: Default::default(), night_open: None });
         let out = (serde_json::to_string(&parts.0).unwrap() + &serde_json::to_string(&parts.1).unwrap()).to_lowercase();
         let out = out + &serde_json::to_string(&summary(&sessions(), &tunnel())).unwrap();
         for secret in ["fixture", "jane", "john", "max muster", "erika", "idle person", "pilot", "night1", "abc123", "phone", "5001", "9005", "/data", "u-", "tess", "tablet", "omega", "172.24", "203.0.113", "192.168", "10.8.0", "fe80", "ffff"] {
@@ -946,7 +990,41 @@ mod tests {
     #[test]
     fn gate_paths_are_get_paths_on_known_prefixes() {
         for p in GATE_PATHS {
-            assert!(["/jellyfin/", "/radarr/", "/sonarr/", "/seerr/"].iter().any(|pre| p.starts_with(pre)), "{p}");
+            assert!(["/jellyfin/", "/radarr/", "/sonarr/", "/seerr/", "/beefy/"].iter().any(|pre| p.starts_with(pre)), "{p}");
         }
+        assert!(GATE_PATHS.contains(&PATH_RESOURCES));
+    }
+
+    #[test]
+    fn resources_are_numbers_from_a_fresh_file() {
+        let r: Resources = serde_json::from_str(RESOURCES).unwrap();
+        let at = 1_794_861_563;
+        let want = crate::state::Resources {
+            updated: at,
+            cpu_pct: Some(23.1),
+            jellyfin_cpu_pct: Some(18.0),
+            gpu_pct: Some(41.0),
+            mem_used_bytes: Some(9_878_000_000),
+            mem_total_bytes: Some(65_882_521_600),
+            jellyfin_mem_bytes: Some(982_011_904),
+            up_kbps: Some(27_013),
+        };
+        assert_eq!(r.figures(at + 30), Some(want.clone()));
+        assert_eq!(r.figures(at + RESOURCES_STALE), Some(want));
+        assert_eq!(r.figures(at + RESOURCES_STALE + 1), None, "the watcher writes every 60 s: older = it stopped");
+        assert!(r.figures(at - 20).is_some(), "a little clock skew between the hosts");
+        assert_eq!(r.figures(at - 31), None, "far in the future");
+    }
+
+    #[test]
+    fn resources_leave_unknown_figures_empty_and_refuse_other_versions() {
+        let r: Resources = serde_json::from_str(r#"{"v":1,"updated":100,"interval_s":60,"cpu_pct":3.0,"extra":"x"}"#).unwrap();
+        let f = r.figures(110).unwrap();
+        assert_eq!((f.cpu_pct, f.gpu_pct, f.jellyfin_cpu_pct, f.mem_used_bytes, f.up_kbps), (Some(3.0), None, None, None, None));
+        let r: Resources = serde_json::from_str(r#"{"v":2,"updated":100,"cpu_pct":3.0}"#).unwrap();
+        assert_eq!(r.figures(110), None);
+        let r: Resources = serde_json::from_str(r#"{"v":1,"updated":100,"cpu_pct":-5,"gpu_pct":250}"#).unwrap();
+        let f = r.figures(110).unwrap();
+        assert_eq!((f.cpu_pct, f.gpu_pct), (None, None), "out of range = not a reading");
     }
 }

@@ -36,6 +36,7 @@ use state::{DownloadsPart, Local, Polled, StreamsPart, WakerState};
 const GATE_TIMEOUT: Duration = Duration::from_secs(3);
 const SMALL: usize = 2 << 20;
 const LARGE: usize = 4 << 20;
+const TINY: usize = 4 << 10;
 /// The last snapshot is rewritten when the downloads change, else at most this often.
 const SAVE_EVERY: i64 = 600;
 const MAX_CONNECTIONS: usize = 64;
@@ -178,12 +179,13 @@ async fn fetch_request_state(gate: &BaseUrl, cache: &mut Option<(String, beefy::
 /// One poll through the gate, one attempt per path, side by side; raw answers are dropped as soon as they are grouped.
 async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache, tunnel: &api::Allow) -> BeefyPoll {
     let at = now();
-    let (sessions, rs, night, radarr, sonarr) = tokio::join!(
+    let (sessions, rs, night, radarr, sonarr, resources) = tokio::join!(
         fetch::<Vec<beefy::Session>>(gate, beefy::PATH_SESSIONS, SMALL),
         fetch_request_state(gate, &mut cache.request_state),
         fetch::<beefy::NightWaiting>(gate, beefy::PATH_NIGHT_WAITING, SMALL),
         fetch::<beefy::Queue>(gate, beefy::PATH_RADARR_QUEUE, LARGE),
         fetch::<beefy::Queue>(gate, beefy::PATH_SONARR_QUEUE, LARGE),
+        fetch::<beefy::Resources>(gate, beefy::PATH_RESOURCES, TINY),
     );
     let mut problems = Vec::new();
     let wanted = sessions.as_ref().is_ok_and(|s| beefy::wants_series(s)) || rs.as_ref().is_ok_and(|r| r.has_tv());
@@ -199,8 +201,19 @@ async fn poll_beefy(gate: &BaseUrl, cache: &mut BeefyCache, tunnel: &api::Allow)
     let series_unavailable = wanted && cache.series.is_none();
     let empty_idx = beefy::SeriesIndex::default();
     let index = cache.series.as_ref().unwrap_or(&empty_idx);
+    // missing or old figures only leave the resources row out
+    let resources = match resources {
+        Ok(r) => r.figures(at).or_else(|| {
+            problems.push(format!("{}: no fresh figures", beefy::PATH_RESOURCES));
+            None
+        }),
+        Err(e) => {
+            problems.push(e);
+            None
+        }
+    };
     let streams = match sessions {
-        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s, tunnel) }),
+        Ok(s) => Ok(StreamsPart { at, streams: beefy::streams(&s, index), series_unavailable, summary: beefy::summary(&s, tunnel), resources }),
         Err(e) => {
             problems.insert(0, e);
             Err(())

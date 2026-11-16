@@ -25,6 +25,7 @@
   .sub { color: var(--muted); font-size: 0.85rem; }
   .empty { color: var(--muted); margin: 0.2rem 0; }
   .note { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 0; }
+  .load span { white-space: nowrap; }
   .warn { background: #3d2e00; border: 1px solid #9e6a03; border-radius: 10px; padding: 0.5rem 0.8rem; margin: 0 0 0.8rem; }
   a { color: var(--accent); }
   #headline { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.8rem; }
@@ -169,7 +170,7 @@ function watching(s) {
   const ws = s.watching_summary;
   if (ws) {
     const parts = [];
-    if (ws.bitrate_kbps !== null && ws.bitrate_kbps !== undefined) parts.push(ws.bitrate_kbps < 1000 ? "≈ " + ws.bitrate_kbps + " kbit/s" : "≈ " + Math.round(ws.bitrate_kbps / 1000) + " Mbit/s");
+    if (known(ws.bitrate_kbps)) parts.push("≈ " + rate(ws.bitrate_kbps));
     const where = [];
     if (ws.lan) where.push(ws.lan + " LAN");
     if (ws.remote) where.push(ws.remote + " remote");
@@ -178,6 +179,26 @@ function watching(s) {
     parts.push(plural(ws.people, "person", "people") + " on " + plural(streams, "stream", "streams") + (jellyfinAudio(s).length ? " (with music and audiobooks)" : ""));
     box.append(el("p", { class: "note" }, parts.join(" · ")));
   }
+  const l = load(s.beefy_resources);
+  if (l) box.append(l);
+}
+
+const known = (x) => x !== null && x !== undefined;
+const GIB = 1024 ** 3;
+function rate(kbps) { return kbps < 1000 ? kbps + " kbit/s" : Math.round(kbps / 1000) + " Mbit/s"; }
+// beefy's load over the idle watcher's last cycle; each part wraps as a whole on a phone
+function load(r) {
+  if (!r) return null;
+  const pct = (x) => Math.round(x) + " %";
+  const parts = [];
+  if (known(r.cpu_pct)) parts.push("CPU " + pct(r.cpu_pct) + (known(r.jellyfin_cpu_pct) ? " (Jellyfin " + pct(r.jellyfin_cpu_pct) + ")" : ""));
+  if (known(r.gpu_pct)) parts.push("GPU " + pct(r.gpu_pct));
+  if (known(r.mem_used_bytes) && known(r.mem_total_bytes)) parts.push("RAM " + (r.mem_used_bytes / GIB).toFixed(1) + " / " + Math.round(r.mem_total_bytes / GIB) + " GiB" + (known(r.jellyfin_mem_bytes) ? " (Jellyfin " + (r.jellyfin_mem_bytes / GIB).toFixed(1) + " GiB)" : ""));
+  if (known(r.up_kbps)) parts.push("↑ " + rate(r.up_kbps));
+  if (!parts.length) return null;
+  const p = el("p", { class: "note load", title: "beefy, average of the last minute (" + hhmm(r.updated) + "); GPU = busiest iGPU engine; ↑ = everything beefy sends" });
+  parts.forEach((t, i) => { if (i) p.append(" · "); p.append(el("span", {}, t)); });
+  return p;
 }
 
 function listening(s) {

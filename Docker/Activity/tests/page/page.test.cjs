@@ -302,3 +302,28 @@ test("a low bitrate shows in kbit/s", async () => {
   assert.match(await p.text("#watching"), /≈ 320 kbit\/s/);
   await p.ctx.close();
 });
+
+const GiB = 1024 ** 3;
+const LOAD = { updated: NOW - 20, cpu_pct: 23.1, jellyfin_cpu_pct: 18.0, gpu_pct: 41.0, mem_used_bytes: 9.2 * GiB, mem_total_bytes: 61.4 * GiB, jellyfin_mem_bytes: 1.04 * GiB, up_kbps: 27013 };
+
+test("beefy's load is one compact row under Watching", async () => {
+  let p = await open([base({ watching: [W("Movie", "direct play", false, 2)], watching_summary: { bitrate_kbps: 27218, lan: 0, remote: 2, people: 2 }, beefy_resources: LOAD })]);
+  assert.equal(await p.text("#watching .load"), "CPU 23 % (Jellyfin 18 %) · GPU 41 % · RAM 9.2 / 61 GiB (Jellyfin 1.0 GiB) · ↑ 27 Mbit/s");
+  assert.match(await p.page.locator("#watching .load").getAttribute("title"), /last minute/);
+  assert.deepEqual(p.errors, []);
+  await p.ctx.close();
+  p = await open([base({ beefy_resources: { updated: NOW, cpu_pct: 3.04, jellyfin_cpu_pct: null, gpu_pct: null, mem_used_bytes: null, mem_total_bytes: null, jellyfin_mem_bytes: null, up_kbps: 640 } })]);
+  assert.equal(await p.text("#watching .load"), "CPU 3 % · ↑ 640 kbit/s", "unknown figures are left out, also with nobody watching");
+  await p.ctx.close();
+});
+
+test("no load row while beefy sleeps or has no figures", async () => {
+  let p = await open([base({ beefy: "asleep", beefy_data: "stale", beefy_resources: null })]);
+  assert.match(await p.text("#watching"), /beefy asleep/);
+  assert.equal(await p.page.locator("#watching .load").count(), 0);
+  await p.ctx.close();
+  p = await open([base({ watching: [W("Movie", "direct play", false, 1)] })]);
+  assert.equal(await p.page.locator("#watching .load").count(), 0);
+  await p.ctx.close();
+});
+
