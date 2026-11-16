@@ -3,6 +3,7 @@
 [Miniflux](https://miniflux.app) `2.3.5` (Apache-2.0) as the reader for the CVE feeds of [Vulnerability-Lookup](../Vulnerability-Lookup/README.md): High and Critical only (CVSS >= 7.0, owner 2026-11-16). New entries go to Telegram.
 
 - **URL:** https://news.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`). Cloudflare public hostname created by the owner 2026-11-16.
+- **Tech stack page:** https://news.holy-grail.ch/techstack ([CVE-Techstack](../CVE-Techstack/README.md)), last item of the header menu.
 - Login = the forwarded `X-authentik-username`, trusted only from Traefik's `172.24.255.3`. Local login off. A Holy Grail user gets a Miniflux account on the first visit.
 - `MINIFLUX_ADMIN` (`.env`, a Holy Grail username) owns the feeds and the Telegram integration; every other user gets a copy of the feeds (see Users).
 - `miniflux` (distroless, uid 65066, read-only, 128 MB) + `miniflux-db` (`postgres:18.7-alpine`, uid 70, 192 MB). API on `127.0.0.1:8097` for the scripts only.
@@ -25,6 +26,7 @@
 | Admin adds / moves / removes a feed | follows on the next run; a feed or category the user added himself stays |
 | User removes a synced feed | comes back on the next run |
 | Read state, settings | per user |
+| "Tech stack" header link | every user, admin included: custom JavaScript block in the user's settings, set by `sync_users.py`; own custom JavaScript stays |
 | Telegram | admin only, never copied (no double messages) |
 
 Each user is reached with its own API key "feed-sync" (derived from `secrets/api_key`). Run by hand: `Docker/Miniflux/scripts/sync_users.py`; log: `journalctl -u miniflux-feed-sync`. Removing a user from the Authentik groups does not delete the Miniflux account (Settings → Users).

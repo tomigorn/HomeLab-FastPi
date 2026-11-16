@@ -4,6 +4,7 @@
 Usage: Docker/Miniflux/scripts/sync_users.py [-h|--help]
 Adds what the admin has, moves synced feeds to the admin's category, removes synced feeds and empty synced categories the admin dropped.
 A user's own feeds and categories are never touched; integrations (Telegram) are never copied.
+Every user (admin included) gets a "Tech stack" link in the header menu (custom JavaScript between LINK_START and LINK_END; the user's own custom JavaScript stays).
 Each user is reached with its own API key "feed-sync" (derived from secrets/api_key, row upserted over psql when missing).
 State (which feeds came from the sync): secrets/feed_sync_state.json. Runs every 5 minutes by miniflux-feed-sync.timer.
 """
@@ -21,6 +22,27 @@ from subscribe import ROOT, call, masked
 
 TIMEOUT = 150
 HEX = re.compile(r"^[0-9a-f]+$")
+LINK_START = "/* homelab-about */"   # marker kept from the first version so old blocks are replaced
+LINK_END = "/* /homelab-about */"
+LINK_JS = LINK_START + """
+(() => {
+  const menu = document.getElementById("header-menu");
+  if (!menu || menu.querySelector("[data-homelab-techstack]")) return;
+  const li = document.createElement("li");
+  li.dataset.homelabTechstack = "";
+  const a = document.createElement("a");
+  a.href = "/techstack";
+  a.textContent = "Tech stack";
+  li.append(a);
+  menu.append(li);
+})();
+""" + LINK_END
+LINK_BLOCK = re.compile(re.escape(LINK_START) + ".*?" + re.escape(LINK_END) + r"\n?", re.S)
+
+
+def with_techstack_link(custom_js):
+    own = LINK_BLOCK.sub("", custom_js or "").strip()
+    return LINK_JS + ("\n" + own if own else "")
 
 
 def user_key(admin_key, user_id):
@@ -106,7 +128,8 @@ def sync(call, admin_key, admin_name, state, ensure_keys):
     lines = []
     admin_feeds = {f["feed_url"]: f["category"]["title"] for f in call("GET", "/feeds", admin_key)}
     admin_cats = {c["title"] for c in call("GET", "/categories", admin_key)}
-    users = [u for u in call("GET", "/users", admin_key) if not u["is_admin"] and u["username"] != admin_name]
+    everyone = call("GET", "/users", admin_key)
+    users = [u for u in everyone if not u["is_admin"] and u["username"] != admin_name]
     missing = []
     for u in users:
         try:
@@ -128,6 +151,11 @@ def sync(call, admin_key, admin_name, state, ensure_keys):
                 new_state[uid] = state[uid]
     if not users:
         lines.append("no other users")
+    for u in everyone:
+        js = with_techstack_link(u.get("custom_js", ""))
+        if js != u.get("custom_js"):
+            call("PUT", f"/users/{u['id']}", admin_key, {"custom_js": js})
+            lines.append(f"{u['username']}: tech stack link")
     return new_state, lines
 
 

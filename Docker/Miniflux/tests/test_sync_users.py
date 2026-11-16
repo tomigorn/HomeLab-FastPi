@@ -37,7 +37,7 @@ class FakeMiniflux:
         return self.next_id
 
     def add_user(self, uid, name, admin=False):
-        self.users[uid] = {"id": uid, "username": name, "is_admin": admin}
+        self.users[uid] = {"id": uid, "username": name, "is_admin": admin, "custom_js": ""}
         self.cats[uid] = {self._id(): "All"}
         self.feeds[uid] = {}
 
@@ -66,6 +66,11 @@ class FakeMiniflux:
             return list(self.users.values())
         if path == "/me":
             return self.users[uid]
+        if path.startswith("/users/") and method == "PUT":
+            if not self.users[uid]["is_admin"]:
+                raise http_error(403)
+            self.users[int(path.split("/")[2])].update(body)
+            return self.users[int(path.split("/")[2])]
         if path == "/categories" and method == "GET":
             return [{"id": c, "title": t, "user_id": uid} for c, t in self.cats[uid].items()]
         if path == "/categories" and method == "POST":
@@ -210,6 +215,38 @@ class SyncTest(unittest.TestCase):
         del self.h.mf.users[2]
         self.h.run()
         self.assertNotIn("2", self.h.state)
+
+
+class TechstackLinkTest(unittest.TestCase):
+    def setUp(self):
+        self.h = Harness()
+        self.h.mf.add_user(2, "sam-user")
+
+    def test_every_user_and_the_admin_get_the_techstack_link(self):
+        self.h.run()
+        for uid in (1, 2):
+            self.assertIn('"/techstack"', self.h.mf.users[uid]["custom_js"])
+            self.assertIn("header-menu", self.h.mf.users[uid]["custom_js"])
+            self.assertIn("\"Tech stack\"", self.h.mf.users[uid]["custom_js"])
+
+    def test_own_custom_js_stays(self):
+        self.h.mf.users[2]["custom_js"] = "console.log('mine');"
+        self.h.run()
+        self.assertIn("console.log('mine');", self.h.mf.users[2]["custom_js"])
+        self.assertIn('"/techstack"', self.h.mf.users[2]["custom_js"])
+
+    def test_outdated_link_is_replaced_not_doubled(self):
+        self.h.mf.users[2]["custom_js"] = su.LINK_START + "\nold();\n" + su.LINK_END + "\nmine();"
+        self.h.run()
+        js = self.h.mf.users[2]["custom_js"]
+        self.assertEqual(js.count(su.LINK_START), 1)
+        self.assertNotIn("old();", js)
+        self.assertIn("mine();", js)
+
+    def test_link_is_set_only_once(self):
+        self.h.run()
+        self.h.run()
+        self.assertFalse([p for m, p in self.h.writes() if p.startswith("/users/")])
 
 
 class KeyTest(unittest.TestCase):
