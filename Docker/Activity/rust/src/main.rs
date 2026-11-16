@@ -37,7 +37,8 @@ use state::{DownloadsPart, Local, Polled, StreamsPart, WakerState};
 const GATE_TIMEOUT: Duration = Duration::from_secs(3);
 const SMALL: usize = 2 << 20;
 const LARGE: usize = 4 << 20;
-const TINY: usize = 4 << 10;
+/// beefy's resources.json: ~1.5 KB, up to ~4 KB with many streams and the 15-point history
+const TINY: usize = 16 << 10;
 /// The last snapshot is rewritten when the downloads change, else at most this often.
 const SAVE_EVERY: i64 = 600;
 const MAX_CONNECTIONS: usize = 64;

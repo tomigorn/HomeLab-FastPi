@@ -297,7 +297,9 @@ class Base(unittest.TestCase):
 ABR = {"downloading": 5, "queued": 1, "paused": 2, "problem": 2, "eta": 600, "left": 170000000}
 LISTENING = {"sessions": 3, "modes": ["direct play", "transcode", "other"]}
 FASTPI_LOAD = {"audiobookshelf": {"cpu_pct": 2.1, "mem_bytes": 41730048, "up_kbps": 1293, "down_kbps": None},
-               "downloads": {"cpu_pct": 33.4, "mem_bytes": 147636224, "up_kbps": None, "down_kbps": 54000}}
+               "downloads": {"cpu_pct": 33.4, "mem_bytes": 147636224, "up_kbps": None, "down_kbps": 54000},
+               "host": {"cpu_pct": 71.0, "cores_pct": [59.0, 90.1, 80.3, 54.2], "mem_used_bytes": 6228869120, "mem_total_bytes": 8453947392,
+                        "swap_used_bytes": 4642357248, "swap_total_bytes": 10737401856, "disk_used_bytes": 252914872320, "disk_total_bytes": 477981716480}}
 NO_TC = {"accel": None, "reasons": []}
 EXPECTED_WATCHING = [
     {"kind": "Movie", "quality": "4K HDR", "mode": "direct play", "paused": False, "n": 2, **NO_TC},
@@ -326,7 +328,15 @@ class Awake(Base):
                              "mem_total_bytes": 65882521600, "jellyfin_mem_bytes": 982011904, "up_kbps": 27013,
                              "dl_cpu_pct": 22.0, "dl_mem_bytes": 1181116006, "dl_down_kbps": 432000, "disk_write_kbps": 960000, "sab_post": "unpacking",
                              "streams_cpu_pct": 7.5, "streams_gpu_pct": 44.0,
-                             "background": [{"task": "preview images", "cpu_pct": 3.2, "gpu_pct": 22.0}, {"task": "other ffmpeg", "cpu_pct": 0.1, "gpu_pct": None}]})
+                             "background": [{"task": "preview images", "cpu_pct": 3.2, "gpu_pct": 22.0}, {"task": "other ffmpeg", "cpu_pct": 0.1, "gpu_pct": None}],
+                             "cores_pct": [75.0, 10.0, 2.5], "swap_used_bytes": 48234496, "swap_total_bytes": 8589930496, "down_kbps": 1888,
+                             "disks": [{"kind": "ssd", "n": 1, "busy_pct": 50.0, "read_kbps": 1638, "write_kbps": 12288, "asleep": False, "used_bytes": 6374687449088, "total_bytes": 7937302708224,
+                                        "yellow_pct": 70.0, "orange_pct": 75.0, "limit_pct": 80.0, "busy_hist": [1.0, None, 50.0]},
+                                       {"kind": "ssd", "n": 2, "busy_pct": 0.1, "read_kbps": 2, "write_kbps": 2183, "asleep": False, "used_bytes": 906611556352, "total_bytes": 7937302708224,
+                                        "yellow_pct": 70.0, "orange_pct": 75.0, "limit_pct": 80.0, "busy_hist": []},
+                                       {"kind": "hdd", "n": 1, "busy_pct": 0.0, "read_kbps": 0, "write_kbps": 0, "asleep": True, "used_bytes": 574425268224, "total_bytes": 29998208495616,
+                                        "yellow_pct": 80.0, "orange_pct": 85.0, "limit_pct": 90.0, "busy_hist": []}],
+                             "hist": {"cpu_pct": [3.0, 23.1], "mem_pct": [14.0, 15.0], "gpu_pct": [None, 41.0], "down_kbps": [900, 1888], "up_kbps": [100, 27013]}})
         loads = s["stream_loads"]
         self.assertEqual(len(loads), 8, "one per playing session")
         self.assertIn({"kind": "Episode", "quality": "1080p SDR", "mode": "transcode", "paused": False, "cpu_pct": 2.1, "gpu_pct": 41.0, "kbps": 10000}, loads)

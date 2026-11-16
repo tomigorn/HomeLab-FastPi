@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde::Deserialize;
 
-use crate::state::{Accel, DlState, Download, Kind, Mode, Quality, Reason, SabPost, Stream, StreamLoad, Task, TaskLoad, WatchSummary};
+use crate::state::{Accel, DiskKind, DiskLoad, DlState, Download, History, Kind, Mode, Quality, Reason, SabPost, Stream, StreamLoad, Task, TaskLoad, WatchSummary};
 
 /// Paths on the gate (`GATE_URL`); the gate on beefy allow-lists exactly these GET paths and injects the API keys.
 pub const PATH_SESSIONS: &str = "/jellyfin/Sessions?ActiveWithinSeconds=60";
@@ -49,6 +49,67 @@ pub struct Resources {
     streams: Option<Vec<KeyedFigure>>,
     /// Jellyfin's background ffmpeg/ffprobe jobs
     background: Option<Vec<TaskFigure>>,
+    cores_pct: Vec<Option<f64>>,
+    swap_used_bytes: Option<u64>,
+    swap_total_bytes: Option<u64>,
+    down_kbps: Option<u64>,
+    disks: Vec<DiskFigure>,
+    hist: History,
+}
+
+/// Longest history kept from the file (the watcher sends 15 points).
+const HIST_MAX: usize = 60;
+/// More data disks than any pool here will have.
+const DISKS_MAX: usize = 16;
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct DiskFigure {
+    kind: String,
+    n: u8,
+    busy_pct: Option<f64>,
+    read_kbps: Option<u64>,
+    write_kbps: Option<u64>,
+    asleep: bool,
+    used_bytes: Option<u64>,
+    total_bytes: Option<u64>,
+    yellow_pct: Option<f64>,
+    orange_pct: Option<f64>,
+    limit_pct: Option<f64>,
+    busy_hist: Vec<Option<f64>>,
+}
+
+fn last_n<T: Clone>(v: &[T]) -> Vec<T> {
+    v[v.len().saturating_sub(HIST_MAX)..].to_vec()
+}
+
+fn disk_load(d: &DiskFigure) -> Option<DiskLoad> {
+    let kind = match d.kind.as_str() {
+        "ssd" => DiskKind::Ssd,
+        "hdd" => DiskKind::Hdd,
+        "disk" => DiskKind::Disk,
+        _ => return None,
+    };
+    if d.n == 0 || d.n as usize > DISKS_MAX {
+        return None;
+    }
+    let pct = |p: Option<f64>| p.filter(|p| (0.0..=100.0).contains(p));
+    let limit = |p: Option<f64>| p.filter(|p| *p > 0.0 && *p <= 100.0);
+    let space = matches!((d.used_bytes, d.total_bytes), (Some(u), Some(t)) if t > 0 && u <= t);
+    Some(DiskLoad {
+        kind,
+        n: d.n,
+        busy_pct: pct(d.busy_pct),
+        read_kbps: d.read_kbps,
+        write_kbps: d.write_kbps,
+        asleep: d.asleep,
+        used_bytes: d.used_bytes.filter(|_| space),
+        total_bytes: d.total_bytes.filter(|_| space),
+        yellow_pct: limit(d.yellow_pct).filter(|_| space),
+        orange_pct: limit(d.orange_pct).filter(|_| space),
+        limit_pct: limit(d.limit_pct).filter(|_| space),
+        busy_hist: last_n(&d.busy_hist.iter().map(|p| pct(*p)).collect::<Vec<_>>()),
+    })
 }
 
 #[derive(Deserialize, Default)]
@@ -123,6 +184,18 @@ impl Resources {
                     gpu_pct: pct(t.gpu_pct),
                 })
                 .collect(),
+            cores_pct: self.cores_pct.iter().filter_map(|p| pct(*p)).collect(),
+            swap_used_bytes: self.swap_used_bytes,
+            swap_total_bytes: self.swap_total_bytes,
+            down_kbps: self.down_kbps,
+            disks: self.disks.iter().filter_map(disk_load).take(DISKS_MAX).collect(),
+            hist: History {
+                cpu_pct: last_n(&self.hist.cpu_pct.iter().map(|p| pct(*p)).collect::<Vec<_>>()),
+                mem_pct: last_n(&self.hist.mem_pct.iter().map(|p| pct(*p)).collect::<Vec<_>>()),
+                gpu_pct: last_n(&self.hist.gpu_pct.iter().map(|p| pct(*p)).collect::<Vec<_>>()),
+                down_kbps: last_n(&self.hist.down_kbps),
+                up_kbps: last_n(&self.hist.up_kbps),
+            },
         })
     }
 
@@ -1118,8 +1191,21 @@ mod tests {
             streams_cpu_pct: Some(7.5),
             streams_gpu_pct: Some(44.0),
             background: vec![TaskLoad { task: Task::PreviewImages, cpu_pct: Some(3.2), gpu_pct: Some(22.0) }, TaskLoad { task: Task::Other, cpu_pct: Some(0.1), gpu_pct: None }],
+            cores_pct: vec![75.0, 10.0, 2.5],
+            swap_used_bytes: Some(48_234_496),
+            swap_total_bytes: Some(8_589_930_496),
+            down_kbps: Some(1_888),
+            disks: vec![
+                DiskLoad { kind: DiskKind::Ssd, n: 1, busy_pct: Some(50.0), read_kbps: Some(1_638), write_kbps: Some(12_288), asleep: false,
+                           used_bytes: Some(6_374_687_449_088), total_bytes: Some(7_937_302_708_224), yellow_pct: Some(70.0), orange_pct: Some(75.0), limit_pct: Some(80.0), busy_hist: vec![Some(1.0), None, Some(50.0)] },
+                DiskLoad { kind: DiskKind::Ssd, n: 2, busy_pct: Some(0.1), read_kbps: Some(2), write_kbps: Some(2_183), asleep: false,
+                           used_bytes: Some(906_611_556_352), total_bytes: Some(7_937_302_708_224), yellow_pct: Some(70.0), orange_pct: Some(75.0), limit_pct: Some(80.0), busy_hist: vec![] },
+                DiskLoad { kind: DiskKind::Hdd, n: 1, busy_pct: Some(0.0), read_kbps: Some(0), write_kbps: Some(0), asleep: true,
+                           used_bytes: Some(574_425_268_224), total_bytes: Some(29_998_208_495_616), yellow_pct: Some(80.0), orange_pct: Some(85.0), limit_pct: Some(90.0), busy_hist: vec![] },
+            ],
+            hist: History { cpu_pct: vec![Some(3.0), Some(23.1)], mem_pct: vec![Some(14.0), Some(15.0)], gpu_pct: vec![None, Some(41.0)], down_kbps: vec![Some(900), Some(1_888)], up_kbps: vec![Some(100), Some(27_013)] },
         };
-        assert_eq!(r.figures(at + 30), Some(want.clone()));
+        assert_eq!(r.figures(at + 30), Some(want.clone()), "a disk of an unknown kind is left out");
         assert_eq!(r.figures(at + RESOURCES_STALE), Some(want));
         assert_eq!(r.figures(at + RESOURCES_STALE + 1), None, "the watcher writes every 60 s: older = it stopped");
         assert!(r.figures(at - 20).is_some(), "a little clock skew between the hosts");
@@ -1138,6 +1224,20 @@ mod tests {
         assert_eq!((f.cpu_pct, f.gpu_pct), (None, None), "out of range = not a reading");
         assert_eq!((f.streams_cpu_pct, f.streams_gpu_pct, f.background), (None, None, vec![]), "no lists = not measured");
         assert_eq!(r.stream_figures(), None, "no streams list = not measured");
+        assert_eq!((f.cores_pct.len(), f.disks.len(), f.hist.cpu_pct.len()), (0, 0, 0), "no overview lists = not measured");
+        let long: Vec<String> = (0..70).map(|i| i.to_string()).collect();
+        let r: Resources = serde_json::from_str(&format!(
+            r#"{{"v":1,"updated":100,"cores_pct":[5,250,-1],"disks":[{{"kind":"ssd","n":1,"busy_pct":250,"used_bytes":9,"total_bytes":5,"limit_pct":180,"busy_hist":[{l}]}},{{"kind":"hdd","n":0}}],"hist":{{"cpu_pct":[{l}]}}}}"#,
+            l = long.join(",")
+        ))
+        .unwrap();
+        let f = r.figures(110).unwrap();
+        assert_eq!(f.cores_pct, vec![5.0], "readings outside 0-100 dropped");
+        assert_eq!(f.disks.len(), 1, "a disk numbered 0 is not a disk");
+        let d = &f.disks[0];
+        assert_eq!((d.busy_pct, d.used_bytes, d.total_bytes, d.limit_pct), (None, None, None, None), "used over total = no space figures");
+        assert_eq!((d.busy_hist.len(), d.busy_hist[0]), (60, Some(10.0)), "the last 60 history points");
+        assert_eq!(f.hist.cpu_pct.len(), 60);
         let r: Resources = serde_json::from_str(r#"{"v":1,"updated":100,"sab_post":"exploding","streams":[{"key":"a","cpu_pct":140,"gpu_pct":3}]}"#).unwrap();
         assert_eq!(r.figures(110).unwrap().sab_post, None, "an unknown post-processing word is dropped");
         let f = r.stream_figures().unwrap();

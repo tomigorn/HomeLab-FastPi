@@ -283,6 +283,62 @@ pub struct Resources {
     /// Jellyfin's background ffmpeg/ffprobe jobs by kind (from their arguments)
     #[serde(default)]
     pub background: Vec<TaskLoad>,
+    /// busy % of each logical CPU
+    #[serde(default)]
+    pub cores_pct: Vec<f64>,
+    #[serde(default)]
+    pub swap_used_bytes: Option<u64>,
+    #[serde(default)]
+    pub swap_total_bytes: Option<u64>,
+    /// everything beefy's NIC receives, kbit/s
+    #[serde(default)]
+    pub down_kbps: Option<u64>,
+    /// the pool's data disks: SSD 1, SSD 2, HDD 1…
+    #[serde(default)]
+    pub disks: Vec<DiskLoad>,
+    /// the watcher's last cycles (one point per minute), oldest first
+    #[serde(default)]
+    pub hist: History,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DiskKind {
+    Ssd,
+    Hdd,
+    Disk,
+}
+
+/// One data disk: load over the last cycle and space against its limit (never planned to 100 %).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiskLoad {
+    pub kind: DiskKind,
+    /// number within its kind
+    pub n: u8,
+    /// share of the time the disk was busy (Task Manager's active time)
+    pub busy_pct: Option<f64>,
+    pub read_kbps: Option<u64>,
+    pub write_kbps: Option<u64>,
+    /// a parked HDD, known without touching it
+    pub asleep: bool,
+    pub used_bytes: Option<u64>,
+    pub total_bytes: Option<u64>,
+    /// used % where the bar turns yellow (mover), orange, and the disk counts as full
+    pub yellow_pct: Option<f64>,
+    pub orange_pct: Option<f64>,
+    pub limit_pct: Option<f64>,
+    pub busy_hist: Vec<Option<f64>>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct History {
+    pub cpu_pct: Vec<Option<f64>>,
+    pub mem_pct: Vec<Option<f64>>,
+    pub gpu_pct: Vec<Option<f64>>,
+    pub down_kbps: Vec<Option<u64>>,
+    pub up_kbps: Vec<Option<u64>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -357,11 +413,25 @@ pub struct Load {
     pub down_kbps: Option<u64>,
 }
 
-/// Audiobookshelf and the mouse download stack (its VPN, qBittorrent, SABnzbd) on fastpi.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+/// Audiobookshelf and the mouse download stack (its VPN, qBittorrent, SABnzbd) on fastpi, and fastpi as a whole.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct FastpiLoad {
     pub audiobookshelf: Option<Load>,
     pub downloads: Option<Load>,
+    pub host: Option<Host>,
+}
+
+/// fastpi from Telegraf's system inputs: CPU (all, per core), RAM, swap, the root disk; None = not reported.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct Host {
+    pub cpu_pct: Option<f64>,
+    pub cores_pct: Vec<f64>,
+    pub mem_used_bytes: Option<u64>,
+    pub mem_total_bytes: Option<u64>,
+    pub swap_used_bytes: Option<u64>,
+    pub swap_total_bytes: Option<u64>,
+    pub disk_used_bytes: Option<u64>,
+    pub disk_total_bytes: Option<u64>,
 }
 
 /// The Jellyfin side of one successful poll of beefy, already aggregated: categories and counts only.
@@ -543,7 +613,7 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         streams_series_unavailable: live && streams.is_some_and(|s| s.series_unavailable),
         listening: local.listening.as_ref().map(|m| Listening { sessions: m.len() as u32, modes: m.clone() }),
         audiobook_downloads: local.abr,
-        fastpi_load: local.load,
+        fastpi_load: local.load.clone(),
         polled_at: polled.at,
         streams_failed: up && !warming && polled.streams_failed,
         downloads_failed: up && !warming && polled.downloads_failed,
@@ -675,15 +745,15 @@ pub mod tests {
     #[test]
     fn view_local_figures_or_unavailable() {
         let abr = Abr { downloading: 1, queued: 3, paused: 1, problem: 0, eta: Some(60), left: 5 };
-        let load = FastpiLoad { audiobookshelf: Some(Load { cpu_pct: Some(0.4), mem_bytes: Some(45), up_kbps: Some(96), down_kbps: None }), downloads: None };
-        let l = Local { listening: Some(vec![ListenMode::DirectPlay, ListenMode::Transcode]), abr: Some(abr), load: Some(load) };
+        let load = FastpiLoad { audiobookshelf: Some(Load { cpu_pct: Some(0.4), mem_bytes: Some(45), up_kbps: Some(96), down_kbps: None }), downloads: None, host: None };
+        let l = Local { listening: Some(vec![ListenMode::DirectPlay, ListenMode::Transcode]), abr: Some(abr), load: Some(load.clone()) };
         let x = view(NOW, None, None, WakerState::Down, &l, Polled::default());
         assert_eq!(x.listening, Some(Listening { sessions: 2, modes: vec![ListenMode::DirectPlay, ListenMode::Transcode] }));
         assert_eq!(x.audiobook_downloads, Some(abr));
         assert_eq!(x.fastpi_load, Some(load), "fastpi figures do not depend on beefy");
         let j = serde_json::to_string(&x).unwrap();
         assert!(j.contains(r#""listening":{"sessions":2,"modes":["direct play","transcode"]}"#), "{j}");
-        assert!(j.contains(r#""fastpi_load":{"audiobookshelf":{"cpu_pct":0.4,"mem_bytes":45,"up_kbps":96,"down_kbps":null},"downloads":null}"#), "{j}");
+        assert!(j.contains(r#""fastpi_load":{"audiobookshelf":{"cpu_pct":0.4,"mem_bytes":45,"up_kbps":96,"down_kbps":null},"downloads":null,"host":null}"#), "{j}");
         let x = view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default());
         assert_eq!((x.listening, x.audiobook_downloads, x.fastpi_load), (None, None, None));
     }
@@ -762,6 +832,10 @@ pub mod tests {
             updated: NOW - 20, cpu_pct: Some(23.1), jellyfin_cpu_pct: Some(18.0), gpu_pct: Some(41.0), mem_used_bytes: Some(9), mem_total_bytes: Some(62), jellyfin_mem_bytes: Some(1), up_kbps: Some(27_013),
             dl_cpu_pct: Some(22.0), dl_mem_bytes: Some(11), dl_down_kbps: Some(432_000), disk_write_kbps: Some(960_000), sab_post: Some(SabPost::Unpacking),
             streams_cpu_pct: Some(2.5), streams_gpu_pct: Some(41.0), background: vec![TaskLoad { task: Task::PreviewImages, cpu_pct: Some(4.0), gpu_pct: None }],
+            cores_pct: vec![50.0], swap_used_bytes: Some(3), swap_total_bytes: Some(8), down_kbps: Some(1_888),
+            disks: vec![DiskLoad { kind: DiskKind::Hdd, n: 1, busy_pct: Some(0.0), read_kbps: Some(0), write_kbps: Some(0), asleep: true, used_bytes: Some(5), total_bytes: Some(30),
+                                   yellow_pct: Some(80.0), orange_pct: Some(85.0), limit_pct: Some(90.0), busy_hist: vec![None, Some(0.0)] }],
+            hist: History { cpu_pct: vec![Some(3.0)], ..History::default() },
         };
         let load = StreamLoad { kind: Kind::Movie, quality: Some(Quality::Uhd4kHdr), mode: Mode::Transcode, paused: false, cpu_pct: Some(34.0), gpu_pct: Some(41.0), kbps: Some(8000) };
         let sp = StreamsPart { resources: Some(r.clone()), loads: vec![load.clone()], ..streams_part(NOW - 5) };
@@ -774,7 +848,7 @@ pub mod tests {
         let stale = view(NOW, Some(&old), None, WakerState::Up, &Local::default(), Polled::default());
         assert_eq!((stale.beefy_resources, stale.stream_loads), (None, None), "stale: nothing");
         let j = serde_json::to_string(&view(NOW, Some(&sp), None, WakerState::Up, &Local::default(), Polled::default())).unwrap();
-        assert!(j.contains(r#""beefy_resources":{"updated":1794429980,"cpu_pct":23.1,"jellyfin_cpu_pct":18.0,"gpu_pct":41.0,"mem_used_bytes":9,"mem_total_bytes":62,"jellyfin_mem_bytes":1,"up_kbps":27013,"dl_cpu_pct":22.0,"dl_mem_bytes":11,"dl_down_kbps":432000,"disk_write_kbps":960000,"sab_post":"unpacking","streams_cpu_pct":2.5,"streams_gpu_pct":41.0,"background":[{"task":"preview images","cpu_pct":4.0,"gpu_pct":null}]}"#), "{j}");
+        assert!(j.contains(r#""beefy_resources":{"updated":1794429980,"cpu_pct":23.1,"jellyfin_cpu_pct":18.0,"gpu_pct":41.0,"mem_used_bytes":9,"mem_total_bytes":62,"jellyfin_mem_bytes":1,"up_kbps":27013,"dl_cpu_pct":22.0,"dl_mem_bytes":11,"dl_down_kbps":432000,"disk_write_kbps":960000,"sab_post":"unpacking","streams_cpu_pct":2.5,"streams_gpu_pct":41.0,"background":[{"task":"preview images","cpu_pct":4.0,"gpu_pct":null}],"cores_pct":[50.0],"swap_used_bytes":3,"swap_total_bytes":8,"down_kbps":1888,"disks":[{"kind":"hdd","n":1,"busy_pct":0.0,"read_kbps":0,"write_kbps":0,"asleep":true,"used_bytes":5,"total_bytes":30,"yellow_pct":80.0,"orange_pct":85.0,"limit_pct":90.0,"busy_hist":[null,0.0]}],"hist":{"cpu_pct":[3.0],"mem_pct":[],"gpu_pct":[],"down_kbps":[],"up_kbps":[]}}"#), "{j}");
         assert!(j.contains(r#""stream_loads":[{"kind":"Movie","quality":"4K HDR","mode":"transcode","paused":false,"cpu_pct":34.0,"gpu_pct":41.0,"kbps":8000}]"#), "{j}");
         let j = serde_json::to_string(&view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default())).unwrap();
         assert!(j.contains(r#""beefy_resources":null,"stream_loads":null"#), "{j}");

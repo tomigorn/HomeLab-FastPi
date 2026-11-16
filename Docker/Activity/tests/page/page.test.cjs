@@ -404,3 +404,56 @@ test("the favicons are linked and load under the CSP", async () => {
   assert.deepEqual(p.errors, []);
   await p.ctx.close();
 });
+
+const DISK = (kind, n, over) => Object.assign({ kind, n, busy_pct: 0, read_kbps: 0, write_kbps: 0, asleep: false, used_bytes: null, total_bytes: null, yellow_pct: null, orange_pct: null, limit_pct: null, busy_hist: [] }, over);
+const SSD_LIMITS = { yellow_pct: 70, orange_pct: 75, limit_pct: 80 };
+const RES = {
+  updated: NOW - 20, cpu_pct: 23.1, gpu_pct: 41.0, mem_used_bytes: 9878000000, mem_total_bytes: 65882521600, up_kbps: 27013, down_kbps: 1888,
+  cores_pct: [75.0, 10.0, 2.5], swap_used_bytes: 48234496, swap_total_bytes: 8589930496, background: [],
+  disks: [
+    DISK("ssd", 1, { busy_pct: 50, read_kbps: 1638, write_kbps: 12288, used_bytes: 6374687449088, total_bytes: 7937302708224, ...SSD_LIMITS, busy_hist: [1, null, 50] }),
+    DISK("ssd", 2, { busy_pct: 0.1, read_kbps: 2, write_kbps: 2183, used_bytes: 906611556352, total_bytes: 7937302708224, ...SSD_LIMITS }),
+    DISK("hdd", 1, { asleep: true, used_bytes: 574425268224, total_bytes: 29998208495616, yellow_pct: 80, orange_pct: 85, limit_pct: 90 }),
+  ],
+  hist: { cpu_pct: [3, 23.1], mem_pct: [14, 15], gpu_pct: [null, 41], down_kbps: [900, 1888], up_kbps: [100, 27013] },
+};
+const FASTPI_HOST = { cpu_pct: 71.0, cores_pct: [59, 90.1, 80.3, 54.2], mem_used_bytes: 6228869120, mem_total_bytes: 8453947392, swap_used_bytes: 4642357248, swap_total_bytes: 10737401856, disk_used_bytes: 252914872320, disk_total_bytes: 477981716480 };
+const rows = (p, host) => p.page.locator(`#resources [data-host=${host}] .r`).evaluateAll((rs) => rs.map((r) => r.innerText.replace(/\s+/g, " ").trim()));
+
+test("the Resources card leads the page: beefy's CPU, RAM, swap, GPU, net and each pool disk, then fastpi", async () => {
+  const p = await open([base({ beefy_resources: RES, fastpi_load: { audiobookshelf: null, downloads: null, host: FASTPI_HOST } })]);
+  assert.equal(await p.page.locator("main > section").first().getAttribute("id"), "resources");
+  assert.deepEqual(await rows(p, "beefy"), [
+    "CPU 23 % busiest core 75 %",
+    "RAM 9.2 / 61 GiB",
+    "Swap 46 MiB / 8.0 GiB",
+    "GPU 41 %",
+    "Net ↓ 1.9 · ↑ 27 Mbit/s",
+    "SSD 1 50 % R 0.2 · W 1.5 MB/s 80 % used · limit 80 % reached",
+    "SSD 2 0.1 % R 0.0 · W 0.3 MB/s 11 % used · 5.4 TB free to the 80 % limit",
+    "HDD 1 💤 asleep 1.9 % used · 26 TB free to the 90 % limit",
+  ]);
+  assert.deepEqual(await rows(p, "fastpi"), ["CPU 71 % busiest core 90 %", "RAM 5.8 / 7.9 GiB", "Swap 4.3 / 10 GiB", "Disk 53 % used · 225 GB free"]);
+  assert.deepEqual(await p.page.locator("#resources [data-host=beefy] .space").evaluateAll((m) => m.map((x) => x.getAttribute("data-level"))), ["full", "ok", "ok"], "the indexer bar's levels");
+  assert.equal(await p.page.locator("#resources [data-host=beefy] .cores rect:not(.bg)").count(), 3, "one bar per core");
+  assert.equal(await p.page.locator("#resources [data-host=beefy] .spark").count(), 4, "CPU, RAM, net and SSD 1: the series with two points or more (GPU has one)");
+  assert.deepEqual(p.errors, []);
+  await p.ctx.close();
+});
+
+test("the Resources card fits a phone without scrolling sideways", async () => {
+  const p = await open([base({ beefy_resources: RES, fastpi_load: { audiobookshelf: null, downloads: null, host: FASTPI_HOST } })]);
+  assert.equal(await p.page.evaluate(() => document.documentElement.scrollWidth), 390);
+  await p.ctx.close();
+});
+
+test("a sleeping beefy has no live figures, fastpi still shows", async () => {
+  let p = await open([base({ beefy: "asleep", beefy_data: "stale", beefy_resources: null, fastpi_load: { audiobookshelf: null, downloads: null, host: FASTPI_HOST } })]);
+  assert.match(await p.text("#resources"), /💤 beefy asleep — not woken for this/);
+  assert.equal((await rows(p, "fastpi")).length, 4);
+  await p.ctx.close();
+  p = await open([base({ beefy_resources: null, fastpi_load: null })]);
+  assert.match(await p.text("#resources"), /beefy figures unavailable/);
+  assert.match(await p.text("#resources"), /fastpi figures unavailable/);
+  await p.ctx.close();
+});
