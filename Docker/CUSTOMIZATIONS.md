@@ -366,3 +366,10 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Feeds and categories of `MINIFLUX_ADMIN` copied to every other user every 5 min (own API key "feed-sync" per user, row in `api_keys`; only synced feeds are removed again) | `scripts/sync_users.py`, `systemd/miniflux-feed-sync.*`, `secrets/feed_sync_state.json` | `sudo cp systemd/miniflux-feed-sync.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now miniflux-feed-sync.timer` | `mf.user-sync`: timer active, last run success | API changes (`/v1/users`, `feed_id`), renamed `api_keys` columns |
 | Telegram integration set in the DB (homelab bot, alert chat), admin user only | `scripts/setup.sh telegram` (token from `../grafana/alertmanager/secrets/telegram_bot_token`) | `scripts/setup.sh telegram` | `mf.telegram`: enabled with a token; `mf.telegram-admin-only`: no other user sends with the homelab bot | renamed `integrations` columns |
 
+## CVE-Techstack
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Static "Tech stack" pages at news.holy-grail.ch/techstack and cve.holy-grail.ch/techstack (one per host), `/about-homelab` → 301 `/techstack`; nginx-unprivileged pinned by digest, uid 65068, read-only, no caps, answers only Traefik's 172.24.255.3 | `docker-compose.yaml`, `nginx.conf`, `www/` | `docker compose up -d` | `techstack.hardening`: 65068 ro caps [ALL] nnp healthy; `techstack.pages`: both titles; `techstack.traefik-only`: another container → 403; `techstack.old-path`: 301 /techstack | nginx config syntax changes |
+| Routes behind `authentik@file` (same apps as news and cve), priority 5 above the apps, own CSP (no scripts) | `../Traefik/traefik/dynamic/cve-feeds.yml` routers `news-techstack`, `cve-techstack` | Traefik file reload | `techstack.page-sso`: no login → 302 on both hosts | Traefik's pinned IP changing (nginx `allow`) |
+
