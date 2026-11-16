@@ -69,12 +69,13 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65066 | miniflux | | | ✅ |
 | 65067 | vl-severity-feed (Rust, scratch) | | | ✅ |
 | 65068 | cve-techstack (nginx, Tech stack pages) | | | ✅ |
+| 65069 | vl-search (Rust, scratch) | | | ✅ |
 | 1101:1100 | sabnzbd, qbittorrent (lsio non-root) | | | |
 | 70 | authentik-postgresql, vl-db, miniflux-db | | | |
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65013 (was autoheal-nzb), 65029, 65031, 65065, 65069+.
+Free: 65013 (was autoheal-nzb), 65029, 65031, 65065, 65070+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |
