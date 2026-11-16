@@ -17,6 +17,8 @@ if want miniflux; then
   check mf.no-forged-user '^0$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*) from users where username = 'nobody-real'" 2>&1)"
   # only the admin sends to the alert chat (users created on first visit get no copy of the integration)
   check mf.telegram-admin-only '^0$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*) from integrations i, integrations a where a.user_id = 1 and i.user_id <> 1 and i.telegram_bot_enabled and i.telegram_bot_token = a.telegram_bot_token" 2>&1)"
+  # the CVE entries show vl-severity-feed's status block at the top of their content
+  check mf.status-block '^[1-9][0-9]* entries, [1-9][0-9]* with the status block$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*), count(*) filter (where content like '<p><strong>Our product:</strong>%') from entries e join feeds f on f.id = e.feed_id where f.user_id = 1 and f.feed_url like 'http://vl-severity-feed:8080/%' and e.published_at > now() - interval '30 days'" 2>&1 | awk -F'|' '{print $1 " entries, " $2 " with the status block"}')"
   # every user has the "Tech stack" header link (custom JavaScript set by scripts/sync_users.py)
   check mf.techstack-link '^[1-9][0-9]* users, 0 without the link$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*), count(*) filter (where custom_js not like '%\"/techstack\"%') from users" 2>&1 | awk -F'|' '{print $1 " users, " $2 " without the link"}')"
   check mf.user-sync '^active success$' "$(systemctl is-active miniflux-feed-sync.timer 2>&1) $(systemctl show -p Result --value miniflux-feed-sync.service 2>&1)"
