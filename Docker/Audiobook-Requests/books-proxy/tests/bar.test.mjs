@@ -62,9 +62,9 @@ test("disk colour follows the collector's level", async () => {
 
 test("disk hints in English: headline, used, free, the rule one sentence per row", async () => {
   const w = await bar();
-  assert.deepEqual(hintOf(w, disk(w, "library")), { title: "Library — books in Audiobookshelf", sections: 2, text: ["Library — books in Audiobookshelf", "Used: 377 GB/1.8 TB · 22 %", "Free: 1.4 TB",
+  assert.deepEqual(hintOf(w, disk(w, "library")), { title: "Library — books in Audiobookshelf", sections: 2, text: ["Library — books in Audiobookshelf", "Used: 377 GB/1.8 TB · 22 %", "Free: 1.4 TB", "Free until the limit (80 %): 1.1 TB",
     "Audiobookshelf library", "From 70 % plan more space, from 80 % new books may soon not fit", "Nothing is deleted automatically"].join("\n") });
-  assert.equal(hintOf(w, disk(w, "downloads")).text, ["Downloads — torrents (seeding) + Usenet", "Used: 253 GB/1.8 TB · 14 %", "Free: 1.6 TB",
+  assert.equal(hintOf(w, disk(w, "downloads")).text, ["Downloads — torrents (seeding) + Usenet", "Used: 253 GB/1.8 TB · 14 %", "Free: 1.6 TB", "Free until the limit (80 %): 1.2 TB",
     "Torrents keep seeding (MyAnonamouse rules), so this only grows", "From 80 % make room by hand", "Nothing is removed automatically"].join("\n"));
   assert.equal(disk(w, "library").hasAttribute("title"), false);
 });
@@ -72,9 +72,9 @@ test("disk hints in English: headline, used, free, the rule one sentence per row
 test("German browser: German disk names, hints and decimal comma", async () => {
   const w = await bar({ lang: "de-CH" });
   assert.match(disk(w, "library").textContent, /^Bibliothek\s*377 GB\/1,8 TB/);
-  assert.equal(hintOf(w, disk(w, "library")).text, ["Bibliothek — Bücher in Audiobookshelf", "Belegt: 377 GB/1,8 TB · 22 %", "Frei: 1,4 TB",
+  assert.equal(hintOf(w, disk(w, "library")).text, ["Bibliothek — Bücher in Audiobookshelf", "Belegt: 377 GB/1,8 TB · 22 %", "Frei: 1,4 TB", "Frei bis zur Grenze (80 %): 1,1 TB",
     "Audiobookshelf-Bibliothek", "Ab 70 % mehr Platz einplanen, ab 80 % passen neue Bücher bald nicht mehr", "Es wird nichts automatisch gelöscht"].join("\n"));
-  assert.match(hintOf(w, disk(w, "downloads")).text, /^Downloads — Torrents \(seeden\) \+ Usenet\nBelegt: 253 GB\/1,8 TB · 14 %\nFrei: 1,6 TB\nTorrents seeden weiter/);
+  assert.match(hintOf(w, disk(w, "downloads")).text, /^Downloads — Torrents \(seeden\) \+ Usenet\nBelegt: 253 GB\/1,8 TB · 14 %\nFrei: 1,6 TB\nFrei bis zur Grenze \(80 %\): 1,2 TB\nTorrents seeden weiter/);
 });
 
 test("one filesystem for both: one chip, both hints", async () => {
