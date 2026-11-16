@@ -27,7 +27,7 @@ printf '%s\n' '# TYPE beefy_watchdog_digest_updated_timestamp_seconds gauge' 'be
 printf '%s\n' 'beefy_storage_avail_bytes{branch="ssd"} 5' 'beefy_storage_updated_timestamp_seconds 200' > "$T/st"
 printf '%s\n' 'beefy_mover_last_run_success 1' 'beefy_mover_last_run_timestamp_seconds 300' > "$T/mv"
 printf '%s\n' 'smart_standby{host="beefy",disk="hdd-cold"} 1' 'smart_exporter_last_run_timestamp_seconds{host="beefy"} 400' > "$T/sm"
-printf '%s\n' 'beefy_requests{state="total"} 4' 'indexer_used{host="beefy",indexer="Some \"Name\"",kind="searches"} 3' 'beefy_media_metrics_updated_timestamp_seconds 500' > "$T/mm"
+printf '%s\n' 'beefy_requests{state="total"} 4' 'indexer_used{host="beefy",indexer="Some \"Name\"",kind="searches"} 3' 'beefy_retention_leaving_7d 0' 'beefy_retention_bytes{state="temporary"} 7' 'beefy_library_bytes{kind="movie",quality="4k_hdr",tier="ssd"} 9' 'beefy_media_metrics_updated_timestamp_seconds 500' > "$T/mm"
 printf '%s\n' 'jf_popular_last_run_timestamp_seconds 600' > "$T/jp"
 printf '%s\n' 'jellyfin_playback_active{method="DirectPlay"} 1' 'jellyfin_playback_incidents_total{kind="stall",client="TV"} 2' 'jellyfin_playback_plays_24h{method="video"} 1' 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Some \"Show\" S01E02",method="video",reasons="ContainerNotSupported,VideoCodecTagNotSupported",hdr_to_sdr="yes",started="1700000000"} 1' 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' > "$T/pb"
 export PB_DEST="$T/pb.prom" FAKE_PB="$T/pb"
@@ -45,6 +45,7 @@ grep -q 'beefy_mover_last_run_timestamp_seconds 300' "$T/mv.prom" && ok "mover m
 
 grep -q 'timestamp_seconds{host="beefy"} 400' "$T/sm.prom" && ok "smart metrics copied" || bad "smart metrics copied"
 grep -q 'beefy_media_metrics_updated_timestamp_seconds 500' "$T/mm.prom" && ok "media metrics copied" || bad "media metrics copied"
+grep -q '^beefy_retention_leaving_7d 0' "$T/mm.prom" && grep -q '^beefy_library_bytes{kind="movie",quality="4k_hdr",tier="ssd"} 9' "$T/mm.prom" && ok "media retention and library sizes copied" || bad "media retention and library sizes copied"
 grep -q 'jf_popular_last_run_timestamp_seconds 600' "$T/jp.prom" && ok "popular metrics copied" || bad "popular metrics copied"
 grep -q 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' "$T/pb.prom" && ok "playback metrics copied" || bad "playback metrics copied"
 grep -q '^jellyfin_playback_plays_24h{method="video"} 1' "$T/pb.prom" && grep -q '^jellyfin_playback_converted_info{user="jane"' "$T/pb.prom" && ok "playback plays and conversions copied" || bad "playback plays and conversions copied"
