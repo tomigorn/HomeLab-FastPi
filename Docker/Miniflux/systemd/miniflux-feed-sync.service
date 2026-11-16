@@ -1,0 +1,10 @@
+# system unit: sudo cp ~/Projects/Docker/Miniflux/systemd/miniflux-feed-sync.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now miniflux-feed-sync.timer
+[Unit]
+Description=Miniflux: copy the admin's feeds and categories to every other user
+Documentation=file:///home/pi/Projects/Docker/Miniflux/README.md
+After=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+ExecStart=/home/pi/Projects/Docker/Miniflux/scripts/sync_users.py

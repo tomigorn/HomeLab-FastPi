@@ -46,10 +46,10 @@ def masked(url):
     return re.sub(r"(X-FEED-KEY=)[^&\s\"']+", r"\1***", url)
 
 
-def call(method, path, key, body=None):
+def call(method, path, key, body=None, timeout=60):
     req = urllib.request.Request(API + path, method=method, headers={"X-Auth-Token": key, "Content-Type": "application/json"},
                                  data=None if body is None else json.dumps(body).encode())
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read()
     return json.loads(raw) if raw else None
 
