@@ -5,8 +5,10 @@ if want miniflux miniflux-db; then
 fi
 if want miniflux; then
   mf_api() { curl -s -m 20 -H "X-Auth-Token: $(cat /home/pi/Projects/Docker/Miniflux/secrets/api_key 2>/dev/null)" "http://127.0.0.1:8097/v1$1"; }
-  # every listed feed subscribed, none failing (watchlist and KEV come from vl-web over vl_feeds)
-  check mf.feeds '^[3-9][0-9] feeds, 0 failing, watchlist kev$' "$(mf_api /feeds | python3 -c 'import json,sys; fs=json.load(sys.stdin); u=" ".join(f["feed_url"] for f in fs); print(len(fs), "feeds,", sum(1 for f in fs if f["parsing_error_count"]), "failing,", "watchlist" if "watchlist/feed" in u else "-", "kev" if "known-exploited" in u else "-")' 2>&1)"
+  # only the two filtered feeds (vl-severity-feed over vl_feeds, CVSS >= 7.0), none failing
+  check mf.feeds '^2 feeds, 0 failing, watchlist kev$' "$(mf_api /feeds | python3 -c 'import json,sys; fs=json.load(sys.stdin); u={f["feed_url"] for f in fs}; print(len(fs), "feeds,", sum(1 for f in fs if f["parsing_error_count"]), "failing,", "watchlist" if "http://vl-severity-feed:8080/watchlist.atom" in u else "-", "kev" if "http://vl-severity-feed:8080/kev.atom" in u else "-")' 2>&1)"
+  # Releases dropped (owner 2026-11-16): no user keeps an unfiltered feed or the category
+  check mf.no-unfiltered '^0 0$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select (select count(*) from feeds where feed_url not like 'http://vl-severity-feed:8080/%'), (select count(*) from categories where title = 'Releases')" 2>&1 | tr '|' ' ')"
   check mf.telegram '^t t$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select telegram_bot_enabled, telegram_bot_token <> '' from integrations where user_id = 1" 2>&1 | tr '|' ' ')"
   check mf.page-sso '^302 https://sso\.holy-grail\.ch/application/o/authorize/' "$(curl -sk -m 10 -o /dev/null -w '%{http_code} %{redirect_url}' --resolve news.holy-grail.ch:443:192.168.1.2 https://news.holy-grail.ch/ | cut -c1-60)"
   # the login header counts only from Traefik's pinned address: another container on traefik_proxy lands on the sign-in page
