@@ -1,19 +1,20 @@
 # Miniflux
 
-[Miniflux](https://miniflux.app) `2.3.5` (Apache-2.0) as the reader for the CVE feeds of [Vulnerability-Lookup](../Vulnerability-Lookup/README.md) and the release notes of what we run. New entries go to Telegram.
+[Miniflux](https://miniflux.app) `2.3.5` (Apache-2.0) as the reader for the CVE feeds of [Vulnerability-Lookup](../Vulnerability-Lookup/README.md): High and Critical only (CVSS >= 7.0, owner 2026-11-16). New entries go to Telegram.
 
 - **URL:** https://news.holy-grail.ch (Holy Grail SSO, groups `homelab-admins` and `homelab-users`). Cloudflare public hostname created by the owner 2026-11-16.
 - Login = the forwarded `X-authentik-username`, trusted only from Traefik's `172.24.255.3`. Local login off. A Holy Grail user gets a Miniflux account on the first visit.
 - `MINIFLUX_ADMIN` (`.env`, a Holy Grail username) owns the feeds and the Telegram integration; every other user gets a copy of the feeds (see Users).
 - `miniflux` (distroless, uid 65066, read-only, 128 MB) + `miniflux-db` (`postgres:18.7-alpine`, uid 70, 192 MB). API on `127.0.0.1:8097` for the scripts only.
 
-| Category | Feeds |
+| Category | Feed (`feeds.toml`) |
 |---|---|
-| Watchlist | Vulnerability-Lookup watchlist (`../Vulnerability-Lookup/watchlists.toml`), one entry per vulnerability |
-| KEV | CISA Known Exploited Vulnerabilities (local copy, synced from vulnerability.circl.lu) |
-| Releases | GitHub releases/tags of 34 components (`feeds.toml`) |
+| Watchlist | `http://vl-severity-feed:8080/watchlist.atom`: watchlist (`../Vulnerability-Lookup/watchlists.toml`), one entry per vulnerability |
+| KEV | `http://vl-severity-feed:8080/kev.atom`: CISA Known Exploited Vulnerabilities (synced from vulnerability.circl.lu) |
 
-The Vulnerability-Lookup feeds are read over `vl_feeds` (internal, no SSO); `FETCHER_ALLOW_PRIVATE_NETWORKS=1` is needed for that, `HTTP_CLIENT_TIMEOUT=120` because the watchlist is computed per request (up to ~30 s while a feeder imports).
+- Both only with a CVSS base score >= 7.0 (highest of CVE record, NVD, GitHub advisory; GitHub HIGH/CRITICAL counts). No score yet: the entry comes when one >= 7.0 arrives, dated then. Filter: [Severity feed](../Vulnerability-Lookup/README.md#severity-feed-high-and-critical-only).
+- Releases (GitHub release notes) dropped 2026-11-16 (owner).
+- Read over `vl_feeds` (internal, no SSO); `FETCHER_ALLOW_PRIVATE_NETWORKS=1` is needed for that, `HTTP_CLIENT_TIMEOUT=120` stays from the direct watchlist feed.
 
 ## Users
 
@@ -40,22 +41,22 @@ The homelab bot and alert chat (`../_global/secrets/oob-alert.env`, token file o
 | `miniflux_db_password` | 70 0400 | same password |
 | `miniflux_admin_password` | 65066 0400 | required by `CREATE_ADMIN`, never used (local login off) |
 | `api_key` | pi 0600 | API key "subscribe.py" (row in `api_keys`) |
-| `feed_key` | pi 0600 | Vulnerability-Lookup watchlist feed key |
-| `feed_sync_state.json` | pi 0600 | which feeds and categories `sync_users.py` gave each user (feed URLs incl. the feed key) |
+| `feed_sync_state.json` | pi 0600 | which feeds and categories `sync_users.py` gave each user |
+
+The watchlist feed key moved to `../Vulnerability-Lookup/secrets/feed_key` (2026-11-16): only `vl-severity-feed` reads the watchlist.
 
 ## Install
 
 ```
 docker compose --project-directory Docker/Miniflux up -d       # after Docker/Vulnerability-Lookup (network vl_feeds)
 Docker/Miniflux/scripts/setup.sh api-key
-Docker/Miniflux/scripts/setup.sh feed-key
 Docker/Miniflux/scripts/subscribe.py
 Docker/Miniflux/scripts/setup.sh telegram      # after the first fetch, or every old entry is sent
 sudo cp Docker/Miniflux/systemd/miniflux-feed-sync.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now miniflux-feed-sync.timer
 Docker/_global/scripts/post-update-check.sh Miniflux
 ```
 
-More feeds: add to `feeds.toml`, `scripts/subscribe.py` (adds, moves, never deletes; `--dry-run` first).
+More or fewer feeds: edit `feeds.toml`, then `scripts/subscribe.py --dry-run --prune`, then without `--dry-run` (adds, moves; `--prune` also removes unlisted feeds and emptied categories; without it nothing is deleted). Other users follow within 5 min.
 
 ## Tests
 
@@ -67,6 +68,5 @@ bash Docker/Miniflux/tests/test_setup.sh
 ## Notes
 
 - Not backed up: read state only; feeds come back with `subscribe.py` and `sync_users.py`.
-- Every user's feeds are fetched separately: the watchlist feed (up to ~30 s) once per user per hour.
+- Every user's feeds are fetched separately, once per user per hour (cheap: `vl-severity-feed` serves from memory).
 - Migrates its DB at start (`RUN_MIGRATIONS=1`): updates are `notify` in `../_global/auto-update.conf` with a volume backup first.
-- `qdm12/gluetun` moved to `passteque/gluetun` (GitHub redirect); Miniflux refuses the old URL as a duplicate.

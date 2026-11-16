@@ -12,7 +12,6 @@ mkdir "$T/bin"
 cat > "$T/bin/docker" <<EOF
 #!/usr/bin/env bash
 echo "ARGV \$*" >> "$T/log"
-if [[ \$* == *"provision_watchlists.py --feed-key"* || \$* == *"provision --feed-key"* ]]; then printf 'FEEDKEY123'; exit 0; fi
 cat >> "$T/log"; echo >> "$T/log"
 EOF
 chmod +x "$T/bin/docker"
@@ -26,8 +25,9 @@ key=$(cat "$T/secrets/api_key" 2>/dev/null)
 grep -q "ON CONFLICT (user_id, description) DO NOTHING" "$T/log" && ok api-key-idempotent || bad api-key-idempotent "$(cat "$T/log")"
 grep "^ARGV" "$T/log" | grep -q "$key" && bad api-key-not-in-argv "key in argv" || ok api-key-not-in-argv
 
-bash "$HERE/../scripts/setup.sh" feed-key >/dev/null 2>&1
-[[ $(cat "$T/secrets/feed_key" 2>/dev/null) == FEEDKEY123 ]] && ok feed-key-written || bad feed-key-written "$(cat "$T/secrets/feed_key" 2>&1)"
+# the feed key moved to Docker/Vulnerability-Lookup/secrets/feed_key (vl-severity-feed reads the watchlist)
+bash "$HERE/../scripts/setup.sh" feed-key >/dev/null 2>&1; rc=$?
+[[ $rc == 2 && ! -e $T/secrets/feed_key ]] && ok feed-key-gone || bad feed-key-gone "rc $rc"
 
 : > "$T/log"
 out=$(bash "$HERE/../scripts/setup.sh" telegram 2>&1)

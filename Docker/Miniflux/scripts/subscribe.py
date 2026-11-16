@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Idempotent Miniflux subscriptions from feeds.toml: creates missing categories and feeds, moves listed feeds to their category, never deletes.
+"""Idempotent Miniflux subscriptions from feeds.toml: creates missing categories and feeds, moves listed feeds to their category.
 
-Usage: Docker/Miniflux/scripts/subscribe.py [--dry-run] [-h|--help]
-Talks to the API on 127.0.0.1:8097 with secrets/api_key; {feed_key} in a URL comes from secrets/feed_key (Vulnerability-Lookup watchlist user).
+Usage: Docker/Miniflux/scripts/subscribe.py [--dry-run] [--prune] [-h|--help]
+  --prune    also unsubscribe the admin's feeds that feeds.toml no longer lists, and remove categories that end up empty (sync_users.py follows for the other users)
+Talks to the API on 127.0.0.1:8097 with secrets/api_key; a {feed_key} placeholder in a URL comes from secrets/feed_key when that file exists.
 """
 import json
 import pathlib
@@ -42,6 +43,20 @@ def plan(existing, wanted):
     return create, move
 
 
+def prune(existing, wanted):
+    """Feeds not listed: [(feed id, url)] to delete, and the categories that lose their last feed and are not listed."""
+    urls = {u for _, u in wanted}
+    gone = sorted((fid, url) for url, (fid, _) in existing.items() if url not in urls)
+    left = {cat for url, (_, cat) in existing.items() if url in urls} | {c for c, _ in wanted}
+    cats = sorted({existing[url][1] for _, url in gone} - left)
+    return gone, cats
+
+
+def read_secrets(secrets_dir):
+    path = secrets_dir / "feed_key"
+    return {"feed_key": path.read_text().strip()} if path.exists() else {}
+
+
 def masked(url):
     return re.sub(r"(X-FEED-KEY=)[^&\s\"']+", r"\1***", url)
 
@@ -56,12 +71,12 @@ def call(method, path, key, body=None, timeout=60):
 
 def main():
     args = sys.argv[1:]
-    if {"-h", "--help"} & set(args) or set(args) - {"--dry-run"}:
+    if {"-h", "--help"} & set(args) or set(args) - {"--dry-run", "--prune"}:
         print(__doc__.strip())
         sys.exit(0 if {"-h", "--help"} & set(args) else 2)
     dry = "--dry-run" in args
     key = (ROOT / "secrets" / "api_key").read_text().strip()
-    secrets = {"feed_key": (ROOT / "secrets" / "feed_key").read_text().strip()}
+    secrets = read_secrets(ROOT / "secrets")
     wanted = load_feeds((ROOT / "feeds.toml").read_text(), secrets)
     cats = {c["title"]: c["id"] for c in call("GET", "/categories", key)}
     feeds = call("GET", "/feeds", key)
@@ -81,7 +96,16 @@ def main():
         print(f"move feed {feed_id} -> {category}")
         if not dry:
             call("PUT", f"/feeds/{feed_id}", key, {"category_id": cats[category]})
-    print(f"OK {len(wanted)} listed, {len(create)} new, {len(move)} moved" + (" (dry run)" if dry else ""))
+    gone, empty = prune(existing, wanted) if "--prune" in args else ([], [])
+    for feed_id, url in gone:
+        print(f"unsubscribe {masked(url)}")
+        if not dry:
+            call("DELETE", f"/feeds/{feed_id}", key)
+    for title in empty:
+        print(f"remove category {title}")
+        if not dry:
+            call("DELETE", f"/categories/{cats[title]}", key)
+    print(f"OK {len(wanted)} listed, {len(create)} new, {len(move)} moved, {len(gone)} removed" + (" (dry run)" if dry else ""))
     print("next: bash Docker/_global/scripts/post-update-check.sh Miniflux")
 
 

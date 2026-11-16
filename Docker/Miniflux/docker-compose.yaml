@@ -5,7 +5,7 @@ services:
 # #########################################################
 # Miniflux ################################################
 # #########################################################
-  # Feed reader for the CVE feeds (Vulnerability-Lookup) and release notes; Telegram integration. news.holy-grail.ch behind the Holy Grail forward auth;
+  # Feed reader for the High/Critical CVE feeds (vl-severity-feed of Vulnerability-Lookup); Telegram integration. news.holy-grail.ch behind the Holy Grail forward auth;
   # the login is the forwarded X-authentik-username (trusted only from Traefik's pinned address), local login off, accounts created on first visit.
   miniflux:
     image: miniflux/miniflux:2.3.5-distroless
@@ -51,9 +51,9 @@ services:
       miniflux-db:
         condition: service_healthy
     networks:
-      - traefik_proxy     # Traefik, and the way out (GitHub, Telegram)
+      - traefik_proxy     # Traefik, and the way out (Telegram)
       - miniflux_backend
-      - vl_feeds          # Vulnerability-Lookup feeds (vl-web)
+      - vl_feeds          # filtered Vulnerability-Lookup feeds (vl-severity-feed)
     healthcheck:
       test: ["CMD", "/usr/bin/miniflux", "-healthcheck", "auto"]
       interval: 60s

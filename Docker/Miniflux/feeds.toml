@@ -1,59 +1,12 @@
-# Miniflux subscriptions (scripts/subscribe.py adds what is missing, never deletes). Extend here, then run the script.
-# Vulnerability-Lookup feeds are read over the internal network vl_feeds (no SSO in between); {feed_key} comes from secrets/feed_key.
+# Miniflux subscriptions (scripts/subscribe.py adds what is missing; with --prune it also removes what is no longer listed). Extend here, then run the script.
+# High and Critical only (CVSS >= 7.0): vl-severity-feed (Docker/Vulnerability-Lookup/severity-feed) filters the Vulnerability-Lookup feeds; read over the internal network vl_feeds.
 
-# New CVE/GHSA entries for the products in ../Vulnerability-Lookup/watchlists.toml (last 17 days, one entry per vulnerability)
+# Watchlist entries (products in ../Vulnerability-Lookup/watchlists.toml), one per vulnerability, dated when it first reached CVSS >= 7.0
 [[feed]]
 category = "Watchlist"
-url = "http://vl-web:10001/user/notifications/watchlist/feed.atom?X-FEED-KEY={feed_key}"
+url = "http://vl-severity-feed:8080/watchlist.atom"
 
-# CISA Known Exploited Vulnerabilities (catalog 405284c2-…), synced from vulnerability.circl.lu into the local instance
+# CISA Known Exploited Vulnerabilities (catalog 405284c2-…), same filter
 [[feed]]
 category = "KEV"
-url = "http://vl-web:10001/known-exploited-vulnerabilities-catalog/feed.atom?catalog_uuid=405284c2-e461-4670-8979-7fd2c9755a60"
-
-# Release notes of what runs on fastpi, beefy and tower
-[[github]]
-category = "Releases"
-repos = [
-  "traefik/traefik",
-  "goauthentik/authentik",
-  "crowdsecurity/crowdsec",
-  "cloudflare/cloudflared",
-  "AdguardTeam/AdGuardHome",
-  "wg-easy/wg-easy",
-  "passteque/gluetun",   # moved from qdm12/gluetun
-  "jellyfin/jellyfin",
-  "seerr-team/seerr",
-  "Radarr/Radarr",
-  "Sonarr/Sonarr",
-  "Prowlarr/Prowlarr",
-  "morpheus65535/bazarr",
-  "qbittorrent/qBittorrent",
-  "sabnzbd/sabnzbd",
-  "nextcloud/server",
-  "grafana/grafana",
-  "prometheus/prometheus",
-  "influxdata/influxdb",
-  "home-assistant/core",
-  "advplyr/audiobookshelf",
-  "portainer/portainer",
-  "DependencyTrack/dependency-track",
-  "valkey-io/valkey",
-  "redis/redis",
-  "caddyserver/caddy",
-  "moby/moby",
-  "docker/compose",
-  "miniflux/v2",
-  "vulnerability-lookup/vulnerability-lookup",
-  "apache/kvrocks",
-]
-
-# Projects that tag without GitHub releases
-[[github]]
-category = "Releases"
-kind = "tags"
-repos = [
-  "postgres/postgres",
-  "nginx/nginx",
-  "openssh/openssh-portable",
-]
+url = "http://vl-severity-feed:8080/kev.atom"
