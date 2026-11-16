@@ -16,6 +16,7 @@ Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits t
 | LanguageTool — usage watch | `languagetool-watch` | LanguageTool usage |
 | Homelab — morning view | `homelab-morning` | one phone-sized look: storage, downloads, requests, popular job, Jellyfin playback, backups, security, certs, domains, subscriptions, SMART, indexers (see Homelab — morning view) |
 | Usage per user | `usage-per-user` | Seerr requests, Jellyfin plays, Audiobookshelf listening per user (see Usage per user) |
+| Storage | `storage` | used/free per disk, forecast (full in ~N days, growth per month), size and titles per media category, beefy retention (see Storage trends) |
 
 ## Container and reboot alerts
 
@@ -151,7 +152,7 @@ No alert rules (removed 2026-11-12): the service polls only while the page is vi
 
 ## beefy storage and mover
 
-`prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The mover counters are only written on runs with the SSD tier >= 70 % (absent otherwise); `beefy_disk_smart_raw` comes from `smartctl -n standby`, so series have gaps. `ssd` = both SSDs combined. The daily digest shows SSD/HDD used %, SSD TB written, how often the HDD started and beefy was switched on in the last 24 h and, after a run that moved something, titles, GB and SSD before -> after.
+`prometheus/rules/beefy-storage.yml`, test `prometheus/tests/beefy-storage_test.yml`. beefy writes `storage.prom` (every minute while awake) and `mover.prom` (end of each nightly SSD->HDD mover run); `Server/4-Security-Monitoring/beefy-idle-pull.sh` copies them to `beefy_storage.prom` / `beefy_mover.prom` (kept while beefy sleeps, an invalid fetch keeps the old copy). The mover counters are only written on runs with the SSD tier >= 70 % (absent otherwise); `beefy_disk_smart_raw` comes from `smartctl -n standby`, so series have gaps. `ssd` = both SSDs combined. The daily digest (section 🗄️ Storage) shows SSD/HDD used %, SSD TB written, how often the HDD started and beefy was switched on in the last 24 h and, after a run that moved something, titles, GB and SSD before -> after.
 
 | Alert | Fires when | Severity |
 |---|---|---|
@@ -235,7 +236,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | Row | Metrics |
 |---|---|
 | At a glance | `ALERTS` (critical + warning), `backup_last_success_timestamp_seconds`, `clamav_infected_last_run`, `security_repo_leaks_total` |
-| Storage | `beefy_storage_*`, `beefy_mover_*`, `beefy_disk_smart_raw` (HDD start/stop, power cycles per 24 h) |
+| Storage | `beefy_storage_*`, `beefy_mover_*`, `beefy_disk_smart_raw` (HDD start/stop, power cycles per 24 h); trends and categories: dashboard `storage` |
 | beefy wake | `beefy_wake_phase{phase}` (state timeline), `beefy_wake_power_cycles_total`, `beefy_wake_failures_total{reason}` (Beefy-Waker textfile `beefy_wake.prom`); dashboard annotations "power-cycle" and "wake failed" on their `changes(…[2m]) > 0` |
 | Downloads and requests | `beefy_downloads_night_pending`, `beefy_downloads_queue{state}`, `beefy_downloads_night_imported{,_bytes}{app}` (last 22:00-06:00 window), `beefy_requests{state}` (Seerr `/request/count`), `beefy_request_badges{state}` (request-state.json) |
 | Jellyfin popular | `jf_popular_last_run_timestamp_seconds`, `jf_popular_last_run_success` (0/1), `jf_popular_errors`, `jf_popular_items{list}`: written by the beefy popular job to `/home/buntu/.local/state/jellyfin-popular.prom` (the pull copies it only when it has a `jf_popular_last_run_timestamp_seconds ` line) |
@@ -244,6 +245,26 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | Certificates, domains, subscriptions | `tls_cert_*`, `domain_*`, `ddns_*`, `subscription_expiry_timestamp_seconds` |
 | Disk health | `smart_*` per host and disk |
 | Indexer usage | `indexer_used`, `indexer_limit` (`host` beefy = Seerr bar, fastpi = audiobook bar) |
+
+## Storage trends
+
+Dashboard `storage` (https://grafana.holy-grail.ch/d/storage, default 90 days; links on top for 30 / 90 / 365 days). Rows: now (used, free, % per disk), forecast (estimate), used vs size per disk, size per category (stacked) with size and titles now, beefy retention.
+
+| Data | Source | Refresh |
+|---|---|---|
+| `homelab:storage_{used,avail,size}_bytes`, `homelab:storage_used_ratio{disk}` | `prometheus/rules/storage-trends.yml`: `beefy-ssd`, `beefy-hdd` (`beefy_storage_*`), `fastpi-audiobooks` (node_exporter `/mnt/seagate-black`: used = size - free, size = used + avail, the ext4 reserve left out), `total` (the three, absent while one is missing) | every rule cycle |
+| `homelab:storage_growth_bytes_per_day`, `homelab:storage_days_until_full{disk}` | 30-day fit on 1 h steps (subquery, so the raw history counts at once): growth = -deriv(avail), days = where `predict_linear` of avail reaches 0, only while filling. An estimate | every rule cycle |
+| `beefy_library_bytes{kind,quality,tier}`, `beefy_library_titles{kind,quality}`, `beefy_library_files{kind,quality}` | beefy `Movie-Downloads/scripts/media-metrics.py` from the Radarr/Sonarr file records (no disk reads); quality `4k_hdr`, `4k_sdr`, `1080p`, `other`; tier from retention.json; copied by `beefy-idle-pull` into `beefy_media.prom` (kept while beefy sleeps) | hourly while beefy is awake |
+| `beefy_retention_bytes{state}`, `beefy_retention_leaving_7d_bytes` | beefy `retention.py` summary via `media-metrics.py`: kept forever vs temporary (freed once deletion runs) | 5 min while awake |
+| `fastpi_library_{bytes,items,present}{category}` | `library-exporter/library_exporter.py`: folder sizes of the paths per category in `library-exporter/libraries.toml` (audiobooks, podcasts; ebooks and music have no folder yet: `present 0`, the board shows "no library yet"); item = a folder holding files, CD/Disc folders folded | daily 05:17 (`library-exporter.timer`, `Persistent`) |
+
+New library (e.g. ebooks): add its folder to `libraries.toml`, `sudo systemctl start library-exporter.service`. The daily digest shows audiobook disk % next to beefy's and "SSD full in ~N days" when the trend says under a year.
+
+```bash
+sudo install -m 0644 library-exporter/systemd/library-exporter.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now library-exporter.timer
+python3 library-exporter/test_library_exporter.py
+sudo systemctl start library-exporter.service && cat /var/lib/node-exporter/textfile/library_fastpi.prom
+```
 
 ## Alert routing
 
@@ -270,7 +291,7 @@ Dashboard `homelab-morning` (`provisioning/dashboards/homelab-morning.json`), ro
 | any label `test=…` | `telegram-test`, marked 🧪, never email | only when sent on purpose |
 
 - **Quiet hours** (`time_intervals: quiet-hours`, Europe/Zurich, DST-safe): muted sends are dropped; a group still firing at 07:00 is sent then, one that fired and cleared overnight is in the digest.
-- **Daily digest** = Telegram "Morning summary – 13 Nov (last 24 h)" (`prometheus/rules/daily-digest.yml`, plain English on purpose; title is the rule summary). Sections: only shown here (`notify: digest`), problems (each also sent), security holes with a fix ready (CVE), automatic updates last night (✅ updated, ❌ failed, ⏳ waiting or held back, 📦 new version waits for you, 🔁 recreated), time switched on (beefy/tower), beefy disks (used %, SSD TB written, HDD starts and beefy switch-ons, last mover run), downloads fixed by themselves (queue-watchdog events; indexer events as "indexer X works again" and "X paused: too many searches"), 🎞️ playback (plays by method, then the newest conversions: user · app on device · title · picture/sound converted (reasons in plain English via `dg.why`, unknown ones raw, HDR → SDR); no section on a day without plays, "no data from beefy" when the metrics are missing or the watch's last poll is older than 24 h), and only when something is due "Act soon" (see Expiry and disk health). Alert IDs become plain sentences via the `dg.name` template at the top of the description (unknown IDs show as they are: add a line there for a new alert); the subject (host, name) is in brackets, `node-exporter:9100` becomes the host name. Silenced alerts: `🔇 n switched off on purpose: …` (`homelab:alert_silenced`, json-exporter module `alertmanager`). Lists capped (8/6/5/6/5/6/4) to stay under 4096 characters.
+- **Daily digest** = Telegram "Morning summary – 13 Nov (last 24 h)" (`prometheus/rules/daily-digest.yml`, plain English on purpose; title is the rule summary). Sections: only shown here (`notify: digest`), problems (each also sent), security holes with a fix ready (CVE), automatic updates last night (✅ updated, ❌ failed, ⏳ waiting or held back, 📦 new version waits for you, 🔁 recreated), time switched on (beefy/tower), 🗄️ storage (beefy SSD/HDD and audiobook disk used %, "SSD full in ~N days" under a year, SSD TB written, HDD starts and beefy switch-ons, last mover run), downloads fixed by themselves (queue-watchdog events; indexer events as "indexer X works again" and "X paused: too many searches"), 🎞️ playback (plays by method, then the newest conversions: user · app on device · title · picture/sound converted (reasons in plain English via `dg.why`, unknown ones raw, HDR → SDR); no section on a day without plays, "no data from beefy" when the metrics are missing or the watch's last poll is older than 24 h), and only when something is due "Act soon" (see Expiry and disk health). Alert IDs become plain sentences via the `dg.name` template at the top of the description (unknown IDs show as they are: add a line there for a new alert); the subject (host, name) is in brackets, `node-exporter:9100` becomes the host name. Silenced alerts: `🔇 n switched off on purpose: …` (`homelab:alert_silenced`, json-exporter module `alertmanager`). Lists capped (8/6/5/6/5/6/4) to stay under 4096 characters.
 - **New alert rule:** pick its line above; give it `notify: digest` if it needs no action today.
 - **Maintenance:** `Docker/_global/scripts/maintenance-silence.sh on [hours] [reason]` before batch or upgrade work, `off` after: silences ContainerCrashLooping, ContainerDown, ContainerUnhealthy, SecurityFileChanged, HostRebooted, SshLoginOutsideLan; the digest still lists them.
 - **Tests:** no separate test chat exists, so 🧪 messages go to the alert group, only when sent on purpose (a POSTed alert with a `test` label, `oob-alert.sh --test`). To check the path without a message: `oob-alert.sh --check`.

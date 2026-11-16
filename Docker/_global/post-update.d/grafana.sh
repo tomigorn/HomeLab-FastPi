@@ -12,6 +12,7 @@ print("ok" if w and all(x in n for x in w) else "missing " + " ".join(x for x in
   check grafana.plugins-disabled '^15 0$' "$(echo "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' grafana | sed -n 's/^GF_PLUGINS_DISABLE_PLUGINS=//p' | tr ',' '\n' | grep -c .) $(t=$(docker top grafana -eo pid,args 2>&1) && { grep -o 'gpx_[A-Za-z_-]*' <<<"$t" | grep -vcE 'influxdb|prometheus'; true; } || echo top-failed)")"
 fi
 if want prometheus; then
+  check prom.storage-trends '^4 [1-9][0-9]*$' "$(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=homelab:storage_used_ratio' | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["data"]["result"]))') $(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count(beefy_library_bytes)' | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else 0)')"
   check prom.rule-files '^([0-9]+) \1 \[\] 0$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,os,sys
 g = json.load(sys.stdin)["data"]["groups"]; f = {os.path.basename(x["file"]) for x in g}; d = set(os.listdir(sys.argv[1]))
 print(len(f), len(d), sorted(d - f), sum(r.get("health") != "ok" for x in g for r in x["rules"]))' "$GFD/prometheus/rules")"
@@ -46,7 +47,8 @@ fi
 if want node-exporter; then
   check node.textfile-collector '^0 [1-9][0-9]*$' "$(curl -s -m 5 -G --data-urlencode 'query=node_textfile_scrape_error' http://127.0.0.1:9090/api/v1/query | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else "none")') $(ls /var/lib/node-exporter/textfile/*.prom | wc -l)"
 fi
-check grafana.host-timers '^active active active active active$' "$(systemctl is-active container-exporter.timer usage-collector.timer status-exporter.timer status-exporter-daily.timer smart-exporter.timer | xargs)"
+check grafana.host-timers '^active active active active active active$' "$(systemctl is-active container-exporter.timer usage-collector.timer status-exporter.timer status-exporter-daily.timer smart-exporter.timer library-exporter.timer | xargs)"
+check grafana.library-exporter '^yes [1-9][0-9]*$' "$(f=/var/lib/node-exporter/textfile/library_fastpi.prom; s=$(sed -n 's/^fastpi_library_updated_timestamp_seconds //p' "$f" 2>/dev/null); echo "$( (( $(date +%s) - ${s:-0} < 2 * 86400 )) && echo yes || echo no) $(grep -c '^fastpi_library_present{' "$f" 2>/dev/null)")"
 check grafana.status-exporter '^yes [1-9][0-9]*$' "$(s=$(sed -n 's/^tls_cert_exporter_last_run_timestamp_seconds //p' /var/lib/node-exporter/textfile/status_certs.prom 2>/dev/null); (( $(date +%s) - ${s:-0} < 2 * 86400 )) && echo yes || echo no) $(grep -c '^tls_cert_probe_success.* 1$' /var/lib/node-exporter/textfile/status_certs.prom 2>/dev/null)"
 check grafana.smart-exporter '^yes 0$' "$(s=$(sed -n 's/^smart_exporter_last_run_timestamp_seconds{host="fastpi"} //p' /var/lib/node-exporter/textfile/smart_fastpi.prom 2>/dev/null); (( $(date +%s) - ${s:-0} < 7200 )) && echo yes || echo no) $(sed -n 's/^smart_exporter_errors{host="fastpi"} //p' /var/lib/node-exporter/textfile/smart_fastpi.prom 2>/dev/null)"
 check grafana.container-exporter '^yes$' "$(s=$(sed -n 's/^container_exporter_last_success_timestamp_seconds //p' /var/lib/node-exporter/textfile/container_exporter_status.prom 2>/dev/null); s=${s%.*}; (( $(date +%s) - ${s:-0} < 180 )) && echo yes || echo no)"

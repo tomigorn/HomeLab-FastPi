@@ -1,0 +1,2476 @@
+{
+  "uid": "storage",
+  "title": "Storage",
+  "tags": [
+    "homelab",
+    "storage",
+    "fastpi",
+    "beefy"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "15m",
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "description": "Storage trends: used/free per disk, forecast, size per media category, retention. Docker/grafana/README.md 'Storage trends'.",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "30 days",
+      "type": "link",
+      "url": "/d/storage?from=now-30d&to=now",
+      "icon": "info"
+    },
+    {
+      "title": "90 days",
+      "type": "link",
+      "url": "/d/storage?from=now-90d&to=now",
+      "icon": "info"
+    },
+    {
+      "title": "365 days",
+      "type": "link",
+      "url": "/d/storage?from=now-365d&to=now",
+      "icon": "info"
+    },
+    {
+      "title": "Morning view",
+      "type": "link",
+      "url": "/d/homelab-morning",
+      "icon": "dashboard"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Now",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "beefy SSD",
+      "description": "Both SSDs of beefy's hot tier (downloads land here; the nightly mover keeps it at or below 70 % by moving titles to the HDD, from 80 % mergerfs sends new downloads to the HDD). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:storage_used_bytes{disk=\"beefy-ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:storage_avail_bytes{disk=\"beefy-ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "free",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "homelab:storage_used_ratio{disk=\"beefy-ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "full",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "full"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.85
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "beefy HDD",
+      "description": "beefy's archive HDD (imports stop at 90 %). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:storage_used_bytes{disk=\"beefy-hdd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:storage_avail_bytes{disk=\"beefy-hdd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "free",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "homelab:storage_used_ratio{disk=\"beefy-hdd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "full",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "full"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.85
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Audiobook disk (fastpi)",
+      "description": "fastpi's /mnt/seagate-black: audiobooks and podcasts. Used and free as df counts them (ext4 reserve left out). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:storage_used_bytes{disk=\"fastpi-audiobooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:storage_avail_bytes{disk=\"fastpi-audiobooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "free",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "homelab:storage_used_ratio{disk=\"fastpi-audiobooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "full",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "full"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.85
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total combined",
+      "description": "beefy SSD + HDD + fastpi audiobook disk. Source: homelab:storage_* (rules/storage-trends.yml).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:storage_used_bytes{disk=\"total\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:storage_avail_bytes{disk=\"total\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "free",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "homelab:storage_used_ratio{disk=\"total\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "full",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "full"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.85
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "Forecast (estimate from the last 30 days)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Full in ~ (estimate)",
+      "description": "Days until the disk is full if it keeps filling like in the last 30 days: where predict_linear's line of free space reaches 0 (1 h steps). An estimate: one big download, the nightly mover or a delete changes it. beefy SSD: the mover moves titles to the HDD from 70 %, so a full SSD means the HDD takes the downloads.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:storage_days_until_full or (0 * homelab:storage_growth_bytes_per_day - 1)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{disk}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 180
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "not filling",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 3650,
+                "to": 1000000000000.0,
+                "result": {
+                  "text": "> 10 years",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: days"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Growth per month (estimate)",
+      "description": "How much more is used per 30 days at the pace of the last 30 days (negative: shrinking). Same fit as \"Full in\".",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:storage_growth_bytes_per_day * 30",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "{{disk}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 8,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Used vs size per disk (links on top: 30 / 90 / 365 days)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "beefy SSD",
+      "description": "Both SSDs of beefy's hot tier (downloads land here; the nightly mover keeps it at or below 70 % by moving titles to the HDD, from 80 % mergerfs sends new downloads to the HDD). Dashed line: size.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_storage_size_bytes{branch=\"ssd\"} - beefy_storage_avail_bytes{branch=\"ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "beefy_storage_size_bytes{branch=\"ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "spanNulls": 3600000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "beefy HDD",
+      "description": "beefy's archive HDD (imports stop at 90 %). Dashed line: size.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_storage_size_bytes{branch=\"hdd\"} - beefy_storage_avail_bytes{branch=\"hdd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "beefy_storage_size_bytes{branch=\"hdd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "spanNulls": 3600000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Audiobook disk (fastpi)",
+      "description": "fastpi's /mnt/seagate-black: audiobooks and podcasts. Used and free as df counts them (ext4 reserve left out). Dashed line: size.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes + node_filesystem_avail_bytes)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "spanNulls": 3600000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total combined",
+      "description": "beefy SSD + HDD + fastpi audiobook disk. Dashed line: size.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(beefy_storage_size_bytes{branch=\"ssd\"} - beefy_storage_avail_bytes{branch=\"ssd\"}) + sum(beefy_storage_size_bytes{branch=\"hdd\"} - beefy_storage_avail_bytes{branch=\"hdd\"}) + sum(max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "used",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(beefy_storage_size_bytes{branch=\"ssd\"}) + sum(beefy_storage_size_bytes{branch=\"hdd\"}) + sum(max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes + node_filesystem_avail_bytes))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "spanNulls": 3600000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Per category",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Size per category (stacked)",
+      "description": "Films and series from beefy's Radarr/Sonarr file records (beefy_library_bytes, hourly while beefy is awake, kept while it sleeps); quality 4K HDR = 2160p with HDR/Dolby Vision, 720p/other = everything below 1080p. Audiobooks, podcasts, ebooks, music: folder sizes on fastpi (fastpi_library_bytes, daily 05:17). A category without a library has no line.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"4k_hdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 4K HDR",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"4k_sdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 4K SDR",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"1080p\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 1080p",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "D",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"other\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 720p/other",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "E",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"4k_hdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 4K HDR",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "F",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"4k_sdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 4K SDR",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "G",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"1080p\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 1080p",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "H",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"other\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 720p/other",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "I",
+          "expr": "fastpi_library_bytes{category=\"audiobooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Audiobooks",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "J",
+          "expr": "fastpi_library_bytes{category=\"podcasts\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Podcasts",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "K",
+          "expr": "fastpi_library_bytes{category=\"ebooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Ebooks",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "L",
+          "expr": "fastpi_library_bytes{category=\"music\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Music",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "spanNulls": 3600000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Films 4K HDR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8F3BB8"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Films 4K SDR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Films 1080p"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#CA95E5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Films 720p/other"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#DEB6F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Series 4K HDR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#1F60C4"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Series 4K SDR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Series 1080p"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Series 720p/other"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8AB8FF"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Audiobooks"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Podcasts"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFCB7D"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ebooks"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Music"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 9
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Size now",
+      "description": "Last value per category; ebooks and music show \"no library yet\" until a folder for them is listed in library-exporter/libraries.toml and exists.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"4k_hdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 4K HDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"4k_sdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 4K SDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"1080p\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 1080p",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "expr": "sum(beefy_library_bytes{kind=\"movie\",quality=\"other\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 720p/other",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"4k_hdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 4K HDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "F",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"4k_sdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 4K SDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "G",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"1080p\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 1080p",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "H",
+          "expr": "sum(beefy_library_bytes{kind=\"series\",quality=\"other\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 720p/other",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "I",
+          "expr": "fastpi_library_bytes{category=\"audiobooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Audiobooks",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "J",
+          "expr": "fastpi_library_bytes{category=\"podcasts\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Podcasts",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "K",
+          "expr": "(fastpi_library_bytes{category=\"ebooks\"}) or (fastpi_library_present{category=\"ebooks\"} == 0) - 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Ebooks",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "L",
+          "expr": "(fastpi_library_bytes{category=\"music\"}) or (fastpi_library_present{category=\"music\"} == 0) - 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Music",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "no library yet",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Titles now",
+      "description": "Films: one per film. Series: one per series, counted under the quality holding most of its bytes. Audiobooks/podcasts: folders holding files (CD/Disc folders count as one).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(beefy_library_titles{kind=\"movie\",quality=\"4k_hdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 4K HDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "sum(beefy_library_titles{kind=\"movie\",quality=\"4k_sdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 4K SDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "sum(beefy_library_titles{kind=\"movie\",quality=\"1080p\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 1080p",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "expr": "sum(beefy_library_titles{kind=\"movie\",quality=\"other\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Films 720p/other",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "expr": "sum(beefy_library_titles{kind=\"series\",quality=\"4k_hdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 4K HDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "F",
+          "expr": "sum(beefy_library_titles{kind=\"series\",quality=\"4k_sdr\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 4K SDR",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "G",
+          "expr": "sum(beefy_library_titles{kind=\"series\",quality=\"1080p\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 1080p",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "H",
+          "expr": "sum(beefy_library_titles{kind=\"series\",quality=\"other\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Series 720p/other",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "I",
+          "expr": "fastpi_library_items{category=\"audiobooks\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Audiobooks",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "J",
+          "expr": "fastpi_library_items{category=\"podcasts\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Podcasts",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "K",
+          "expr": "(fastpi_library_items{category=\"ebooks\"}) or (fastpi_library_present{category=\"ebooks\"} == 0) - 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Ebooks",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "L",
+          "expr": "(fastpi_library_items{category=\"music\"}) or (fastpi_library_present{category=\"music\"} == 0) - 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Music",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "no library yet",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 17,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "beefy retention (what could go)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Kept forever",
+      "description": "Titles the retention rules keep (old, niche, highly rated, Keep forever choices, protected): beefy_retention_bytes{state=\"keep\"}.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_retention_bytes{state=\"keep\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "beefy_retention_titles{state=\"keep\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "titles",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "titles"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Temporary (would be freed)",
+      "description": "Titles the rules would delete once their time is up: the space deletion frees over time. Deletion is off while retention runs in observe mode.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_retention_bytes{state=\"temporary\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "beefy_retention_titles{state=\"temporary\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "titles",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "titles"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 20,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 46,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Leaving within 7 days",
+      "description": "Temporary titles whose delete date is at most 7 days away.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_retention_leaving_7d_bytes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "size",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "beefy_retention_leaving_7d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "titles",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "titles"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 21,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Deletion",
+      "description": "retention.conf RETENTION_DELETE on beefy (owner decision).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_retention_delete_enabled",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "n/a",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "off (observe only)",
+                  "color": "blue"
+                },
+                "1": {
+                  "text": "on",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 22,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 46,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Kept vs temporary (stacked)",
+      "description": "beefy_retention_bytes by state.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "beefy_retention_bytes{state=\"keep\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "kept forever",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "beefy_retention_bytes{state=\"temporary\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "temporary",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "spanNulls": 3600000
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 23,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dfc6abdxzsem8a"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 7
+      }
+    }
+  ]
+}
