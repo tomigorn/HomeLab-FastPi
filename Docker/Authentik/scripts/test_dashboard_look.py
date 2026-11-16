@@ -35,6 +35,13 @@ class Sections(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(m.groups(), ("Account", "Admin guide", "fa://fa-user-shield"))
 
+    def test_cve_feeds_are_homelab_tiles_with_icons(self):
+        for slug, desc, icon in (("cve", "CVE lookup & watchlist", "fa://fa-bug"),
+                                 ("news", "Security news & releases", "fa://fa-rss")):
+            m = re.search(rf'"{slug}":\s*\("(\w+)",\s*"([^"]+)",\s*"(fa://[\w-]+)"\)', SOURCE)
+            self.assertIsNotNone(m, slug)
+            self.assertEqual(m.groups(), ("Homelab", desc, icon))
+
     def test_nextcloud_is_a_utility(self):
         self.assertEqual(re.search(r'"nextcloud":\s*\("(\w+)"', SOURCE).group(1), "Utilities")
 
