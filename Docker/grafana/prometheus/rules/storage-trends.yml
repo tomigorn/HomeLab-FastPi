@@ -1,0 +1,38 @@
+# Storage trends for the Grafana dashboard "Storage" (uid storage) and the daily digest: used, free and size per disk, the 30-day trend and days until full.
+# Disks: beefy-ssd and beefy-hdd (beefy_storage.prom, kept while beefy sleeps), fastpi-audiobooks (/mnt/seagate-black: audiobooks + podcasts), total = the three summed (absent while one is missing).
+# used = size - free and size = used + avail, as df counts it: the ext4 root reserve is neither used nor free.
+# Trend: a 30-day fit on 1 h steps (subquery, so the 400-day raw history counts from day one). growth = -deriv(avail) per day; days until full = where predict_linear's line of avail reaches 0, only while the disk is filling. An estimate: one big download or delete moves it.
+# Tests: prometheus/tests/storage-trends_test.yml
+groups:
+  - name: storage-trends
+    rules:
+      - record: homelab:storage_disk_avail_bytes
+        expr: |-
+          sum by (disk) (label_replace(beefy_storage_avail_bytes{branch=~"ssd|hdd"}, "disk", "beefy-$1", "branch", "(.+)"))
+            or sum by (disk) (label_replace(node_filesystem_avail_bytes{job="raspberry-pi",mountpoint="/mnt/seagate-black"}, "disk", "fastpi-audiobooks", "", ""))
+      - record: homelab:storage_disk_used_bytes
+        expr: |-
+          sum by (disk) (label_replace(beefy_storage_size_bytes{branch=~"ssd|hdd"} - beefy_storage_avail_bytes, "disk", "beefy-$1", "branch", "(.+)"))
+            or sum by (disk) (label_replace(node_filesystem_size_bytes{job="raspberry-pi",mountpoint="/mnt/seagate-black"} - node_filesystem_free_bytes, "disk", "fastpi-audiobooks", "", ""))
+      - record: homelab:storage_avail_bytes
+        expr: homelab:storage_disk_avail_bytes or label_replace(sum(homelab:storage_disk_avail_bytes) and on() (count(homelab:storage_disk_avail_bytes) == 3), "disk", "total", "", "")
+      - record: homelab:storage_used_bytes
+        expr: homelab:storage_disk_used_bytes or label_replace(sum(homelab:storage_disk_used_bytes) and on() (count(homelab:storage_disk_used_bytes) == 3), "disk", "total", "", "")
+      - record: homelab:storage_size_bytes
+        expr: homelab:storage_used_bytes + homelab:storage_avail_bytes
+      - record: homelab:storage_used_ratio
+        expr: homelab:storage_used_bytes / homelab:storage_size_bytes
+      - record: homelab:storage_growth_bytes_per_day
+        expr: |-
+          -86400 * (
+            deriv((sum by (disk) (label_replace(beefy_storage_avail_bytes{branch=~"ssd|hdd"}, "disk", "beefy-$1", "branch", "(.+)"))
+              or sum by (disk) (label_replace(node_filesystem_avail_bytes{job="raspberry-pi",mountpoint="/mnt/seagate-black"}, "disk", "fastpi-audiobooks", "", "")))[30d:1h])
+            or label_replace(deriv((sum(beefy_storage_avail_bytes{branch=~"ssd|hdd"}) + sum(node_filesystem_avail_bytes{job="raspberry-pi",mountpoint="/mnt/seagate-black"}))[30d:1h]), "disk", "total", "", "")
+          )
+      - record: homelab:storage_days_until_full
+        expr: |-
+          (
+            predict_linear((sum by (disk) (label_replace(beefy_storage_avail_bytes{branch=~"ssd|hdd"}, "disk", "beefy-$1", "branch", "(.+)"))
+              or sum by (disk) (label_replace(node_filesystem_avail_bytes{job="raspberry-pi",mountpoint="/mnt/seagate-black"}, "disk", "fastpi-audiobooks", "", "")))[30d:1h], 0)
+            or label_replace(predict_linear((sum(beefy_storage_avail_bytes{branch=~"ssd|hdd"}) + sum(node_filesystem_avail_bytes{job="raspberry-pi",mountpoint="/mnt/seagate-black"}))[30d:1h], 0), "disk", "total", "", "")
+          ) / (homelab:storage_growth_bytes_per_day > 0)

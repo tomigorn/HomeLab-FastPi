@@ -1,0 +1,91 @@
+# promtool test rules tests/storage-trends_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/storage-trends.yml
+evaluation_interval: 1h
+tests:
+  - name: per-disk and total used, free, trend and days until full
+    interval: 1h
+    input_series:
+      - series: 'beefy_storage_size_bytes{branch="ssd"}'
+        values: '1000x800'
+      - series: 'beefy_storage_avail_bytes{branch="ssd"}'
+        values: '792-1x800'
+      - series: 'beefy_storage_size_bytes{branch="hdd"}'
+        values: '2000x800'
+      - series: 'beefy_storage_avail_bytes{branch="hdd"}'
+        values: '1500x800'
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '1100x800'
+      - series: 'node_filesystem_free_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '700x800'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '600x800'
+    promql_expr_test:
+      - expr: homelab:storage_used_bytes
+        eval_time: 720h
+        exp_samples:
+          - labels: 'homelab:storage_used_bytes{disk="beefy-ssd"}'
+            value: 928
+          - labels: 'homelab:storage_used_bytes{disk="beefy-hdd"}'
+            value: 500
+          - labels: 'homelab:storage_used_bytes{disk="fastpi-audiobooks"}'
+            value: 400
+          - labels: 'homelab:storage_used_bytes{disk="total"}'
+            value: 1828
+      - expr: homelab:storage_size_bytes
+        eval_time: 720h
+        exp_samples:
+          - labels: 'homelab:storage_size_bytes{disk="beefy-ssd"}'
+            value: 1000
+          - labels: 'homelab:storage_size_bytes{disk="beefy-hdd"}'
+            value: 2000
+          - labels: 'homelab:storage_size_bytes{disk="fastpi-audiobooks"}'
+            value: 1000
+          - labels: 'homelab:storage_size_bytes{disk="total"}'
+            value: 4000
+      - expr: homelab:storage_avail_bytes{disk="total"}
+        eval_time: 720h
+        exp_samples:
+          - labels: 'homelab:storage_avail_bytes{disk="total"}'
+            value: 2172
+      - expr: homelab:storage_used_ratio{disk=~"beefy-ssd|fastpi-audiobooks"}
+        eval_time: 720h
+        exp_samples:
+          - labels: 'homelab:storage_used_ratio{disk="beefy-ssd"}'
+            value: 0.928
+          - labels: 'homelab:storage_used_ratio{disk="fastpi-audiobooks"}'
+            value: 0.4
+      - expr: homelab:storage_growth_bytes_per_day
+        eval_time: 720h
+        exp_samples:
+          - labels: 'homelab:storage_growth_bytes_per_day{disk="beefy-ssd"}'
+            value: 24
+          - labels: 'homelab:storage_growth_bytes_per_day{disk="beefy-hdd"}'
+            value: 0
+          - labels: 'homelab:storage_growth_bytes_per_day{disk="fastpi-audiobooks"}'
+            value: 0
+          - labels: 'homelab:storage_growth_bytes_per_day{disk="total"}'
+            value: 24
+      - expr: homelab:storage_days_until_full
+        eval_time: 720h
+        exp_samples:
+          - labels: 'homelab:storage_days_until_full{disk="beefy-ssd"}'
+            value: 3
+          - labels: 'homelab:storage_days_until_full{disk="total"}'
+            value: 90.5
+
+  - name: a missing beefy copy leaves fastpi's disk and drops the total
+    interval: 1h
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '1100x10'
+      - series: 'node_filesystem_free_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '700x10'
+      - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
+        values: '600x10'
+    promql_expr_test:
+      - expr: homelab:storage_used_bytes
+        eval_time: 5h
+        exp_samples:
+          - labels: 'homelab:storage_used_bytes{disk="fastpi-audiobooks"}'
+            value: 400
