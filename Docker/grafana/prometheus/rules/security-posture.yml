@@ -22,7 +22,7 @@ groups:
         annotations:
           summary: "{{ $value }} secret(s) found in the PUBLIC {{ $labels.repo }} repo history"
           description: >-
-            Secrets in the published history of github.com/tomigorn/HomeLab-{{ $labels.repo }}. Assume disclosed and rotate; rewriting history recalls nothing. Details: <code>/var/lib/security-scan/gitleaks-{{ $labels.repo }}.json</code> on fastpi.
+            Secrets in the published history of {{ $labels.url }}. Assume disclosed and rotate; rewriting history recalls nothing. Details: <code>/var/lib/security-scan/gitleaks-{{ $labels.repo }}.json</code> on fastpi.
 
       # A real secret file tracked in git. Distinct from the above because
       # gitleaks matches on content and this matches on filename: an .env whose

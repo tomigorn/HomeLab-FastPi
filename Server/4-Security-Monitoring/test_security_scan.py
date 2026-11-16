@@ -38,6 +38,7 @@ from security_scan import (  # noqa: E402
     cup_missing_reason,
     parse_lynis_report,
     parse_rkhunter,
+    repo_leak_samples,
     filter_exposition,
     parse_infected_list,
     parse_quarantine_index,
@@ -2453,6 +2454,20 @@ def test_help_and_unknown_groups_print_usage_and_do_nothing():
         assert rc == want, (args, rc, out)
         assert "Usage: security_scan.py" in out, args
         assert calls == "" and made == [], (args, calls, made)
+
+
+def test_repo_leak_samples_carry_the_repos_web_url():
+    out = repo_leak_samples("wg-chores", "https://github.com/tomigorn/WG-Chores.git", {"generic-api-key": 1})
+    url = "https://github.com/tomigorn/WG-Chores"
+    assert out == [
+        ("security_repo_leaks_total", {"repo": "wg-chores", "url": url}, 1),
+        ("security_repo_leaks", {"repo": "wg-chores", "rule": "generic-api-key"}, 1),
+    ]
+
+
+def test_repo_leak_samples_clean_repo_reports_zero():
+    out = repo_leak_samples("fastpi", "https://github.com/tomigorn/HomeLab-FastPi.git", {})
+    assert out == [("security_repo_leaks_total", {"repo": "fastpi", "url": "https://github.com/tomigorn/HomeLab-FastPi"}, 0)]
 
 
 if __name__ == "__main__":

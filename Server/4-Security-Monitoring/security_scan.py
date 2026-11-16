@@ -830,6 +830,12 @@ def fetch_mirror(name: str, url: str) -> Path:
     return d
 
 
+def repo_leak_samples(name: str, url: str, counts: dict[str, int]) -> list[tuple[str, dict[str, str], int]]:
+    """Leak metrics of one repo; the total carries the repo's web URL for the alert link."""
+    out = [("security_repo_leaks_total", {"repo": name, "url": url.removesuffix(".git")}, sum(counts.values()))]
+    return out + [("security_repo_leaks", {"repo": name, "rule": r}, n) for r, n in sorted(counts.items())]
+
+
 def scan_repo(name: str, path: Path) -> dict[str, int]:
     out = STATE / f"gitleaks-{name}.json"
     r = run([GITLEAKS, "git", str(path), "-c", str(CONFIG),
@@ -2877,10 +2883,7 @@ def main(argv: list[str] | None = None) -> int:
     if want("secrets"):
         for name, url in REPOS.items():
             def _repo(name=name, url=url):
-                counts = scan_repo(name, fetch_mirror(name, url))
-                out = [("security_repo_leaks_total", {"repo": name}, sum(counts.values()))]
-                out += [("security_repo_leaks", {"repo": name, "rule": r}, n) for r, n in sorted(counts.items())]
-                return out
+                return repo_leak_samples(name, url, scan_repo(name, fetch_mirror(name, url)))
             guarded(f"repo-{name}", _repo)
 
         def _hyg():
