@@ -20,7 +20,7 @@ const { chromium } = playwright();
 const PAGE = fs.readFileSync(process.env.PAGE || path.join(__dirname, "../../www/index.html"), "utf8");
 // The policy the service sends (rust/src/csp.rs): the inline script and style by hash, nothing else inline.
 const hash = (tag) => [...PAGE.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "g"))].map((m) => `'sha256-${require("node:crypto").createHash("sha256").update(m[1]).digest("base64")}'`).join(" ");
-const CSP = `default-src 'none'; script-src ${hash("script")}; style-src ${hash("style")}; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
+const CSP = `default-src 'none'; script-src ${hash("script")}; style-src ${hash("style")}; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 // Zurich, Thu 12 Nov 2026 14:00 (UTC+1)
 const NOW = Date.UTC(2026, 10, 12, 13, 0, 0) / 1000;
 
@@ -52,6 +52,7 @@ async function open(answers, opts = {}) {
     return r.fulfill({ contentType: "application/json", body: JSON.stringify(a) });
   });
   calls.pages = 0;
+  await page.route("http://activity.test/favicon.svg", (r) => r.fulfill({ contentType: "image/svg+xml", body: fs.readFileSync(path.join(__dirname, "../../www/icons/favicon.svg")) }));
   await page.route("http://activity.test/", (r) => (calls.pages++, r.fulfill({ contentType: "text/html", headers: { "content-security-policy": CSP }, body: PAGE })));
   await page.goto("http://activity.test/");
   await page.waitForFunction(() => !document.getElementById("watching").textContent.includes("loading"));
@@ -327,3 +328,12 @@ test("no load row while beefy sleeps or has no figures", async () => {
   await p.ctx.close();
 });
 
+test("the favicons are linked and load under the CSP", async () => {
+  const p = await open([base()]);
+  const links = await p.page.evaluate(() => [...document.querySelectorAll("link[rel~=icon], link[rel=apple-touch-icon]")].map((l) => l.rel + " " + l.getAttribute("href") + " " + (l.getAttribute("sizes") || l.type || "")));
+  assert.deepEqual(links, ["icon favicon.svg image/svg+xml", "icon icons/favicon-32x32.png 32x32", "icon icons/favicon-16x16.png 16x16", "apple-touch-icon icons/apple-touch-icon.png "]);
+  const loaded = await p.page.evaluate(() => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i.naturalWidth > 0); i.onerror = () => ok(false); i.src = "favicon.svg"; }));
+  assert.equal(loaded, true, "img-src 'self'");
+  assert.deepEqual(p.errors, []);
+  await p.ctx.close();
+});

@@ -440,6 +440,10 @@ class Awake(Base):
             digest = base64.b64encode(hashlib.sha256(blocks[0]).digest()).decode()
             self.assertIn(f"{directive} 'sha256-{digest}'", csp)
         self.assertEqual(h["cache-control"], "no-store")
+        for path, ct in (("/favicon.svg", "image/svg+xml"), ("/favicon.ico", "image/x-icon"), ("/icons/apple-touch-icon.png", "image/png")):
+            st, ih, body = get(path)
+            self.assertEqual((st, ih["content-type"]), (200, ct), path)
+            self.assertTrue(body.startswith((b"<svg", b"\x89PNG", b"\0\0\x01\0")), path)
         for path in ("/api/state", "/", "/metrics", "/health"):
             with self.assertRaises(OSError, msg=f"{path}: a peer in neither allow-list is dropped at accept"):
                 get(path, source="127.0.0.9")

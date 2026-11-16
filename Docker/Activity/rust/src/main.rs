@@ -331,7 +331,7 @@ fn respond(r: api::Resp, head: bool) -> Response<Full<Bytes>> {
     let mut b = Response::builder()
         .status(r.status)
         .header("content-type", r.content_type)
-        .header("cache-control", "no-store")
+        .header("cache-control", if r.content_type.starts_with("image/") { "max-age=86400" } else { "no-store" })
         .header("x-content-type-options", "nosniff")
         .header("referrer-policy", "no-referrer");
     if r.content_type.starts_with("text/html") {

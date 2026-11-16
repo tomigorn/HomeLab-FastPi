@@ -79,7 +79,7 @@ fn hashes(page: &str, tag: &str) -> String {
 
 pub fn policy(page: &str) -> String {
     format!(
-        "default-src 'none'; script-src {}; style-src {}; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "default-src 'none'; script-src {}; style-src {}; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         hashes(page, "script"),
         hashes(page, "style")
     )
@@ -105,6 +105,7 @@ mod tests {
         assert!(p.contains(&format!("style-src 'sha256-{}'", b64(&sha256(b"\nb{}\n")))), "{p}");
         assert!(!p.contains("unsafe-inline"), "{p}");
         assert!(p.contains("default-src 'none'") && p.contains("frame-ancestors 'none'") && p.contains("connect-src 'self'"), "{p}");
+        assert!(p.contains("img-src 'self' data:"), "the favicons come from the service: {p}");
     }
 
     #[test]

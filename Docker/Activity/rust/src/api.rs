@@ -8,16 +8,25 @@ use crate::state::View;
 
 pub const PAGE: &str = include_str!("../../www/index.html");
 
+/// The favicons, served with the page (same peers, never a viewer).
+const ICONS: [(&str, &str, &[u8]); 5] = [
+    ("/favicon.svg", "image/svg+xml", include_bytes!("../../www/icons/favicon.svg")),
+    ("/favicon.ico", "image/x-icon", include_bytes!("../../www/icons/favicon.ico")),
+    ("/icons/favicon-16x16.png", "image/png", include_bytes!("../../www/icons/favicon-16x16.png")),
+    ("/icons/favicon-32x32.png", "image/png", include_bytes!("../../www/icons/favicon-32x32.png")),
+    ("/icons/apple-touch-icon.png", "image/png", include_bytes!("../../www/icons/apple-touch-icon.png")),
+];
+
 #[derive(Debug, PartialEq)]
 pub struct Resp {
     pub status: u16,
     pub content_type: &'static str,
-    pub body: String,
+    pub body: Vec<u8>,
 }
 
 impl Resp {
     fn text(status: u16, body: &str) -> Resp {
-        Resp { status, content_type: "text/plain; charset=utf-8", body: body.to_string() }
+        Resp { status, content_type: "text/plain; charset=utf-8", body: body.as_bytes().to_vec() }
     }
 }
 
@@ -79,19 +88,22 @@ pub fn route_health(method: &str, path: &str, peer: IpAddr, access: &Access, pol
     if method != "GET" && method != "HEAD" {
         return Resp::text(405, "GET only\n");
     }
+    if let Some((_, content_type, body)) = ICONS.iter().find(|(p, _, _)| *p == path) {
+        return if access.page.contains(peer) { Resp { status: 200, content_type, body: body.to_vec() } } else { Resp::text(403, "forbidden\n") };
+    }
     match path {
         "/health" if !poller_ok => Resp::text(503, "poller stopped\n"),
         "/health" => Resp::text(200, "ok\n"),
         "/" | "/index.html" | "/api/state" if !access.page.contains(peer) => Resp::text(403, "forbidden\n"),
-        "/" | "/index.html" => Resp { status: 200, content_type: "text/html; charset=utf-8", body: PAGE.to_string() },
+        "/" | "/index.html" => Resp { status: 200, content_type: "text/html; charset=utf-8", body: PAGE.as_bytes().to_vec() },
         "/api/state" => {
             let (v, _, _) = view();
-            Resp { status: 200, content_type: "application/json", body: serde_json::to_string(&v).unwrap_or_else(|_| "{}".into()) }
+            Resp { status: 200, content_type: "application/json", body: serde_json::to_vec(&v).unwrap_or_else(|_| b"{}".to_vec()) }
         }
         "/metrics" if !access.metrics.contains(peer) => Resp::text(403, "forbidden\n"),
         "/metrics" => {
             let (v, age, viewer) = view();
-            Resp { status: 200, content_type: "text/plain; version=0.0.4; charset=utf-8", body: metrics(&v, age, viewer) }
+            Resp { status: 200, content_type: "text/plain; version=0.0.4; charset=utf-8", body: metrics(&v, age, viewer).into_bytes() }
         }
         _ => Resp::text(404, "not found\n"),
     }
@@ -235,10 +247,11 @@ mod tests {
     fn page_and_state_only_from_allowed_peers() {
         let a = access();
         assert_eq!(route("GET", "/", ip("172.24.255.3"), &a, live).status, 200);
-        assert!(route("GET", "/", ip("172.24.255.3"), &a, live).body.contains("<html"));
+        assert!(String::from_utf8_lossy(&route("GET", "/", ip("172.24.255.3"), &a, live).body).contains("<html"));
         let s = route("GET", "/api/state", ip("127.0.0.1"), &a, live);
         assert_eq!((s.status, s.content_type), (200, "application/json"));
-        assert!(s.body.contains(r#""beefy":"up""#), "{}", s.body);
+        let body = String::from_utf8_lossy(&s.body);
+        assert!(body.contains(r#""beefy":"up""#), "{body}");
         assert_eq!(route("GET", "/api/state", ip("172.24.0.6"), &a, live).status, 403, "another container on traefik_proxy");
         assert_eq!(route("GET", "/", ip("::ffff:172.24.0.6"), &a, live).status, 403);
         assert_eq!(route("GET", "/metrics", ip("172.24.255.3"), &a, live).status, 403);
@@ -274,6 +287,28 @@ mod tests {
         assert!(!is_viewer("GET", "/", ip("172.24.255.3"), &a), "the HTML alone is no viewer");
         assert!(!is_viewer("GET", "/api/state", ip("172.24.0.6"), &a), "a refused peer is no viewer");
         assert!(!is_viewer("POST", "/api/state", ip("127.0.0.1"), &a));
+    }
+
+    #[test]
+    fn icons_are_served_to_the_page_peers() {
+        let a = access();
+        let r = route("GET", "/favicon.svg", ip("172.24.255.3"), &a, live);
+        assert_eq!((r.status, r.content_type), (200, "image/svg+xml"));
+        assert!(r.body.starts_with(b"<svg"));
+        for (path, ct, magic) in [
+            ("/favicon.ico", "image/x-icon", &b"\0\0\x01\0"[..]),
+            ("/icons/favicon-16x16.png", "image/png", &b"\x89PNG"[..]),
+            ("/icons/favicon-32x32.png", "image/png", &b"\x89PNG"[..]),
+            ("/icons/apple-touch-icon.png", "image/png", &b"\x89PNG"[..]),
+        ] {
+            let r = route("GET", path, ip("172.24.255.3"), &a, live);
+            assert_eq!((r.status, r.content_type), (200, ct), "{path}");
+            assert!(r.body.starts_with(magic), "{path}");
+            assert_eq!(route("GET", path, ip("172.24.0.6"), &a, live).status, 403, "{path}");
+        }
+        assert!(!is_viewer("GET", "/favicon.ico", ip("172.24.255.3"), &a), "an icon is no viewer");
+        assert!(PAGE.contains(r#"<link rel="icon" href="favicon.svg" type="image/svg+xml">"#));
+        assert!(PAGE.contains(r#"<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">"#));
     }
 
     #[test]
