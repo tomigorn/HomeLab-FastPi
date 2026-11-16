@@ -46,6 +46,8 @@ tell them apart.
 | Tech-Radar | ❌ | ❌ | | |  |
 | WG-Chores-v2 | ❌ | ❌ | | |  |
 | WG-Chores-Demo | ❌ | ❌ | | |  |
+| Vulnerability-Lookup | ❌ | ❌ | | |  |
+| Miniflux | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 

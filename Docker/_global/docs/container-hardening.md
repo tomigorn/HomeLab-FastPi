@@ -63,12 +63,16 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65059 | notes (Caddy) and its `mkdocs build` run (`Notes/build.sh`) | | NET_BIND_SERVICE (Caddy only) | ✅ |
 | 65060 | activity (Rust, scratch) | | | ✅ |
 | 65061 | tech-radar (Caddy, built AOE radar baked in) | | NET_BIND_SERVICE | ✅ |
+| 65062 | vl-web, vl-feeder (Vulnerability-Lookup) | | | ✅ |
+| 65063 | vl-kvrocks | | | ✅ |
+| 65064 | vl-cache (valkey, socket group 65062) | 65062 (primary gid) | | ✅ |
+| 65066 | miniflux | | | ✅ |
 | 1101:1100 | sabnzbd, qbittorrent (lsio non-root) | | | |
-| 70 | authentik-postgresql | | | |
+| 70 | authentik-postgresql, vl-db, miniflux-db | | | |
 | 65532 | cloudflared (image default) | | | |
 
 Shared groups: `1100` = sambashare (media library, no sudo/docker), `65037` = wg-chores data, `65046` = writers of `/var/lib/node-exporter/textfile`, `65028` = Portainer socket bridge.
-Free: 65013 (was autoheal-nzb), 65029, 65031, 65062+.
+Free: 65013 (was autoheal-nzb), 65029, 65031, 65065, 65067+.
 
 ## Root by design (cap_drop ALL + minimal caps + no-new-privileges)
 | Container | Caps | Why it stays root |
