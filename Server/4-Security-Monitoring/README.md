@@ -359,6 +359,13 @@ option — an `auth.log` on disk is required.
 | `../../.gitleaks.toml` | rules + triaged allowlists (repo root); a path-scoped exception goes into a rule-level `[[rules.allowlists]]`: a global one with a path skips the whole file |
 | `../../.githooks/pre-commit` | blocks secrets at commit time |
 
+Feed snapshot for `vl-severity-feed` (status block of the CVE news, `Docker/Vulnerability-Lookup/README.md`), in `/var/lib/security-scan/feed/` (mounted read-only there):
+
+| File | Written by | Content |
+|---|---|---|
+| `images-<host>.json` | image scan (04:10), per host after its scan | every finding per scanned image: id, package, installed and fixed version, severity, suppressed (VEX / acceptance list); image version label; `scanned_at` |
+| `dt.json` | `dt` (04:02, during the VEX export, only when DT answers) | every DT project's findings: id, aliases, component, version, suppressed (analysis or suppression); `fetched_at`, failed projects |
+
 Reports written for the alerts to point at, in `/var/lib/security-scan/`:
 `hygiene-problems.txt`, `image-cves-<host>.txt`, `code-cves-<repo>.txt`, `vulns-seen-<scope>.json`, `gitleaks-<repo>.json`,
 `last-infected-<host>.txt`, `audit-<host>.txt`, `audit-accepted-<host>-<tool>.txt`.

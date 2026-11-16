@@ -327,6 +327,32 @@ def fixable_findings(report: dict) -> set[tuple[str, str, str]]:
     return out
 
 
+def feed_image_record(image: str, report: dict) -> dict:
+    """One image of the feed snapshot (vl-severity-feed reads it): every finding with installed and fixed version, suppressed ones flagged."""
+    labels = (((report.get("Metadata") or {}).get("ImageConfig") or {}).get("config") or {}).get("Labels") or {}
+    findings = []
+
+    def add(v: dict, suppressed: bool) -> None:
+        findings.append({"id": v.get("VulnerabilityID", "?"), "pkg": v.get("PkgName", "?"), "installed": v.get("InstalledVersion") or "",
+                         "fixed": v.get("FixedVersion") or "", "severity": (v.get("Severity") or "UNKNOWN").upper(), "suppressed": suppressed})
+    for res in report.get("Results") or []:
+        for v in res.get("Vulnerabilities") or []:
+            add(v, False)
+        for m in res.get("ExperimentalModifiedFindings") or []:
+            if m.get("Type") == "vulnerability":
+                add(m.get("Finding") or {}, True)
+    return {"image": image, "version": labels.get("org.opencontainers.image.version") or "", "findings": findings}
+
+
+def feed_dir() -> Path:
+    return STATE / "feed"
+
+
+def write_feed(name: str, doc: dict) -> None:
+    feed_dir().mkdir(parents=True, exist_ok=True)
+    write_atomic(feed_dir() / name, json.dumps(doc, separators=(",", ":"), sort_keys=True))
+
+
 def cup_snapshots(data: dict) -> dict[str, dict]:
     """Cup's JSON -> {host: {taken_at, images: [...]}}, every monitored image of the host, with or without update."""
     taken = data.get("last_updated") or ""
@@ -1288,6 +1314,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     # figure that is read once a week, and an aggregate alert that cannot say
     # WHICH image is just a number to feel bad about.
     detail: list[tuple[int, int, str]] = []
+    feed_images: list[dict] = []
     download_trivy_db(host)
     refresh_accept_file()
     platform = REMOTE_SCAN_HOSTS.get(host)
@@ -1348,6 +1375,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
         scanned += 1
         fixable = count_fixable(report)
         SCANNED.setdefault(host, set()).add(image)
+        feed_images.append(feed_image_record(image, report))
         for vid, pkg, sev in fixable_findings(report):
             IMAGE_FINDINGS.setdefault(host, {})[f"{image}|{vid}|{pkg}"] = sev
         detail.append((counts.get("CRITICAL", 0), counts.get("HIGH", 0),
@@ -1370,6 +1398,7 @@ def collect_images(host: str, images: list[str]) -> tuple[dict[str, int], dict[s
     if local_only:
         lines += ["", "# built locally, in no registry, no base image known, not scanned:"] + [f"#   {i}" for i in local_only]
     (STATE / f"image-cves-{host}.txt").write_text("\n".join(lines) + "\n")
+    write_feed(f"images-{host}.json", {"host": host, "scanned_at": int(time.time()), "images": feed_images})
     return totals, fixables, scanned, unscannable, len(local_only)
 
 
@@ -2251,22 +2280,41 @@ def build_openvex(statements: list[dict], now: float) -> dict:
             "statements": statements}
 
 
+def feed_dt_findings(findings: list[dict]) -> list[dict]:
+    """DT findings for the feed snapshot: id, aliases, component version, suppressed when triaged away."""
+    out = []
+    for f in findings:
+        vuln, comp, an = f.get("vulnerability") or {}, f.get("component") or {}, f.get("analysis") or {}
+        aliases = []
+        for al in vuln.get("aliases") or []:
+            aliases += list(al.values()) if isinstance(al, dict) else [al]
+        vid = vuln.get("vulnId") or "?"
+        out.append({"id": vid, "aliases": [a for a in dict.fromkeys(aliases) if a and a != vid],
+                    "component": comp.get("name") or "", "version": comp.get("version") or "", "fixed": vuln.get("patchedVersions") or "",
+                    "suppressed": bool(an.get("isSuppressed")) or an.get("state") in VEX_STATES})
+    return out
+
+
 def export_dt_vex(dt, projects: list[dict]) -> list:
     """One OpenVEX file per DT project that has decisions. A project whose export fails keeps its cached file; projects gone from DT or without decisions lose theirs."""
     d = vex_dir()
     d.mkdir(parents=True, exist_ok=True)
     keep, total, failed = set(), 0, 0
+    feed, feed_failed = [], []
     for p in projects:
         if not p.get("version"):
             continue
         name = vex_filename(p["name"], p["version"])
         try:
-            st = vex_statements(dt.findings(p["uuid"]))
+            found = dt.findings(p["uuid"])
+            st = vex_statements(found)
         except Exception as e:  # noqa: BLE001
             failed += 1
             keep.add(name)
+            feed_failed.append(p["name"])
             print(f"  vex export failed for {p['name']} {p['version']}: {e}", file=sys.stderr)
             continue
+        feed.append({"name": p["name"], "version": p["version"], "findings": feed_dt_findings(found)})
         if st:
             keep.add(name)
             total += len(st)
@@ -2274,6 +2322,7 @@ def export_dt_vex(dt, projects: list[dict]) -> list:
     for f in d.glob("*.openvex.json"):
         if f.name not in keep:
             f.unlink()
+    write_feed("dt.json", {"fetched_at": int(time.time()), "failed": feed_failed, "projects": feed})
     files = len([k for k in keep if (d / k).exists()])
     return [("security_dt_vex_projects", {}, files), ("security_dt_vex_statements", {}, total),
             ("security_dt_vex_export_failed", {}, failed)]

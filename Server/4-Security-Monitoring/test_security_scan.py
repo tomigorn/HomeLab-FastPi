@@ -2470,6 +2470,58 @@ def test_repo_leak_samples_clean_repo_reports_zero():
     assert out == [("security_repo_leaks_total", {"repo": "fastpi", "url": "https://github.com/tomigorn/HomeLab-FastPi"}, 0)]
 
 
+
+def test_feed_image_record_keeps_versions_and_marks_suppressed_findings():
+    from security_scan import feed_image_record
+    rep = {"Metadata": {"ImageConfig": {"config": {"Labels": {"org.opencontainers.image.version": "13.3.0"}}}},
+           "Results": [{"Target": "t", "Vulnerabilities": [
+               {"VulnerabilityID": "CVE-1", "PkgName": "openssl", "InstalledVersion": "3.0.1", "FixedVersion": "3.0.2", "Severity": "HIGH"}],
+               "ExperimentalModifiedFindings": [
+               {"Type": "vulnerability", "Status": "not_affected", "Finding": {"VulnerabilityID": "CVE-2", "PkgName": "zlib", "InstalledVersion": "1.2", "Severity": "CRITICAL"}},
+               {"Type": "secret", "Status": "ignored", "Finding": {"RuleID": "x"}}]}]}
+    rec = feed_image_record("grafana/grafana:13.3.0", rep)
+    assert rec == {"image": "grafana/grafana:13.3.0", "version": "13.3.0", "findings": [
+        {"id": "CVE-1", "pkg": "openssl", "installed": "3.0.1", "fixed": "3.0.2", "severity": "HIGH", "suppressed": False},
+        {"id": "CVE-2", "pkg": "zlib", "installed": "1.2", "fixed": "", "severity": "CRITICAL", "suppressed": True}]}
+
+
+def test_feed_image_record_without_label_has_empty_version():
+    from security_scan import feed_image_record
+    assert feed_image_record("x:latest", {"Results": []}) == {"image": "x:latest", "version": "", "findings": []}
+
+
+def test_collect_images_writes_the_feed_snapshot_per_host():
+    import json
+    import subprocess
+    _tmp_dirs()
+    rep = {"Results": [{"Target": "t", "Vulnerabilities": [
+        {"VulnerabilityID": "CVE-1", "PkgName": "chromium", "InstalledVersion": "150", "FixedVersion": "156", "Severity": "CRITICAL"}]}]}
+    _collect_with(lambda a: subprocess.CompletedProcess(a, 0, json.dumps(rep), "") if "--input" in a else None,
+                  {"flaresolverr-local@sha256:c3": ("flaresolverr-local:v3.5.2", "beefy/c3.tar")}, {})
+    snap = json.loads((security_scan.STATE / "feed" / "images-beefy.json").read_text())
+    assert snap["host"] == "beefy" and snap["scanned_at"] > 0
+    assert snap["images"] == [{"image": "flaresolverr-local:v3.5.2", "version": "", "findings": [
+        {"id": "CVE-1", "pkg": "chromium", "installed": "150", "fixed": "156", "severity": "CRITICAL", "suppressed": False}]}]
+
+
+def test_export_dt_vex_writes_the_feed_snapshot_of_all_findings():
+    import json
+    from security_scan import export_dt_vex, vex_dir
+    _tmp_dirs()
+    vex_dir().mkdir()
+    open_f = _finding("pkg:golang/github.com/grafana/grafana@v13.3.0", "CVE-1", None, aliases=[{"ghsaId": "GHSA-a"}])
+    open_f["component"].update(name="github.com/grafana/grafana", version="v13.3.0")
+    open_f["vulnerability"]["patchedVersions"] = "13.3.1"
+    projects = [{"name": "fastpi/grafana/grafana", "version": "13.3.0", "uuid": "ua"}, {"name": "beefy/x", "version": "1", "uuid": "ub"},
+                {"name": "fastpi", "uuid": "parent"}]
+    export_dt_vex(FakeVexDt({"ua": [open_f, _finding("pkg:deb/b@1", "CVE-2", "NOT_AFFECTED")]}, broken={"ub"}), projects)
+    snap = json.loads((security_scan.STATE / "feed" / "dt.json").read_text())
+    assert snap["fetched_at"] > 0 and snap["failed"] == ["beefy/x"]
+    assert snap["projects"] == [{"name": "fastpi/grafana/grafana", "version": "13.3.0", "findings": [
+        {"id": "CVE-1", "aliases": ["GHSA-a"], "component": "github.com/grafana/grafana", "version": "v13.3.0", "fixed": "13.3.1", "suppressed": False},
+        {"id": "CVE-2", "aliases": [], "component": "x", "version": "1", "fixed": "", "suppressed": True}]}]
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
