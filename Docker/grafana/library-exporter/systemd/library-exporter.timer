@@ -1,0 +1,10 @@
+[Unit]
+Description=Media library sizes once a day (quiet morning hour)
+
+[Timer]
+OnCalendar=*-*-* 05:17:00 Europe/Zurich
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

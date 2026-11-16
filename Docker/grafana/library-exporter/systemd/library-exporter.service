@@ -1,0 +1,24 @@
+[Unit]
+Description=Media library sizes on fastpi (audiobooks, podcasts, ebooks, music) for Prometheus
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+RequiresMountsFor=/mnt/seagate-black
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/grafana/library-exporter/library_exporter.py
+TimeoutStartSec=15min
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
+PrivateTmp=true
+PrivateNetwork=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

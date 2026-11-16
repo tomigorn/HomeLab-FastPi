@@ -1,0 +1,12 @@
+# Library folders per category for library_exporter.py. A category appears on the dashboard once one of its folders exists; add a path when a library is created.
+[audiobooks]
+paths = ["/mnt/seagate-black/library/audiobooks"]
+
+[podcasts]
+paths = ["/mnt/seagate-black/library/podcasts"]
+
+[ebooks]
+paths = []
+
+[music]
+paths = []
