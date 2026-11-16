@@ -341,6 +341,7 @@ option — an `auth.log` on disk is required.
 |---|---|
 | `security_scan.py` | the scan; pure parsing seams + a thin I/O shell |
 | `test_security_scan.py` | tests over the pure functions (`python3 test_security_scan.py`) |
+| `test_gitleaks_config.sh` | allowlists of `.gitleaks.toml` silence known public values only where they belong (`bash test_gitleaks_config.sh`) |
 | `security-scan.{service,timer}` | daily 04:05: secrets, patches (incl. tower Unraid), logins, cup |
 | `security-av.{service,timer}` | daily 04:20 (beefy) + 05:40 + 05:50: av (with avhits), media, updates |
 | `security-av-hits.{service,timer}` | every 15 min: avhits |
@@ -355,7 +356,7 @@ option — an `auth.log` on disk is required.
 | `security-audit.{service,timer}` | weekly Sun 04:05: audit (beefy first) |
 | `install.sh` | idempotent installer |
 | `install-audit-tools.sh` | rkhunter, chkrootkit, Lynis (CISOfy repo), rkhunter baseline |
-| `../../.gitleaks.toml` | rules + triaged allowlists (repo root) |
+| `../../.gitleaks.toml` | rules + triaged allowlists (repo root); a path-scoped exception goes into a rule-level `[[rules.allowlists]]`: a global one with a path skips the whole file |
 | `../../.githooks/pre-commit` | blocks secrets at commit time |
 
 Reports written for the alerts to point at, in `/var/lib/security-scan/`:
@@ -366,6 +367,7 @@ Reports written for the alerts to point at, in `/var/lib/security-scan/`:
 
 ```bash
 python3 test_security_scan.py
+bash test_gitleaks_config.sh
 python3 ../../Docker/_global/scripts/test_auto_update.py
 systemctl list-timers 'security-*' auto-update.timer
 docker exec prometheus wget -qO- http://node-exporter:9100/metrics | grep -E '^(security|clamav)_'

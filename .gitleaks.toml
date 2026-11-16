@@ -104,3 +104,12 @@ description = "Authentik export: UUIDs are object references, never key material
 # genuine high-entropy value elsewhere is still caught.
 paths = ['''Docker/Authentik/authentik-config-export\.yaml$''']
 regexes = ['''[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}''']
+
+[[rules]]
+id = "generic-api-key"
+# Extends the default rule. Rule-level, because a global allowlist with a path skips the whole file and ignores condition.
+[[rules.allowlists]]
+description = "WG-Chores web-push test: Google's published sample VAPID public key (public by design, servers generate their own)"
+condition = "AND"
+paths = ['''(^|/)web/src/lib/push\.test\.ts$''']
+regexes = ['''^BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U$''']
