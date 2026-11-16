@@ -47,5 +47,46 @@ class Sections(unittest.TestCase):
         self.assertIn("#2a55c5", open(icon).read())
 
 
+def rule(selector_regex):
+    m = re.search(selector_regex + r"\s*\{([^}]*)\}", CSS)
+    return m.group(1) if m else ""
+
+
+class StickyHeader(unittest.TestCase):
+    HEADER = r'\n\.pf-c-page__main:has\(> main \[part="app-list"\]\) > \.pf-c-page__header'
+    BANNER = r"\n#hg-vpn-banner"
+
+    def test_header_sticks_to_the_top_of_the_scrolling_list(self):
+        body = rule(self.HEADER)
+        self.assertIn("position: sticky", body)
+        self.assertIn("top: 0", body)
+        self.assertIn("height: calc(var(--hg-head-height) + var(--hg-head-gap))", body)
+        self.assertRegex(body, r"background: #fff")
+
+    def test_dark_header_is_the_fixed_navy_page_background(self):
+        body = rule(r':host\(\[theme="dark"\]\) \.pf-c-page__main:has\(> main \[part="app-list"\]\) > \.pf-c-page__header')
+        self.assertIn("linear-gradient(180deg, #0b1628, #0a1220 60%, #080d18) fixed", body)
+
+    def test_stock_overflow_hidden_no_longer_traps_sticky(self):
+        self.assertIn("overflow: clip", rule(r'\n\.pf-c-page__main:has\(> main \[part="app-list"\]\)'))
+
+    def test_banner_sticks_right_under_the_header(self):
+        body = rule(self.BANNER)
+        self.assertIn("position: sticky", body)
+        self.assertIn("top: calc(var(--hg-head-height) + var(--hg-head-gap))", body)
+
+    def test_header_heights_per_layout(self):
+        heights = re.findall(r"--hg-head-height: (\d+)px", CSS)
+        self.assertEqual(heights, ["76", "88", "83"])
+
+    def test_header_and_banner_are_above_the_vpn_veil_and_badge(self):
+        js = (Path(__file__).resolve().parent.parent / "custom-templates" / "holy-grail" / "vpn-tiles.js").read_text()
+        tiles = max(int(z) for z in re.findall(r"z-index:(\d+)", js))
+        header = int(re.search(r"z-index: (\d+)", rule(self.HEADER)).group(1))
+        banner = int(re.search(r"z-index: (\d+)", rule(self.BANNER)).group(1))
+        self.assertGreater(header, tiles)
+        self.assertGreater(banner, header)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

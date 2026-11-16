@@ -651,8 +651,9 @@ Both scripts are idempotent.
   publisher, so `meta_publisher` is cleared on every app. The CSS keeps the `\n` as a line break (description, then the wake note) and hides the blank first line the template whitespace
   would produce, with a one-line negative margin (`-1lh`, calc fallback). Lines after
   the first can't be styled separately there, so the note is not smaller in list view.
+- **Sticky header** (grid and list): the title, view toggle, search and the VPN banner stay on top while the list scrolls, below the top bar. Opaque: the navy page gradient (fixed, so it blends in), white in light theme. The header gets fixed heights (76 px one row from 1000 px, 88 px two rows, 83 px under 768 px without the toggle); the banner sticks right under it. `.pf-c-page__main` gets `overflow: clip` instead of the stock `hidden`, which would stop sticky.
 - **The custom CSS relies on undocumented internal selectors** (`[part=app-list]`,
-  `[part=card]`, `[part=card-header-actions-menu]`, `[data-group-id]`,
+  `.pf-c-page__header`, `[part=card]`, `[part=card-header-actions-menu]`, `[data-group-id]`,
   `[part=background-wrapper]`, `:host([theme=dark])`), read from the 2026.8.4 source. **Re-check the dashboard after
   every authentik upgrade.** authentik adopts brand CSS into every component, so each
   rule is scoped to dashboard parts. The login and recovery flows were checked

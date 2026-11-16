@@ -213,6 +213,39 @@ CUSTOM_CSS = """\
 [part="app-list"] [data-group-id="media"] { order: -2; }
 [part="app-list"] [data-group-id^="downloads"] { order: -1; }
 [part="app-list"] [data-group-id="homelab"] { order: 99; }
+
+/* Title, view toggle, search and the VPN banner stay on top while the list scrolls (in the router outlet, under the top bar).
+   overflow: clip instead of the stock hidden, which would trap sticky. Fixed header heights (one row 76px, two rows 88px,
+   83px without the toggle) are the banner's offset; the transparent bottom border, taken back by the margin, is backdrop
+   between search and banner. */
+.pf-c-page__main:has(> main [part="app-list"]) {
+  --hg-head-height: 76px;
+  --hg-head-gap: 8px;
+  overflow: clip;
+}
+.pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header {
+  position: sticky; top: 0; z-index: 10;
+  box-sizing: border-box; min-height: 0; height: calc(var(--hg-head-height) + var(--hg-head-gap));
+  border-bottom: var(--hg-head-gap) solid transparent; margin-bottom: calc(-1 * var(--hg-head-gap));
+  flex-wrap: nowrap;
+  background: #fff;
+}
+/* the navy page background again, fixed to the viewport like the background wrapper, so the header blends in */
+:host([theme="dark"]) .pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header {
+  background: radial-gradient(1200px 520px at 85% -10%, rgba(233, 185, 73, .16), transparent 60%) fixed,
+              linear-gradient(180deg, #0b1628, #0a1220 60%, #080d18) fixed #0b1628;
+}
+@media (width < 1000px) {
+.pf-c-page__main:has(> main [part="app-list"]) { --hg-head-height: 88px; }
+.pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header { flex-wrap: wrap; align-content: space-between; row-gap: 16px; }
+.pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header > h1 { min-height: 36px; }
+.pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header > search { flex: 1 1 100%; }
+}
+@media (width < 768px) {
+.pf-c-page__main:has(> main [part="app-list"]) { --hg-head-height: 83px; }
+.pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header > h1 { min-height: 0; }
+}
+#hg-vpn-banner { position: sticky; top: calc(var(--hg-head-height) + var(--hg-head-gap)); z-index: 11; }
 """
 
 
