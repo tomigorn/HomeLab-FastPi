@@ -39,7 +39,7 @@ class FakeMiniflux:
         return self.next_id
 
     def add_user(self, uid, name, admin=False):
-        self.users[uid] = {"id": uid, "username": name, "is_admin": admin, "custom_js": ""}
+        self.users[uid] = {"id": uid, "username": name, "is_admin": admin, "custom_js": "", "stylesheet": ""}
         self.cats[uid] = {self._id(): "All"}
         self.feeds[uid] = {}
 
@@ -281,6 +281,65 @@ class TechstackLinkTest(unittest.TestCase):
 
     def test_link_is_set_only_once(self):
         self.h.run()
+        self.h.run()
+        self.assertFalse([p for m, p in self.h.writes() if p.startswith("/users/")])
+
+
+class StatusPillTest(unittest.TestCase):
+    def setUp(self):
+        self.h = Harness()
+        self.h.mf.add_user(2, "sam-user")
+
+    def test_every_status_mark_has_its_pill(self):
+        self.assertEqual({m: (c, l) for m, c, l, _ in su.MARKS}, {
+            "❗": ("action", "Action needed"),
+            "❔": ("check", "Check version"),
+            "✅": ("ok", "Not affected"),
+            "ℹ️": ("notours", ""),
+        })
+        self.assertTrue(all(tip for *_, tip in su.MARKS))
+
+    def test_every_user_and_the_admin_get_the_pill_style_and_script(self):
+        self.h.run()
+        for uid in (1, 2):
+            css, js = self.h.mf.users[uid]["stylesheet"], self.h.mf.users[uid]["custom_js"]
+            self.assertEqual(css.count(su.PILL_CSS_START), 1)
+            for cls in ("action", "check", "ok", "notours"):
+                self.assertIn(f".vl-{cls}", css)
+            self.assertEqual(js.count(su.PILL_JS_START), 1)
+            for mark, _, label, tip in su.MARKS:
+                self.assertIn(mark, js)
+                self.assertIn(label, js)
+                self.assertIn(tip, js)
+            self.assertIn('"/techstack"', js)
+
+    def test_titles_stay_visible_when_the_script_does_not_run(self):
+        self.h.run()
+        css = self.h.mf.users[2]["stylesheet"]
+        self.assertIn("visibility: hidden", css)
+        self.assertIn("animation:", css)
+
+    def test_own_stylesheet_and_script_stay_after_the_managed_blocks(self):
+        self.h.mf.users[2]["stylesheet"] = "body { color: red; }"
+        self.h.mf.users[2]["custom_js"] = "mine();"
+        self.h.run()
+        self.assertTrue(self.h.mf.users[2]["stylesheet"].endswith("body { color: red; }"))
+        self.assertTrue(self.h.mf.users[2]["custom_js"].endswith("mine();"))
+
+    def test_outdated_pill_blocks_are_replaced_not_doubled(self):
+        self.h.mf.users[2]["stylesheet"] = su.PILL_CSS_START + "\n.old {}\n" + su.PILL_CSS_END + "\nmine {}"
+        self.h.mf.users[2]["custom_js"] = "mine();\n" + su.PILL_JS_START + "\nold();\n" + su.PILL_JS_END
+        self.h.run()
+        css, js = self.h.mf.users[2]["stylesheet"], self.h.mf.users[2]["custom_js"]
+        self.assertEqual((css.count(su.PILL_CSS_START), js.count(su.PILL_JS_START), js.count(su.LINK_START)), (1, 1, 1))
+        self.assertNotIn(".old {}", css)
+        self.assertNotIn("old();", js)
+        self.assertIn("mine {}", css)
+        self.assertIn("mine();", js)
+
+    def test_style_and_script_are_set_once_in_one_call(self):
+        self.h.run()
+        self.assertEqual(len([p for m, p in self.h.writes() if p == "/users/2"]), 1)
         self.h.run()
         self.assertFalse([p for m, p in self.h.writes() if p.startswith("/users/")])
 

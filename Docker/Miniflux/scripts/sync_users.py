@@ -5,7 +5,7 @@ Usage: Docker/Miniflux/scripts/sync_users.py [-h|--help]
 Adds what the admin has, moves synced feeds to the admin's category, removes synced feeds and empty synced categories the admin dropped.
 A user's copy of an admin feed fetched more than a minute before the admin's is refreshed, so changed titles and status blocks reach every user within one run.
 A user's own feeds and categories are never touched; integrations (Telegram) are never copied.
-Every user (admin included) gets a "Tech stack" link in the header menu (custom JavaScript between LINK_START and LINK_END; the user's own custom JavaScript stays).
+Every user (admin included) gets a "Tech stack" link in the header menu (custom JavaScript between LINK_START and LINK_END) and status pills instead of the leading status mark of the CVE titles (custom CSS and JavaScript between PILL_*_START and PILL_*_END); the user's own custom CSS and JavaScript stay after these blocks.
 Each user is reached with its own API key "feed-sync" (derived from secrets/api_key, row upserted over psql when missing).
 State (which feeds came from the sync): secrets/feed_sync_state.json. Runs every 5 minutes by miniflux-feed-sync.timer.
 """
@@ -40,12 +40,61 @@ LINK_JS = LINK_START + """
   menu.append(li);
 })();
 """ + LINK_END
-LINK_BLOCK = re.compile(re.escape(LINK_START) + ".*?" + re.escape(LINK_END) + r"\n?", re.S)
+MARKS = [  # title mark of vl-severity-feed, pill class, pill label (none: row muted), tooltip
+    ("❗", "action", "Action needed", "Our version is affected: action needed"),
+    ("❔", "check", "Check version", "We run it, version unclear: check by hand"),
+    ("✅", "ok", "Not affected", "We run it, our version is not affected"),
+    ("ℹ️", "notours", "", "Not our product"),
+]
+PILL_CSS_START, PILL_CSS_END = "/* homelab-status-pills */", "/* /homelab-status-pills */"
+PILL_JS_START, PILL_JS_END = PILL_CSS_START, PILL_CSS_END
+PILL_CSS = PILL_CSS_START + """
+html:not(.vl-pills) :is(.item-title, .entry-header h1) { visibility: hidden; animation: vl-reveal 0s 0.8s forwards; }
+@keyframes vl-reveal { to { visibility: visible; } }
+.vl-pill { display: inline-block; margin-right: 0.5em; padding: 0.15em 0.6em; border: 1px solid transparent; border-radius: 1em; font: 600 0.7em/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: 0.02em; vertical-align: 0.12em; white-space: nowrap; }
+.entry-header .vl-pill { font-size: 0.45em; vertical-align: 0.35em; }
+.vl-pill.vl-action { background: #cf222e; border-color: #cf222e; color: #fff; font-weight: 700; }
+.vl-pill.vl-check { background: color-mix(in srgb, #d4a72c 18%, transparent); border-color: color-mix(in srgb, #d4a72c 55%, transparent); color: color-mix(in srgb, #9a6700 70%, var(--body-color)); }
+.vl-pill.vl-ok { border-color: color-mix(in srgb, #2da44e 45%, transparent); color: color-mix(in srgb, #2da44e 60%, var(--body-color)); font-weight: 500; }
+article.vl-notours .item-title a, .entry-header.vl-notours h1 a { color: var(--item-status-read-title-link-color); font-weight: normal; }
+""" + PILL_CSS_END
+PILL_JS = PILL_JS_START + """
+(() => {
+  const marks = new Map(Object.entries(""" + json.dumps({m: [c, l, t] for m, c, l, t in MARKS}, ensure_ascii=False) + """).map(([k, v]) => [k.replace(/\\uFE0F/g, ""), v]));
+  for (const a of document.querySelectorAll(".item-title a, .entry-header h1 a")) {
+    const text = a.firstChild;
+    const m = text && text.nodeType === 3 && text.data.match(/^\\s*(\\S)\\uFE0F?\\s+/u);
+    const hit = m && marks.get(m[1]);
+    if (!hit) continue;
+    const [cls, label, tip] = hit;
+    text.data = text.data.slice(m[0].length);
+    a.closest("article, .entry-header")?.classList.add("vl-" + cls);
+    if (!label) { a.title = tip; continue; }
+    const pill = document.createElement("span");
+    pill.className = "vl-pill vl-" + cls;
+    pill.textContent = label;
+    pill.title = tip;
+    a.prepend(pill);
+  }
+  document.documentElement.classList.add("vl-pills");
+})();
+""" + PILL_JS_END
 
 
-def with_techstack_link(custom_js):
-    own = LINK_BLOCK.sub("", custom_js or "").strip()
-    return LINK_JS + ("\n" + own if own else "")
+MANAGED = re.compile(r"/\* (homelab-[a-z-]+) \*/.*?/\* /\1 \*/\n?", re.S)
+
+
+def with_blocks(text, blocks):
+    """The managed blocks first, in this order, then the user's own text; every older homelab-* block is dropped."""
+    own = MANAGED.sub("", text or "").strip()
+    return "\n".join(blocks) + ("\n" + own if own else "")
+
+
+def managed_settings(user):
+    """The custom_js and stylesheet fields that differ from what the user should have."""
+    want = {"custom_js": with_blocks(user.get("custom_js"), [LINK_JS, PILL_JS]),
+            "stylesheet": with_blocks(user.get("stylesheet"), [PILL_CSS])}
+    return {k: v for k, v in want.items() if v != user.get(k)}
 
 
 def user_key(admin_key, user_id):
@@ -173,10 +222,10 @@ def sync(call, admin_key, admin_name, state, ensure_keys):
     if not users:
         lines.append("no other users")
     for u in everyone:
-        js = with_techstack_link(u.get("custom_js", ""))
-        if js != u.get("custom_js"):
-            call("PUT", f"/users/{u['id']}", admin_key, {"custom_js": js})
-            lines.append(f"{u['username']}: tech stack link")
+        changed = managed_settings(u)
+        if changed:
+            call("PUT", f"/users/{u['id']}", admin_key, changed)
+            lines.append(f"{u['username']}: header link and status pills")
     return new_state, lines
 
 

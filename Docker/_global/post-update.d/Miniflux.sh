@@ -23,5 +23,7 @@ if want miniflux; then
   check mf.title-mark '^[1-9][0-9]* unread, 0 without the mark$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*), count(*) filter (where e.title !~ '^(❗|❔|✅|ℹ️) ') from entries e join feeds f on f.id = e.feed_id where f.feed_url like 'http://vl-severity-feed:8080/%' and e.status = 'unread'" 2>&1 | awk -F'|' '{print $1 " unread, " $2 " without the mark"}')"
   # every user has the "Tech stack" header link (custom JavaScript set by scripts/sync_users.py)
   check mf.techstack-link '^[1-9][0-9]* users, 0 without the link$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*), count(*) filter (where custom_js not like '%\"/techstack\"%') from users" 2>&1 | awk -F'|' '{print $1 " users, " $2 " without the link"}')"
+  # every user has the status pills (custom CSS and JavaScript set by scripts/sync_users.py) instead of the leading status mark
+  check mf.status-pills '^[1-9][0-9]* users, 0 without the pills$' "$(docker exec miniflux-db psql -U miniflux -d miniflux -Atc "select count(*), count(*) filter (where custom_js not like '%/* homelab-status-pills */%vl-pill%' or stylesheet not like '%/* homelab-status-pills */%.vl-pill%') from users" 2>&1 | awk -F'|' '{print $1 " users, " $2 " without the pills"}')"
   check mf.user-sync '^active success$' "$(systemctl is-active miniflux-feed-sync.timer 2>&1) $(systemctl show -p Result --value miniflux-feed-sync.service 2>&1)"
 fi

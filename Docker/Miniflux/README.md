@@ -14,7 +14,15 @@
 | KEV | `http://vl-severity-feed:8080/kev.atom`: CISA Known Exploited Vulnerabilities (synced from vulnerability.circl.lu) |
 
 - Both only with a CVSS base score >= 7.0 (highest of CVE record, NVD, GitHub advisory; GitHub HIGH/CRITICAL counts). No score yet: the entry comes when one >= 7.0 arrives, dated then. Filter: [Severity feed](../Vulnerability-Lookup/README.md#severity-feed-high-and-critical-only).
-- Title: `❗ Grafana · CVE-2024-9264 · CVSS 9.9 (CNA "Grafana Labs")`; the mark shows the status in the list: ❗ action needed, ❔ ours, check by hand, ✅ ours, not affected, ℹ️ not our product.
+- Title: `❗ Grafana · CVE-2024-9264 · CVSS 9.9 (CNA "Grafana Labs")`; the mark is the status. Miniflux shows a pill instead (list and entry view, tooltip with the meaning):
+
+| Mark | Pill |
+|---|---|
+| ❗ | "Action needed", red |
+| ❔ | "Check version", amber (ours, version unclear) |
+| ✅ | "Not affected", green outline (ours) |
+| ℹ️ | none, row greyed (not our product) |
+
 - Each entry starts with a status block (our product, affected version, action needed): [Status block](../Vulnerability-Lookup/README.md#status-block-owner-2026-11-16). A status change rewrites title and content of the known entry on the next fetch (read state stays); no second Telegram message.
 - Releases (GitHub release notes) dropped 2026-11-16 (owner).
 - Read over `vl_feeds` (internal, no SSO); `FETCHER_ALLOW_PRIVATE_NETWORKS=1` is needed for that, `HTTP_CLIENT_TIMEOUT=120` stays from the direct watchlist feed.
@@ -30,6 +38,7 @@
 | Admin's copy fetched newer (new titles, status) | the user's copy is refreshed on the next run (fetched more than 1 min before the admin's) |
 | Read state, settings | per user |
 | "Tech stack" header link | every user, admin included: custom JavaScript block in the user's settings, set by `sync_users.py`; own custom JavaScript stays |
+| Status pills | every user, admin included: custom CSS and JavaScript blocks `homelab-status-pills` in the user's settings, set by `sync_users.py`; own custom CSS and JavaScript stay |
 | Telegram | admin only, never copied (no double messages) |
 
 Each user is reached with its own API key "feed-sync" (derived from `secrets/api_key`). Run by hand: `Docker/Miniflux/scripts/sync_users.py`; log: `journalctl -u miniflux-feed-sync`. Removing a user from the Authentik groups does not delete the Miniflux account (Settings → Users).
