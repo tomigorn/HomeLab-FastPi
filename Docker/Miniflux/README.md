@@ -14,7 +14,8 @@
 | KEV | `http://vl-severity-feed:8080/kev.atom`: CISA Known Exploited Vulnerabilities (synced from vulnerability.circl.lu) |
 
 - Both only with a CVSS base score >= 7.0 (highest of CVE record, NVD, GitHub advisory; GitHub HIGH/CRITICAL counts). No score yet: the entry comes when one >= 7.0 arrives, dated then. Filter: [Severity feed](../Vulnerability-Lookup/README.md#severity-feed-high-and-critical-only).
-- Each entry starts with a status block (our product, affected version, action needed; ❗ in the title when action is needed): [Status block](../Vulnerability-Lookup/README.md#status-block-owner-2026-11-16). A status change rewrites title and content of the known entry on the next fetch; no second Telegram message.
+- Title: `❗ Grafana · CVE-2024-9264 · CVSS 9.9 (CNA "Grafana Labs")`; the mark shows the status in the list: ❗ action needed, ❔ ours, check by hand, ✅ ours, not affected, ℹ️ not our product.
+- Each entry starts with a status block (our product, affected version, action needed): [Status block](../Vulnerability-Lookup/README.md#status-block-owner-2026-11-16). A status change rewrites title and content of the known entry on the next fetch (read state stays); no second Telegram message.
 - Releases (GitHub release notes) dropped 2026-11-16 (owner).
 - Read over `vl_feeds` (internal, no SSO); `FETCHER_ALLOW_PRIVATE_NETWORKS=1` is needed for that, `HTTP_CLIENT_TIMEOUT=120` stays from the direct watchlist feed.
 
@@ -26,6 +27,7 @@
 | Feeds, categories | same as `MINIFLUX_ADMIN`: `scripts/sync_users.py`, every 5 min (`miniflux-feed-sync.timer`), so up to 5 min after the first visit |
 | Admin adds / moves / removes a feed | follows on the next run; a feed or category the user added himself stays |
 | User removes a synced feed | comes back on the next run |
+| Admin's copy fetched newer (new titles, status) | the user's copy is refreshed on the next run (fetched more than 1 min before the admin's) |
 | Read state, settings | per user |
 | "Tech stack" header link | every user, admin included: custom JavaScript block in the user's settings, set by `sync_users.py`; own custom JavaScript stays |
 | Telegram | admin only, never copied (no double messages) |
@@ -71,5 +73,5 @@ bash Docker/Miniflux/tests/test_setup.sh
 ## Notes
 
 - Not backed up: read state only; feeds come back with `subscribe.py` and `sync_users.py`.
-- Every user's feeds are fetched separately, once per user per hour (cheap: `vl-severity-feed` serves from memory).
+- Every user's feeds are fetched separately, once per user per hour, plus once after each admin fetch (cheap: `vl-severity-feed` serves from memory). `POLLING_FREQUENCY=15` is the scheduler tick: with 60 it missed feeds due at the same minute by milliseconds and fetched them every 2 h.
 - Migrates its DB at start (`RUN_MIGRATIONS=1`): updates are `notify` in `../_global/auto-update.conf` with a volume backup first.

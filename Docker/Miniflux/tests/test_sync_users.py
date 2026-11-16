@@ -30,6 +30,8 @@ class FakeMiniflux:
         self.next_id = 100
         self.calls = []
         self.fail_urls = set()
+        self.checked = {}
+        self.now = "2026-01-01T10:00:00Z"
         self.add_user(1, "jane-admin", admin=True)
 
     def _id(self):
@@ -83,7 +85,8 @@ class FakeMiniflux:
             self.feeds[uid] = {f: v for f, v in self.feeds[uid].items() if v[1] != cid}
             return None
         if path == "/feeds" and method == "GET":
-            return [{"id": f, "feed_url": u, "category": {"id": c, "title": self.cats[uid][c]}} for f, (u, c) in self.feeds[uid].items()]
+            return [{"id": f, "feed_url": u, "category": {"id": c, "title": self.cats[uid][c]}, "checked_at": self.checked.get(f, "2026-01-01T09:00:00.123456Z")}
+                    for f, (u, c) in self.feeds[uid].items()]
         if path == "/feeds" and method == "POST":
             if body["feed_url"] in self.fail_urls:
                 raise http_error(500, f'fetch failed: Get "{body["feed_url"]}": timeout')
@@ -92,6 +95,11 @@ class FakeMiniflux:
             fid = self._id()
             self.feeds[uid][fid] = (body["feed_url"], body["category_id"])
             return {"feed_id": fid}
+        if path.startswith("/feeds/") and path.endswith("/refresh") and method == "PUT":
+            fid = int(path.split("/")[2])
+            assert fid in self.feeds[uid]
+            self.checked[fid] = self.now
+            return None
         if path.startswith("/feeds/") and method == "PUT":
             fid = int(path.split("/")[2])
             self.feeds[uid][fid] = (self.feeds[uid][fid][0], body["category_id"])
@@ -208,6 +216,34 @@ class SyncTest(unittest.TestCase):
         lines = self.h.run()
         self.assertTrue(lines)
         self.assertFalse(any("secret1" in line for line in lines))
+
+    def test_user_copy_behind_the_admins_is_refreshed_once(self):
+        self.h.run()
+        watch = lambda uid: next(f for f, (u, _) in self.h.mf.feeds[uid].items() if "vl-web" in u)
+        self.h.mf.checked[watch(1)] = "2026-01-01T09:30:00+00:00"
+        self.h.mf.checked[watch(2)] = "2026-01-01T09:05:00Z"
+        lines = self.h.run()
+        self.assertIn(("PUT", f"/feeds/{watch(2)}/refresh"), self.h.writes())
+        self.assertEqual([p for m, p in self.h.writes() if p.endswith("/refresh")], [f"/feeds/{watch(2)}/refresh"])
+        self.assertTrue(any("refresh" in line and "secret1" not in line for line in lines))
+        self.h.run()
+        self.assertEqual(self.h.writes(), [])
+
+    def test_user_copy_a_few_minutes_behind_is_refreshed(self):
+        self.h.run()
+        watch = lambda uid: next(f for f, (u, _) in self.h.mf.feeds[uid].items() if "vl-web" in u)
+        self.h.mf.checked[watch(1)] = "2026-01-01T09:04:00Z"
+        self.h.mf.checked[watch(2)] = "2026-01-01T09:00:00Z"
+        self.h.run()
+        self.assertEqual(self.h.writes(), [("PUT", f"/feeds/{watch(2)}/refresh")])
+
+    def test_user_copy_fetched_within_a_minute_of_the_admins_is_left_alone(self):
+        self.h.run()
+        watch = lambda uid: next(f for f, (u, _) in self.h.mf.feeds[uid].items() if "vl-web" in u)
+        self.h.mf.checked[watch(1)] = "2026-01-01T09:00:40Z"
+        self.h.mf.checked[watch(2)] = "2026-01-01T09:00:00Z"
+        self.h.run()
+        self.assertEqual(self.h.writes(), [])
 
     def test_deleted_users_leave_the_state(self):
         self.h.run()

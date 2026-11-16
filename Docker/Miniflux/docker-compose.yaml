@@ -32,7 +32,7 @@ services:
       DISABLE_LOCAL_AUTH: "1"
       # vl-web is on a private network (vl_feeds)
       FETCHER_ALLOW_PRIVATE_NETWORKS: "1"
-      POLLING_FREQUENCY: "60"
+      POLLING_FREQUENCY: "15"   # scheduler tick; each feed is still fetched every 60 min (SCHEDULER_ROUND_ROBIN_MIN_INTERVAL), a 60 min tick missed feeds by milliseconds and fetched them every 2 h
       WORKER_POOL_SIZE: "2"
       BATCH_SIZE: "20"
       CLEANUP_ARCHIVE_READ_DAYS: "60"

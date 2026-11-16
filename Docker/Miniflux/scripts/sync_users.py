@@ -3,11 +3,13 @@
 
 Usage: Docker/Miniflux/scripts/sync_users.py [-h|--help]
 Adds what the admin has, moves synced feeds to the admin's category, removes synced feeds and empty synced categories the admin dropped.
+A user's copy of an admin feed fetched more than a minute before the admin's is refreshed, so changed titles and status blocks reach every user within one run.
 A user's own feeds and categories are never touched; integrations (Telegram) are never copied.
 Every user (admin included) gets a "Tech stack" link in the header menu (custom JavaScript between LINK_START and LINK_END; the user's own custom JavaScript stays).
 Each user is reached with its own API key "feed-sync" (derived from secrets/api_key, row upserted over psql when missing).
 State (which feeds came from the sync): secrets/feed_sync_state.json. Runs every 5 minutes by miniflux-feed-sync.timer.
 """
+import datetime
 import hashlib
 import hmac
 import json
@@ -22,6 +24,7 @@ from subscribe import ROOT, call, masked
 
 TIMEOUT = 150
 HEX = re.compile(r"^[0-9a-f]+$")
+LAG = datetime.timedelta(minutes=1)
 LINK_START = "/* homelab-about */"   # marker kept from the first version so old blocks are replaced
 LINK_END = "/* /homelab-about */"
 LINK_JS = LINK_START + """
@@ -86,11 +89,27 @@ def error_text(e):
         return ""
 
 
-def sync_user(call, key, name, admin_feeds, admin_cats, synced, lines):
+def checked(feed):
+    try:
+        return datetime.datetime.fromisoformat(feed.get("checked_at") or "")
+    except ValueError:
+        return None
+
+
+def sync_user(call, key, name, admin_feeds, admin_cats, synced, lines, admin_checked=None):
     feeds_synced, cats_synced = set(synced.get("feeds", [])), set(synced.get("categories", []))
     cats = {c["title"]: c["id"] for c in call("GET", "/categories", key)}
-    feeds = {f["feed_url"]: (f["id"], f["category"]["title"]) for f in call("GET", "/feeds", key)}
+    listed = call("GET", "/feeds", key)
+    feeds = {f["feed_url"]: (f["id"], f["category"]["title"]) for f in listed}
     added = moved = removed = 0
+    for f in listed:
+        theirs, ours = checked(f), (admin_checked or {}).get(f["feed_url"])
+        if theirs and ours and ours - theirs > LAG:
+            lines.append(f"{name}: refresh {masked(f['feed_url'])}")
+            try:
+                call("PUT", f"/feeds/{f['id']}/refresh", key, timeout=TIMEOUT)
+            except urllib.error.HTTPError as e:
+                lines.append(f"  FAILED {e.code}: {error_text(e)}")
     for title in sorted(admin_cats - cats.keys()):
         cats[title] = call("POST", "/categories", key, {"title": title})["id"]
         cats_synced.add(title)
@@ -126,7 +145,9 @@ def sync_user(call, key, name, admin_feeds, admin_cats, synced, lines):
 def sync(call, admin_key, admin_name, state, ensure_keys):
     """Returns (new state, output lines). A line starting with ERROR marks a user that could not be synced."""
     lines = []
-    admin_feeds = {f["feed_url"]: f["category"]["title"] for f in call("GET", "/feeds", admin_key)}
+    admin_list = call("GET", "/feeds", admin_key)
+    admin_feeds = {f["feed_url"]: f["category"]["title"] for f in admin_list}
+    admin_checked = {f["feed_url"]: checked(f) for f in admin_list}
     admin_cats = {c["title"] for c in call("GET", "/categories", admin_key)}
     everyone = call("GET", "/users", admin_key)
     users = [u for u in everyone if not u["is_admin"] and u["username"] != admin_name]
@@ -144,7 +165,7 @@ def sync(call, admin_key, admin_name, state, ensure_keys):
     for u in users:
         uid = str(u["id"])
         try:
-            new_state[uid] = sync_user(call, user_key(admin_key, u["id"]), u["username"], admin_feeds, admin_cats, state.get(uid, {}), lines)
+            new_state[uid] = sync_user(call, user_key(admin_key, u["id"]), u["username"], admin_feeds, admin_cats, state.get(uid, {}), lines, admin_checked)
         except urllib.error.HTTPError as e:
             lines.append(f"ERROR {u['username']}: {e.code} {error_text(e)}")
             if uid in state:
