@@ -183,8 +183,7 @@ Docker/_global/scripts/smoke-test.sh                                     # "boun
 git add -A Docker/Traefik/traefik/plugins-local && git commit -m "Traefik: update CrowdSec bouncer plugin to ${V#v}"
 ```
 
-v1.8.2 is installed (2026-10-31 from v1.8.1; v1.8.1 came 2026-10-19 from v1.7.1, same config keys; backup of the
-old tree is a git revert away).
+Plugin v1.8.2 is installed (2026-11-16 from v1.8.1, security fix GHSA-3j4c-rqwh-8x5r, same config keys; dry-loaded in a throwaway Traefik first); v1.8.1 came 2026-10-19 from v1.7.1. The 2026-10-31 update was the CrowdSec engine, not the plugin. The old tree is a git revert away.
 
 ## Threat data refresh
 
