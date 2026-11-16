@@ -255,8 +255,8 @@ Disks are never filled to 100 %; each has a limit (`homelab:storage_limit_ratio`
 
 | Disk | Limit | Why | Colours |
 |---|---|---|---|
-| `beefy-ssd` | 80 % | mergerfs `minfreespace` 1479G per SSD: new downloads go to the HDD; the mover starts at 70 % and moves down to 60 % (`/etc/beefy-mover.conf`) | orange 70 %, red 80 % |
-| `beefy-hdd` | 90 % | mergerfs `minfreespace` 2800G; Radarr/Sonarr refuse imports, SABnzbd pauses and qBittorrent is held below 5758 GiB pool free (= the three reserves, beefy `Movie-Downloads/README.md` "Storage limits") | orange 80 %, red 90 % |
+| `beefy-ssd` | 80 % | mergerfs `minfreespace` 1479G per SSD: new downloads go to the HDD; the mover starts at 70 % and moves down to 60 % (`/etc/beefy-mover.conf`) | yellow 70 %, orange 75 %, red 80 % |
+| `beefy-hdd` | 90 % | mergerfs `minfreespace` 2800G; Radarr/Sonarr refuse imports, SABnzbd pauses and qBittorrent is held below 5758 GiB pool free (= the three reserves, beefy `Movie-Downloads/README.md` "Storage limits") | yellow 80 %, orange 85 %, red 90 % |
 | `fastpi-audiobooks` | 80 % | no app stops: red on the audiobook bar from 80 %, `HostFilesystemSpaceLow` at 85 %. Downloads are on seagate-red (SABnzbd `download_free` 500M, qBittorrent none), not this disk | orange 70 %, red 80 % |
 | `total` | 100 % of usable | size = each disk's size x its limit, summed | orange 90 %, red 100 % |
 

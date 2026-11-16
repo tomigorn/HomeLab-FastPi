@@ -67,7 +67,7 @@
     {
       "type": "stat",
       "title": "beefy SSD · limit 80 %",
-      "description": "Both SSDs of beefy's hot tier, where downloads land. Orange from 70 % (mover starts), red at the 80 % limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "description": "Both SSDs of beefy's hot tier, where downloads land. Yellow from 70 % (mover starts), orange from 75 %, red at the 80 % limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
       "targets": [
         {
           "refId": "A",
@@ -147,8 +147,12 @@
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "yellow",
                       "value": 0.7
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
                     },
                     {
                       "color": "red",
@@ -198,7 +202,7 @@
     {
       "type": "stat",
       "title": "beefy HDD · limit 90 %",
-      "description": "beefy's archive HDD. Orange from 80 % (BeefyHddFilling), red at the 90 % limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "description": "beefy's archive HDD. Yellow from 80 % (BeefyHddFilling), orange from 85 %, red at the 90 % limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
       "targets": [
         {
           "refId": "A",
@@ -278,8 +282,12 @@
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "yellow",
                       "value": 0.8
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.85
                     },
                     {
                       "color": "red",
