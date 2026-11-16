@@ -54,7 +54,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "Now",
+      "title": "Now (used of size; free = until each disk's limit)",
       "collapsed": false,
       "panels": [],
       "gridPos": {
@@ -66,12 +66,12 @@
     },
     {
       "type": "stat",
-      "title": "beefy SSD",
-      "description": "Both SSDs of beefy's hot tier (downloads land here; the nightly mover keeps it at or below 70 % by moving titles to the HDD, from 80 % mergerfs sends new downloads to the HDD). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "title": "beefy SSD · limit 80 %",
+      "description": "Both SSDs of beefy's hot tier, where downloads land. Orange from 70 % (mover starts), red at the 80 % limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
       "targets": [
         {
           "refId": "A",
-          "expr": "homelab:storage_used_bytes{disk=\"beefy-ssd\"}",
+          "expr": "homelab:storage_used_ratio{disk=\"beefy-ssd\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -82,23 +82,23 @@
         },
         {
           "refId": "B",
-          "expr": "homelab:storage_avail_bytes{disk=\"beefy-ssd\"}",
+          "expr": "homelab:storage_free_until_limit_bytes{disk=\"beefy-ssd\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "free",
+          "legendFormat": "free until limit",
           "instant": true,
           "range": false
         },
         {
           "refId": "C",
-          "expr": "homelab:storage_used_ratio{disk=\"beefy-ssd\"}",
+          "expr": "homelab:storage_used_bytes{disk=\"beefy-ssd\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "full",
+          "legendFormat": "used size",
           "instant": true,
           "range": false
         }
@@ -126,7 +126,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "full"
+              "options": "used"
             },
             "properties": [
               {
@@ -152,7 +152,7 @@
                     },
                     {
                       "color": "red",
-                      "value": 0.85
+                      "value": 0.8
                     }
                   ]
                 }
@@ -197,12 +197,12 @@
     },
     {
       "type": "stat",
-      "title": "beefy HDD",
-      "description": "beefy's archive HDD (imports stop at 90 %). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "title": "beefy HDD · limit 90 %",
+      "description": "beefy's archive HDD. Orange from 80 % (BeefyHddFilling), red at the 90 % limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
       "targets": [
         {
           "refId": "A",
-          "expr": "homelab:storage_used_bytes{disk=\"beefy-hdd\"}",
+          "expr": "homelab:storage_used_ratio{disk=\"beefy-hdd\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -213,23 +213,23 @@
         },
         {
           "refId": "B",
-          "expr": "homelab:storage_avail_bytes{disk=\"beefy-hdd\"}",
+          "expr": "homelab:storage_free_until_limit_bytes{disk=\"beefy-hdd\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "free",
+          "legendFormat": "free until limit",
           "instant": true,
           "range": false
         },
         {
           "refId": "C",
-          "expr": "homelab:storage_used_ratio{disk=\"beefy-hdd\"}",
+          "expr": "homelab:storage_used_bytes{disk=\"beefy-hdd\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "full",
+          "legendFormat": "used size",
           "instant": true,
           "range": false
         }
@@ -257,7 +257,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "full"
+              "options": "used"
             },
             "properties": [
               {
@@ -279,11 +279,11 @@
                     },
                     {
                       "color": "orange",
-                      "value": 0.7
+                      "value": 0.8
                     },
                     {
                       "color": "red",
-                      "value": 0.85
+                      "value": 0.9
                     }
                   ]
                 }
@@ -328,12 +328,12 @@
     },
     {
       "type": "stat",
-      "title": "Audiobook disk (fastpi)",
-      "description": "fastpi's /mnt/seagate-black: audiobooks and podcasts. Used and free as df counts them (ext4 reserve left out). Source: homelab:storage_* (rules/storage-trends.yml).",
+      "title": "Audiobook disk (fastpi) · limit 80 %",
+      "description": "fastpi's /mnt/seagate-black: audiobooks and podcasts, used as df counts it (ext4 reserve left out). Orange from 70 %, red at 80 % (audiobook bar colours). Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
       "targets": [
         {
           "refId": "A",
-          "expr": "homelab:storage_used_bytes{disk=\"fastpi-audiobooks\"}",
+          "expr": "homelab:storage_used_ratio{disk=\"fastpi-audiobooks\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -344,23 +344,23 @@
         },
         {
           "refId": "B",
-          "expr": "homelab:storage_avail_bytes{disk=\"fastpi-audiobooks\"}",
+          "expr": "homelab:storage_free_until_limit_bytes{disk=\"fastpi-audiobooks\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "free",
+          "legendFormat": "free until limit",
           "instant": true,
           "range": false
         },
         {
           "refId": "C",
-          "expr": "homelab:storage_used_ratio{disk=\"fastpi-audiobooks\"}",
+          "expr": "homelab:storage_used_bytes{disk=\"fastpi-audiobooks\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "full",
+          "legendFormat": "used size",
           "instant": true,
           "range": false
         }
@@ -388,7 +388,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "full"
+              "options": "used"
             },
             "properties": [
               {
@@ -414,7 +414,7 @@
                     },
                     {
                       "color": "red",
-                      "value": 0.85
+                      "value": 0.8
                     }
                   ]
                 }
@@ -459,12 +459,12 @@
     },
     {
       "type": "stat",
-      "title": "Total combined",
-      "description": "beefy SSD + HDD + fastpi audiobook disk. Source: homelab:storage_* (rules/storage-trends.yml).",
+      "title": "Total combined · limit usable",
+      "description": "All three disks against their usable space (each disk's size x its limit), so 100 % = every disk at its limit. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %). Source: homelab:storage_* (rules/storage-trends.yml).",
       "targets": [
         {
           "refId": "A",
-          "expr": "homelab:storage_used_bytes{disk=\"total\"}",
+          "expr": "homelab:storage_used_ratio{disk=\"total\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
@@ -475,23 +475,23 @@
         },
         {
           "refId": "B",
-          "expr": "homelab:storage_avail_bytes{disk=\"total\"}",
+          "expr": "homelab:storage_free_until_limit_bytes{disk=\"total\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "free",
+          "legendFormat": "free until limit",
           "instant": true,
           "range": false
         },
         {
           "refId": "C",
-          "expr": "homelab:storage_used_ratio{disk=\"total\"}",
+          "expr": "homelab:storage_used_bytes{disk=\"total\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "full",
+          "legendFormat": "used size",
           "instant": true,
           "range": false
         }
@@ -519,7 +519,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "full"
+              "options": "used"
             },
             "properties": [
               {
@@ -541,11 +541,11 @@
                     },
                     {
                       "color": "orange",
-                      "value": 0.7
+                      "value": 0.9
                     },
                     {
                       "color": "red",
-                      "value": 0.85
+                      "value": 1.0
                     }
                   ]
                 }
@@ -603,24 +603,68 @@
     },
     {
       "type": "stat",
-      "title": "Full in ~ (estimate)",
-      "description": "Days until the disk is full if it keeps filling like in the last 30 days: where predict_linear's line of free space reaches 0 (1 h steps). An estimate: one big download, the nightly mover or a delete changes it. beefy SSD: the mover moves titles to the HDD from 70 %, so a full SSD means the HDD takes the downloads.",
+      "title": "Limit reached in ~ (estimate)",
+      "description": "Days until each disk reaches its limit (not 100 %) if it keeps filling like in the last 30 days: where predict_linear's line of free space reaches the limit's reserve (1 h steps). SSD also: days until the nightly mover starts (70 %). An estimate: one big download, the mover or a delete changes it. Limits (never filled to 100 %): SSD 80 % = mergerfs keeps 1479G free per SSD, new downloads then go to the HDD (the nightly mover starts at 70 % and moves down to 60 %); HDD 90 % = 2800G kept free, Radarr/Sonarr stop importing; audiobook disk 80 % (red on the audiobook bar; nothing stops writes, the fastpi disk alert fires at 85 %).",
       "targets": [
         {
           "refId": "A",
-          "expr": "homelab:storage_days_until_full or (0 * homelab:storage_growth_bytes_per_day - 1)",
+          "expr": "homelab:storage_days_until_limit{disk=\"beefy-ssd\"} or (0 * homelab:storage_growth_bytes_per_day{disk=\"beefy-ssd\"} - 1)",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "{{disk}}",
+          "legendFormat": "beefy SSD → 80 %",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:storage_days_until_mover{disk=\"beefy-ssd\"} or (0 * homelab:storage_growth_bytes_per_day{disk=\"beefy-ssd\"} - 1)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "SSD mover starts (70 %)",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "homelab:storage_days_until_limit{disk=\"beefy-hdd\"} or (0 * homelab:storage_growth_bytes_per_day{disk=\"beefy-hdd\"} - 1)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "beefy HDD → 90 %",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "expr": "homelab:storage_days_until_limit{disk=\"fastpi-audiobooks\"} or (0 * homelab:storage_growth_bytes_per_day{disk=\"fastpi-audiobooks\"} - 1)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Audiobook disk → 80 %",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "E",
+          "expr": "homelab:storage_days_until_limit{disk=\"total\"} or (0 * homelab:storage_growth_bytes_per_day{disk=\"total\"} - 1)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Total → usable",
           "instant": true,
           "range": false
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "suffix: days",
           "noValue": "n/a",
           "color": {
             "mode": "thresholds"
@@ -649,6 +693,10 @@
                 "-1": {
                   "text": "not filling",
                   "color": "green"
+                },
+                "0": {
+                  "text": "reached",
+                  "color": "red"
                 }
               }
             },
@@ -666,20 +714,7 @@
           ],
           "decimals": 0
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "suffix: days"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "reduceOptions": {
@@ -706,22 +741,55 @@
         "x": 0,
         "y": 7,
         "w": 12,
-        "h": 5
+        "h": 6
       }
     },
     {
       "type": "stat",
       "title": "Growth per month (estimate)",
-      "description": "How much more is used per 30 days at the pace of the last 30 days (negative: shrinking). Same fit as \"Full in\".",
+      "description": "How much more is used per 30 days at the pace of the last 30 days (negative: shrinking). Same fit as \"Limit reached in\".",
       "targets": [
         {
           "refId": "A",
-          "expr": "homelab:storage_growth_bytes_per_day * 30",
+          "expr": "homelab:storage_growth_bytes_per_day{disk=\"beefy-ssd\"} * 30",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "{{disk}}",
+          "legendFormat": "beefy SSD",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:storage_growth_bytes_per_day{disk=\"beefy-hdd\"} * 30",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "beefy HDD",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "C",
+          "expr": "homelab:storage_growth_bytes_per_day{disk=\"fastpi-audiobooks\"} * 30",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Audiobook disk (fastpi)",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "D",
+          "expr": "homelab:storage_growth_bytes_per_day{disk=\"total\"} * 30",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "Total combined",
           "instant": true,
           "range": false
         }
@@ -772,18 +840,18 @@
         "x": 12,
         "y": 7,
         "w": 12,
-        "h": 5
+        "h": 6
       }
     },
     {
       "id": 9,
       "type": "row",
-      "title": "Used vs size per disk (links on top: 30 / 90 / 365 days)",
+      "title": "Used vs size and limit per disk (links on top: 30 / 90 / 365 days)",
       "collapsed": false,
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 13,
         "w": 24,
         "h": 1
       }
@@ -791,7 +859,7 @@
     {
       "type": "timeseries",
       "title": "beefy SSD",
-      "description": "Both SSDs of beefy's hot tier (downloads land here; the nightly mover keeps it at or below 70 % by moving titles to the HDD, from 80 % mergerfs sends new downloads to the HDD). Dashed line: size.",
+      "description": "Both SSDs of beefy's hot tier, where downloads land. Orange from 70 % (mover starts), red at the 80 % limit. Dashed: size (grey), limit (red), mover start (orange).",
       "targets": [
         {
           "refId": "A",
@@ -812,6 +880,28 @@
             "uid": "dfc6abdxzsem8a"
           },
           "legendFormat": "size",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "0.8 * beefy_storage_size_bytes{branch=\"ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "limit 80 %",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "D",
+          "expr": "0.70 * beefy_storage_size_bytes{branch=\"ssd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "mover starts 70 %",
           "instant": false,
           "range": true
         }
@@ -839,12 +929,64 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "size"
             },
             "properties": [
               {
                 "id": "custom.fillOpacity",
                 "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit 80 %"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
               },
               {
                 "id": "custom.lineStyle",
@@ -868,14 +1010,32 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "used"
+              "options": "mover starts 70 %"
             },
             "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "orange"
                 }
               }
             ]
@@ -900,7 +1060,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 14,
         "w": 12,
         "h": 7
       }
@@ -908,7 +1068,7 @@
     {
       "type": "timeseries",
       "title": "beefy HDD",
-      "description": "beefy's archive HDD (imports stop at 90 %). Dashed line: size.",
+      "description": "beefy's archive HDD. Orange from 80 % (BeefyHddFilling), red at the 90 % limit. Dashed: size (grey), limit (red).",
       "targets": [
         {
           "refId": "A",
@@ -929,6 +1089,17 @@
             "uid": "dfc6abdxzsem8a"
           },
           "legendFormat": "size",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "0.9 * beefy_storage_size_bytes{branch=\"hdd\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "limit 90 %",
           "instant": false,
           "range": true
         }
@@ -956,12 +1127,64 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "size"
             },
             "properties": [
               {
                 "id": "custom.fillOpacity",
                 "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit 90 %"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
               },
               {
                 "id": "custom.lineStyle",
@@ -978,21 +1201,6 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "used"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
                 }
               }
             ]
@@ -1017,7 +1225,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 13,
+        "y": 14,
         "w": 12,
         "h": 7
       }
@@ -1025,7 +1233,7 @@
     {
       "type": "timeseries",
       "title": "Audiobook disk (fastpi)",
-      "description": "fastpi's /mnt/seagate-black: audiobooks and podcasts. Used and free as df counts them (ext4 reserve left out). Dashed line: size.",
+      "description": "fastpi's /mnt/seagate-black: audiobooks and podcasts, used as df counts it (ext4 reserve left out). Orange from 70 %, red at 80 % (audiobook bar colours). Dashed: size (grey), limit (red).",
       "targets": [
         {
           "refId": "A",
@@ -1046,6 +1254,17 @@
             "uid": "dfc6abdxzsem8a"
           },
           "legendFormat": "size",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "0.8 * max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes + node_filesystem_avail_bytes)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dfc6abdxzsem8a"
+          },
+          "legendFormat": "limit 80 %",
           "instant": false,
           "range": true
         }
@@ -1073,12 +1292,64 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "size"
             },
             "properties": [
               {
                 "id": "custom.fillOpacity",
                 "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit 80 %"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
               },
               {
                 "id": "custom.lineStyle",
@@ -1095,21 +1366,6 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "used"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
                 }
               }
             ]
@@ -1134,7 +1390,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 21,
         "w": 12,
         "h": 7
       }
@@ -1142,7 +1398,7 @@
     {
       "type": "timeseries",
       "title": "Total combined",
-      "description": "beefy SSD + HDD + fastpi audiobook disk. Dashed line: size.",
+      "description": "All three disks against their usable space (each disk's size x its limit), so 100 % = every disk at its limit. Dashed: size (grey), limit (red).",
       "targets": [
         {
           "refId": "A",
@@ -1157,12 +1413,12 @@
         },
         {
           "refId": "B",
-          "expr": "sum(beefy_storage_size_bytes{branch=\"ssd\"}) + sum(beefy_storage_size_bytes{branch=\"hdd\"}) + sum(max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes + node_filesystem_avail_bytes))",
+          "expr": "0.8 * sum(beefy_storage_size_bytes{branch=\"ssd\"}) + 0.9 * sum(beefy_storage_size_bytes{branch=\"hdd\"}) + 0.8 * sum(max(node_filesystem_size_bytes{job=\"raspberry-pi\",mountpoint=\"/mnt/seagate-black\"} - node_filesystem_free_bytes + node_filesystem_avail_bytes))",
           "datasource": {
             "type": "prometheus",
             "uid": "dfc6abdxzsem8a"
           },
-          "legendFormat": "size",
+          "legendFormat": "usable (limits)",
           "instant": false,
           "range": true
         }
@@ -1190,12 +1446,31 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "size"
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "usable (limits)"
             },
             "properties": [
               {
                 "id": "custom.fillOpacity",
                 "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
               },
               {
                 "id": "custom.lineStyle",
@@ -1212,21 +1487,6 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "used"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
                 }
               }
             ]
@@ -1251,7 +1511,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 21,
         "w": 12,
         "h": 7
       }
@@ -1264,7 +1524,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 28,
         "w": 24,
         "h": 1
       }
@@ -1627,7 +1887,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 29,
         "w": 24,
         "h": 9
       }
@@ -1824,7 +2084,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 38,
         "w": 12,
         "h": 8
       }
@@ -2021,7 +2281,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 37,
+        "y": 38,
         "w": 12,
         "h": 8
       }
@@ -2034,7 +2294,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 46,
         "w": 24,
         "h": 1
       }
@@ -2128,7 +2388,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 47,
         "w": 6,
         "h": 5
       }
@@ -2222,7 +2482,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 46,
+        "y": 47,
         "w": 6,
         "h": 5
       }
@@ -2316,7 +2576,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 46,
+        "y": 47,
         "w": 6,
         "h": 5
       }
@@ -2395,7 +2655,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 46,
+        "y": 47,
         "w": 6,
         "h": 5
       }
@@ -2467,7 +2727,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 52,
         "w": 24,
         "h": 7
       }

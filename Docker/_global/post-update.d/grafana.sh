@@ -12,7 +12,7 @@ print("ok" if w and all(x in n for x in w) else "missing " + " ".join(x for x in
   check grafana.plugins-disabled '^15 0$' "$(echo "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' grafana | sed -n 's/^GF_PLUGINS_DISABLE_PLUGINS=//p' | tr ',' '\n' | grep -c .) $(t=$(docker top grafana -eo pid,args 2>&1) && { grep -o 'gpx_[A-Za-z_-]*' <<<"$t" | grep -vcE 'influxdb|prometheus'; true; } || echo top-failed)")"
 fi
 if want prometheus; then
-  check prom.storage-trends '^4 [1-9][0-9]*$' "$(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=homelab:storage_used_ratio' | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["data"]["result"]))') $(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count(beefy_library_bytes)' | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else 0)')"
+  check prom.storage-trends '^4 [1-9][0-9]*$' "$(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=homelab:storage_free_until_limit_bytes' | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["data"]["result"]))') $(curl -s -m 5 -G http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count(beefy_library_bytes)' | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else 0)')"
   check prom.rule-files '^([0-9]+) \1 \[\] 0$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,os,sys
 g = json.load(sys.stdin)["data"]["groups"]; f = {os.path.basename(x["file"]) for x in g}; d = set(os.listdir(sys.argv[1]))
 print(len(f), len(d), sorted(d - f), sum(r.get("health") != "ok" for x in g for r in x["rules"]))' "$GFD/prometheus/rules")"
