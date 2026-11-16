@@ -36,12 +36,12 @@ async function login(ctx) {
   let d = await (await ctx.request.get(url)).json();
   for (let i = 0; i < 10; i++) {
     const c = d.component;
-    if (c === "ak-stage-identification") d = await post({ uid_field: env.CANARY_USERNAME });
+    if (c === "ak-stage-identification") d = await post(d.password_fields ? { uid_field: env.CANARY_USERNAME, password: env.CANARY_PASSWORD } : { uid_field: env.CANARY_USERNAME });
     else if (c === "ak-stage-password") d = await post({ password: env.CANARY_PASSWORD });
     else if (c === "ak-stage-authenticator-validate") d = await post({ component: c, selected_challenge: d.device_challenges.find((x) => x.device_class === "totp"), code: await freshCode() });
     else if (c === "ak-stage-user-login") d = await post({ component: c, remember_me: true });
     else if (c === "xak-flow-redirect" || d.type === "redirect") return;
-    else throw new Error("login stopped at " + c);
+    else throw new Error("login stopped at " + c + " " + JSON.stringify(d.response_errors || ""));
   }
   throw new Error("login did not finish");
 }
