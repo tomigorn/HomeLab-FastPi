@@ -1,4 +1,4 @@
-FROM python:3.13-alpine@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca AS thumbs
+FROM python:3.13-alpine@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e AS thumbs
 RUN echo "pillow==12.3.0 --hash=sha256:571b9fcb07b97ef3a492028fb3d2dc0993ca23a06138b0315286566d29ef718a" > /req.txt \
     && pip install --no-cache-dir --root-user-action=ignore --only-binary=:all: --require-hashes -r /req.txt
 COPY scripts/build_thumbs.py /build_thumbs.py
