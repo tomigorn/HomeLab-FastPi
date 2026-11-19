@@ -92,13 +92,16 @@ http:
         certResolver: cloudflare
 
     # Converted downloads are off (owner 2026-11-19): Moonfin's High/Medium/Low/Mobile download is a progressive /Videos/{id}/stream?Static=false (mp4, fixed bitrate, HDR tone-mapped to SDR). Players never use it (they stream static=true or HLS master/main.m3u8: only Moonfin's download did, per all saved access logs), so Original download, direct play and HLS transcoding stay.
+    # Never reaches Jellyfin: jellyfin-popular's /hss-popular/download-blocked answers 403 and sends that device one pop-up ("choose Original"); beefy asleep or popular down = 403 too (no wake).
     jellyfin-converted-download-block:
       rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/videos/[^/]+/stream(\\.[a-z0-9]+)?$`) && (Query(`Static`, `false`) || Query(`static`, `false`))"
       entryPoints: ["websecure"]
       priority: 28
-      service: jellyfin
+      service: jellyfin-download-notice
       middlewares:
-        - jellyfin-deny-all
+        - jellyfin-download-refuse
+        - jellyfin-download-notice-path
+        - jellyfin-secure-headers
       tls:
         certResolver: cloudflare
 
@@ -214,6 +217,20 @@ http:
         sourceRange:
           - "127.0.0.1/32"
 
+    # 5xx (beefy asleep, popular down) becomes a bodiless 403.
+    jellyfin-download-refuse:
+      errors:
+        status: ["500-599"]
+        statusRewrites:
+          "500-599": 403
+        service: noop@internal
+        query: "/"
+
+    jellyfin-download-notice-path:
+      replacePathRegex:
+        regex: "^.*$"
+        replacement: "/hss-popular/download-blocked"
+
     jellyfin-public-info-rewrite:
       replacePathRegex:
         regex: "(?i)^/system/info/public$"
@@ -242,6 +259,11 @@ http:
           Server: ""
 
   services:
+    jellyfin-download-notice:
+      loadBalancer:
+        serversTransport: jellyfin-download-notice-fast
+        servers:
+          - url: "http://192.168.1.102:8097"
     beefy-waker-jf:
       loadBalancer:
         servers:
@@ -251,3 +273,9 @@ http:
         servers:
           - url: "http://192.168.1.102:8096"
         passHostHeader: true
+
+  serversTransports:
+    jellyfin-download-notice-fast:
+      forwardingTimeouts:
+        dialTimeout: 2s
+        responseHeaderTimeout: 3s
