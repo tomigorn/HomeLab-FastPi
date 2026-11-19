@@ -20,6 +20,7 @@ if want traefik; then
   check traefik.bouncer-fail-open '^stream -1$' "$(awk '/crowdsecMode:/{m=$2} /updateMaxFailure:/{f=$2} END{print m, f}' "$TR/traefik/dynamic/crowdsec.yml")"
   check traefik.portainer-password-block '^403$' "$(tcode -X POST --resolve portainer.holy-grail.ch:443:192.168.1.2 -H 'Content-Type: application/json' --data '{}' https://portainer.holy-grail.ch/api/auth)"
   check traefik.jellyfin-password-block '^403 403$' "$(for p in /Users/AuthenticateByName /emby/Users/abc/Authenticate; do tcode -X POST --resolve jellyfin.holy-grail.ch:443:192.168.1.2 "https://jellyfin.holy-grail.ch$p"; echo; done | xargs)"
+  check traefik.moonfin-transcode-block '^403 403 403$' "$(for p in /Moonfin/Transcodes/Mine /moonfin/transcodes /emby/Moonfin/Transcodes/x; do tcode --resolve jellyfin.holy-grail.ch:443:192.168.1.2 "https://jellyfin.holy-grail.ch$p"; echo; done | xargs)"
   check traefik.nextcloud-login-block '^403$' "$(tcode -X POST --resolve cloud.holy-grail.ch:443:192.168.1.2 https://cloud.holy-grail.ch/login)"
   check traefik.jellyfin-web-fresh '^(200|beefy asleep)$' "$(if nc -z -w2 192.168.1.102 22 >/dev/null 2>&1; then u=https://jellyfin.holy-grail.ch/web/main.jellyfin.bundle.js
     e=$(curl -sk -m 10 -o /dev/null -D - --resolve jellyfin.holy-grail.ch:443:192.168.1.2 "$u" | tr -d '\r' | awk 'tolower($1)=="etag:"{print $2}')

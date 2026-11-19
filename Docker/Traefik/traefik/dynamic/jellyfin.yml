@@ -91,6 +91,17 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Moonfin's converted downloads (High/Medium/Low/Mobile: the app creates and polls a server-side job under /Moonfin/Transcodes) are off (owner 2026-11-19): they turn HDR into SDR at a fixed low bitrate. "Original" (/Items/{id}/Download) and streaming are untouched.
+    jellyfin-moonfin-transcode-block:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/moonfin/transcodes(/|$)`)"
+      entryPoints: ["websecure"]
+      priority: 28
+      service: jellyfin
+      middlewares:
+        - jellyfin-deny-all
+      tls:
+        certResolver: cloudflare
+
     # Authentik outpost callback for the wake page below. No middlewares; must
     # beat the catch-all jellyfin router (priority 1).
     jellyfin-outpost:
