@@ -91,6 +91,17 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Converted downloads are off (owner 2026-11-19): Moonfin's High/Medium/Low/Mobile download is a progressive /Videos/{id}/stream?Static=false (mp4, fixed bitrate, HDR tone-mapped to SDR). Players never use it (they stream static=true or HLS master/main.m3u8: only Moonfin's download did, per all saved access logs), so Original download, direct play and HLS transcoding stay.
+    jellyfin-converted-download-block:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/videos/[^/]+/stream(\\.[a-z0-9]+)?$`) && (Query(`Static`, `false`) || Query(`static`, `false`))"
+      entryPoints: ["websecure"]
+      priority: 28
+      service: jellyfin
+      middlewares:
+        - jellyfin-deny-all
+      tls:
+        certResolver: cloudflare
+
     # Authentik outpost callback for the wake page below. No middlewares; must
     # beat the catch-all jellyfin router (priority 1).
     jellyfin-outpost:
