@@ -3,11 +3,14 @@
 # Walks the flow executor: identification (+ password on the same page, or a password stage) -> TOTP -> success.
 # Exit 0 = the auth flow completed (SSO + MFA work); non-zero = it did not.
 import base64, hashlib, hmac, http.cookiejar, json, struct, sys, time, urllib.request
+from pathlib import Path
 
 BASE = "https://sso.holy-grail.ch"
 FLOW = "default-authentication-flow"
 EXEC = f"{BASE}/api/v3/flows/executor/{FLOW}/?query="
 CREDS = "/home/pi/Projects/Docker/Authentik/secrets/canary.env"
+# Shared with claude-config tools/browser/shot.mjs: the SSO refuses a code that was already used, and each refusal counts towards the lockout policy.
+TOTP_STATE = Path.home() / ".local/state/canary-totp-counter"
 
 
 def load_creds():
@@ -28,6 +31,23 @@ def totp(b32, at=None):
     off = mac[-1] & 0x0F
     val = struct.unpack(">I", mac[off:off + 4])[0] & 0x7FFFFFFF
     return "%06d" % (val % 1000000)
+
+
+def fresh_counter(state=TOTP_STATE, now=None):
+    """(TOTP window to use, seconds to wait first); never a window whose code was already sent."""
+    now = time.time() if now is None else now
+    counter = int(now // 30)
+    try:
+        last = int(state.read_text())
+    except (OSError, ValueError):
+        last = -1
+    wait = 0
+    if counter <= last:
+        counter = last + 1
+        wait = counter * 30 - now + 0.5
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text(str(counter))
+    return counter, wait
 
 
 def open_app(opener, url, expect):
@@ -92,7 +112,11 @@ def main():
             if not dev:
                 print("LOGIN_FAIL: no TOTP device offered")
                 return 1
-            d = req("POST", {"component": "ak-stage-authenticator-validate", "selected_challenge": dev, "code": totp(b32)})
+            counter, wait = fresh_counter()
+            if wait:
+                print(f"waiting {wait:.0f}s for a fresh TOTP code")
+                time.sleep(wait)
+            d = req("POST", {"component": "ak-stage-authenticator-validate", "selected_challenge": dev, "code": totp(b32, counter * 30)})
         elif comp == "ak-stage-user-login":
             # Asked only when the login stage offers "stay signed in" (remember_me_offset > 0).
             d = req("POST", {"component": "ak-stage-user-login", "remember_me": True})
