@@ -1,0 +1,37 @@
+# Phone versions (beefy repo Movie-Downloads README "Phone versions", Jellyfin README "Phone versions"): an Original download goes to
+# jellyfin-popular, path unchanged. A phone app on a 4K title gets a 302 to the phone version or a pop-up; everything else a 302 back here
+# with hssPhone=1, which this rule skips, so Jellyfin serves it. popular down (health check) = failover straight to Jellyfin.
+# Rollback: delete this file (hot reload).
+http:
+  routers:
+    jellyfin-phone-download:
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/items/[0-9a-f]{32}/download$`) && !Query(`hssPhone`, `1`)"
+      entryPoints: ["websecure"]
+      priority: 6
+      service: jellyfin-phone-download
+      middlewares:
+        - jellyfin-wake
+        - jellyfin-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  services:
+    jellyfin-phone-download:
+      failover:
+        service: jellyfin-phone-popular
+        fallback: jellyfin
+    jellyfin-phone-popular:
+      loadBalancer:
+        serversTransport: jellyfin-phone-popular-fast
+        healthCheck:
+          path: /hss-popular/health
+          interval: 10s
+          timeout: 3s
+        servers:
+          - url: "http://192.168.1.102:8097"
+
+  serversTransports:
+    jellyfin-phone-popular-fast:
+      forwardingTimeouts:
+        dialTimeout: 2s
+        responseHeaderTimeout: 10s
