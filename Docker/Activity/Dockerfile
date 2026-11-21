@@ -1,6 +1,6 @@
 # Rust build (cargo test runs here), then a scratch image with only the static binary.
 # Targets: lock (export Cargo.lock), bin (export the binary for the black-box suite), default = the image.
-FROM rust:1-alpine@sha256:2cccd8b212b37dad15a555589c1b6787da4ab913fe24d8a9b2d99d3498869409 AS build
+FROM rust:1-alpine@sha256:8d0e82abfdf9a38071e07cabc5afba4ddbe077631a80e4e742a760c38beadc33 AS build
 RUN apk add --no-cache musl-dev
 ARG CARGO_BUILD_JOBS=2
 ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} CARGO_TERM_COLOR=never
