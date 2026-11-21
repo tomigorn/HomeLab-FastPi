@@ -175,7 +175,7 @@ Never a power cut while beefy answers; at most one per 6 h.
 
 | Source | Signed in when |
 |---|---|
-| `/gate?…&signed_in=1` | flag in the Traefik middleware address (10 gates after `authentik@file`), `X-Authentik-Username` set, peer = Traefik (`TRUSTED_PROXY`) |
+| `/gate?…&signed_in=1` | flag in the Traefik middleware address (11 gates after `authentik@file`), `X-Authentik-Username` set, peer = Traefik (`TRUSTED_PROXY`) |
 | `POST /jf/wake` | `X-Authentik-Username` set, peer = Traefik |
 
 The LAN route `beefy-wol.fastpi.homelab` blanks `X-Authentik-*` (`beefy-wol-strip-authentik`).

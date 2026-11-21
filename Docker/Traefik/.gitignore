@@ -21,3 +21,4 @@
 # CrowdSec LAPI key - never commit
 traefik/secrets/
 /traefik/dynamic/avatar-picker-secret.yml
+/traefik/dynamic/report-secret.yml

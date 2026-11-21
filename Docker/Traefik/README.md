@@ -79,6 +79,7 @@ Forward auth first (`authentik@file`), then the wake gate `http://192.168.1.2:90
 | `vpn-status-beefy` | `:8087` | LAN + VPN | `homelab-admins` |
 | `dt` (Dependency-Track, `dt.yml`) | `:8090` | public | `homelab-admins`, then DT's own Holy Grail login |
 | `jellyfin` `/hss-popular/` (`jellyfin-popular.yml`) | `:8097` "Currently popular" request backend | public | no forward auth: the backend checks the user's own Jellyfin token with Jellyfin (beefy `Docker/Jellyfin/README.md`) |
+| `report` (`report.yml`) | `:8098` problem reports (download-now) | public | `streaming-users`, `streaming-admins`; `report-secret@file` (gitignored, template `dynamic-example/report-secret.yml`) adds `X-Report-Secret`: the backend trusts the Authentik headers only with it (beefy Seerr README "Problem reports") |
 
 `tracker.yml` (Floppy) is an allow-list, not a catch-all:
 

@@ -1,0 +1,69 @@
+# Problem report site (HomeLab-BeefyServer Docker/Seerr README "Problem reports"): household members report a broken film or episode, beefy replaces it.
+#
+# https://report.holy-grail.ch/   (public via the Cloudflare tunnel)
+#
+# Forward auth only: Authentik app `report` (groups streaming-users, streaming-admins; Docker/Authentik/scripts/provision-report-sso.py).
+# The backend is download-now's report port on beefy; it trusts X-authentik-username/-groups only together with X-Report-Secret,
+# which report-secret@file adds (gitignored file, template dynamic-example/report-secret.yml).
+# MIDDLEWARE ORDER IS DELIBERATE: authentik first (sets the user headers, drops spoofed ones), then the wake gate (only a signed-in user boots beefy),
+# then the secret. Rollback: delete this file (hot reload); the secret file can stay.
+http:
+  routers:
+    # The outpost callback path. NO middlewares and a higher priority so it wins over the router below. Without it the login flow is dead.
+    report-outpost:
+      rule: "Host(`report.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    report:
+      rule: "Host(`report.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: report
+      middlewares:
+        - authentik@file
+        - report-wake
+        - report-secret@file
+        - default-rate-limit@file
+        - report-body-limit
+        - report-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # ?port=8098 makes the Beefy-Waker wait for the report port itself, not merely for sshd.
+    report-wake:
+      forwardAuth:
+        address: "http://192.168.1.2:9001/gate?port=8098&signed_in=1"
+        maxResponseBodySize: 1048576
+        trustForwardHeader: false
+
+    # A report is a few hundred bytes of JSON; the backend reads at most 16 KiB.
+    report-body-limit:
+      buffering:
+        maxRequestBodyBytes: 65536
+
+    # The page is own files only: no inline script or style, no external hosts.
+    report-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "same-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=()"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'"
+        customResponseHeaders:
+          Server: ""
+          Cross-Origin-Opener-Policy: "same-origin"
+
+  services:
+    report:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.102:8098"
+        passHostHeader: true
