@@ -10,9 +10,18 @@ Private research notes for one person. MkDocs Material, like the [Wiki](../Wiki/
 
 ```bash
 $EDITOR ~/notes/docs/<topic>.md                 # plus a row in its chapter page docs/chapter-*.md and a nav entry under that chapter in mkdocs.yml
-~/Projects/Docker/Notes/build.sh               # strict build, live at once; also regenerates docs/recent.md (Recently changed) from the notes history
 git -C ~/notes add -A && git -C ~/notes commit -m "notes: <topic>"
 ```
+
+| Step | What happens |
+|---|---|
+| Save a page | `notes-build.path` runs `build.sh` within seconds: format check, `docs/recent.md` (Recently changed) and `docs/batches/index.md` (handoff list) regenerated, strict build, live at once. Log: `journalctl -u notes-build` |
+| Commit | the notes repo's `.git/hooks/pre-commit` (link to `notes-pre-commit`) runs `check-format.sh` on the staged pages |
+| By hand | `~/Projects/Docker/Notes/build.sh` |
+
+**Format check** (`check-format.sh`, `-h`; tests: `tests/check-format.sh`): only `batch-backlog.md` (layout from claude-config `batch-homelab.md`: `## Standing run rules`, then `## ✅|❓|⏸️ Title (repo)` per open item, intro line, blank line, `- ` list; done items deleted) and `reminders.md` (table rows complete). All checked pages: blank line before a list, lines ≤ 400 characters.
+
+**Install** (once): `sudo install -m 0644 systemd/notes-build.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now notes-build.path`; hook: `ln -s ~/Projects/Docker/Notes/notes-pre-commit ~/notes/.git/hooks/pre-commit`.
 
 ## Access
 

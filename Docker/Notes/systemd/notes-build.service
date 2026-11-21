@@ -1,0 +1,14 @@
+[Unit]
+Description=Notes site: format check and strict MkDocs build of ~/notes into ~/notes/www
+Documentation=file:///home/pi/Projects/Docker/Notes/README.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/home/pi/Projects/Docker/Notes/build.sh
+TimeoutStartSec=300
+NoNewPrivileges=true
+PrivateTmp=true

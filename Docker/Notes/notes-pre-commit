@@ -1,0 +1,6 @@
+#!/bin/sh
+# Notes: backlog and reminders layout, checked on the staged content (chained from the global pre-commit hook).
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+for f in batch-backlog.md reminders.md; do git show ":docs/$f" > "$tmp/$f" 2>/dev/null || rm -f "$tmp/$f"; done
+set -- "$tmp"/*.md; [ -e "$1" ] || exit 0
+exec /home/pi/Projects/Docker/Notes/check-format.sh "$@"

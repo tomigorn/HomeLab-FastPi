@@ -1,0 +1,11 @@
+[Unit]
+Description=Notes site: rebuild right after a page in ~/notes/docs changes
+
+[Path]
+PathChanged=/home/pi/notes/docs
+PathChanged=/home/pi/notes/docs/batches
+PathChanged=/home/pi/notes/mkdocs.yml
+Unit=notes-build.service
+
+[Install]
+WantedBy=paths.target
