@@ -85,9 +85,9 @@ out("avatars", tn.avatars)
 G = ["authentik Admins", "homelab-admins", "streaming-users", "streaming-requesters", "streaming-admins", "cloud-users", "cloud-admins"]
 out("groups", f"{Group.objects.filter(name__in=G).count()}/{len(G)}")
 BIND = {"homelab-admins": ["traefik-dashboard", "grafana", "portainer", "adguard", "wg-easy", "home-assistant", "claude-mockups", "vpn-status-beefy", "vpn-status-mouse", "cup", "dt", "dt-login"],
-        "streaming-admins": ["qbittorrent-audiobooks", "sabnzbd-audiobooks", "prowlarr-audiobooks", "radarr", "sonarr", "prowlarr", "sabnzbd", "qbittorrent", "bazarr"],
+        "streaming-admins": ["qbittorrent-audiobooks", "sabnzbd-audiobooks", "prowlarr-audiobooks", "radarr", "sonarr", "prowlarr", "sabnzbd", "qbittorrent", "bazarr", "report"],
         "streaming-requesters": ["books", "books-login", "requests", "requests-login"],
-        "streaming-users": ["tracker", "tracker-login", "jellyfin"]}
+        "streaming-users": ["tracker", "tracker-login", "jellyfin", "report"]}
 for g, slugs in BIND.items():
     miss = [s for s in slugs if not PolicyBinding.objects.filter(target__in=Application.objects.filter(slug=s).values("pk"), group__name=g, enabled=True).exists()]
     out("bind-" + g, f"{len(slugs) - len(miss)}/{len(slugs)} {' '.join(miss)}")
