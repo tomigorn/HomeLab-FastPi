@@ -1,6 +1,8 @@
 #!/bin/sh
-# Notes: backlog and reminders layout, checked on the staged content (chained from the global pre-commit hook).
+# Notes: backlog, reminders and batch report layout, checked on the staged content (chained from the global pre-commit hook).
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-for f in batch-backlog.md reminders.md; do git show ":docs/$f" > "$tmp/$f" 2>/dev/null || rm -f "$tmp/$f"; done
-set -- "$tmp"/*.md; [ -e "$1" ] || exit 0
-exec /home/pi/Projects/Docker/Notes/check-format.sh "$@"
+git diff --cached --name-only --diff-filter=ACMR -- docs/claude/batch-backlog.md docs/claude/reminders.md 'docs/claude/reports/20*.md' | while read -r f; do
+  mkdir -p "$tmp/$(dirname "$f")"; git show ":$f" > "$tmp/$f"
+done
+files=$(find "$tmp" -name '*.md'); [ -n "$files" ] || exit 0
+exec /home/pi/Projects/Docker/Notes/check-format.sh $files

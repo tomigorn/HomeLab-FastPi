@@ -84,6 +84,32 @@ expect 1 "reminder row with the wrong cell count" "$reminders" "reminders.md:6"
 echo "intro"$'\n'"- list right after text" > "$tmp/docs/reminders.md"
 expect 1 "reminders: list needs a blank line" "$reminders" "blank line"
 
+mkdir -p "$tmp/docs/claude/reports"
+report="$tmp/docs/claude/reports/2026-11-22.md"
+good_report() {
+  cat > "$report" <<'EOF'
+# 🌙🛠️📋 Batch report — 2026-11-22
+
+## Daytime run
+
+**6 done · 10:12→12:45 (2h 33m)**
+
+- ✅ **Item** — 10:15→10:25 · Sonnet
+  What happened, a line that may be long.
+EOF
+}
+good_report
+expect 0 "good report passes" "$report"
+
+good_report; printf -- '- %0450d\n' 0 >> "$report"
+expect 0 "report lines may be long" "$report"
+
+good_report; sed -i '1s/2026-11-22/2026-11-21/' "$report"
+expect 1 "report title without its date" "$report" "2026-11-22.md:1"
+
+good_report; sed -i '/^\*\*6 done/{n;d}' "$report"
+expect 1 "report: list needs a blank line" "$report" "blank line"
+
 expect 0 "other pages are not checked" /dev/null
 
 [ "$fails" = 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }
