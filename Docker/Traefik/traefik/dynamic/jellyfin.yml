@@ -91,10 +91,11 @@ http:
       tls:
         certResolver: cloudflare
 
-    # Converted downloads are off (owner 2026-11-19): Moonfin's High/Medium/Low/Mobile download is a progressive /Videos/{id}/stream?Static=false (mp4, fixed bitrate, HDR tone-mapped to SDR). Players never use it (they stream static=true or HLS master/main.m3u8: only Moonfin's download did, per all saved access logs), so Original download, direct play and HLS transcoding stay.
-    # Never reaches Jellyfin: jellyfin-popular's /hss-popular/download-blocked answers 403 and sends that device one pop-up ("choose Original"); beefy asleep or popular down = 403 too (no wake).
+    # Smaller-quality downloads (owner 2026-11-22): Moonfin's High/Medium/Low/Mobile download is a progressive /Videos/{id}/stream?Static=false (mp4, fixed bitrate, HDR tone-mapped to SDR). Players never use it (they stream static=true or HLS master/main.m3u8: only Moonfin's download did, per all saved access logs), so Original download, direct play and HLS transcoding stay.
+    # Never reaches Jellyfin as asked: jellyfin-popular's /hss-popular/converted/<id> sends a phone app a 302 to Jellyfin's MP4 remux of the 1080p phone version (or of the title itself when it is not 4K) with hssPhone=1, which this rule skips;
+    # a phone version being prepared, a TV or any other client = 403 and one pop-up (beefy HomeLab-BeefyServer Jellyfin README "Phone versions"); beefy asleep or popular down = 403 too (no wake).
     jellyfin-converted-download-block:
-      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/videos/[^/]+/stream(\\.[a-z0-9]+)?$`) && (Query(`Static`, `false`) || Query(`static`, `false`))"
+      rule: "Host(`jellyfin.holy-grail.ch`) && PathRegexp(`(?i)^(/emby|/mediabrowser)?/videos/[^/]+/stream(\\.[a-z0-9]+)?$`) && (Query(`Static`, `false`) || Query(`static`, `false`)) && !Query(`hssPhone`, `1`)"
       entryPoints: ["websecure"]
       priority: 28
       service: jellyfin-download-notice
@@ -226,10 +227,11 @@ http:
         service: noop@internal
         query: "/"
 
+    # keeps the item id: /hss-popular/converted/<id>
     jellyfin-download-notice-path:
       replacePathRegex:
-        regex: "^.*$"
-        replacement: "/hss-popular/download-blocked"
+        regex: "(?i)^(?:/emby|/mediabrowser)?/videos/([^/]+)/stream(?:\\.[a-z0-9]+)?$"
+        replacement: "/hss-popular/converted/$1"
 
     jellyfin-public-info-rewrite:
       replacePathRegex:
@@ -278,4 +280,4 @@ http:
     jellyfin-download-notice-fast:
       forwardingTimeouts:
         dialTimeout: 2s
-        responseHeaderTimeout: 3s
+        responseHeaderTimeout: 10s
