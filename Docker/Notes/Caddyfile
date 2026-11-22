@@ -1,5 +1,9 @@
 # Static server for the private notes (built by build.sh into $NOTES_DIR/www). Login, TLS, rate limit and headers are handled by Traefik.
 :80 {
 	root * /srv
+	# Pages that moved into the Claude section (2026-11-22).
+	redir /batch-backlog/ /claude/batch-backlog/ permanent
+	redir /reminders/ /claude/reminders/ permanent
+	redir /batches/* /claude{uri} permanent
 	file_server
 }
