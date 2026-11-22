@@ -33,5 +33,15 @@ case_ sample-key-in-wg-chores-push-test web/src/lib/push.test.ts "$SAMPLE" 0
 case_ sample-key-elsewhere-still-found web/src/lib/push.ts "$SAMPLE" some
 case_ other-key-in-push-test-still-found web/src/lib/push.test.ts "$OTHER" some
 
+EXPORT=Docker/Authentik/authentik-config-export.yaml
+REPO=$(cd "$HERE/../.." && pwd)
+d="$T/export-real"; mkdir -p "$d/$(dirname "$EXPORT")"; cp "$REPO/$EXPORT" "$d/$EXPORT"
+got=$(findings "$d")
+[[ $got == 0 ]] && echo "ok   export-real-file" || { echo "FAIL export-real-file: $got finding(s), want 0"; fail=1; }
+d="$T/export-planted"; mkdir -p "$d/$(dirname "$EXPORT")"; cp "$REPO/$EXPORT" "$d/$EXPORT"
+printf 'api_key: %s\n' "xK9vQ2mZpL7wR4tY8nB3cF6hJ1dS5gA0" >> "$d/$EXPORT"
+got=$(findings "$d")
+((got > 0)) && echo "ok   export-planted-secret-found" || { echo "FAIL export-planted-secret-found: $got finding(s), want some"; fail=1; }
+
 ((fail)) && { echo "next: fix the allowlist in .gitleaks.toml"; exit 1; }
 echo "all passed"
