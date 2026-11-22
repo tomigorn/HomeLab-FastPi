@@ -617,6 +617,8 @@ docker compose exec -T server ak shell < scripts/dashboard-look.py
 
 Both scripts are idempotent.
 
+`scripts/restore-report-tile.sh [backup.json]` puts the `report` tile's name, icon, description and section back from a JSON backup (`provision-report-sso.sh --rollback` would delete the whole app).
+
 - **`fetch-app-icons.sh`** downloads SVGs from homarr-labs/dashboard-icons (Apache-2.0)
   at a **pinned commit**. Files are named `apps/<slug>-<md5-8>.svg`; the hash beats
   Cloudflare's 4-hour media cache. The logos are their owners' trademarks and this repo

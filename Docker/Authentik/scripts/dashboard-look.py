@@ -30,7 +30,7 @@ APPS = {
     "jellyfin":          ("Media", "Film & series streaming" + BEEFY, None),
     "requests":          ("Media", "Request films & series" + BEEFY, None),
     "tracker":           ("Media", "Ratings & watchlists" + BEEFY, None),
-    "report":            ("Media", "Report a broken film or episode" + BEEFY, "fa://fa-exclamation-triangle"),
+    "report":            ("Media", "Report a broken film" + BEEFY, None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
     "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
     "activity":          ("Media", "Who is watching & downloading", "fa://fa-signal"),

@@ -53,6 +53,15 @@ class Sections(unittest.TestCase):
         self.assertTrue(os.path.exists(icon))
         self.assertIn("#2a55c5", open(icon).read())
 
+    def test_report_tile_has_own_icon_and_a_short_description(self):
+        m = re.search(r'"report":\s*\("(\w+)",\s*"([^"]+)"\s*\+\s*BEEFY,\s*None\)', SOURCE)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.groups(), ("Media", "Report a broken film"))
+        icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icons", "report.svg")
+        svg = open(icon).read()
+        self.assertIn('viewBox="0 0 192 192"', svg)
+        self.assertIn('rx="40"', svg)
+
 
 def rule(selector_regex):
     m = re.search(selector_regex + r"\s*\{([^}]*)\}", CSS)
