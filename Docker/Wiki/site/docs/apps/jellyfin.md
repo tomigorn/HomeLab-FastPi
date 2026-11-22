@@ -148,6 +148,19 @@ By default you get a **Skip Intro** button. To skip without pressing:
 1. Browser: profile picture → **Settings** → **Playback** → **Media Segment Actions** → Intro / Outro Segments → **Skip** ("Ask To Skip" = button).
 2. Moonfin, on each TV: **Settings** → **Playback** → **Skipping & Autoplay** → Intro Segments → **Skip**.
 
+### Download to your computer {#download-to-your-computer}
+In the browser or the Jellyfin desktop app (Jellyfin Media Player): on a film or episode click **⋮** → **Download**. For a 4K title a small window asks:
+
+| Pick | You get | Download size, roughly |
+|---|---|---|
+| **Full file** | the full file as on the server: 4K HDR, every audio track and subtitle | 4K film 15–30 GB |
+| **Phone version** | 1080p HDR, every audio track the version has | about 1–2.5 GB per hour |
+
+- **Download all** of a season asks once for all its episodes.
+- **Not a 4K title:** no window, the file downloads at once (1080p film 4–10 GB).
+- **No phone version yet:** the window says it is being prepared (5–30 minutes). You get a **✅ message**; then click **Download** again and pick **Phone version**.
+- **Moonfin on Windows, Mac or Linux:** works like on the phone, see [Download to your phone](moonfin.md#9-download-to-your-phone).
+
 ### Rating and tracking
 - **Heart** = favourite, and you can mark things **played**. The TV and phone apps have no star ratings.
 - In the browser, film and series pages have a **Rate in Tracker** link: see [Watch history](tracker.md).

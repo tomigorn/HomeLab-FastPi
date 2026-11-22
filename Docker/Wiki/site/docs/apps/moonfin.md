@@ -157,6 +157,8 @@ On a film or episode tap **Download** and pick a quality.
 - You get a **✅ message** when it is ready: tap **Download** again and pick a smaller quality.
 - Tapping again before that shows how far it is, for example *42 % downloaded*.
 - On a TV, downloads are not available.
+- **Moonfin on a computer** (Windows, Mac, Linux): the same qualities, the same phone version. Browser and Jellyfin desktop app: [Download to your computer](jellyfin.md#download-to-your-computer).
+- Your two rows **📱 Your phone version requests** and **📲 On your phone** show on top of the home in Moonfin on the phone and on the computer.
 
 ## Picture in picture (iPhone) {#8-picture-in-picture}
 While a video plays, swipe up to the home screen: the video keeps playing in a small window. There is no button or setting for it in Moonfin.
