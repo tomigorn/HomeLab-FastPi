@@ -57,8 +57,6 @@ APPS = {
     "claude-mockups":    ("Homelab", "UI mockups", "fa://fa-palette"),
     "server-specs":      ("Homelab", "Our machines & hardware", "fa://fa-server"),
     "dt":                ("Homelab", "CVE overview" + BEEFY, None),
-    "cve":               ("Homelab", "CVE lookup & watchlist", "fa://fa-bug"),
-    "news":              ("Homelab", "Security news & releases", "fa://fa-rss"),
     "notes":             ("Utilities", "Private research notes", "fa://fa-sticky-note"),
     "wg-chores":         ("Utilities", "Shared household chores", None),
     "avatar-picker":     ("Account", "Your profile picture", None),

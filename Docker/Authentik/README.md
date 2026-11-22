@@ -499,8 +499,6 @@ fastpi audiobook downloaders (no secrets): `docker compose exec -T server ak she
 
 AudioBookRequest: `docker compose exec -T server ak shell < scripts/provision-books-sso.py 2>/dev/null | python3 scripts/apply-sso-env.py`, then `provision-media-groups.py`.
 
-CVE feeds (forward auth, group homelab-admins; apps `cve` = CVE lookup, `news` = Security news): `docker compose exec -T server ak shell < scripts/provision-cve-feeds-sso.py`, then `dashboard-look.py` (Homelab tiles).
-
 WG Chores v2 (own OIDC login, group WG; secret to `WG-Chores-v2/secrets/`): `docker compose exec -T -e WG_CHORES_OIDC_FILE=WG-Chores-v2/secrets/oidc_client_secret -e WG_CHORES_MEMBERS="tomigorn <flatmate> ..." server ak shell < scripts/provision-wg-chores-sso.py 2>/dev/null | python3 scripts/apply-sso-env.py`. Adds the users in `WG_CHORES_MEMBERS` to WG when they exist (prints MISSING otherwise; rerun after the signup).
 
 Tracker (Floppy on beefy), written into beefy `Floppy/secrets/`, then on beefy `cd ~/Projects/Docker/Floppy && sudo docker compose up -d --force-recreate floppy`:
