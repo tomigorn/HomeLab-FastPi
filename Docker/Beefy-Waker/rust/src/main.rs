@@ -57,6 +57,7 @@ fn service_name(port: u16) -> String {
         8090 => "Dependency-Track",
         8012 => "Tracker",
         8087 => "VPN status",
+        8098 => "Problem reports",
         _ => return format!("port {port}"),
     }
     .to_string()
@@ -912,6 +913,13 @@ mod tests {
 
     fn req(h: &[(&str, &str)]) -> Req {
         Req::new("GET", "/gate", "127.0.0.1", h.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect())
+    }
+
+    #[test]
+    fn service_names() {
+        assert_eq!(service_name(8096), "Jellyfin");
+        assert_eq!(service_name(8098), "Problem reports");
+        assert_eq!(service_name(1), "port 1");
     }
 
     #[test]

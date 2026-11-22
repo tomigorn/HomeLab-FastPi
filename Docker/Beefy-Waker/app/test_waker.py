@@ -1237,6 +1237,7 @@ class SignedInWakeTest(unittest.TestCase):
     def test_service_names(self):
         self.assertEqual(waker.service_name(8096), "Jellyfin")
         self.assertEqual(waker.service_name(8087), "VPN status")
+        self.assertEqual(waker.service_name(8098), "Problem reports")
         self.assertEqual(waker.service_name(1), "port 1")
 
     def test_jf_wake_signed_in(self):

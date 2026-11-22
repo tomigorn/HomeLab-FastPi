@@ -501,7 +501,7 @@ def send_wol(mac, broadcast):
 # plug power-cycle and an alarm; see recovery.py.
 SERVICE_NAMES = {8096: "Jellyfin", 5055: "Seerr", 7878: "Radarr", 8989: "Sonarr", 9696: "Prowlarr",
                  6767: "Bazarr", 8081: "SABnzbd", 8080: "qBittorrent", 8090: "Dependency-Track",
-                 8012: "Tracker", 8087: "VPN status"}
+                 8012: "Tracker", 8087: "VPN status", 8098: "Problem reports"}
 ALERT_DESCRIPTIONS = {
     "BeefyWakeFailed": "Check beefy's screen and the beefy plug in Home Assistant; history: journalctl --list-boots on beefy. The wake page shows the broken message for 6 h or until beefy answers.",
     "BeefyWakeRecovered": "beefy answers again. If it needed a power cut, look for the cause: journalctl -b -1 on beefy.",
