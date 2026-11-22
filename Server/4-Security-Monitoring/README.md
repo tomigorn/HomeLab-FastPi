@@ -359,7 +359,7 @@ option — an `auth.log` on disk is required.
 | `../../.gitleaks.toml` | rules + triaged allowlists (repo root); a path-scoped exception goes into a rule-level `[[rules.allowlists]]`: a global one with a path skips the whole file |
 | `../../.githooks/pre-commit` | blocks secrets at commit time |
 
-Feed snapshot for `vl-severity-feed` (status block of the CVE news, `Docker/Vulnerability-Lookup/README.md`), in `/var/lib/security-scan/feed/` (mounted read-only there):
+Feed snapshot of the scan results in `/var/lib/security-scan/feed/` (its reader, the CVE news `vl-severity-feed`, was removed 2026-11-22; the files are still written):
 
 | File | Written by | Content |
 |---|---|---|
