@@ -16,7 +16,6 @@ Provisioned from `provisioning/dashboards/*.json` into folder `Homelab`; edits t
 | LanguageTool — usage watch | `languagetool-watch` | LanguageTool usage |
 | Homelab — morning view | `homelab-morning` | one phone-sized look: storage, downloads, requests, popular job, Jellyfin playback, backups, security, certs, domains, subscriptions, SMART, indexers (see Homelab — morning view) |
 | Usage per user | `usage-per-user` | Seerr requests, Jellyfin plays, Audiobookshelf listening per user (see Usage per user) |
-| CVE feed resources | `cve-feed-resources` | Vulnerability-Lookup + Miniflux containers: RAM working set and peak, swap, CPU, network, block I/O, host disk and RAM (`Docker/Vulnerability-Lookup/README.md`); test `python3 scripts/test_cve_feed_board.py` |
 | Storage | `storage` | used % against each disk's limit, free until the limit, forecast (days until the limit and the SSD mover start, growth per month), size and titles per media category, beefy retention (see Storage trends) |
 
 ## Container and reboot alerts
