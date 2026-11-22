@@ -60,7 +60,12 @@ class Sections(unittest.TestCase):
         icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icons", "report.svg")
         svg = open(icon).read()
         self.assertIn('viewBox="0 0 192 192"', svg)
-        self.assertIn('rx="40"', svg)
+        self.assertIn("<circle", svg)
+        self.assertNotIn("rx=", svg)
+
+    def test_report_app_is_named_report(self):
+        prov = (Path(__file__).resolve().parent / "provision-report-sso.py").read_text()
+        self.assertRegex(prov, r'SLUG, NAME, PROVIDER, HOST = "report", "Report", ')
 
 
 def rule(selector_regex):

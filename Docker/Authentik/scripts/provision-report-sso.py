@@ -9,7 +9,7 @@ from authentik.outposts.models import Outpost
 from authentik.policies.models import PolicyBinding
 from authentik.providers.proxy.models import ProxyMode, ProxyProvider
 
-SLUG, NAME, PROVIDER, HOST = "report", "Report a problem", "report-proxy", "https://report.holy-grail.ch"
+SLUG, NAME, PROVIDER, HOST = "report", "Report", "report-proxy", "https://report.holy-grail.ch"
 GROUPS = ("streaming-users", "streaming-admins")
 outpost = Outpost.objects.get(name="authentik Embedded Outpost")
 
