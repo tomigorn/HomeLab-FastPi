@@ -4,6 +4,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 ## 22 November 2026
 
+**Rows by region on the home.** After **Hidden Gems**: Nordic, Spanish-language, French, Swiss & German-language films and series, plus Anime and Japanese, on the Jellyfin website and in Moonfin. New regions appear by themselves once there are 4 titles. [Jellyfin home screen](apps/jellyfin-home.md#rows-top-to-bottom)
+
 **Download to your computer: full file or phone version.** In the browser and the Jellyfin desktop app, **⋮** → **Download** on a 4K title asks: **Full file** (up to 30 GB) or **Phone version** (1080p HDR, about 1–2.5 GB per hour). Moonfin on Windows, Mac and Linux offers the same choice as on the phone. [Download to your computer](apps/jellyfin.md#download-to-your-computer)
 
 **Download to your phone: pick the size.** In Moonfin, **Original** downloads the full file; **High**, **Medium**, **Low** or **Mobile** all download the smaller phone version (about 1–2.5 GB per hour instead of up to 30 GB per film). No phone version yet? The first tap orders it, a ✅ message tells you when to tap again. [Download to your phone](apps/moonfin.md#9-download-to-your-phone)

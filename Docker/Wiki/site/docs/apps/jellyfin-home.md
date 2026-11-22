@@ -20,6 +20,7 @@ The page comes in groups. The wide rows (Studios, Networks, genres) and the colo
 | — | **Networks** | browse by network (Netflix, HBO, …) |
 | For you | **Because you watched …** | similar films and series you haven't seen; **a different title each time** you open the home, favourites more often |
 | | **Hidden Gems** | well-rated (IMDb 7.5+), not watched yet |
+| By region | **Nordic**, **Spanish-language**, **French**, **Swiss & German-language**, then e.g. **Anime**, **Japanese** | films and series by original language (Swiss: made in Switzerland); a region shows once it has 4+ titles, at most 6 rows; updated every night. Also in Moonfin |
 | — | **Movie Genres** | browse film genres |
 | Collections | **Finish These Collections** | collections you started, closest to done first |
 | | **Collections** | film collections (e.g. all Harry Potter films) |
