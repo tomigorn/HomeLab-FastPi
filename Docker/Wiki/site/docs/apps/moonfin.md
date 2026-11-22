@@ -138,6 +138,26 @@ The Samsung app signs in to Jellyfin with Quick Connect like the others, but its
 Limit: **10 requests per person per 7 days**. At the limit you see **"Request limit reached"** and Submit is greyed out.
 
 <!-- /only -->
+## Download to your phone {#9-download-to-your-phone}
+On a film or episode tap **Download** and pick a quality.
+
+| Pick | You get | Size, roughly |
+|---|---|---|
+| **Original** | the full file as on the server: 4K HDR, every audio track and subtitle | 4K film 15–30 GB, 1080p film 4–10 GB |
+| **High**, **Medium**, **Low** or **Mobile** | all the same: the **phone version**, 1080p HDR, your audio language in stereo | about 1–2.5 GB per hour |
+
+- **Not a 4K title:** every smaller quality gives the film's own picture (already 1080p or less) with your audio language in stereo.
+- **No phone version yet:** the first tap orders it and the download stops for now; a message says *A smaller phone version is being prepared*.
+
+| Phone version | Ready after |
+|---|---|
+| found online | 5–15 minutes |
+| we convert it ourselves | about 1/7 of the running time (2-hour film: 15–20 minutes) |
+
+- You get a **✅ message** when it is ready: tap **Download** again and pick a smaller quality.
+- Tapping again before that shows how far it is, for example *42 % downloaded*.
+- On a TV, downloads are not available.
+
 ## Picture in picture (iPhone) {#8-picture-in-picture}
 While a video plays, swipe up to the home screen: the video keeps playing in a small window. There is no button or setting for it in Moonfin.
 
