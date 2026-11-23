@@ -9,6 +9,19 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Feishin web player (Docker/Feishin), same origin as Navidrome so the login cookie reaches /rest; its nginx serves /feishin/ itself (PUBLIC_PATH), no strip-prefix.
+    music-feishin:
+      rule: "Host(`music.holy-grail.ch`) && (Path(`/feishin`) || PathPrefix(`/feishin/`))"
+      entryPoints: ["websecure"]
+      priority: 5
+      service: feishin
+      middlewares:
+        - authentik@file
+        - music-secure-headers
+        - feishin-trailing-slash
+      tls:
+        certResolver: cloudflare
+
     # Web UI and Subsonic API (/rest) alike: browsers log in, apps send Basic auth (username + Authentik app password), which the provider intercepts.
     # No rate limit on purpose (as jellyfin.yml): an app loading a library fires bursts of cover-art requests.
     music:
@@ -23,6 +36,12 @@ http:
         certResolver: cloudflare
 
   middlewares:
+    feishin-trailing-slash:
+      redirectRegex:
+        regex: "^https://music\\.holy-grail\\.ch/feishin$"
+        replacement: "https://music.holy-grail.ch/feishin/"
+        permanent: true
+
     # NOTE: authentication is Authentik forward auth (authentik@file; app "Music", group music-users; Docker/Authentik/scripts/provision-music-sso.py). Navidrome trusts X-authentik-username only from Traefik (172.24.255.3).
     music-secure-headers:
       headers:
@@ -38,6 +57,12 @@ http:
           X-Robots-Tag: "noindex, nofollow"
 
   services:
+    feishin:
+      loadBalancer:
+        servers:
+          - url: "http://feishin:9180"
+        passHostHeader: true
+
     navidrome:
       loadBalancer:
         servers:
