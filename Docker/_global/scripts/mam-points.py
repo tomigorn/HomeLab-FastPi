@@ -28,6 +28,7 @@ HOWTO = ("Update after checking the balance on MAM or spending points:\n"
          "<code>mam-points spent 25000</code> (after spending)\n"
          "<code>mam-points rate 309.9</code> (new points per hour)\n"
          "<code>mam-points status</code>")
+SET_CMD = "<code>mam-points set &lt;balance&gt; --rate &lt;points/hour&gt;</code>"
 
 
 def parse_number(text):
@@ -54,7 +55,7 @@ def crossing(s, threshold):
 
 
 def new_state(points, rate, now, epoch):
-    return {"points": points, "rate": rate, "updated": now.isoformat(), "epoch": epoch, "alerted": []}
+    return {"points": points, "rate": rate, "updated": now.isoformat(), "epoch": epoch, "last_alert": None}
 
 
 def _require(s):
@@ -101,10 +102,15 @@ def cmd_rate(s, rate, now):
     return new_state(estimate(s, now), _rate(rate), now, s["epoch"] + 1)
 
 
+def alert_day(now):
+    return now.astimezone(TZ).date().isoformat()
+
+
 def due(s, now):
+    if s.get("last_alert") == alert_day(now):
+        return []
     est = estimate(s, now)
-    reached = [k for k, t in THRESHOLDS.items() if est >= t and k not in s["alerted"]]
-    return reached[-1:]
+    return [k for k, t in THRESHOLDS.items() if est >= t][-1:]
 
 
 def fmt_when(t):
@@ -133,13 +139,13 @@ def render(stage, s, now, preview=False):
         crossed = f"cap of {CAP:,} crossed ≈ {fmt_when(crossing(s, CAP))}"
     details = (f"Estimate only, no contact with MAM: {s['points']:,.0f} points at {s['rate']:g}/h as of {fmt_when(updated(s))}. {crossed}.\n" + HOWTO)
     return "\n".join([f"{prefix}{EMOJI[stage]} <b>{html.escape(title)}</b>", "", cap_line, *bullets, "",
-                      f"<blockquote expandable>{details}</blockquote>"])
+                      f"<blockquote expandable>{details}</blockquote>", SET_CMD])
 
 
 def check(s, now, send):
     for stage in due(s, now):
         if send(render(stage, s, now)):
-            s = dict(s, alerted=sorted(set(s["alerted"]) | {k for k, t in THRESHOLDS.items() if t <= THRESHOLDS[stage]}))
+            s = dict(s, last_alert=alert_day(now))
             print(f"mam-points: sent {stage}")
         else:
             print(f"mam-points: send failed for {stage}", file=sys.stderr)

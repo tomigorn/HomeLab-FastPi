@@ -20,7 +20,7 @@ def h(n):
 
 
 def st(points=51655, rate=309.9, epoch=1):
-    return {"points": points, "rate": rate, "updated": T0.isoformat(), "epoch": epoch, "alerted": []}
+    return {"points": points, "rate": rate, "updated": T0.isoformat(), "epoch": epoch, "last_alert": None}
 
 
 def raises(fn, *a):
@@ -52,7 +52,7 @@ def test_crossing_time():
 
 def test_set_new_epoch():
     s = mp.cmd_set(st(epoch=3), 1000, h(1))
-    assert (s["points"], s["epoch"], s["alerted"]) == (1000, 4, [])
+    assert (s["points"], s["epoch"], s["last_alert"]) == (1000, 4, None)
     assert s["rate"] == 309.9 and s["updated"] == h(1).isoformat()
 
 
@@ -70,7 +70,7 @@ def test_reset_is_set_zero():
 def test_spent_subtracts_estimate():
     s = mp.cmd_spent(st(), 25000, h(10))
     assert abs(s["points"] - (51655 + 3099 - 25000)) < 1e-6
-    assert s["updated"] == h(10).isoformat() and s["epoch"] == 2 and s["alerted"] == []
+    assert s["updated"] == h(10).isoformat() and s["epoch"] == 2 and s["last_alert"] is None
 
 
 def test_spent_from_capped_estimate():
@@ -97,15 +97,17 @@ def test_validation():
     assert mp.parse_number("51,655") == 51655 and raises(mp.parse_number, "abc")
 
 
-def test_due_stages_once_per_epoch():
+def test_due_every_day_until_new_epoch():
     s = st(points=89000)
     assert mp.due(s, T0) == []
     assert mp.due(s, h(4)) == ["yellow"]
-    s["alerted"] = ["yellow"]
-    assert mp.due(s, h(4)) == []
+    s["last_alert"] = mp.alert_day(h(4))
+    assert mp.due(s, h(5)) == []
+    assert mp.due(s, h(28)) == ["yellow"]
     assert mp.due(s, h(40)) == ["red"]
-    s["alerted"] = ["yellow", "red"]
-    assert mp.due(s, h(400)) == []
+    s["last_alert"] = mp.alert_day(h(40))
+    assert mp.due(s, h(41)) == []
+    assert mp.due(s, h(400)) == ["red"]
 
 
 def test_both_crossed_in_one_night_sends_only_red():
@@ -113,27 +115,54 @@ def test_both_crossed_in_one_night_sends_only_red():
     assert mp.due(s, h(100)) == ["red"]
 
 
-def test_check_sends_and_marks():
+def test_alert_day_is_zurich_date():
+    assert mp.alert_day(dt.datetime(2026, 11, 23, 23, 30, tzinfo=UTC)) == "2026-11-24"
+
+
+def test_check_sends_daily():
     sent = []
     s = st(points=89000)
     s2 = mp.check(s, h(4), lambda m: sent.append(m) or True)
-    assert len(sent) == 1 and s2["alerted"] == ["yellow"]
+    assert len(sent) == 1 and s2["last_alert"] == mp.alert_day(h(4))
     s3 = mp.check(s2, h(5), lambda m: sent.append(m) or True)
-    assert len(sent) == 1 and s3["alerted"] == ["yellow"]
+    assert len(sent) == 1
+    s4 = mp.check(s3, h(28), lambda m: sent.append(m) or True)
+    assert len(sent) == 2 and sent[1].startswith("🟡")
+    s5 = mp.check(s4, h(52), lambda m: sent.append(m) or True)
+    s6 = mp.check(s5, h(76), lambda m: sent.append(m) or True)
+    assert len(sent) == 4 and sent[2].startswith("🔴") and sent[3].startswith("🔴")
+    assert s6["last_alert"] == mp.alert_day(h(76))
+
+
+def test_old_state_without_last_alert():
+    s = st(points=89000)
+    s["alerted"] = ["yellow"]
+    assert mp.due(s, h(4)) == ["yellow"]
 
 
 def test_failed_send_retried():
     s = st(points=89000)
     s2 = mp.check(s, h(4), lambda m: False)
-    assert s2["alerted"] == []
+    assert s2.get("last_alert") is None
+    assert mp.due(s2, h(5)) == ["yellow"]
 
 
-def test_new_epoch_realerts():
+def test_new_epoch_stops_alerts_and_realerts():
     sent = []
     s = mp.check(st(points=89000), h(4), lambda m: sent.append(m) or True)
-    s = mp.cmd_set(s, 89000, h(5))
-    mp.check(s, h(9), lambda m: sent.append(m) or True)
+    s = mp.cmd_set(s, 49, h(5))
+    assert s["last_alert"] is None
+    mp.check(s, h(29), lambda m: sent.append(m) or True)
+    assert len(sent) == 1
+    s = mp.cmd_set(s, 89000, h(30))
+    mp.check(s, h(34), lambda m: sent.append(m) or True)
     assert len(sent) == 2
+
+
+def test_messages_end_with_set_command():
+    for stage, pts, at in (("yellow", 89000, h(4)), ("red", 95000, h(40))):
+        m = mp.render(stage, st(points=pts), at)
+        assert m.endswith("<code>mam-points set &lt;balance&gt; --rate &lt;points/hour&gt;</code>")
 
 
 def test_yellow_message_layout():
