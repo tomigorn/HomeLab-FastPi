@@ -100,7 +100,7 @@ When one project pulls a newer image under a tag others use too (`caddy:alpine`,
 | What | `mam-points.py` (CLI `mam-points` → `~/.local/bin`): estimates the MyAnonamouse bonus points from the last known balance + rate. **No call to MAM** (its rules forbid automating unlisted endpoints) |
 | Estimate | `min(99999, points + rate × hours since update)` |
 | Commands | `mam-points status` · `set 51655 [--rate 309.9]` (current balance) · `spent 25000` · `reset` (= set 0) · `rate 309.9` (new points/hour) · `check [--preview]` (timer; `--preview` sends one sample 🟡 with made-up points) |
-| Epoch | `set`, `spent`, `reset`, `rate` each start a new epoch, which ends the daily alerts |
+| Epoch | `set`, `spent`, `reset`, `rate` each start a new epoch; a new balance below 90,000 ends the daily alerts (`rate` keeps the balance, so they go on) |
 | Alerts | 🟡 estimate ≥ 90,000 (days until the cap), 🔴 ≥ 99,999 (points wasted), **every day** until a new epoch, at most one per day (Zurich date, `last_alert` in the state). Both reached: only 🔴. Each message ends with `mam-points set <balance> --rate <points/hour>`. A failed send retries on the next run |
 | Input | balance 0–99,999, spent > 0 and ≤ estimate, rate > 0; `51,655` accepted |
 | State | `/var/lib/mam-points/state.json` (owned by `pi`, created by the unit's `StateDirectory`) |

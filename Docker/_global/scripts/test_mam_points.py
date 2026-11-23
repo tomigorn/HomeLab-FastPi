@@ -159,6 +159,13 @@ def test_new_epoch_stops_alerts_and_realerts():
     assert len(sent) == 2
 
 
+def test_rate_keeps_daily_alerts_without_double_send():
+    s = mp.check(st(points=95000), h(1), lambda m: True)
+    s = mp.cmd_rate(s, 100, h(2))
+    assert mp.due(s, h(3)) == []
+    assert mp.due(s, h(26)) == ["yellow"]
+
+
 def test_messages_end_with_set_command():
     for stage, pts, at in (("yellow", 89000, h(4)), ("red", 95000, h(40))):
         m = mp.render(stage, st(points=pts), at)

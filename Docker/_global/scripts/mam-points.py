@@ -99,7 +99,7 @@ def cmd_spent(s, amount, now):
 
 def cmd_rate(s, rate, now):
     s = _require(s)
-    return new_state(estimate(s, now), _rate(rate), now, s["epoch"] + 1)
+    return dict(new_state(estimate(s, now), _rate(rate), now, s["epoch"] + 1), last_alert=s.get("last_alert"))
 
 
 def alert_day(now):
