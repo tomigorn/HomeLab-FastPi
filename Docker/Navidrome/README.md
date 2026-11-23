@@ -1,6 +1,6 @@
 # Navidrome
 
-Music server (Subsonic API), PoC. `https://music.holy-grail.ch`, login only via Holy Grail (Authentik), group `music-users`.
+Music server (Subsonic API), PoC. `https://music.holy-grail.ch`, login only via Holy Grail (Authentik), group `music-users`. Second web UI: Feishin at `/feishin/` (`Docker/Feishin`).
 
 ```
 Cloudflare Tunnel → Traefik (authentik@file) → navidrome:4533
@@ -21,19 +21,15 @@ LAN/VPN: AdGuard *.holy-grail.ch rewrite → Traefik
 - Navidrome trusts `X-authentik-username` only from Traefik (`172.24.255.3`); any other source gets the normal Navidrome login, which no one has a password for.
 - Admin: the owner's admin account, created locally before the first SSO login (otherwise the first SSO user becomes admin); its local password is random and discarded.
 
-## Phone apps
-Apps can't do the Holy Grail login. Each user creates an **app password** in Holy Grail and uses it as the password in the app; the app sends it as HTTP Basic auth on every request, Authentik checks it.
+## Phone
+Browser only: no app passwords, so native Subsonic apps (Symfonium, Amperfy, …) can't log in. `/rest` without a Holy Grail session gets the login redirect.
 
-1. `https://sso.holy-grail.ch/if/user/` → Tokens and App passwords → Create App password (e.g. "Music phone").
-2. App: server `https://music.holy-grail.ch`, username = Holy Grail username, password = the app password.
-3. Streaming quality on mobile data: Opus 192 kbps; on home Wi-Fi: original.
+| Web UI | URL |
+|---|---|
+| Navidrome | `https://music.holy-grail.ch/` |
+| Feishin (nicer player, `Docker/Feishin`) | `https://music.holy-grail.ch/feishin/` (first time: Holy Grail username + any text as password) |
 
-| Platform | App | Setting |
-|---|---|---|
-| Android | Symfonium | Subsonic/OpenSubsonic provider, enable "basic auth" (or custom header `Authorization: Basic …`, not both) |
-| iPhone | Amperfy (free) | custom header per account `Authorization: Basic <base64 user:app-password>` |
-
-A wrong or expired app password gets the login page, not music: create a new one. Removing a user from `music-users` or deleting an app password cuts access within about 1 min (Authentik cache).
+Phone browser → "Add to home screen" for an app icon; playback goes on with the screen locked. Removing a user from `music-users` stops new logins at once; a session already open keeps working until it expires (up to 24 h).
 
 ## Operate
 | Task | Command (fastpi, `~/Projects/Docker`) |

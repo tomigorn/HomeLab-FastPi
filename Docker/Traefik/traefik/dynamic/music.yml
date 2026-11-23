@@ -22,7 +22,7 @@ http:
       tls:
         certResolver: cloudflare
 
-    # Web UI and Subsonic API (/rest) alike: browsers log in, apps send Basic auth (username + Authentik app password), which the provider intercepts.
+    # Web UI and Subsonic API (/rest) alike, browser only: Basic auth is not intercepted (no app passwords), so /rest without a Holy Grail session gets the login redirect.
     # No rate limit on purpose (as jellyfin.yml): an app loading a library fires bursts of cover-art requests.
     music:
       rule: "Host(`music.holy-grail.ch`)"

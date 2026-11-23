@@ -314,7 +314,7 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Admin = the owner's admin account, created locally before the first SSO login (random password, discarded) | Navidrome DB | `/auth/createAdmin` from inside the container on an empty DB (README "Login") | none (one-time; admin flag visible in the web UI) | none |
 | Music HDD folder read-only | `docker-compose.yaml` bind | `docker compose up -d` | `navidrome.music-readonly`: → read-only | none |
 | Healthcheck on `/ping` | `docker-compose.yaml` | `docker compose up -d` | `navidrome.ping`: → ok | endpoint removed (container shows unhealthy) |
-| Forward auth incl. `/rest`; apps send Basic auth with an app password, a wrong one gets the login redirect | `Traefik/traefik/dynamic/music.yml`, Authentik app `music` (`provision-music-sso.py`, `intercept_header_auth`) | file reload; `ak shell < scripts/provision-music-sso.py` | `navidrome.forward-auth`: → sso authorize; `navidrome.rest-wrong-password`: → 302 sso | Authentik dropping header interception (apps lose access) |
+| Forward auth incl. `/rest`, browser only: Basic auth is not intercepted (`intercept_header_auth` off, no app passwords), so `/rest` without a Holy Grail session gets the login redirect | `Traefik/traefik/dynamic/music.yml`, Authentik app `music` (`provision-music-sso.py`) | file reload; `ak shell < scripts/provision-music-sso.py` | `navidrome.forward-auth`: → sso authorize; `navidrome.rest-basic-auth`: → 302 sso; `authentik.music-no-basic-auth`: → False | Authentik changing the default of `intercept_header_auth` |
 
 ## Feishin
 
