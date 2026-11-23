@@ -113,6 +113,7 @@ out("enroll-redirect", f"{rs.name} {rs.mode} {rs.target_static}" if rs else (las
 op = Outpost.objects.get(name="authentik Embedded Outpost")
 miss = [p.name for p in ProxyProvider.objects.exclude(pk__in=op.providers.values("pk"))]
 out("outpost", f"missing={len(miss)} {' '.join(miss)}")
+out("music-basic", ",".join(str(p.intercept_header_auth) for p in ProxyProvider.objects.filter(name="music-proxy")) or "none")
 u = User.objects.filter(username="avatar-picker").first()
 out("avatar-sa", bool(u) and Role.objects.filter(name="avatar-picker", users=u).exists())
 out("admin", User.objects.filter(username="tomigorn-admin", is_active=True).exists())
@@ -151,6 +152,7 @@ PY
   check authentik.invite-warning '^order=1$' "$(akv invite)"
   check authentik.enroll-redirect '^enrollment-redirect-avatars static https://avatars\.holy-grail\.ch/$' "$(akv enroll-redirect)"
   check authentik.outpost-providers '^missing=0 $' "$(akv outpost)"
+  check authentik.music-no-basic-auth '^False$' "$(akv music-basic)"
   check authentik.avatar-picker-sa '^True$' "$(akv avatar-sa)"
   check authentik.admin-account '^True$' "$(akv admin)"
   check authentik.canary-off '^False$' "$(akv canary)"
