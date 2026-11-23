@@ -71,7 +71,7 @@ HIDDEN = ["jellyfin-wake", "nextcloud-wake", "requests-login", "tracker-login", 
 
 # Brand custom CSS. authentik adopts it into EVERY component's shadow root (login and
 # recovery flows included), so every rule is scoped to the library page's own parts
-# and to dark theme. It relies on UNDOCUMENTED internal selectors ([part=...],
+# and to dark theme (the flow-page rules at the end match only the flow executor's login card). It relies on UNDOCUMENTED internal selectors ([part=...],
 # data-group-id, theme attribute) read from the 2026.8.4 source - re-check after an
 # authentik upgrade. Safe-mode sessions (recovery links) get no custom CSS at all.
 CUSTOM_CSS = """\
@@ -248,6 +248,24 @@ CUSTOM_CSS = """\
 .pf-c-page__main:has(> main [part="app-list"]) > .pf-c-page__header > h1 { min-height: 0; }
 }
 #hg-vpn-banner { position: sticky; top: calc(var(--hg-head-height) + var(--hg-head-gap)); z-index: 11; }
+
+/* Login, enrollment and recovery flow pages: logo and card scale with the window height so username, password and the button stay on screen.
+   Only matches the flow executor's own login card (.pf-c-login__main > [part="branding"]), not the dashboard. */
+.pf-c-login__header { margin-top: clamp(12px, 5dvh, 64px); }
+.pf-c-login__main > [part="branding"] {
+  padding-block: clamp(12px, 3.5dvh, 64px) clamp(4px, 1.2dvh, 24px);
+}
+.pf-c-login__main > [part="branding"] .branding-logo {
+  width: auto;
+  max-width: 100%;
+  height: clamp(56px, 20dvh, 240px);
+  object-fit: contain;
+}
+@media (max-height: 760px) {
+  .pf-c-login__main-header { padding-block: 8px; }
+  .pf-c-login__main-body .pf-c-form { gap: 12px; }
+  .pf-c-login__main-body .pf-c-form__group.pf-m-action { margin-top: 12px; }
+}
 """
 
 

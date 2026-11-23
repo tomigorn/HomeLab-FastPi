@@ -629,6 +629,7 @@ Both scripts are idempotent.
   `branding_custom_css`. Launch URLs, providers, bindings, flows and footer links are
   untouched. It warns about missing slugs and lists apps it doesn't manage. To add an
   app, add a line to `APPS` (and to `ICONS` in the fetch script, or an SVG in `icons/`).
+- **Login page scales:** the same CSS shrinks the grail logo and card spacing with the window height (`dvh`), so username, password and button fit without scrolling from 375x667 up; login and recovery flows share the layout.
 - **Hidden helpers:** `jellyfin-wake` and `nextcloud-wake` have `meta_hide=True`. That
   only removes the tile; their providers and bindings still work.
 - **Sections** sort A to Z in authentik; custom CSS `order` rules make it Media,
