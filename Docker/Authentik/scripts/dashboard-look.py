@@ -32,6 +32,7 @@ APPS = {
     "tracker":           ("Media", "Ratings & watchlists" + BEEFY, None),
     "report":            ("Media", "Report a broken film" + BEEFY, None),
     "audiobookshelf":    ("Media", "Audiobook streaming", None),
+    "music":             ("Media", "Music streaming", "fa://fa-music"),
     "books":             ("Media", "Request audiobooks", "fa://fa-headphones"),
     "activity":          ("Media", "Who is watching & downloading", "fa://fa-signal"),
     "tech-radar":        ("Utilities", "My tech stack", "fa://fa-layer-group"),
