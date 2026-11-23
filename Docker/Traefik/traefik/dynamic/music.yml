@@ -1,0 +1,45 @@
+http:
+  routers:
+    # Authentik outpost callback path: no middlewares, higher priority (see cup.yml).
+    music-outpost:
+      rule: "Host(`music.holy-grail.ch`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      entryPoints: ["websecure"]
+      priority: 10
+      service: authentik@file
+      tls:
+        certResolver: cloudflare
+
+    # Web UI and Subsonic API (/rest) alike: browsers log in, apps send Basic auth (username + Authentik app password), which the provider intercepts.
+    # No rate limit on purpose (as jellyfin.yml): an app loading a library fires bursts of cover-art requests.
+    music:
+      rule: "Host(`music.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: navidrome
+      middlewares:
+        - authentik@file
+        - music-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    # NOTE: authentication is Authentik forward auth (authentik@file; app "Music", group music-users; Docker/Authentik/scripts/provision-music-sso.py). Navidrome trusts X-authentik-username only from Traefik (172.24.255.3).
+    music-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+          X-Robots-Tag: "noindex, nofollow"
+
+  services:
+    navidrome:
+      loadBalancer:
+        servers:
+          - url: "http://navidrome:4533"
+        passHostHeader: true
