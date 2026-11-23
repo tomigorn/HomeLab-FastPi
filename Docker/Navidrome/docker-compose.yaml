@@ -1,0 +1,50 @@
+# =========================================================
+# Services ================================================
+# =========================================================
+services:
+# #########################################################
+# Navidrome ###############################################
+# #########################################################
+  navidrome:
+    image: navidrome/navidrome:0.64.2   # pinned; release notes: github.com/navidrome/navidrome/releases
+    container_name: navidrome
+    user: "65062:65062"
+    mem_limit: 768m
+    cpus: 2
+    pids_limit: 256
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    env_file: .env
+    volumes:
+      - ./data:/data
+      - type: bind
+        source: /mnt/seagate-black/library/music
+        target: /music
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:4533/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - traefik_proxy
+
+# =========================================================
+# Networks ================================================
+# =========================================================
+networks:
+  traefik_proxy:
+    external: true
+
+# =========================================================
+# Volumes =================================================
+# =========================================================

@@ -305,6 +305,17 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Static specs page served read-only from www/ | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `specs.caddyfile`: caddy validate → Valid configuration; `specs.page`: index → 200 + bytes | caddy directive changes (auto-updated) |
 
+## Navidrome
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Pinned tag | `docker-compose.yaml` | edit, `docker compose up -d` (0.64.0 re-encoded all IDs: back up `data/` before a bump) | `navidrome.version-pin`: image → 0.64.2 | DB migration, client ID caches |
+| Login only from Traefik's user header: `ND_EXTAUTH_TRUSTEDSOURCES=172.24.255.3/32`, `ND_EXTAUTH_USERHEADER=X-authentik-username` | `.env` | `docker compose up -d` | `navidrome.extauth`: env → both values; `navidrome.forged-header`: header from another source → Subsonic "failed" | ExtAuth setting renames (the old ReverseProxy* names were renamed once already) |
+| Admin = the owner's admin account, created locally before the first SSO login (random password, discarded) | Navidrome DB | `/auth/createAdmin` from inside the container on an empty DB (README "Login") | none (one-time; admin flag visible in the web UI) | none |
+| Music HDD folder read-only | `docker-compose.yaml` bind | `docker compose up -d` | `navidrome.music-readonly`: → read-only | none |
+| Healthcheck on `/ping` | `docker-compose.yaml` | `docker compose up -d` | `navidrome.ping`: → ok | endpoint removed (container shows unhealthy) |
+| Forward auth incl. `/rest`; apps send Basic auth with an app password, a wrong one gets the login redirect | `Traefik/traefik/dynamic/music.yml`, Authentik app `music` (`provision-music-sso.py`, `intercept_header_auth`) | file reload; `ak shell < scripts/provision-music-sso.py` | `navidrome.forward-auth`: → sso authorize; `navidrome.rest-wrong-password`: → 302 sso | Authentik dropping header interception (apps lose access) |
+
 ## M4b-Auto-Merge
 
 | Customization | Where | Reapply | Verify | Update can break |

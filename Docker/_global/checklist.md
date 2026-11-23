@@ -44,6 +44,7 @@ tell them apart.
 | Notes | ❌ | ❌ | | |  |
 | Activity | ❌ | ❌ | | |  |
 | Tech-Radar | ❌ | ❌ | | |  |
+| Navidrome | ❌ | ❌ | | |  |
 | WG-Chores-v2 | ❌ | ❌ | | |  |
 | WG-Chores-Demo | ❌ | ❌ | | |  |
 
