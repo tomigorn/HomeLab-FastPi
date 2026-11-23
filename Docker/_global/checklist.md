@@ -45,6 +45,7 @@ tell them apart.
 | Activity | ❌ | ❌ | | |  |
 | Tech-Radar | ❌ | ❌ | | |  |
 | Navidrome | ❌ | ❌ | | |  |
+| Feishin | ❌ | ❌ | | |  |
 | WG-Chores-v2 | ❌ | ❌ | | |  |
 | WG-Chores-Demo | ❌ | ❌ | | |  |
 

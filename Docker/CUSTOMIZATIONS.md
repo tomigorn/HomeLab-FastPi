@@ -316,6 +316,15 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 | Healthcheck on `/ping` | `docker-compose.yaml` | `docker compose up -d` | `navidrome.ping`: → ok | endpoint removed (container shows unhealthy) |
 | Forward auth incl. `/rest`; apps send Basic auth with an app password, a wrong one gets the login redirect | `Traefik/traefik/dynamic/music.yml`, Authentik app `music` (`provision-music-sso.py`, `intercept_header_auth`) | file reload; `ak shell < scripts/provision-music-sso.py` | `navidrome.forward-auth`: → sso authorize; `navidrome.rest-wrong-password`: → 302 sso | Authentik dropping header interception (apps lose access) |
 
+## Feishin
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Pinned tag | `docker-compose.yaml` | edit, `docker compose up -d` | `feishin.version-pin`: image → 1.17.0 | settings.js template or env names |
+| Non-root 65063, read-only root, `cap_drop: ALL`; tmpfs `/etc/nginx/conf.d` (the entrypoint renders `default.conf` and `settings.js` there) and `/tmp` | `docker-compose.yaml` | `docker compose up -d` | `feishin.hardening`: → 65063:65063 ro=true caps=[ALL]; `feishin.health`: → healthy | nginx writing elsewhere at start (container won't start) |
+| Locked to Navidrome in Subsonic mode, served at `/feishin/` (`PUBLIC_PATH`), analytics off | `.env` | `docker compose up -d` | `feishin.settings`: → https://music.holy-grail.ch subsonic true true | env renames; a Navidrome-mode default (needs the real password) |
+| Route `music.holy-grail.ch/feishin/` behind `authentik@file`, same origin as Navidrome so the login cookie reaches `/rest`; `/feishin` → `/feishin/` redirect | `Traefik/traefik/dynamic/music.yml` (`music-feishin`) | file reload | `feishin.forward-auth`: → sso authorize; smoke test `music feishin -> sso` | none |
+
 ## M4b-Auto-Merge
 
 | Customization | Where | Reapply | Verify | Update can break |
