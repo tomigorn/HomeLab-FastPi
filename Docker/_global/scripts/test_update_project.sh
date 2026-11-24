@@ -89,7 +89,14 @@ case $1 in
 esac
 STUB
 chmod +x "$T/bin/docker"
-printf '#!/usr/bin/env bash\n[[ $1 == -n ]] && shift\nexec "$@"\n' > "$T/bin/sudo"; chmod +x "$T/bin/sudo"
+# fake root: FAKE_LOCKED (mode 000, the caller cannot traverse it) opens only for the duration of a sudo call
+cat > "$T/bin/sudo" <<'STUB'
+#!/usr/bin/env bash
+[[ $1 == -n ]] && shift
+[[ -n ${FAKE_LOCKED:-} ]] || exec "$@"
+chmod 700 "$FAKE_LOCKED"; "$@"; rc=$?; chmod 000 "$FAKE_LOCKED"; exit $rc
+STUB
+chmod +x "$T/bin/sudo"
 export FAKE_LOG="$T/log" FAKE_DIR="$T" WAIT=0 ROLLBACK_WAIT=0 CHECK_TRIES=1 HOME="$T" POST_UPDATE_DIR="$T/checks" PATH="$T/bin:$PATH"
 # CHECK passes only on the old image: every update below fails and rolls back.
 OLDCHECK='grep -q "^sha:old " "$FAKE_DIR/ctr"'
@@ -236,6 +243,14 @@ run snapshot; CHECK=true run pull "$T/no-such-dir"
 [[ $(awk '$1=="img:1"{print $2}' "$T/tags") == sha:old ]] && ok "pulled tag points at the old image again" || bad "tag re-pointed" "$(cat "$T/tags")"
 ! grep -q "^compose stop\|^compose pull" "$T/log" && ok "checked before the pull: nothing stopped or pulled" || bad "nothing stopped or pulled" "$(cat "$T/log")"
 [[ -e $T/backups/pre-update/pending/demo/taken ]] && ok "pending snapshot kept for the next try" || bad "pending snapshot kept" "$(ls -R "$T/backups" 2>&1)"
+
+echo "backup path under a folder only root can enter: checked and backed up as root"
+setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; echo "img:1 sha:new" > "$T/pullmap"
+mkdir -p "$T/locked/data"; echo keep > "$T/locked/data/app.db"; chmod 000 "$T/locked"
+FAKE_LOCKED="$T/locked" CHECK=true run pull "$T/locked/data"
+chmod 700 "$T/locked"
+[[ $rc == 0 && $out == *"OK demo"* && $out != *missing* ]] && ok "exit 0, path not reported missing" || bad "root-only path accepted" "rc=$rc $out"
+[[ -s $T/backups/pre-update/$TODAY/demo/data.tgz ]] && ok "root-only path backed up" || bad "root-only path backed up" "$(ls -la "$T/backups/pre-update/$TODAY/demo" 2>&1)"
 
 echo "volume backup fails: update aborted"
 setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; echo "img:1 sha:new" > "$T/pullmap"; touch "$T/runfail"

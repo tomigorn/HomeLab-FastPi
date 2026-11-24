@@ -61,7 +61,9 @@ if [[ $mode == snapshot ]]; then
   take_snapshot "$pending"; echo "snapshot $proj: $(wc -l < "$pending/files") files -> $pending (edit the image refs now, then run pull|build|recreate within 12 h)"; exit 0
 fi
 echo "=== $proj ($dir) mode=$mode"
-for b in "$@"; do [[ $b == vol:* || -e $b ]] || { echo "  backup: FAIL $b(missing)"; echo "ABORTED $proj: backup path missing, nothing changed"; exit 2; }; done
+# backup paths are checked as root, like the sudo tar that backs them up (a data dir may sit under a folder pi cannot enter)
+exists() { [[ -e $1 ]] || sudo -n test -e "$1"; }
+for b in "$@"; do [[ $b == vol:* ]] || exists "$b" || { echo "  backup: FAIL $b(missing)"; echo "ABORTED $proj: backup path missing, nothing changed"; exit 2; }; done
 stamp=$(date +%H%M%S); snap="$bk/compose-snapshot-$stamp"; from_pending=0
 if [[ -f $pending/taken ]] && (( $(date +%s) - $(stat -c %Y "$pending/taken") < 43200 )); then
   mv "$pending" "$snap"; from_pending=1; echo "  snapshot: the one taken before the edit -> $snap"
@@ -131,7 +133,7 @@ if (( $# )); then docker compose stop ${SERVICES:-} 2>&1 | grep -E 'Stopped|Erro
 manifest="$bk/backups-$stamp.list"; : > "$manifest"; bkfail=""
 for b in "$@"; do
   if [[ $b == vol:* ]]; then v=${b#vol:}; f="$bk/vol-$v.tgz"; docker run --rm -v "$v":/from:ro "$HELPER_IMAGE" tar czf - -C /from . > "$f"
-  elif [[ -e $b ]]; then f="$bk/$(basename "$b").tgz"; sudo tar czf - -C "$(dirname "$b")" "$(basename "$b")" > "$f"
+  elif exists "$b"; then f="$bk/$(basename "$b").tgz"; sudo tar czf - -C "$(dirname "$b")" "$(basename "$b")" > "$f"
   else bkfail+=" $b(missing)"; continue; fi
   if (( $? == 0 )) && [[ -s $f ]]; then echo "$b|$f" >> "$manifest"; echo "  backup: $b -> $f"; else bkfail+=" $b"; fi
 done
