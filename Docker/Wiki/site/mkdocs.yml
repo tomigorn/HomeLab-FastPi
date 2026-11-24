@@ -58,6 +58,7 @@ nav:
       - Profile picture: apps/profile-picture.md
       - Watch history (Tracker): apps/tracker.md
   - About:
+      - Report a problem: apps/report.md
       - Our machines: apps/machines.md
       - Help & FAQ: help.md
 extra_css:

@@ -6,7 +6,7 @@
     Ask the admin to reset your second factor. You'll set it up again at your next login.
 
 ??? question "I forgot my password"
-    On the login page press **Forgot password?**. You need access to your email and your authenticator.
+    On the login page press **Forgot password?**. You need access to your email and your authenticator. The email link works for **10 minutes**: no email or link expired? Ask again.
 
 ??? question "A tile is missing on my dashboard"
     Jellyfin and the Tracker come with your invite. Requests and Request audiobooks are switched on by the admin: ask. Audiobooks, Profile picture and this guide are for everyone.
@@ -24,6 +24,9 @@
 
 ??? question "The Jellyfin app can't connect"
     Use the address `https://jellyfin.holy-grail.ch` (not `sso.holy-grail.ch`), sign in with **Quick Connect**, and give a sleeping server a minute. See [Watching](apps/jellyfin.md).
+
+??? question "A film or episode won't play, or picture or sound is broken"
+    Report it on `https://report.holy-grail.ch`: the server replaces the broken version by itself. See [Report a problem](apps/report.md).
 
 ??? question "The film plays in the wrong language"
     Switch the audio track while playing, see [Audio & subtitles](audio-subtitles.md).

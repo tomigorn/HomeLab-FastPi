@@ -43,6 +43,7 @@ Ask the admin.
 | 🧭 for many days | rare titles can take long, or never appear. Ask the admin |
 | The request button is missing | you have no request right. Ask the admin |
 | "Request limit reached" | 10 requests per 7 days. Try again later |
+| It's there but won't play, or picture or sound is broken | [Report a problem](report.md): the server replaces it |
 
 <!-- only: streaming-requesters -->
 Audiobook instead? [Request audiobooks](audiobook-requests.md).
