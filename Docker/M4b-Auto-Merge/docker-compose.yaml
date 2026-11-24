@@ -66,10 +66,18 @@ services:
     pids_limit: 256
     # No ports: this serves nothing. Progress is visible on the existing
     # M4b-Merge-Dashboard, which reads the same runs/ directory.
+    networks:
+      default:
+        ipv4_address: 192.168.64.2
 
 # =========================================================
 # Networks ================================================
 # =========================================================
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 192.168.64.0/20
 
 
 # =========================================================
