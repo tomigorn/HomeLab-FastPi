@@ -637,8 +637,12 @@ _CHK_RE = re.compile(r"\bWARNING:|\bINFECTED\b", re.I)
 
 
 # Scratch scripts and pages that change daily; Xor.DDoS flags any script in /tmp, the PHP check any .php there.
-CHK_IGNORED_PATHS = ("/tmp/claude-*", "/tmp/*.sh")
+CHK_IGNORED_PATHS = ("/tmp/claude-*", "/tmp/*.sh",
+                     "/tmp/systemd-private-*-library-check.service-*/tmp/library-check.*/ffprobe")
 CHK_IGNORABLE = ("Xor.DDoS", "suspicious PHP files")
+# Headers whose listed paths are part of the finding: a new path under an accepted header is new.
+CHK_LISTED = ("Xor.DDoS", "suspicious files and directories")
+CHK_SEP = " "
 
 
 def parse_chkrootkit_detail(text: str) -> list[tuple[str, list[str]]]:
@@ -656,20 +660,27 @@ def parse_chkrootkit_detail(text: str) -> list[tuple[str, list[str]]]:
     return out
 
 
-def _chk_ignored(finding: str, paths: list[str]) -> bool:
+def _chk_path_ignored(finding: str, path: str) -> bool:
     import fnmatch
-    return (any(c in finding for c in CHK_IGNORABLE) and bool(paths)
-            and all(any(fnmatch.fnmatch(p, g) for g in CHK_IGNORED_PATHS) for p in paths))
+    return any(c in finding for c in CHK_IGNORABLE) and any(fnmatch.fnmatch(path, g) for g in CHK_IGNORED_PATHS)
+
+
+def chkrootkit_findings(finding: str, paths: list[str]) -> list[str]:
+    """Identities of one chkrootkit finding after the ignore filter: `header path` per path for file lists, else the header."""
+    kept = [p for p in paths if not _chk_path_ignored(finding, p)]
+    if any(c in finding for c in CHK_LISTED):
+        return [finding + CHK_SEP + p for p in kept] or ([finding] if not paths else [])
+    return [finding] if kept or not paths or not any(c in finding for c in CHK_IGNORABLE) else []
 
 
 def parse_chkrootkit(text: str) -> list[str]:
-    """chkrootkit findings by category (the header), not by listed path.
+    """chkrootkit findings: INFECTED lines and WARNING headers, file-list headers with each listed path.
 
-    The listed paths change every run (/proc/<pid>, scripts in /tmp), so the
-    header is the stable identity. A Xor.DDoS or PHP finding whose paths are
-    all scratch files (CHK_IGNORED_PATHS) is not a finding.
+    Other paths (/proc/<pid>) change every run, so for those the header is the
+    identity. Paths matching CHK_IGNORED_PATHS (scratch files) are dropped from
+    Xor.DDoS and PHP findings; a finding left with nothing is not a finding.
     """
-    return [f for f, paths in parse_chkrootkit_detail(text) if not _chk_ignored(f, paths)]
+    return [x for f, paths in parse_chkrootkit_detail(text) for x in chkrootkit_findings(f, paths)]
 
 
 def new_findings(findings: list[str], accepted: set[str]) -> list[str]:
@@ -1962,8 +1973,10 @@ def audit_samples(host: str, text: str) -> list:
         report.append(f"## {tool}")
         if tool == "chkrootkit":
             for f, paths in parse_chkrootkit_detail(sections[tool][0]):
-                report.append(("ignored  " if f not in findings else "NEW      " if f in new else "ok       ") + f)
-                report += [f"        {p}" for p in paths]
+                keys = chkrootkit_findings(f, paths)
+                report.append(("ignored  " if not keys else "NEW      " if any(k in new for k in keys) else "ok       ") + f)
+                listed = any(c in f for c in CHK_LISTED)
+                report += [f"        {p}" + ("  <- NEW" if listed and f + CHK_SEP + p in new else "") for p in paths]
         else:
             report += [("NEW      " if f in new else "ok       ") + f for f in findings]
         report.append("")

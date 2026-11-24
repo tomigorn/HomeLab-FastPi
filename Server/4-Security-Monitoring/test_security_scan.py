@@ -897,11 +897,11 @@ def test_rkhunter_clean_run_is_empty():
     assert parse_rkhunter("") == []
 
 
-def test_chkrootkit_findings_are_headers_and_infected_lines_not_the_listed_paths():
-    # Listed paths change every run (/proc/<pid>, files in /tmp); the header is the stable identity.
+def test_chkrootkit_findings_are_headers_and_infected_lines_with_paths_only_for_file_lists():
+    # /proc/<pid> paths change every run, so only the file-list headers carry their paths.
     assert parse_chkrootkit(CHKROOTKIT) == [
         "Checking `date'... INFECTED",
-        "WARNING: The following suspicious files and directories were found:",
+        "WARNING: The following suspicious files and directories were found: /usr/lib/debug/.build-id",
         "WARNING: Possible Linux BPFDoor Malware installed:",
         "chkproc: Warning: Possible LKM Trojan installed",
     ]
@@ -937,14 +937,64 @@ def test_chkrootkit_scratch_files_alone_do_not_make_a_xor_or_php_finding():
     ]
 
 
-def test_chkrootkit_xor_finding_stays_when_another_path_is_listed():
+def test_chkrootkit_xor_finding_is_header_plus_each_path_not_ignored():
     text = "WARNING: Possible Linux.Xor.DDoS installed:\n/tmp/claude-1000/a.sh\n/var/tmp/evil\n"
-    assert parse_chkrootkit(text) == ["WARNING: Possible Linux.Xor.DDoS installed:"]
+    assert parse_chkrootkit(text) == ["WARNING: Possible Linux.Xor.DDoS installed: /var/tmp/evil"]
 
 
 def test_chkrootkit_ignore_list_does_not_apply_to_other_categories():
     text = "WARNING: The following suspicious files and directories were found:\n/tmp/claude-1000/.x\n"
-    assert parse_chkrootkit(text) == ["WARNING: The following suspicious files and directories were found:"]
+    assert parse_chkrootkit(text) == ["WARNING: The following suspicious files and directories were found: /tmp/claude-1000/.x"]
+
+
+def test_chkrootkit_listed_finding_keeps_the_package_note_in_its_identity():
+    text = "WARNING: The following suspicious files and directories were found:\n/usr/lib/x/.n [From Debian package: p]\n"
+    assert parse_chkrootkit(text) == ["WARNING: The following suspicious files and directories were found: /usr/lib/x/.n [From Debian package: p]"]
+
+
+def test_chkrootkit_other_headers_stay_header_only():
+    text = "WARNING: Output from ifpromisc:\neth0: PACKET SNIFFER(/usr/sbin/dhcpcd[512])\n"
+    assert parse_chkrootkit(text) == ["WARNING: Output from ifpromisc:"]
+
+
+def test_chkrootkit_library_check_ffprobe_wrapper_is_ignored():
+    p = "/tmp/systemd-private-0123abcd-library-check.service-Xy12/tmp/library-check.AbC123/ffprobe"
+    text = f"WARNING: Possible Linux.Xor.DDoS installed:\n{p}\n"
+    assert parse_chkrootkit(text) == []
+
+
+def test_chkrootkit_library_check_ignore_is_only_for_that_shape():
+    other = "/tmp/systemd-private-0123abcd-other.service-Xy12/tmp/library-check.AbC123/ffprobe"
+    wrong = "/tmp/systemd-private-0123abcd-library-check.service-Xy12/tmp/library-check.AbC123/evil"
+    text = f"WARNING: Possible Linux.Xor.DDoS installed:\n{other}\n{wrong}\n"
+    assert parse_chkrootkit(text) == [f"WARNING: Possible Linux.Xor.DDoS installed: {other}",
+                                      f"WARNING: Possible Linux.Xor.DDoS installed: {wrong}"]
+
+
+def test_audit_new_path_under_an_accepted_header_is_a_new_warning():
+    d = _tmp_dirs()
+    hdr = "WARNING: Possible Linux.Xor.DDoS installed:\n"
+    base = AUDIT_OUT.replace(CHKROOTKIT, hdr + "/var/tmp/known\n")
+    audit_samples("beefy", base)
+    same = audit_samples("beefy", base)
+    assert _metric(same, "security_rootkit_warnings", host="beefy", tool="chkrootkit") == [0]
+    more = AUDIT_OUT.replace(CHKROOTKIT, hdr + "/var/tmp/known\n/var/tmp/new\n")
+    samples = audit_samples("beefy", more)
+    assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="chkrootkit") == [1]
+    assert _metric(samples, "security_rootkit_new_fingerprint", host="beefy", tool="chkrootkit") != [0]
+    rep = (d / "state" / "audit-beefy.txt").read_text()
+    assert "        /var/tmp/new  <- NEW" in rep
+    assert "        /var/tmp/known\n" in rep
+
+
+def test_audit_header_only_baseline_does_not_accept_listed_paths():
+    _tmp_dirs()
+    hdr = "WARNING: Possible Linux.Xor.DDoS installed:"
+    out = AUDIT_OUT.replace(CHKROOTKIT, hdr + "\n/var/tmp/evil\n")
+    audit_samples("beefy", out)
+    (security_scan.STATE / "audit-accepted-beefy-chkrootkit.txt").write_text(hdr + "\n")
+    samples = audit_samples("beefy", out)
+    assert _metric(samples, "security_rootkit_warnings", host="beefy", tool="chkrootkit") == [1]
 
 
 def test_audit_report_lists_paths_under_each_finding():
