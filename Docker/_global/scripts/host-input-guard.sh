@@ -4,7 +4,7 @@
 # Traffic that enters from a Docker bridge (docker0, br-*) and is addressed to the host hits INPUT: DNS to AdGuard, Traefik → host-network services, docker-proxy hairpins (VPN peers → 192.168.1.2:443), cloudflared → sshd. Without this guard every container and VPN peer reaches every host listener (sshd, samba, AdGuard admin, HA, go2rtc, wakers).
 # Only the flows below are allowed from bridges, by source and port; everything else from a bridge is dropped.
 # VPN peers reach only SSH, DNS, the web apps (80/443 via Traefik + SSO) and ping: the owner rarely uses the VPN, ask before opening more. LAN (eth0/wlan0) gets HOST-LAN-GUARD: only the LAN_TCP/LAN_UDP lists, multicast, ping and beefy → 8009; loopback is not matched; OUTPUT to beefy is host-output-guard.sh.
-# IPv6: no Docker network has IPv6; bridges get established + ICMPv6 only, eth0 accepts NEW only from link-local/ULA (no exposure if the ISP ever enables global IPv6).
+# IPv6: no Docker network has IPv6; bridges get established + ICMPv6 only, eth0 accepts NEW only from link-local/ULA and only on the LAN_TCP/LAN_UDP lists (plus multicast and DHCPv6 replies), so IPv6 is no way around HOST-LAN-GUARD (no exposure if the ISP ever enables global IPv6).
 #
 # Idempotent: rebuilds HOST-GUARD / HOST-GUARD6 and their INPUT hooks on every run. The hooks never reference Docker's chains, so rules.v4/v6 restore at boot before Docker starts.
 # Persist: `host-input-guard.sh --persist` (calls iptables-persist.sh: rules.v4/v6 get only our own chains). Never `netfilter-persistent save`.
@@ -46,9 +46,12 @@ v6() {
   ip6tables -F HOST-GUARD6
   ip6tables -A HOST-GUARD6 -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
   ip6tables -A HOST-GUARD6 -p ipv6-icmp -j RETURN
-  ip6tables -A HOST-GUARD6 -i eth0 -s fe80::/10 -j RETURN
-  ip6tables -A HOST-GUARD6 -i eth0 -s fc00::/7 -j RETURN
   ip6tables -A HOST-GUARD6 -i eth0 -d ff00::/8 -j RETURN
+  for src in fe80::/10 fc00::/7; do
+    ip6tables -A HOST-GUARD6 -i eth0 -s "$src" -p tcp -m multiport --dports $LAN_TCP -j RETURN
+    ip6tables -A HOST-GUARD6 -i eth0 -s "$src" -p udp -m multiport --dports $LAN_UDP -j RETURN
+  done
+  ip6tables -A HOST-GUARD6 -i eth0 -s fe80::/10 -p udp --dport 546 -j RETURN
   ip6tables -A HOST-GUARD6 -m limit --limit 6/min --limit-burst 20 -j LOG --log-prefix "host-guard6 drop: " --log-level 6
   ip6tables -A HOST-GUARD6 -j DROP
   for i in docker0 br-+ eth0; do
