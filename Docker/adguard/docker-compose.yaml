@@ -17,7 +17,7 @@ services:
 #   3. ssh -L 3000:127.0.0.1:3000 fastpi, then http://localhost:3000/
 #   Remove the user again afterwards. Backup: conf/AdGuardHome.yaml.bak-2026-10-19.
   adguardhome:
-    image: adguard/adguardhome:latest
+    image: adguard/adguardhome:v0.107.80   # pinned: :latest moved to v1.0.0 (major), plan that as its own change
     container_name: adguardhome
     user: "65033:65033"   # owns ./conf and the adguardhome-data volume
     mem_limit: 256m
