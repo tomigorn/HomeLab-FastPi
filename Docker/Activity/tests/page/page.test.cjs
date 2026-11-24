@@ -417,7 +417,7 @@ const RES = {
   ],
   hist: { cpu_pct: [3, 23.1], mem_pct: [14, 15], gpu_pct: [null, 41], down_kbps: [900, 1888], up_kbps: [100, 27013] },
 };
-const FASTPI_HOST = { cpu_pct: 71.0, cores_pct: [59, 90.1, 80.3, 54.2], mem_used_bytes: 6228869120, mem_total_bytes: 8453947392, swap_used_bytes: 4642357248, swap_total_bytes: 10737401856, disk_used_bytes: 252914872320, disk_total_bytes: 477981716480 };
+const FASTPI_HOST = { cpu_pct: 71.0, cores_pct: [59, 90.1, 80.3, 54.2], mem_used_bytes: 6228869120, mem_total_bytes: 8453947392, swap_used_bytes: 4642357248, swap_total_bytes: 10737401856, disks: [{ disk: "nvme", used_bytes: 252914872320, total_bytes: 477981716480 }, { disk: "seagate-red", used_bytes: 273804165120, total_bytes: 1970545786880 }, { disk: "seagate-black", used_bytes: 408021393408, total_bytes: 1970545786880 }] };
 const rows = (p, host) => p.page.locator(`#resources [data-host=${host}] .r`).evaluateAll((rs) => rs.map((r) => r.innerText.replace(/\s+/g, " ").trim()));
 
 test("the Resources card leads the page: beefy's CPU, RAM, swap, GPU, net and each pool disk, then fastpi", async () => {
@@ -433,7 +433,9 @@ test("the Resources card leads the page: beefy's CPU, RAM, swap, GPU, net and ea
     "SSD 2 0.1 % R 0.0 · W 0.3 MB/s 11 % used · 5.4 TB free to the 80 % limit",
     "HDD 1 💤 asleep 1.9 % used · 26 TB free to the 90 % limit",
   ]);
-  assert.deepEqual(await rows(p, "fastpi"), ["CPU 71 % busiest core 90 %", "RAM 5.8 / 7.9 GiB", "Swap 4.3 / 10 GiB", "Disk 53 % used · 225 GB free"]);
+  assert.deepEqual(await rows(p, "fastpi"), ["CPU 71 % busiest core 90 %", "RAM 5.8 / 7.9 GiB", "Swap 4.3 / 10 GiB", "NVMe 53 % used · 225 GB free", "HDD red · downloads 14 % used · 1.7 TB free", "HDD black · library 21 % used · 1.6 TB free"]);
+  assert.deepEqual(await p.page.locator("#resources .host h3").allInnerTexts(), ["🖥️ beefy · last minute", "🍓 fastpi · last 10 s"], "each host its own box with a bold header");
+  assert.equal(await p.page.locator("#resources .host[data-host=beefy] .r").count() + await p.page.locator("#resources .host[data-host=fastpi] .r").count(), await p.page.locator("#resources .r").count(), "every row inside its host's box");
   assert.deepEqual(await p.page.locator("#resources [data-host=beefy] .space").evaluateAll((m) => m.map((x) => x.getAttribute("data-level"))), ["full", "ok", "ok"], "the indexer bar's levels");
   assert.equal(await p.page.locator("#resources [data-host=beefy] .cores rect:not(.bg)").count(), 3, "one bar per core");
   assert.equal(await p.page.locator("#resources [data-host=beefy] .spark").count(), 4, "CPU, RAM, net and SSD 1: the series with two points or more (GPU has one)");
@@ -449,11 +451,11 @@ test("the Resources card fits a phone without scrolling sideways", async () => {
 
 test("a sleeping beefy has no live figures, fastpi still shows", async () => {
   let p = await open([base({ beefy: "asleep", beefy_data: "stale", beefy_resources: null, fastpi_load: { audiobookshelf: null, downloads: null, host: FASTPI_HOST } })]);
-  assert.match(await p.text("#resources"), /💤 beefy asleep — not woken for this/);
-  assert.equal((await rows(p, "fastpi")).length, 4);
+  assert.equal(await p.text("#resources [data-host=beefy]"), "🖥️ beefy · 💤 asleep — not woken for this", "asleep: the header line only");
+  assert.equal((await rows(p, "fastpi")).length, 6);
   await p.ctx.close();
   p = await open([base({ beefy_resources: null, fastpi_load: null })]);
-  assert.match(await p.text("#resources"), /beefy figures unavailable/);
-  assert.match(await p.text("#resources"), /fastpi figures unavailable/);
+  assert.equal(await p.text("#resources [data-host=beefy]"), "🖥️ beefy · ❔ figures unavailable");
+  assert.equal(await p.text("#resources [data-host=fastpi]"), "🍓 fastpi · ❔ figures unavailable");
   await p.ctx.close();
 });

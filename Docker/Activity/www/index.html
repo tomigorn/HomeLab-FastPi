@@ -39,8 +39,12 @@
   main.stale section, main.stale #headline { opacity: 0.45; }
   details.release { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
   details.release summary { cursor: pointer; }
-  .res h3 { font-size: 0.85rem; color: var(--muted); font-weight: 600; margin: 0.5rem 0 0.2rem; }
-  .res h3:first-child { margin-top: 0; }
+  .res .host { border: 1px solid var(--line); border-radius: 8px; padding: 0.4rem 0.6rem 0.5rem; }
+  .res .host + .host { margin-top: 0.6rem; }
+  .res h3 { font-size: 0.95rem; font-weight: 700; margin: 0 0 0.3rem; }
+  .res .host:not(:has(.r)) h3 { margin: 0; font-weight: 600; color: var(--muted); }
+  .r.disk { grid-template-columns: 1fr; row-gap: 0.1rem; }
+  .r.disk .s { grid-column: 1; }
   .r { display: grid; grid-template-columns: 3.1rem minmax(2.5rem, 1fr) 7.6rem 4.5rem; column-gap: 0.5rem; align-items: center; padding: 0.15rem 0; font-variant-numeric: tabular-nums; }
   .r .k { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
   .r .v { text-align: right; white-space: nowrap; font-weight: 600; font-size: 0.9rem; }
@@ -475,27 +479,29 @@ function beefyRes(r) {
   }
   return out;
 }
+const FASTPI_DISKS = { nvme: "NVMe", "seagate-red": "HDD red · downloads", "seagate-black": "HDD black · library" };
 function fastpiRes(f) {
   const out = [];
   if (known(f.cpu_pct)) out.push(cpuRows(f.cpu_pct, f.cores_pct, null));
   if (known(f.mem_used_bytes) && f.mem_total_bytes) out.push(resRow("ram", "RAM", f.mem_used_bytes / f.mem_total_bytes * 100, usedOf(f.mem_used_bytes, f.mem_total_bytes)));
   if (known(f.swap_used_bytes) && f.swap_total_bytes) out.push(resRow("swap", "Swap", f.swap_used_bytes / f.swap_total_bytes * 100, usedOf(f.swap_used_bytes, f.swap_total_bytes)));
-  const sp = spaceLine({ used_bytes: f.disk_used_bytes, total_bytes: f.disk_total_bytes });
-  if (sp) { const r = resRow("disk", "Disk", null, "", null); r.replaceChildren(el("span", { class: "k" }, "Disk"), el("div", { class: "s" }, ...sp)); out.push(r); }
+  for (const d of f.disks || []) {
+    const sp = spaceLine(d);
+    const name = FASTPI_DISKS[d.disk];
+    if (sp && name) out.push(el("div", { class: "r disk", "data-row": d.disk }, el("span", { class: "k" }, name), el("div", { class: "s" }, ...sp)));
+  }
   return out;
 }
 function resources(s) {
   const box = document.getElementById("res");
-  box.replaceChildren();
-  const b = el("div", { "data-host": "beefy" }, el("h3", {}, "beefy · last minute"));
+  const host = (id, head, ...body) => el("div", { class: "host", "data-host": id }, el("h3", {}, head), ...body);
   const r = s.beefy_resources;
-  if (r) b.append(...beefyRes(r));
-  else b.append(empty(s.beefy === "asleep" ? "💤 beefy asleep — not woken for this" : s.beefy === "up" ? "❔ beefy figures unavailable" : "❔ beefy figures unavailable (" + s.beefy + ")"));
+  const b = r
+    ? host("beefy", "🖥️ beefy · last minute", ...beefyRes(r), el("p", { class: "note" }, "beefy " + hhmm(r.updated) + ", from its idle watcher (/proc, no disk woken); sparklines: last " + ((r.hist && r.hist.cpu_pct) || []).length + " min"))
+    : host("beefy", "🖥️ beefy · " + (s.beefy === "asleep" ? "💤 asleep — not woken for this" : s.beefy === "up" ? "❔ figures unavailable" : "❔ figures unavailable (" + s.beefy + ")"));
   const f = s.fastpi_load && s.fastpi_load.host;
-  const fp = el("div", { "data-host": "fastpi" }, el("h3", {}, "fastpi · last 10 s"));
-  if (f) fp.append(...fastpiRes(f)); else fp.append(empty("❔ fastpi figures unavailable"));
-  box.append(b, fp);
-  if (r) box.append(el("p", { class: "note" }, "beefy " + hhmm(r.updated) + ", from its idle watcher (/proc, no disk woken); sparklines: last " + ((r.hist && r.hist.cpu_pct) || []).length + " min"));
+  const fp = f ? host("fastpi", "🍓 fastpi · last 10 s", ...fastpiRes(f)) : host("fastpi", "🍓 fastpi · ❔ figures unavailable");
+  box.replaceChildren(b, fp);
 }
 
 let lastGood = null;

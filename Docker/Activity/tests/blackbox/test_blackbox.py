@@ -299,7 +299,9 @@ LISTENING = {"sessions": 3, "modes": ["direct play", "transcode", "other"]}
 FASTPI_LOAD = {"audiobookshelf": {"cpu_pct": 2.1, "mem_bytes": 41730048, "up_kbps": 1293, "down_kbps": None},
                "downloads": {"cpu_pct": 33.4, "mem_bytes": 147636224, "up_kbps": None, "down_kbps": 54000},
                "host": {"cpu_pct": 71.0, "cores_pct": [59.0, 90.1, 80.3, 54.2], "mem_used_bytes": 6228869120, "mem_total_bytes": 8453947392,
-                        "swap_used_bytes": 4642357248, "swap_total_bytes": 10737401856, "disk_used_bytes": 252914872320, "disk_total_bytes": 477981716480}}
+                        "swap_used_bytes": 4642357248, "swap_total_bytes": 10737401856, "disks": [{"disk": "nvme", "used_bytes": 252914872320, "total_bytes": 477981716480},
+                                  {"disk": "seagate-red", "used_bytes": 273804165120, "total_bytes": 1970545786880},
+                                  {"disk": "seagate-black", "used_bytes": 408021393408, "total_bytes": 1970545786880}]}}
 NO_TC = {"accel": None, "reasons": []}
 EXPECTED_WATCHING = [
     {"kind": "Movie", "quality": "4K HDR", "mode": "direct play", "paused": False, "n": 2, **NO_TC},

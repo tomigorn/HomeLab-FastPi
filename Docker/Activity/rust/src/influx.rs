@@ -6,13 +6,13 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::client::{self, BaseUrl};
-use crate::state::{FastpiLoad, Host, Load};
+use crate::state::{Disk, FastpiLoad, Host, Load};
 
 const TIMEOUT: Duration = Duration::from_secs(3);
 const LIMIT: usize = 64 << 10;
 
-/// Telegraf's mount of fastpi's root filesystem (grafana docker-compose.yaml `/:/rootfs:ro`).
-const ROOT_PATH: &str = "/rootfs";
+/// fastpi's disks as Telegraf sees them under its `/:/rootfs:ro` mount (grafana docker-compose.yaml), in page order.
+const DISKS: [(&str, &str); 3] = [("nvme", "/rootfs"), ("seagate-red", "/rootfs/mnt/seagate-red"), ("seagate-black", "/rootfs/mnt/seagate-black")];
 
 pub struct Influx {
     pub base: BaseUrl,
@@ -47,11 +47,11 @@ cpu = {from} |> filter(fn: (r) => r._measurement == "docker_container_cpu" and r
 net = {from} |> filter(fn: (r) => r._measurement == "docker_container_net" and (r._field == "rx_bytes" or r._field == "tx_bytes") and r.network == "total") |> filter(fn: c) |> derivative(unit: 1s, nonNegative: true) |> last()
 mem = {from} |> filter(fn: (r) => r._measurement == "docker_container_mem" and (r._field == "usage" or r._field == "inactive_file")) |> filter(fn: c) |> last() |> toFloat()
 cpus = {from} |> filter(fn: (r) => r._measurement == "system" and r._field == "n_cpus") |> last() |> toFloat()
-host = {from} |> filter(fn: (r) => (r._measurement == "cpu" and r._field == "usage_idle") or (r._measurement == "mem" and (r._field == "available" or r._field == "total")) or (r._measurement == "swap" and (r._field == "used" or r._field == "total")) or (r._measurement == "disk" and r.path == "{root}" and (r._field == "used" or r._field == "free"))) |> last() |> toFloat()
-union(tables: [cpu, net, mem, cpus, host]) |> keep(columns: ["_value", "_field", "container_name", "_measurement", "cpu"]) |> group()
+host = {from} |> filter(fn: (r) => (r._measurement == "cpu" and r._field == "usage_idle") or (r._measurement == "mem" and (r._field == "available" or r._field == "total")) or (r._measurement == "swap" and (r._field == "used" or r._field == "total")) or (r._measurement == "disk" and ({paths}) and (r._field == "used" or r._field == "free"))) |> last() |> toFloat()
+union(tables: [cpu, net, mem, cpus, host]) |> keep(columns: ["_value", "_field", "container_name", "_measurement", "cpu", "path"]) |> group()
 "#,
             names = names.join(" or "),
-            root = ROOT_PATH
+            paths = DISKS.iter().map(|(_, p)| format!("r.path == \"{p}\"")).collect::<Vec<_>>().join(" or ")
         )
     }
 
@@ -71,13 +71,13 @@ union(tables: [cpu, net, mem, cpus, host]) |> keep(columns: ["_value", "_field",
     }
 }
 
-/// The annotated-CSV answer (`,result,table,_value,_field,container_name`) into the two loads; a container without samples leaves its figures out.
+/// The annotated-CSV answer (`,result,table,_value,_field,container_name,_measurement,cpu,path`) into the two loads; a container without samples leaves its figures out.
 pub fn parse(csv: &str, abs: &str, downloads: &[String]) -> Result<FastpiLoad, String> {
     let mut lines = csv.lines().map(str::trim_end).filter(|l| !l.is_empty() && !l.starts_with('#'));
     let header: Vec<&str> = lines.next().ok_or("empty answer")?.split(',').collect();
     let col = |name: &str| header.iter().position(|h| *h == name).ok_or_else(|| format!("no {name} column"));
     let (iv, ifield, iname) = (col("_value")?, col("_field")?, col("container_name")?);
-    let (imeas, icpu) = (col("_measurement").ok(), col("cpu").ok());
+    let (imeas, icpu, ipath) = (col("_measurement").ok(), col("cpu").ok(), col("path").ok());
     let mut v: HashMap<(String, String), f64> = HashMap::new();
     let mut h: HashMap<(String, String, String), f64> = HashMap::new();
     for l in lines {
@@ -86,7 +86,8 @@ pub fn parse(csv: &str, abs: &str, downloads: &[String]) -> Result<FastpiLoad, S
         if let (Some(val), Some(field)) = (f.get(iv).and_then(|x| x.parse::<f64>().ok()), f.get(ifield)) {
             let (name, meas) = (at(Some(iname)), at(imeas));
             if name.is_empty() && matches!(meas.as_str(), "cpu" | "mem" | "swap" | "disk") {
-                h.insert((meas, at(icpu), field.to_string()), val);
+                let tag = if meas == "disk" { at(ipath) } else { at(icpu) };
+                h.insert((meas, tag, field.to_string()), val);
             } else {
                 v.insert((name, field.to_string()), val);
             }
@@ -117,7 +118,6 @@ fn host(h: &HashMap<(String, String, String), f64>) -> Option<Host> {
     cores.sort_by_key(|c| c.0);
     let bytes = |x: Option<f64>| x.filter(|x| *x >= 0.0).map(|x| x as u64);
     let (mem_total, available) = (get("mem", "", "total"), get("mem", "", "available"));
-    let (disk_used, disk_free) = (get("disk", "", "used"), get("disk", "", "free"));
     let host = Host {
         cpu_pct: get("cpu", "cpu-total", "usage_idle").map(busy),
         cores_pct: cores.into_iter().map(|c| c.1).collect(),
@@ -125,8 +125,13 @@ fn host(h: &HashMap<(String, String, String), f64>) -> Option<Host> {
         mem_total_bytes: bytes(mem_total),
         swap_used_bytes: bytes(get("swap", "", "used")),
         swap_total_bytes: bytes(get("swap", "", "total")),
-        disk_used_bytes: bytes(disk_used),
-        disk_total_bytes: bytes(disk_used.zip(disk_free).map(|(u, f)| u + f)),
+        disks: DISKS
+            .iter()
+            .filter_map(|(disk, path)| {
+                let (used, free) = (bytes(get("disk", path, "used"))?, bytes(get("disk", path, "free"))?);
+                Some(Disk { disk: disk.to_string(), used_bytes: used, total_bytes: used + free })
+            })
+            .collect(),
     };
     (host != Host::default()).then_some(host)
 }
@@ -168,10 +173,13 @@ mod tests {
                 mem_total_bytes: Some(8_453_947_392),
                 swap_used_bytes: Some(4_642_357_248),
                 swap_total_bytes: Some(10_737_401_856),
-                disk_used_bytes: Some(252_914_872_320),
-                disk_total_bytes: Some(252_914_872_320 + 225_066_844_160),
+                disks: vec![
+                    Disk { disk: "nvme".into(), used_bytes: 252_914_872_320, total_bytes: 252_914_872_320 + 225_066_844_160 },
+                    Disk { disk: "seagate-red".into(), used_bytes: 273_804_165_120, total_bytes: 273_804_165_120 + 1_696_741_621_760 },
+                    Disk { disk: "seagate-black".into(), used_bytes: 408_021_393_408, total_bytes: 408_021_393_408 + 1_562_524_393_472 },
+                ],
             }),
-            "busy = 100 - usage_idle, cores in cpu order; RAM used = total - available; disk total = used + free (as df)"
+            "busy = 100 - usage_idle, cores in cpu order; RAM used = total - available; disk total = used + free (as df); the root and the two HDDs in that order, /boot left out"
         );
         let l = parse(",result,table,_value,_field,container_name\r\n,,0,46481408,usage,audiobookshelf\r\n", "audiobookshelf", &dl()).unwrap();
         assert_eq!(l.host, None, "no host rows: no host block");
@@ -182,6 +190,8 @@ mod tests {
         let l = parse(",result,table,_value,_field,container_name\r\n,,0,46481408,usage,audiobookshelf\r\n", "audiobookshelf", &dl()).unwrap();
         assert_eq!(l.audiobookshelf, Some(Load { mem_bytes: Some(46_481_408), ..Load::default() }), "no n_cpus: no CPU share");
         assert_eq!(l.downloads, None);
+        let l = parse(",result,table,_value,_field,container_name,_measurement,cpu,path\r\n,,0,9,used,,disk,,/rootfs\r\n,,0,5,used,,disk,,/rootfs/mnt/seagate-red\r\n,,0,5,free,,disk,,/rootfs/mnt/seagate-red\r\n", "audiobookshelf", &dl()).unwrap();
+        assert_eq!(l.host.map(|h| h.disks), Some(vec![Disk { disk: "seagate-red".into(), used_bytes: 5, total_bytes: 10 }]), "a disk without free is left out, the others stay");
         assert_eq!(parse("\r\n", "audiobookshelf", &dl()).map_err(|_| ()), Err(()));
         assert!(parse("{\"code\":\"unauthorized\"}", "audiobookshelf", &dl()).is_err());
     }
@@ -195,7 +205,7 @@ mod tests {
         let q = Influx::new(b, "/k".into(), "myorg", "rpi", "audiobookshelf", "gluetun_mouse sabnzbd").unwrap().query();
         assert!(q.starts_with(r#"c = (r) => r.container_name == "audiobookshelf" or r.container_name == "gluetun_mouse" or r.container_name == "sabnzbd""#), "{q}");
         assert!(!q.contains("contains("), "no filter InfluxDB cannot push down");
-        for part in [r#"r._measurement == "cpu" and r._field == "usage_idle""#, r#"r._measurement == "swap""#, r#"r.path == "/rootfs""#, r#"keep(columns: ["_value", "_field", "container_name", "_measurement", "cpu"])"#] {
+        for part in [r#"r._measurement == "cpu" and r._field == "usage_idle""#, r#"r._measurement == "swap""#, r#"r.path == "/rootfs" or r.path == "/rootfs/mnt/seagate-red" or r.path == "/rootfs/mnt/seagate-black""#, r#"keep(columns: ["_value", "_field", "container_name", "_measurement", "cpu", "path"])"#] {
             assert!(q.contains(part), "{part} in {q}");
         }
     }

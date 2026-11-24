@@ -421,7 +421,7 @@ pub struct FastpiLoad {
     pub host: Option<Host>,
 }
 
-/// fastpi from Telegraf's system inputs: CPU (all, per core), RAM, swap, the root disk; None = not reported.
+/// fastpi from Telegraf's system inputs: CPU (all, per core), RAM, swap, its disks; None = not reported.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Host {
     pub cpu_pct: Option<f64>,
@@ -430,8 +430,16 @@ pub struct Host {
     pub mem_total_bytes: Option<u64>,
     pub swap_used_bytes: Option<u64>,
     pub swap_total_bytes: Option<u64>,
-    pub disk_used_bytes: Option<u64>,
-    pub disk_total_bytes: Option<u64>,
+    /// the root SSD, then the download and the library HDD; a disk without figures is left out
+    pub disks: Vec<Disk>,
+}
+
+/// One fastpi disk's space: `nvme`, `seagate-red` (downloads), `seagate-black` (library).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Disk {
+    pub disk: String,
+    pub used_bytes: u64,
+    pub total_bytes: u64,
 }
 
 /// The Jellyfin side of one successful poll of beefy, already aggregated: categories and counts only.
