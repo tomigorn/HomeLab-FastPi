@@ -25,6 +25,7 @@ from rebuild_local import (  # noqa: E402
     parse_env,
     render_prom,
     rollback_tag,
+    sh,
     tar_content_digest,
     update_result,
 )
@@ -186,6 +187,13 @@ def test_build_is_retried_once_after_a_failure():
     assert rcs == [0]
     rcs, waits = [0], []
     assert build_with_retry(lambda: R(returncode=rcs.pop(0)), waits.append).returncode == 0 and waits == []
+
+
+def test_sh_timeout_keeps_partial_output_as_text():
+    r = sh(["bash", "-c", "echo partial; sleep 5"], timeout=1)
+    assert r.returncode == 124
+    assert isinstance(r.stdout, str) and isinstance(r.stderr, str)
+    assert "partial" in r.stdout and "timeout after 1s" in (r.stdout + r.stderr)
 
 
 def test_predates_compares_image_build_time_with_the_last_context_commit():

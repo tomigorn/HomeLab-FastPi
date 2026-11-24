@@ -198,7 +198,8 @@ def sh(cmd, timeout: int = 600, **kw) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
     except subprocess.TimeoutExpired as e:
-        return subprocess.CompletedProcess(cmd, 124, e.stdout or "", f"timeout after {timeout}s")
+        out = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        return subprocess.CompletedProcess(cmd, 124, out, f"timeout after {timeout}s")
 
 
 def log(msg: str) -> None:
