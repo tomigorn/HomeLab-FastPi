@@ -142,7 +142,7 @@ Why a plugin: Traefik cannot rewrite `X-Forwarded-For` itself, and `forwardedHea
 Run before every Traefik bump (the image is pinned in `docker-compose.yaml`):
 
 ```bash
-scripts/traefik-plugin-test.sh v3.7.17   # the NEW tag; exit 0 = safe to bump
+scripts/traefik-plugin-test.sh v3.7.20   # the NEW tag; exit 0 = safe to bump
 ```
 
 Throwaway containers on their own network (no host ports, removed afterwards): the given Traefik tag with both local plugins (ro), the repo's `experimental` block + `websecure` middlewares + `real-ip.yml`/`crowdsec.yml` (IPs adapted), `traefik/whoami:v1.11.0` as echo, a mock CrowdSec LAPI (`caddy:2.11.7-alpine`) banning two TEST-NET IPs. The real CrowdSec is never touched.
