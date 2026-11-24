@@ -3,7 +3,7 @@
 #
 # Containers must still reach the internet, the host's own published ports (those hit INPUT, not FORWARD, so they are never matched here) and the two trusted homelab servers, but only the containers that need them, by source and port:
 #   Traefik → beefy/tower (all ports: it proxies them), grafana stack → beefy :22, tower :22/:8080 (blackbox), m4b → beefy :22, Cup → beefy :8000, Portainer → beefy :9001.
-#   VPN clients (wg-easy NAT) → no host-published port reached by DNAT (m4b :8099, Cup :8000; only SSH/DNS/web on the host, see host-input-guard.sh) → whole LAN, but on beefy only :22 (ssh), :8096 (Jellyfin apps) and ping: beefy's admin backends trust 192.168.1.2 and have no login of their own, so they stay behind Traefik + Authentik.
+#   VPN clients (wg-easy NAT) → no host-published port reached by DNAT (m4b :8099, Cup :8000; only SSH/DNS/web on the host, see host-input-guard.sh) → LAN only :22 (ssh) and ping (owner 2026-11-24: SSH, DNS, web via Traefik only; internet unaffected), on beefy also :8096 (Jellyfin apps): beefy's admin backends trust 192.168.1.2 and have no login of their own, so they stay behind Traefik + Authentik.
 # Everything else on 192.168.1.0/24 (router, IoT plugs, any other device, any other container) is blocked. Host-network services (Home Assistant, the wakers) are host traffic, not forwarded: host-output-guard.sh limits that towards beefy.
 #
 # Idempotent: rebuilds the DOCKER-USER chain from scratch on every run.
@@ -14,7 +14,7 @@ IFACE=eth0
 LAN=192.168.1.0/24
 TOWER=192.168.1.101       # tower (Unraid NAS)
 BEEFY=192.168.1.102       # beefy (media server)
-VPN_NAT=10.24.5.5/32      # wg-easy SNAT source on traefik_wg — VPN clients keep LAN reach, but on beefy only ssh + Jellyfin (admin UIs go through Traefik + Authentik)
+VPN_NAT=10.24.5.5/32      # wg-easy SNAT source on traefik_wg — VPN clients reach the LAN only by ssh and ping, beefy also Jellyfin (admin UIs go through Traefik + Authentik)
 TRAEFIK=172.24.255.3/32   # Traefik (pinned) — proxies the media + nextcloud routes
 MONITORING=192.168.208.0/20  # grafana stack — blackbox probes beefy :22, tower :22/:8080
 M4B=192.168.64.0/20       # m4b-auto-merge — ssh to beefy, which transcodes
@@ -30,7 +30,8 @@ iptables -A DOCKER-USER -s "$VPN_NAT" -m conntrack --ctstate DNAT -j DROP
 iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$BEEFY" -p tcp -m multiport --dports 22,8096 -j RETURN
 iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$BEEFY" -p icmp -j RETURN
 iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$BEEFY" -j DROP
-iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -j RETURN
+iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$LAN" -p tcp --dport 22 -j RETURN
+iptables -A DOCKER-USER -s "$VPN_NAT" -o "$IFACE" -d "$LAN" -p icmp -j RETURN
 iptables -A DOCKER-USER -s "$TRAEFIK" -o "$IFACE" -d "$TOWER" -j RETURN
 iptables -A DOCKER-USER -s "$TRAEFIK" -o "$IFACE" -d "$BEEFY" -j RETURN
 iptables -A DOCKER-USER -s "$MONITORING" -o "$IFACE" -d "$TOWER" -p tcp -m multiport --dports 22,8080 -j RETURN
