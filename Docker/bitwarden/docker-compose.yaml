@@ -40,7 +40,8 @@ services:
       - "traefik.http.routers.bitwarden-http.middlewares=redirect-to-https@docker"
       - "traefik.http.routers.bitwarden-http.priority=1"
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        ipv4_address: 172.24.0.18
 
 # =========================================================
 # Networks ================================================
