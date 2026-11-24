@@ -26,7 +26,8 @@ services:
       # images, volumes, networks and everything else. Own network socket_proxy_heal.
       - DOCKER_SOCK=tcp://socket-proxy-autoheal:2375
     networks:
-      - socket_proxy_heal
+      socket_proxy_heal:
+        ipv4_address: 192.168.96.2
     logging:
       driver: "json-file"
       options:
@@ -94,7 +95,8 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      - antivirus_network
+      antivirus_network:
+        ipv4_address: 10.24.34.3
 
 # #########################################################
 # ClamAV whole-host scan ##################################
@@ -195,7 +197,8 @@ services:
         max-size: "5m"
         max-file: "2"
     networks:
-      - antivirus_network
+      antivirus_network:
+        ipv4_address: 10.24.34.2
 
 # =========================================================
 # Secrets =================================================
