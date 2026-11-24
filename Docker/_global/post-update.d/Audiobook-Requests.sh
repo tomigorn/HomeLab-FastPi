@@ -46,8 +46,9 @@ if want importer; then
   check importer.health '^ok$' "$(curl -s -m 5 http://10.24.25.5:8000/health)"
   check importer.library '^True 0 dict$' "$(echo $(docker exec books-proxy wget -q -O - --header 'X-authentik-username: post-update-nobody' http://audiobook-importer:8000/library | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["noAbsUser"], d["count"])' 2>&1 | tail -1) $(docker exec books-proxy wget -q -O - --header 'X-authentik-username: post-update-nobody' http://audiobook-importer:8000/sizes | python3 -c 'import json,sys; print(type(json.load(sys.stdin)).__name__)' 2>&1 | tail -1))"
   check importer.abs-readonly-gate '^404$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST http://10.24.25.5:8000/abs/api/libraries/x/scan)"
-  check importer.callers '^403 403 403 403 403 403$' "$(for p in /quota /all-requests /prowlarr/torrent /library /library-cover/x /sizes; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://10.24.25.5:8000$p"; done | xargs)"
+  check importer.callers '^403 403 403 403 403 403 403$' "$(for p in /quota /all-requests /prowlarr/torrent /library /library-cover/x /sizes /counts; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://10.24.25.5:8000$p"; done | xargs)"
   check importer.post-callers '^403 403$' "$(for p in /abr /prowlarr/api/v1/search; do curl -s -m 5 -o /dev/null -w '%{http_code}\n' -X POST -d '{}' "http://10.24.25.5:8000$p"; done | xargs)"
   check importer.my-quota '^403 400$' "$(echo $(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.25.5:8000/my-quota) $(docker exec books-proxy wget -q -S -O /dev/null http://audiobook-importer:8000/my-quota 2>&1 | grep -o 'HTTP/1.[01] [0-9]*' | awk 'NR==1{print $2}'))"
+  check importer.counts '^\{"open":[0-9]+,"failed":[0-9]+\}$' "$(docker exec traefik wget -qO- -T 8 http://10.24.25.5:8000/counts 2>&1)"
   check importer.image '^audiobook-importer:local ok$' "$(echo $(docker inspect -f '{{.Config.Image}}' audiobook-importer) $(docker exec audiobook-importer /audiobook-importer --health >/dev/null 2>&1 && echo ok))"
 fi

@@ -1,4 +1,4 @@
-//! fastpi-local audiobook figures: Audiobookshelf listening sessions and the qBittorrent category `abr` (mouse).
+//! fastpi-local audiobook figures: Audiobookshelf listening sessions, the qBittorrent category `abr` (mouse) and the request counts of the Audiobook-Requests importer.
 //! qBittorrent is read through Traefik's internal route, which qBittorrent lets in without a login and which allows only this one GET.
 
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::client::{self, BaseUrl};
 use crate::influx::Influx;
-use crate::state::{Abr, FastpiLoad, ListenMode, Local};
+use crate::state::{Abr, FastpiLoad, ListenMode, Local, Requests};
 
 pub const TIMEOUT: Duration = Duration::from_secs(3);
 /// An open ABS session counts as listening when its progress was synced within this window (ABS keeps stale sessions open for 36 h).
@@ -75,6 +75,11 @@ pub fn count_qbit(body: &[u8]) -> Result<Abr, String> {
     Ok(Abr { downloading: count(&DOWNLOADING), queued: count(&QUEUED), paused: count(&PAUSED), problem: count(&PROBLEM), eta, left })
 }
 
+/// The importer's `GET /counts` (through Traefik's internal route): `{"open":n,"failed":n}`, nothing else.
+pub fn count_requests(body: &[u8]) -> Result<Requests, String> {
+    serde_json::from_slice(body).map_err(|_| "unreadable answer".to_string())
+}
+
 fn read_secret(path: &PathBuf) -> Result<String, String> {
     let s = std::fs::read_to_string(path).map_err(|_| "secret file unreadable".to_string())?;
     let s = s.trim().to_string();
@@ -84,12 +89,19 @@ fn read_secret(path: &PathBuf) -> Result<String, String> {
 pub struct Sources {
     pub abs: Option<(BaseUrl, PathBuf)>,
     pub qbit: Option<BaseUrl>,
+    pub requests: Option<BaseUrl>,
     pub influx: Option<Influx>,
 }
 
 impl Sources {
-    pub fn new(abs: Option<(BaseUrl, PathBuf)>, qbit: Option<BaseUrl>, influx: Option<Influx>) -> Sources {
-        Sources { abs, qbit, influx }
+    pub fn new(abs: Option<(BaseUrl, PathBuf)>, qbit: Option<BaseUrl>, requests: Option<BaseUrl>, influx: Option<Influx>) -> Sources {
+        Sources { abs, qbit, requests, influx }
+    }
+
+    async fn requests(&self) -> Result<Requests, String> {
+        let base = self.requests.as_ref().ok_or("not configured")?;
+        let body = client::get(base, "/counts", &[("accept", "application/json")], LIMIT, TIMEOUT).await?;
+        count_requests(&body)
     }
 
     async fn load(&self) -> Result<FastpiLoad, String> {
@@ -112,7 +124,7 @@ impl Sources {
     /// One refresh of the sources side by side; a failing source is None (and its reason returned for a log line), the others still count.
     pub async fn refresh(&self, now_ms: i64) -> (Local, Vec<String>) {
         let mut errors = Vec::new();
-        let (abs, qbit, load) = tokio::join!(self.abs(now_ms), self.qbit(), async {
+        let (abs, qbit, requests, load) = tokio::join!(self.abs(now_ms), self.qbit(), self.requests(), async {
             match &self.influx {
                 Some(_) => Some(self.load().await),
                 None => None,
@@ -132,6 +144,13 @@ impl Sources {
                 None
             }
         };
+        let requests = match requests {
+            Ok(r) => Some(r),
+            Err(e) => {
+                errors.push(format!("audiobook-requests: {e}"));
+                None
+            }
+        };
         let load = match load {
             Some(Ok(l)) => Some(l),
             Some(Err(e)) => {
@@ -140,7 +159,7 @@ impl Sources {
             }
             None => None,
         };
-        (Local { listening, abr, load }, errors)
+        (Local { listening, abr, requests, load }, errors)
     }
 }
 
@@ -152,6 +171,13 @@ mod tests {
 
     const ABS: &str = include_str!("../fixtures/abs-sessions.json");
     const QBIT: &str = include_str!("../fixtures/qbit-abr.json");
+
+    #[test]
+    fn request_counts_read() {
+        assert_eq!(count_requests(br#"{"open":2,"failed":0}"#), Ok(Requests { open: 2, failed: 0 }));
+        assert!(count_requests(b"{}").is_err(), "a 502 body is not zero requests");
+        assert!(count_requests(br#"{"open":-1,"failed":0}"#).is_err());
+    }
 
     #[test]
     fn abs_sessions_counted() {
@@ -179,8 +205,11 @@ mod tests {
                     let mut buf = vec![0u8; 8192];
                     let n = s.read(&mut buf).await.unwrap_or(0);
                     let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let ok = |b: &str| format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", b.len(), b);
                     let resp = if req.starts_with("GET /activity/qbit/api/v2/torrents/info?category=abr ") && !req.to_lowercase().contains("\r\ncookie:") {
-                        format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", QBIT.len(), QBIT)
+                        ok(QBIT)
+                    } else if req.starts_with("GET /activity/abr/counts ") {
+                        ok(r#"{"open":3,"failed":1}"#)
                     } else {
                         "HTTP/1.1 403 Forbidden\r\nContent-Length: 9\r\nConnection: close\r\n\r\nForbidden".to_string()
                     };
@@ -200,16 +229,18 @@ mod tests {
         let src = Sources::new(
             Some((BaseUrl::parse("http://127.0.0.1:9").unwrap(), dir.join("key"))),
             Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/activity/qbit")).unwrap()),
+            Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/activity/abr")).unwrap()),
             None,
         );
         let (local, errors) = src.refresh(0).await;
-        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2, eta: Some(600), left: 170_000_000 }), load: None }, "{errors:?}");
+        assert_eq!(local, Local { listening: None, abr: Some(Abr { downloading: 5, queued: 1, paused: 2, problem: 2, eta: Some(600), left: 170_000_000 }), requests: Some(Requests { open: 3, failed: 1 }), load: None }, "{errors:?}");
         assert_eq!(errors.len(), 1);
         assert!(errors[0].starts_with("audiobookshelf: "), "{errors:?}");
-        let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()), None);
+        let refused = Sources::new(None, Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/elsewhere")).unwrap()), Some(BaseUrl::parse(&format!("http://127.0.0.1:{port}/nowhere")).unwrap()), None);
         let (local, errors) = refused.refresh(0).await;
         assert_eq!(local, Local::default(), "route refused = unavailable, no crash");
         assert!(errors.contains(&"qbittorrent: HTTP 403".to_string()), "{errors:?}");
+        assert!(errors.contains(&"audiobook-requests: HTTP 403".to_string()), "{errors:?}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

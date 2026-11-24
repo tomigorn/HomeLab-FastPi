@@ -528,7 +528,16 @@ pub struct Local {
     /// play method per listening ABS session
     pub listening: Option<Vec<ListenMode>>,
     pub abr: Option<Abr>,
+    pub requests: Option<Requests>,
     pub load: Option<FastpiLoad>,
+}
+
+/// Audiobook requests per book from the importer's `/counts`: requested without a download yet, and failed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Requests {
+    pub open: u32,
+    pub failed: u32,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -564,6 +573,7 @@ pub struct View {
     pub streams_series_unavailable: bool,
     pub listening: Option<Listening>,
     pub audiobook_downloads: Option<Abr>,
+    pub audiobook_requests: Option<Requests>,
     /// Audiobookshelf and the mouse downloads on fastpi (None = InfluxDB unavailable)
     pub fastpi_load: Option<FastpiLoad>,
     /// when the last poll finished (None = no poll since the start)
@@ -621,6 +631,7 @@ pub fn view(now: i64, streams: Option<&StreamsPart>, downloads: Option<&Download
         streams_series_unavailable: live && streams.is_some_and(|s| s.series_unavailable),
         listening: local.listening.as_ref().map(|m| Listening { sessions: m.len() as u32, modes: m.clone() }),
         audiobook_downloads: local.abr,
+        audiobook_requests: local.requests,
         fastpi_load: local.load.clone(),
         polled_at: polled.at,
         streams_failed: up && !warming && polled.streams_failed,
@@ -754,16 +765,17 @@ pub mod tests {
     fn view_local_figures_or_unavailable() {
         let abr = Abr { downloading: 1, queued: 3, paused: 1, problem: 0, eta: Some(60), left: 5 };
         let load = FastpiLoad { audiobookshelf: Some(Load { cpu_pct: Some(0.4), mem_bytes: Some(45), up_kbps: Some(96), down_kbps: None }), downloads: None, host: None };
-        let l = Local { listening: Some(vec![ListenMode::DirectPlay, ListenMode::Transcode]), abr: Some(abr), load: Some(load.clone()) };
+        let l = Local { listening: Some(vec![ListenMode::DirectPlay, ListenMode::Transcode]), abr: Some(abr), requests: Some(Requests { open: 2, failed: 1 }), load: Some(load.clone()) };
         let x = view(NOW, None, None, WakerState::Down, &l, Polled::default());
         assert_eq!(x.listening, Some(Listening { sessions: 2, modes: vec![ListenMode::DirectPlay, ListenMode::Transcode] }));
         assert_eq!(x.audiobook_downloads, Some(abr));
+        assert_eq!(x.audiobook_requests, Some(Requests { open: 2, failed: 1 }));
         assert_eq!(x.fastpi_load, Some(load), "fastpi figures do not depend on beefy");
         let j = serde_json::to_string(&x).unwrap();
         assert!(j.contains(r#""listening":{"sessions":2,"modes":["direct play","transcode"]}"#), "{j}");
         assert!(j.contains(r#""fastpi_load":{"audiobookshelf":{"cpu_pct":0.4,"mem_bytes":45,"up_kbps":96,"down_kbps":null},"downloads":null,"host":null}"#), "{j}");
         let x = view(NOW, None, None, WakerState::Down, &Local::default(), Polled::default());
-        assert_eq!((x.listening, x.audiobook_downloads, x.fastpi_load), (None, None, None));
+        assert_eq!((x.listening, x.audiobook_downloads, x.audiobook_requests, x.fastpi_load), (None, None, None, None));
     }
 
     #[test]

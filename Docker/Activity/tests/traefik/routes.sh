@@ -29,6 +29,10 @@ for p in filter tag sort reverse limit offset hashes private includeTrackers inc
 done
 probe 404 GET  '/activity/qbit/api/v2/torrents/properties?category=abr'
 probe 404 POST '/activity/qbit/api/v2/torrents/info?category=abr'
+probe 502 GET  '/activity/abr/counts'
+probe 404 GET  '/activity/abr/all-requests'
+probe 404 GET  '/activity/abr/counts/x'
+probe 404 POST '/activity/abr/counts'
 if grep -qi 'error' /tmp/traefik.log; then echo "FAIL traefik log:"; cat /tmp/traefik.log; fail=1; fi
 [ $fail = 0 ] && echo "all routes as expected"
 exit $fail

@@ -339,6 +339,16 @@ class AllRequests(ServiceTest):
         status, _, body = self.svc.request("GET", "/all-requests", peer="proxy", headers={"X-authentik-username": "jane"})
         self.assertEqual((status, body), (502, b"[]"))
 
+    @unittest.skipIf(harness.LEGACY, "Rust only: the Python has no /counts")
+    def test_counts_for_the_activity_page_only_through_traefik(self):
+        status, headers, counts = self.svc.json("GET", "/counts", peer="traefik")
+        self.assertEqual((status, headers.get("cache-control")), (200, "no-store"))
+        self.assertEqual(counts, {"open": 2, "failed": 0}, "TA1 and the manual M are open; TA2 and TA3 are downloaded")
+        for peer in ("proxy", "abr", "other"):
+            self.assertEqual(self.svc.request("GET", "/counts", peer=peer)[0], 403, peer)
+        self.svc.abr.fail = True
+        self.assertEqual(self.svc.request("GET", "/counts", peer="traefik")[:3:2], (502, b"{}"))
+
 
 class Library(ServiceTest):
     @classmethod

@@ -24,9 +24,11 @@ use std::sync::{Arc, LazyLock};
 pub enum Peer {
     BooksProxy,
     Abr,
+    /// the activity page's counts, through Traefik's internal route (Traefik/traefik/dynamic/activity-internal.yml)
+    Traefik,
 }
 
-pub const CALLERS: [(&str, Peer); 7] = [
+pub const CALLERS: [(&str, Peer); 8] = [
     ("/quota", Peer::BooksProxy),
     ("/all-requests", Peer::BooksProxy),
     ("/my-quota", Peer::BooksProxy),
@@ -34,6 +36,7 @@ pub const CALLERS: [(&str, Peer); 7] = [
     ("/library-cover/", Peer::BooksProxy),
     ("/sizes", Peer::BooksProxy),
     ("/prowlarr/torrent", Peer::Abr),
+    ("/counts", Peer::Traefik),
 ];
 pub const POST_CALLERS: [(&str, Peer); 2] = [("/abr", Peer::Abr), ("/prowlarr/", Peer::Abr)];
 
@@ -51,6 +54,7 @@ pub async fn caller_ok(app: &App, path: &str, client: &str, method: &Method) -> 
     let Some(peer) = wanted_peer(path, method) else { return true };
     match peer {
         Peer::BooksProxy => client == app.cfg.books_proxy_ip,
+        Peer::Traefik => client == app.cfg.traefik_ip,
         Peer::Abr => {
             if client == app.cfg.abr_ip {
                 return true;
@@ -116,6 +120,7 @@ async fn get(app: &App, path: &str, path_and_query: &str, headers: &HeaderMap) -
     }
     match path {
         "/all-requests" => all_requests_handler(app, headers).await,
+        "/counts" => counts_handler(app).await,
         "/library" => library_handler(app, headers).await,
         _ if path.starts_with("/library-cover/") => cover_handler(app, path, headers).await,
         "/sizes" => sizes_handler(app, headers).await,
@@ -431,6 +436,51 @@ pub fn all_requests(wishlist: &[Value], manual: &[Value], jobs: &Map<String, Val
     rows
 }
 
+/// Anonymous counts per requested book for the activity page: `open` = requested, no download yet; `failed` = its last try failed and nothing else is under way.
+pub fn request_counts(wishlist: &[Value], manual: &[Value], jobs: &Map<String, Value>) -> Value {
+    let mut states: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+    for j in jobs.values() {
+        if let (Some(a), Some(st)) = (str_of(j.get("asin")).filter(|a| !a.is_empty()), str_of(j.get("state"))) {
+            states.entry(a).or_default().push(st);
+        }
+    }
+    let (mut open, mut failed) = (0, 0);
+    for w in wishlist {
+        let b = w.get("book").unwrap_or(&Value::Null);
+        let st = str_of(b.get("asin")).and_then(|a| states.get(a)).cloned().unwrap_or_default();
+        if truthy(b.get("downloaded")) || st.iter().any(|s| matches!(*s, "done" | "exists" | "pending" | "unbound" | "merge-wait")) {
+            continue;
+        }
+        if st.contains(&"failed") {
+            failed += 1;
+        } else {
+            open += 1;
+        }
+    }
+    open += manual.iter().filter(|m| !truthy(m.get("downloaded"))).count();
+    json!({"open": open, "failed": failed})
+}
+
+async fn counts_handler(app: &App) -> Response {
+    let result: Result<Value> = async {
+        let jobs = {
+            let _guard = app.jobs_lock.lock().await;
+            load(&app.cfg.state)?
+        };
+        let wishlist = abr_json(&app.cfg, &app.http, "/api/requests", &app.abr_key).await?.as_array().cloned().unwrap_or_default();
+        let manual = abr_json(&app.cfg, &app.http, "/api/requests/manual", &app.abr_key).await?.as_array().cloned().unwrap_or_default();
+        Ok(request_counts(&wishlist, &manual, &jobs))
+    }
+    .await;
+    match result {
+        Ok(v) => json_response(200, &v),
+        Err(e) => {
+            log::error!("counts: {e}");
+            respond(502, "application/json", "{}", &[("Cache-Control", "no-store")])
+        }
+    }
+}
+
 /// Sizes for ABR's lists, limited to the books the viewer's ABS account may see (like the library page).
 async fn book_sizes(app: &App, username: &str) -> Result<Map<String, Value>> {
     let (libs, items) = app.abs_books().await?;
@@ -561,6 +611,7 @@ mod tests {
             assert_eq!(wanted_peer(p, &Method::GET), Some(Peer::BooksProxy), "{p}");
         }
         assert_eq!(wanted_peer("/prowlarr/torrent", &Method::GET), Some(Peer::Abr));
+        assert_eq!(wanted_peer("/counts", &Method::GET), Some(Peer::Traefik), "Activity's counts only through Traefik");
         assert_eq!(wanted_peer("/health", &Method::GET), None);
         assert_eq!(wanted_peer("/prowlarr/api/v1/search", &Method::GET), None);
         for p in ["/abr", "/prowlarr/api/v1/search", "/prowlarr/api/v1/indexer/1"] {
@@ -605,5 +656,21 @@ mod tests {
         let mut sizes = Map::new();
         sizes.insert("A1".into(), json!(123));
         assert_eq!(all_requests(&wishlist[..1], &[], &Map::new(), Some(&sizes))[0]["size"], 123);
+    }
+    #[test]
+    fn request_counts_per_book() {
+        let wish = |asin: &str, downloaded: bool, users: usize| json!({"book": {"asin": asin, "title": "T", "downloaded": downloaded}, "requests": vec![json!({"user_username": "u"}); users]});
+        let wishlist = vec![wish("OPEN", false, 2), wish("DL", false, 1), wish("MERGE", false, 1), wish("FAIL", false, 1), wish("RETRY", false, 1), wish("LIB", true, 1), wish("DONE", false, 1), wish("FAILDONE", false, 1)];
+        let mut jobs = Map::new();
+        for (h, asin, state) in [("1", "DL", "pending"), ("2", "MERGE", "merge-wait"), ("3", "FAIL", "failed"), ("4", "RETRY", "failed"), ("5", "RETRY", "unbound"), ("6", "DONE", "done"), ("7", "FAILDONE", "failed"), ("8", "FAILDONE", "exists"), ("9", "GONE", "failed")] {
+            jobs.insert(h.into(), json!({"asin": asin, "state": state, "title": "T"}));
+        }
+        let manual = vec![json!({"title": "M", "downloaded": false}), json!({"title": "N", "downloaded": true})];
+        assert_eq!(
+            request_counts(&wishlist, &manual, &jobs),
+            json!({"open": 2, "failed": 1}),
+            "per book, not per requester: OPEN (two requesters) and the open manual one; FAIL failed; a retry under way, a book in the library and a job for a book no longer requested are not counted"
+        );
+        assert_eq!(request_counts(&[], &[], &Map::new()), json!({"open": 0, "failed": 0}));
     }
 }

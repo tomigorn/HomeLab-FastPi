@@ -416,6 +416,7 @@ fn main() {
     let gate = url("GATE_URL", "http://traefik:8080/activity/gate");
     let abs = url("ABS_URL", "http://audiobookshelf:8080").map(|u| (u, PathBuf::from(env_or("ABS_KEY_FILE", "/run/secrets/abs_api_key"))));
     let qbit = url("QBIT_URL", "http://traefik:8080/activity/qbit");
+    let requests = url("ABR_URL", "http://traefik:8080/activity/abr");
     let influx = url("INFLUX_URL", "http://influxdb:8086").map(|u| {
         influx::Influx::new(
             u,
@@ -457,7 +458,7 @@ fn main() {
         cache: Mutex::new(BeefyCache::default()),
         tunnel,
     });
-    let src = local::Sources::new(abs, qbit, influx);
+    let src = local::Sources::new(abs, qbit, requests, influx);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap_or_else(|e| fail(&format!("runtime: {e}")));
     rt.block_on(async move {
         let listener = TcpListener::bind((bind.as_str(), port)).await.unwrap_or_else(|e| fail(&format!("bind {bind}:{port}: {e}")));

@@ -30,7 +30,7 @@ after(async () => browser && browser.close());
 function base(over) {
   return Object.assign({
     now: NOW, beefy: "up", beefy_data: "live", watching: [], downloads: [], downloads_as_of: null,
-    listening: { sessions: 0 }, audiobook_downloads: { downloading: 0, queued: 0 }, polled_at: NOW,
+    listening: { sessions: 0 }, audiobook_downloads: { downloading: 0, queued: 0 }, audiobook_requests: { open: 0, failed: 0 }, polled_at: NOW,
     streams_failed: false, downloads_failed: false, beefy_starting: false,
   }, over);
 }
@@ -114,6 +114,21 @@ test("queued, stalled and paused queue items and audiobook problems get their ow
   const t = await p.text("#downloads");
   for (const want of [/queued/, /stalled/, /paused/, /Audiobook\s*problem/]) assert.match(t, want);
   assert.equal(await p.page.locator("#downloads tr").count(), 5);
+  await p.ctx.close();
+});
+
+test("audiobook requests: open and failed get their own rows, unavailable is named", async () => {
+  let p = await open([base({ downloads: [], audiobook_requests: { open: 3, failed: 1 } })]);
+  const rows = await p.page.locator("#downloads tr").evaluateAll((rs) => rs.map((r) => r.innerText.replace(/\s+/g, " ").trim()));
+  assert.deepEqual(rows, ["📚 Audiobook requested, no download yet 3", "⚠️ Audiobook request failed, no download found 1"]);
+  assert.doesNotMatch(await p.text("#downloads"), /nothing downloading/);
+  await p.ctx.close();
+  p = await open([base({ downloads: [], audiobook_requests: { open: 0, failed: 0 } })]);
+  assert.equal(await p.page.locator("#downloads tr").count(), 0, "zero: no rows");
+  assert.doesNotMatch(await p.text("#downloads"), /audiobook requests unavailable/);
+  await p.ctx.close();
+  p = await open([base({ downloads: [], audiobook_requests: null })]);
+  assert.match(await p.text("#downloads"), /❔ audiobook requests unavailable/);
   await p.ctx.close();
 });
 

@@ -1,7 +1,7 @@
 """Starts the importer under test (IMPORTER_CMD) against the fakes in mocks.py, as a black box over HTTP.
 
 Peers: the importer trusts callers by address. Everything runs on loopback, so the client binds its source address:
-127.0.0.2 = books-proxy, 127.0.0.3 = ABR (ABR_HOST=localhost makes 127.0.0.1 ABR by name too), 127.0.0.4 = anybody else."""
+127.0.0.2 = books-proxy, 127.0.0.3 = ABR (ABR_HOST=localhost makes 127.0.0.1 ABR by name too), 127.0.0.4 = anybody else, 127.0.0.5 = Traefik (the activity page's counts)."""
 import atexit
 import http.client
 import json
@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 IMPORTER_DIR = HERE.parent.parent
 DEFAULT_CMD = f"python3 {IMPORTER_DIR / 'importer.py'}"
 WORK = Path(os.environ.get("BLACKBOX_WORK", Path.home() / ".cache/claude-work/importer-blackbox"))
-PEERS = {"proxy": "127.0.0.2", "abr": "127.0.0.3", "other": "127.0.0.4", "abr-by-name": "127.0.0.1"}
+PEERS = {"proxy": "127.0.0.2", "abr": "127.0.0.3", "other": "127.0.0.4", "abr-by-name": "127.0.0.1", "traefik": "127.0.0.5"}
 LEGACY = os.environ.get("IMPORTER_LEGACY") == "1"
 AUDIBLE_MOCK = os.environ.get("AUDIBLE_MOCK") == "1"
 STARTUPS = []
@@ -61,7 +61,7 @@ class Service:
             "AUDIBLE_REGIONS": "com" if AUDIBLE_MOCK else "invalid",
             "LIBRARY": str(self.library), "DOWNLOADS": str(self.downloads), "STATE": str(self.data / "jobs.json"), "QUOTA_LEDGER": str(self.data / "quota.json"),
             "QBIT_PASS_FILE": str(secrets / "qbit_pass"), "ABS_KEY_FILE": str(secrets / "abs_api_key"), "ABR_KEY_FILE": str(secrets / "abr_api_key"),
-            "BOOKS_PROXY_IP": PEERS["proxy"], "ABR_IP": PEERS["abr"], "ABR_HOST": "localhost",
+            "BOOKS_PROXY_IP": PEERS["proxy"], "ABR_IP": PEERS["abr"], "ABR_HOST": "localhost", "TRAEFIK_IP": PEERS["traefik"],
             "PROXY_BASE": "http://audiobook-importer:8000/prowlarr", "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         }
         self.env.update(env or {})

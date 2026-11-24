@@ -357,6 +357,11 @@ function downloads(s) {
     if (a.paused) rows.push(["⏸", "Audiobook", "paused", a.paused]);
     if (a.problem) rows.push(["⚠️", "Audiobook", "problem (error or missing files)", a.problem]);
   }
+  if (s.audiobook_requests) {
+    const q = s.audiobook_requests;
+    if (q.open) rows.push(["📚", "Audiobook", "requested, no download yet", q.open]);
+    if (q.failed) rows.push(["⚠️", "Audiobook", "request failed, no download found", q.failed]);
+  }
   const list = (s.downloads || []).slice().sort((x, y) => STATE_ORDER.indexOf(x.state) - STATE_ORDER.indexOf(y.state));
   const release = list.filter((d) => d.state === "waiting for release");
   for (const d of list.filter((d) => d.state !== "waiting for release")) {
@@ -387,6 +392,7 @@ function downloads(s) {
   if (s.downloads === null) box.append(el("p", { class: "note" }, "❔ beefy downloads unavailable (no data yet)"));
   else if (s.downloads_as_of) box.append(el("p", { class: "note" }, "beefy part as of " + when(s.downloads_as_of, s.now) + (s.beefy === "asleep" ? " (beefy asleep)" : "")));
   if (!s.audiobook_downloads) box.append(el("p", { class: "note" }, "❔ audiobook downloads unavailable"));
+  if (!s.audiobook_requests) box.append(el("p", { class: "note" }, "❔ audiobook requests unavailable"));
 }
 
 // Task-Manager-style card: one row per figure, a meter, the value, the last minutes as a sparkline
