@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Tests for rebuild_local.py's pure functions. Run: python3 test_rebuild_local.py"""
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from rebuild_local import (  # noqa: E402
     project_dir,
     project_name,
     parse_env,
+    run_test_step,
     render_prom,
     rollback_tag,
     sh,
@@ -36,8 +38,36 @@ def test_parse_conf_reads_entries_with_defaults():
                       '[[image]]\nproject = "/srv/Stonks"\nday = "sat"\nservices = ["stonks"]\n'
                       'build = "docker build -t stonks:latest /x"\ncontext = "/x"\nunittest = "python -m unittest"\ncheck = "curl -sf http://x/"\n')
     assert rows[0] == {"project": "Tower-Waker", "day": "Mon", "services": [], "build": "", "context": "",
-                       "test": "", "unittest": "", "check": "", "backups": [], "guard": ""}
+                       "test": "", "unittest": "", "check": "", "backups": [], "guard": "", "test_timeout": 900}
     assert rows[1]["day"] == "Sat" and rows[1]["services"] == ["stonks"] and rows[1]["context"] == "/x"
+
+
+def test_parse_conf_reads_test_timeout_and_refuses_non_positive_ints():
+    assert parse_conf('[[image]]\nproject = "A"\nday = "Mon"\ntest_timeout = 2700\n')[0]["test_timeout"] == 2700
+    for bad in ("0", "-5", '"900"', "1.5", "true"):
+        try:
+            parse_conf(f'[[image]]\nproject = "A"\nday = "Mon"\ntest_timeout = {bad}\n')
+        except ValueError:
+            continue
+        raise AssertionError(bad)
+
+
+def test_test_step_uses_the_entry_timeout():
+    import rebuild_local
+    seen = []
+    orig = rebuild_local.sh
+    rebuild_local.sh = lambda cmd, timeout=600, **kw: seen.append(timeout) or subprocess.CompletedProcess(cmd, 0, "", "")
+    try:
+        run_test_step({"test": "true", "test_timeout": 2700}, Path("/"), {})
+        run_test_step(parse_conf('[[image]]\nproject = "A"\nday = "Mon"\n')[0] | {"test": "true"}, Path("/"), {})
+    finally:
+        rebuild_local.sh = orig
+    assert seen == [2700, 900]
+
+
+def test_stonks_test_step_has_a_long_timeout():
+    rows = {r["project"]: r for r in parse_conf((Path(__file__).parent.parent / "rebuild-local.conf").read_text())}
+    assert rows["Stonks"]["test_timeout"] == 2700
 
 
 def test_repo_conf_parses_with_one_project_per_entry():

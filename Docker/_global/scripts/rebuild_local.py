@@ -43,7 +43,7 @@ TEXTFILE = Path(os.environ.get("REBUILD_TEXTFILE", "/var/lib/node-exporter/textf
 HOST = os.environ.get("REBUILD_HOST") or socket.gethostname().split(".")[0]
 DEADLINE = os.environ.get("REBUILD_DEADLINE", "")
 DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-KEYS = {"project": "", "day": "", "services": [], "build": "", "context": "", "test": "", "unittest": "", "check": "", "backups": [], "guard": ""}
+KEYS = {"project": "", "day": "", "services": [], "build": "", "context": "", "test": "", "unittest": "", "check": "", "backups": [], "guard": "", "test_timeout": 900}
 MIN_AVAILABLE_MB = int(os.environ.get("REBUILD_MIN_AVAILABLE_MB", "1200"))
 MIN_DISK_GB = 15
 FAILED = ("build_failed", "test_failed", "rolled_back", "rollback_failed", "error", "skipped")
@@ -64,8 +64,15 @@ def parse_conf(text: str) -> list[dict]:
         row["day"] = row["day"][:1].upper() + row["day"][1:].lower()
         if row["day"] not in DAYS:
             raise ValueError(f"bad day {item.get('day')!r} for {row['project']}")
+        t = row["test_timeout"]
+        if isinstance(t, bool) or not isinstance(t, int) or t <= 0:
+            raise ValueError(f"test_timeout must be a positive integer for {row['project']}")
         rows.append(row)
     return rows
+
+
+def run_test_step(row: dict, cwd: Path, env: dict) -> subprocess.CompletedProcess:
+    return sh(["bash", "-c", row["test"]], cwd=cwd, env=env, timeout=row["test_timeout"])
 
 
 def guard_reason(cmd: str, cwd: Path) -> str:
@@ -475,7 +482,7 @@ def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
             revert_pins()
             return "test_failed", (r.stdout + r.stderr).strip().splitlines()[-1][-200:] if (r.stdout + r.stderr).strip() else "unittest failed"
     if row["test"]:
-        r = sh(["bash", "-c", row["test"]], cwd=d, env=env, timeout=900)
+        r = run_test_step(row, d, env)
         log(f"  test: rc={r.returncode}")
         if r.returncode != 0:
             retag(old)
