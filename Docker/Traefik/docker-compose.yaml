@@ -49,6 +49,7 @@ services:
         gw_priority: 100
       # Prometheus scrapes traefik:8080/metrics here; :8080 is not published on the host.
       traefik_metrics:
+        ipv4_address: 192.168.128.2
       # One network per sensitive or public backend, shared only with Traefik (H-2). Traefik is .3 on each.
       traefik_authentik:
         ipv4_address: 10.24.15.3   # in Authentik's TRUSTED_PROXY_CIDRS
