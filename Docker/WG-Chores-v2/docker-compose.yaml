@@ -39,7 +39,8 @@ services:
     extra_hosts:
       - "sso.holy-grail.ch:10.24.24.3"
     networks:
-      - traefik_wg_chores   # shared only with Traefik
+      traefik_wg_chores:   # shared only with Traefik
+        ipv4_address: 10.24.24.2   # pinned: an unpinned app grabbed Traefik's .3 at boot (2026-11-24 outage)
     healthcheck:
       test: ["CMD", "/wg-chores", "healthcheck"]
       interval: 30s

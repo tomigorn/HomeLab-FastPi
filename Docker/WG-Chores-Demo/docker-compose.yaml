@@ -32,7 +32,8 @@ services:
     tmpfs:
       - /tmp:size=16m,noexec,nosuid,nodev
     networks:
-      - traefik_wg_chores   # shared only with Traefik
+      traefik_wg_chores:   # shared only with Traefik
+        ipv4_address: 10.24.24.4   # pinned: an unpinned app grabbed Traefik's .3 at boot (2026-11-24 outage)
     healthcheck:
       test: ["CMD", "/wg-chores", "healthcheck"]
       interval: 30s
