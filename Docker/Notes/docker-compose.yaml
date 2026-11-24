@@ -27,7 +27,8 @@ services:
     tmpfs:
       - /tmp
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        ipv4_address: 172.24.0.2
 
 # =========================================================
 # Networks ================================================
