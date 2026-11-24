@@ -6,7 +6,7 @@ if want prowlarr prowlarr-gate qbittorrent; then
 fi
 if want prowlarr prowlarr-gate; then
   check mouse.prowlarr-gate '^403$' "$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://10.24.32.2:9697/)"
-  check mouse.prowlarr-pin '2\.7\.0\.5723-ls167@sha256:431d7efebcef' "$(docker inspect -f '{{.Config.Image}}' prowlarr_mouse)"
+  check mouse.prowlarr-pin '3\.1\.0\.5799-ls170@sha256:2806c9b76381' "$(docker inspect -f '{{.Config.Image}}' prowlarr_mouse)"
   check mouse.prowlarr-lo-guard '^000 ok$' "$(docker exec qbittorrent_mouse curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:9696/ping) $(docker exec prowlarr-gate wget -q -O /dev/null http://127.0.0.1:9696/ping && echo ok)"
 fi
 if want qbittorrent; then
