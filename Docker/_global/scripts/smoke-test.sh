@@ -123,7 +123,7 @@ rules_loaded() { curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'i
 check "antivirus rules loaded"     '^ok$' "$(rules_loaded MalwareQuarantined MalwareFound ClamavScanStale ClamavScanErrors ClamavSignaturesStale)"
 check "digest rule loaded"         '^ok$' "$(rules_loaded WeeklyUpdateDigest homelab:local_utc_offset_hours)"
 check "adguard resolves"           '^[0-9.]+$' "$(dig +short @127.0.0.1 example.com | head -1)"
-check "portainer version"          '2\.45\.3' "$(curl -sk -m 5 https://127.0.0.1:9443/api/status)"
+check "portainer version"          '2\.45\.4' "$(curl -sk -m 5 https://127.0.0.1:9443/api/status)"
 check "audiobookshelf"             '^200$' "$(http https://audiobookshelf.holy-grail.ch/)"
 check "home assistant (LAN :8123)"  '^200$' "$(http http://192.168.1.2:8123/)"
 check "home assistant via traefik"  '^200$' "$(http -k --resolve ha.holy-grail.ch:443:192.168.1.2 https://ha.holy-grail.ch/)"
@@ -209,7 +209,7 @@ echo "== beefy (only if awake)"
 if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   r=$(timeout 60 ssh -o BatchMode=yes beefy 'echo "sec=$(apt list --upgradable 2>/dev/null | grep -c security)"; sudo docker ps --format "{{.Names}} {{.Image}} {{.Status}}"; f=$(sudo find /srv/appdata/floppy/backups/database -name "db-*.sqlite3" -mmin -2880 2>/dev/null | head -1); echo "floppybackup=$([[ -n $f ]] && echo yes || echo no)"' 2>/dev/null)
   check "beefy security updates"   'sec=0' "$(grep sec= <<<"$r")"
-  check "portainer agent"          'portainer/agent:2\.45\.3 Up' "$(grep portainer <<<"$r")"
+  check "portainer agent"          'portainer/agent:2\.45\.4 Up' "$(grep portainer <<<"$r")"
   for s in radarr sonarr prowlarr sabnzbd gluetun seerr; do check "beefy $s up" "Up" "$(grep -i "$s" <<<"$r" | head -1)"; done
   for s in floppy floppy-redis; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
   check "floppy version"           'floppy:26\.10\.29 ' "$(grep '^floppy ' <<<"$r")"
