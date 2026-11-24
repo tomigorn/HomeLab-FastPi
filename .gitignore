@@ -16,3 +16,6 @@ __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
+
+# Data a failed update-project.sh run leaves next to its source (may hold keys, e.g. Traefik ACME)
+*.failed-update-*
