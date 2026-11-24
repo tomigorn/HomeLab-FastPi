@@ -57,7 +57,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - socket_proxy
+      socket_proxy:
+        ipv4_address: 192.168.16.2
     # Non-root; the docker group (991) opens the socket. The image entrypoint renders
     # haproxy.cfg into a root-owned dir, so haproxy runs the shipped template directly:
     # it expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
@@ -90,7 +91,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./autoheal-haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
-      - socket_proxy_heal
+      socket_proxy_heal:
+        ipv4_address: 192.168.96.3
     # Non-root; the docker group (991) opens the socket. haproxy runs the mounted allow-list directly
     # and expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
     user: "65048:65048"
@@ -122,7 +124,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./portupdater-haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
-      - socket_proxy_portupdater
+      socket_proxy_portupdater:
+        ipv4_address: 192.168.112.3
     user: "65051:65051"
     group_add:
       - "991"
@@ -159,7 +162,8 @@ services:
     volumes:
       - socket_bridge:/sock
     networks:
-      - socket_proxy
+      socket_proxy:
+        ipv4_address: 192.168.16.3
     depends_on:
       - socket-proxy-ro
     cap_drop:
