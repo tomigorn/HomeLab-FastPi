@@ -159,7 +159,8 @@ services:
       # images, volumes, networks and everything else. Own network socket_proxy_heal.
       - DOCKER_SOCK=tcp://socket-proxy-autoheal:2375
     networks:
-      - socket_proxy_heal
+      socket_proxy_heal:
+        ipv4_address: 192.168.96.4
     logging:
       driver: "json-file"
       options:
@@ -506,7 +507,9 @@ services:
       mouse_network:
         ipv4_address: 10.24.32.3
       socket_proxy_portupdater:
+        ipv4_address: 192.168.112.2
       traefik_proxy:
+        ipv4_address: 172.24.0.7
     depends_on:
       gluetun:
         condition: service_healthy
