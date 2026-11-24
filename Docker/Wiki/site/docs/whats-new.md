@@ -10,7 +10,17 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 **Download to your phone: pick the size.** In Moonfin, **Original** downloads the full file; **High**, **Medium**, **Low** or **Mobile** all download the smaller phone version (about 1–2.5 GB per hour instead of up to 30 GB per film). No phone version yet? The first tap orders it, a ✅ message tells you when to tap again. [Download to your phone](apps/moonfin.md#9-download-to-your-phone)
 
+## 21 November 2026
+
+**Report a problem.** A film or episode won't play, or picture or sound is broken? Report it on `https://report.holy-grail.ch`, or with **⚠ Report a problem** on its page in Jellyfin (browser). The server blocks the broken version and downloads another one by itself. [Report a problem](apps/report.md)
+
 ## 15 November 2026
+
+**Login on one page.** Username and password go on the same page, then the 6-digit code. A **Forgot password?** link works for 10 minutes. [Getting started](getting-started.md#3-log-in)
+
+<!-- only: streaming-requesters -->
+**Audiobooks with the Requests menu.** The audiobook site now has the same sidebar (computer) or bottom bar (phone) as Requests, so you can jump between films and books. [Requesting audiobooks](apps/audiobook-requests.md)
+<!-- /only -->
 
 <!-- only: streaming-requesters -->
 **New page: Manual interaction.** In the Requests site's menu (German: *Manuell beheben*), with a number when something needs a hand: downloads that went wrong, titles nothing was found for, files that could not be sorted in. Anyone with request access can help: pick the right title, assign files to episodes, block a wrong release and search again, or switch an old title to "older versions allowed".
@@ -28,6 +38,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 **On a phone, Jellyfin in the browser points you to the Moonfin app.** Phone browsers can't play most of our films directly, so the server has to convert them (no 4K HDR, slower start). When you open Jellyfin or press play in a phone browser, you are offered the free Moonfin app, with a direct link to the App Store or Google Play. [Moonfin app](apps/moonfin.md)
 
 ## 14 November 2026
+
+**Waking page counts up.** While the media server wakes, the page shows how long it has been waking. [Why you sometimes wait](apps/waiting.md)
 
 **New step-by-step pages.** [How to watch](apps/watch.md) (browser, phone, TV, first login with Quick Connect), [Why you sometimes wait](apps/waiting.md) (the media server sleeps), [My request isn't there yet](apps/request-help.md) and a new [Listen to audiobooks](apps/audiobookshelf.md) with the phone app. A TV that only refreshes its home screen no longer wakes the server.
 
@@ -112,6 +124,8 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 **New home rows.** A random showcase at the top, Continue Watching and Next Up as separate rows, and **Hidden Gems**: well-rated titles you have not watched. Top 10 posters show a 🇨🇭 rank badge. [Home screen](apps/jellyfin-home.md#rows-top-to-bottom)
 
 ## 29 October 2026
+
+**More profile pictures.** New rows such as Lord of the Rings, Kingdom Hearts, Vox Machina, LEGO and Dinosaurs. [Profile picture](apps/profile-picture.md)
 
 **Popular movies and Popular shows.** Netflix CH Top 10 plus lists per service and genre. Top bar or side menu → **Popular movies** / **Popular shows** (on the TV: 🎬 and 📺 next to search). Each card: **🌙 Download tonight** or **⚡ Download now**. [Popular movies and shows](apps/jellyfin-home.md#popular-movies-and-shows)
 

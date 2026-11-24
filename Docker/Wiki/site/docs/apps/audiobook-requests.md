@@ -7,6 +7,8 @@ groups: [streaming-requesters]
 
 Also in Requests: the **Audiobooks** entry in the menu (after Series) opens it.
 
+The audiobook site has the same menu as [Requests](requests.md): a **sidebar** on the left on a computer, a **bar at the bottom** on the phone (Discover, Movies, Series, Audiobooks, Manual interaction, Collections, Requests). Use it to jump back. The book pages themselves (**Library**, **All requests**) are in the top menu.
+
 ## Who can request
 Accounts with the **requester** right. No **Audiobooks** tile or "no permission"? Ask the admin.
 

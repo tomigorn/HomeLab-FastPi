@@ -11,7 +11,7 @@ hide:
 You get an invite link from the admin. Accounts are by invite only.
 
 1. Open the link on the device you're setting up on. A short notice page appears first: read it and press **Continue**.
-2. Choose a **username** and enter your **name**, **email** and a **password** (twice).
+2. Choose a **username** and enter your **name**, **email** and a **password** (twice). Each email address can have only one account.
 3. Check your email and click the confirmation link.
 4. Set up your authenticator app (next step).
 5. At the end you pick a profile picture (step 5).
@@ -37,9 +37,9 @@ Holy Grail asks for a 6-digit code when you log in. You can't skip this step.
     Without it you can't log in. If you lose your phone, ask the admin to reset it; you'll set up a new one at your next login.
 
 ## 3. Log in
-Open any app. If you're not logged in you land on the Holy Grail login page: enter your username, your password, then the 6-digit code. Tick **stay signed in** to be asked less often.
+Open any app. If you're not logged in you land on the Holy Grail login page: enter your username and password on the same page, then the 6-digit code. Tick **stay signed in** to be asked less often.
 
-Forgot your password? Use **Forgot password?** on the login page. You get an email link and must also enter a code from your authenticator.
+Forgot your password? Use **Forgot password?** on the login page. You get an email link (valid for **10 minutes**) and must also enter a code from your authenticator.
 
 ## 4. Your dashboard
 After you log in, your dashboard shows a tile for every app you may use. Click a tile to open it.

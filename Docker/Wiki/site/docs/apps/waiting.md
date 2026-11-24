@@ -26,7 +26,7 @@ Our media server **sleeps when nobody uses it**. This saves electricity. When yo
 ## What you see
 | Where | What you see | What to do |
 |---|---|---|
-| Browser, Jellyfin | page **"asleep, sign in to start"** | press the sign-in button, log in, then wait. A countdown runs. Jellyfin opens by itself |
+| Browser, Jellyfin | page **"asleep, sign in to start"** | press the sign-in button, log in, then wait. A timer shows how long it has been waking. Jellyfin opens by itself |
 <!-- only: streaming-requesters -->
 | Browser, Requests | page **"Requests is starting"** | wait. Reload if nothing happens |
 <!-- /only -->

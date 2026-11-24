@@ -2,7 +2,7 @@
 
 **Address:** `https://avatars.holy-grail.ch`
 
-Pick a picture from a gallery of characters and artwork: cartoons, films and series, anime, games, animals, space, LEGO and more.
+Pick a picture from a gallery of characters and artwork, for example Disney & Pixar, Lord of the Rings, Harry Potter, Marvel & DC, Vox Machina, TV series, Muppets, anime, Pokémon, Kingdom Hearts, Super Mario, LEGO, dinosaurs, animals, space, art classics and pixel art.
 
 1. Open the address and browse the categories or search.
 2. Click a picture to choose it.
