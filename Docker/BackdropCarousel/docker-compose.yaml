@@ -28,7 +28,8 @@ services:
     volumes:
       - ./photos:/photos:ro
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        ipv4_address: 172.24.0.6
 
 # =========================================================
 # Networks ================================================
