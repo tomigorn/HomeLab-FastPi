@@ -10,9 +10,25 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 
 **Download to your phone: pick the size.** In Moonfin, **Original** downloads the full file; **High**, **Medium**, **Low** or **Mobile** all download the smaller phone version (about 1–2.5 GB per hour instead of up to 30 GB per film). No phone version yet? The first tap orders it, a ✅ message tells you when to tap again. [Download to your phone](apps/moonfin.md#9-download-to-your-phone)
 
+<!-- only: streaming-requesters -->
+**Delete early.** Watched it and don't need it anymore? Title page in Requests → **🗑 Delete early** (series: whole or one season). 7 days in the recycle bin with **↩ Restore**, 10 per week; Keep forever titles and titles someone is watching need their OK. [Delete early](apps/retention.md#delete-early)
+<!-- /only -->
+
+**Old formats in 2160p.** Films and episodes in old formats (DVD, VC-1, XviD, WMV, interlaced) get a second version, **2160p upscale**, made at night, so TVs and phones play them without converting. [2160p upscale version](apps/jellyfin.md#2160p-upscale-version)
+
 ## 21 November 2026
 
 **Report a problem.** A film or episode won't play, or picture or sound is broken? Report it on `https://report.holy-grail.ch`, or with **⚠ Report a problem** on its page in Jellyfin (browser). The server blocks the broken version and downloads another one by itself. [Report a problem](apps/report.md)
+
+## 16 November 2026
+
+**Titles leave after 3 months, great ones stay.** A title leaves the server 3 months after the download or the last play (watching starts the 3 months again). Old, rare and top-rated titles stay forever. In Jellyfin, **Leaving soon** shows what goes in the next 7 days, **Left the server** what can be downloaded again. [How long titles stay](apps/retention.md)
+
+<!-- only: streaming-requesters -->
+**♾️ Keep forever.** Tick it when requesting, or press it on a title page under **On the server**, which also shows the leaving date. [Keep forever](apps/retention.md#keep-forever)
+<!-- /only -->
+
+**Wrong-language downloads blocked.** A download without German, English or original-language sound is blocked right after the download and searched again. [Audio & subtitles](audio-subtitles.md)
 
 ## 15 November 2026
 
@@ -23,7 +39,15 @@ Newest first. Each entry: what changed, where to click, and the page with the de
 <!-- /only -->
 
 <!-- only: streaming-requesters -->
-**New page: Manual interaction.** In the Requests site's menu (German: *Manuell beheben*), with a number when something needs a hand: downloads that went wrong, titles nothing was found for, files that could not be sorted in. Anyone with request access can help: pick the right title, assign files to episodes, block a wrong release and search again, or switch an old title to "older versions allowed".
+**New page: Manual interaction.** In the Requests site's menu (German: *Manuell beheben*), with a number when something needs a hand: downloads that went wrong, titles nothing was found for, files that could not be sorted in. Anyone with request access can help: pick the right title, assign files to episodes, block a wrong release and search again, or switch an old title to "older versions allowed". **Read description** checks a release's languages, and after 7 days with nothing found **Download anyway** takes a release that is not normally allowed. [Manual interaction](apps/requests.md#manual-interaction)
+<!-- /only -->
+
+<!-- only: streaming-requesters -->
+**Own collections.** Requests menu → **Collections**: make a list from a search like `producer:Adam Sandler`. It shows in Jellyfin under **Collections & Trending** for everyone, missing titles downloadable like Top 10. [Own collections](apps/requests.md#own-collections)
+<!-- /only -->
+
+<!-- only: streaming-requesters -->
+**Finished or not.** Requests page → filter → **✅ Request fulfilled** or **⏳ Request not yet finished**. On a title page, **⚡ Download now** says when it isn't needed: **🌙 Low tariff** (downloads now anyway) or **⏳ Nobody is sharing this file right now**. [Finished or not](apps/requests.md#finished-or-not)
 <!-- /only -->
 
 <!-- only: streaming-requesters -->
