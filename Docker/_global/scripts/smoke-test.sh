@@ -56,7 +56,7 @@ check "clean IP passes (200)"        '^200$' "$(curl -sk -m 10 -o /dev/null -w '
 
 echo "== Authentik (SSO)"
 running authentik-server authentik-worker authentik-postgresql
-check "authentik version"          '2026\.8\.5' "$(docker inspect -f '{{.Config.Image}}' authentik-server)"
+check "authentik version"          '2026\.8\.6' "$(docker inspect -f '{{.Config.Image}}' authentik-server)"
 check "authentik postgres"         '^18\.' "$(docker exec authentik-postgresql postgres --version | awk '{print $3}')"
 check "login page"                 '^200$' "$(http https://sso.holy-grail.ch/if/flow/default-authentication-flow/)"
 check "OIDC discovery (Nextcloud)" '^200$' "$(http https://sso.holy-grail.ch/application/o/nextcloud/.well-known/openid-configuration)"
