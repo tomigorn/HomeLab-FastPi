@@ -35,7 +35,8 @@ services:
     cap_drop:
       - ALL
     networks:
-      - app-network
+      app-network:
+        ipv4_address: 192.168.144.2
     volumes:
       # Pre-provided self-signed cert so the app can run non-root: the entrypoint only
       # generates one into root-owned /app, so mounting it ro makes it skip generation.
@@ -51,6 +52,9 @@ services:
 
 networks:
   app-network:
+    ipam:
+      config:
+        - subnet: 192.168.144.0/20
     driver: bridge
 
 # If you want to use Docker secrets for the PFX password, uncomment and create the secret:
