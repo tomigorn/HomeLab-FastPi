@@ -36,10 +36,12 @@ services:
       - ./config/parsers/requests-signed-in.yaml:/etc/crowdsec/parsers/s02-enrich/requests-signed-in.yaml:ro
       - crowdsec_data:/var/lib/crowdsec/data
     networks:
-      - crowdsec
+      crowdsec:
+        ipv4_address: 192.168.32.2
       # Traefik's bouncer plugin queries the Local API over HTTP; this network
       # is shared only with Traefik (H-2), so other apps cannot reach the LAPI.
-      - traefik_crowdsec
+      traefik_crowdsec:
+        ipv4_address: 10.24.11.2
     security_opt:
       - no-new-privileges:true
     cap_drop:
