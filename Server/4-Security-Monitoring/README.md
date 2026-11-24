@@ -290,6 +290,10 @@ The gap is covered by measurement rather than automation — `apt list
 packages unattended-upgrades will never touch, and `PendingSecurityUpdates`
 fires if they sit for three days. Auto-patch what is safe; alert on the rest.
 
+**Upgrading `docker-ce` by hand on fastpi:** `live-restore` keeps the containers running across the daemon restart, but the ones that bind-mount `docker.sock` keep the old, dead socket: the socket proxies answer 503 (telegraf, Cup, Trivy, autoheal, Portainer). Afterwards restart them (2026-11-24):
+`docker restart $(docker ps -q --filter volume=/var/run/docker.sock)`
+beefy has no `live-restore`: its containers restart with the daemon and need nothing.
+
 ## SSH / CrowdSec — deliberately not wired
 
 **No CrowdSec on beefy or tower either** (decision 2026-10-19): SSH there is LAN-only too, and a CrowdSec agent per host is a moving part for logs with no attacks in them. Instead `security_failed_logins_total` counts failed logins on all three (fastpi journal, beefy `/var/log/auth.log`, tower `/var/log/syslog`) and `FailedLoginsSpike` (> 20 in 24 h, info) tells.
