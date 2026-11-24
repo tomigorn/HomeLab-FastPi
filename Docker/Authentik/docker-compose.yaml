@@ -43,7 +43,8 @@ services:
       # /var/lib/postgresql. The PG16 volume "database" is kept untouched for rollback.
       - database-pg18:/var/lib/postgresql
     networks:
-      - authentik_internal
+      authentik_internal:
+        ipv4_address: 172.30.0.4
 
 # #########################################################
 # Authentik Server ########################################
@@ -91,8 +92,10 @@ services:
       postgresql:
         condition: service_healthy
     networks:
-      - authentik_internal
-      - traefik_authentik   # shared only with Traefik (H-2); Traefik is pinned 10.24.15.3 there (TRUSTED_PROXY_CIDRS)
+      authentik_internal:
+        ipv4_address: 172.30.0.2
+      traefik_authentik:   # shared only with Traefik (H-2); Traefik is pinned 10.24.15.3 there (TRUSTED_PROXY_CIDRS)
+        ipv4_address: 10.24.15.2
 
 # #########################################################
 # Authentik Worker ########################################
@@ -150,7 +153,8 @@ services:
       postgresql:
         condition: service_healthy
     networks:
-      - authentik_internal
+      authentik_internal:
+        ipv4_address: 172.30.0.3
 
 # =========================================================
 # Secrets =================================================
