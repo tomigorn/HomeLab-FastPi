@@ -48,6 +48,7 @@ nav:
       - Moonfin app (TV & phone): apps/moonfin.md
       - Skip intro & credits: apps/skip-buttons.md
       - Audio & subtitles: audio-subtitles.md
+      - How long titles stay: apps/retention.md
   - Requesting:
       - Films & series: apps/requests.md
       - Audiobooks: apps/audiobook-requests.md
