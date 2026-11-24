@@ -20,7 +20,8 @@ services:
       - ./secrets/picker_secret:/run/secrets/picker_secret:ro
       - ./data:/data
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        ipv4_address: 172.24.0.14
     user: "65002:65002"
     read_only: true
     cap_drop:
