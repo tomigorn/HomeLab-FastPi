@@ -20,7 +20,8 @@ services:
     secrets:
       - pb_admin_password
     networks:
-      - traefik_loyalty_sync   # shared only with Traefik (H-2)
+      traefik_loyalty_sync:   # shared only with Traefik (H-2)
+        ipv4_address: 10.24.21.2
 
 # #########################################################
 # Networks ################################################
