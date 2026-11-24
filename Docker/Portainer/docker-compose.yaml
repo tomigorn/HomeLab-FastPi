@@ -63,7 +63,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - portainer_socket
+      portainer_socket:
+        ipv4_address: 192.168.80.3
     # Non-root; the docker group (991) opens the socket. The image entrypoint renders
     # haproxy.cfg into a root-owned dir, so haproxy runs the shipped template directly:
     # it expands BIND_CONFIG (environment above) itself, like $SOCKET_PATH.
@@ -98,7 +99,8 @@ services:
     volumes:
       - portainer_sock:/sock
     networks:
-      - portainer_socket
+      portainer_socket:
+        ipv4_address: 192.168.80.2
     depends_on:
       - socket-proxy
     cap_drop:
@@ -146,7 +148,8 @@ services:
       traefik_portainer:  # inbound (shared only with Traefik, H-2) and outbound (beefy agent :9001)
         # Pinned: the host's DOCKER-USER guard lets only this address reach beefy:9001.
         ipv4_address: 10.24.7.7
-      portainer_socket: {}  # Docker API via the proxy
+      portainer_socket:  # Docker API via the proxy
+        ipv4_address: 192.168.80.4
 # =========================================================
 # Volumes =================================================
 # =========================================================
@@ -162,6 +165,9 @@ networks:
     external: true   # defined in Docker/Traefik/docker-compose.yaml
   # Portainer <-> its socket proxy only. internal: no route to the internet.
   portainer_socket:
+    ipam:
+      config:
+        - subnet: 192.168.80.0/20
     name: portainer_socket
     driver: bridge
     internal: true
