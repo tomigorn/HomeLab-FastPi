@@ -142,6 +142,11 @@ Tools: [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) · [jellyfin
 ### Trending on the TV
 Open **Media** (Android TV: **My media**) → **Collections & Trending**. Pick a list (Top 10 Switzerland, Coming soon, a service or genre), then a title. Under **Version** (Apple TV: **⋯** next to Play) choose **⬇ Download movie now** or **🌙 Download movie tonight · lower power cost**, then press **Play** and let the 10-second clip run to the end. **Back** cancels. Titles you already have sit at the end of a list and play normally.
 
+The household's own lists show here too (made in Requests → Collections), plus **Leaving soon** and **Left the server**: [How long titles stay](retention.md).
+
+### 2160p upscale version
+Old formats (DVD, VC-1, XviD, WMV, interlaced) get a second version, **2160p upscale**, made by the server at night. Jellyfin picks it first; TVs and phones play it without converting. The original stays under **Version**.
+
 ### Skip intros automatically
 By default you get a **Skip Intro** button. To skip without pressing:
 

@@ -109,7 +109,7 @@ Every requested title that is not in Jellyfin yet shows an icon next to the stat
 
 | Icon | Means |
 |---|---|
-| ⏳ | waiting for an admin to approve the request |
+| ⏳ | waiting for an admin to approve the request; or **Nobody is sharing this file right now**: it starts as soon as someone does |
 | magnifier (still) | just requested, the search starts in a moment |
 | magnifier (pulsing) | searching right now (a few minutes), or waiting for other searches |
 | 🌙 | Can wait: downloads at night (cheaper power) |
@@ -123,6 +123,13 @@ Every requested title that is not in Jellyfin yet shows an icon next to the stat
 
 ### Download now
 Open a title **you requested** → **⚡ Download now** (next to the request button). It starts the waiting download at once, at the higher daytime power price. Titles other people requested have no button; admins see it on every title.
+
+No button but a note instead:
+
+| Note | Means |
+|---|---|
+| **🌙 Low tariff — downloads now at the cheaper night price** | it is 22:00-06:00 or Sunday: everything waiting downloads now by itself |
+| **⏳ Nobody is sharing this file right now** | the only download is a torrent nobody shares; it starts as soon as someone does. A press can't help |
 
 Nothing grabbed yet: it searches first. **🔍 Searching…** shows while the search runs (several searches run one after the other). Found → **✅ Downloading**. Nothing found → **🧭 No release found yet**: the title goes back to the night queue (🌙) and tonight's search keeps looking; **⚡ Search again** tries once more.
 
@@ -143,6 +150,12 @@ Open a title **you requested** → the card **My request** under the title (tap 
 
 Press **Save**; within 2 minutes the server applies it and searches again if quality or audio changed (subtitles only: no new download). If someone else requested the same title too, the card is read-only: ask the admin to change it. Deleting then removes only your request; the title stays.
 
+### Finished or not
+Requests page → filter (funnel icon) → **✅ Request fulfilled** (fully in Jellyfin) or **⏳ Request not yet finished** (still searching, downloading or partly there).
+
+### How long it stays
+Titles leave the server 3 months after the last play, unless they are kept forever. The pill under **Status** shows the date. Keep forever and **🗑 Delete early**: [How long titles stay](retention.md).
+
 ### Who requested what
 Everyone in the household sees all requests on the **Requests** page, with who asked for it. Requests from Jellyfin (🌙/⚡ on Popular, Moonfin, the TV placeholders) are made under your own Seerr account and marked **via Jellyfin**, **via Moonfin** or **via TV**. Without a Seerr account they appear under "Jellyfin popular" with your name in the marker.
 
@@ -160,6 +173,47 @@ Every request shows **Size** under Profile (German: **Grösse**).
 A title's page shows **Size** too, in the facts box under Status: films with their quality (`45.3 GB · 2160p HDR10`), series with episodes (`143.7 GB · 16 of 16 episodes`; hover or tap for each season).
 
 Sort by size: the **GB** box right of the sort → **Largest** or **Smallest** (all requests on one page). **Off** or picking Seerr's own sort brings the normal order back.
+
+## Manual interaction
+Sometimes a download needs a hand. Menu → **Manual interaction** (German: **Manuell beheben**); the amber number counts open problems. Everyone with request access can help, also on other people's requests.
+
+Tabs: **Open** (needs a hand) and **Done** (what was fixed, and by whom).
+
+| Problem | What to do |
+|---|---|
+| Downloaded, but can't be sorted in | **Check files to finish importing** → pick the film or episode for each file → **Import** |
+| Wrong film, fake, or the download failed | **Wrong release — block it and search again** (second tap to confirm) |
+| Nothing found for 3 days or more | **Allow older versions** (good for titles 12+ years old), or **Show releases** → **Download** on an allowed one |
+| Removed from Radarr/Sonarr | **Add again** |
+| Seerr could not hand it over | search the title in the box → **Use this one** |
+
+In **Show releases**:
+
+- Each release shows quality, size, languages and seeders; **Details ↗** opens its page at the indexer.
+- **Read description** reads the release's description for languages (e.g. Swiss German) when its name doesn't say. Takes up to 3 minutes.
+- Releases that are not allowed are folded under **N more, not allowed — show why**. After **7 days** with nothing found they get **Download anyway**: it downloads that one, and every night the server looks for a better version that replaces it.
+- A file is imported only after its virus scan.
+
+In **Done**, a title whose file came from a known release has **Pick another release** (the current file stays until the new one is in) and **Block this release** (by default keeps the current file until a replacement arrives). Downloads the server blocked by itself (wrong language, broken file) are listed here too.
+
+## Own collections
+Make a Jellyfin collection from a search, e.g. all films produced by Adam Sandler. Menu → **Collections** (German: **Sammlungen**).
+
+1. Type a **name** and a **search**, pick the order (newest, most popular, best rated) and how many titles (1–100).
+2. Press **Preview**. A name that fits several people asks which one.
+3. Press **Save**.
+
+| Search term | Finds |
+|---|---|
+| `actor:` `director:` `producer:` `writer:` | a person's films and series, e.g. `actor:Keanu Reeves` |
+| `studio:` | a production company (films only) |
+| `franchise:` | a film series, e.g. `franchise:Mission Impossible` |
+| `genre:` `year:` `type:` `keyword:` | filters: `year:1990-1999`, `type:movie` or `type:series` |
+
+- Terms combine (all must fit), up to 6.
+- A few minutes later the list is in Jellyfin under **Collections & Trending** (browser: **Collections**), for everyone. Titles we have play; missing ones can be downloaded like a Top 10 title (10 per person per 7 days).
+- Every night new releases that fit join the list.
+- 5 lists per person. **Edit** / **Delete** for whoever made it (deleting keeps the films).
 
 ## Which version gets downloaded
 
@@ -182,10 +236,13 @@ You don't need to choose anything: the server picks the best version automatical
 | A **remux** (untouched disc copy, largest) is the last resort | good encodes look the same at a fraction of the size, so they win |
 | Torrents need at least **5 seeders** (old & rare titles: 1) | rare old films can take longer, or may not be found |
 | **Usenet** is preferred when everything else is equal | |
+| **Old formats** (DVD MPEG-2, VC-1, XviD, WMV, interlaced) | the server makes its own **2160p upscale** at night (from 22:10) and adds it as a second version; TVs and phones play it directly |
 | **Anime**: series at most 1080p, films up to 4K HDR, never a remux | anime is drawn in 1080p, so "4K" anime episodes are just enlarged; anime films get real 4K HDR when it exists. Otherwise the same rules as above |
 
 ### Upgrades and editions
 A film you already have is replaced only when the new version looks or sounds better (never just bigger, never for an extra dub), until it is 4K HDR with the original language and English (for English films: with German; anime series: 1080p with original + English; anime films like other films); after that it stays. German-only dubs are never downloaded.
+
+A download whose sound has no German, English or original-language track (e.g. only French and Italian for an English film) is blocked right after the download and searched again; the old file comes back if there was one. You see it in [Manual interaction](#manual-interaction) → **Done**.
 
 If the server grabbed the wrong film (same title, different year), it notices and replaces it automatically. Fake downloads (a program instead of a video) are removed and searched again automatically.
 

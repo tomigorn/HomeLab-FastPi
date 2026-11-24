@@ -21,7 +21,7 @@ Find the title in **Popular movies** or **Popular shows** in Jellyfin. The card 
 | ✅ | ready in Jellyfin | press play. Not visible? Reload Jellyfin |
 | ⚠️ | a problem | hover or tap it to read why. The server tries again by itself |
 
-All icons: [Status icons](requests.md#status-icons).
+All icons: [Status icons](requests.md#status-icons). ⚠️ or 🧭 for days: anyone can help in [Manual interaction](requests.md#manual-interaction).
 <!-- /only -->
 
 ## I want it sooner
