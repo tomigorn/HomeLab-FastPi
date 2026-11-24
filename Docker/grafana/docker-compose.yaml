@@ -30,17 +30,23 @@ services:
     ports:
       - "127.0.0.1:9090:9090"   # SSO-only policy: no LAN access, Grafana reaches it by container name
     networks:
-      - default
+      default:
+        ipv4_address: 192.168.208.9
       # CrowdSec's metrics endpoint (crowdsec:6060) is only reachable on its own
       # docker network - nothing is published on the host/LAN.
-      - crowdsec
-      - cloudflare
+      crowdsec:
+        ipv4_address: 192.168.32.3
+      cloudflare:
+        ipv4_address: 172.20.0.3
       # Defined by Traefik (internal). Prometheus scrapes traefik:8080/metrics.
-      - traefik_metrics
+      traefik_metrics:
+        ipv4_address: 192.168.128.3
       # Defined by Authentik. Prometheus scrapes authentik-server:9300 (not published).
-      - authentik_internal
+      authentik_internal:
+        ipv4_address: 172.30.0.5
       # Defined by Activity (internal). Prometheus scrapes activity:8080/metrics.
-      - activity_metrics
+      activity_metrics:
+        ipv4_address: 10.24.40.3
 
 # #########################################################
 # Node Exporter ###########################################
@@ -78,6 +84,9 @@ services:
       # node_textfile_scrape_error=1, which the TextfileCollectorError alert
       # watches - otherwise a formatting slip silently removes every metric in it.
       - "--collector.textfile.directory=/var/lib/node-exporter/textfile"
+    networks:
+      default:
+        ipv4_address: 192.168.208.5
 
 # #########################################################
 # Blackbox Exporter #######################################
@@ -101,6 +110,9 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.208.4
 
 # #########################################################
 # Blackbox Exporter WAN ###################################
@@ -126,6 +138,9 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.208.7
 
 # #########################################################
 # Alertmanager ############################################
@@ -171,6 +186,9 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.208.10
 
 # #########################################################
 # JSON Exporter ###########################################
@@ -196,6 +214,9 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.208.2
 
 # #########################################################
 # Grafana #################################################
@@ -263,8 +284,10 @@ services:
     extra_hosts:
       - "sso.holy-grail.ch:192.168.1.2"
     networks:
-      - default
-      - traefik_proxy
+      default:
+        ipv4_address: 192.168.208.3
+      traefik_proxy:
+        ipv4_address: 172.24.0.5
 
 # #########################################################
 # InfluxDB ################################################
@@ -296,9 +319,11 @@ services:
     secrets:
       - influxdb_admin_password
     networks:
-      - default
+      default:
+        ipv4_address: 192.168.208.8
       # Activity reads Telegraf's container figures here (read-only token, ../Activity/README.md)
-      - activity_influx
+      activity_influx:
+        ipv4_address: 10.24.40.11
     restart: unless-stopped
 
 # #########################################################
@@ -322,8 +347,10 @@ services:
     secrets:
       - telegraf_influx_token
     networks:
-      - default
-      - socket_proxy
+      default:
+        ipv4_address: 192.168.208.6
+      socket_proxy:
+        ipv4_address: 192.168.16.4
     volumes:
       - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
       - /proc:/host/proc:ro
@@ -354,6 +381,9 @@ networks:
   # Compose's implicit per-project network, named explicitly now that a second
   # network is attached to telegraf.
   default:
+    ipam:
+      config:
+        - subnet: 192.168.208.0/20
   # Defined by Docker-Socket-Proxy. Internal-only: no route to the internet.
   socket_proxy:
     external: true
