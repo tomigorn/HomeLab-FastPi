@@ -30,7 +30,8 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        ipv4_address: 172.24.0.10
 
 # =========================================================
 # Networks ================================================
