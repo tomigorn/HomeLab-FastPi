@@ -11,7 +11,8 @@ services:
     mem_limit: 128m
     restart: unless-stopped
     networks:
-      - traefik_loyalty_cards   # shared only with Traefik (H-2)
+      traefik_loyalty_cards:   # shared only with Traefik (H-2)
+        ipv4_address: 10.24.20.2
 
 # #########################################################
 # Networks ################################################
