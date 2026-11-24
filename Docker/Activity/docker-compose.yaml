@@ -38,8 +38,10 @@ services:
         # Top of the subnet, like Traefik's .3: Docker hands out addresses from the bottom.
         ipv4_address: 172.24.255.10
         gw_priority: 100
-      activity_metrics:            # Prometheus scrapes /metrics here; nothing else on it
-      activity_influx:             # InfluxDB (Telegraf's container figures for Audiobookshelf and the mouse downloads); nothing else on it
+      activity_metrics:  # Prometheus scrapes /metrics here; nothing else on it
+        ipv4_address: 10.24.40.2
+      activity_influx:  # InfluxDB (Telegraf's container figures for Audiobookshelf and the mouse downloads); nothing else on it
+        ipv4_address: 10.24.40.10
 
 # =========================================================
 # Networks ================================================
