@@ -37,6 +37,9 @@ services:
       start_period: 30s
     secrets:
       - cloudflared_tunnel_token
+    networks:
+      default:
+        ipv4_address: 172.20.0.2
 
 # # ---------------------------------------------------------
 # # Cloudflare DDNS Minecraft -------------------------------
