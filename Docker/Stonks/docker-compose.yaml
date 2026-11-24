@@ -23,7 +23,8 @@ services:
       # the binary reads /app/.env; it holds only the secrets
       - ./secrets/stonks.env:/app/.env:ro
     networks:
-      - traefik_stonks   # shared only with Traefik (H-2)
+      traefik_stonks:   # shared only with Traefik (H-2)
+        ipv4_address: 10.24.23.2
 
 # =========================================================
 # Networks ================================================
