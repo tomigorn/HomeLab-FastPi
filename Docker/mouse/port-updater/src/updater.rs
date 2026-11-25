@@ -28,6 +28,11 @@ fn secs(n: u64) {
 }
 
 /// Wait before the next stack restart after `failed` restarts that brought no port: base, 2x base, 4x base ... capped.
+/// The listen port must be (re)set when gluetun's port changed or qBittorrent shows anything else (1, empty, a stale port).
+pub fn needs_update(port: u64, last_port: u64, qbit_port: &str) -> bool {
+    port != 0 && (port != last_port || qbit_port != port.to_string())
+}
+
 pub fn backoff(base: u64, max: u64, failed: u32) -> u64 {
     let shift = failed.saturating_sub(1).min(32);
     base.saturating_mul(1u64 << shift).min(max)
@@ -105,16 +110,23 @@ impl Updater {
             .post(&self.qbit("/api/v2/auth/login"))
             .send_form([("username", self.cfg.qbit_user.as_str()), ("password", self.cfg.qbit_pass.as_str())])
             .map_err(|e| format!("qBittorrent login failed: {e}"))?;
-        self.cookie = clients::cookies(&resp);
+        let code = resp.status().as_u16();
+        let cookie = clients::cookies(&resp);
+        clients::login_ok(code, &clients::body(Ok(resp)).unwrap_or_default())?;
+        self.cookie = cookie;
         Ok(())
     }
 
-    fn set_preferences(&self, json: &str) -> Result<(), Fatal> {
-        let mut req = self.http.post(&self.qbit("/api/v2/app/setPreferences"));
-        if let Some(c) = &self.cookie {
-            req = req.header("Cookie", c);
+    /// Logs in until qBittorrent accepts, one try per `ZERO_RETRY_INTERVAL` (a fixed pace keeps clear of its IP ban).
+    fn login_retrying(&mut self) {
+        while let Err(e) = self.login() {
+            println!("{e} - retrying in {} s", self.cfg.zero_retry_interval);
+            secs(self.cfg.zero_retry_interval);
         }
-        req.send_form([("json", json)]).map(|_| ()).map_err(|e| format!("qBittorrent setPreferences failed: {e}"))
+    }
+
+    fn set_preferences(&self, json: &str) -> Result<(), Fatal> {
+        self.post_cookie("/api/v2/app/setPreferences", [("json", json)])
     }
 
     fn qbit_interface(&self) -> Option<String> {
@@ -191,7 +203,7 @@ impl Updater {
         if let Some(c) = &self.cookie {
             req = req.header("Cookie", c);
         }
-        req.send_form(form).map(|_| ()).map_err(|e| format!("qBittorrent {path} failed: {e}"))
+        clients::qbit_ok(path, req.send_form(form))
     }
 
     /// Stops the VPN clients, restarts gluetun for a new lease, starts them again: they share gluetun's netns.
@@ -226,7 +238,7 @@ impl Updater {
             println!("qBittorrent did not become ready within timeout; attempting to reattach containers...");
             self.try_reattach_qbittorrent();
         }
-        self.login()?;
+        self.login_retrying();
         self.ensure_qbittorrent_bound()?;
 
         println!("Starting port monitoring loop...");
@@ -239,7 +251,11 @@ impl Updater {
                 println!("qBittorrent unreachable from port-updater; attempting reattach...");
                 self.try_reattach_qbittorrent();
             }
-            self.login()?;
+            if let Err(e) = self.login() {
+                println!("{e} - retrying in {} s", self.cfg.zero_retry_interval);
+                secs(self.cfg.zero_retry_interval);
+                continue;
+            }
 
             let port = match self.gluetun_get("/v1/portforward", "port") {
                 Ok(v) => clients::port(v.as_ref()),
@@ -254,18 +270,24 @@ impl Updater {
             let shown = port.map(|p| p.to_string()).unwrap_or_default();
 
             match port {
-                Some(p) if p != 0 && (p != last_port || qbit_port == "1" || qbit_port.is_empty()) => {
+                Some(p) if needs_update(p, last_port, &qbit_port) => {
                     println!(">>>\n      ProtonVPN assigned a new forwarded port: {p} (was: {last_port}) — triggering qBittorrent update\n<<<");
                     println!("Port update needed: VPN={p}, qBit={qbit_port} (last={last_port})");
-                    self.set_preferences(&format!("{{\"listen_port\":{p}}}"))?;
+                    if let Err(e) = self.set_preferences(&format!("{{\"listen_port\":{p}}}")) {
+                        println!("Port update failed: {e} - retrying in {} s", self.cfg.zero_retry_interval);
+                        secs(self.cfg.zero_retry_interval);
+                        continue;
+                    }
                     println!("Port updated to {p}");
                     self.log_event("port_update", p, last_port, &format!("ProtonVPN assigned new port {p} (was {last_port})"), &vpn_ip);
                     last_port = p;
                     zero_count = 0;
                     failed_restarts = 0;
                     println!("Reannouncing all torrents...");
-                    self.post_cookie("/api/v2/torrents/reannounce", [("hashes", "all")])?;
-                    println!("Reannounce triggered.");
+                    match self.post_cookie("/api/v2/torrents/reannounce", [("hashes", "all")]) {
+                        Ok(()) => println!("Reannounce triggered."),
+                        Err(e) => println!("Reannounce failed: {e}"),
+                    }
                 }
                 None | Some(0) => {
                     zero_count += 1;
@@ -306,6 +328,17 @@ impl Updater {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn update_when_port_changed_or_qbit_differs() {
+        assert!(needs_update(45000, 0, "1"));
+        assert!(needs_update(45000, 44000, "44000"));
+        assert!(needs_update(45000, 45000, "1"));
+        assert!(needs_update(45000, 45000, ""));
+        assert!(needs_update(45000, 45000, "50000"));
+        assert!(!needs_update(45000, 45000, "45000"));
+        assert!(!needs_update(0, 45000, "45000"));
+    }
 
     #[test]
     fn backoff_doubles_and_caps() {

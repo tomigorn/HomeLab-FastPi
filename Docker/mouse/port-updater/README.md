@@ -4,8 +4,9 @@ Keeps qBittorrent's listen port on gluetun's forwarded VPN port and shows a stat
 ## What it does
 | Job | How |
 |---|---|
-| Port sync | every `CHECK_INTERVAL` s: gluetun `GET /v1/portforward` + `/v1/publicip/ip` (basic auth) → qBittorrent `setPreferences listen_port` + `torrents/reannounce hashes=all` when the port changed or qBit shows 1/empty |
+| Port sync | every `CHECK_INTERVAL` s: gluetun `GET /v1/portforward` + `/v1/publicip/ip` (basic auth) → qBittorrent `setPreferences listen_port` + `torrents/reannounce hashes=all` when the port changed or qBit shows any other port (1, empty, stale) |
 | gluetun API error | non-2xx or non-JSON answer (`Unauthorized`, `404 page not found`): port unknown, last port kept, no zero count, retry next cycle; log `gluetun API error: …` |
+| qBit errors | login must answer `Ok.`: `Fails.`/403/unreachable → `qBittorrent login rejected: …`, retried every `ZERO_RETRY_INTERVAL` s; `setPreferences` not 2xx → `Port update failed: …`, no history entry, retried; reannounce error → `Reannounce failed: …` |
 | qBit restart detection | every `SESSION_CHECK_INTERVAL` s `GET /api/v2/app/version`; 403 = qBittorrent restarted → re-apply at once |
 | Interface binding | at start: when `current_network_interface` is not `tun0` yet, sets it and restarts `qbittorrent_mouse`; already `tun0` → no restart |
 | Reattach | qBit WebUI not 200/302 → restart `qbittorrent_mouse mousehole sabnzbd` (log line counted by `PortUpdaterReattachLoop`) |
@@ -17,7 +18,7 @@ Keeps qBittorrent's listen port on gluetun's forwarded VPN port and shows a stat
 
 Docker API (through `socket-proxy-portupdater`, unversioned paths): `GET /containers/gluetun_mouse/json`, `POST /containers/{qbittorrent_mouse,mousehole,sabnzbd,gluetun_mouse}/{start,stop,restart}`. A subset of the legacy CLI's calls; the allow-list is unchanged.
 
-qBit unreachable at login, a non-JSON qBit answer or a failed `docker restart` still end the process; compose restarts it, and the start skips the qBittorrent restart when it is already bound to `tun0`.
+A non-JSON qBit answer or a failed `docker restart` still end the process; compose restarts it, and the start skips the qBittorrent restart when it is already bound to `tun0`.
 
 ## Env
 `GLUETUN_IP` (10.24.32.2), `QBIT_USER`, `QBIT_PASS[_FILE]`, `GLUETUN_AUTH_USER`, `GLUETUN_AUTH_PASS[_FILE]`, `WEB_USER`, `WEB_PASS[_FILE]`, `WEB_PORT` (8088), `CHECK_INTERVAL` (600), `SESSION_CHECK_INTERVAL` (15), `ZERO_RETRY_INTERVAL` (60), `ZERO_PORT_LIMIT` (3), `STACK_RESTART_BACKOFF` (240), `STACK_RESTART_BACKOFF_MAX` (3600), `DOCKER_HOST` (`tcp://host:port` only), `TZ`, `DATA_DIR` (/data).
@@ -30,4 +31,5 @@ qBit unreachable at login, a non-JSON qBit answer or a failed `docker restart` s
 | Benchmark | `SCRIPT=bench.py tests/blackbox/run.sh rust IMAGE [history.json]` |
 | Deploy | `Docker/_global/scripts/update-project.sh Docker/mouse build` with `SERVICES=port-updater` |
 | HTTP probe from inside (no curl in the image) | `docker exec port_updater /port-updater probe URL [GET\|POST]` → status code |
+| Healthcheck (compose) | `/port-updater health`: exit 0 when its own web server answers 200/401 on `WEB_PORT` |
 | Image sanity | `/port-updater --self-test`, `--version` |

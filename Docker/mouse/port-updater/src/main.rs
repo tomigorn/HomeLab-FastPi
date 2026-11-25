@@ -29,6 +29,18 @@ fn probe(url: &str, method: &str) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// `port-updater health`: exit 0 when the own web server answers (200 or 401); the container healthcheck.
+fn health() -> ExitCode {
+    let port = std::env::var("WEB_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8088);
+    let code = clients::status(clients::agent(Duration::from_secs(5)).get(&format!("http://127.0.0.1:{port}/")).call());
+    if matches!(code, 200 | 401) {
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("health: web server on port {port} answered {code:03}");
+        ExitCode::FAILURE
+    }
+}
+
 fn self_test() -> ExitCode {
     let zh = jiff::tz::TimeZone::get("Europe/Zurich");
     let ts = zh.as_ref().map(|tz| events::timestamp(Some(tz), &jiff::Zoned::now()));
@@ -50,13 +62,14 @@ fn main() -> ExitCode {
         [] => {}
         ["probe", url] => return probe(url, "GET"),
         ["probe", url, m] => return probe(url, m),
+        ["health"] => return health(),
         ["--self-test"] => return self_test(),
         ["--version"] => {
             println!("port-updater {}", env!("CARGO_PKG_VERSION"));
             return ExitCode::SUCCESS;
         }
         _ => {
-            eprintln!("usage: port-updater [probe URL [GET|POST] | --self-test | --version]");
+            eprintln!("usage: port-updater [probe URL [GET|POST] | health | --self-test | --version]");
             return ExitCode::from(2);
         }
     }

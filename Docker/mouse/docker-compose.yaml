@@ -542,6 +542,13 @@ services:
       - gluetun_auth_pass
       - port_updater_web_pass
     restart: unless-stopped
+    healthcheck:
+      # own status page answers (200/401); the port loop ends the process on a fatal error
+      test: ["CMD", "/port-updater", "health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     labels:
       - autoheal-mouse=true
 

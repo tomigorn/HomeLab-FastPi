@@ -468,5 +468,56 @@ class WebNoAuth(Base):
         self.assertEqual(json.loads(body)["vpn_ip"], None)
 
 
+@unittest.skipUnless(PAGE_FILE, "legacy ignores the login answer")
+class QbitLoginRejected(Base):
+    def configure(self, w):
+        w.prefs["current_network_interface"] = "tun0"
+        w.login_reject = True
+
+    def test_rejected_login_is_retried_not_success(self):
+        w = self.world
+        n = self.wait_log(r"^qBittorrent login rejected: HTTP 200 \"Fails\.\"", 60)
+        self.wait_log(r"^qBittorrent login rejected", 20, n)
+        self.assertIsNone(self.proc.poll())
+        self.assertFalse(any(re.search(r"^Port updated", l) for l in self.lines))
+        with w.lock:
+            w.login_reject = False
+        self.wait_log(r"^Port updated to 45000$", 30, n)
+        self.assertEqual(w.prefs["listen_port"], 45000)
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy ignores the setPreferences answer")
+class QbitSetPrefsRejected(Base):
+    def configure(self, w):
+        w.prefs["current_network_interface"] = "tun0"
+        w.prefs_reject = (400, "Bad Request")
+
+    def test_rejected_port_change_is_not_logged_as_updated_and_retried(self):
+        w = self.world
+        n = self.wait_log(r"^Port update failed: qBittorrent /api/v2/app/setPreferences: HTTP 400", 60)
+        self.assertFalse(any(re.search(r"^Port updated", l) for l in self.lines))
+        self.assertEqual([e["event"] for e in self.history()], ["startup"])
+        self.assertIsNone(self.proc.poll())
+        with w.lock:
+            w.prefs_reject = None
+        n = self.wait_log(r"^Port updated to 45000$", 30, n)
+        self.assertEqual(w.prefs["listen_port"], 45000)
+        with w.lock:
+            w.prefs["listen_port"] = 50000
+        n = self.wait_log(r"^Port update needed: VPN=45000, qBit=50000 \(last=45000\)$", 30, n)
+        self.wait_log(r"^Port updated to 45000$", 10, n)
+        self.assertEqual(w.prefs["listen_port"], 45000)
+
+
+@unittest.skipUnless(PAGE_FILE, "legacy image has no health command")
+class HealthCommand(Base):
+    def test_health_exit_code(self):
+        self.wait_web()
+        ok = subprocess.run(SUT_CMD + ["health"], env={"WEB_PORT": "8088"}, capture_output=True, text=True, timeout=20)
+        self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+        bad = subprocess.run(SUT_CMD + ["health"], env={"WEB_PORT": "8099"}, capture_output=True, text=True, timeout=20)
+        self.assertEqual(bad.returncode, 1, bad.stdout + bad.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

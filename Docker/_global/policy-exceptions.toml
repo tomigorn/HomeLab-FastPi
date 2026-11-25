@@ -115,12 +115,6 @@ rule = "healthcheck"
 reason = "image has no shell: needs a probe in the app image; backlog: Fix the bug-hunt findings"
 
 [[exception]]
-project = "mouse"
-service = "port-updater"
-rule = "healthcheck"
-reason = "image has no shell: needs a probe in the app image; backlog: Fix the bug-hunt findings"
-
-[[exception]]
 project = "DDNS"
 service = "noip"
 rule = "healthcheck"

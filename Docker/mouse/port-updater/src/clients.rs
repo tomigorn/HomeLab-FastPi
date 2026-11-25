@@ -40,6 +40,24 @@ pub fn api_body(resp: Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> 
     if r.status().is_success() { Ok(Some(b)) } else { Err(format!("HTTP {code} {:?}", short(b.trim()))) }
 }
 
+/// qBittorrent's login answer: 204 (v5) or 200 `Ok.` (v4) accept; 200 `Fails.` (wrong credentials) and 403 (IP banned) reject.
+pub fn login_ok(code: u16, body: &str) -> Result<(), String> {
+    if (code == 204 && body.trim().is_empty()) || (code == 200 && body.trim() == "Ok.") { Ok(()) } else { Err(format!("qBittorrent login rejected: HTTP {code} {:?}", short(body.trim()))) }
+}
+
+/// A qBittorrent write call: Err unless it answered 2xx.
+pub fn qbit_ok(path: &str, resp: Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> Result<(), String> {
+    match resp {
+        Err(e) => Err(format!("qBittorrent {path}: {e}")),
+        Ok(r) if r.status().is_success() => Ok(()),
+        Ok(r) => {
+            let code = r.status().as_u16();
+            let b = body(Ok(r)).unwrap_or_default();
+            Err(format!("qBittorrent {path}: HTTP {code} {:?}", short(b.trim())))
+        }
+    }
+}
+
 /// `jq -r '.KEY // empty'`: Ok(None) for no output, Err where jq would fail (the input is not JSON or not an object).
 pub fn jq_field(body: &str, key: &str) -> Result<Option<Value>, String> {
     if body.trim().is_empty() {
@@ -63,7 +81,7 @@ fn kind(v: &Value) -> &'static str {
     }
 }
 
-fn short(s: &str) -> String {
+pub fn short(s: &str) -> String {
     s.chars().take(80).collect()
 }
 
@@ -183,6 +201,24 @@ mod tests {
         assert_eq!(api_body(resp(401, "Unauthorized\n")), Err("HTTP 401 \"Unauthorized\"".into()));
         assert_eq!(api_body(resp(404, "404 page not found\n")), Err("HTTP 404 \"404 page not found\"".into()));
         assert_eq!(api_body(Err(ureq::Error::ConnectionFailed)), Ok(None));
+    }
+
+    #[test]
+    fn login_answer() {
+        assert_eq!(login_ok(200, "Ok."), Ok(()));
+        assert_eq!(login_ok(204, ""), Ok(()));
+        assert_eq!(login_ok(200, "Fails."), Err("qBittorrent login rejected: HTTP 200 \"Fails.\"".into()));
+        assert!(login_ok(403, "Your IP address has been banned").is_err());
+        assert!(login_ok(200, "").is_err());
+    }
+
+    #[test]
+    fn qbit_write_status() {
+        let resp = |code: u16, body: &str| Ok(ureq::http::Response::builder().status(code).body(ureq::Body::builder().data(body.to_string())).unwrap());
+        assert_eq!(qbit_ok("/x", resp(200, "")), Ok(()));
+        assert_eq!(qbit_ok("/x", resp(400, "Bad Request")), Err("qBittorrent /x: HTTP 400 \"Bad Request\"".into()));
+        assert_eq!(qbit_ok("/x", resp(403, "Forbidden")), Err("qBittorrent /x: HTTP 403 \"Forbidden\"".into()));
+        assert!(qbit_ok("/x", Err(ureq::Error::ConnectionFailed)).is_err());
     }
 
     #[test]

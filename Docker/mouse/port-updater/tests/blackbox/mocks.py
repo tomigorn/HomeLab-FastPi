@@ -76,6 +76,8 @@ class World:
         self.prefs = {"listen_port": 1, "current_network_interface": ""}
         self.reset_port_on_restart = True
         self.logins = []
+        self.login_reject = False
+        self.prefs_reject = None
         self.docker_denied = []
         self.servers = []
 
@@ -140,9 +142,9 @@ class World:
         if method == "POST" and path == "/api/v2/auth/login":
             self.logins.append(form)
             self.log("qbit", path, form)
-            if form.get("username") == self.qbit_user and form.get("password") == self.qbit_pass:
+            if not self.login_reject and form.get("username") == self.qbit_user and form.get("password") == self.qbit_pass:
                 self.sid = secrets.token_hex(8)
-                return h._send(200, "Ok.", headers={"Set-Cookie": f"SID={self.sid}; HttpOnly; SameSite=Strict; path=/"})
+                return h._send(204, headers={"Set-Cookie": f"SID={self.sid}; HttpOnly; SameSite=Strict; path=/"})
             return h._send(200, "Fails.")
         if not authed:
             return h._send(403, "Forbidden")
@@ -151,6 +153,9 @@ class World:
         if method == "GET" and path == "/api/v2/app/preferences":
             return h._send(200, json.dumps(self.prefs), "application/json")
         if method == "POST" and path == "/api/v2/app/setPreferences":
+            if self.prefs_reject:
+                self.log("qbit", "rejected", path)
+                return h._send(*self.prefs_reject)
             new = json.loads(form["json"])
             self.prefs.update(new)
             self.log("qbit", path, new)
