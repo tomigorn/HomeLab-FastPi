@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+# Start, list and stop Claude Code Remote Control sessions on this host, one systemd user instance (claude-remote@<mode>:<folder>) per folder and mode.
+set -euo pipefail
+
+SELF=$(readlink -f "$0")
+DIR=$(dirname "$SELF")
+ALLOWLIST=${CLAUDE_HERE_ALLOWLIST:-$DIR/allowlist}
+STATE=${CLAUDE_HERE_STATE:-$HOME/.local/state/claude-here}
+SETTINGS=${CLAUDE_HERE_SETTINGS:-/etc/claude-here/batch-settings.json}
+CLAUDE_BIN=${CLAUDE_BIN:-$HOME/.local/bin/claude}
+IDLE_H=${CLAUDE_HERE_IDLE_H:-8}
+BATCH_END=${CLAUDE_HERE_BATCH_END:-10:00}
+PROC_ROOT=${PROC_ROOT:-/proc}
+CGROUP_ROOT=${CGROUP_ROOT:-/sys/fs/cgroup}
+HOST=$(hostname -s)
+
+usage() {
+  cat <<EOF
+claude-here: a Remote Control session in an allowed folder, reachable from claude.ai/code and the phone.
+
+  claude-here <folder> [auto|batch]   start (auto = default; batch = bypass mode, cannot ask)
+  claude-here --list                  running sessions: name, folder, mode, since, idle
+  claude-here --stop <folder|name>    stop one (not the always-on fastpi / fastpi-batch)
+  claude-here --done                  from inside a batch session: stop it at the next check
+  claude-here --reap                  stop idle ones (timer, every 15 min)
+  claude-here -h | --help
+
+Session name: <host>-<folder>[-batch]. Allowed folders: $ALLOWLIST
+Auto-stop: auto after ${IDLE_H} h idle; batch after --done or at ${BATCH_END}.
+EOF
+}
+
+die() { echo "claude-here: $1" >&2; [[ -n ${2:-} ]] && echo "  next: $2" >&2; exit "${3:-1}"; }
+now() { echo "${CLAUDE_HERE_NOW:-$(date +%s)}"; }
+
+allowed_entries() {  # expanded allowlist lines
+  local line
+  while IFS= read -r line || [[ -n $line ]]; do
+    line=${line%%#*}; line=${line%"${line##*[![:space:]]}"}; line=${line#"${line%%[![:space:]]*}"}
+    [[ -z $line ]] && continue
+    echo "${line/#\~/$HOME}"
+  done < "$ALLOWLIST"
+}
+
+allowed_folders() {  # every folder the allowlist allows, resolved
+  local e d
+  while IFS= read -r e; do
+    if [[ $e == */\* ]]; then
+      for d in "${e%/\*}"/*/; do
+        [[ -d $d ]] || continue
+        d=${d%/}
+        [[ $(readlink -f "$d") == "$(readlink -f "${e%/\*}")/${d##*/}" ]] && echo "$(readlink -f "$d")"
+      done
+    elif [[ -d $e ]]; then
+      readlink -f "$e"
+    fi
+  done < <(allowed_entries)
+}
+
+is_allowed() { local f; f=$(allowed_folders); grep -qxF -- "$1" <<<"$f"; }
+
+trust_key() { git -C "$1" rev-parse --show-toplevel 2>/dev/null || echo "$1"; }
+
+is_trusted() {  # Claude's workspace trust: the repo root, or outside a repo the folder or a parent
+  python3 -I - "$HOME/.claude.json" "$(trust_key "$1")" "$(git -C "$1" rev-parse --show-toplevel >/dev/null 2>&1 && echo repo || echo dir)" <<'PY_'
+import json, os, sys
+try:
+    projects = json.load(open(sys.argv[1])).get("projects", {})
+except (OSError, ValueError):
+    sys.exit(1)
+key, kind = sys.argv[2], sys.argv[3]
+keys = [key]
+while kind == "dir" and key != os.path.dirname(key):
+    key = os.path.dirname(key); keys.append(key)
+sys.exit(0 if any(projects.get(k, {}).get("hasTrustDialogAccepted") for k in keys) else 1)
+PY_
+}
+
+always_on() { [[ $1 == "auto:$HOME" || $1 == "batch:$HOME/batch" ]]; }
+
+unit_of() { echo "claude-remote@$(systemd-escape -- "$1").service"; }
+instance_of() { local u=${1#claude-remote@}; systemd-escape -u -- "${u%.service}"; }
+
+name_of() {  # instance -> session name
+  local mode=${1%%:*} path=${1#*:}
+  if [[ $1 == "auto:$HOME" ]]; then echo "$HOST"
+  elif [[ $1 == "batch:$HOME/batch" ]]; then echo "$HOST-batch"
+  elif [[ $mode == batch ]]; then echo "$HOST-${path##*/}-batch"
+  else echo "$HOST-${path##*/}"
+  fi
+}
+
+running_units() { systemctl --user list-units --type=service --state=active,activating,reloading --plain --no-legend 'claude-remote@*' | awk '{print $1}' | grep '^claude-remote@' || true; }
+
+since_of() { date -d "$(systemctl --user show -p ActiveEnterTimestamp --value "$1")" +%s; }
+
+transcripts_of() { echo "$HOME/.claude/projects/$(sed 's/[^A-Za-z0-9]/-/g' <<<"$1")"; }
+
+last_activity() {  # unit, path -> epoch of newest transcript or the start
+  local s t
+  s=$(since_of "$1")
+  t=$(find "$(transcripts_of "$2")" -name '*.jsonl' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+  t=${t%.*}
+  [[ -n $t && $t -gt $s ]] && echo "$t" || echo "$s"
+}
+
+tool_running() {  # unit -> 0 when a process other than claude runs in its cgroup
+  local cg pid exe
+  cg=$CGROUP_ROOT$(systemctl --user show -p ControlGroup --value "$1")
+  [[ -r $cg/cgroup.procs ]] || return 1
+  while read -r pid; do
+    exe=$(readlink "$PROC_ROOT/$pid/exe" 2>/dev/null) || continue
+    [[ $exe == "$HOME"/.local/share/claude/versions/* || $exe == "$(readlink -f "$CLAUDE_BIN" 2>/dev/null)" ]] && continue
+    return 0
+  done < "$cg/cgroup.procs"
+  return 1
+}
+
+batch_deadline() {  # start epoch -> first BATCH_END after it
+  local d
+  d=$(date -d "$(date -d "@$1" +%F) $BATCH_END" +%s)
+  (( d > $1 )) || d=$(date -d "$(date -d "@$1" +%F) $BATCH_END tomorrow" +%s)
+  echo "$d"
+}
+
+ago() { local m=$(( $1 / 60 )); (( m < 60 )) && echo "${m}m" || echo "$(( m / 60 ))h$(( m % 60 ))m"; }
+
+cmd_start() {
+  local path mode=${2:-auto} inst unit name
+  [[ $mode == auto || $mode == batch ]] || die "unknown mode '$mode' (auto or batch)" "claude-here --help" 2
+  [[ -d $1 ]] || die "no such folder: $1" "claude-here <TAB> lists the allowed folders"
+  path=$(readlink -f "$1")
+  [[ $path == "$HOME" ]] && die "~ is the always on session '$HOST' (auto); it is already listed in claude.ai/code" "claude-here --list"
+  is_allowed "$path" || die "$path is not in the allowlist ($ALLOWLIST)" "claude-here <TAB> lists the allowed folders"
+  is_trusted "$path" || die "$(trust_key "$path") is not trusted by Claude yet (Remote Control refuses to start there)" "run 'claude' once in $(trust_key "$path") and accept the trust dialog (or set projects[\"$(trust_key "$path")\"].hasTrustDialogAccepted = true in ~/.claude.json)"
+  inst="$mode:$path"; unit=$(unit_of "$inst"); name=$(name_of "$inst")
+  if systemctl --user is-active --quiet "$unit"; then
+    echo "already running: '$name' ($path, $mode)"
+  else
+    systemctl --user start "$unit"
+    sleep "${CLAUDE_HERE_WAIT:-15}"
+    if [[ $(systemctl --user show -p NRestarts --value "$unit") != 0 ]] || ! systemctl --user is-active --quiet "$unit"; then
+      systemctl --user stop "$unit"
+      die "'$name' did not come up (stopped again)" "journalctl --user-unit '$unit' -n 20"
+    fi
+    echo "started: '$name' ($path, $mode)"
+  fi
+  echo "  next: open claude.ai/code → '$name'; stop: claude-here --stop $name"
+}
+
+cmd_exec() {  # what the unit runs: claude-here --exec <mode>:<path>
+  local inst=$1 mode=${1%%:*} path=${1#*:} args
+  [[ $mode == auto || $mode == batch ]] || die "bad instance '$inst'"
+  [[ $path == "$HOME" && $mode == auto ]] || is_allowed "$(readlink -f "$path")" || die "$path is not in the allowlist ($ALLOWLIST)"
+  rm -f "$STATE/done/$(unit_of "$inst")"
+  cd "$path"
+  args=(remote-control --name "$(name_of "$inst")")
+  if [[ $mode == batch ]]; then
+    [[ -r $SETTINGS ]] || die "batch settings missing: $SETTINGS" "Server/3-Claude-Remote-Control/install.sh"
+    args+=(--permission-mode bypassPermissions --settings "$SETTINGS")
+  else
+    args+=(--permission-mode auto)
+  fi
+  exec "$CLAUDE_BIN" "${args[@]}"
+}
+
+cmd_list() {
+  local u inst t n
+  n=$(now)
+  printf '%-28s %-40s %-6s %-12s %s\n' NAME FOLDER MODE SINCE IDLE
+  while read -r u; do
+    [[ -z $u ]] && continue
+    inst=$(instance_of "$u")
+    t=$(last_activity "$u" "${inst#*:}")
+    if always_on "$inst"; then idle="always on"; else idle=$(ago $(( n - t ))); fi
+    printf '%-28s %-40s %-6s %-12s %s\n' "$(name_of "$inst")" "${inst#*:}" "${inst%%:*}" "$(date -d "@$(since_of "$u")" '+%d.%m %H:%M')" "$idle"
+  done < <(running_units)
+  echo "  next: claude-here --stop <name>, or claude-here <folder> [batch]"
+}
+
+cmd_stop() {
+  local want=$1 u inst hits=() p
+  [[ -d $want ]] && p=$(readlink -f "$want") || p=
+  while read -r u; do
+    [[ -z $u ]] && continue
+    inst=$(instance_of "$u")
+    if [[ $(name_of "$inst") == "$want" || ${inst#*:} == "$p" || ( ${inst#*:} != "$HOME" && ${inst##*/} == "$want" ) ]]; then hits+=("$u"); fi
+  done < <(running_units)
+  (( ${#hits[@]} )) || die "nothing running matches '$want'" "claude-here --list"
+  if (( ${#hits[@]} > 1 )); then
+    echo "claude-here: '$want' matches several, name one:" >&2
+    for u in "${hits[@]}"; do echo "  claude-here --stop $(name_of "$(instance_of "$u")")" >&2; done
+    exit 1
+  fi
+  inst=$(instance_of "${hits[0]}")
+  always_on "$inst" && die "'$(name_of "$inst")' is always on (one entry point stays reachable from claude.ai); it is not stopped" "systemctl --user restart ${hits[0]} (restart only)"
+  systemctl --user stop "${hits[0]}"
+  echo "stopped: '$(name_of "$inst")'"
+  echo "  next: claude-here --list"
+}
+
+cmd_done() {
+  local u inst
+  u=$(grep -o 'claude-remote@[^/]*\.service' "$PROC_ROOT/self/cgroup" | tail -1) || die "not inside a claude-here session"
+  inst=$(instance_of "$u")
+  if always_on "$inst"; then echo "'$(name_of "$inst")' is always on; nothing to stop"; return 0; fi
+  mkdir -p "$STATE/done"
+  touch "$STATE/done/$u"
+  echo "'$(name_of "$inst")' stops at the next check (within 15 min)"
+}
+
+cmd_reap() {
+  local u inst n t why
+  n=$(now)
+  while read -r u; do
+    [[ -z $u ]] && continue
+    inst=$(instance_of "$u")
+    always_on "$inst" && continue
+    why=
+    if [[ ${inst%%:*} == batch ]]; then
+      if [[ -e $STATE/done/$u ]]; then why="batch reported done"
+      elif (( n >= $(batch_deadline "$(since_of "$u")") )); then why="batch past $BATCH_END"
+      fi
+    else
+      t=$(last_activity "$u" "${inst#*:}")
+      if (( n - t >= IDLE_H * 3600 )) && ! tool_running "$u"; then why="idle $(ago $(( n - t )))"; fi
+    fi
+    [[ -z $why ]] && continue
+    systemctl --user stop "$u"
+    rm -f "$STATE/done/$u"
+    echo "claude-here: stopped '$(name_of "$inst")' ($why)"
+  done < <(running_units)
+}
+
+cmd_complete() {
+  case ${1:-} in
+    folders) allowed_folders | grep -vxF -- "$HOME" || true ;;
+    running) while read -r u; do [[ -n $u ]] && name_of "$(instance_of "$u")"; done < <(running_units) ;;
+  esac
+}
+
+case ${1:-} in
+  -h|--help) usage ;;
+  "") usage >&2; exit 2 ;;
+  --list) cmd_list ;;
+  --stop) [[ -n ${2:-} ]] || die "--stop needs a folder or name" "claude-here --list" 2; cmd_stop "$2" ;;
+  --done) cmd_done ;;
+  --reap) cmd_reap ;;
+  --exec) cmd_exec "${2:?}" ;;
+  --complete) cmd_complete "${2:-}" ;;
+  -*) die "unknown option $1" "claude-here --help" 2 ;;
+  *) cmd_start "$1" "${2:-auto}" ;;
+esac

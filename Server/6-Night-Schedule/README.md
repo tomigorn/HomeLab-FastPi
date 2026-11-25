@@ -29,7 +29,8 @@ All fixed-time jobs on fastpi, in night order (`systemctl list-timers` is the tr
 | 03:35 / 05:15 / 05:25 / 05:28 | `apt-daily` / `apt-daily-upgrade` / `man-db` / `systemd-tmpfiles-clean` | drop-ins in `dropins/` |
 | 03:40 | `security-code-scan` | SBOMs (`Server/4-Security-Monitoring`) |
 | 03:55 | `beefy-maintenance-wake` | wakes beefy for its 03:58-04:45 window (`Docker/Beefy-Waker`) |
-| 04:00 | `claude-remote-restart` (user) | postponed while a session is busy (`Server/3-Claude-Remote-Control.md`) |
+| 04:00 | `claude-remote-restart` (user) | restarts every Remote Control session, postponed while one is busy (`Server/3-Claude-Remote-Control/README.md`) |
+| every 15 min | `claude-here-reap` (user) | stops claude-here sessions: auto 8 h idle, batch after `--done` or 10:00 (`Server/3-Claude-Remote-Control/README.md`) |
 | 04:02 / 04:05 (+≤3 min) / 04:10 | `security-dt` / `security-scan` / `security-image-scan` | `Server/4-Security-Monitoring` |
 | Sun 04:05 | `security-audit` | `Server/4-Security-Monitoring` |
 | 04:06 | `fastpi-backup` | restic to beefy (`Server/5-Backup`) |

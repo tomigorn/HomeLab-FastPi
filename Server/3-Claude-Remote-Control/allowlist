@@ -1,0 +1,7 @@
+# Folders claude-here may start a session in (one per line, ~ = home, /* = every folder directly below). ~ itself is only the always-on "fastpi" session.
+~/Projects
+~/landingpage
+~/notes
+~/batch
+~/Documents/development/*
+~/HomeLab-Unraid-Tower

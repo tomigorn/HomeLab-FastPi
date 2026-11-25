@@ -1,0 +1,16 @@
+[Unit]
+Description=Claude Code Remote Control %I (claude-here)
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Environment=HOME=%h
+Environment=PATH=%h/.local/bin:%h/.local/share/fnm/aliases/default/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/claude-here --exec %I
+Restart=always
+RestartSec=10
+MemoryHigh=1500M
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target
