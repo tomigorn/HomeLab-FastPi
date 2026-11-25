@@ -484,7 +484,8 @@ def test_apply_pull_skips_locally_built_services():
     real = auto_update.sh
     auto_update.sh = fake_sh
     try:
-        auto_update.apply({"project": "X", "services": [], "backups": [], "check": "-"}, ["img:1"], {"img:1": "sha"})
+        auto_update.apply({"project": "X", "services": [], "backups": [], "check": "-"}, ["img:1"], {"img:1": "sha"},
+                          {"services": {"x": {"image": "img:1"}}})
     finally:
         auto_update.sh = real
     pull = next(c for c in calls if c[:3] == ["docker", "compose", "pull"])
@@ -508,6 +509,57 @@ def test_suggested_commands_carry_the_rows_check():
 def test_authentik_check_waits_out_the_totp_window():
     rows = _rows_of("Authentik")
     assert rows and all(r["check"].startswith("sleep 35;") for r in rows), rows
+
+
+def _fake_apply_env(run_exc=None):
+    """Fakes for apply(): docker via sh, update-project.sh via subprocess.run. -> (sh calls, update-project.sh calls, restore)."""
+    calls, runs = [], []
+    R = type("R", (), {})
+
+    def res(rc=0, out=""):
+        r = R()
+        r.returncode, r.stdout, r.stderr = rc, out, ""
+        return r
+
+    def fake_sh(cmd, timeout=600, **kw):
+        calls.append(cmd)
+        if cmd[:5] == ["docker", "image", "inspect", "-f", "{{.Id}}"]:
+            return res(0, "sha:new\n")
+        return res(0, "")
+
+    def fake_run(cmd, **kw):
+        runs.append((cmd, kw.get("env", {})))
+        if run_exc:
+            raise run_exc
+        return res(0, "OK\n")
+
+    saved = (auto_update.sh, auto_update.subprocess.run, auto_update.oob)
+    auto_update.sh, auto_update.subprocess.run, auto_update.oob = fake_sh, fake_run, lambda msg: calls.append(["oob", msg])
+
+    def restore():
+        auto_update.sh, auto_update.subprocess.run, auto_update.oob = saved
+    return calls, runs, restore
+
+
+TWO_SERVICES = {"name": "p",
+                "services": {"a": {"image": "img:a", "volumes": [{"type": "volume", "source": "adata", "target": "/d"}]},
+                             "b": {"image": "img:b", "volumes": [{"type": "bind", "source": "/data/b", "target": "/d"}]}},
+                "volumes": {"adata": {"name": "p_adata"}}}
+
+
+def test_apply_pulls_and_recreates_only_the_services_of_due_refs():
+    row = {"project": "P", "tier": "auto", "services": [], "backups": ["vol:p_adata", "/data/b"], "check": "true"}
+    calls, runs, restore = _fake_apply_env()
+    try:
+        out, _ = auto_update.apply(row, ["img:a"], {"img:a": "sha:old", "img:b": "sha:b"}, TWO_SERVICES)
+    finally:
+        restore()
+    pull = next(c for c in calls if c[:3] == ["docker", "compose", "pull"])
+    assert pull[-1] == "a" and "b" not in pull, pull
+    (cmd, env), = runs
+    assert env["SERVICES"] == "a", env["SERVICES"]
+    assert cmd[3:] == ["vol:p_adata"], cmd
+    assert out == {"img:a": "updated"}, out
 
 
 if __name__ == "__main__":

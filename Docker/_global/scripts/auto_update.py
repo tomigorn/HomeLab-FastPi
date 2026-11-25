@@ -174,6 +174,37 @@ def update_command(row: dict) -> str:
     return f"{_check_prefix(row)}{svc}{SCRIPTS}/update-project.sh {DOCKER / row['project']} pull{tail}"
 
 
+def _mounts(svc: dict, config: dict, project_dir: Path) -> set[str]:
+    """A service's mounts as backup entries: absolute bind paths and vol:<volume name>."""
+    out = set()
+    for v in svc.get("volumes") or []:
+        if not isinstance(v, dict) or not v.get("source"):
+            continue
+        if v.get("type") == "bind":
+            out.add(os.path.normpath(project_dir / v["source"]))
+        elif v.get("type") == "volume":
+            out.add("vol:" + ((config.get("volumes") or {}).get(v["source"]) or {}).get("name", v["source"]))
+    return out
+
+
+def due_row(row: dict, config: dict, refs: list[str]) -> dict:
+    """The row cut down to the services whose declared ref is due, and to the backups that are not mounted only by the other services.
+
+    Pulling or recreating the whole row would deploy refs still cooling down, held back or a major jump; backing up and restoring
+    another service's data would happen while that service keeps running."""
+    services = config.get("services") or {}
+    pick = [k for k, v in services.items() if v.get("image") in refs and (not row["services"] or k in row["services"])]
+    d = DOCKER / row["project"]
+    mine = set().union(*(_mounts(services[k], config, d) for k in pick)) if pick else set()
+    others = set().union(*(_mounts(v, config, d) for k, v in services.items() if k not in pick)) if services else set()
+
+    def keep(b: str) -> bool:
+        key = b if b.startswith("vol:") else os.path.normpath(d / b)
+        inside = lambda m: m == key or (not key.startswith("vol:") and not m.startswith("vol:") and (m.startswith(key + "/") or key.startswith(m + "/")))  # noqa: E731
+        return any(inside(m) for m in mine) or not any(inside(m) for m in others)
+    return dict(row, services=pick, backups=[b for b in row["backups"] if keep(b)])
+
+
 def _esc(v: str) -> str:
     return str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
 
@@ -419,10 +450,14 @@ def oob(msg: str) -> None:
     sh([str(script), msg], timeout=60)
 
 
-def apply(row: dict, refs: list[str], images: dict[str, str]) -> tuple[dict[str, str], str]:
-    """Pull, refuse a major jump, then update-project.sh recreate with the functional and customization checks. -> (ref -> result, rollback reason)."""
+def apply(row: dict, refs: list[str], images: dict[str, str], config: dict) -> tuple[dict[str, str], str]:
+    """Pull, refuse a major jump, then update-project.sh recreate with the functional and customization checks, only for the services of the due refs. -> (ref -> result, rollback reason)."""
     d = DOCKER / row["project"]
+    row = due_row(row, config, refs)
     services = row["services"]
+    if not services:
+        log(f"  no service of {row['project']} declares {', '.join(refs)}")
+        return {ref: "error" for ref in refs}, "no service declares the due ref"
     r = sh(["docker", "compose", "pull", "-q", "--ignore-buildable", *services], cwd=d, timeout=1800)
     if r.returncode != 0:
         log(f"  pull failed: {r.stderr.strip()[-300:]}")
@@ -668,6 +703,8 @@ def main(argv: list[str]) -> int:
             if action == "apply":
                 todo.append(ref)
         if not todo or dry:
+            if todo:
+                log(f"  would update {' '.join(due_row(row, config, todo)['services'])} ({', '.join(todo)})")
             continue
         late = past_deadline(APPLY_BY, time.localtime()) or (MAX_APPLY and applied >= MAX_APPLY)
         if late:
@@ -684,7 +721,7 @@ def main(argv: list[str]) -> int:
                     r["result"] = "skipped"
             continue
         applied += 1
-        outcome, reason = apply(row, todo, images)
+        outcome, reason = apply(row, todo, images, config)
         for r in results:
             if r["project"] == row["project"] and r["ref"] in outcome:
                 r["result"] = outcome[r["ref"]]
