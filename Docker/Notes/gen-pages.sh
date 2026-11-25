@@ -5,15 +5,18 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage: gen-pages.sh NOTES_DIR
-Writes docs/recent.md and, under docs/claude/: batches/index.md, reports/index.md, roadmaps/*.md, open-questions.md.
+Writes docs/recent.md and, under docs/claude/: batches/index.md, reports/index.md, roadmaps/*.md, open-questions.md, due-dates.md.
 A page is replaced only when its content changes. Run by build.sh before the MkDocs build.
 ROADMAP_REPOS: space-separated name=path list; each repo's docs/roadmap.md or docs/working/roadmap.md is copied.
+DUE_DATES_JSON: the Due-Dates list (default /var/lib/due-dates/due-dates.json), rendered by Docker/Due-Dates/due_dates.py md.
 EOF
 }
 case "${1:-}" in -h|--help|'') usage; [ -n "${1:-}" ]; exit ;; esac
 
 notes=$1; docs="$notes/docs"; c="$docs/claude"
 ROADMAP_REPOS=${ROADMAP_REPOS:-"claude-config=$HOME/development/private/claude-config fastpi=$HOME/Projects landingpage=$HOME/landingpage tower=$HOME/HomeLab-Unraid-Tower"}
+DUE_DATES_JSON=${DUE_DATES_JSON:-/var/lib/due-dates/due-dates.json}
+DUE_DATES_PY="$(cd "$(dirname "$0")/../Due-Dates" && pwd)/due_dates.py"
 replace_if_changed() { if cmp -s "$1" "$2"; then rm -f "$1"; else mv "$1" "$2"; fi; }
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$c/batches" "$c/reports" "$c/roadmaps"
@@ -76,3 +79,9 @@ latest=$(ls -r "$c"/reports/20*.md 2>/dev/null | head -1 || true)
     [ -n "$q" ] && printf '\n## Reminders\n\nSource: [open decisions and reminders](reminders.md)\n\n%s\n' "$q"
   fi; } > "$tmp/open.md"
 replace_if_changed "$tmp/open.md" "$c/open-questions.md"
+
+# Due dates: the Due-Dates list as a table (dates are entered once, in Docker/Due-Dates/due-dates.toml).
+if ! python3 -I "$DUE_DATES_PY" md "$DUE_DATES_JSON" > "$tmp/due.md" 2>/dev/null; then
+  printf '# Due dates\n\nThe list is not generated yet (`due-dates.timer` on fastpi, source `Docker/Due-Dates/due-dates.toml`).\n' > "$tmp/due.md"
+fi
+replace_if_changed "$tmp/due.md" "$c/due-dates.md"

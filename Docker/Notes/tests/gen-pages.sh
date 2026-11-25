@@ -71,6 +71,8 @@ cat > "$tmp/repo-a/docs/roadmap.md" <<'EOF'
 EOF
 printf '# Roadmap (b)\n\n## Open questions\n\n## Done\n' > "$tmp/repo-b/docs/working/roadmap.md"
 
+printf '{"version": 1, "generated": "2026-11-25T10:00:00Z", "items": [{"id": "e", "title": "Eweka", "kind": "subscription", "category": "Usenet provider", "date": "2028-02-19", "lifetime": false, "source": "manual", "lead": [30, 7, 0], "alert": "telegram", "show": ["seerr"]}]}\n' > "$tmp/due-dates.json"
+export DUE_DATES_JSON="$tmp/due-dates.json"
 ROADMAP_REPOS="alpha=$tmp/repo-a beta=$tmp/repo-b gamma=$tmp/repo-c" "$GEN" "$n" || { echo "FAIL gen-pages exit $?"; fails=$((fails + 1)); }
 
 check "reports index lists newest first" "$c/reports/index.md" "2026-11-22"
@@ -97,8 +99,14 @@ check "open q: older report left out" "$q" "2026-11-21.md" absent
 check "open q: reminder decision" "$q" "renew on Black Friday"
 check "open q: reminder done rows left out" "$q" "Old thing" absent
 
+check "due dates page" "$c/due-dates.md" "| 2028-02-19 |"
+check "due dates page names its source" "$c/due-dates.md" "Due-Dates/due-dates.toml"
+
 before=$(stat -c %Y "$q"); sleep 1
 ROADMAP_REPOS="alpha=$tmp/repo-a beta=$tmp/repo-b" "$GEN" "$n"
 [ "$(stat -c %Y "$q")" = "$before" ] && echo "ok   unchanged page not rewritten" || { echo "FAIL page rewritten without change"; fails=$((fails + 1)); }
+
+DUE_DATES_JSON="$tmp/missing.json" ROADMAP_REPOS="alpha=$tmp/repo-a beta=$tmp/repo-b" "$GEN" "$n"
+check "due dates page without the list" "$c/due-dates.md" "not generated yet"
 
 [ "$fails" = 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }
