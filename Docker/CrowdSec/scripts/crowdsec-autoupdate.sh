@@ -83,15 +83,15 @@ probe() { # probe <client-ip> -> HTTP code Traefik gives that client (realip rea
   curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "$TRAEFIK_HOST:443:$tip" -H "Cf-Connecting-Ip: $1" "https://$TRAEFIK_HOST/"; }
 
 verify() { # verify <since-epoch>; prints failures, returns non-zero on any
-  local since=$1 bad=0 st i
-  for i in $(seq 1 30); do st=$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' crowdsec 2>/dev/null); cs lapi status >/dev/null 2>&1 && break; sleep 5; done
+  local since=$1 bad=0 st
+  for _ in $(seq 1 30); do st=$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' crowdsec 2>/dev/null); cs lapi status >/dev/null 2>&1 && break; sleep 5; done
   [[ $st == "running 0" ]]                      || { log "  check FAIL container: $st"; bad=1; }
   cs lapi status >/dev/null 2>&1                || { log "  check FAIL LAPI not answering"; bad=1; }
   # The bouncer syncs every 60 s; give it three cycles to re-pull after the restart.
-  for i in $(seq 1 36); do (( $(bouncer_last_pull) > since )) && break; sleep 5; done
+  for _ in $(seq 1 36); do (( $(bouncer_last_pull) > since )) && break; sleep 5; done
   (( $(bouncer_last_pull) > since ))            || { log "  check FAIL bouncer has not pulled since the restart"; bad=1; }
   cs decisions add -i "$BAN_TEST_IP" -d 5m -R "autoupdate self-test" >/dev/null 2>&1
-  local code=""; for i in $(seq 1 30); do code=$(probe "$BAN_TEST_IP"); [[ $code == 403 ]] && break; sleep 5; done
+  local code=""; for _ in $(seq 1 30); do code=$(probe "$BAN_TEST_IP"); [[ $code == 403 ]] && break; sleep 5; done
   cs decisions delete -i "$BAN_TEST_IP" >/dev/null 2>&1
   [[ $code == 403 ]]                            || { log "  check FAIL test ban not enforced (got $code)"; bad=1; }
   code=$(probe "$CLEAN_TEST_IP")

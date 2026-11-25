@@ -15,7 +15,7 @@ sudo -n rm -rf "$SBS_SCRATCH"; mkdir -p "$SBS_SCRATCH/library"
 sudo -n cp -a "$proj/data" "$SBS_SCRATCH/data" && sudo -n chown -R 65056:65056 "$SBS_SCRATCH/data" && sudo -n chmod 750 "$SBS_SCRATCH/data"
 sudo -n chown 65056:1100 "$SBS_SCRATCH/library" && sudo -n chmod 2775 "$SBS_SCRATCH/library"
 compose up -d --quiet-pull 2>&1 | grep -E 'Creat|Start|Error|error' | head -5
-for i in $(seq 40); do
+for _ in $(seq 40); do
   st=$(docker inspect -f '{{.State.Health.Status}}' audiobook-importer-sbs 2>/dev/null); [[ $st == healthy ]] && break; sleep 1
 done
 ip=$(docker inspect -f '{{(index .NetworkSettings.Networks "audiobook-requests_egress").IPAddress}}' audiobook-importer-sbs)

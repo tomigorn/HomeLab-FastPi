@@ -9,7 +9,7 @@
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-cd "$HERE"
+cd "$HERE" || exit 1
 
 echo "pass 2: waiting for m4b-merge.service to finish..."
 while systemctl --user is-active --quiet m4b-merge.service; do

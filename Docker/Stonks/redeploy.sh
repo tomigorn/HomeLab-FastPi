@@ -38,7 +38,7 @@ echo "==> Redeploying"
 docker compose up -d
 
 echo "==> Health check"
-for i in $(seq 1 10); do
+for _ in $(seq 1 10); do
   ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' stonks 2>/dev/null || true)
   if [ -n "$ip" ] && curl -sf -m 3 "http://$ip:8000/healthz"; then echo; echo "==> Done."; exit 0; fi
   sleep 2

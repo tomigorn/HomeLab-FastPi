@@ -70,8 +70,7 @@ PY
 }
 
 token_verify() {
-  local i
-  for i in $(seq 1 20); do
+  for _ in $(seq 1 20); do
     docker exec avatar-picker /avatar-picker check token 2>/dev/null | grep -qx TOKEN_OK && { echo TOKEN_OK; return 0; }
     sleep 3
   done

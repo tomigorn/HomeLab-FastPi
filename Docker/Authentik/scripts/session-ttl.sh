@@ -3,7 +3,7 @@
 #   session-ttl.sh apply | rollback | status
 # apply saves the previous values first, then verifies a real login+MFA with the canary and rolls back on failure.
 set -uo pipefail
-cd /home/pi/Projects/Docker/Authentik
+cd /home/pi/Projects/Docker/Authentik || exit 1
 STATE=backups/session-ttl-before.json
 OOB=/home/pi/Projects/Docker/_global/scripts/oob-alert.sh
 
