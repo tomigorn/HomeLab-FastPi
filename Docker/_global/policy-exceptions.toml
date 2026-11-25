@@ -34,12 +34,6 @@ rule = "env_secret"
 reason = "edge (SSO): moving the secrets to files restarts Authentik (yes-first); not yet migrated, backlog: Fix the bug-hunt findings"
 
 # --- Databases: a fix restarts the DB
-[[exception]]
-project = "grafana"
-service = "influxdb"
-rule = "healthcheck"
-reason = "database: adding a healthcheck restarts InfluxDB; backlog: Fix the bug-hunt findings"
-
 # --- Root by design (docs/container-hardening.md, Root by design)
 [[exception]]
 project = "DDNS"

@@ -372,6 +372,12 @@ services:
       activity_influx:
         ipv4_address: 10.24.40.11
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 # #########################################################
 # Telegraf ################################################
