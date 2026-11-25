@@ -132,6 +132,67 @@ service = "sbb_easyride_taxreport"
 rule = "healthcheck"
 reason = "image has a shell but no HTTP client: needs a probe in the app image; backlog: Fix the bug-hunt findings"
 
+# --- Moving tag kept: auto_update.py only follows the digest behind the tag in the repo and never bumps a version or digest pin, so a pin would freeze the image
+[[exception]]
+project = "DDNS"
+service = "duckdns"
+rule = "image_pinned"
+reason = "auto tier: auto-update follows the moving tag (lsio weekly rebuilds); a pin would freeze it. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "DDNS"
+service = "noip"
+rule = "image_pinned"
+reason = "auto tier: auto-update follows the moving tag; a pin would freeze it. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "Stonks"
+service = "stonks"
+rule = "image_pinned"
+reason = "local build, never pulled: rebuild-local.conf and Stonks/redeploy.sh tag stonks:latest; a :local rename also changes the Stonks repo's tests and README"
+
+[[exception]]
+project = "WG-Chores-Demo"
+service = "wg-chores-demo"
+rule = "image_pinned"
+reason = "auto tier, own image (latest + vX.Y.Z on Docker Hub): auto-update follows the moving tag; a pin would freeze it. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "WG-Chores-v2"
+service = "wg-chores-v2"
+rule = "image_pinned"
+reason = "auto tier, own image (latest + vX.Y.Z on Docker Hub): auto-update follows the moving tag; a pin would freeze it. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "audiobookshelf"
+service = "audiobookshelf"
+rule = "image_pinned"
+reason = "notify tier: the nightly reports each new digest of the moving tag with the update command; a pin would silence that. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "mouse"
+service = "mousehole"
+rule = "image_pinned"
+reason = "notify tier: the nightly reports each new digest of the moving tag with the update command; a pin would silence that. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "mouse"
+service = "sabnzbd"
+rule = "image_pinned"
+reason = "notify tier: the nightly reports each new digest of the moving tag with the update command; a pin would silence that. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "mouse"
+service = "samba"
+rule = "image_pinned"
+reason = "notify tier: the nightly reports each new digest of the moving tag with the update command; a pin would silence that. Version pin waits for Renovate, backlog: Update automation for everything"
+
+[[exception]]
+project = "sbb-easyride-taxreport"
+service = "sbb_easyride_taxreport"
+rule = "image_pinned"
+reason = "auto tier, own image: auto-update follows the moving tag; a pin would freeze it. Version pin waits for Renovate, backlog: Update automation for everything"
+
 # --- Secret only as env so far
 [[exception]]
 project = "Portainer"
