@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Requests bar above ABR (README "Requests bar"): Prowlarr searches (queries + RSS) and grabs per audiobook indexer inside its window from abr-bar/limits.toml, subscription deadlines (MAM VIP included), unsatisfied MyAnonamouse torrents from qBittorrent (72 h seed rule), and the fill level of the audiobook library and download filesystems; writes usage.json (names and counts only) for books-proxy.
+"""Requests bar above ABR (README "Requests bar"): Prowlarr searches (queries + RSS) and grabs per audiobook indexer inside its window from abr-bar/limits.toml, subscription deadlines (Due-Dates list, show = "books"; MAM VIP included), unsatisfied MyAnonamouse torrents from qBittorrent (72 h seed rule), and the fill level of the audiobook library and download filesystems; writes usage.json (names and counts only) for books-proxy.
 Counting and subscriptions are a copy of Seerr's scripts/indexer-usage.py (beefy); output = the shared schema (abr-bar/indexer-bar-schema.md). Prowlarr unreachable: ok=false, storage and subscriptions stay. Run by systemd/abr-bar-usage.timer.
 Usage: scripts/abr_bar_usage.py"""
 import datetime as dt
@@ -58,7 +58,7 @@ MAM_TEXT = {
     "rule": {"en": "MAM rule: seed every download 72 h in total within 30 days (counted here from qBittorrent's seeding time). Never stop a MAM torrent early.",
              "de": "MAM-Regel: jeden Download innerhalb von 30 Tagen insgesamt 72 h seeden (hier aus der Seed-Zeit von qBittorrent gezählt). Nie einen MAM-Torrent früher stoppen."},
 }
-SEERR_LIST = pathlib.Path("/var/lib/subscription-alerts/limits.toml")
+DUE_JSON = pathlib.Path("/var/lib/due-dates/due-dates.json")
 
 
 class ApiError(Exception):
@@ -130,30 +130,39 @@ def usage(indexers, history, limits, now):
     return {"indexers": rows}
 
 
-def subscriptions(subs, today, seerr=None):
+def subscriptions(subs, today):
     out = []
     for s in subs:
-        if s.get("seerr"):
-            s = next((x for x in seerr or [] if x.get("name") == s["name"]), None)
-            if s is None:
-                continue
         if s.get("lifetime"):
             out.append({"name": s["name"], "kind": s.get("kind"), "lifetime": True, "expires": None, "daysLeft": None, "expired": False, "level": "ok"})
             continue
         expires = s.get("expires")
         if not isinstance(expires, dt.date):
-            raise ValueError(f"subscription {s.get('name')!r}: needs expires = YYYY-MM-DD, lifetime = true or seerr = true")
+            raise ValueError(f"subscription {s.get('name')!r}: needs expires = YYYY-MM-DD or lifetime = true")
         left = (expires - today).days
         lvl = "full" if left <= SUB_RED_DAYS else "orange" if left <= SUB_ORANGE_DAYS else "yellow" if left <= SUB_YELLOW_DAYS else "ok"
         out.append({"name": s["name"], "kind": s.get("kind"), "lifetime": False, "expires": expires.isoformat(), "daysLeft": left, "expired": left < 0, "level": lvl})
     return out
 
 
-def seerr_subscriptions(path):
+def due_subscriptions(path, bar="books"):
+    """Entries of Due-Dates' due-dates.json shown on this bar; None when the list is unreadable."""
     try:
-        with open(path, "rb") as f:
-            return tomllib.load(f).get("subscriptions", [])
-    except (OSError, tomllib.TOMLDecodeError):
+        items = json.loads(pathlib.Path(path).read_text())["items"]
+        out = []
+        for i in items:
+            if bar not in i.get("show", []):
+                continue
+            s = {"name": i["title"], "kind": i.get("category")}
+            if i.get("lifetime"):
+                s["lifetime"] = True
+            elif i.get("date"):
+                s["expires"] = dt.date.fromisoformat(i["date"])
+            else:
+                continue
+            out.append(s)
+        return out
+    except (OSError, ValueError, KeyError, TypeError):
         return None
 
 
@@ -200,24 +209,12 @@ def mam(torrents, trackers, seen, cfg, now):
     return out, current
 
 
-def mam_subscriptions(cfg):
-    return [{"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": cfg["vip_expires"]}] if cfg and cfg.get("vip_expires") else []
-
-
 def mam_config(c):
     if not c:
         return None
     if not isinstance(c.get("class"), str) or not isinstance(c.get("unsatisfied_limit"), int) or c["unsatisfied_limit"] < 0:
         raise ValueError("[mam]: needs class = \"...\" and unsatisfied_limit = a whole number")
-    vip = c.get("vip_expires") or None
-    if isinstance(vip, str):
-        try:
-            vip = dt.date.fromisoformat(vip)
-        except ValueError:
-            raise ValueError("[mam]: vip_expires must be \"YYYY-MM-DD\" or empty") from None
-    elif vip is not None and not isinstance(vip, dt.date):
-        raise ValueError("[mam]: vip_expires must be \"YYYY-MM-DD\" or empty")
-    return {"class": c["class"], "unsatisfied_limit": c["unsatisfied_limit"], "vip_expires": vip}
+    return {"class": c["class"], "unsatisfied_limit": c["unsatisfied_limit"]}
 
 
 def storage(disks, statvfs=os.statvfs, device=lambda p: os.stat(p).st_dev):
@@ -260,7 +257,7 @@ def load_config(path):
             if k in c and (not isinstance(c[k], int) or c[k] < 0):
                 raise ValueError(f"indexer {name!r}: {k} must be a whole number")
     subs = cfg.get("subscriptions", [])
-    subscriptions([s for s in subs if not s.get("seerr")], dt.date.today())
+    subscriptions(subs, dt.date.today())
     return {"indexers": limits, "subscriptions": subs, "mam": mam_config(cfg.get("mam"))}
 
 
@@ -293,10 +290,10 @@ def mam_run(cfg, qbit, seen_path, now):
     return out
 
 
-def run(cfg, api, out, now, disks=DISKS, statvfs=os.statvfs, device=lambda p: os.stat(p).st_dev, seerr=None, qbit=None):
+def run(cfg, api, out, now, disks=DISKS, statvfs=os.statvfs, device=lambda p: os.stat(p).st_dev, due=None, qbit=None):
     mcfg = cfg.get("mam")
     data = {"ok": True, "generated": iso(now), "indexers": [], "showUnlimited": True, "note": NOTE,
-            "subscriptions": subscriptions(cfg["subscriptions"] + mam_subscriptions(mcfg), local_date(now), seerr),
+            "subscriptions": subscriptions(cfg["subscriptions"] + (due or []), local_date(now)),
             "storage": storage(disks, statvfs, device)}
     try:
         indexers = api("/indexer")
@@ -358,7 +355,7 @@ def main():
     api = client(os.path.join(creds, "prowlarr-config.xml"), os.environ.get("BAR_PROWLARR_URL", "http://10.24.32.2:9697"))
     qbit = qbit_client(os.path.join(creds, "qbit-pass"), os.environ.get("BAR_QBIT_URL", "http://10.24.25.2:8080"))
     run(cfg, api, os.path.join(state, "usage.json"), dt.datetime.now(UTC).replace(microsecond=0),
-        seerr=seerr_subscriptions(os.environ.get("BAR_SEERR_LIST", SEERR_LIST)), qbit=qbit)
+        due=due_subscriptions(os.environ.get("BAR_DUE_DATES", DUE_JSON)), qbit=qbit)
 
 
 if __name__ == "__main__":

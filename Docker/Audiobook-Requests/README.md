@@ -88,14 +88,14 @@ The bar Seerr has (requests.holy-grail.ch), on every ABR page and the All reques
 | MyAnonamouse `searches` / `downloads` (`∞` = no limit) | Prowlarr history, last 24 h; limits per indexer in `abr-bar/limits.toml` (none for MAM) |
 | My requests `n/5 in 7 days`, red + "next free" when used up | importer `/my-quota`: the viewer's own count from the quota ledger, nobody else's |
 | MAM unsatisfied `n/limit`, red `n at risk` | qBittorrent (read-only Web API, all torrents, MAM = tracker host `*.myanonamouse.net`): seeding time < 72 h and added within 30 days; class + limit in `abr-bar/limits.toml` `[mam]` (MAM rules.php "Unsatisfied torrents": User 50, Power User 100, VIP 150, above 200). No MAM call |
-| Next renewal / due subscription | `abr-bar/limits.toml`; `seerr = true` takes the date from Seerr's list (beefy, cached by subscription-alerts); `[mam] vip_expires` adds "MAM VIP" |
+| Next renewal / due subscription | `Due-Dates/due-dates.toml` entries with `show = ["books"]` (ProtonVPN Plus, MAM VIP), read from `/var/lib/due-dates/due-dates.json`; a `[[subscriptions]]` entry in `abr-bar/limits.toml` is added to them |
 | Library, Downloads: used/total, % (`df` numbers) | statvfs of `/mnt/seagate-black/library/audiobooks` and the qBittorrent + SABnzbd download folders; one chip per filesystem (same disk → "Library + Downloads") |
 
 Renewal colours: yellow ≤ 30 days, orange ≤ 7, red on the end date. MAM colours: green < 70 % of the limit, yellow 70–90 %, red ≥ 90 % or any risk.
 
 MAM rule (rules.php 2.5): every download seeds 72 h **in total within 30 days**. Approximation: qBittorrent's `seeding_time` is cumulative since the add (survives restarts), so "< 72 h and added < 30 days ago" = unsatisfied. Risks (red, names under **more**): `paused` (stopped/errored before 72 h), `removed` (gone from qBittorrent before 72 h; remembered in `/var/lib/abr-bar/mam-seen.json`, 0600, until 30 days after the add), `missed` (30 days over, still < 72 h). Next free = the seeding torrent closest to 72 h. qBittorrent down: chip "unavailable", rest unchanged.
 
-VIP end date: `vip_expires = "2027-01-31"` under `[mam]` in `abr-bar/limits.toml` (MAM profile date), picked up within a minute; `""` hides it. When the class changes, update `class` + `unsatisfied_limit` there.
+VIP end date: `date` of the `mam-vip` entry in `Due-Dates/due-dates.toml` (MAM profile date), picked up within 10 minutes. When the class changes, update `class` + `unsatisfied_limit` in `abr-bar/limits.toml`.
 
 Disk colours: green < 70 %, yellow 70–80 %, red ≥ 80 %, each meter marks 70 % (thin light tick) and 80 % (white tick) (both 1.8 TB HDDs; fastpi's disk alert fires at 85 %, so the bar warns first). Nothing is deleted automatically: torrents seed forever (MAM), the hint says so. Hints and disk names EN/DE (browser language).
 

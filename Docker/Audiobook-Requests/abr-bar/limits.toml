@@ -9,16 +9,12 @@
 # downloads = 20
 # window = "rolling"
 
-# Paid or time-limited services the audiobook pipeline needs: shown with days left.
-# expires = the day it ends (YYYY-MM-DD, no quotes), lifetime = true, or seerr = true: the date from Seerr's indexer-bar/limits.toml (beefy, cached by subscription-alerts), so a renewal is changed in one place.
-[[subscriptions]]
-name = "ProtonVPN Plus"
-seerr = true
+# Paid or time-limited services: shown with days left. They live in fastpi's Docker/Due-Dates/due-dates.toml (show = ["books"]), MAM VIP too.
+# A [[subscriptions]] entry here (name, kind, expires = YYYY-MM-DD or lifetime = true) is only for something that belongs to this bar alone.
 
 # MyAnonamouse seeding rule (rules.php 2.5, "Unsatisfied torrents", as of 2026-05-10): every download seeds 72 h in total within 30 days; until then it is unsatisfied.
 # Unsatisfied limit per class: new member (first 2 weeks) 20, User 50, Power User 100, VIP 150, above VIP 200. Read from qBittorrent (seeding time), no MAM call.
-# vip_expires = "YYYY-MM-DD" (the VIP end date from the MAM profile) shows a "MAM VIP" renewal chip; "" = hidden. When VIP ends, set class and limit to the new class.
+# The VIP end date is the "mam-vip" entry in Due-Dates/due-dates.toml. When VIP ends, set class and limit to the new class.
 [mam]
 class = "VIP"
 unsatisfied_limit = 150
-vip_expires = "2027-01-27"

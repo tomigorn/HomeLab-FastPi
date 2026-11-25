@@ -277,4 +277,4 @@ A thin bar at the top of every Requests page shows how much of the search servic
 - Searches made by hand on the indexer websites are not counted.
 
 !!! note "Admin: limits and renewal dates"
-    Both live in `indexer-bar/limits.toml` in the Seerr project on the media server. After a renewal change the `expires` date (or set `lifetime = true`); the bar picks it up within a minute.
+    Limits live in `indexer-bar/limits.toml` in the Seerr project on the media server. Renewal dates live in `Docker/Due-Dates/due-dates.toml` on fastpi (HomeLab-FastPi): after a renewal change the `date` (or set `lifetime = true`); the bar picks it up within 20 minutes.

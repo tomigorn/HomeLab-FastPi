@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scripts/abr_bar_usage.py: Prowlarr counts per indexer window, levels, resets, subscriptions (own date or Seerr's cached list), the audiobook disks once per filesystem, Prowlarr down, and that usage.json holds only names and counts.
+"""scripts/abr_bar_usage.py: Prowlarr counts per indexer window, levels, resets, subscriptions (own date or the Due-Dates list), the audiobook disks once per filesystem, Prowlarr down, and that usage.json holds only names and counts.
 Usage: python3 -m unittest discover -s Docker/Audiobook-Requests/scripts"""
 import datetime as dt
 import json
@@ -72,19 +72,10 @@ class Counting(unittest.TestCase):
 
 class Subscriptions(unittest.TestCase):
     TODAY = dt.date(2026, 10, 28)
-    SEERR = [{"name": "ProtonVPN Plus", "kind": "VPN", "expires": dt.date(2026, 11, 20)}, {"name": "Eweka", "expires": dt.date(2027, 1, 1)}]
 
     def test_own_date_and_levels(self):
         out = bu.subscriptions([{"name": "MAM VIP", "kind": "indexer", "expires": dt.date(2026, 11, 2)}], self.TODAY)
         self.assertEqual((out[0]["daysLeft"], out[0]["level"], out[0]["expires"]), (5, "orange", "2026-11-02"))
-
-    def test_seerr_entry_takes_the_date_from_seerrs_list(self):
-        out = bu.subscriptions([{"name": "ProtonVPN Plus", "seerr": True}], self.TODAY, self.SEERR)
-        self.assertEqual((out[0]["name"], out[0]["kind"], out[0]["daysLeft"], out[0]["level"]), ("ProtonVPN Plus", "VPN", 23, "yellow"))
-
-    def test_seerr_entry_missing_in_seerrs_list_is_left_out(self):
-        self.assertEqual(bu.subscriptions([{"name": "Gone", "seerr": True}], self.TODAY, self.SEERR), [])
-        self.assertEqual(bu.subscriptions([{"name": "ProtonVPN Plus", "seerr": True}], self.TODAY, None), [])
 
     def test_lifetime(self):
         out = bu.subscriptions([{"name": "X", "lifetime": True}], self.TODAY)
@@ -94,12 +85,20 @@ class Subscriptions(unittest.TestCase):
         with self.assertRaises(ValueError):
             bu.subscriptions([{"name": "Z"}], self.TODAY)
 
-    def test_seerr_list_from_the_cached_toml(self):
+    def test_due_dates_list_entries_for_the_books_bar(self):
+        items = [{"id": "p", "title": "ProtonVPN Plus", "kind": "subscription", "category": "VPN", "date": "2027-06-15", "lifetime": False, "show": ["seerr", "books"]},
+                 {"id": "m", "title": "MAM VIP", "kind": "subscription", "category": "MyAnonamouse class", "date": "2027-01-27", "lifetime": False, "show": ["books"]},
+                 {"id": "l", "title": "Forever", "kind": "subscription", "category": "x", "date": None, "lifetime": True, "show": ["books"]},
+                 {"id": "e", "title": "Eweka", "kind": "subscription", "category": "Usenet provider", "date": "2028-02-19", "lifetime": False, "show": ["seerr"]}]
         with tempfile.TemporaryDirectory() as d:
-            p = pathlib.Path(d) / "limits.toml"
-            p.write_text('[[subscriptions]]\nname = "ProtonVPN Plus"\nkind = "VPN"\nexpires = 2027-06-15\n')
-            self.assertEqual(bu.seerr_subscriptions(p), [{"name": "ProtonVPN Plus", "kind": "VPN", "expires": dt.date(2027, 6, 15)}])
-            self.assertIsNone(bu.seerr_subscriptions(pathlib.Path(d) / "missing.toml"))
+            p = pathlib.Path(d) / "due-dates.json"
+            p.write_text(json.dumps({"version": 1, "generated": "2026-10-28T10:00:00Z", "items": items}))
+            self.assertEqual(bu.due_subscriptions(p), [{"name": "ProtonVPN Plus", "kind": "VPN", "expires": dt.date(2027, 6, 15)},
+                                                       {"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date(2027, 1, 27)},
+                                                       {"name": "Forever", "kind": "x", "lifetime": True}])
+            self.assertIsNone(bu.due_subscriptions(pathlib.Path(d) / "missing.json"))
+            p.write_text("garbage")
+            self.assertIsNone(bu.due_subscriptions(p))
 
 
 class FakeStat:
@@ -180,7 +179,7 @@ class Storage(unittest.TestCase):
 class Config(unittest.TestCase):
     def test_repo_config_loads(self):
         cfg = bu.load_config(HERE.parent / "abr-bar" / "limits.toml")
-        self.assertIn("ProtonVPN Plus", [s["name"] for s in cfg["subscriptions"]])
+        self.assertEqual(cfg["subscriptions"], [])
         self.assertIsInstance(cfg["indexers"], dict)
         self.assertEqual((cfg["mam"]["class"], cfg["mam"]["unsatisfied_limit"]), ("VIP", 150))
 
@@ -204,7 +203,7 @@ def tor(h, added_days_ago, seeded_h, state="stalledUP", tracker=MAMT, name=None,
 
 class Mam(unittest.TestCase):
     NOW = utc(2026, 10, 28, 12, 0)
-    CFG = {"class": "VIP", "unsatisfied_limit": 150, "vip_expires": None}
+    CFG = {"class": "VIP", "unsatisfied_limit": 150}
 
     def m(self, torrents, seen=None, cfg=None, trackers=None):
         return bu.mam(torrents, trackers or {}, seen or {}, cfg or self.CFG, self.NOW)
@@ -261,26 +260,20 @@ class Mam(unittest.TestCase):
         self.assertTrue(out["hint"]["de"].startswith("Unerfüllte MAM-Torrents: 1 von 150 (VIP)"))
         self.assertNotIn("PASSKEY", json.dumps([out, seen]))
 
-    def test_vip_expiry_is_a_subscription_when_set(self):
-        self.assertEqual(bu.mam_subscriptions({"vip_expires": None}), [])
-        self.assertEqual(bu.mam_subscriptions({"vip_expires": dt.date(2026, 11, 20)}), [{"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date(2026, 11, 20)}])
-
     def test_mam_config(self):
         with tempfile.TemporaryDirectory() as d:
             p = pathlib.Path(d) / "l.toml"
-            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\nvip_expires = "2026-12-01"\n')
-            self.assertEqual(bu.load_config(p)["mam"], {"class": "VIP", "unsatisfied_limit": 150, "vip_expires": dt.date(2026, 12, 1)})
-            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\nvip_expires = ""\n')
-            self.assertIsNone(bu.load_config(p)["mam"]["vip_expires"])
-            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\nvip_expires = "1.12.2026"\n')
+            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = 150\n')
+            self.assertEqual(bu.load_config(p)["mam"], {"class": "VIP", "unsatisfied_limit": 150})
+            p.write_text('[mam]\nclass = "VIP"\nunsatisfied_limit = "many"\n')
             with self.assertRaises(ValueError):
                 bu.load_config(p)
 
 
 class Run(unittest.TestCase):
     NOW = utc(2026, 10, 28, 12, 0)
-    CFG = {"indexers": LIMITS, "subscriptions": [{"name": "ProtonVPN Plus", "seerr": True}], "mam": {"class": "VIP", "unsatisfied_limit": 150, "vip_expires": dt.date(2026, 11, 2)}}
-    SEERR = [{"name": "ProtonVPN Plus", "kind": "VPN", "expires": dt.date(2027, 6, 15)}]
+    CFG = {"indexers": LIMITS, "subscriptions": [], "mam": {"class": "VIP", "unsatisfied_limit": 150}}
+    DUE = [{"name": "ProtonVPN Plus", "kind": "VPN", "expires": dt.date(2027, 6, 15)}, {"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date(2026, 11, 2)}]
 
     def disks(self):
         return fake({"/lib": (1, FakeStat(2 * TIB, TIB)), "/qbit": (2, FakeStat(2 * TIB, TIB)), "/sab": (2, FakeStat(2 * TIB, TIB))})
@@ -295,7 +288,7 @@ class Run(unittest.TestCase):
         st, dev = self.disks()
         with tempfile.TemporaryDirectory() as d:
             out = pathlib.Path(d) / "usage.json"
-            bu.run(self.CFG, api, out, self.NOW, disks=DISKS, statvfs=st, device=dev, seerr=self.SEERR)
+            bu.run(self.CFG, api, out, self.NOW, disks=DISKS, statvfs=st, device=dev, due=self.DUE)
             text = out.read_text()
             mode = out.stat().st_mode & 0o777
         data = json.loads(text)
@@ -318,7 +311,7 @@ class Run(unittest.TestCase):
         st, dev = self.disks()
         with tempfile.TemporaryDirectory() as d:
             out = pathlib.Path(d) / "usage.json"
-            bu.run(self.CFG, api, out, self.NOW, disks=DISKS, statvfs=st, device=dev, seerr=self.SEERR)
+            bu.run(self.CFG, api, out, self.NOW, disks=DISKS, statvfs=st, device=dev, due=self.DUE)
             data = json.loads(out.read_text())
         self.assertFalse(data["ok"])
         self.assertEqual(data["indexers"], [])
@@ -337,7 +330,7 @@ class Run(unittest.TestCase):
         st, dev = self.disks()
         with tempfile.TemporaryDirectory() as d:
             out = pathlib.Path(d) / "usage.json"
-            bu.run(self.CFG, lambda p: INDEXERS if p == "/indexer" else [], out, self.NOW, disks=DISKS, statvfs=st, device=dev, seerr=self.SEERR, qbit=qbit)
+            bu.run(self.CFG, lambda p: INDEXERS if p == "/indexer" else [], out, self.NOW, disks=DISKS, statvfs=st, device=dev, due=self.DUE, qbit=qbit)
             data = json.loads(out.read_text())
             seen = pathlib.Path(d) / "mam-seen.json"
             seen_mode = seen.stat().st_mode & 0o777
@@ -356,7 +349,7 @@ class Run(unittest.TestCase):
         st, dev = self.disks()
         with tempfile.TemporaryDirectory() as d:
             out = pathlib.Path(d) / "usage.json"
-            bu.run(self.CFG, lambda p: INDEXERS if p == "/indexer" else [], out, self.NOW, disks=DISKS, statvfs=st, device=dev, seerr=self.SEERR, qbit=qbit)
+            bu.run(self.CFG, lambda p: INDEXERS if p == "/indexer" else [], out, self.NOW, disks=DISKS, statvfs=st, device=dev, due=self.DUE, qbit=qbit)
             data = json.loads(out.read_text())
             self.assertFalse((pathlib.Path(d) / "mam-seen.json").exists())
         self.assertTrue(data["ok"])
