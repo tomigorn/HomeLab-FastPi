@@ -6,6 +6,7 @@
 | Agent scratch cleanup | files older than 7 days | `/etc/tmpfiles.d/claude-scratch.conf` (`e /tmp/claude-1000 - - - 7d`) | `/tmp` is a 4 GB tmpfs backed by RAM/swap; old agent scratch filled it to 90 % (2026-10-29). Runs with `systemd-tmpfiles-clean` (05:28) |
 | Agent scratch on disk | `/tmp/claude-1000` bind-mounted from `/home/pi/.cache/claude-tmp` | `Server/8-Claude-Scratch/` | 98 % full `/tmp` on 2026-11-01; tmpfs is RAM |
 | SCTP module disabled | `install sctp /bin/false` + `blacklist sctp` | `/etc/modprobe.d/disable-sctp.conf` | unused protocol, unprivileged autoload on `socket(…, IPPROTO_SCTP)`, past kernel CVEs (Lynis NETW-3200, 2026-10-31); dccp, rds, tipc are not built for this kernel |
+| Persistent journal | `Storage=persistent` (RPi default volatile) | `/etc/systemd/journald.conf.d/50-persistent.conf` | logs survived no reboot (FB-01, 2026-11-25); install: `Server/9-Persistent-Journal/` |
 | Authentik memory limits | server 1g, worker 1g, postgresql 512m | `Docker/Authentik/docker-compose.yaml` | had none; set live with `docker update` (no restart) on 2026-10-29 |
 
 Apply on a fresh install:
