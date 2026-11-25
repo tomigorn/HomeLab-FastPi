@@ -1,0 +1,202 @@
+# Exceptions to the container policy (scripts/policy_check.py), reviewed like code.
+# One [[exception]] per project/service/rule; reason is required. Remove the entry with the fix: a stale entry fails the check.
+# Rules: ipv4_address user user_unique cap_drop no_new_privileges healthcheck image_pinned env_secret
+
+# --- Edge: a fix restarts Traefik, CrowdSec, Authentik or cloudflared (yes-first)
+[[exception]]
+project = "Traefik"
+service = "traefik"
+rule = "healthcheck"
+reason = "edge: adding a healthcheck restarts Traefik (yes-first); backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "CrowdSec"
+service = "crowdsec"
+rule = "healthcheck"
+reason = "edge: adding a healthcheck restarts CrowdSec (yes-first); backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "cloudflared"
+service = "cloudflared"
+rule = "user"
+reason = "edge: runs as the image's nonroot user 65532; setting it in compose restarts the tunnel (yes-first)"
+
+[[exception]]
+project = "Authentik"
+service = "server"
+rule = "env_secret"
+reason = "edge (SSO): moving the secrets to files restarts Authentik (yes-first); not yet migrated, backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "Authentik"
+service = "worker"
+rule = "env_secret"
+reason = "edge (SSO): moving the secrets to files restarts Authentik (yes-first); not yet migrated, backlog: Fix the bug-hunt findings"
+
+# --- Databases: a fix restarts the DB
+[[exception]]
+project = "grafana"
+service = "influxdb"
+rule = "healthcheck"
+reason = "database: adding a healthcheck restarts InfluxDB; backlog: Fix the bug-hunt findings"
+
+# --- Root by design (docs/container-hardening.md, Root by design)
+[[exception]]
+project = "DDNS"
+service = "duckdns"
+rule = "user"
+reason = "root by design: lsio image has no non-root mode (s6 init fails), app runs as 65021"
+
+[[exception]]
+project = "Home-Assistant"
+service = "homeassistant"
+rule = "user"
+reason = "root by design: official image has no supported non-root mode"
+
+[[exception]]
+project = "mouse"
+service = "gluetun"
+rule = "user"
+reason = "root by design: creates tun + iptables rules"
+
+[[exception]]
+project = "mouse"
+service = "samba"
+rule = "user"
+reason = "root by design: smbd switches to each user, avahi chroots"
+
+[[exception]]
+project = "WireguardVPN"
+service = "wg-easy"
+rule = "user"
+reason = "root by design: creates the wg interface + iptables rules"
+
+[[exception]]
+project = "antivirus"
+service = "clamav-hostscan"
+rule = "user"
+reason = "root by design: weekly host scan needs DAC_READ_SEARCH; network none, read-only root fs"
+
+[[exception]]
+project = "antivirus"
+service = "clamav-hostscan"
+rule = "healthcheck"
+reason = "one-shot weekly scan (network none), exits when done: a healthcheck does not apply"
+
+# --- No shell or HTTP client in the image: a healthcheck needs a probe binary or an image change
+[[exception]]
+project = "Cup"
+service = "cup"
+rule = "healthcheck"
+reason = "image has no shell: needs a probe binary; backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "Cup"
+service = "cup-agent-fastpi"
+rule = "healthcheck"
+reason = "image has no shell: needs a probe binary; backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "Cup"
+service = "cup-refresh"
+rule = "healthcheck"
+reason = "one-shot refresh job, exits when done: a healthcheck does not apply"
+
+[[exception]]
+project = "Portainer"
+service = "portainer"
+rule = "healthcheck"
+reason = "image has no shell: needs a probe binary; backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "Stonks"
+service = "stonks"
+rule = "healthcheck"
+reason = "image has no shell: needs a probe in the app image; backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "mouse"
+service = "port-updater"
+rule = "healthcheck"
+reason = "image has no shell: needs a probe in the app image; backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "DDNS"
+service = "noip"
+rule = "healthcheck"
+reason = "image has a shell but no HTTP client or pgrep: needs an image change; backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "sbb-easyride-taxreport"
+service = "sbb_easyride_taxreport"
+rule = "healthcheck"
+reason = "image has a shell but no HTTP client: needs a probe in the app image; backlog: Fix the bug-hunt findings"
+
+# --- Secret only as env so far
+[[exception]]
+project = "Portainer"
+service = "portainer"
+rule = "env_secret"
+reason = "AGENT_SECRET from the gitignored .env; file variant not yet checked or migrated, backlog: Fix the bug-hunt findings"
+
+# --- Shared uid: a new uid needs a chown of the app data
+[[exception]]
+project = "WG-Chores-Demo"
+service = "wg-chores-demo"
+rule = "user_unique"
+reason = "shares 65035 with WG-Chores-v2; a new uid needs a chown of its data, not yet migrated, backlog: Fix the bug-hunt findings"
+
+[[exception]]
+project = "WG-Chores-v2"
+service = "wg-chores-v2"
+rule = "user_unique"
+reason = "shares 65035 with WG-Chores-Demo; a new uid needs a chown of its data, not yet migrated, backlog: Fix the bug-hunt findings"
+
+# --- Parked
+[[exception]]
+project = "LoyaltyCards"
+service = "loyalty-cards"
+rule = "user"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards"
+service = "loyalty-cards"
+rule = "cap_drop"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards"
+service = "loyalty-cards"
+rule = "no_new_privileges"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards"
+service = "loyalty-cards"
+rule = "healthcheck"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards-Sync"
+service = "loyalty-sync"
+rule = "user"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards-Sync"
+service = "loyalty-sync"
+rule = "cap_drop"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards-Sync"
+service = "loyalty-sync"
+rule = "no_new_privileges"
+reason = "parked project, owner keeps it as is (2026-11-25)"
+
+[[exception]]
+project = "LoyaltyCards-Sync"
+service = "loyalty-sync"
+rule = "healthcheck"
+reason = "parked project, owner keeps it as is (2026-11-25)"

@@ -13,6 +13,8 @@ State 2026-10-22, verified from `/proc/<pid>/status` of every process (not `dock
 | Shared data only through a shared group | `group_add`, setgid dir + default ACL; everything else alone in its own group |
 | Never the Docker socket | only the socket proxies hold it (below) |
 
+Check: `scripts/policy_check.py` (all rules as a check, exceptions in `policy-exceptions.toml`; `scripts/README.md`, policy-check).
+
 linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=…,exec`) when the image readme lists "Non-Root Operation". Otherwise mount `_global/lsio-init/drop-users-group.sh` (removes `abc` from `users` = gid 1000).
 
 ## uid map
