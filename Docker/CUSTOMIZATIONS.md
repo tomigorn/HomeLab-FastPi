@@ -376,6 +376,6 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 
 | Customization | Where | Reapply | Verify | Update can break |
 |---|---|---|---|---|
-| Same image as WG-Chores-v2, public demo: local accounts, no registration, `DEMO_MODE`; hardened like it | `docker-compose.yaml`, `secrets/demo_password` (65035:65037 0400) | `docker compose up -d` | `wgcdemo.hardening`: → 65035:65037 true [ALL] healthy; `wgcdemo.healthz`: → ok; `wgcdemo.config`: → local=True registration=False oidc=None | a release that changes the env names |
+| Same image as WG-Chores-v2, public demo: local accounts, no registration, `DEMO_MODE`; hardened like it | `docker-compose.yaml`, `secrets/demo_password` (65065:65065 0400) | `docker compose up -d` | `wgcdemo.hardening`: → 65065:65065 true [ALL] healthy; `wgcdemo.healthz`: → ok; `wgcdemo.config`: → local=True registration=False oidc=None | a release that changes the env names |
 | Nightly reset 03:17 (system timer) | `/etc/systemd/system/wg-chores-demo-reset.*` | `sudo cp ~/Projects/Docker/WG-Chores-Demo/systemd/wg-chores-demo-reset.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now wg-chores-demo-reset.timer` | `wgcdemo.reset-timer`: → active enabled | the container renamed (the unit runs `docker exec wg-chores-demo`) |
 | Route without forward auth, HSTS only | `../Traefik/traefik/dynamic/wg-chores-v2.yml` router `wg-chores-demo` | file reload | `wgcdemo.route-headers`: → 200 csp hsts | as WG-Chores-v2 |

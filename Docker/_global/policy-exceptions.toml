@@ -194,19 +194,6 @@ service = "portainer"
 rule = "env_secret"
 reason = "AGENT_SECRET from the gitignored .env; file variant not yet checked or migrated, backlog: Fix the bug-hunt findings"
 
-# --- Shared uid: a new uid needs a chown of the app data
-[[exception]]
-project = "WG-Chores-Demo"
-service = "wg-chores-demo"
-rule = "user_unique"
-reason = "shares 65035 with WG-Chores-v2; a new uid needs a chown of its data, not yet migrated, backlog: Fix the bug-hunt findings"
-
-[[exception]]
-project = "WG-Chores-v2"
-service = "wg-chores-v2"
-rule = "user_unique"
-reason = "shares 65035 with WG-Chores-Demo; a new uid needs a chown of its data, not yet migrated, backlog: Fix the bug-hunt findings"
-
 # --- Parked
 [[exception]]
 project = "LoyaltyCards"

@@ -8,7 +8,7 @@ services:
   wg-chores-demo:
     image: tomigorn/wg-chores:latest
     container_name: wg-chores-demo
-    user: "65035:65037"
+    user: "65065:65065"
     mem_limit: 128m
     pids_limit: 128
     restart: unless-stopped
