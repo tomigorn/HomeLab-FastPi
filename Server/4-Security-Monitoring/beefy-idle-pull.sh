@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copy beefy's idle-watcher metrics into the node-exporter textfile dir; remove them when beefy is down or sends nothing valid. Never wakes beefy (beefy-direct).
-# Also copies the queue-watchdog digest events (daily digest), the storage figures (storage.prom), the SSD->HDD mover result (mover.prom), SMART (smart-exporter), the request/download/indexer figures, retention and library sizes (media-metrics) and the Jellyfin popular job (jf_popular_*, optional), the Jellyfin playback watch (jellyfin_playback_*); those copies stay while beefy sleeps (nothing changes while it is off), their series carry their own timestamps.
+# Also copies the queue-watchdog digest events (daily digest), the storage figures (storage.prom), the SSD->HDD mover result (mover.prom), SMART (smart-exporter), the request/download/indexer figures, retention and library sizes (media-metrics) and the Jellyfin popular job (jf_popular_*, optional), the Jellyfin playback watch (jellyfin_playback_*), the repo-vs-live drift counts (drift_*, `repo_drift_beefy.prom`); those copies stay while beefy sleeps (nothing changes while it is off), their series carry their own timestamps.
 # The job heartbeat (job_heartbeat_beefy.prom, JobHeartbeatStale / SystemdUnitFailed for beefy's timers) is removed like the idle file while beefy is down: a kept copy would read as stale.
 # Each copy is validated: only that file's metric names, any host label must be beefy, families fastpi writes too (smart_*, indexer_*) need host="beefy"; one bad line rejects the whole file (old copy kept), so a compromised beefy cannot shadow fastpi's own series.
 set -u
@@ -22,6 +22,8 @@ PB_DEST=${PB_DEST:-/var/lib/node-exporter/textfile/beefy_playback.prom}
 PB_SRC=${PB_SRC:-/home/buntu/.local/state/jellyfin-playback/playback.prom}
 HB_DEST=${HB_DEST:-/var/lib/node-exporter/textfile/job_heartbeat_beefy.prom}
 HB_SRC=${HB_SRC:-/home/buntu/.local/state/job-heartbeat/job_heartbeat.prom}
+DR_DEST=${DR_DEST:-/var/lib/node-exporter/textfile/repo_drift_beefy.prom}
+DR_SRC=${DR_SRC:-/home/buntu/.local/state/repo-drift/drift.prom}
 
 MAX_BYTES=${MAX_BYTES:-262144}
 
@@ -82,4 +84,5 @@ fetch "$SM_SRC" "$SM_DEST" 'smart_exporter_last_run_timestamp_seconds{' 'smart_[
 fetch "$MM_SRC" "$MM_DEST" 'beefy_media_metrics_updated_timestamp_seconds ' 'beefy_(downloads_[a-z_]+|requests|request_badges|media_metrics_[a-z_]+|retention_[a-z0-9_]+|library_[a-z_]+)|indexer_(used|limit|bar_[a-z_]+)' 'indexer_[a-z_]+' || true
 fetch "$JP_SRC" "$JP_DEST" 'jf_popular_last_run_timestamp_seconds ' 'jf_popular_[a-z_]+' || true
 fetch "$PB_SRC" "$PB_DEST" 'jellyfin_playback_watch_last_poll_timestamp_seconds ' 'jellyfin_playback_[a-z0-9_]+' || true
+fetch "$DR_SRC" "$DR_DEST" 'drift_last_run_timestamp_seconds{host="beefy"} ' 'drift_(items|collect_errors|last_run_timestamp_seconds)' 'drift_(items|collect_errors|last_run_timestamp_seconds)' || true
 fetch "$HB_SRC" "$HB_DEST" 'systemd_job_updated_timestamp_seconds{host="beefy"} ' 'systemd_job_[a-z_]+|systemd_unit_failed' 'systemd_job_[a-z_]+|systemd_unit_failed' || true
