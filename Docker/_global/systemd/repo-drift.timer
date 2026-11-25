@@ -1,0 +1,11 @@
+[Unit]
+Description=Repo-vs-live drift check nightly
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+
+[Timer]
+# 04:28 is free in Server/6-Night-Schedule, after beefy's 04:19 run and before arch-page (04:35), which lists the items
+OnCalendar=*-*-* 04:28:00 Europe/Zurich
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -18,6 +18,7 @@
 | `customization_check_exporter.py` | runs `post-update-check.sh all` and counts `port_updater` reattaches every 2 h, publishes to Prometheus, see below |
 | `ctest.sh` | throwaway test container that cannot change anything, see below |
 | `policy_check.py` | container rules as a check over every compose project, exceptions in `../policy-exceptions.toml`, see below |
+| `repo_drift.py` | nightly repo-vs-live compare (compose, units, scripts, /etc, uncommitted files), metric `drift_items{host,kind}`, see below. Test: `python3 test_repo_drift.py` |
 | `arch_page.py` | generates the notes page `homelab-architecture.md` (all containers of fastpi, beefy, tower), see below |
 
 ## policy-check
@@ -136,6 +137,28 @@ When one project pulls a newer image under a tag others use too (`caddy:alpine`,
 | By hand | `systemctl start mam-points.service` then `journalctl -u mam-points -n 5` |
 | Test | `python3 scripts/test_mam_points.py` |
 
+## repo-drift
+`repo_drift.py` lists what was changed live but not in the repo (or the reverse). Same file on fastpi and beefy (beefy repo: `Docker/_global/scripts/`): keep them identical. Never fixes anything.
+
+| Kind | Compared | Repo side (existing mapping, nothing new) |
+|---|---|---|
+| `compose` | each running container vs `docker compose config` of the project it was started from: image, env **keys**, mount targets, labels, plus the container's `config-hash` vs `config --hash` (repo compose edited, container not recreated) | the compose files named in the container's own labels |
+| `unit` | regular files and drop-ins in `/etc/systemd/system` and `~/.config/systemd/user` (snapd and generated units skipped) | the file with the same name in the repo, or the `install` lines of the repo's install scripts |
+| `script` | `/usr/local/sbin`, `/usr/local/bin`, `/usr/local/libexec/fastpi`, `/usr/local/lib/*` (binaries skipped) | `install` lines (`$HERE/x /usr/local/sbin/y`), the `SCRIPTS=( )` list of `install-root-scripts.sh`, else the same name (`_` = `-`, no `.sh`/`.py`) |
+| `etc` | `/etc` drop-ins (sysctl.d, modprobe.d, tmpfiles.d, sshd_config.d, apt.conf.d, docker, `*.conf.d` of systemd) not owned by a package; sysctl files vs `/proc/sys`; keys of `*.conf.d` vs `systemd-analyze cat-config` (a later file wins) | same name in the repo, else the path must appear in a repo doc or script |
+| `worktree` | `git status` of the repo: modified, deleted, untracked | - |
+
+| | |
+|---|---|
+| Output | fastpi: `/var/lib/node-exporter/textfile/repo_drift.prom` (`drift_items{host,kind}`, `drift_collect_errors{host,kind}`, `drift_last_run_timestamp_seconds{host}`) and `~/.local/state/repo-drift/drift.json` (the item list, read by `arch_page.py`: section "Drift (repo vs live)"). beefy: the same under `~/.local/state/repo-drift/`, copied by `beefy-idle-pull` to `repo_drift_beefy.prom` (kept while beefy sleeps) |
+| Never in the output | env values (keys only), file contents |
+| A kind that cannot be collected | `drift_collect_errors=1`, its items stay the previous night's |
+| When | fastpi `repo-drift.timer` 04:28 Europe/Zurich; beefy 04:19 (inside its window, `Server/9-Night-Schedule.md`) |
+| Alerts | `RepoDriftPersists` (> 0 for 24 h, per host and kind), `RepoDriftCheckStale`, `RepoDriftCollectFailing`: `Docker/grafana/prometheus/rules/drift.yml`, test `tests/drift_test.yml` |
+| Install | `mkdir -p ~/.local/state/repo-drift && sudo install -m 0644 ../systemd/repo-drift.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now repo-drift.timer` |
+| By hand | `systemctl start repo-drift.service`, or `python3 scripts/repo_drift.py --host fastpi --prom /dev/null --json /dev/null` (prints every item) |
+| Test | `python3 scripts/test_repo_drift.py`, unit sandbox: `scripts/test_unit_sandbox.sh` |
+
 ## arch-page
 One generated notes page with the real homelab, so nobody re-reads compose files and `docker inspect`. Lives here (not in `Docker/Notes/`) because it describes the whole host and its unit sits next to the other host timers in `../systemd/`.
 
@@ -144,6 +167,7 @@ One generated notes page with the real homelab, so nobody re-reads compose files
 | Output | `~/notes/docs/homelab-architecture.md` (written atomically; the notes build picks it up), linked from the notes index and nav |
 | Sources | fastpi: `docker inspect`, `Traefik/traefik/dynamic/*.yml` (hostnames, SSO = `authentik@file` middleware or OIDC/OAUTH env **names**), `auto-update.conf`, `Server/5-Backup/backup.sh --list` (paths vs. each container's rw mounts). beefy: one `ssh beefy-direct` call (inspect, its `auto-update.conf`, `beefy-backup.sh --list`), never wakes it; asleep = cached section "as of <time>" in `~/.cache/arch-page/beefy.json` (parsed rows only, no env). tower: never contacted, Waker `/status` + the stack scripts in `~/backups/tower-flash/latest` |
 | Never on the page | env values, tokens, labels; a test checks this |
+| Drift section | the item lists of `repo_drift.py` for fastpi (`~/.local/state/repo-drift/drift.json`) and beefy (same file over the one ssh call; cached with beefy's data while it sleeps), see "repo-drift" |
 | Flags | `!ip` unpinned network IP, `!hc` running without healthcheck: facts, not a policy |
 | When | `arch-page.timer` 04:35 Europe/Zurich (inside beefy's night window) and 10 min after boot, catch-up if missed |
 | Install | `sudo install -m 0644 ../systemd/arch-page.{service,timer} /etc/systemd/system/ && mkdir -p -m 0700 ~/.cache/arch-page && sudo systemctl daemon-reload && sudo systemctl enable --now arch-page.timer` |

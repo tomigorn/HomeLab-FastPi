@@ -37,6 +37,7 @@ All fixed-time jobs on fastpi, in night order (`systemctl list-timers` is the tr
 | 04:12 | `usage-collector` | `Docker/grafana` |
 | 04:20, 05:40, 05:50 | `security-av` | `Server/4-Security-Monitoring` |
 | first Tue 04:33 | `fastpi-restore-test` | `Server/5-Backup` |
+| 04:28 | `repo-drift` | repo-vs-live compare (`Docker/_global/scripts/README.md` "repo-drift") |
 | 05:00 | `clamav-scan` | new-files scan (`Docker/antivirus`) |
 | 05:07 | `beefy-repo-maint` | `Server/5-Backup` |
 | 05:07 (+≤10 min) | `crowdsec-autoupdate` | `Docker/CrowdSec` |
