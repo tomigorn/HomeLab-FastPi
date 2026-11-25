@@ -17,6 +17,9 @@ running() { # running <container...>  -> running, healthy if it has a healthchec
     check "container $c" '^running (healthy|-) r[0-9]+ up [0-9]+s$' "$s"
   done; }
 http() { curl -s -m 10 -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 smoke-test' "$@"; }
+pinned() { # pinned <host> <docker-inspect-json>  -> every network of every container has a fixed IPv4
+  local u; u=$(bash "$(dirname "$0")/unpinned.sh" <<<"$2" 2>&1 | tail -1)
+  if [[ -z $u ]]; then ok "$1 containers pinned"; else bad "$1 containers pinned" "unpinned: $u"; fi; }
 HOME_IP=$(curl -s -m 8 https://ifconfig.me/ip)
 
 echo "== Edge: Traefik, Cloudflare tunnel, CrowdSec"
@@ -106,6 +109,7 @@ check "containers expected but down" '^0$' "$(curl -s -m 5 -G --data-urlencode '
 check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:9090/api/v1/rules | python3 -c 'import json,sys; n={r["name"] for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]}; w={"ContainerDown","ContainerCrashLooping","ContainerUnhealthy","ContainerExporterStale","HostRebooted","HostRebootedUnclean"}; print("ok" if w<=n else "missing " + " ".join(sorted(w-n)))')"
 
 echo "== Apps on fastpi"
+pinned fastpi "$(docker inspect $(docker ps -q) 2>/dev/null)"
 running adguardhome portainer audiobookshelf prowlarr_mouse prowlarr-gate audiobookrequest audiobook-importer books-proxy homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki notes backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker tech-radar navidrome feishin
 check "prowlarr MAM rules, gate, seeding" '^OK MAM rules, gate and seed-forever hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
 check "books public -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -A 'Mozilla/5.0 smoke-test' --resolve books.holy-grail.ch:443:$(dig +short @1.1.1.1 books.holy-grail.ch | head -1) https://books.holy-grail.ch/ | cut -c1-60)"
@@ -214,6 +218,7 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   for s in floppy floppy-redis; do check "beefy $s healthy" "^$s .*\(healthy\)" "$(grep "^$s " <<<"$r")"; done
   check "floppy version"           'floppy:26\.10\.29 ' "$(grep '^floppy ' <<<"$r")"
   check "floppy snapshot < 2 days" '^floppybackup=yes$' "$(grep floppybackup= <<<"$r")"
+  pinned beefy "$(timeout 60 ssh -o BatchMode=yes beefy 'sudo docker inspect $(sudo docker ps -q)' 2>/dev/null)"
 else skip "beefy" "asleep - not woken"; fi
 
 echo "== tower (only if awake)"
