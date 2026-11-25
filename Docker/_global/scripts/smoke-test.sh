@@ -19,7 +19,7 @@ running() { # running <container...>  -> running, healthy if it has a healthchec
 http() { curl -s -m 10 -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 smoke-test' "$@"; }
 pinned() { # pinned <host> <docker-inspect-json>  -> every network of every container has a fixed IPv4
   local u; u=$(bash "$(dirname "$0")/unpinned.sh" <<<"$2" 2>&1 | tail -1)
-  if [[ -z $u ]]; then ok "$1 containers pinned"; else bad "$1 containers pinned" "unpinned: $u"; fi; }
+  if [[ -z $u ]]; then ok "$1 containers pinned" "all"; else bad "$1 containers pinned" "unpinned: $u"; fi; }
 HOME_IP=$(curl -s -m 8 https://ifconfig.me/ip)
 
 echo "== Edge: Traefik, Cloudflare tunnel, CrowdSec"
