@@ -17,6 +17,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
+ReadWritePaths=/var/lib/node-exporter/textfile
 PrivateDevices=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

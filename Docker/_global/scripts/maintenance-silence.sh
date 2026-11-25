@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Alertmanager silence for batch and upgrade work, so planned restarts, file changes and own logins do not page; the 06:30 daily digest still lists what fired.
+# Alertmanager silence for batch and upgrade work, so planned restarts, file changes and own logins do not page; the 19:00 daily digest still lists what fired.
 # Usage: maintenance-silence.sh on [hours, default 4, max 24] [reason] | off | status
 set -euo pipefail
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Telegram warnings for every date in Due-Dates (due-dates.json, built from Docker/Due-Dates/due-dates.toml) with alert = telegram. See README "subscription-alerts".
 Stages per date from its lead days: default [30, 7, 0] = yellow <= 30 days left, orange <= 7, red on the date, red "expired yesterday" the day after. Each stage once per (item, date); a new date starts fresh.
+Yellow is no Telegram message: a note in the 19:00 daily digest (notify.sh digest); orange and later go to Telegram.
 DDNS hostnames (lead [5, 3, 1, 0]): yellow 5-4 days left, orange 3-2, red 1 day left, red on the end date (morning), red "deadline passed" the day after. Reminders say "due" instead of "ends".
 Usage: subscription-alerts.py [--test]"""
 import datetime as dt
@@ -16,6 +17,7 @@ from zoneinfo import ZoneInfo
 TZ = ZoneInfo("Europe/Zurich")
 HERE = Path(__file__).resolve().parent
 OOB = HERE / "oob-alert.sh"
+NOTIFY = HERE / "notify.sh"
 STATE_DIR = Path(os.environ.get("STATE_DIRECTORY", "/var/lib/subscription-alerts"))
 DUE_JSON = Path(os.environ.get("DUE_DATES_JSON", "/var/lib/due-dates/due-dates.json"))
 STALE_DAYS = 7
@@ -133,10 +135,11 @@ def ddns_howto(st):
     return DDNS_HOWTO
 
 
-def render(group, cache_age_days):
+def headline(group):
+    """Plain-text subject and "ends in N days" part of the title."""
     items, st, d = group["items"], group["stage"], group["days"]
     n = len(items)
-    subject = html.escape(items[0]["name"]) if n == 1 else f"{n} subscriptions"
+    subject = items[0]["name"] if n == 1 else f"{n} subscriptions"
     if all(s.get("ddns") for s in items):
         subject = "No-IP confirm"
         when = {"expired": "deadline passed", "red": "last day"}.get(st, f"due in {d} day{'' if d == 1 else 's'}")
@@ -148,9 +151,25 @@ def render(group, cache_age_days):
         when = "ends today" if n == 1 else "end today"
     else:
         when = f"{'ends' if n == 1 else 'end'} in {d} day{'' if d == 1 else 's'}"
+    return subject, when
+
+
+def day_text(e):
+    return f"{WEEKDAYS[e.weekday()]}, {e.day} {MONTHS[e.month - 1]} {e.year}"
+
+
+def digest_text(group):
+    subject, when = headline(group)
+    names = f": {', '.join(s['name'] for s in group['items'])}" if len(group["items"]) > 1 else ""
+    return f"{subject} {when} ({day_text(group['expires'])}){names}"
+
+
+def render(group, cache_age_days):
+    items, st = group["items"], group["stage"]
+    subject, when = headline(group)
     e = group["expires"]
-    lines = [f"{EMOJI[st]} <b>{subject} {when}</b>", "",
-             f"📅 {'deadline was ' if st == 'expired' and all(s.get('ddns') for s in items) else 'ended ' if st == 'expired' else ''}{WEEKDAYS[e.weekday()]}, {e.day} {MONTHS[e.month - 1]} {e.year}"]
+    lines = [f"{EMOJI[st]} <b>{html.escape(subject)} {when}</b>", "",
+             f"📅 {'deadline was ' if st == 'expired' and all(s.get('ddns') for s in items) else 'ended ' if st == 'expired' else ''}{day_text(e)}"]
     for s in items:
         kind = f" · {html.escape(s['kind'])}" if s.get("kind") else ""
         lines.append(f"• <b>{html.escape(s['name'])}</b>{kind}")
@@ -176,7 +195,11 @@ def send_oob(msg):
     return subprocess.run([str(OOB), msg]).returncode == 0
 
 
-def run(state_dir, due_json, send, today, now):
+def notify_digest(text):
+    return subprocess.run([str(NOTIFY), "digest", "subscription-alerts", text]).returncode == 0
+
+
+def run(state_dir, due_json, send, today, now, note=notify_digest):
     state_file = state_dir / "state.json"
     state_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -193,9 +216,10 @@ def run(state_dir, due_json, send, today, now):
         state = {}
     failed = 0
     for g in pending(subs, today, state):
-        if send(render(g, age)):
+        digest = g["stage"] == "yellow"
+        if note(digest_text(g)) if digest else send(render(g, age)):
             mark(state, g)
-            print(f"subscription-alerts: sent {g['stage']} for {', '.join(s['name'] for s in g['items'])} ({g['expires']})")
+            print(f"subscription-alerts: {'digest note' if digest else 'sent'} {g['stage']} for {', '.join(s['name'] for s in g['items'])} ({g['expires']})")
         else:
             failed += 1
             print(f"subscription-alerts: send failed for {g['stage']} {g['expires']}", file=sys.stderr)

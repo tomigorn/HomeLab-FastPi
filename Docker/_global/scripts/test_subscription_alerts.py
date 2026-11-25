@@ -246,26 +246,62 @@ def write_due(d, items, generated=None):
     return p
 
 
-def run(tmp, items, send, today, now=None):
-    return sa.run(Path(tmp) / "state", write_due(tmp, items), send, today, now or time.time())
+def run(tmp, items, send, today, now=None, note=None):
+    return sa.run(Path(tmp) / "state", write_due(tmp, items), send, today, now or time.time(), note=note or (lambda t: True))
 
 
-def test_run_sends_marks_and_does_not_repeat():
-    sent = []
+def test_yellow_goes_to_the_digest_not_telegram_and_does_not_repeat():
+    sent, noted = [], []
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 26)) == 0
-        assert len(sent) == 1 and "Treasure Maps" in sent[0] and "Eweka" in sent[0] and "end in 23 days" in sent[0]
-        run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 27))
-        assert len(sent) == 1
+        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 26), note=lambda t: noted.append(t) or True) == 0
+        assert sent == []
+        assert noted == ["2 subscriptions end in 23 days (Wed, 18 Nov 2026): Treasure Maps, Eweka"]
+        run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 27), note=lambda t: noted.append(t) or True)
+        assert len(noted) == 1 and sent == []
         assert json.loads((Path(d) / "state" / "state.json").read_text())
+
+
+def test_orange_still_goes_to_telegram_once():
+    sent, noted = [], []
+    with tempfile.TemporaryDirectory() as d:
+        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 11, 11), note=lambda t: noted.append(t) or True) == 0
+        assert noted == [] and len(sent) == 1 and "end in 7 days" in sent[0]
+        run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 11, 12), note=lambda t: noted.append(t) or True)
+        assert len(sent) == 1
+
+
+def test_digest_note_is_plain_text():
+    noted = []
+    with tempfile.TemporaryDirectory() as d:
+        run(d, [item("x", "A & <B>", "subscription", "2026-11-18")], lambda m: True, D(2026, 10, 26), note=lambda t: noted.append(t) or True)
+    assert noted == ["A & <B> ends in 23 days (Wed, 18 Nov 2026)"]
+
+
+def test_notify_digest_calls_the_shared_helper():
+    calls = []
+    orig = sa.subprocess.run
+    sa.subprocess.run = lambda args, **kw: calls.append(args) or type("R", (), {"returncode": 0})()
+    try:
+        assert sa.notify_digest("x ends in 3 days")
+    finally:
+        sa.subprocess.run = orig
+    assert calls == [[str(sa.NOTIFY), "digest", "subscription-alerts", "x ends in 3 days"]]
 
 
 def test_run_failed_send_is_retried_next_time():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, SUBS, lambda m: False, D(2026, 10, 26)) == 1
-        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 26)) == 0
+        assert run(d, SUBS, lambda m: False, D(2026, 11, 11)) == 1
+        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 11, 11)) == 0
         assert len(sent) == 1
+
+
+def test_run_failed_note_is_retried_next_time():
+    noted = []
+    with tempfile.TemporaryDirectory() as d:
+        assert run(d, SUBS, lambda m: True, D(2026, 10, 26), note=lambda t: False) == 1
+        assert run(d, SUBS, lambda m: True, D(2026, 10, 26), note=lambda t: noted.append(t) or True) == 0
+        assert len(noted) == 1
 
 
 def test_run_old_list_still_alerts_and_mentions_age():
@@ -290,8 +326,8 @@ def test_domain_howto():
 def test_run_warns_for_a_domain_with_its_own_howto():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, SUBS + [DOMAIN], lambda m: sent.append(m) or True, D(2027, 1, 20)) == 0
-        assert len(sent) == 1 and "holy-grail.ch ends in 28 days" in sent[0] and "· domain, GoDaddy (DNS Cloudflare)" in sent[0]
+        assert run(d, SUBS + [DOMAIN], lambda m: sent.append(m) or True, D(2027, 2, 10)) == 0
+        assert len(sent) == 1 and "holy-grail.ch ends in 7 days" in sent[0] and "· domain, GoDaddy (DNS Cloudflare)" in sent[0]
         assert "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com)" in sent[0]
 
 
@@ -343,9 +379,9 @@ def test_ddns_message_layout():
 def test_run_sends_ddns_once():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, SUBS + DDNS_ITEMS, lambda m: sent.append(m) or True, D(2026, 12, 5)) == 0
+        assert run(d, SUBS + DDNS_ITEMS, lambda m: sent.append(m) or True, D(2026, 12, 7)) == 0
         assert len([m for m in sent if "No-IP" in m]) == 1
-        assert run(d, SUBS + DDNS_ITEMS, lambda m: sent.append(m) or True, D(2026, 12, 6)) == 0
+        assert run(d, SUBS + DDNS_ITEMS, lambda m: sent.append(m) or True, D(2026, 12, 8)) == 0
         assert len([m for m in sent if "No-IP" in m]) == 1
 
 

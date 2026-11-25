@@ -15,6 +15,7 @@
 | `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
 | `maintenance-silence.sh on [hours] [reason] \| off \| status` | Alertmanager silence for batch/upgrade work (crash loops, container down/unhealthy, file changes, reboots, own SSH logins), default 4 h, max 24 h; only touches its own silences. Test: `./test_maintenance_silence.sh` |
 | `subscription-alerts.py` | Telegram warnings for the due dates (`../Due-Dates`), see below |
+| `notify.sh` | how a script reaches the owner: `notify.sh action <html>` = Telegram now (`oob-alert.sh`), `notify.sh digest <source> <text>` = note in the 19:00 daily digest (`/var/lib/node-exporter/textfile/digest_notes.prom`, kept 48 h; a unit with `ProtectSystem=strict` needs `ReadWritePaths=/var/lib/node-exporter/textfile`). Policy: `Docker/grafana/README.md` "Routing policy". Completion: `completions/notify.{bash,fish}`. Test: `./test_notify.sh` |
 | `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
 | `customization_check_exporter.py` | runs `post-update-check.sh all` and counts `port_updater` reattaches every 2 h, publishes to Prometheus, see below |
 | `ctest.sh` | throwaway test container that cannot change anything, see below |
@@ -100,8 +101,8 @@ When one project pulls a newer image under a tag others use too (`caddy:alpine`,
 ## subscription-alerts
 | | |
 |---|---|
-| What | `subscription-alerts.py`: reads `/var/lib/due-dates/due-dates.json` (`../Due-Dates`: subscriptions, domains, No-IP, tokens, reminders), items with `alert = "telegram"`, sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts. Domains get the registrar how-to, No-IP the confirm how-to, others their `howto` |
-| Stages | from the item's `lead` days: default 🟡 ≤ 30 days left, 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"); No-IP 5 / 3 / 1 / 0; `kind = "reminder"` says "due". Same colours as the Seerr bar. Items on the same date and stage share one message |
+| What | `subscription-alerts.py`: reads `/var/lib/due-dates/due-dates.json` (`../Due-Dates`: subscriptions, domains, No-IP, tokens, reminders), items with `alert = "telegram"`: the yellow stage is a note in the 19:00 daily digest (`notify.sh digest`), orange, red and expired go to Telegram via `oob-alert.sh`. `lifetime = true` never alerts. Domains get the registrar how-to, No-IP the confirm how-to, others their `howto` |
+| Stages | from the item's `lead` days: default 🟡 ≤ 30 days left (digest note only), 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"); No-IP 5 / 3 / 1 / 0; `kind = "reminder"` says "due". Same colours as the Seerr bar. Items on the same date and stage share one message |
 | Once | each stage once per (title, date) in `/var/lib/subscription-alerts/state.json`. Renewal = change the date: the new date starts fresh, the old date's warnings are dropped. First run late (e.g. 23 days left) sends only the current stage. A failed send is retried at the next run |
 | When | `subscription-alerts.timer` daily 05:37 Europe/Zurich (low-power hours, outside the DST hour and the nightly jobs), 5 min after boot, catch-up if missed. fastpi only, never asks beefy |
 | List age | the list's `generated` time; older than 7 days (due-dates build failing): logged and said in the message details. The old `/var/lib/subscription-alerts/limits.toml` cache is no longer read |
