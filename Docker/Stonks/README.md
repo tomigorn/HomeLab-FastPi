@@ -8,7 +8,7 @@ folder (16 MB on `scratch`, a few MB RAM). The previous Python image stays as `s
 1. `cp .env.example .env` and fill in the non-secret values.
    Secrets go in `secrets/stonks.env` (owner `65007`, mode `0400`, mounted as `/app/.env`): `TELEGRAM_BOT_TOKEN`, `APP_PASSWORD_HASH`, `SESSION_SECRET`, single-quoted, `$` not doubled. Format: `.env.example`.
    Hash: `echo -n 'pw' | docker compose run --rm -T --no-deps stonks hashpw` (hashes from the old `hashpw.py` keep working).
-2. Build and deploy: `./redeploy.sh` (DB copy to `data/backups/`, serialized two-job build under `~/.cache/claude-work/rust-build.lock`, `up -d`, `/healthz`).
+2. Build and deploy: `./redeploy.sh` (DB copy to `data/backups/` with `sqlite3 .backup`, no deploy when it fails; serialized two-job build under `~/.cache/claude-work/rust-build.lock`, `up -d`, `/healthz`).
    By hand: `cd ~/Documents/development/Stonks/rust && docker build --build-arg CARGO_BUILD_JOBS=2 -t stonks:latest .`, then `docker compose up -d`.
 
 Weekly rebuild (Sat, fresh base, unit + black-box tests, rollback): `rebuild-local`, `Server/4-Security-Monitoring/auto-updates.md` "Local builds".
@@ -16,6 +16,8 @@ Weekly rebuild (Sat, fresh base, unit + black-box tests, rollback): `rebuild-loc
 Tests before a redeploy (sandboxed, no network): in the code repo `docker build --target test rust/` (39 unit tests) and `tests/blackbox/run-rust.sh` (47 HTTP checks against the exported binary, `docker build --target export --output type=local,dest=rust/dist rust/` first).
 
 Post-update check: `Docker/_global/scripts/post-update-check.sh Stonks` (image shape, healthz, login redirect, price cache fresh).
+
+`data/backups` must be writable for `pi`: `sudo chgrp pi data/backups && sudo chmod 2775 data/backups`. Test: `./test_redeploy.sh`.
 
 Rollback: `docker tag stonks:pre-rust-2026-11-10 stonks:latest && docker compose up -d` (data in `./data` is untouched, the schema is the same; a DB copy is in `./data/backups/`).
 

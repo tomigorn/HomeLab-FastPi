@@ -5,7 +5,7 @@
 #   Deploy dir (this folder):  ~/Projects/Docker/Stonks
 #
 # The SQLite DB lives in ./data (bind mount) and survives container recreation; a copy goes to
-# ./data/backups/ before each deploy. The build (BoringSSL) is heavy: it takes the shared
+# ./data/backups/ before each deploy (no backup, no deploy). The build (BoringSSL) is heavy: it takes the shared
 # rust-build lock, two cargo jobs, and waits for 1.5 GB of free RAM.
 set -euo pipefail
 
@@ -13,15 +13,18 @@ CODE_DIR="${STONKS_CODE_DIR:-$HOME/Documents/development/Stonks/rust}"
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCK="${RUST_BUILD_LOCK:-$HOME/.cache/claude-work/rust-build.lock}"
 
-echo "==> Backing up database (best-effort; the ./data bind mount preserves it regardless)"
+echo "==> Backing up database"
 ts="$(date +%Y%m%d-%H%M%S)"
 cd "$DEPLOY_DIR"
-mkdir -p data/backups 2>/dev/null || true
-if [ -f data/stonks.db ] && cp -p data/stonks.db "data/backups/stonks-$ts.db" 2>/dev/null; then
+if [ -f data/stonks.db ]; then
+  if ! sqlite3 data/stonks.db ".backup data/backups/stonks-$ts.db" || [ ! -s "data/backups/stonks-$ts.db" ]; then
+    echo "ERROR: backup failed (data/backups must be writable for $(id -un), see README); not deploying" >&2
+    exit 1
+  fi
   ls -1t data/backups/stonks-*.db | tail -n +21 | xargs -r rm -f
   echo "    saved data/backups/stonks-$ts.db"
 else
-  echo "    skipped (no DB yet or not writable) — data on disk is untouched"
+  echo "    no DB yet, nothing to back up"
 fi
 
 echo "==> Building stonks:latest from $CODE_DIR"
