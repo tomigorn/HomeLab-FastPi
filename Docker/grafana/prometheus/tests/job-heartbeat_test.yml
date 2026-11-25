@@ -1,0 +1,153 @@
+# promtool test rules tests/job-heartbeat_test.yml  (README "Run the rule tests")
+rule_files:
+  - ../rules/job-heartbeat.yml
+evaluation_interval: 1m
+tests:
+  - name: a failed unit from node-exporter pages after 5 minutes, a short failure does not
+    interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{instance="node-exporter:9100",job="raspberry-pi",name="heartbeat-test-fail.service",state="failed"}'
+        values: '0 1x20'
+      - series: 'node_systemd_unit_state{instance="node-exporter:9100",job="raspberry-pi",name="short.service",state="failed"}'
+        values: '0 1 1 1 0x20'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SystemdUnitFailed
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: SystemdUnitFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, scope: system, unit: heartbeat-test-fail.service}
+            exp_annotations:
+              summary: "heartbeat-test-fail.service is failed on fastpi"
+              description: "Failed for over 5 minutes (system units). Look at <code>systemctl status heartbeat-test-fail.service</code> and <code>journalctl -u heartbeat-test-fail.service</code>; <code>systemctl reset-failed</code> clears it once fixed."
+
+  - name: a failed unit reported by the heartbeat script (beefy, user units) pages and merges with node-exporter
+    interval: 1m
+    input_series:
+      - series: 'systemd_unit_failed{host="beefy",scope="user",unit="jellyfin-identity.service"}'
+        values: '1x20'
+      - series: 'systemd_unit_failed{host="fastpi",scope="system",unit="dup.service"}'
+        values: '1x20'
+      - series: 'node_systemd_unit_state{instance="node-exporter:9100",name="dup.service",state="failed"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: SystemdUnitFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, scope: user, unit: jellyfin-identity.service}
+            exp_annotations:
+              summary: "jellyfin-identity.service is failed on beefy"
+              description: "Failed for over 5 minutes (user units). Look at <code>systemctl --user status jellyfin-identity.service</code> and <code>journalctl --user -u jellyfin-identity.service</code>; <code>systemctl reset-failed</code> clears it once fixed."
+          - exp_labels: {severity: warning, host: fastpi, scope: system, unit: dup.service}
+            exp_annotations:
+              summary: "dup.service is failed on fastpi"
+              description: "Failed for over 5 minutes (system units). Look at <code>systemctl status dup.service</code> and <code>journalctl -u dup.service</code>; <code>systemctl reset-failed</code> clears it once fixed."
+
+  - name: a stale job pages only past its allowed age, once the host has been up that long
+    interval: 5m
+    input_series:
+      # nightly: allowed 30 h, last success 40 h before t=0 and never again
+      - series: 'systemd_job_last_success_timestamp_seconds{host="fastpi",scope="system",unit="nightly.service"}'
+        values: '-144000x400'
+      - series: 'systemd_job_max_age_seconds{host="fastpi",scope="system",unit="nightly.service"}'
+        values: '108000x400'
+      # fresh: ran 1 h before t=0
+      - series: 'systemd_job_last_success_timestamp_seconds{host="fastpi",scope="system",unit="fresh.service"}'
+        values: '-3600x400'
+      - series: 'systemd_job_max_age_seconds{host="fastpi",scope="system",unit="fresh.service"}'
+        values: '108000x400'
+      # never succeeded: age counts from first seen (50 h before t=0)
+      - series: 'systemd_job_first_seen_timestamp_seconds{host="fastpi",scope="user",unit="never.service"}'
+        values: '-180000x400'
+      - series: 'systemd_job_max_age_seconds{host="fastpi",scope="user",unit="never.service"}'
+        values: '108000x400'
+      # no max age (boot-only timer): never stale
+      - series: 'systemd_job_last_success_timestamp_seconds{host="fastpi",scope="system",unit="bootonly.service"}'
+        values: '-999999x400'
+      - series: 'systemd_job_host_boot_time_seconds{host="fastpi"}'
+        values: '-1000000x400'
+      - series: 'systemd_job_updated_timestamp_seconds{host="fastpi"}'
+        values: '0+300x400'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: JobHeartbeatStale
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: JobHeartbeatStale
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, scope: system, unit: nightly.service}
+            exp_annotations:
+              summary: "nightly.service has not succeeded for 1d 16h 30m 0s on fastpi"
+              description: "The timer's last successful run is older than its schedule allows. Look at <code>systemctl status nightly.timer nightly.service</code> and <code>journalctl -u nightly.service</code>."
+          - exp_labels: {severity: warning, host: fastpi, scope: user, unit: never.service}
+            exp_annotations:
+              summary: "never.service has not succeeded for 2d 2h 30m 0s on fastpi"
+              description: "The timer's last successful run is older than its schedule allows. Look at <code>systemctl --user status never.timer never.service</code> and <code>journalctl --user -u never.service</code>."
+
+  - name: a host that booted recently (beefy after its wake) is not judged yet
+    interval: 5m
+    input_series:
+      - series: 'systemd_job_last_success_timestamp_seconds{host="beefy",scope="system",unit="retention.service"}'
+        values: '-30000x40'
+      - series: 'systemd_job_max_age_seconds{host="beefy",scope="system",unit="retention.service"}'
+        values: '3600x40'
+      - series: 'systemd_job_host_boot_time_seconds{host="beefy"}'
+        values: '-600x40'
+      - series: 'systemd_job_updated_timestamp_seconds{host="beefy"}'
+        values: '0+300x40'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: JobHeartbeatStale
+        exp_alerts: []
+
+  - name: stale data (beefy copy kept while it sleeps) never pages
+    interval: 5m
+    input_series:
+      - series: 'systemd_job_last_success_timestamp_seconds{host="beefy",scope="system",unit="retention.service"}'
+        values: '-30000x400'
+      - series: 'systemd_job_max_age_seconds{host="beefy",scope="system",unit="retention.service"}'
+        values: '960x400'
+      - series: 'systemd_job_host_boot_time_seconds{host="beefy"}'
+        values: '-200000x400'
+      - series: 'systemd_job_updated_timestamp_seconds{host="beefy"}'
+        values: '0x2 stale'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: JobHeartbeatStale
+        exp_alerts: []
+
+  - name: the collector going quiet on fastpi pages, a fresh one does not
+    interval: 5m
+    input_series:
+      - series: 'systemd_job_updated_timestamp_seconds{host="fastpi"}'
+        values: '0+300x6 1200x40'
+      - series: 'node_scrape_collector_success{instance="node-exporter:9100",collector="systemd"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: JobHeartbeatCollectorBroken
+        exp_alerts: []
+      - eval_time: 1h
+        alertname: JobHeartbeatCollectorBroken
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi}
+            exp_annotations:
+              summary: "The job heartbeat on fastpi has not updated for over 30 minutes"
+              description: "Look at <code>systemctl --user status job-heartbeat.service</code> and <code>journalctl --user -u job-heartbeat</code>; without it no timer is watched."
+
+  - name: node-exporter systemd collector failing pages
+    interval: 5m
+    input_series:
+      - series: 'systemd_job_updated_timestamp_seconds{host="fastpi"}'
+        values: '0+300x60'
+      - series: 'node_scrape_collector_success{instance="node-exporter:9100",collector="systemd"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: SystemdCollectorFailing
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: "node-exporter:9100", collector: systemd}
+            exp_annotations:
+              summary: "node-exporter's systemd collector fails on node-exporter:9100"
+              description: "SystemdUnitFailed is blind for system units. Check that the D-Bus socket is mounted (<code>docker logs node-exporter</code>, README Job heartbeat)."

@@ -1,0 +1,58 @@
+# Silent job failures: failed systemd units and timers whose job stopped succeeding. Metrics: node-exporter's systemd collector (fastpi system units) and job-heartbeat/job_heartbeat.py (every enabled timer of fastpi and beefy, system and user scope; beefy has no node-exporter, its file is pulled by beefy-idle-pull). Tests: tests/job-heartbeat_test.yml
+groups:
+  - name: job-heartbeat
+    rules:
+      - alert: SystemdUnitFailed
+        expr: >-
+          max by (host, scope, unit) (
+            label_replace(label_replace(label_replace(
+              node_systemd_unit_state{state="failed"} == 1,
+              "host", "fastpi", "", ""),
+              "scope", "system", "", ""),
+              "unit", "$1", "name", "(.+)")
+          )
+          or
+          max by (host, scope, unit) (systemd_unit_failed == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.unit }} is failed on {{ $labels.host }}"
+          description: 'Failed for over 5 minutes ({{ $labels.scope }} units). Look at <code>systemctl {{ if eq $labels.scope "user" }}--user {{ end }}status {{ $labels.unit }}</code> and <code>journalctl {{ if eq $labels.scope "user" }}--user {{ end }}-u {{ $labels.unit }}</code>; <code>systemctl reset-failed</code> clears it once fixed.'
+
+      # Allowed age per unit comes from its timer (systemd_job_max_age_seconds: longest gap between elapses + grace). A host is judged only once it has been up longer than that age and its heartbeat file is fresh, so beefy's first minutes after a wake and its kept copy while it sleeps never page. A unit that never succeeded counts from when the heartbeat first saw it.
+      - alert: JobHeartbeatStale
+        expr: >-
+          (
+            (time() - (systemd_job_last_success_timestamp_seconds or on (host, scope, unit) systemd_job_first_seen_timestamp_seconds))
+              > on (host, scope, unit) systemd_job_max_age_seconds
+          )
+          and on (host, scope, unit)
+          (systemd_job_max_age_seconds < on (host) group_left () (time() - systemd_job_host_boot_time_seconds))
+          and on (host)
+          (time() - systemd_job_updated_timestamp_seconds < 1500)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.unit }} has not succeeded for {{ $value | humanizeDuration }} on {{ $labels.host }}"
+          description: 'The timer''s last successful run is older than its schedule allows. Look at <code>systemctl {{ if eq $labels.scope "user" }}--user {{ end }}status {{ reReplaceAll "\\.service$" ".timer" $labels.unit }} {{ $labels.unit }}</code> and <code>journalctl {{ if eq $labels.scope "user" }}--user {{ end }}-u {{ $labels.unit }}</code>.'
+
+      # Without the heartbeat no timer on fastpi is watched. beefy sleeps, so its file is judged by JobHeartbeatStale's freshness check instead.
+      - alert: JobHeartbeatCollectorBroken
+        expr: time() - systemd_job_updated_timestamp_seconds{host="fastpi"} > 1800
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The job heartbeat on {{ $labels.host }} has not updated for over 30 minutes"
+          description: "Look at <code>systemctl --user status job-heartbeat.service</code> and <code>journalctl --user -u job-heartbeat</code>; without it no timer is watched."
+
+      - alert: SystemdCollectorFailing
+        expr: node_scrape_collector_success{collector="systemd"} == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-exporter's systemd collector fails on {{ $labels.instance }}"
+          description: "SystemdUnitFailed is blind for system units. Check that the D-Bus socket is mounted (<code>docker logs node-exporter</code>, README Job heartbeat)."

@@ -42,6 +42,39 @@ docker run --rm --network none --entrypoint sh -v "$PWD/prometheus":/w:ro -w /w/
 docker kill -s HUP prometheus   # reload rules
 ```
 
+## Job heartbeat (no job fails silently)
+
+Two sources, rules in `prometheus/rules/job-heartbeat.yml`, tests `prometheus/tests/job-heartbeat_test.yml`:
+
+| Source | Covers | Metrics |
+|---|---|---|
+| node-exporter `--collector.systemd` (D-Bus socket mounted read-only; host user `node-exporter` uid 65044 exists because dbus-daemon resets connections from a uid without a passwd entry) | fastpi system units (service, timer, socket) | `node_systemd_unit_state{name,state}` |
+| `job-heartbeat/job_heartbeat.py`, user timer `job-heartbeat.timer` every 5 min (pi on fastpi, buntu on beefy), writes `job_heartbeat.prom` to the textfile dir; beefy's file is pulled by `beefy-idle-pull` as `job_heartbeat_beefy.prom` and removed while beefy sleeps | every enabled timer's service of fastpi and beefy, system and user scope (user timers are invisible to node-exporter); beefy has no node-exporter (it sleeps, nothing is scraped) | below |
+
+| Metric (labels `host`, `scope`, `unit`) | Meaning |
+|---|---|
+| `systemd_job_last_success_timestamp_seconds` | finish of the last run with result success and exit 0; kept in `~/.local/state/job-heartbeat/state.json` because systemd forgets it at reboot |
+| `systemd_job_last_result` | 1 if the last run failed, else 0 |
+| `systemd_job_first_seen_timestamp_seconds` | age base for a timer that never succeeded yet |
+| `systemd_job_max_age_seconds` | allowed age: longest gap between the timer's next elapses (`systemd-analyze calendar`, or `OnUnitActiveSec`) + max(15 min, a quarter of it) + `RandomizedDelaySec`; none for boot-only timers |
+| `systemd_unit_failed` | one series per failed unit (beefy's only source for this) |
+| `systemd_job_host_boot_time_seconds`, `systemd_job_updated_timestamp_seconds` (label `host`) | host boot time, last heartbeat run |
+
+| Alert | Fires when | Severity |
+|---|---|---|
+| `SystemdUnitFailed` | any unit (either source) in failed state for 5 min | warning |
+| `JobHeartbeatStale` | last success (or first seen) older than `systemd_job_max_age_seconds` for 10 min, only once the host has been up longer than that age and its heartbeat is under 25 min old (beefy right after a wake or while asleep never pages) | warning |
+| `JobHeartbeatCollectorBroken` | fastpi's heartbeat file not updated for 30 min | warning |
+| `SystemdCollectorFailing` | node-exporter's systemd collector fails for 15 min | warning |
+
+Route: the existing warning route (Telegram, at once, muted 22:00-07:00, still firing at 07:00 is sent then). Test: `sudo systemd-run --unit=heartbeat-test-fail false`, then `sudo systemctl reset-failed heartbeat-test-fail.service`.
+
+```bash
+python3 job-heartbeat/test_job_heartbeat.py
+mkdir -p ~/.config/systemd/user && cp job-heartbeat/systemd/job-heartbeat.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now job-heartbeat.timer
+```
+beefy: verbatim copy in the beefy repo (`Docker/_global/scripts/job_heartbeat.py`, units `Docker/_global/systemd/`, README "Job heartbeat"); change it here, then copy.
+
 ## Host resource alerts
 
 `prometheus/rules/host-resources.yml` (node-exporter, job `raspberry-pi`; disks ext4/xfs/btrfs/vfat). Warning and critical use disjoint ranges.

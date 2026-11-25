@@ -67,11 +67,16 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
       - /var/lib/node-exporter/textfile:/var/lib/node-exporter/textfile:ro
+      # systemd collector talks to systemd over D-Bus (world-accessible socket, read-only calls)
+      - /run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      # Failed units (SystemdUnitFailed, prometheus/rules/job-heartbeat.yml): only services, timers and sockets.
+      - "--collector.systemd"
+      - "--collector.systemd.unit-include=.+\\.(service|timer|socket)"
       # Textfile collector: lets host-side scheduled jobs publish metrics by
       # dropping a .prom file here, with no extra exporter or listening port per
       # concern. Used by Server/4-Security-Monitoring (secrets, pending OS
