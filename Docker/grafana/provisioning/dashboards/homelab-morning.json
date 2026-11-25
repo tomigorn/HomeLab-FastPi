@@ -2818,7 +2818,7 @@
    "id": 31,
    "type": "table",
    "title": "Domains",
-   "description": "RDAP, nightly. .ch publishes no end date: 'anniversary' = next registration anniversary (earliest the paid year ends), 'manual' = domains.toml. Alert ≤ 30 d.",
+   "description": "RDAP, nightly. .ch publishes no end date: 'anniversary' = next registration anniversary (earliest the paid year ends), 'manual' = Due-Dates/due-dates.toml. Alert ≤ 30 d.",
    "datasource": {
     "type": "prometheus",
     "uid": "dfc6abdxzsem8a"
@@ -3102,7 +3102,7 @@
    "id": 33,
    "type": "table",
    "title": "Subscriptions (days left)",
-   "description": "Seerr indexer-bar/limits.toml (via subscription-alerts cache) + MAM VIP (abr-bar/limits.toml). Telegram warnings come from subscription-alerts.py (30/7/0 days). Lifetime ones are not listed.",
+   "description": "Due-Dates list (Docker/Due-Dates/due-dates.toml: subscriptions incl. MAM VIP, domains with a set date, No-IP). Telegram warnings come from subscription-alerts.py (30/7/0 days). Lifetime ones are not listed.",
    "datasource": {
     "type": "prometheus",
     "uid": "dfc6abdxzsem8a"

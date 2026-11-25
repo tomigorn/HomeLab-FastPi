@@ -81,7 +81,7 @@ tests:
           - exp_labels: {severity: warning, domain: holy-grail.ch, source: anniversary}
             exp_annotations:
               summary: "holy-grail.ch: renewal due in 25 days"
-              description: "The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end. Check auto-renew at the registrar (holy-grail.ch: GoDaddy, Cloudflare only does the DNS); after a renewal for several years set <code>expires</code> in <code>grafana/status-exporter/domains.toml</code>."
+              description: "The .ch registry publishes no end date; this is the next registration anniversary, the earliest the paid year can end. Check auto-renew at the registrar (holy-grail.ch: GoDaddy, Cloudflare only does the DNS); after a renewal for several years set <code>date</code> in <code>Due-Dates/due-dates.toml</code>."
           - exp_labels: {severity: warning, domain: example.net, source: rdap}
             exp_annotations:
               summary: "example.net: registration ends in 20 days"

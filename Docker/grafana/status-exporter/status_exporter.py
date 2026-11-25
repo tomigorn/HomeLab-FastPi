@@ -2,9 +2,9 @@
 """Expiry and status figures -> Prometheus textfiles (README "Expiry and disk health").
 
   certs          TLS handshake with Traefik (127.0.0.1:443, SNI) for every hostname routed with a certResolver in Traefik/traefik/dynamic: the cert users really get, its end date and whether it verifies. A TLS handshake runs no middleware, so wake-gated routes never wake beefy/tower.
-  domains        RDAP (no account, no paid API) for the domains in domains.toml: registration end, status. .ch RDAP has no end date: a date set in domains.toml wins, else the next registration anniversary (a .ch registration runs in whole years from it, so an active domain is paid at least until then).
-                 Also resolves the DDNS hostnames in domains.toml and compares them with the WAN address (Cloudflare's /cdn-cgi/trace).
-  subscriptions  the subscription list cached by subscription-alerts.py (Seerr limits.toml) + MAM VIP from Audiobook-Requests/abr-bar/limits.toml + domains with a set end date in domains.toml.
+  domains        RDAP (no account, no paid API) for the domains (kind = "domain") in Due-Dates/due-dates.toml: registration end, status. .ch RDAP has no end date: a date set there wins, else the next registration anniversary (a .ch registration runs in whole years from it, so an active domain is paid at least until then).
+                 Also resolves the DDNS hostnames (kind = "ddns") and compares them with the WAN address (Cloudflare's /cdn-cgi/trace).
+  subscriptions  subscriptions, domains with a date set by hand and DDNS deadlines from Due-Dates' due-dates.json.
   indexers       the audiobook indexer bar's usage.json (Audiobook-Requests).
 A failed source leaves its old file in place; each file carries its own timestamp for the staleness alerts.
 Usage: status_exporter.py certs|domains|subscriptions|indexers [...]"""
@@ -31,9 +31,8 @@ REPO = HERE.parent.parent
 TEXTFILE_DIR = Path(os.environ.get("TEXTFILE_DIR", "/var/lib/node-exporter/textfile"))
 DYNAMIC = Path(os.environ.get("TRAEFIK_DYNAMIC", REPO / "Traefik" / "traefik" / "dynamic"))
 TRAEFIK = (os.environ.get("TRAEFIK_ADDR", "127.0.0.1"), 443)
-DOMAINS = Path(os.environ.get("DOMAINS_TOML", HERE / "domains.toml"))
-SUBS_CACHE = Path(os.environ.get("SUBS_CACHE", "/var/lib/subscription-alerts/limits.toml"))
-ABR_LIMITS = Path(os.environ.get("ABR_LIMITS", REPO / "Audiobook-Requests" / "abr-bar" / "limits.toml"))
+DUE_TOML = Path(os.environ.get("DUE_DATES_TOML", REPO / "Due-Dates" / "due-dates.toml"))
+DUE_JSON = Path(os.environ.get("DUE_DATES_JSON", "/var/lib/due-dates/due-dates.json"))
 ABR_USAGE = Path(os.environ.get("ABR_USAGE", "/var/lib/abr-bar/usage.json"))
 IANA = "https://data.iana.org/rdap/dns.json"
 # TLDs whose registry runs RDAP without being in the IANA bootstrap file.
@@ -211,8 +210,19 @@ def resolve(host: str) -> list[str]:
         return []
 
 
+def domain_conf(text: str) -> dict:
+    """due-dates.toml -> {"domains": {name: {"expires"?}}, "ddns": {host: {"confirmed"?}}}."""
+    out = {"domains": {}, "ddns": {}}
+    for e in tomllib.loads(text).get("due", []):
+        if e.get("kind") == "domain":
+            out["domains"][e["title"]] = {"expires": e["date"]} if isinstance(e.get("date"), dt.date) else {}
+        elif e.get("kind") == "ddns":
+            out["ddns"][e["title"]] = {"confirmed": e["confirmed"]} if isinstance(e.get("confirmed"), dt.date) else {}
+    return out
+
+
 def run_domains() -> int:
-    conf = tomllib.loads(DOMAINS.read_text())
+    conf = domain_conf(DUE_TOML.read_text())
     try:
         boot = get_json(IANA)
     except (OSError, ValueError) as e:
@@ -238,34 +248,26 @@ def run_domains() -> int:
 
 # --- subscriptions ---------------------------------------------------------
 
-def subscription_lines(seerr_toml: str, mam: dict, updated: float, domains: dict | None = None, ddns: dict | None = None) -> str:
-    subs = list(tomllib.loads(seerr_toml).get("subscriptions") or [])
-    subs += [{"name": d, "kind": "domain" + (f", {c['registrar']}" if c.get("registrar") else "") + (f" (DNS {c['dns']})" if c.get("dns") else ""), "expires": c["expires"]}
-             for d, c in (domains or {}).items() if isinstance((c or {}).get("expires"), dt.date)]
-    subs += [{"name": h, "kind": "No-IP hostname", "expires": c["confirmed"] + dt.timedelta(days=30)}
-             for h, c in (ddns or {}).items() if isinstance((c or {}).get("confirmed"), dt.date)]
-    if (mam or {}).get("vip_expires"):
-        subs.append({"name": "MAM VIP", "kind": "MyAnonamouse class", "expires": dt.date.fromisoformat(mam["vip_expires"])})
+def subscription_lines(due_json: str) -> str:
+    data = json.loads(due_json)
+    subs = [i for i in data["items"] if i.get("kind") in ("subscription", "ddns") or (i.get("kind") == "domain" and i.get("source") == "manual")]
     # one series per label set (node-exporter rejects the whole file on a duplicate); the earliest expiry wins
     lifetime, expiry = {}, {}
     for s in subs:
-        lab = f'name="{esc(s["name"])}",kind="{esc(s.get("kind", ""))}"'
+        lab = f'name="{esc(s["title"])}",kind="{esc(s.get("category", ""))}"'
         if s.get("lifetime"):
             lifetime[lab] = 1
-        elif isinstance(s.get("expires"), dt.date):
-            expiry[lab] = min(expiry.get(lab, s["expires"]), s["expires"])
+        elif s.get("date"):
+            d = dt.date.fromisoformat(s["date"])
+            expiry[lab] = min(expiry.get(lab, d), d)
     out = [f"subscription_lifetime{{{lab}}} 1" for lab in lifetime]
     out += [f"subscription_expiry_timestamp_seconds{{{lab}}} {int(local_midnight(d))}" for lab, d in expiry.items()]
-    out.append(f"subscription_list_updated_timestamp_seconds {int(updated)}")
+    out.append(f"subscription_list_updated_timestamp_seconds {int(_ts(data['generated']))}")
     return "\n".join(out) + "\n"
 
 
 def run_subscriptions() -> int:
-    with open(ABR_LIMITS, "rb") as f:
-        mam = tomllib.load(f).get("mam") or {}
-    conf = tomllib.loads(DOMAINS.read_text())
-    write_atomic(TEXTFILE_DIR / "status_subscriptions.prom",
-                 subscription_lines(SUBS_CACHE.read_text(), mam, SUBS_CACHE.stat().st_mtime, conf.get("domains"), conf.get("ddns")))
+    write_atomic(TEXTFILE_DIR / "status_subscriptions.prom", subscription_lines(DUE_JSON.read_text()))
     return 0
 
 

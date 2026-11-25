@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for status_exporter.py.   python3 test_status_exporter.py"""
 import datetime as dt
+import json
 import os
 import sys
 import unittest
@@ -99,38 +100,82 @@ class Ddns(unittest.TestCase):
         self.assertIsNone(ex.wan_from_trace("garbage"))
 
 
+def due(id, title, kind, date, category="", source="manual", **extra):
+    return {"id": id, "title": title, "kind": kind, "category": category, "date": date, "lifetime": date is None and kind == "subscription",
+            "source": source, "lead": [30, 7, 0], "alert": "telegram", "show": [], **extra}
+
+
 class Subscriptions(unittest.TestCase):
-    TOML = 'x = 1\n[[subscriptions]]\nname = "Eweka"\nkind = "Usenet provider"\nexpires = 2026-11-18\n\n[[subscriptions]]\nname = "NZBgeek"\nkind = "indexer"\nlifetime = true\n'
+    ITEMS = [due("ew", "Eweka", "subscription", "2026-11-18", "Usenet provider"),
+             due("geek", "NZBgeek", "subscription", None, "indexer"),
+             due("mam", "MAM VIP", "subscription", "2027-01-27", "MyAnonamouse class"),
+             due("dom", "holy-grail.ch", "domain", "2027-02-17", "domain, GoDaddy (DNS Cloudflare)"),
+             due("ann", "other.ch", "domain", "2027-03-01", "domain", source="anniversary"),
+             due("noip", "a.ddns.net", "ddns", "2026-12-10", "No-IP hostname", confirmed="2026-11-10"),
+             due("hub", "Docker Hub token", "token", "2027-11-15"),
+             due("bak", "Backup decision", "reminder", "2026-12-22"),
+             due("tls:x", "TLS certificate x", "certificate", "2027-01-15", source="tls")]
+
+    def text(self, items=None):
+        return ex.subscription_lines(json.dumps({"version": 1, "generated": "2026-10-30T02:13:20Z", "items": items or self.ITEMS}))
 
     def test_lines(self):
-        text = ex.subscription_lines(self.TOML, {"vip_expires": "2027-01-27"}, 1793000000)
+        text = self.text()
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="Eweka",kind="Usenet provider"}} {int(ex.local_midnight(dt.date(2026, 11, 18)))}', text)
         self.assertIn('subscription_lifetime{name="NZBgeek",kind="indexer"} 1', text)
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="MAM VIP",kind="MyAnonamouse class"}} {int(ex.local_midnight(dt.date(2027, 1, 27)))}', text)
-        self.assertIn("subscription_list_updated_timestamp_seconds 1793000000", text)
+        self.assertIn("subscription_list_updated_timestamp_seconds 1793326400", text)
 
     def test_duplicates_once_earliest_expiry(self):
-        toml = self.TOML + '[[subscriptions]]\nname = "Eweka"\nkind = "Usenet provider"\nexpires = 2026-12-01\n[[subscriptions]]\nname = "MAM VIP"\nkind = "MyAnonamouse class"\nexpires = 2027-03-01\n'
-        text = ex.subscription_lines(toml, {"vip_expires": "2027-01-27"}, 1)
+        text = self.text(self.ITEMS + [due("ew2", "Eweka", "subscription", "2026-12-01", "Usenet provider")])
         self.assertEqual(text.count('{name="Eweka",kind="Usenet provider"}'), 1)
-        self.assertEqual(text.count('{name="MAM VIP",kind="MyAnonamouse class"}'), 1)
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="Eweka",kind="Usenet provider"}} {int(ex.local_midnight(dt.date(2026, 11, 18)))}', text)
-        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="MAM VIP",kind="MyAnonamouse class"}} {int(ex.local_midnight(dt.date(2027, 1, 27)))}', text)
 
-    def test_domains_with_a_set_end_date(self):
-        doms = {"holy-grail.ch": {"expires": dt.date(2027, 2, 17), "registrar": "GoDaddy", "dns": "Cloudflare"}, "other.ch": {}}
-        text = ex.subscription_lines(self.TOML, {}, 1, doms)
+    def test_domains_only_with_a_date_set_by_hand(self):
+        text = self.text()
         self.assertIn(f'subscription_expiry_timestamp_seconds{{name="holy-grail.ch",kind="domain, GoDaddy (DNS Cloudflare)"}} {int(ex.local_midnight(dt.date(2027, 2, 17)))}', text)
         self.assertNotIn("other.ch", text)
 
-    def test_ddns_confirmed_plus_30_days(self):
-        ddns = {"a.ddns.net": {"confirmed": dt.date(2026, 11, 10)}, "old.ddns.net": {}}
-        text = ex.subscription_lines(self.TOML, {}, 1, None, ddns)
-        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="a.ddns.net",kind="No-IP hostname"}} {int(ex.local_midnight(dt.date(2026, 12, 10)))}', text)
-        self.assertNotIn("old.ddns.net", text)
+    def test_ddns_end_date(self):
+        self.assertIn(f'subscription_expiry_timestamp_seconds{{name="a.ddns.net",kind="No-IP hostname"}} {int(ex.local_midnight(dt.date(2026, 12, 10)))}', self.text())
 
-    def test_no_vip(self):
-        self.assertNotIn("MAM VIP", ex.subscription_lines(self.TOML, {"vip_expires": ""}, 1))
+    def test_tokens_reminders_and_certificates_are_not_subscriptions(self):
+        text = self.text()
+        for name in ("Docker Hub token", "Backup decision", "TLS certificate"):
+            self.assertNotIn(name, text)
+
+
+class DomainConf(unittest.TestCase):
+    TOML = """
+[[due]]
+id = "d"
+title = "holy-grail.ch"
+kind = "domain"
+source = "rdap"
+date = 2027-02-17
+
+[[due]]
+id = "e"
+title = "other.ch"
+kind = "domain"
+source = "rdap"
+
+[[due]]
+id = "n"
+title = "a.ddns.net"
+kind = "ddns"
+confirmed = 2026-11-10
+
+[[due]]
+id = "s"
+title = "Eweka"
+kind = "subscription"
+date = 2028-01-01
+"""
+
+    def test_domains_and_ddns_from_the_due_dates_source(self):
+        self.assertEqual(ex.domain_conf(self.TOML), {"domains": {"holy-grail.ch": {"expires": dt.date(2027, 2, 17)}, "other.ch": {}},
+                                                     "ddns": {"a.ddns.net": {"confirmed": dt.date(2026, 11, 10)}}})
 
 
 class Indexers(unittest.TestCase):

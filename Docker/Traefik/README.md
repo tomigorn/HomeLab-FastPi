@@ -41,7 +41,7 @@ Encoded path characters (`encodedCharacters`, 400): `websecure` refuses `%2F` `%
 | LanguageTool | `lang-tool.ddns.net` | `langtool` | per-person token URL |
 | WG-Chores (old v1 URL) | `wg-aemtli.ddns.net` (`dynamic/wg-chores.yml`) | `langtool` | permanent redirect to `wg-chores.holy-grail.ch` (v2) since 2026-11-15; v1 containers stopped, data kept |
 
-No-IP stays for `lang-tool.ddns.net` and `wg-aemtli.ddns.net` (owner 2026-11-01: URLs can't change); needs the 30-day No-IP confirmation (`confirmed` date in `grafana/status-exporter/domains.toml`, Telegram reminder).
+No-IP stays for `lang-tool.ddns.net` and `wg-aemtli.ddns.net` (owner 2026-11-01: URLs can't change); needs the 30-day No-IP confirmation (`confirmed` date in `Due-Dates/due-dates.toml`, Telegram reminder).
 
 ## Networks (H-2, 2026-10-25)
 
