@@ -94,6 +94,30 @@ authentik-worker ──SMTP 587 (STARTTLS)──> Brevo ──> recipient inbox
 > embedded outpost and does not need it; to drop the attack surface, remove the
 > `user: root` line and the docker.sock volume from the `worker` service.
 
+## Web workers
+
+Current setup (owner 2026-11-25): **2 gunicorn workers, `authentik-server` `mem_limit: 1536m`**.
+
+| Setting | Where | Now | Why |
+|---|---|---|---|
+| `AUTHENTIK_WEB__WORKERS` | `.env` (+ `.env.example`) | `2` | docs: "Defaults to 2. A value below 2 workers is not recommended" ([config docs](https://docs.goauthentik.io/install-config/configuration/)); workers recycle after `AUTHENTIK_WEB__MAX_REQUESTS` (1000), a second one keeps answering meanwhile |
+| `AUTHENTIK_WEB__THREADS` | not set | default `4` | per worker |
+| `mem_limit` of `server` | `docker-compose.yaml` | `1536m` | 2 workers peaked at 1014 MB RAM of the old 1 GB limit |
+
+Measured 14 days each (fastpi `~/notes/docs/claude/authentik-workers-comparison.md`, baseline `~/notes/docs/claude/reports/archive/2026-11-10/authentik-workers-baseline.md`):
+
+| | 1 worker (10-27 → 11-10) | 2 workers (11-10 → 11-24) |
+|---|---|---|
+| RAM mean / max | 447 / 850 MB | 560 / 1014 MB |
+| SSO page p50 / p95 | 0.060 / 0.29 s | 0.064 / 0.30 s |
+
+Change the worker count (restarts the SSO: owner's yes first):
+
+1. `.env`: `AUTHENTIK_WEB__WORKERS=<n>`; keep `mem_limit` ≥ ~500 MB RAM per worker + 500 MB (1 → `1g`, 2 → `1536m`, 3 → `2g`), and check fastpi's free RAM (Grafana `fastpi-resources`).
+2. `SERVICES=server bash ~/Projects/Docker/_global/scripts/update-project.sh ~/Projects/Docker/Authentik recreate`
+3. Verify: `docker inspect authentik-server --format '{{.HostConfig.Memory}}'`, `bash scripts/canary-verify.sh`, `docker logs traefik --since 5m`.
+4. Watch the row "Authentik workers" in Grafana `fastpi-resources` for a week.
+
 ## First-time setup
 
 1. **Shared proxy network** (once, if it does not already exist):

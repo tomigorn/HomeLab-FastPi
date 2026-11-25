@@ -53,7 +53,7 @@ services:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:?set AUTHENTIK_TAG in .env}
     container_name: authentik-server
     restart: unless-stopped
-    mem_limit: 1g
+    mem_limit: 1536m
     user: "65019:65019"
     security_opt:
       - no-new-privileges:true
