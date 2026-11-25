@@ -39,3 +39,9 @@
   token = "@{docker_secretstore:telegraf_influx_token}"
   organization = "myorg"
   bucket = "rpi"
+
+# Container healthcheck (docker-compose.yaml): 503 once no mem metric reached the outputs for 2 min; loopback only
+[[outputs.health]]
+  service_address = "http://127.0.0.1:8080"
+  namepass = ["mem"]
+  max_time_between_metrics = "2m"

@@ -29,6 +29,12 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:9090:9090"   # SSO-only policy: no LAN access, Grafana reaches it by container name
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:9090/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     networks:
       default:
         ipv4_address: 192.168.208.9
@@ -89,6 +95,12 @@ services:
       # node_textfile_scrape_error=1, which the TextfileCollectorError alert
       # watches - otherwise a formatting slip silently removes every metric in it.
       - "--collector.textfile.directory=/var/lib/node-exporter/textfile"
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:9100/metrics"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       default:
         ipv4_address: 192.168.208.5
@@ -115,6 +127,12 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:9115/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       default:
         ipv4_address: 192.168.208.4
@@ -143,6 +161,12 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:9115/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       default:
         ipv4_address: 192.168.208.7
@@ -191,6 +215,12 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:9093/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       default:
         ipv4_address: 192.168.208.10
@@ -219,6 +249,12 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:7979/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       default:
         ipv4_address: 192.168.208.2
@@ -288,6 +324,12 @@ services:
     # calls don't depend on DNS or a round trip through the Cloudflare tunnel.
     extra_hosts:
       - "sso.holy-grail.ch:192.168.1.2"
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       default:
         ipv4_address: 192.168.208.3
@@ -351,6 +393,12 @@ services:
     # Token via telegraf's docker secret store (telegraf.conf: @{docker_secretstore:telegraf_influx_token}).
     secrets:
       - telegraf_influx_token
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       default:
         ipv4_address: 192.168.208.6
