@@ -67,6 +67,7 @@ linuxserver images: use their non-root mode (`user:` + `tmpfs: /run:uid=…,gid=
 | 65061 | tech-radar (Caddy, built AOE radar baked in) | | NET_BIND_SERVICE | ✅ |
 | 65062 | navidrome | | | ✅ |
 | 65063 | feishin (nginx, static web player) | | | ✅ |
+| 65064 | due-dates (caddy, read-only file server for due-dates.json) | | | ✅ |
 | 65065 | wg-chores-demo (own group 65065; same image as wg-chores-app) | | | ✅ |
 | 1101:1100 | sabnzbd, qbittorrent (lsio non-root) | | | |
 | 70 | authentik-postgresql | | | |
