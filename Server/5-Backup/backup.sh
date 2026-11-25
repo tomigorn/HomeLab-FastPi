@@ -23,6 +23,7 @@ SQLITE_DBS=(
     "$D/Stonks/data/stonks.db"
     "$V/monitoring__grafana_grafana_data/_data/grafana.db"
     "$V/crowdsec_crowdsec_data/_data/crowdsec.db"
+    "$V/wg-chores-v2_wg-chores-v2-data/_data/wg-chores.db"
     "$D/Audiobook-Requests/config/db.sqlite"
     /mnt/seagate-red/sabnzbd/config/admin/history1.db
     /mnt/seagate-red/prowlarr/config/prowlarr.db
@@ -40,6 +41,7 @@ EXCLUDES=(
     --exclude '/home/pi/Projects/Docker/Stonks/data/backups'
     --exclude "$V/adguard_adguardhome-data/_data/data/querylog.json*"
     --exclude "$V/adguard_adguardhome-data/_data/data/stats.db"
+    --exclude "$V/wg-chores-v2_wg-chores-v2-data/_data/wg-chores.db*"
     --exclude '/var/lib/security-scan/trivy-cache'
     --exclude '/var/lib/security-scan/sbom'
     --exclude '/var/lib/security-scan/mirrors'
@@ -61,6 +63,7 @@ PATHS=(
     "$V/crowdsec_crowdsec_config/_data" "$V/adguard_adguardhome-data/_data" "$V/docker_portainer_data/_data"
     "$V/mouse_mousehole/_data" "$V/mouse_port-updater-data/_data" "$V/mouse_gluetun-data/_data"
     "$V/monitoring__grafana_alertmanager_data/_data"
+    "$V/wg-chores-v2_wg-chores-v2-data/_data"
 )
 
 if [ "${1:-}" = --list ]; then

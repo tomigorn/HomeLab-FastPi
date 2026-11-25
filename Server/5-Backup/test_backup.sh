@@ -19,6 +19,9 @@ for want in \
     "path $V/mouse_gluetun-data/_data" \
     "path $V/monitoring__grafana_alertmanager_data/_data" \
     "path /var/lib/abr-bar" \
+    "sqlite $V/wg-chores-v2_wg-chores-v2-data/_data/wg-chores.db" \
+    "path $V/wg-chores-v2_wg-chores-v2-data/_data" \
+    "exclude $V/wg-chores-v2_wg-chores-v2-data/_data/wg-chores.db*" \
     "path /home/pi/Projects" \
     "path /home/pi/notes" \
     "exclude /mnt/seagate-red/prowlarr/config/logs" \
