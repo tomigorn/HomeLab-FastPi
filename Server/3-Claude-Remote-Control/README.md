@@ -50,4 +50,16 @@ journalctl --user-unit 'claude-remote@auto:-home-pi-landingpage.service' -n 20
 systemctl --user list-units 'claude-remote@*'
 ```
 
+## Migration from the old units
+
+A folder can be served by one Remote Control only ("already served … Stop it first"), so each switch has a gap of seconds; switch one at a time, the other entry point stays up. Run each from a session that is not the one being switched, when it is idle.
+
+```bash
+# fastpi-batch (ends any chat in the old fastpi-batch)
+systemctl --user stop claude-remote-batch.service && systemctl --user start 'claude-remote@batch:-home-pi-batch.service'
+# fastpi (ends any chat in the old fastpi)
+systemctl --user disable --now claude-remote.service && systemctl --user enable --now 'claude-remote@auto:-home-pi.service'
+claude-here --list                    # both listed, then remove claude-remote.service, claude-remote-batch.service, claude-remote.service.d/
+```
+
 Needs: linger for `pi` (`loginctl enable-linger pi`, set), so the user units start at boot without a login; a logged-in Claude account (`~/.claude/.credentials.json`).

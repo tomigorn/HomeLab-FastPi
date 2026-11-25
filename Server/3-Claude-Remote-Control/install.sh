@@ -12,6 +12,8 @@ sudo install -o root -g root -m 0644 "$HERE/batch-settings.json" /etc/claude-her
 install -m 0644 "$HERE/claude-remote@.service" "$HERE/claude-here-reap.service" "$HERE/claude-here-reap.timer" "$U/"
 systemctl --user daemon-reload
 systemctl --user enable --now claude-here-reap.timer
-systemctl --user enable 'claude-remote@auto:-home-pi.service' 'claude-remote@batch:-home-pi-batch.service'
+systemctl --user enable 'claude-remote@batch:-home-pi-batch.service'
+# One Remote Control per folder: the template instance for ~ only once the old unit is gone (README "Migration").
+systemctl --user is-enabled --quiet claude-remote.service 2>/dev/null || systemctl --user enable 'claude-remote@auto:-home-pi.service'
 echo "installed: claude-here, completions, /etc/claude-here/batch-settings.json, claude-remote@.service, claude-here-reap.timer"
 echo "  next: claude-here --list"
