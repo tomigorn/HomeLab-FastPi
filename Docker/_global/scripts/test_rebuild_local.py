@@ -289,6 +289,85 @@ def test_tech_radar_is_rebuilt_weekly_with_its_post_update_check():
     assert "Tech-Radar" in rows and rows["Tech-Radar"]["check"]
 
 
+def _fake_rebuild(tmp, update_rc=None, build_exc=None):
+    """Runs rebuild() on a project with a moving digest pin; every docker call is faked. -> (result or exception, docker tag calls, Dockerfile text after)."""
+    import rebuild_local as rl
+    df = tmp / "Dockerfile"
+    df.write_text("FROM alpine:3.20@sha256:aaa\n")
+    tags = []
+
+    def fake_run(cmd, **kw):
+        cmd = list(cmd)
+        if cmd[:2] == ["docker", "tag"]:
+            tags.append(cmd[2:])
+        if cmd[0].endswith("update-project.sh"):
+            if update_rc is None:
+                raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+            return subprocess.CompletedProcess(cmd, update_rc, "", "")
+        if cmd[:3] == ["bash", "-c", "BUILD"]:
+            if build_exc:
+                raise build_exc
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        if cmd[:5] == ["docker", "image", "inspect", "-f", "{{.Id}}"]:
+            return subprocess.CompletedProcess(cmd, 0, "sha256:new\n", "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    patch = {"compose_config": lambda d: {"name": "x", "services": {"app": {"build": {"context": str(tmp)}}}},
+             "running": lambda d, s: {"app": ("img:1", "sha256:old")},
+             "dockerfiles": lambda row, c, s: [df],
+             "tag_digest": lambda t: "sha256:bbb",
+             "git": lambda f, *a: subprocess.CompletedProcess(a, 0, "", ""),
+             "resources_ok": lambda: "",
+             "context_listing": lambda f: "",
+             "image_fingerprint": lambda i, c: "fp-" + i,
+             "old_fingerprint": lambda p, i, c: "fp-old",
+             "predates": lambda c, t: False,
+             "project_dir": lambda p: tmp}
+    saved = {k: getattr(rl, k) for k in patch}
+    real_run = rl.subprocess.run
+    for k, v in patch.items():
+        setattr(rl, k, v)
+    rl.subprocess.run = fake_run
+    rl._docker[:] = ["docker"]
+    row = dict(rl.KEYS, project="X", day="Mon", build="BUILD")
+    try:
+        out = rl.rebuild(row, {}, False)
+    except BaseException as e:  # noqa: BLE001
+        out = e
+    finally:
+        rl.subprocess.run = real_run
+        for k, v in saved.items():
+            setattr(rl, k, v)
+    return out, tags, df.read_text()
+
+
+def test_crash_after_the_pin_moved_reverts_the_pin_and_the_tag():
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        out, tags, text = _fake_rebuild(Path(t), build_exc=OSError("crash"))
+    assert isinstance(out, OSError), out
+    assert text == "FROM alpine:3.20@sha256:aaa\n", text
+    assert tags and tags[-1] == ["sha256:old", "img:1"], tags
+
+
+def test_update_project_timeout_is_a_failure_that_reverts_the_pin_and_the_tag():
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        out, tags, text = _fake_rebuild(Path(t))
+    assert isinstance(out, tuple) and out[0] == "rollback_failed" and "timeout" in out[1], out
+    assert text == "FROM alpine:3.20@sha256:aaa\n", text
+    assert tags and tags[-1] == ["sha256:old", "img:1"], tags
+
+
+def test_update_project_exit_2_moves_the_tag_back():
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        out, tags, text = _fake_rebuild(Path(t), update_rc=2)
+    assert out[0] == "error", out
+    assert text == "FROM alpine:3.20@sha256:aaa\n", text
+    assert tags and tags[-1] == ["sha256:old", "img:1"], tags
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

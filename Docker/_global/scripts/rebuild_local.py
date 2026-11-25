@@ -387,17 +387,34 @@ def retag(old: dict[str, tuple[str, str]]) -> None:
 
 
 def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
-    """-> (result, reason). result: updated | unchanged | deferred | build_failed | test_failed | rolled_back | rollback_failed | error | skipped."""
+    """-> (result, reason). result: updated | unchanged | deferred | build_failed | test_failed | rolled_back | rollback_failed | error | skipped.
+
+    Any exception after the pins moved or the build started: old images back on their tags, pins reverted, then re-raised."""
+    undo: dict = {"old": {}, "pins": {}}
+    try:
+        return _rebuild(row, entry, dry, undo)
+    except BaseException:
+        if not dry:
+            for step in (lambda: retag(undo["old"]), lambda: [f.write_text(t) for f, (t, _) in undo["pins"].items()]):
+                try:
+                    step()
+                except Exception as e:  # noqa: BLE001
+                    log(f"  cleanup after the failure failed: {e}")
+        raise
+
+
+def _rebuild(row: dict, entry: dict, dry: bool, undo: dict) -> tuple[str, str]:
     d = project_dir(row["project"])
     config = compose_config(d)
     if not config:
         return "error", "docker compose config failed"
     services = row["services"] or [s for s, v in config.get("services", {}).items() if v.get("build")]
     old = running(d, services)
+    undo["old"] = old
     if not old:
         return "error", "no running container"
     files = dockerfiles(row, config, services)
-    pins: dict[Path, tuple[str, list[str]]] = {}
+    pins: dict[Path, tuple[str, list[str]]] = undo["pins"]
     for f in files:
         text = f.read_text()
         tags = pinned_tags(text)
@@ -497,14 +514,16 @@ def rebuild(row: dict, entry: dict, dry: bool) -> tuple[str, str]:
         revert_pins()
         return "deferred", busy
     uenv = dict(os.environ, SERVICES=" ".join(old), CHECK=row["check"])
-    r = subprocess.run([str(SCRIPTS / "update-project.sh"), str(d), "recreate", *row["backups"]],
-                       env=uenv, text=True, capture_output=True, timeout=2700)
-    for line in r.stdout.splitlines():
+    r = sh([str(SCRIPTS / "update-project.sh"), str(d), "recreate", *row["backups"]], env=uenv, timeout=2700)
+    for line in (r.stdout.splitlines() + ([r.stderr] if r.returncode == 124 else [])):
         log("  | " + line)
     res = update_result(r.returncode)
     if res != "updated":
+        retag(old)
         revert_pins()
         why = next((ln.strip() for ln in r.stdout.splitlines() if ": FAIL" in ln), "containers not running" if res != "error" else "")
+        if r.returncode == 124:
+            why = f"update-project.sh killed: {r.stderr}, state unknown: check the project by hand"
         return res, why
     for f, (_, bumped) in pins.items():
         name = project_name(row["project"])
