@@ -21,10 +21,8 @@ SQLITE_DBS=(
     "$D/WireguardVPN/wg-easy-v15/wg-easy.db"
     "$D/audiobookshelf/audiobookshelf/config/absdatabase.sqlite"
     "$D/Stonks/data/stonks.db"
-    "$D/bitwarden/data/db.sqlite3"
     "$V/monitoring__grafana_grafana_data/_data/grafana.db"
     "$V/crowdsec_crowdsec_data/_data/crowdsec.db"
-    "$V/wg-chores_wgchores-data/_data/wgchores.db"
     "$D/Audiobook-Requests/config/db.sqlite"
     /mnt/seagate-red/sabnzbd/config/admin/history1.db
     /mnt/seagate-red/prowlarr/config/prowlarr.db

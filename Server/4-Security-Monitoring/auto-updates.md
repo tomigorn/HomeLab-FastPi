@@ -28,7 +28,7 @@
 | `notify`, custom builds | Avatar-Picker, M4b-Auto-Merge, BackdropCarousel, Stonks, LanguageTool/Raspi | never pulled (`build:` or a local tag): reported as `local_build` (quiet); rebuilt weekly by `rebuild-local`, see "Local builds" |
 | `edge` | Authentik (backs up `authentik_database-pg18`), Traefik, WireguardVPN (backs up `./wg-easy-v15`), CrowdSec (backs up both volumes; engine/hub also by `crowdsec-autoupdate`), Beefy-Waker, Tower-Waker | like notify (machine.md: owner's yes) |
 | `edge-auto` | cloudflared, adguard (owner 2026-10-25) | like auto, check = canary / DNS / public route; failed rollback → OOB page |
-| not listed | LoyaltyCards, LoyaltyCards-Sync, bitwarden (parked), Jenkins (stopped), tower | untouched; `test_auto_update.py` fails when a compose project is neither in the conf nor in its `UNMANAGED` list |
+| not listed | LoyaltyCards, LoyaltyCards-Sync, tower | untouched; `test_auto_update.py` fails when a compose project is neither in the conf nor in its `UNMANAGED` list |
 
 Only the digest behind the tag written in the repo moves, so the repo stays the truth: the ref checked is the one compose declares, not the container's own (a container left on `:latest` while compose pins a digest is `drift`, not an update). Version bumps of pinned tags (`v3.15.1` → `v3.16.0`) stay with Cup + the Monday digest: they need a repo edit.
 
@@ -47,7 +47,7 @@ Only the digest behind the tag written in the repo moves, so the repo stays the 
 | Test | `python3 Docker/_global/scripts/test_rebuild_local.py` |
 | beefy | same script, own list `Docker/_global/rebuild-local.conf` in the beefy repo, timer 04:27 in the maintenance window (Mon Antivirus, Fri Subtitle-Translate = libretranslate-local, Sat Jellyfin); Seerr and FlareSolverr keep their own rebuild timers; results come to fastpi as `rebuild_local_beefy.prom` (security-av pull 04:20, so the next morning) |
 | Updates shown | Cup cannot check a local image: `security_scan.py cup` (subject `localbase-<host>`, fastpi + beefy) checks each local build's Dockerfile bases against their registry: `base` = a pinned base tag points to a new digest (the next weekly rebuild moves it), `upstream` = a newer `X.Y.Z` release of a versioned base (e.g. `libretranslate/libretranslate:v1.9.6` → v1.9.7). Dashboard Updates: 'Images to update', columns base / upstream, rows 'base image update' / 'upstream release'; Monday digest lists them |
-| Not covered | LoyaltyCards-Sync (parked), Jenkins (stopped); pinned version bumps (`erikvl87/languagetool:6.8` → 6.9, `v1.9.6` → v1.9.7) stay manual: shown as `upstream` |
+| Not covered | LoyaltyCards-Sync (parked); pinned version bumps (`erikvl87/languagetool:6.8` → 6.9, `v1.9.6` → v1.9.7) stay manual: shown as `upstream` |
 
 ## Switches
 

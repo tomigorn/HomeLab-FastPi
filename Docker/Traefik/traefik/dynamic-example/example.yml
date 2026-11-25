@@ -26,7 +26,7 @@ http:
 
     # HTTPS router — HTTP is redirected globally at the entrypoint level
     whoami:
-      rule: "Host(`hephaestus-jenkins.duckdns.org`)"
+      rule: "Host(`whoami.example.org`)"
       entryPoints: ["websecure"]
       service: "whoami"
       middlewares: ["secure-headers"]

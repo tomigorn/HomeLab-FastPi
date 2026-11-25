@@ -10,9 +10,9 @@ tests:
         values: '1x20'
       - series: 'container_running{name="traefik",project="infra__traefik"}'
         values: '1 1 0x18'
-      - series: 'container_expected_running{name="jenkins-jdk-21",project="cicd"}'
+      - series: 'container_expected_running{name="parked-example",project="parked"}'
         values: '0x20'
-      - series: 'container_running{name="jenkins-jdk-21",project="cicd"}'
+      - series: 'container_running{name="parked-example",project="parked"}'
         values: '0x20'
     alert_rule_test:
       - eval_time: 5m

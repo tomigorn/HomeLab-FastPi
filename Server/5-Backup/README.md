@@ -26,7 +26,7 @@ restic, encrypted, deduplicated, both ways. fastpi → beefy below; beefy → fa
 | Tests | `./test_backup.sh` (what is backed up, `backup.sh --list`; lock and stage of a second run), `./test_restore_test.sh`, `./test_beefy_repo_maint.sh` |
 
 ### Contents (`./backup.sh --list`)
-- Consistent dumps: Authentik Postgres (`pg_dump -Fc`), SQLite `.backup` of Home Assistant recorder + zigbee, Grafana, Audiobookshelf, Stonks, Bitwarden, wg-easy, wg-chores, CrowdSec, Audiobook-Requests, SABnzbd history, Prowlarr (mouse). Restored under `/var/lib/fastpi-backup-staging/{dumps,sqlite/<original path>}` inside the snapshot; the live DB files are excluded.
+- Consistent dumps: Authentik Postgres (`pg_dump -Fc`), SQLite `.backup` of Home Assistant recorder + zigbee, Grafana, Audiobookshelf, Stonks, wg-easy, CrowdSec, Audiobook-Requests, SABnzbd history, Prowlarr (mouse). Restored under `/var/lib/fastpi-backup-staging/{dumps,sqlite/<original path>}` inside the snapshot; the live DB files are excluded.
 - `/home/pi/Projects` (compose, `.env`, `secrets/`, Traefik acme + dynamic config, HA config), `/home/pi/notes` (private notes, own git repo), landingpage, Unraid repo, `~/.ssh`, `~/.claude` rules + skills + memory
 - `/etc`: ssh, sudoers.d, sysctl.d, iptables, docker, systemd/system, fstab, cron.d, hosts
 - `/var/lib/security-scan` (no trivy cache), CrowdSec config, AdGuard data (no querylog), Portainer data
@@ -92,6 +92,6 @@ Then copy to beefy and follow beefy `Server/10-Backup.md` "Restore". fastpi lost
 
 Result: Telegram summary via `Docker/_global/scripts/oob-alert.sh`, metrics `backup-restore-test.prom` (`backup_restore_test_last_status` 1 ok / 0 failed / 2 fastpi part skipped, `..._last_success_timestamp_seconds`, `..._beefy_status`, snapshot ages, restore bytes and seconds). Alerts `BackupRestoreTestFailed` (status 0), `BackupRestoreTestStale` (no success for 40 days). Run now: `sudo systemctl start fastpi-restore-test`. Tests: `./test_restore_test.sh`.
 
-Proven 2026-10-25: Authentik dump restored and listed (`pg_restore -l`, 1819 entries), `traefik.yml` identical to the live file, Bitwarden DB `integrity_check` ok.
+Proven 2026-10-25: Authentik dump restored and listed (`pg_restore -l`, 1819 entries), `traefik.yml` identical to the live file.
 
 Limit: a compromised fastpi holds the sftp key and can delete its own repo on beefy (restic over sftp has no append-only mode; beefy's repo on fastpi is append-only). Offsite copy: still open.

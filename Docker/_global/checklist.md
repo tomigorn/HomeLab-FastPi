@@ -11,14 +11,12 @@ tell them apart.
 |---|---|---|---|---|---|
 | DDNS | ❌ | ❌ | | |  |
 | Deprecated | ❌ | ❌ | | |  |
-| Jenkins | ❌ | ❌ | | |  |
 | Portainer | ❌ | ❌ | | |  |
 | Traefik | ✅ | ✅ | 3.7.0 | 06.05.2026 | latest |
 | Watchtower | ❌ | ❌ | | |  |
 | WireguardVPN | ❌ | ❌ | | |  |
 | AdGuard | ✅ | ✅ | v0.107.74 | 05.05.2026 | latest |
 | audiobookshelf | ✅ | ✅ | v2.34.0 | 05.05.2026 | latest |
-| bitwarden | ❌ | ❌ | | |  |
 | cloudflared | ✅ | ✅ | 2026.3.0 | 05.05.2026 | latest |
 | grafana | ❌ | ❌ | | |  |
 | infra | ❌ | ❌ | | |  |

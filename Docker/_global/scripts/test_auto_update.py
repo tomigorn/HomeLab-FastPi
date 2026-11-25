@@ -361,7 +361,7 @@ def test_help_and_unknown_options_print_usage_and_do_nothing():
 
 
 # Projects on purpose outside auto-update.conf: parked or stopped, no live compose project.
-UNMANAGED = {"LoyaltyCards", "LoyaltyCards-Sync", "bitwarden", "Jenkins"}
+UNMANAGED = {"LoyaltyCards", "LoyaltyCards-Sync"}
 # auto / edge-auto rows whose customization check does not exist yet.
 NO_CHECK_YET = {"M4b-Merge-Dashboard", "DDNS", "sbb-easyride-taxreport"}
 

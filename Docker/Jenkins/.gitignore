@@ -1,4 +1,0 @@
-# Ignore secrets and local override env files
-/secrets/
-/secrets.old/
-.env

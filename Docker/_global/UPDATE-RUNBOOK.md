@@ -117,7 +117,7 @@ Update `_global/checklist.md` for this project: **Image / Tag Version** and
 ## Highest-risk updates (extra care)
 
 - **Any Major version bump** (Cup's red ↑). Breaking changes are expected — read the upgrade guide.
-- **Stateful / stored-data apps:** Vault, Authentik (+ Postgres), Home-Assistant, Bitwarden/Vaultwarden,
+- **Stateful / stored-data apps:** Vault, Authentik (+ Postgres), Home-Assistant,
   Grafana, LoyaltyCards. These can migrate storage irreversibly — **never skip the backup**, and for
   DBs always take a dump.
 - **Chained majors:** some apps require going 1.x → 2.x → 3.x in order. Check before you leapfrog.
