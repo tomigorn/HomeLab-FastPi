@@ -31,6 +31,7 @@ import json
 import os
 import platform
 import shlex
+import signal
 import shutil
 import socket
 import subprocess
@@ -423,9 +424,25 @@ def update_result(rc: int) -> str:
     return {0: "updated", 1: "rolled_back", 2: "error"}.get(rc, "rollback_failed")
 
 
+TIMEOUT_RC = 124
+
+
+def run_update(row: dict, services: list[str], backups: list[str], timeout: int = 1800) -> subprocess.CompletedProcess:
+    """update-project.sh <dir> recreate; a timeout comes back as rc 124 (killed mid-run, no rollback ran: result rollback_failed) instead of an exception."""
+    cmd = [str(SCRIPTS / "update-project.sh"), str(DOCKER / row["project"]), "recreate", *backups]
+    env = dict(os.environ, SERVICES=" ".join(services), CHECK=row["check"])
+    try:
+        return subprocess.run(cmd, env=env, text=True, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        return subprocess.CompletedProcess(cmd, TIMEOUT_RC, out + f"  update-project.sh timed out after {timeout} s and was killed: state unknown, check by hand\n", "")
+
+
 def failure_reason(out: str) -> str:
-    """Why update-project.sh rolled back or aborted, from its output: a failed backup, the missing customizations (post-update-check.sh), the functional check, or the containers."""
+    """Why update-project.sh rolled back or aborted, from its output: a timeout, a failed backup, the missing customizations (post-update-check.sh), the functional check, or the containers."""
     for line in out.splitlines():
+        if "update-project.sh timed out" in line:
+            return line.strip()
         if line.startswith("  backup: FAIL"):
             return "backup failed: " + line.split("FAIL", 1)[1].strip()
         if line.startswith("  custom: FAIL"):
@@ -479,9 +496,7 @@ def apply(row: dict, refs: list[str], images: dict[str, str], config: dict) -> t
         changed = True
     if not changed:
         return out, ""
-    env = dict(os.environ, SERVICES=" ".join(services), CHECK=row["check"])
-    r = subprocess.run([str(SCRIPTS / "update-project.sh"), str(d), "recreate", *row["backups"]],
-                       env=env, text=True, capture_output=True, timeout=1800)
+    r = run_update(row, services, row["backups"])
     for line in r.stdout.splitlines():
         log("  | " + line)
     res = update_result(r.returncode)
@@ -545,9 +560,7 @@ def fix_stale(rows: list[dict], state: dict, results: list[dict], applied: int, 
             results.append(dict(base, result="skipped"))
             continue
         applied += 1
-        env = dict(os.environ, SERVICES=" ".join(p["services"]), CHECK=row["check"])
-        r = subprocess.run([str(SCRIPTS / "update-project.sh"), str(DOCKER / row["project"]), "recreate", *row["backups"]],
-                           env=env, text=True, capture_output=True, timeout=1800)
+        r = run_update(row, p["services"], row["backups"])
         for line in r.stdout.splitlines():
             log("  | " + line)
         res = update_result(r.returncode)
@@ -615,9 +628,7 @@ def handle_drift(row: dict, drift: list[dict], state: dict, results: list[dict],
         log(f"  skipped: {floor}")
         results.extend(drift_result(row, c, "skipped", command=cmd) for c in drift)
         return applied, False
-    env = dict(os.environ, SERVICES=" ".join(services), CHECK=row["check"])
-    r = subprocess.run([str(SCRIPTS / "update-project.sh"), str(DOCKER / row["project"]), "recreate", *row["backups"]],
-                       env=env, text=True, capture_output=True, timeout=1800)
+    r = run_update(row, services, row["backups"])
     for line in r.stdout.splitlines():
         log("  | " + line)
     res = update_result(r.returncode)
@@ -663,96 +674,125 @@ def main(argv: list[str]) -> int:
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     rows = [r for r in parse_conf(CONF.read_text()) if not only or r["project"] in only]
     results, applied, drifted = [], 0, set()
-    for row in rows:
-        log(f"== {row['project']} ({row['tier']})")
-        if past_deadline(APPLY_BY, time.localtime()):
-            log(f"  deferred: past {APPLY_BY}")
-            results.append({"project": row["project"], "tier": row["tier"], "ref": "-", "result": "deferred"})
-            continue
-        try:
-            config = compose_config(row)
-            row = drop_namespace_providers(row, config)
-            images, drift = project_images(row, config)
-            if drift:
-                applied, fixed = handle_drift(row, drift, state, results, applied, dry)
-                if fixed:
-                    images, drift = project_images(row, config)
-                    results.extend(drift_result(row, c, "drift", command=drift_command(row, [c["service"]])) for c in drift)
-                drifted |= {c["name"] for c in drift}
-        except Exception as e:  # noqa: BLE001
-            log(f"  cannot list containers: {e}")
-            results.append({"project": row["project"], "tier": row["tier"], "ref": "-", "result": "error", "reason": str(e)[:200]})
-            continue
-        todo, built = [], build_refs(config)
-        for ref, img in sorted(images.items()):
-            key = f"{row['project']}|{ref}"
-            running = [] if ref in built else repo_digests(img)
-            if not running:
-                log(f"  {ref}: local build, skipped (its base images are in the CVE scan)")
-                results.append({"project": row["project"], "tier": row["tier"], "ref": ref, "result": "local_build"})
-                continue
-            remote = remote_digest(ref, running)
-            action, entry = decide(row["tier"], remote, running, state.get(key, {}), time.time(), cooldown)
-            state[key] = entry
-            cur = next((x.split("@", 1)[1] for x in running), "")
-            res = {"project": row["project"], "tier": row["tier"], "ref": ref, "result": action, "from": cur, "to": remote}
-            if action in ("available", "held_back"):
-                res["command"] = update_command(row)
-            log(f"  {ref}: {action} ({_short(cur)} -> {_short(remote)})")
-            results.append(res)
-            if action == "apply":
-                todo.append(ref)
-        if not todo or dry:
-            if todo:
-                log(f"  would update {' '.join(due_row(row, config, todo)['services'])} ({', '.join(todo)})")
-            continue
-        late = past_deadline(APPLY_BY, time.localtime()) or (MAX_APPLY and applied >= MAX_APPLY)
-        if late:
-            log(f"  deferred to the next run (deadline {APPLY_BY or '-'}, {applied}/{MAX_APPLY or '-'} applied)")
-            for r in results:
-                if r["project"] == row["project"] and r["ref"] in todo:
-                    r["result"] = "deferred"
-            continue
-        floor = resources_ok()
-        if floor:
-            log(f"  skipped: {floor}")
-            for r in results:
-                if r["project"] == row["project"] and r["ref"] in todo:
-                    r["result"] = "skipped"
-            continue
-        applied += 1
-        outcome, reason = apply(row, todo, images, config)
-        for r in results:
-            if r["project"] == row["project"] and r["ref"] in outcome:
-                r["result"] = outcome[r["ref"]]
-                if reason and r["result"] in ("rolled_back", "rollback_failed", "error"):
-                    r["reason"] = reason
-                key = f"{row['project']}|{r['ref']}"
-                if r["result"] == "updated":
-                    state[key] = {}
-                elif r["result"] in ("rolled_back", "rollback_failed"):
-                    state[key]["bad"] = True
-                elif r["result"] == "major_held":
-                    r["command"] = update_command(row)
-                    state[key]["bad"] = True
-                log(f"  {r['ref']}: {r['result']}")
+    # systemd's stop or timeout sends SIGTERM: leave through the finally below so state and metrics are saved
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     try:
-        applied = fix_stale(rows, state, results, applied, dry, drifted)
-    except Exception as e:  # noqa: BLE001
-        log(f"stale scan failed: {e}")
+        for row in rows:
+            log(f"== {row['project']} ({row['tier']})")
+            if past_deadline(APPLY_BY, time.localtime()):
+                log(f"  deferred: past {APPLY_BY}")
+                results.append({"project": row["project"], "tier": row["tier"], "ref": "-", "result": "deferred"})
+                continue
+            try:
+                applied = process_row(row, state, results, applied, dry, cooldown, drifted)
+            except Exception as e:  # noqa: BLE001
+                log(f"  failed: {type(e).__name__}: {e}")
+                results.append({"project": row["project"], "tier": row["tier"], "ref": "-", "result": "error", "reason": f"{type(e).__name__}: {e}"[:200]})
+        try:
+            applied = fix_stale(rows, state, results, applied, dry, drifted)
+        except Exception as e:  # noqa: BLE001
+            log(f"stale scan failed: {e}")
+    finally:
+        if not dry:
+            save(state, state_path, results)
     if dry:
         return 0
-    write_stale_prom()
+    return 2 if any(r["result"] == "rollback_failed" for r in results) else 0
+
+
+def save(state: dict, state_path: Path, results: list[dict]) -> None:
+    """state.json and the .prom files; each step on its own, so one failing does not lose the others."""
+    for step in (write_stale_prom, lambda: _write_state(state, state_path), lambda: _write_prom(results)):
+        try:
+            step()
+        except Exception as e:  # noqa: BLE001
+            log(f"saving failed: {type(e).__name__}: {e}")
+
+
+def _write_state(state: dict, state_path: Path) -> None:
     tmp = state_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=1, sort_keys=True))
     os.replace(tmp, state_path)
+
+
+def _write_prom(results: list[dict]) -> None:
     TEXTFILE.mkdir(parents=True, exist_ok=True)
-    prom = TEXTFILE / "auto_update.prom"
     tmp = TEXTFILE / ".auto_update.prom.tmp"
     tmp.write_text(render_prom(results, time.time()))
     os.chmod(tmp, 0o644)
-    os.replace(tmp, prom)
-    return 2 if any(r["result"] == "rollback_failed" for r in results) else 0
+    os.replace(tmp, TEXTFILE / "auto_update.prom")
+
+
+def process_row(row: dict, state: dict, results: list[dict], applied: int, dry: bool, cooldown: float, drifted: set) -> int:
+    """One conf row: drift, registry check, cool-down, apply. -> projects applied so far."""
+    try:
+        config = compose_config(row)
+        row = drop_namespace_providers(row, config)
+        images, drift = project_images(row, config)
+        if drift:
+            applied, fixed = handle_drift(row, drift, state, results, applied, dry)
+            if fixed:
+                images, drift = project_images(row, config)
+                results.extend(drift_result(row, c, "drift", command=drift_command(row, [c["service"]])) for c in drift)
+            drifted |= {c["name"] for c in drift}
+    except Exception as e:  # noqa: BLE001
+        log(f"  cannot list containers: {e}")
+        results.append({"project": row["project"], "tier": row["tier"], "ref": "-", "result": "error", "reason": str(e)[:200]})
+        return applied
+    todo, built = [], build_refs(config)
+    for ref, img in sorted(images.items()):
+        key = f"{row['project']}|{ref}"
+        running = [] if ref in built else repo_digests(img)
+        if not running:
+            log(f"  {ref}: local build, skipped (its base images are in the CVE scan)")
+            results.append({"project": row["project"], "tier": row["tier"], "ref": ref, "result": "local_build"})
+            continue
+        remote = remote_digest(ref, running)
+        action, entry = decide(row["tier"], remote, running, state.get(key, {}), time.time(), cooldown)
+        state[key] = entry
+        cur = next((x.split("@", 1)[1] for x in running), "")
+        res = {"project": row["project"], "tier": row["tier"], "ref": ref, "result": action, "from": cur, "to": remote}
+        if action in ("available", "held_back"):
+            res["command"] = update_command(row)
+        log(f"  {ref}: {action} ({_short(cur)} -> {_short(remote)})")
+        results.append(res)
+        if action == "apply":
+            todo.append(ref)
+    if not todo or dry:
+        if todo:
+            log(f"  would update {' '.join(due_row(row, config, todo)['services'])} ({', '.join(todo)})")
+        return applied
+    late = past_deadline(APPLY_BY, time.localtime()) or (MAX_APPLY and applied >= MAX_APPLY)
+    if late:
+        log(f"  deferred to the next run (deadline {APPLY_BY or '-'}, {applied}/{MAX_APPLY or '-'} applied)")
+        for r in results:
+            if r["project"] == row["project"] and r["ref"] in todo:
+                r["result"] = "deferred"
+        return applied
+    floor = resources_ok()
+    if floor:
+        log(f"  skipped: {floor}")
+        for r in results:
+            if r["project"] == row["project"] and r["ref"] in todo:
+                r["result"] = "skipped"
+        return applied
+    applied += 1
+    outcome, reason = apply(row, todo, images, config)
+    for r in results:
+        if r["project"] == row["project"] and r["ref"] in outcome:
+            r["result"] = outcome[r["ref"]]
+            if reason and r["result"] in ("rolled_back", "rollback_failed", "error"):
+                r["reason"] = reason
+            key = f"{row['project']}|{r['ref']}"
+            if r["result"] == "updated":
+                state[key] = {}
+            elif r["result"] in ("rolled_back", "rollback_failed"):
+                state[key]["bad"] = True
+            elif r["result"] == "major_held":
+                r["command"] = update_command(row)
+                state[key]["bad"] = True
+            log(f"  {r['ref']}: {r['result']}")
+    return applied
 
 
 if __name__ == "__main__":

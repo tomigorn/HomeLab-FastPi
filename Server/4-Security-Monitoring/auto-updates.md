@@ -9,7 +9,7 @@
 | `security-code-scan.timer` → `security_scan.py code` | daily 03:40 | every image the two repos refer to (compose `image:` with `${VAR}` from `.env`/`.env.example`, Dockerfile `FROM`; local builds left out, their bases scanned) → cached CycloneDX SBOM per image → `trivy sbom` against the current DB | **enabled** |
 | `security-image-scan.timer` → `images` | 04:10 | running digests on fastpi, beefy, tower (registry copy, no pull on tower) | existed; now also diffs findings |
 | `NewFixableImageVulnerability` | on a new finding | no message of its own (`notify: digest`): the 06:30 daily digest lists fixable CRITICAL/HIGH findings first seen in 24 h, grouped per CVE | **enabled** |
-| `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf` | **enabled** (auto tier) |
+| `auto-update.timer` → `Docker/_global/scripts/auto_update.py` | 03:10 | tiers in `Docker/_global/auto-update.conf`; an apply pulls and recreates only the services whose ref is due (and backs up only their data); a timeout or error in one row = result `error`, the run goes on, `state.json` and the `.prom` files are always written; suggested commands carry the row's `CHECK=` | **enabled** (auto tier) |
 | `rebuild-local.timer` → `Docker/_global/scripts/rebuild_local.py` | 23:23, each image on its weekday | local builds in `Docker/_global/rebuild-local.conf`, see "Local builds" | **enabled** |
 | beefy: same script, own `auto-update.conf` | 04:12 | see [beefy](#beefy) | **enabled** (auto tier) |
 | `AutoUpdateNightly` | hour after the run | no message of its own (`notify: digest`): the 06:30 daily digest lists per host what was updated / rolled back / held / waiting; failures and rollbacks keep their own alerts | **enabled** |

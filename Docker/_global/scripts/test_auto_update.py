@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import json  # noqa: E402
 import time  # noqa: E402
 
 from auto_update import (  # noqa: E402
@@ -560,6 +561,55 @@ def test_apply_pulls_and_recreates_only_the_services_of_due_refs():
     assert env["SERVICES"] == "a", env["SERVICES"]
     assert cmd[3:] == ["vol:p_adata"], cmd
     assert out == {"img:a": "updated"}, out
+
+
+def test_apply_update_project_timeout_is_a_failed_rollback_not_a_crash():
+    import subprocess
+    row = {"project": "P", "tier": "auto", "services": [], "backups": [], "check": ""}
+    calls, runs, restore = _fake_apply_env(run_exc=subprocess.TimeoutExpired("update-project.sh", 1800))
+    try:
+        out, reason = auto_update.apply(row, ["img:a"], {"img:a": "sha:old"}, TWO_SERVICES)
+    finally:
+        restore()
+    assert out == {"img:a": "rollback_failed"}, out
+    assert "timed out" in reason, reason
+    assert any(c[0] == "oob" for c in calls)
+
+
+def test_a_timeout_in_one_row_still_saves_state_and_metrics():
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        (tmp / "conf").write_text("auto  P1  -  -  -\nauto  P2  -  -  -\n")
+
+        def remote(ref, running):
+            if ref == "p1:1":
+                raise subprocess.TimeoutExpired("imagetools", 120)
+            return "sha256:new"
+        patch = {"CONF": tmp / "conf", "STATE": tmp / "state", "TEXTFILE": tmp / "tf",
+                 "compose_config": lambda row: {"services": {}},
+                 "project_images": lambda row, config: ({row["project"].lower() + ":1": "sha:old"}, []),
+                 "repo_digests": lambda img: ["x@sha256:old"],
+                 "remote_digest": remote,
+                 "fix_stale": lambda rows, state, results, applied, dry, skip=frozenset(): applied,
+                 "write_stale_prom": lambda: None}
+        saved = {k: getattr(auto_update, k) for k in patch}
+        for k, v in patch.items():
+            setattr(auto_update, k, v)
+        try:
+            try:
+                auto_update.main([])
+            except subprocess.TimeoutExpired:
+                pass
+        finally:
+            for k, v in saved.items():
+                setattr(auto_update, k, v)
+        state = json.loads((tmp / "state" / "state.json").read_text()) if (tmp / "state" / "state.json").exists() else None
+        prom = (tmp / "tf" / "auto_update.prom").read_text() if (tmp / "tf" / "auto_update.prom").exists() else ""
+    assert state is not None and "P2|p2:1" in state, state
+    assert 'project="P1"' in prom and 'result="error"' in prom, prom
+    assert 'project="P2"' in prom, prom
 
 
 if __name__ == "__main__":
