@@ -154,6 +154,8 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 
 ## Jellyfin Popular movies and shows
 
+`prometheus/rules/restore-tests.yml`, test `prometheus/tests/restore-tests_test.yml`. Per-database restore tests: `db_restore_test_ok{host,db,engine}` and `db_restore_test_last_success_timestamp_seconds` from fastpi's weekly `fastpi-restore-test` (`backup-restore-test.prom`) and beefy's weekly `beefy-restore-test` (`beefy_restore_test.prom`, copied by `beefy-idle-pull`, kept while beefy sleeps). No TYPE/HELP in either file (node-exporter rejects a family typed in one textfile, untyped in another). Alerts `DbRestoreTestFailed`, `DbRestoreTestStale` (10 days), `DbRestoreTestMissing`. `Server/5-Backup/README.md`.
+
 `prometheus/rules/jellyfin-popular.yml`, test `prometheus/tests/jellyfin-popular_test.yml`. Source: beefy `Docker/Jellyfin/scripts/popular.py` → `jellyfin-popular.prom` (copied by `beefy-idle-pull`).
 
 | Alert | When |

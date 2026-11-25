@@ -1,0 +1,72 @@
+# promtool test rules tests/restore-tests_test.yml
+rule_files:
+  - ../rules/restore-tests.yml
+evaluation_interval: 1m
+tests:
+  - name: failed database restore fires per DB, ok ones stay quiet
+    interval: 1h
+    input_series:
+      - series: 'db_restore_test_ok{host="fastpi",db="grafana",engine="sqlite"}'
+        values: '1 1 0'
+      - series: 'db_restore_test_ok{host="beefy",db="dt5",engine="postgres"}'
+        values: '1 1 1'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: DbRestoreTestFailed
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: DbRestoreTestFailed
+        exp_alerts:
+          - exp_labels: {severity: warning, host: fastpi, db: grafana, engine: sqlite}
+            exp_annotations:
+              summary: "Restore test of grafana (fastpi, sqlite) failed"
+              description: "The latest backup of this database did not restore or failed its checks (integrity, key table rows). fastpi: journalctl -u fastpi-restore-test; beefy: journalctl -u beefy-restore-test on beefy. The Telegram summary names the check. Server/5-Backup/README.md"
+
+  - name: stale fires after 10 days for a test that reports ok, not for a failing one
+    interval: 1d
+    input_series:
+      - series: 'db_restore_test_ok{host="beefy",db="seerr",engine="sqlite"}'
+        values: '1x20'
+      - series: 'db_restore_test_last_success_timestamp_seconds{host="beefy",db="seerr",engine="sqlite"}'
+        values: '0x20'
+      - series: 'db_restore_test_ok{host="fastpi",db="authentik",engine="postgres"}'
+        values: '0x20'
+      - series: 'db_restore_test_last_success_timestamp_seconds{host="fastpi",db="authentik",engine="postgres"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 9d
+        alertname: DbRestoreTestStale
+        exp_alerts: []
+      - eval_time: 11d
+        alertname: DbRestoreTestStale
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy, db: seerr, engine: sqlite}
+            exp_annotations:
+              summary: "Restore test of seerr (beefy) last succeeded 11d 0h 0m 0s ago"
+              description: "The weekly restore test stopped running. fastpi: systemctl list-timers fastpi-restore-test; beefy: systemctl list-timers beefy-restore-test (a copy of its result stays on fastpi while beefy sleeps). Server/5-Backup/README.md"
+
+  - name: a weekly success keeps stale quiet
+    interval: 1d
+    input_series:
+      - series: 'db_restore_test_ok{host="fastpi",db="grafana",engine="sqlite"}'
+        values: '1x30'
+      - series: 'db_restore_test_last_success_timestamp_seconds{host="fastpi",db="grafana",engine="sqlite"}'
+        values: '0 0 0 0 0 0 0 604800 604800 604800 604800 604800 604800 604800 1209600 1209600 1209600 1209600 1209600 1209600 1209600 1814400 1814400 1814400 1814400 1814400 1814400 1814400 2419200 2419200'
+    alert_rule_test:
+      - eval_time: 29d
+        alertname: DbRestoreTestStale
+        exp_alerts: []
+
+  - name: missing results from a host fire after an hour
+    interval: 1h
+    input_series:
+      - series: 'db_restore_test_ok{host="fastpi",db="grafana",engine="sqlite"}'
+        values: '1x6'
+    alert_rule_test:
+      - eval_time: 3h
+        alertname: DbRestoreTestMissing
+        exp_alerts:
+          - exp_labels: {severity: warning, host: beefy}
+            exp_annotations:
+              summary: "No database restore test results from beefy"
+              description: "db_restore_test_ok is absent. fastpi: /var/lib/node-exporter/textfile/backup-restore-test.prom; beefy: beefy_restore_test.prom (copied by beefy-idle-pull). Server/5-Backup/README.md"

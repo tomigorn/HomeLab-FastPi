@@ -1,0 +1,32 @@
+# Per-database restore tests (Server/5-Backup README "Database inventory"): fastpi's weekly fastpi-restore-test (Tue 04:33, host="fastpi", backup-restore-test.prom) and beefy's weekly beefy-restore-test (Wed 04:02, host="beefy", copied by beefy-idle-pull as beefy_restore_test.prom). Tests: tests/restore-tests_test.yml
+# 10 days = one weekly run missed (beefy asleep at 04:33, backup still running, fastpi down) plus 3 days of slack
+groups:
+  - name: restore-tests
+    rules:
+      - alert: DbRestoreTestFailed
+        expr: db_restore_test_ok == 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restore test of {{ $labels.db }} ({{ $labels.host }}, {{ $labels.engine }}) failed"
+          description: "The latest backup of this database did not restore or failed its checks (integrity, key table rows). fastpi: journalctl -u fastpi-restore-test; beefy: journalctl -u beefy-restore-test on beefy. The Telegram summary names the check. Server/5-Backup/README.md"
+
+      # only for a test that reports ok but stopped running; a failing one is DbRestoreTestFailed
+      - alert: DbRestoreTestStale
+        expr: (time() - db_restore_test_last_success_timestamp_seconds > 10 * 86400) and on(host, db, engine) (db_restore_test_ok == 1)
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restore test of {{ $labels.db }} ({{ $labels.host }}) last succeeded {{ $value | humanizeDuration }} ago"
+          description: "The weekly restore test stopped running. fastpi: systemctl list-timers fastpi-restore-test; beefy: systemctl list-timers beefy-restore-test (a copy of its result stays on fastpi while beefy sleeps). Server/5-Backup/README.md"
+
+      - alert: DbRestoreTestMissing
+        expr: absent(db_restore_test_ok{host="fastpi"}) or absent(db_restore_test_ok{host="beefy"})
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No database restore test results from {{ $labels.host }}"
+          description: "db_restore_test_ok is absent. fastpi: /var/lib/node-exporter/textfile/backup-restore-test.prom; beefy: beefy_restore_test.prom (copied by beefy-idle-pull). Server/5-Backup/README.md"
