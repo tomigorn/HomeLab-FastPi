@@ -1,0 +1,3 @@
+# HELP authentik_token_expires_timestamp_seconds x
+authentik_token_expires_timestamp_seconds{identifier="avatar-picker-api"} 1824980484
+authentik_token_rotation_success{identifier="avatar-picker-api"} 1

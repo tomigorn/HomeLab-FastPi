@@ -1,0 +1,5 @@
+tls_cert_probe_success{host="a.example.ch"} 1
+tls_cert_not_after_timestamp_seconds{host="a.example.ch"} 1800000000
+tls_cert_verified{host="a.example.ch"} 1
+tls_cert_probe_success{host="b.example.ch"} 0
+tls_cert_exporter_last_run_timestamp_seconds 1795582209

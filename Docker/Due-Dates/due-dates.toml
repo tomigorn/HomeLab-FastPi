@@ -1,0 +1,139 @@
+# Every date that needs the owner, in one place (README.md). No secrets: the repo is public.
+# due_dates.py merges this file with the fetched dates (TLS, RDAP, Authentik tokens) into /var/lib/due-dates/due-dates.json every 10 minutes; Telegram warnings, the Seerr and ABR bars, Grafana and the notes page read that.
+#
+# Fields of a [[due]] entry:
+#   id        unique, lowercase-with-dashes
+#   title     shown everywhere
+#   kind      subscription | domain | ddns | token | warranty | reminder | info
+#   date      the day it ends or is due (TOML date, no quotes); or lifetime = true; ddns: confirmed = <date> instead (date = confirmed + cycle_days)
+#   source    manual (default) | rdap (domain: RDAP fills the date when none is set here; a date set here wins)
+#   category  short label after the title (indexer, VPN, …); domain and ddns build their own
+#   lead      warning days before the date, e.g. [30, 7, 0] (default; ddns [5, 3, 1, 0]); the day after always gets a last one
+#   alert     telegram (default) | none
+#   show      bars that list it: "seerr" (beefy, Seerr), "books" (fastpi, ABR)
+#   url, notes, howto (what to do, in the Telegram details)
+#   domain only: registrar, renew, dns
+
+# --- Subscriptions (Seerr bar, ABR bar) ---------------------------------------
+# After a renewal change only the date.
+
+[[due]]
+id = "treasure-maps"
+title = "Treasure Maps"
+kind = "subscription"
+category = "indexer"
+date = 2031-11-17
+show = ["seerr"]
+notes = "Supporter until 2031-11-17"
+
+[[due]]
+id = "eweka"
+title = "Eweka"
+kind = "subscription"
+category = "Usenet provider"
+date = 2028-02-19
+show = ["seerr"]
+notes = "Renewed 2026-11-16 with the Black Friday deal (EUR 44.85 for 15 months), next billing 2028-02-19 at EUR 71.88/year. Good price: Black Friday deal EUR 37.50 for 15 months (= EUR 2.50/month) in 2024 and 2025, starts early November, ends early December; regular ~EUR 6/month (EUR 71.88/year). Often new customers only."
+
+[[due]]
+id = "protonvpn-plus"
+title = "ProtonVPN Plus"
+kind = "subscription"
+category = "VPN"
+date = 2027-06-15
+show = ["seerr", "books"]
+
+[[due]]
+id = "nzbgeek"
+title = "NZBgeek"
+kind = "subscription"
+category = "indexer"
+lifetime = true
+show = ["seerr"]
+
+[[due]]
+id = "nzbplanet"
+title = "NzbPlanet"
+kind = "subscription"
+category = "indexer"
+lifetime = true
+show = ["seerr"]
+
+# MAM VIP end date from the MAM profile; when VIP ends, set class and limit in Audiobook-Requests/abr-bar/limits.toml [mam].
+[[due]]
+id = "mam-vip"
+title = "MAM VIP"
+kind = "subscription"
+category = "MyAnonamouse class"
+date = 2027-01-27
+show = ["books"]
+
+# --- Domains --------------------------------------------------------------------
+# .ch RDAP publishes no end date: without `date` the next registration anniversary is used (the earliest the paid year can end). After each renewal set the real end date from the registrar.
+
+[[due]]
+id = "holy-grail-ch"
+title = "holy-grail.ch"
+kind = "domain"
+source = "rdap"
+date = 2027-02-17
+registrar = "GoDaddy"
+renew = "yearly at godaddy.com"
+dns = "Cloudflare"
+
+# --- No-IP hostnames ------------------------------------------------------------
+# No-IP deletes an unconfirmed free hostname after 30 days (confirm mail ~7 days before, deleted ON the end date). No API tells the deadline: confirmed = the day you last confirmed. Without `confirmed` there is no timer; DdnsHostnameNotResolving stays as the backstop.
+# "No-IP confirmed": set confirmed for both.
+
+[[due]]
+id = "noip-lang-tool"
+title = "lang-tool.ddns.net"
+kind = "ddns"
+confirmed = 2026-11-10
+url = "https://my.noip.com/dynamic-dns"
+
+[[due]]
+id = "noip-wg-aemtli"
+title = "wg-aemtli.ddns.net"
+kind = "ddns"
+confirmed = 2026-11-10
+url = "https://my.noip.com/dynamic-dns"
+
+# --- Tokens ---------------------------------------------------------------------
+# Docker Hub: the token list API refuses a token-based login (403), so the date is entered here by hand.
+
+[[due]]
+id = "dockerhub-wg-chores"
+title = "Docker Hub token github-actions-wg-chores"
+kind = "token"
+category = "WG Chores image builds"
+date = 2027-11-15
+url = "https://app.docker.com/settings/personal-access-tokens"
+howto = "New token on hub.docker.com, put it into the GitHub secret DOCKERHUB_TOKEN of WG Chores, delete the old token. WG Chores image builds stop without it."
+
+# --- Reminders and dates ----------------------------------------------------------
+
+[[due]]
+id = "news-cve-backup"
+title = "News + CVE backup decision"
+kind = "reminder"
+date = 2026-12-22
+lead = [7, 0]
+notes = "~/backups/decommission-news-cve-2026-11-22 on fastpi (2.1 GB disk space, SSD), kept in case the decommission missed something."
+howto = "Delete it if nothing was missed: fastpi, ~: rm -r ~/backups/decommission-news-cve-2026-11-22. Or keep it and set a later date."
+
+[[due]]
+id = "potemkin-recycle-bin"
+title = "Battleship Potemkin leaves the recycle bin"
+kind = "info"
+date = 2026-11-29
+notes = "Delete early test title, 7-day cleanup; its unmonitored Radarr entry and the canary's Seerr request stay."
+
+# --- Warranties (hardware inventory) ----------------------------------------------
+# One entry per device: date = warranty end; purchased, serial and the shop go into notes.
+# [[due]]
+# id = "warranty-example"
+# title = "Example device"
+# kind = "warranty"
+# date = 2028-01-31
+# notes = "bought 2026-01-31 at …"

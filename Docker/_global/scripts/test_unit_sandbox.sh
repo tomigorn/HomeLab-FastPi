@@ -6,7 +6,8 @@ ok()  { PASS=$((PASS+1)); echo "  ok   $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL $1 ${2:-}"; }
 UNITS=(
   Docker/antivirus/systemd/clamav-scan.service Docker/antivirus/systemd/clamav-hostscan.service
-  Docker/_global/systemd/mam-points.service Docker/_global/systemd/subscription-alerts.service Docker/_global/systemd/arch-page.service Docker/_global/systemd/repo-drift.service
+  Docker/_global/systemd/mam-points.service Docker/_global/systemd/subscription-alerts.service Docker/_global/systemd/arch-page.service
+  Docker/Due-Dates/systemd/due-dates.service Docker/_global/systemd/repo-drift.service
   Server/4-Security-Monitoring/security-scan.service Server/4-Security-Monitoring/security-image-scan.service
   Server/4-Security-Monitoring/security-av.service Server/4-Security-Monitoring/security-av-hits.service
   Server/4-Security-Monitoring/security-code-scan.service Server/4-Security-Monitoring/security-dt.service

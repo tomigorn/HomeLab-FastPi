@@ -1,0 +1,12 @@
+# Serves only due-dates.json (no listing, nothing else). LAN/VPN gate, TLS and headers are Traefik's.
+:80 {
+	@json path /due-dates.json
+	handle @json {
+		root * /srv
+		header Cache-Control "no-cache"
+		file_server
+	}
+	handle {
+		respond 404
+	}
+}

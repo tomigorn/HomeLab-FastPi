@@ -1,0 +1,32 @@
+[Unit]
+Description=Due dates: merge due-dates.toml with fetched dates into due-dates.json (file reads only)
+Documentation=file:///home/pi/Projects/Docker/Due-Dates/README.md
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+StateDirectory=due-dates
+StateDirectoryMode=0755
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/Due-Dates/due_dates.py build
+TimeoutStartSec=60
+Nice=10
+PrivateNetwork=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX

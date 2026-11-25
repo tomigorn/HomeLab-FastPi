@@ -46,6 +46,7 @@ tell them apart.
 | Feishin | ❌ | ❌ | | |  |
 | WG-Chores-v2 | ❌ | ❌ | | |  |
 | WG-Chores-Demo | ❌ | ❌ | | |  |
+| Due-Dates | ❌ | ❌ | | |  |
 
 ## beefy — `HomeLab-BeefyServer`, `/home/buntu/Projects/Docker/`
 

@@ -1,0 +1,5 @@
+domain_rdap_success{domain="holy-grail.ch"} 1
+domain_rdap_status_ok{domain="holy-grail.ch"} 1
+domain_expiry_timestamp_seconds{domain="holy-grail.ch",source="anniversary"} 1802818800
+domain_expiry_timestamp_seconds{domain="other.com",source="rdap"} 1830000000
+domain_exporter_last_run_timestamp_seconds 1795582209

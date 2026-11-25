@@ -1,0 +1,11 @@
+[Unit]
+Description=Due dates every 10 minutes (file reads only)
+Documentation=file:///home/pi/Projects/Docker/Due-Dates/README.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
