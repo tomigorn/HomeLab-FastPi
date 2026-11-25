@@ -196,6 +196,12 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
+    healthcheck:
+      test: ["CMD-SHELL", "test -r /run/secrets/vt_api_key && test -d /scan/sabnzbd && test -d /scan/qbittorrent && python3 -c \"import vt\""]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       antivirus_network:
         ipv4_address: 10.24.34.2
