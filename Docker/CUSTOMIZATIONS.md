@@ -307,6 +307,12 @@ Token routers: `traefik.lt-token-routers` (Traefik).
 |---|---|---|---|---|
 | Static specs page served read-only from www/ | `Caddyfile`, `www/` | `docker compose up -d --force-recreate` | `specs.caddyfile`: caddy validate → Valid configuration; `specs.page`: index → 200 + bytes | caddy directive changes (auto-updated) |
 
+## Due-Dates
+
+| Customization | Where | Reapply | Verify | Update can break |
+|---|---|---|---|---|
+| Read-only file server for `due-dates.json` (built by `due-dates.timer` into `/var/lib/due-dates`), only that path, LAN/VPN route | `Caddyfile`, Traefik `dynamic/due-dates.yml` | `docker compose up -d --force-recreate` | `due.caddyfile`: caddy validate → Valid configuration; `due.json`: `/due-dates.json` → 200 + items | caddy directive changes (auto-updated) |
+
 ## Navidrome
 
 | Customization | Where | Reapply | Verify | Update can break |
