@@ -27,6 +27,7 @@ SQLITE_DBS=(
     "$D/Audiobook-Requests/config/db.sqlite"
     /mnt/seagate-red/sabnzbd/config/admin/history1.db
     /mnt/seagate-red/prowlarr/config/prowlarr.db
+    "$D/Navidrome/data/navidrome.db"
 )
 EXCLUDES=(
     --exclude '/home/pi/Projects/Docker/*/node_modules'

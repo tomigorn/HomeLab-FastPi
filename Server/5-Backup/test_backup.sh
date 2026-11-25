@@ -11,6 +11,7 @@ for want in \
     "sqlite /home/pi/Projects/Docker/Audiobook-Requests/config/db.sqlite" \
     "sqlite /mnt/seagate-red/sabnzbd/config/admin/history1.db" \
     "sqlite /mnt/seagate-red/prowlarr/config/prowlarr.db" \
+    "sqlite /home/pi/Projects/Docker/Navidrome/data/navidrome.db" \
     "sqlite /home/pi/Projects/Docker/Home-Assistant/config/home-assistant_v2.db" \
     "path /mnt/seagate-red/prowlarr/config" \
     "path /home/pi/backups/tower-flash" \
