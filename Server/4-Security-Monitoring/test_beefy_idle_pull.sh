@@ -19,6 +19,7 @@ case "${*: -1}" in
   "head -c 262145 /home/buntu/.local/state/jellyfin-popular.prom") cat "$FAKE_JP" ;;
   "head -c 262145 /home/buntu/.local/state/jellyfin-playback/playback.prom") cat "$FAKE_PB" ;;
   "head -c 262145 /home/buntu/.local/state/job-heartbeat/job_heartbeat.prom") cat "$FAKE_HB" ;;
+  "head -c 262145 /var/lib/beefy-restore-test/restore-test.prom") cat "$FAKE_RT" ;;
   "head -c 262145 /home/buntu/.local/state/repo-drift/drift.prom") cat "$FAKE_DR" ;;
   *) exit 1 ;;
 esac
@@ -59,7 +60,13 @@ grep -q '^systemd_unit_failed{host="beefy",scope="system",unit="x.service"} 1' "
 
 grep -q '^drift_items{host="beefy",kind="compose"} 4' "$T/dr.prom" && grep -q 'drift_last_run_timestamp_seconds{host="beefy"} 900' "$T/dr.prom" && ok "drift metrics copied" || bad "drift metrics copied"
 
+printf '%s\n' 'db_restore_test_run_timestamp_seconds{host="beefy"} 1000' 'db_restore_test_ok{host="beefy",db="seerr",engine="sqlite"} 1' 'db_restore_test_last_success_timestamp_seconds{host="beefy",db="seerr",engine="sqlite"} 1000' > "$T/rt"
+export RT_DEST="$T/rt.prom" FAKE_RT="$T/rt"
+"$S"
+grep -q '^db_restore_test_ok{host="beefy",db="seerr",engine="sqlite"} 1' "$T/rt.prom" && ok "database restore test metrics copied" || bad "database restore test metrics copied"
+
 FAKE_DOWN=1 "$S"
+grep -q 1000 "$T/rt.prom" && ok "restore test metrics kept while beefy is down (weekly job, they only change while beefy runs)" || bad "restore test metrics kept while beefy is down"
 grep -q 900 "$T/dr.prom" && ok "drift kept while beefy is down (it only changes while beefy runs)" || bad "drift kept while beefy is down"
 [[ ! -e $T/hb.prom ]] && ok "job heartbeat removed while beefy is down (a kept copy would read as stale)" || bad "job heartbeat removed while beefy is down"
 [[ ! -e $T/idle.prom ]] && ok "idle metrics removed while beefy is down" || bad "idle metrics removed while beefy is down"
@@ -88,6 +95,7 @@ good() { printf '%s\n' 'smart_standby{host="beefy",disk="hdd-cold"} 1' 'smart_ex
          printf '%s\n' 'jf_popular_last_run_timestamp_seconds 600' > "$T/jp"
          printf '%s\n' 'systemd_job_last_result{host="beefy",scope="user",unit="retention.service"} 0' 'systemd_job_updated_timestamp_seconds{host="beefy"} 800' > "$T/hb"
          printf '%s\n' 'drift_items{host="beefy",kind="compose"} 4' 'drift_last_run_timestamp_seconds{host="beefy"} 900' > "$T/dr"
+         printf '%s\n' 'db_restore_test_run_timestamp_seconds{host="beefy"} 1000' 'db_restore_test_ok{host="beefy",db="seerr",engine="sqlite"} 1' > "$T/rt"
          printf '%s\n' 'beefy_idle_busy{reason="ssh"} 1' > "$T/id"; }
 reject() {  # reject <fixture> <dest> <name> <lines...>
     local fx=$1 dst=$2 name=$3; shift 3
@@ -117,6 +125,10 @@ reject "$T/dr" "$T/dr.prom" "drift: TYPE for a shared family rejected" '# TYPE d
 reject "$T/dr" "$T/dr.prom" "drift: foreign family rejected" 'node_cpu_seconds_total{host="beefy"} 1'
 reject "$T/jp" "$T/jp.prom" "popular: malformed sample rejected" 'jf_popular_items{list="a"} 1 2 3'
 reject "$T/jp" "$T/jp.prom" "popular: unterminated label rejected" 'jf_popular_items{list="a} 1'
+reject "$T/rt" "$T/rt.prom" "restore test: host=fastpi rejected (fastpi writes the same family)" 'db_restore_test_ok{host="fastpi",db="authentik",engine="postgres"} 1'
+reject "$T/rt" "$T/rt.prom" "restore test: series without host rejected" 'db_restore_test_ok{db="x",engine="sqlite"} 1'
+reject "$T/rt" "$T/rt.prom" "restore test: TYPE for the shared family rejected" '# TYPE db_restore_test_ok gauge'
+reject "$T/rt" "$T/rt.prom" "restore test: foreign family rejected" 'backup_restore_test_last_status{host="beefy"} 1'
 good; "$S"; head -c 300000 /dev/zero | tr '\0' '#' >> "$T/jp"; cp "$T/jp.prom" "$T/jp.before"; "$S"
 cmp -s "$T/jp.prom" "$T/jp.before" && ok "oversized file rejected" || bad "oversized file rejected"
 good; printf '%s\n' 'security_rootkit_warnings{host="fastpi",tool="rkhunter"} 0' >> "$T/id"; "$S"
