@@ -17,6 +17,7 @@ services:
       - SUBDOMAINS=${DUCKDNS_SUBDOMAINS}
       - FILE__TOKEN=/run/secrets/duckdns_token
       - UPDATE_IP=ipv4
+      - LOG_FILE=true      # /config/duck.log, read by the healthcheck
     secrets:
       - duckdns_token
     volumes:
@@ -33,6 +34,13 @@ services:
       - FOWNER
       - SETUID
       - SETGID
+    healthcheck:
+      # last cron run (every 5 min + up to 290 s jitter) wrote a success line; an error ends the log in its response dump
+      test: ["CMD-SHELL", "find /config/duck.log -mmin -12 | grep -q . && tail -n 1 /config/duck.log | grep -qE 'successful|was updated'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10m
 # #########################################################
 # No-IP ###################################################
 # #########################################################
