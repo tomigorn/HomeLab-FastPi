@@ -295,6 +295,13 @@ services:
         max-size: "10m"
         max-file: "3"
     restart: always
+    healthcheck:
+      # eth0 check: see prowlarr; the API needs a login from loopback, the WebUI page does not
+      test: ["CMD-SHELL", "grep -q 'eth0:' /proc/net/dev && curl -fsS -m 5 http://127.0.0.1:8080/ | grep -q '<title>qBittorrent WebUI'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     labels:
       - autoheal-mouse=true
     network_mode: "service:gluetun"
