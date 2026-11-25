@@ -1,0 +1,10 @@
+[Unit]
+Description=Per-timer heartbeat (last success, failed units) for the node-exporter textfile collector
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I %h/Projects/Docker/grafana/job-heartbeat/job_heartbeat.py --host fastpi --no-meta --out /var/lib/node-exporter/textfile/job_heartbeat.prom --state %h/.local/state/job-heartbeat/state.json
+TimeoutStartSec=90
+Nice=10
+NoNewPrivileges=true

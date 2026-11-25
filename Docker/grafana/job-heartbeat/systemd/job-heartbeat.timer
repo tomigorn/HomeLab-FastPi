@@ -1,0 +1,11 @@
+[Unit]
+Description=Per-timer heartbeat every 5 minutes
+Documentation=file:///home/pi/Projects/Docker/grafana/README.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
