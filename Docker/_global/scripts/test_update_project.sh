@@ -84,6 +84,7 @@ case $1 in
     [[ -e $D/buildfail ]] && { echo "ERROR: failed to solve: exit code: 2"; exit 1; }
     ref=$(sed 's/.*"tags":\["\([^"]*\)".*/\1/' <<<"$def")
     new=$(awk -v r="$ref" '$1==r {print $2}' "$D/buildmap"); [[ -n $new ]] && settag "$new" "$ref"; : ;;
+  volume) [[ $2 == inspect && ${@: -1} != missing* ]] ;;
   run) if [[ " $* " == *" -i "* ]]; then [[ -e $D/restorefail ]] && exit 1; cat > /dev/null; else [[ -e $D/runfail ]] && exit 1; echo "tar of ${@: -3:1}"; fi ;;
   *) echo "unexpected: $*" >&2; exit 9 ;;
 esac
@@ -270,6 +271,12 @@ B="$T/backups/pre-update/$TODAY/demo"
 [[ $(ls "$B"/*_data_db-*.tgz 2>/dev/null | wc -l) == 2 && $(ls "$B"/vol-demo_data-*.tgz 2>/dev/null | wc -l) == 2 && $(ls "$B"/backups-*.list | wc -l) == 2 ]] && ok "two archives per path, two manifests" || bad "second run overwrote the first" "$(ls "$B")"
 first=$(head -1 "$(ls "$B"/backups-*.list | head -1)" | cut -d'|' -f2)
 [[ $(tar xzf "$first" -O 2>/dev/null) == first ]] && ok "first run's archive still holds the first data" || bad "first archive intact" "$first"
+
+echo "volume named in vol: does not exist: update aborted before anything changes"
+setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; echo "img:1 sha:new" > "$T/pullmap"
+CHECK=true run pull vol:missing_typo
+[[ $rc == 2 && $out == *"ABORTED demo"* && $out == *"vol:missing_typo"* ]] && ok "exit 2, missing volume named" || bad "missing volume aborts" "rc=$rc $out"
+! grep -qE "^compose (stop|pull|up)|^run " "$T/log" && [[ $(ctr) == "sha:old img:1 1" ]] && ok "nothing stopped, pulled, backed up or recreated" || bad "nothing touched on a missing volume" "$(cat "$T/log")"
 
 echo "volume backup fails: update aborted"
 setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; echo "img:1 sha:new" > "$T/pullmap"; touch "$T/runfail"
