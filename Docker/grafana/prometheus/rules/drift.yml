@@ -1,0 +1,35 @@
+# Repo-vs-live drift, nightly on fastpi (04:28) and beefy (04:19): Docker/_global/scripts/repo_drift.py, README.md "repo-drift". Tests: tests/drift_test.yml
+groups:
+  - name: drift
+    rules:
+      # The gauge holds until the next nightly run, so 24h means two runs in a row (fastpi) or the next night's run still sees it.
+      - alert: RepoDriftPersists
+        expr: drift_items > 0
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: {{ $value }} {{ $labels.kind }} items differ from the repo"
+          description: "Changed live, not in the repo (or the reverse) for a day. The list: section Drift of the notes page homelab-architecture, or <code>python3 Docker/_global/scripts/repo_drift.py --host {{ $labels.host }} --prom /dev/null --json /dev/null</code> on that host."
+
+      # fastpi runs 04:28 daily; beefy only when it is awake in its window, and its copy is kept while it sleeps.
+      - alert: RepoDriftCheckStale
+        expr: >-
+          time() - drift_last_run_timestamp_seconds{host="fastpi"} > 36 * 3600
+          or time() - drift_last_run_timestamp_seconds{host="beefy"} > 72 * 3600
+          or absent(drift_last_run_timestamp_seconds{host="fastpi"})
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Drift check has not run for {{ $labels.host }} in over a day and a half"
+          description: "A silent check shows no drift. Look at <code>systemctl status repo-drift.timer</code> and <code>journalctl -u repo-drift</code> on the host (beefy: it only runs in its 03:58-04:45 window)."
+
+      - alert: RepoDriftCollectFailing
+        expr: drift_collect_errors == 1
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.host }}: drift check cannot collect {{ $labels.kind }}"
+          description: "The {{ $labels.kind }} items are the previous night's. Run it by hand: <code>journalctl -u repo-drift</code> shows the error."

@@ -93,6 +93,7 @@ beefy: verbatim copy in the beefy repo (`Docker/_global/scripts/job_heartbeat.py
 | `HostLoadHigh` | load15 > 2 per core for 30 min | warning |
 | `HostOomKill` | kernel OOM kill in the last 15 min | warning |
 | `CustomizationCheckFailing`, `PortUpdaterReattachLoop`, `CustomizationCheckStale` | customization check failed two runs in a row (names the id), `port_updater` reattached >= 2 in 6 h, checker stale > 8 h (`rules/customization-checks.yml`, `_global/scripts/README.md` "customization-check") | warning |
+| `RepoDriftPersists`, `RepoDriftCheckStale`, `RepoDriftCollectFailing` | live differs from the repo (`drift_items{host,kind}` > 0 for 24 h), drift check not run for > 36 h (beefy 72 h), a kind cannot be collected for 24 h (`rules/drift.yml`, `_global/scripts/README.md` "repo-drift") | warning |
 | `ClaudeRemoteRestartBlocked` | the 04:00 claude-remote restart deferred > 1 day; names the reason and first blocking command (`rules/claude-remote.yml`, `Server/8-Claude-Scratch/`) | warning |
 
 ## Authentik metrics
