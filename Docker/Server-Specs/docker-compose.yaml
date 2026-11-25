@@ -26,6 +26,12 @@ services:
       - ./www:/srv:ro
     tmpfs:
       - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       traefik_proxy:
         ipv4_address: 172.24.0.8
