@@ -6,8 +6,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 sudo install -o root -g root -m 0644 "$HERE/claude-scratch.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable claude-scratch.service
-install -d "$HOME/.config/systemd/user/claude-remote.service.d"
-install -m 0644 "$HERE/claude-remote-scratch.conf" "$HOME/.config/systemd/user/claude-remote.service.d/scratch.conf"
+install -d "$HOME/.config/systemd/user/claude-remote@.service.d"
+install -m 0644 "$HERE/claude-remote-scratch.conf" "$HOME/.config/systemd/user/claude-remote@.service.d/scratch.conf"
 ln -sfn "$HERE/claude-remote-safe-restart" "$HOME/.local/bin/claude-remote-safe-restart"
 install -m 0644 "$HERE/claude-remote-restart.service" "$HERE/claude-remote-restart.timer" "$HOME/.config/systemd/user/"
 systemctl --user daemon-reload

@@ -7,13 +7,16 @@ ok()  { PASS=$((PASS+1)); echo "  ok   $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL $1 ${2:-}"; }
 PROM=$W/textfile/claude_remote_restart.prom
 CG=$W/cg/user.slice/claude-remote.service
+CG2=$W/cg/user.slice/claude-remote@auto:-home-pi.service
 
-mkdir -p "$W/bin" "$W/textfile" "$CG" "$W/home/.claude/projects/p" "$W/home/.local/share/claude/versions" "$W/home/.local/bin" "$W/proc/100" "$W/proc/200"
+mkdir -p "$W/bin" "$W/textfile" "$CG" "$CG2" "$W/home/.claude/projects/p" "$W/home/.local/share/claude/versions" "$W/home/.local/bin" "$W/proc/100" "$W/proc/200"
 cat > "$W/bin/systemctl" <<'F'
-#!/bin/sh
+#!/usr/bin/env bash
 case "$*" in
+  *list-units*) printf '%s\n' claude-remote.service 'claude-remote@auto:-home-pi.service' ;;
   *MainPID*) echo 100 ;;
-  *restart*) echo restart >> "$FAKE_LOG" ;;
+  *ControlGroup*) echo "/user.slice/${@: -1}" ;;
+  *restart*) echo "restart ${@: -1}" >> "$FAKE_LOG" ;;
 esac
 F
 chmod +x "$W/bin/systemctl"
@@ -28,9 +31,10 @@ run() { PATH="$W/bin:$PATH" HOME="$W/home" PROC_ROOT="$W/proc" CGROUP_ROOT="$W/c
 metric() { grep "^claude_remote_restart_$1" "$PROM" 2>/dev/null; }
 value() { metric "$1" | awk '{print $NF}'; }
 
-echo 100 > "$CG/cgroup.procs"; rm -f "$W/log"
+echo 100 > "$CG/cgroup.procs"; : > "$CG2/cgroup.procs"; rm -f "$W/log"
+ALL=$'restart claude-remote.service\nrestart claude-remote@auto:-home-pi.service'
 run; rc=$?
-[[ $rc == 0 && $(cat "$W/log" 2>/dev/null) == restart ]] && ok "idle: restarts" || bad "idle: restarts" "rc=$rc"
+[[ $rc == 0 && $(cat "$W/log" 2>/dev/null) == "$ALL" ]] && ok "idle: restarts every instance" || bad "idle: restarts every instance" "rc=$rc $(cat "$W/log" 2>/dev/null)"
 [[ $(value deferred_since_timestamp_seconds) == 0 ]] && ok "idle: deferred_since is 0" || bad "idle: deferred_since is 0" "$(metric deferred_since)"
 [[ $(value last_run_timestamp_seconds) -gt $(( $(date +%s) - 60 )) ]] && ok "writes last_run" || bad "writes last_run" "$(metric last_run)"
 
@@ -51,7 +55,12 @@ run; rc=$?
 
 touch -d '2 hours ago' "$W/home/.claude/projects/p/s.jsonl"; rm -f "$W/log"
 run; rc=$?
-[[ $rc == 0 && $(cat "$W/log" 2>/dev/null) == restart && $(value deferred_since_timestamp_seconds) == 0 ]] && ok "idle again: restarts and clears deferred_since" || bad "idle again" "rc=$rc $(metric deferred_since)"
+[[ $rc == 0 && $(cat "$W/log" 2>/dev/null) == "$ALL" && $(value deferred_since_timestamp_seconds) == 0 ]] && ok "idle again: restarts and clears deferred_since" || bad "idle again" "rc=$rc $(metric deferred_since)"
+
+echo 200 > "$CG2/cgroup.procs"; rm -f "$W/log"
+run; rc=$?
+[[ $rc == 75 && ! -e $W/log ]] && ok "tool process in another instance: deferred" || bad "tool process in another instance" "rc=$rc"
+: > "$CG2/cgroup.procs"
 
 rm -f "$PROM" "$W/log"
 DRY_RUN=1 run; rc=$?

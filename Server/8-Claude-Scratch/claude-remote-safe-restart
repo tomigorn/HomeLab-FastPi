@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Daily (04:00, via claude-remote-restart.timer) restart of claude-remote.service to pick
+# Daily (04:00, via claude-remote-restart.timer) restart of every running Remote Control unit (claude-remote.service, claude-remote@*.service from claude-here) to pick
 # up updates and reclaim memory -- but ONLY when no session is busy, so long-running
 # (overnight) tasks are never killed. If busy, exits 75 and systemd retries every 15 min
 # (Restart=on-failure in claude-remote-restart.service) until everything is idle.
 #
 # Restart is BLOCKED when: any transcript was written in the last IDLE_MIN minutes
 #                          (a session is chatting/thinking/using tools), or any process
-#                          other than claude itself runs in the service cgroup
+#                          other than claude itself runs in any unit's cgroup
 #                          (a tool command / background job is still going).
 # Writes claude_remote_restart.prom (node-exporter textfile): when the deferral started and
 # what blocks it; ClaudeRemoteRestartBlocked alerts after a day.
@@ -14,7 +14,6 @@
 # Exit 0 = restarted (or nothing to do), 75 = deferred (busy).
 set -euo pipefail
 
-SERVICE=claude-remote.service
 IDLE_MIN=${IDLE_MIN:-30}
 TRANSCRIPTS="$HOME/.claude/projects"
 PROC_ROOT=${PROC_ROOT:-/proc}
@@ -48,11 +47,12 @@ defer() {  # $1 reason, $2 blocker, $3 log message
   exit 75
 }
 
-main_pid=$(systemctl --user show -p MainPID --value "$SERVICE")
-if [[ -z "$main_pid" || "$main_pid" == 0 ]]; then
-  log "service not running; nothing to do (systemd Restart=always handles it)"
+mapfile -t units < <(systemctl --user list-units --type=service --state=active --plain --no-legend 'claude-remote.service' 'claude-remote@*.service' | awk '{print $1}')
+if (( ${#units[@]} == 0 )); then
+  log "no Remote Control unit running; nothing to do (systemd Restart=always handles it)"
   exit 0
 fi
+main_pid=$(systemctl --user show -p MainPID --value "${units[0]}")
 
 running=$(basename "$(readlink -f "$PROC_ROOT/$main_pid/exe")")
 installed=$(basename "$(readlink -f "$HOME/.local/bin/claude")")
@@ -64,21 +64,24 @@ if (( recent > 0 )); then
   defer sessions "$recent active" "$recent session(s) active in last ${IDLE_MIN}min"
 fi
 
-cgroup=$CGROUP_ROOT$(cut -d: -f3 "$PROC_ROOT/$main_pid/cgroup")
 busy=()
-while read -r pid; do
-  exe=$(readlink "$PROC_ROOT/$pid/exe" 2>/dev/null) || continue
-  [[ "$exe" == "$HOME"/.local/share/claude/versions/* ]] && continue
-  busy+=("$pid:$(tr '\0' ' ' <"$PROC_ROOT/$pid/cmdline" 2>/dev/null | sed 's/ $//' | cut -c1-80)")
-done < "$cgroup/cgroup.procs"
+for unit in "${units[@]}"; do
+  cgroup=$CGROUP_ROOT$(systemctl --user show -p ControlGroup --value "$unit")
+  [[ -r $cgroup/cgroup.procs ]] || continue
+  while read -r pid; do
+    exe=$(readlink "$PROC_ROOT/$pid/exe" 2>/dev/null) || continue
+    [[ "$exe" == "$HOME"/.local/share/claude/versions/* ]] && continue
+    busy+=("$pid:$(tr '\0' ' ' <"$PROC_ROOT/$pid/cmdline" 2>/dev/null | sed 's/ $//' | cut -c1-80)")
+  done < "$cgroup/cgroup.procs"
+done
 if (( ${#busy[@]} > 0 )); then
   defer processes "${busy[0]#*:}" "${#busy[@]} tool process(es) running: ${busy[*]}"
 fi
 
 if [[ "${DRY_RUN:-0}" == 1 ]]; then
-  log "DRY_RUN: would restart now ($reason)"
+  log "DRY_RUN: would restart ${units[*]} now ($reason)"
   exit 0
 fi
 write_metrics 0 "" ""
-log "all idle; restarting ($reason)"
-systemctl --user restart "$SERVICE"
+log "all idle; restarting ${units[*]} ($reason)"
+for unit in "${units[@]}"; do systemctl --user restart "$unit"; done
