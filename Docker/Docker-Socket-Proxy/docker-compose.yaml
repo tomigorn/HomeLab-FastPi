@@ -56,6 +56,12 @@ services:
       SESSION: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       socket_proxy:
         ipv4_address: 192.168.16.2
@@ -90,6 +96,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./autoheal-haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:2375/containers/json?filters={\"health\":[\"unhealthy\"],\"label\":[\"autoheal-mouse=true\"]}"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       socket_proxy_heal:
         ipv4_address: 192.168.96.3
@@ -123,6 +135,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./portupdater-haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       socket_proxy_portupdater:
         ipv4_address: 192.168.112.3
@@ -161,6 +179,12 @@ services:
       TCP:socket-proxy-ro:2375
     volumes:
       - socket_bridge:/sock
+    healthcheck:
+      test: ["CMD-SHELL", 'printf "GET /_ping HTTP/1.1\r\nHost: docker\r\nConnection: close\r\n\r\n" | socat -t5 - UNIX-CONNECT:/sock/docker.sock,shut-none | grep -qx OK']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       socket_proxy:
         ipv4_address: 192.168.16.3
