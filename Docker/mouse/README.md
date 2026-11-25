@@ -56,7 +56,7 @@ Containers sharing gluetun's netns (`network_mode: service:gluetun`) keep the ol
 | What | Value |
 |---|---|
 | How | every 30 s `scripts/netns-watch.py`: when gluetun runs and is healthy, each running `mouse` container whose `/proc/<pid>/ns/net` differs from gluetun's is restarted; nothing while gluetun is down or starting |
-| Limits | 2 restarts per container, 60 s apart; still outside → one Telegram (`_global/scripts/oob-alert.sh`), no more restarts until it is back; a container joined to a removed gluetun → alert only (`docker compose up -d <service>`) |
+| Limits | 2 restarts per container, 60 s apart, counted in the state file before each restart (a killed or timed-out run still counts); still outside → one Telegram (`_global/scripts/oob-alert.sh`), no more restarts until it is back; a container joined to a removed gluetun → alert only (`docker compose up -d <service>`) |
 | Units | `systemd/mouse-netns-watch.{service,timer}`, user pi + docker group, only `CAP_SYS_PTRACE` (reads other uids' netns), state `/var/lib/mouse-netns-watch/state.json` |
 | Install | `sudo install -m 0644 systemd/mouse-netns-watch.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mouse-netns-watch.timer` |
 | Look | `sudo python3 scripts/netns-watch.py --check`, `journalctl -u mouse-netns-watch -n 20` |

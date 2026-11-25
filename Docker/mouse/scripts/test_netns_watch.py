@@ -143,6 +143,45 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(state["containers"]["sabnzbd"]["attempts"], 1)
 
 
+class RunTest(unittest.TestCase):
+    """run() with docker and /proc faked: the attempt is on disk before the restart, a hung restart does not crash the pass."""
+
+    def setUp(self):
+        import json, subprocess, tempfile
+        self.json, self.sp = json, subprocess
+        self.tmp = tempfile.TemporaryDirectory()
+        self.saved = (nw.STATE_FILE, nw.inspect_stack, nw.netns_inode, nw.docker)
+        nw.STATE_FILE = Path(self.tmp.name) / "state.json"
+        data, ns = stack(qbittorrent_mouse=99)
+        nw.inspect_stack = lambda: data
+        nw.netns_inode = ns
+        self.seen = []
+
+    def tearDown(self):
+        nw.STATE_FILE, nw.inspect_stack, nw.netns_inode, nw.docker = self.saved
+        self.tmp.cleanup()
+
+    def fake_docker(self, raise_timeout):
+        def docker(*args, check=True):
+            on_disk = self.json.loads(nw.STATE_FILE.read_text()) if nw.STATE_FILE.exists() else {}
+            self.seen.append(on_disk.get("containers", {}).get(args[1], {}).get("attempts"))
+            if raise_timeout:
+                raise self.sp.TimeoutExpired(["docker", *args], 120)
+            return self.sp.CompletedProcess(args, 0, "", "")
+        return docker
+
+    def test_attempt_is_saved_before_the_restart(self):
+        nw.docker = self.fake_docker(False)
+        self.assertEqual(nw.run(), 0)
+        self.assertEqual(self.seen, [1])
+
+    def test_restart_timeout_is_caught_and_the_attempt_counts(self):
+        nw.docker = self.fake_docker(True)
+        self.assertEqual(nw.run(), 0)
+        state = self.json.loads(nw.STATE_FILE.read_text())
+        self.assertEqual(state["containers"]["qbittorrent_mouse"]["attempts"], 1)
+
+
 class AlertTest(unittest.TestCase):
     def test_message_is_telegram_html_with_escaped_text(self):
         msg = nw.alert_message(["sabnzbd <x>: still outside"])

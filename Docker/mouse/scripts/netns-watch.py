@@ -151,18 +151,26 @@ def run():
     actions, alerts, state = decide(g, deps, state, time.time())
     if state["gluetun"] == "down" and not was_down:
         log(f"{GLUETUN} not healthy or its netns unreadable: no restarts until it is")
+    state["checked"] = time.time()
+    save_state(state)
     for name in actions:
         d = next(b for b in deps if b.name == name)
         log(f"{name}: netns {d.netns} != {GLUETUN} {g.netns}, restarting (attempt {state['containers'][name]['attempts']}/{MAX_ATTEMPTS})")
-        r = docker("restart", name, check=False)
+        try:
+            r = docker("restart", name, check=False)
+        except subprocess.TimeoutExpired:
+            log(f"{name}: docker restart timed out")
+            continue
         if r.returncode:
             log(f"{name}: docker restart failed: {r.stderr.strip()}")
     if actions:
-        g2, deps2 = parse(inspect_stack(), netns_inode)
+        try:
+            g2, deps2 = parse(inspect_stack(), netns_inode)
+        except subprocess.TimeoutExpired:
+            g2, deps2 = None, []
+            log("docker inspect timed out after the restarts")
         for d in (b for b in deps2 if b.name in actions):
             log(f"{d.name}: {'back in' if g2 and d.netns == g2.netns else 'still outside'} {GLUETUN}'s netns")
-    state["checked"] = time.time()
-    save_state(state)
     if alerts:
         for line in alerts:
             log("ALERT " + line)
