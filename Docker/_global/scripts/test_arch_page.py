@@ -147,6 +147,30 @@ class Render(unittest.TestCase):
         self.assertNotIn("hunter2", page)
 
 
+class Drift(unittest.TestCase):
+    D = {"fastpi": {"updated": 1795617199, "items": [{"kind": "compose", "path": "mouse/sabnzbd", "detail": "config-hash: repo compose changed"}, {"kind": "unit", "path": "/etc/x|y.service", "detail": "no repo source"}]},
+         "beefy": {"updated": 1795617244, "items": []}}
+
+    def test_section_lists_items_per_host(self):
+        s = ap.drift_section(self.D, {"beefy": False})
+        self.assertIn("## Drift (repo vs live)", s)
+        self.assertIn("| fastpi | compose | mouse/sabnzbd | config-hash: repo compose changed |", s)
+        self.assertIn("/etc/x\\|y.service", s)
+        self.assertIn("fastpi 2, beefy 0", s)
+
+    def test_section_without_data_and_cached_beefy(self):
+        self.assertIn("No data", ap.drift_section({}, {}))
+        self.assertIn("(cached, host asleep)", ap.drift_section(self.D, {"beefy": True}))
+
+    def test_page_has_the_section(self):
+        page = ap.render(dt.datetime(2026, 11, 25, 9, 0), {"intro": "Live.", "cells": []}, None, None, self.D)
+        self.assertIn("## Drift (repo vs live)", page)
+
+    def test_remote_split_and_cache_carry_drift(self):
+        out = "#UPTIME\nup\n#INSPECT\n[]\n#CONF\n#BACKUP\n#DUMP\n#DRIFT\n" + json.dumps(self.D["beefy"]) + "\n"
+        self.assertEqual(json.loads(ap.split_remote(out)["DRIFT"]), self.D["beefy"])
+
+
 class Tower(unittest.TestCase):
     def test_stack(self):
         sh = 'NET="nc"\nHTTP_PORT="8080"\nNC_IMAGE="nextcloud:stable"\ndocker run -d \\\n  --name nc \\\n  --network "$NET" \\\n  -p "${HTTP_PORT}:80" \\\n  -v "/a:/b" \\\n  -e PASS="$SECRET" \\\n  "$NC_IMAGE" >/dev/null\n'

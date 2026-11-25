@@ -19,6 +19,7 @@ REPO = Path(__file__).resolve().parents[3]
 DOCKER = REPO / "Docker"
 OUT = Path("/home/pi/notes/docs/homelab-architecture.md")
 CACHE = Path("/home/pi/.cache/arch-page/beefy.json")
+DRIFT_JSON = Path("/home/pi/.local/state/repo-drift/drift.json")
 TOWER_STACKS = Path("/home/pi/backups/tower-flash/latest/scripts/stacks")
 TOWER_STATUS = "http://192.168.1.2:9002/status"
 HOST_IPS = {"192.168.1.2": "fastpi", "192.168.1.102": "beefy", "192.168.1.101": "tower"}
@@ -285,8 +286,23 @@ def host_section(title, intro, rows_cells):
     return f"## {title}\n\n{intro} {len(rows_cells)} containers, {flagged} flagged.\n\n" + md_table(HEAD, rows_cells) + "\n"
 
 
-def render(now, fastpi, beefy, tower):
-    """fastpi/beefy/tower: dict(intro, cells) or None."""
+def drift_section(drift, cached):
+    """drift: {host: {updated, items}} from repo_drift.py; cached: {host: True} when that host's data is the cached copy."""
+    kinds = ("compose", "unit", "script", "etc", "worktree")
+    hosts = [h for h in ("fastpi", "beefy") if h in drift]
+    head = "## Drift (repo vs live)\n\n"
+    if not hosts:
+        return head + "No data yet: the nightly `repo-drift` run has not written its list.\n"
+    rows = [[h, i["kind"], i["path"], i["detail"]] for h in hosts for i in sorted(drift[h]["items"], key=lambda i: (kinds.index(i["kind"]), i["path"]))]
+    when = ", ".join(f"{h} {dt.datetime.fromtimestamp(drift[h]['updated']):%Y-%m-%d %H:%M}" + (" (cached, host asleep)" if cached.get(h) else "") for h in hosts)
+    intro = (f"Things that differ between the repo and the running host, by `Docker/_global/scripts/repo_drift.py` (timer `repo-drift`; metric `drift_items{{host,kind}}`, alert `RepoDriftPersists`). "
+             f"Last run: {when}. Items: " + ", ".join(f"{h} {len(drift[h]['items'])}" for h in hosts) + ". "
+             "Kinds: `compose` running container vs `docker compose config` (image, env keys, mounts, labels, config-hash), `unit` systemd units and drop-ins, `script` /usr/local, `etc` /etc drop-ins and sysctl/journald values, `worktree` uncommitted repo files.\n\n")
+    return head + intro + (md_table(["Host", "Kind", "Path", "What"], rows) if rows else "No drift.") + "\n"
+
+
+def render(now, fastpi, beefy, tower, drift=None, drift_cached=None):
+    """fastpi/beefy/tower: dict(intro, cells) or None. drift: {host: {updated, items}}."""
     parts = [f"# Homelab architecture\n\nGenerated {now:%Y-%m-%d %H:%M} by `Docker/_global/scripts/arch_page.py` (timer `arch-page`), do not edit. "
              + "; ".join(f"{k} {len(v['cells'])} containers" for k, v in (("fastpi", fastpi), ("beefy", beefy), ("tower", tower)) if v) + ".\n"
              "\nFlags (facts from docker inspect, not a policy check): `!ip` a network IP is not pinned (`(dyn)`), `!hc` running without a healthcheck. "
@@ -299,6 +315,8 @@ def render(now, fastpi, beefy, tower):
             parts.append(host_section(title, h["intro"], h["cells"]))
         else:
             parts.append(f"## {title}\n\n{h['intro'] if h else 'No data.'}\n")
+    if drift is not None:
+        parts.append(drift_section(drift, drift_cached or {}))
     return "\n".join(parts)
 
 
@@ -353,12 +371,27 @@ def docker_inspect():
 
 BEEFY_REMOTE = ("echo '#UPTIME'; uptime -p; echo '#INSPECT'; sudo -n docker inspect $(sudo -n docker ps -aq); echo '#CONF'; "
                 "cat ~/Projects/Docker/_global/auto-update.conf; echo '#BACKUP'; "
-                "f=~/Projects/Server/10-Backup/beefy-backup.sh; [ -f $f ] && bash $f --list 2>/dev/null; echo '#DUMP'; [ -f $f ] && grep -h 'docker exec .*pg_dump' $f; true")
+                "f=~/Projects/Server/10-Backup/beefy-backup.sh; [ -f $f ] && bash $f --list 2>/dev/null; echo '#DUMP'; [ -f $f ] && grep -h 'docker exec .*pg_dump' $f; echo '#DRIFT'; cat ~/.local/state/repo-drift/drift.json 2>/dev/null; true")
 
 
 def split_remote(text):
-    parts = re.split(r"^#(UPTIME|INSPECT|CONF|BACKUP|DUMP)\n", text, flags=re.M)
+    parts = re.split(r"^#(UPTIME|INSPECT|CONF|BACKUP|DUMP|DRIFT)\n", text, flags=re.M)
     return {parts[i]: parts[i + 1] for i in range(1, len(parts) - 1, 2)}
+
+
+def _drift_json(text):
+    try:
+        d = json.loads(text)
+        return d if isinstance(d.get("items"), list) and isinstance(d.get("updated"), int) else None
+    except (ValueError, AttributeError):
+        return None
+
+
+def _cached(cache):
+    try:
+        return json.loads(Path(cache).read_text())
+    except (OSError, ValueError):
+        return None
 
 
 def collect_beefy(now, runner=run, cache=CACHE):
@@ -370,7 +403,8 @@ def collect_beefy(now, runner=run, cache=CACHE):
             rows = parse_inspect(json.loads(sec["INSPECT"]))
             bk = parse_backup_list(sec.get("BACKUP", ""))
             data = {"as_of": now.isoformat(timespec="minutes"), "uptime": sec.get("UPTIME", "").strip(), "rows": rows,
-                    "tiers": parse_update_conf(sec.get("CONF", "")), "dumped": sorted(dumped_containers(sec.get("DUMP", ""))), "bk": bk if bk["paths"] else None}
+                    "tiers": parse_update_conf(sec.get("CONF", "")), "dumped": sorted(dumped_containers(sec.get("DUMP", ""))), "bk": bk if bk["paths"] else None,
+                    "drift": _drift_json(sec.get("DRIFT", "")) or (_cached(cache) or {}).get("drift")}
             cache.parent.mkdir(parents=True, exist_ok=True)
             os.chmod(cache.parent, 0o700)
             atomic_write(cache, json.dumps(data))
@@ -443,7 +477,13 @@ def main(argv=None):
     else:
         tower = {"intro": f"Waker status `{state}`; no flash backup found.", "cells": []}
 
-    page = render(now, fastpi, beefy, tower)
+    drift = {}
+    local = _drift_json(DRIFT_JSON.read_text()) if DRIFT_JSON.is_file() else None
+    if local:
+        drift["fastpi"] = local
+    if bdata and bdata.get("drift"):
+        drift["beefy"] = bdata["drift"]
+    page = render(now, fastpi, beefy, tower, drift, {"beefy": not fresh})
     if a.print:
         sys.stdout.write(page)
     else:
