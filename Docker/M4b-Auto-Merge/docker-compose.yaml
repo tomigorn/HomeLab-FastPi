@@ -66,6 +66,12 @@ services:
     pids_limit: 256
     # No ports: this serves nothing. Progress is visible on the existing
     # M4b-Merge-Dashboard, which reads the same runs/ directory.
+    healthcheck:
+      test: ["CMD-SHELL", "ls \"$$LIB_DIR\" >/dev/null && test -r \"$$MERGE_DIR/orchestrate.py\" && test -w \"$$MERGE_DIR/runs\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       default:
         ipv4_address: 192.168.64.2
