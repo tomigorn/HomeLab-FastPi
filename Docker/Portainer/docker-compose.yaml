@@ -62,6 +62,12 @@ services:
       SESSION: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "-T", "5", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       portainer_socket:
         ipv4_address: 192.168.80.3
@@ -98,6 +104,12 @@ services:
       TCP:socket-proxy:2375
     volumes:
       - portainer_sock:/sock
+    healthcheck:
+      test: ["CMD-SHELL", 'printf "GET /_ping HTTP/1.1\r\nHost: docker\r\nConnection: close\r\n\r\n" | socat -t5 - UNIX-CONNECT:/sock/docker.sock,shut-none | grep -qx OK']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       portainer_socket:
         ipv4_address: 192.168.80.2
