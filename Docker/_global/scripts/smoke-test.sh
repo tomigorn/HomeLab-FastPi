@@ -20,6 +20,9 @@ http() { curl -s -m 10 -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 smoke-test
 pinned() { # pinned <host> <docker-inspect-json>  -> every network of every container has a fixed IPv4
   local u; u=$(bash "$(dirname "$0")/unpinned.sh" <<<"$2" 2>&1 | tail -1)
   if [[ -z $u ]]; then ok "$1 containers pinned" "all"; else bad "$1 containers pinned" "unpinned: $u"; fi; }
+policy() { # policy <host> <policy_check.py output>  -> no un-excepted violation, no stale exception
+  local s; s=$(grep '^policy:' <<<"$2"); s=${s:-no result: $(tail -1 <<<"$2")}
+  [[ $s =~ ^policy:\ 0\ violations,\ [0-9]+\ excepted,\ 0\ stale ]] && ok "$1 container policy" "$s" || bad "$1 container policy" "$s (details: $3)"; }
 HOME_IP=$(curl -s -m 8 https://ifconfig.me/ip)
 
 echo "== Edge: Traefik, Cloudflare tunnel, CrowdSec"
@@ -110,6 +113,7 @@ check "container + reboot rules loaded" '^ok$' "$(curl -s -m 5 http://127.0.0.1:
 
 echo "== Apps on fastpi"
 pinned fastpi "$(docker inspect $(docker ps -q) 2>/dev/null)"
+policy fastpi "$(python3 "$(dirname "$0")/policy_check.py" 2>&1)" "python3 Docker/_global/scripts/policy_check.py"
 running adguardhome portainer audiobookshelf prowlarr_mouse prowlarr-gate audiobookrequest audiobook-importer books-proxy homeassistant clamav duckdns noip Cup homelab-dashboard claude-mockups server-specs wiki notes backdrop-carousel stonks m4b-merge-dashboard m4b-auto-merge loyalty-sync socket-proxy-ro beefy-waker tower-waker tech-radar navidrome feishin
 check "prowlarr MAM rules, gate, seeding" '^OK MAM rules, gate and seed-forever hold$' "$(sudo -n python3 /home/pi/Projects/Docker/mouse/scripts/prowlarr-setup.py --check 2>&1 | tail -1)"
 check "books public -> sso"         'sso\.holy-grail\.ch/application/o/authorize/' "$(curl -s -m 10 -o /dev/null -w '%{redirect_url}' -A 'Mozilla/5.0 smoke-test' --resolve books.holy-grail.ch:443:$(dig +short @1.1.1.1 books.holy-grail.ch | head -1) https://books.holy-grail.ch/ | cut -c1-60)"
@@ -219,6 +223,7 @@ if timeout 2 bash -c '</dev/tcp/192.168.1.102/22' 2>/dev/null; then
   check "floppy version"           'floppy:26\.10\.29 ' "$(grep '^floppy ' <<<"$r")"
   check "floppy snapshot < 2 days" '^floppybackup=yes$' "$(grep floppybackup= <<<"$r")"
   pinned beefy "$(timeout 60 ssh -o BatchMode=yes beefy 'sudo docker inspect $(sudo docker ps -q)' 2>/dev/null)"
+  policy beefy "$(timeout 60 ssh -o BatchMode=yes beefy 'python3 ~/Projects/Docker/_global/scripts/policy_check.py' 2>&1)" "ssh beefy-direct python3 Projects/Docker/_global/scripts/policy_check.py"
 else skip "beefy" "asleep - not woken"; fi
 
 echo "== tower (only if awake)"
