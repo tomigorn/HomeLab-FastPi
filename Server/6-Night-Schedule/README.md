@@ -17,7 +17,7 @@ All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), time
 | `beefy-backup` (beefy) | new | 04:26 on beefy: backup to fastpi's append-only server, inside the window (`HomeLab-BeefyServer`, `Server/10-Backup.md`) |
 | `beefy-night-downloads-wake` | new | 22:05, wakes beefy only when downloads wait for the night (`Docker/Beefy-Waker/README.md` "Night downloads wake") |
 | `night-search` (beefy) | new | 04:17 on beefy: episodes aired and films released recently without a file, plus 5+5 cutoff-unmet titles, max 200 Treasure Maps searches (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Upgrades") |
-| `subtitle-check` (beefy) | new | 04:21 on beefy: subtitles changed since the last run (SSD only) checked for broken encoding, unambiguous ones repaired; findings reach the 06:30 digest through the queue-watchdog file (`beefy_watchdog.prom`, kinds `subtitle_repaired`, `subtitle_suspect`) (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Subtitle check") |
+| `subtitle-check` (beefy) | new | 04:21 on beefy: subtitles changed since the last run (SSD only) checked for broken encoding, unambiguous ones repaired; findings reach the 19:00 digest through the queue-watchdog file (`beefy_watchdog.prom`, kinds `subtitle_repaired`, `subtitle_suspect`) (`HomeLab-BeefyServer`, `Docker/Movie-Downloads/README.md` "Subtitle check") |
 
 All fixed-time jobs on fastpi, in night order (`systemctl list-timers` is the truth):
 
