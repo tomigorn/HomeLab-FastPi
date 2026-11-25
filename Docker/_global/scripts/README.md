@@ -151,6 +151,7 @@ When one project pulls a newer image under a tag others use too (`caddy:alpine`,
 | | |
 |---|---|
 | Output | fastpi: `/var/lib/node-exporter/textfile/repo_drift.prom` (`drift_items{host,kind}`, `drift_collect_errors{host,kind}`, `drift_last_run_timestamp_seconds{host}`) and `~/.local/state/repo-drift/drift.json` (the item list, read by `arch_page.py`: section "Drift (repo vs live)"). beefy: the same under `~/.local/state/repo-drift/`, copied by `beefy-idle-pull` to `repo_drift_beefy.prom` (kept while beefy sleeps) |
+| No HELP/TYPE | both hosts pass `--no-help`: fastpi's and beefy's files carry the same families and node-exporter fails the whole scrape when only one has HELP/TYPE |
 | Never in the output | env values (keys only), file contents |
 | A kind that cannot be collected | `drift_collect_errors=1`, its items stay the previous night's |
 | When | fastpi `repo-drift.timer` 04:28 Europe/Zurich; beefy 04:19 (inside its window, `Server/9-Night-Schedule.md`) |

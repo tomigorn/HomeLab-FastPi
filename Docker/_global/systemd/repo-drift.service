@@ -8,7 +8,7 @@ Type=oneshot
 User=pi
 Group=pi
 Environment=HOME=/home/pi
-ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/_global/scripts/repo_drift.py --host fastpi --prom /var/lib/node-exporter/textfile/repo_drift.prom --json /home/pi/.local/state/repo-drift/drift.json
+ExecStart=/usr/bin/python3 -I /home/pi/Projects/Docker/_global/scripts/repo_drift.py --host fastpi --no-help --prom /var/lib/node-exporter/textfile/repo_drift.prom --json /home/pi/.local/state/repo-drift/drift.json
 TimeoutStartSec=600
 Nice=10
 NoNewPrivileges=true
