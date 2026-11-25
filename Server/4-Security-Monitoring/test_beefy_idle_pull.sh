@@ -18,6 +18,7 @@ case "${*: -1}" in
   "head -c 262145 /home/buntu/.local/state/movie-downloads/media-metrics.prom") cat "$FAKE_MM" ;;
   "head -c 262145 /home/buntu/.local/state/jellyfin-popular.prom") cat "$FAKE_JP" ;;
   "head -c 262145 /home/buntu/.local/state/jellyfin-playback/playback.prom") cat "$FAKE_PB" ;;
+  "head -c 262145 /home/buntu/.local/state/job-heartbeat/job_heartbeat.prom") cat "$FAKE_HB" ;;
   *) exit 1 ;;
 esac
 STUB
@@ -30,7 +31,8 @@ printf '%s\n' 'smart_standby{host="beefy",disk="hdd-cold"} 1' 'smart_exporter_la
 printf '%s\n' 'beefy_requests{state="total"} 4' 'indexer_used{host="beefy",indexer="Some \"Name\"",kind="searches"} 3' 'beefy_retention_leaving_7d 0' 'beefy_retention_bytes{state="temporary"} 7' 'beefy_library_bytes{kind="movie",quality="4k_hdr",tier="ssd"} 9' 'beefy_media_metrics_updated_timestamp_seconds 500' > "$T/mm"
 printf '%s\n' 'jf_popular_last_run_timestamp_seconds 600' > "$T/jp"
 printf '%s\n' 'jellyfin_playback_active{method="DirectPlay"} 1' 'jellyfin_playback_incidents_total{kind="stall",client="TV"} 2' 'jellyfin_playback_plays_24h{method="video"} 1' 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Some \"Show\" S01E02",method="video",reasons="ContainerNotSupported,VideoCodecTagNotSupported",hdr_to_sdr="yes",started="1700000000"} 1' 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' > "$T/pb"
-export PB_DEST="$T/pb.prom" FAKE_PB="$T/pb"
+printf '%s\n' 'systemd_job_last_result{host="beefy",scope="user",unit="retention.service"} 0' 'systemd_unit_failed{host="beefy",scope="system",unit="x.service"} 1' 'systemd_job_host_boot_time_seconds{host="beefy"} 1700000000' 'systemd_job_updated_timestamp_seconds{host="beefy"} 800' > "$T/hb"
+export PB_DEST="$T/pb.prom" FAKE_PB="$T/pb" HB_DEST="$T/hb.prom" FAKE_HB="$T/hb"
 export FAKE_ID="$T/id" SM_DEST="$T/sm.prom" MM_DEST="$T/mm.prom" JP_DEST="$T/jp.prom" FAKE_SM="$T/sm" FAKE_MM="$T/mm" FAKE_JP="$T/jp"
 export PATH="$T:$PATH" DEST="$T/idle.prom" WD_DEST="$T/wd.prom" FAKE_WD="$T/wd" ST_DEST="$T/st.prom" MV_DEST="$T/mv.prom" FAKE_ST="$T/st" FAKE_MV="$T/mv"
 S="$HERE/beefy-idle-pull.sh"
@@ -50,7 +52,10 @@ grep -q 'jf_popular_last_run_timestamp_seconds 600' "$T/jp.prom" && ok "popular 
 grep -q 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' "$T/pb.prom" && ok "playback metrics copied" || bad "playback metrics copied"
 grep -q '^jellyfin_playback_plays_24h{method="video"} 1' "$T/pb.prom" && grep -q '^jellyfin_playback_converted_info{user="jane"' "$T/pb.prom" && ok "playback plays and conversions copied" || bad "playback plays and conversions copied"
 
+grep -q '^systemd_unit_failed{host="beefy",scope="system",unit="x.service"} 1' "$T/hb.prom" && grep -q 'systemd_job_updated_timestamp_seconds{host="beefy"} 800' "$T/hb.prom" && ok "job heartbeat copied" || bad "job heartbeat copied"
+
 FAKE_DOWN=1 "$S"
+[[ ! -e $T/hb.prom ]] && ok "job heartbeat removed while beefy is down (a kept copy would read as stale)" || bad "job heartbeat removed while beefy is down"
 [[ ! -e $T/idle.prom ]] && ok "idle metrics removed while beefy is down" || bad "idle metrics removed while beefy is down"
 grep -q 'timestamp_seconds 100' "$T/wd.prom" && ok "watchdog digest kept while beefy is down" || bad "watchdog digest kept while beefy is down"
 
@@ -73,6 +78,7 @@ good() { printf '%s\n' 'smart_standby{host="beefy",disk="hdd-cold"} 1' 'smart_ex
          printf '%s\n' 'beefy_mover_last_run_success 1' 'beefy_mover_last_run_timestamp_seconds 300' > "$T/mv"
          printf '%s\n' 'jellyfin_playback_watch_last_poll_timestamp_seconds 700' > "$T/pb"
          printf '%s\n' 'jf_popular_last_run_timestamp_seconds 600' > "$T/jp"
+         printf '%s\n' 'systemd_job_last_result{host="beefy",scope="user",unit="retention.service"} 0' 'systemd_job_updated_timestamp_seconds{host="beefy"} 800' > "$T/hb"
          printf '%s\n' 'beefy_idle_busy{reason="ssh"} 1' > "$T/id"; }
 reject() {  # reject <fixture> <dest> <name> <lines...>
     local fx=$1 dst=$2 name=$3; shift 3
@@ -92,6 +98,10 @@ reject "$T/pb" "$T/pb.prom" "playback: host=fastpi rejected" 'jellyfin_playback_
 reject "$T/mv" "$T/mv.prom" "mover: security family rejected" 'security_rootkit_warnings{host="fastpi",tool="rkhunter"} 0'
 reject "$T/mv" "$T/mv.prom" "mover: TYPE of a foreign family rejected" '# TYPE beefy_backup_snapshots gauge'
 reject "$T/mv" "$T/mv.prom" "mover: host label other than beefy rejected" 'beefy_mover_moved_titles{host="fastpi"} 1'
+reject "$T/hb" "$T/hb.prom" "heartbeat: host=fastpi rejected" 'systemd_job_last_result{host="fastpi",scope="user",unit="a.service"} 0'
+reject "$T/hb" "$T/hb.prom" "heartbeat: series without host rejected" 'systemd_unit_failed{scope="user",unit="a.service"} 1'
+reject "$T/hb" "$T/hb.prom" "heartbeat: foreign family rejected" 'node_cpu_seconds_total{host="beefy"} 1'
+reject "$T/hb" "$T/hb.prom" "heartbeat: TYPE for a shared family rejected" '# TYPE systemd_job_last_result gauge'
 reject "$T/jp" "$T/jp.prom" "popular: malformed sample rejected" 'jf_popular_items{list="a"} 1 2 3'
 reject "$T/jp" "$T/jp.prom" "popular: unterminated label rejected" 'jf_popular_items{list="a} 1'
 good; "$S"; head -c 300000 /dev/zero | tr '\0' '#' >> "$T/jp"; cp "$T/jp.prom" "$T/jp.before"; "$S"
