@@ -19,6 +19,8 @@ pub struct App {
     pub abr_key: String,
     pub jobs_lock: Mutex<()>,
     pub quota_lock: Mutex<()>,
+    pub grab_lock: Mutex<()>,
+    grabs: Mutex<HashMap<String, (String, Instant)>>,
     prefs_cache: Mutex<HashMap<String, (Instant, Prefs)>>,
     abs_cache: Mutex<AbsCache>,
 }
@@ -35,6 +37,7 @@ struct AbsCache {
 const ABS_TTL: Duration = Duration::from_secs(300);
 const USERS_TTL: Duration = Duration::from_secs(60);
 const PREFS_TTL: Duration = Duration::from_secs(600);
+const GRAB_TTL: Duration = Duration::from_secs(3600);
 
 impl App {
     pub fn new(cfg: Arc<Config>, qbit_password: String, abr_key: String) -> App {
@@ -47,9 +50,22 @@ impl App {
             abr_key,
             jobs_lock: Mutex::new(()),
             quota_lock: Mutex::new(()),
+            grab_lock: Mutex::new(()),
+            grabs: Mutex::new(HashMap::new()),
             prefs_cache: Mutex::new(HashMap::new()),
             abs_cache: Mutex::new(AbsCache::default()),
         }
+    }
+
+    /// The info hash a grab of `guid` added to qBittorrent, for ABR's .torrent fetch right after the grab.
+    pub async fn remember_grab(&self, guid: String, hash: String) {
+        let mut grabs = self.grabs.lock().await;
+        grabs.retain(|_, (_, at)| at.elapsed() < GRAB_TTL);
+        grabs.insert(guid, (hash, Instant::now()));
+    }
+
+    pub async fn grab_hash(&self, guid: &str) -> Option<String> {
+        self.grabs.lock().await.get(guid).filter(|(_, at)| at.elapsed() < GRAB_TTL).map(|(h, _)| h.clone())
     }
 
     pub async fn abs_books(&self) -> Result<(Vec<Value>, ItemsByLib)> {

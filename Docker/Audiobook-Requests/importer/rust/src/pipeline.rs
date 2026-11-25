@@ -307,16 +307,31 @@ pub async fn snapshot_quota(app: &App) -> Result<(Vec<Value>, Vec<Value>, Map<St
     Ok((wishlist, manual, ledger))
 }
 
+/// The poll's result written over the jobs file as it is now: the webhook may have queued new jobs meanwhile.
+pub fn merge_jobs(current: &mut Map<String, Value>, before: &Map<String, Value>, after: &Map<String, Value>) {
+    for key in before.keys().filter(|k| !after.contains_key(*k)) {
+        current.remove(key);
+    }
+    for (key, job) in after {
+        if before.get(key) != Some(job) {
+            current.insert(key.clone(), job.clone());
+        }
+    }
+}
+
 pub async fn poll_once(app: &App) {
     {
-        let _guard = app.jobs_lock.lock().await;
-        let mut jobs = match load(&app.cfg.state) {
-            Ok(j) => j,
-            Err(e) => {
-                log::error!("jobs: {e}");
-                return;
+        let snapshot = {
+            let _guard = app.jobs_lock.lock().await;
+            match load(&app.cfg.state) {
+                Ok(j) => j,
+                Err(e) => {
+                    log::error!("jobs: {e}");
+                    return;
+                }
             }
         };
+        let mut jobs = snapshot.clone();
         let keys: Vec<String> = jobs.keys().cloned().collect();
         for key in keys {
             let Some(job) = jobs.get(&key).cloned() else { continue };
@@ -356,8 +371,18 @@ pub async fn poll_once(app: &App) {
                 log::error!("{}: {e}", str_of(job.get("hash")).unwrap_or("unbound"));
             }
         }
-        if let Err(e) = save(&app.cfg.state, &jobs) {
-            log::error!("save jobs: {e}");
+        let _guard = app.jobs_lock.lock().await;
+        let merged = load(&app.cfg.state).map(|mut current| {
+            merge_jobs(&mut current, &snapshot, &jobs);
+            current
+        });
+        match merged {
+            Ok(current) => {
+                if let Err(e) = save(&app.cfg.state, &current) {
+                    log::error!("save jobs: {e}");
+                }
+            }
+            Err(e) => log::error!("jobs: {e}"),
         }
     }
     if let Err(e) = snapshot_quota(app).await {
@@ -377,6 +402,16 @@ mod tests {
     use super::*;
 
     const HASH: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    #[test]
+    fn merge_keeps_jobs_queued_during_the_poll() {
+        let m = |v: Value| v.as_object().cloned().unwrap();
+        let before = m(json!({"unbound-1": {"state": "unbound"}, "h1": {"state": "pending"}, "h2": {"state": "pending"}}));
+        let after = m(json!({"h9": {"state": "pending", "title": "bound"}, "h1": {"state": "done"}, "h2": {"state": "pending"}}));
+        let mut current = m(json!({"unbound-1": {"state": "unbound"}, "h1": {"state": "pending"}, "h2": {"state": "pending"}, "new": {"state": "pending"}}));
+        merge_jobs(&mut current, &before, &after);
+        assert_eq!(Value::Object(current), json!({"h9": {"state": "pending", "title": "bound"}, "h1": {"state": "done"}, "h2": {"state": "pending"}, "new": {"state": "pending"}}));
+    }
 
     #[test]
     fn webhook_parsing() {

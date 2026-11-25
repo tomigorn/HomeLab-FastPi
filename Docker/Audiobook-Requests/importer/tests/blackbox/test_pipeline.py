@@ -160,6 +160,30 @@ class WrongCategoryAndIncomplete(ServiceTest):
         self.svc.wait_state(lambda k, j: k == "2" * 40, "done")
 
 
+class WebhookDuringSlowPoll(ServiceTest):
+    @classmethod
+    def prepare(cls, svc):
+        (svc.downloads / "slow.m4b").write_bytes(b"s")
+        svc.qbit.torrents = [torrent(svc, "4" * 40, svc.downloads / "slow.m4b", progress=0.5)]
+        svc.write_jobs({"4" * 40: dict(WEBHOOK, hash="4" * 40, state="pending", added=time.time())})
+
+    def test_webhook_and_counts_do_not_wait_for_qbittorrent_and_nothing_is_lost(self):
+        self.svc.qbit.delay["/api/v2/torrents/info"] = 4
+        try:
+            time.sleep(1.5)
+            t0 = time.monotonic()
+            status = self.svc.request("POST", "/abr", peer="abr", body=dict(WEBHOOK, hash="5" * 40, title="Queued Meanwhile"))[0]
+            took = time.monotonic() - t0
+        finally:
+            self.svc.qbit.delay.clear()
+        self.assertEqual(status, 204)
+        self.assertLess(took, 2.0, "the webhook waited for the poll's qBittorrent call")
+        time.sleep(6)
+        jobs = self.svc.jobs()
+        self.assertEqual(jobs["5" * 40]["title"], "Queued Meanwhile")
+        self.assertEqual(jobs["4" * 40]["state"], "pending")
+
+
 class MissingTorrent(ServiceTest):
     ENV = {"GIVE_UP_DAYS": "0"}
 

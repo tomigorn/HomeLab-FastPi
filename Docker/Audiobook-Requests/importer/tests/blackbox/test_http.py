@@ -5,6 +5,7 @@ import os
 import shlex
 import subprocess
 import time
+import urllib.parse
 import unittest
 from zoneinfo import ZoneInfo
 
@@ -594,14 +595,45 @@ class Grab(ServiceTest):
 
 
 class TorrentFile(ServiceTest):
-    def test_the_newest_fresh_abr_torrent_is_exported(self):
-        now = int(time.time())
-        self.svc.qbit.torrents = [{"hash": "1" * 40, "category": "abr", "added_on": now - 100, "progress": 0, "size": 1, "content_path": "/x"},
-                                  {"hash": "2" * 40, "category": "abr", "added_on": now - 20, "progress": 0, "size": 1, "content_path": "/x"},
-                                  {"hash": "3" * 40, "category": "other", "added_on": now - 1, "progress": 0, "size": 1, "content_path": "/x"}]
-        status, headers, body = self.svc.request("GET", "/prowlarr/torrent?guid=x", peer="abr")
-        self.assertEqual((status, body, headers.get("content-type")), (200, self.svc.qbit.export_bytes, "application/x-bittorrent"))
-        self.assertEqual(self.svc.qbit.named("GET", "/api/v2/torrents/export")[0].query, {"hash": ["2" * 40]})
+    HEADERS = {"X-Api-Key": "pk", "Content-Type": "application/json"}
+
+    def setUp(self):
+        super().setUp()
+        self.svc.qbit.torrents = []
+        self.svc.prowlarr.grab_statuses = []
+        self.added = {}
+
+        def on_grab(body):
+            h = self.added.get(body["guid"])
+            if h:
+                self.svc.qbit.torrents.append({"hash": h, "category": "abr", "added_on": int(time.time()), "progress": 0, "size": 1, "content_path": "/x"})
+        self.svc.prowlarr.on_grab = on_grab
+
+    def tearDown(self):
+        self.svc.prowlarr.on_grab = None
+
+    def grab(self, guid):
+        return self.svc.request("POST", "/prowlarr/api/v1/search", peer="abr", body={"guid": guid, "indexerId": 1}, headers=self.HEADERS)[0]
+
+    def export_for(self, guid):
+        self.svc.qbit.reset()
+        status, headers, body = self.svc.request("GET", "/prowlarr/torrent?guid=" + urllib.parse.quote(guid, safe=""), peer="abr")
+        exports = [c.query.get("hash", [""])[0] for c in self.svc.qbit.named("GET", "/api/v2/torrents/export")]
+        return status, body, exports
+
+    def test_each_guid_gets_the_torrent_its_own_grab_added(self):
+        a, b = "https://www.myanonamouse.net/t/1", "https://www.myanonamouse.net/t/2"
+        self.added = {a: "a" * 40, b: "b" * 40}
+        self.assertEqual((self.grab(a), self.grab(b)), (200, 200))
+        self.assertEqual(self.export_for(a), (200, self.svc.qbit.export_bytes, ["a" * 40]))
+        self.assertEqual(self.export_for(b), (200, self.svc.qbit.export_bytes, ["b" * 40]))
+        self.assertEqual(self.export_for("https://www.myanonamouse.net/t/3"), (404, b"not found", []))
+
+    def test_a_grab_that_added_no_new_torrent_is_a_404_not_another_book(self):
+        self.svc.qbit.torrents = [{"hash": "c" * 40, "category": "abr", "added_on": int(time.time()), "progress": 0, "size": 1, "content_path": "/x"}]
+        dup = "https://www.myanonamouse.net/t/9"
+        self.assertEqual(self.grab(dup), 200)
+        self.assertEqual(self.export_for(dup), (404, b"not found", []))
 
     def test_nothing_fresh_is_a_404_never_a_mam_download(self):
         now = int(time.time())

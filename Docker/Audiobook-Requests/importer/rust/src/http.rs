@@ -18,6 +18,8 @@ use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::{Arc, LazyLock};
 
+const GRAB_WAIT_SECS: u32 = 10;
+
 /// Only these neighbours on traefik_mouse may call these paths (keys ending in / are prefixes): the username header is trusted only from books-proxy,
 /// the .torrent carries the MAM passkey, webhook jobs and Prowlarr writes (the wedge setting) only from ABR.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -282,15 +284,55 @@ async fn grab_without_wedge(app: &App, headers: &HeaderMap, data: Option<Bytes>)
     Some(result)
 }
 
-/// The .torrent ABR wants for its hash: the abr torrent qBittorrent got in the last 3 minutes, never a new MAM download.
-async fn torrent_file(app: &App) -> Result<(u16, Bytes, String)> {
-    let t0 = now();
-    let fresh: Vec<Value> = app.qbit.category().await?.into_iter().filter(|t| t0 - t.get("added_on").and_then(Value::as_f64).unwrap_or(0.0) < 180.0).collect();
-    let Some(newest) = fresh.iter().max_by(|a, b| a.get("added_on").and_then(Value::as_f64).unwrap_or(0.0).total_cmp(&b.get("added_on").and_then(Value::as_f64).unwrap_or(0.0))) else {
+/// The .torrent ABR wants for its hash: the torrent the grab of this guid added to qBittorrent, never a new MAM download, never another book's.
+async fn torrent_file(app: &App, query: &str) -> Result<(u16, Bytes, String)> {
+    let guid = first_query(query, "guid").unwrap_or_default();
+    let Some(hash) = app.grab_hash(&guid).await else {
         return Ok((404, Bytes::from_static(b"not found"), "text/plain".to_string()));
     };
-    let hash = str_of(newest.get("hash")).unwrap_or("").to_string();
     Ok((200, app.qbit.export(&hash).await?, "application/x-bittorrent".to_string()))
+}
+
+fn abr_hashes(torrents: &[Value]) -> HashSet<String> {
+    torrents.iter().filter_map(|t| str_of(t.get("hash"))).map(String::from).collect()
+}
+
+/// The one torrent that is new in the abr category since `before`; None when none (a duplicate MAM grab) or several (ambiguous) show up.
+pub fn added_hash(before: &HashSet<String>, after: &HashSet<String>) -> Option<Option<String>> {
+    let new: Vec<&String> = after.difference(before).collect();
+    match new.as_slice() {
+        [] => None,
+        [h] => Some(Some((*h).clone())),
+        _ => Some(None),
+    }
+}
+
+/// A grab (POST search) passes through one at a time, so the torrent it adds to qBittorrent is known by its guid.
+async fn grab(app: &App, target: &str, pass: &HeaderMap, data: Option<Bytes>) -> Result<(u16, Bytes, String)> {
+    let guid = data.as_ref().and_then(|d| serde_json::from_slice::<Value>(d).ok()).and_then(|v| str_of(v.get("guid")).map(String::from));
+    let _one = app.grab_lock.lock().await;
+    let before = app.qbit.category().await.map(|t| abr_hashes(&t));
+    let result = match prowlarr(&app.cfg, &app.http, Method::POST, target, pass.clone(), data.clone()).await {
+        Ok((status, body, ctype)) if status >= 400 => Ok(grab_without_wedge(app, pass, data).await.unwrap_or((status, body, ctype))),
+        other => other,
+    };
+    let (Ok((200..=299, _, _)), Some(guid), Ok(before)) = (&result, guid, before) else { return result };
+    for _ in 0..GRAB_WAIT_SECS {
+        if let Ok(after) = app.qbit.category().await.map(|t| abr_hashes(&t)) {
+            match added_hash(&before, &after) {
+                Some(Some(h)) => {
+                    log::info!("grab {guid}: torrent {}", &h[..8.min(h.len())]);
+                    app.remember_grab(guid, h).await;
+                    return result;
+                }
+                Some(None) => break,
+                None => {}
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    log::warn!("grab {guid}: no single new torrent in qBittorrent (duplicate or ambiguous), its .torrent answers 404");
+    result
 }
 
 /// Pass-through to Prowlarr; search results get the release policy (ranking.rs).
@@ -299,7 +341,9 @@ async fn forward(app: &App, method: Method, path_and_query: &str, headers: &Head
     let (path, query) = split_target(target);
     let pass = pass_headers(headers);
     let result = if method == Method::GET && path == "/torrent" {
-        torrent_file(app).await
+        torrent_file(app, query).await
+    } else if method == Method::POST && path == "/api/v1/search" {
+        grab(app, target, &pass, data).await
     } else {
         match prowlarr(&app.cfg, &app.http, method.clone(), target, pass.clone(), data.clone()).await {
             Ok((status, body, ctype)) if method == Method::POST && path == "/api/v1/search" && status >= 400 => {
@@ -618,6 +662,14 @@ mod tests {
             assert_eq!(wanted_peer(p, &Method::POST), Some(Peer::Abr), "{p}");
         }
         assert_eq!(wanted_peer("/abs/api/libraries/x/scan", &Method::POST), None);
+    }
+
+    #[test]
+    fn grab_finds_only_a_single_new_torrent() {
+        let set = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<HashSet<String>>();
+        assert_eq!(added_hash(&set(&["a"]), &set(&["a", "b"])), Some(Some("b".to_string())));
+        assert_eq!(added_hash(&set(&["a"]), &set(&["a"])), None);
+        assert_eq!(added_hash(&set(&[]), &set(&["b", "c"])), Some(None));
     }
 
     #[test]

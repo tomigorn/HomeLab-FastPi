@@ -1,6 +1,7 @@
 """Fakes for everything the importer talks to: qBittorrent, Audiobookshelf, AudioBookRequest, Prowlarr, Audible. Nothing here reaches the network."""
 import json
 import threading
+import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -26,6 +27,7 @@ class _Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else b""
         call = Call(self.command, self.path, {k.lower(): v for k, v in self.headers.items()}, body)
+        time.sleep(self.server.app.delay.get(call.route, 0))
         with self.server.lock:
             self.server.app.calls.append(call)
             status, ctype, out, extra = self.server.app.respond(call)
@@ -50,6 +52,7 @@ class Mock:
 
     def __init__(self):
         self.calls = []
+        self.delay = {}            # route -> seconds before answering, outside the lock
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self.server.app = self
         self.server.lock = threading.RLock()
@@ -212,6 +215,7 @@ class Prowlarr(Mock):
         self.results = lambda query: SAVAGE if query.endswith("Karen Savage") else SENSE
         self.search_status = 200
         self.grab_statuses = []        # popped per grab; empty = 200
+        self.on_grab = None            # called with the grab body after a successful grab (adds the torrent to the qBittorrent fake)
         self.indexers = [{"id": 1, "name": "MyAnonamouse", "implementation": "MyAnonamouse",
                           "fields": [{"name": "useFreeleechWedge", "value": True}, {"name": "mamId", "value": "secret"}]}]
 
@@ -224,6 +228,8 @@ class Prowlarr(Mock):
             status = self.grab_statuses.pop(0) if self.grab_statuses else 200
             if status != 200:
                 return status, "application/json", {"message": "grab failed"}, None
+            if self.on_grab:
+                self.on_grab(call.json())
             return 200, "application/json", {"grabbed": call.json()}, None
         if call.route == "/api/v1/indexer" and call.method == "GET":
             return 200, "application/json", self.indexers, None
