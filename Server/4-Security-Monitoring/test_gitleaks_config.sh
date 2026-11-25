@@ -4,6 +4,7 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 CONFIG=${CONFIG:-$HERE/../../.gitleaks.toml}
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
 T=$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/gitleaks-config-test.XXXXXX")
 trap 'rm -rf "$T"' EXIT
 fail=0
