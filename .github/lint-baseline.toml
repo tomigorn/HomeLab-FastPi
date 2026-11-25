@@ -1,0 +1,212 @@
+# Reviewed baseline of findings that are not fixed (counts per file and code; a new finding or a higher count fails CI, a gone one fails as stale). Keep the reason honest, remove the entry with the fix.
+
+[[shellcheck]]
+file = "Docker/Avatar-Picker/tests/test_rotate_secrets.sh"
+code = "SC2010"
+count = 1
+reason = "ls piped to grep over plain file names in a test"
+
+[[shellcheck]]
+file = "Docker/LanguageTool/MacOS/scripts/test.sh"
+code = "SC1111"
+count = 2
+reason = "typographic quotes are the test input (Swiss guillemets), not shell quotes"
+
+[[shellcheck]]
+file = "Docker/LanguageTool/Raspi/scripts/test.sh"
+code = "SC1111"
+count = 2
+reason = "typographic quotes are the test input (Swiss guillemets), not shell quotes"
+
+[[shellcheck]]
+file = "Docker/Notes/gen-pages.sh"
+code = "SC2045"
+count = 2
+reason = "iterates ls output of a folder with plain file names"
+
+[[shellcheck]]
+file = "Docker/Tower-Waker/scripts/tower-flash-backup.sh"
+code = "SC2011"
+count = 1
+reason = "ls piped to xargs over plain file names"
+
+[[shellcheck]]
+file = "Docker/Tower-Waker/tests/test-flash-backup.sh"
+code = "SC2034"
+count = 4
+reason = "unused variable in a test script, left as is"
+
+[[shellcheck]]
+file = "Docker/_global/lsio-init/drop-users-group.sh"
+code = "SC1008"
+count = 1
+reason = "s6 init script, shebang is /usr/bin/with-contenv bash"
+
+[[shellcheck]]
+file = "Docker/_global/scripts/post-update-check.sh"
+code = "SC2033"
+count = 2
+reason = "docker() wrapper (sudo fallback) is exported for child bash scripts; xargs and timeout calls bypass it, which only matters where docker needs sudo"
+
+[[shellcheck]]
+file = "Docker/_global/scripts/smoke-test.sh"
+code = "SC2046"
+count = 2
+reason = "command substitution is split into words on purpose"
+
+[[shellcheck]]
+file = "Docker/_global/scripts/test_post_update_check.sh"
+code = "SC2155"
+count = 4
+reason = "export with assignment in a test, exit status not used"
+
+[[shellcheck]]
+file = "Docker/_global/scripts/update-project.sh"
+code = "SC2024"
+count = 1
+reason = "redirect runs as the calling user, not sudo; reviewed, unchanged"
+
+[[shellcheck]]
+file = "Docker/_global/scripts/update-project.sh"
+code = "SC2033"
+count = 3
+reason = "docker() wrapper (sudo fallback) is exported for child bash scripts; xargs and timeout calls bypass it, which only matters where docker needs sudo"
+
+[[shellcheck]]
+file = "Docker/antivirus/clamav/scan.sh"
+code = "SC2046"
+count = 2
+reason = "command substitution is split into words on purpose"
+
+[[shellcheck]]
+file = "Docker/antivirus/tests/test_scan.sh"
+code = "SC1007"
+count = 1
+reason = "empty variable for one command, intended"
+
+[[shellcheck]]
+file = "Docker/antivirus/tests/test_scan.sh"
+code = "SC2100"
+count = 1
+reason = "false positive: a plain string assignment, no arithmetic"
+
+[[shellcheck]]
+file = "Server/3-Claude-Remote-Control/test_claude_here.sh"
+code = "SC2034"
+count = 1
+reason = "unused variable in a test script, left as is"
+
+[[shellcheck]]
+file = "Server/4-Security-Monitoring/test_beefy_idle_pull.sh"
+code = "SC2010"
+count = 1
+reason = "ls piped to grep over plain file names in a test"
+
+[[hadolint]]
+file = "Docker/Activity/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/Audiobook-Requests/importer/rust/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/Beefy-Waker/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/Beefy-Waker/app/Dockerfile.python"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/LanguageTool/Raspi/Dockerfile"
+code = "DL3003"
+count = 1
+reason = "cd inside a one-off RUN chain, not worth a WORKDIR"
+
+[[hadolint]]
+file = "Docker/LoyaltyCards-Sync/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/M4b-Auto-Merge/Dockerfile"
+code = "DL3018"
+count = 2
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/M4b-Auto-Merge/legacy/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/Tech-Radar/Dockerfile"
+code = "DL3003"
+count = 1
+reason = "cd inside a one-off RUN chain, not worth a WORKDIR"
+
+[[hadolint]]
+file = "Docker/Tech-Radar/Dockerfile"
+code = "DL4006"
+count = 1
+reason = "single pipe inside a command substitution, a failure only yields an empty hash file"
+
+[[hadolint]]
+file = "Docker/Tower-Waker/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/Tower-Waker/app/Dockerfile.python"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/antivirus/clamav/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/antivirus/clamav/Dockerfile"
+code = "DL3025"
+count = 1
+reason = "HEALTHCHECK needs the shell form for the redirect and the || exit"
+
+[[hadolint]]
+file = "Docker/antivirus/virustotal/Dockerfile"
+code = "DL3013"
+count = 1
+reason = "pip package is not version-pinned; backlog: pin it"
+
+[[hadolint]]
+file = "Docker/mouse/port-updater/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[hadolint]]
+file = "Docker/mouse/port-updater/legacy/Dockerfile"
+code = "DL3018"
+count = 1
+reason = "apk packages are not version-pinned (Alpine drops old versions, a pin breaks the next rebuild)"
+
+[[shellcheck]]
+file = "Docker/_global/scripts/test_notify.sh"
+code = "SC2010"
+count = 1
+reason = "ls piped to grep over plain file names in a test"
+
