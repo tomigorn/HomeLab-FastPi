@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Telegram warnings for the subscription deadlines in Seerr's indexer-bar/limits.toml (beefy) and the domains with a set end date in grafana/status-exporter/domains.toml. See README "Subscription alerts".
-Stages per end date: yellow <= 30 days left, orange <= 7, red on the end date, red "expired yesterday" the day after. Each stage once per (service, end date); a renewed date starts fresh.
-beefy sleeps, so the list is cached on fastpi: refreshed over ssh when beefy answers (never woken), the cache is never deleted.
-DDNS hostnames (domains.toml [ddns."…"] confirmed = <date>): end date = confirmed + 30 days; No-IP deletes the hostname on the end date, so stages: yellow 5-4 days left, orange 3-2, red 1 day left, red on the end date (morning), red "deadline passed" the day after.
+"""Telegram warnings for every date in Due-Dates (due-dates.json, built from Docker/Due-Dates/due-dates.toml) with alert = telegram. See README "subscription-alerts".
+Stages per date from its lead days: default [30, 7, 0] = yellow <= 30 days left, orange <= 7, red on the date, red "expired yesterday" the day after. Each stage once per (item, date); a new date starts fresh.
+DDNS hostnames (lead [5, 3, 1, 0]): yellow 5-4 days left, orange 3-2, red 1 day left, red on the end date (morning), red "deadline passed" the day after. Reminders say "due" instead of "ends".
 Usage: subscription-alerts.py [--test]"""
 import datetime as dt
 import html
@@ -10,9 +9,7 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
-import tomllib
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -20,71 +17,79 @@ TZ = ZoneInfo("Europe/Zurich")
 HERE = Path(__file__).resolve().parent
 OOB = HERE / "oob-alert.sh"
 STATE_DIR = Path(os.environ.get("STATE_DIRECTORY", "/var/lib/subscription-alerts"))
-REMOTE = ("beefy-direct", "/home/buntu/Projects/Docker/Seerr/indexer-bar/limits.toml")
+DUE_JSON = Path(os.environ.get("DUE_DATES_JSON", "/var/lib/due-dates/due-dates.json"))
 STALE_DAYS = 7
 EMOJI = {"yellow": "🟡", "orange": "🟠", "red": "🔴", "expired": "🔴", "red1": "🔴"}
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-DOMAINS_TOML = Path(os.environ.get("DOMAINS_TOML", HERE.parent.parent / "grafana" / "status-exporter" / "domains.toml"))
-DDNS_DAYS = 30
+SOURCE = "<code>Due-Dates/due-dates.toml</code> (fastpi)"
 DDNS_HOWTO = ("Confirm at noip.com: log in, Dynamic DNS, confirm the hostname (or click the link in No-IP's mail).\n"
-              "Then tell Claude \"No-IP confirmed\" or set <code>confirmed = &lt;date&gt;</code> in <code>grafana/status-exporter/domains.toml</code> (fastpi).")
-DOMAIN_HOWTO = "set the new date (<code>expires</code>) in <code>grafana/status-exporter/domains.toml</code> (fastpi)."
-HOWTO = "After renewing: set the new date (<code>expires</code>) in <code>indexer-bar/limits.toml</code> (Seerr, beefy). The bar and these warnings follow within a minute."
+              f"Then tell Claude \"No-IP confirmed\" or set <code>confirmed = &lt;date&gt;</code> in {SOURCE}.")
+DATE_HINT = f"set the new date (<code>date</code>) in {SOURCE}."
+HOWTO = f"After renewing: {DATE_HINT} The bars and these warnings follow within 10 minutes."
+LEAD = [30, 7, 0]
+DDNS_LEAD = [5, 3, 1, 0]
 
 
 def zurich_today(now):
     return now.astimezone(TZ).date()
 
 
+def stage_for(left, lead, ddns=False):
+    """Stage for days left: the last lead day 0 is red, the ones before it yellow, orange, then (ddns) red1; the day after the date is expired."""
+    if left == -1:
+        return "expired"
+    lead = sorted(lead, reverse=True)
+    names = ["yellow", "orange", "red1"] if ddns else ["yellow", "orange", "orange"]
+    hit = None
+    for i, d in enumerate(lead):
+        if left <= d:
+            hit = "red" if d == 0 else names[min(i, len(names) - 1)]
+    return hit if left >= 0 else None
+
+
 def stage(left, ddns=False):
-    if ddns:
-        if left > 5:
-            return None
-        if left > 3:
-            return "yellow"
-        if left > 1:
-            return "orange"
-        return {1: "red1", 0: "red", -1: "expired"}.get(left)
-    if left > 30:
-        return None
-    if left > 7:
-        return "yellow"
-    if left > 0:
-        return "orange"
-    return {0: "red", -1: "expired"}.get(left)
+    return stage_for(left, DDNS_LEAD if ddns else LEAD, ddns)
 
 
-def parse_subscriptions(text):
+def domain_howto(i):
+    d = i["title"]
+    where = f"Renew {d} at {i['registrar']}" + (f" ({i['renew']})" if i.get("renew") else "") if i.get("registrar") else f"Renew {d} at its registrar"
+    dns = f"; {i['dns']} only does the DNS" if i.get("dns") else ""
+    return f"{where}{dns}. Then {DATE_HINT}"
+
+
+def parse_due(text):
+    """due-dates.json -> the items that alert by Telegram, as {name, kind, expires | lifetime, lead, ...}."""
     try:
-        subs = tomllib.loads(text).get("subscriptions")
-    except tomllib.TOMLDecodeError as e:
-        raise ValueError(f"invalid TOML: {e}") from e
-    if not isinstance(subs, list) or not subs:
-        raise ValueError("no [[subscriptions]]")
-    for s in subs:
-        if "name" not in s or not (s.get("lifetime") or isinstance(s.get("expires"), dt.date)):
-            raise ValueError(f"subscription {s.get('name')!r}: needs expires or lifetime")
+        items = json.loads(text)["items"]
+    except (ValueError, KeyError, TypeError) as e:
+        raise ValueError(f"not a due-dates list: {e}") from e
+    if not isinstance(items, list) or not items:
+        raise ValueError("empty due-dates list")
+    subs = []
+    for i in items:
+        if not isinstance(i, dict) or "title" not in i or "alert" not in i:
+            raise ValueError(f"item {i!r}: needs title and alert")
+        if i["alert"] != "telegram" or not (i.get("lifetime") or i.get("date")):
+            continue
+        s = {"name": i["title"], "kind": i.get("category", "")}
+        if i.get("lifetime"):
+            s["lifetime"] = True
+            subs.append(s)
+            continue
+        s["expires"] = dt.date.fromisoformat(i["date"])
+        s["lead"] = i.get("lead") or LEAD
+        if i.get("kind") == "ddns":
+            s.update(ddns=True, howto=DDNS_HOWTO)
+        elif i.get("kind") == "domain":
+            s["howto"] = domain_howto(i)
+        elif i.get("howto"):
+            s["howto"] = f"{i['howto']} Then {DATE_HINT}"
+        if i.get("kind") == "reminder":
+            s["reminder"] = True
+        subs.append(s)
     return subs
-
-
-def domain_kind(c):
-    return "domain" + (f", {c['registrar']}" if c.get("registrar") else "") + (f" (DNS {c['dns']})" if c.get("dns") else "")
-
-
-def domain_subscriptions(text):
-    out = []
-    for d, c in (tomllib.loads(text).get("domains") or {}).items():
-        if isinstance((c or {}).get("expires"), dt.date):
-            where = f"Renew {d} at {c['registrar']}" + (f" ({c['renew']})" if c.get("renew") else "") if c.get("registrar") else f"Renew {d} at its registrar"
-            dns = f"; {c['dns']} only does the DNS" if c.get("dns") else ""
-            out.append({"name": d, "kind": domain_kind(c), "expires": c["expires"], "howto": f"{where}{dns}. Then {DOMAIN_HOWTO}"})
-    return out
-
-
-def ddns_subscriptions(text):
-    return [{"name": h, "kind": "No-IP hostname", "expires": c["confirmed"] + dt.timedelta(days=DDNS_DAYS), "howto": DDNS_HOWTO, "ddns": True}
-            for h, c in (tomllib.loads(text).get("ddns") or {}).items() if isinstance((c or {}).get("confirmed"), dt.date)]
 
 
 def key(s):
@@ -97,7 +102,7 @@ def pending(subs, today, state):
         if s.get("lifetime"):
             continue
         left = (s["expires"] - today).days
-        st = stage(left, s.get("ddns", False))
+        st = stage_for(left, s.get("lead") or (DDNS_LEAD if s.get("ddns") else LEAD), s.get("ddns", False))
         if st is None or st in state.get(key(s), []):
             continue
         g = groups.setdefault((st, s["expires"], bool(s.get("ddns"))), {"stage": st, "expires": s["expires"], "days": left, "items": []})
@@ -124,7 +129,7 @@ def ddns_howto(st):
     if st == "red":
         return "Last day: confirm now or No-IP deletes the hostname today.\n" + DDNS_HOWTO
     if st == "expired":
-        return "Deadline passed: re-create the hostname at No-IP (noip.com, Dynamic DNS), point it at the WAN address.\nThen set <code>confirmed = &lt;date&gt;</code> in <code>grafana/status-exporter/domains.toml</code> (fastpi)."
+        return f"Deadline passed: re-create the hostname at No-IP (noip.com, Dynamic DNS), point it at the WAN address.\nThen set <code>confirmed = &lt;date&gt;</code> in {SOURCE}."
     return DDNS_HOWTO
 
 
@@ -135,6 +140,8 @@ def render(group, cache_age_days):
     if all(s.get("ddns") for s in items):
         subject = "No-IP confirm"
         when = {"expired": "deadline passed", "red": "last day"}.get(st, f"due in {d} day{'' if d == 1 else 's'}")
+    elif all(s.get("reminder") for s in items):
+        when = {"expired": "was due yesterday", "red": "due today"}.get(st, f"due in {d} day{'' if d == 1 else 's'}")
     elif st == "expired":
         when = "expired yesterday"
     elif st == "red":
@@ -149,9 +156,9 @@ def render(group, cache_age_days):
         lines.append(f"• <b>{html.escape(s['name'])}</b>{kind}")
     age = int(cache_age_days)
     if is_stale(cache_age_days):
-        lines.append(f"⚠️ Subscription list is {age} days old (beefy not reachable)")
+        lines.append(f"⚠️ Due-date list is {age} days old (due-dates build failing)")
     howto = "\n".join(([HOWTO] if any("howto" not in s for s in items) else []) + [ddns_howto(st) if s.get("ddns") else s["howto"] for s in items if "howto" in s])
-    details = howto + (f"\nSubscription list is {age} day{'' if age == 1 else 's'} old." if 1 <= age and not is_stale(cache_age_days) else "")
+    details = howto + (f"\nDue-date list is {age} day{'' if age == 1 else 's'} old." if 1 <= age and not is_stale(cache_age_days) else "")
     lines += ["", f"<blockquote expandable>{details}</blockquote>"]
     return "\n".join(lines)
 
@@ -160,66 +167,26 @@ def test_message():
     return "🧪 <b>Test: Example Service ends in 30 days</b>\n\n📅 Wed, 18 Nov 2026\n• <b>Example Service</b> · indexer\n\n<blockquote expandable>Test of the subscription alert path (sent by hand, not a real deadline).</blockquote>"
 
 
-def cache_age_days(cache, now):
-    return (now - cache.stat().st_mtime) / 86400
-
-
-def refresh_cache(cache, fetch):
-    text = fetch()
-    if text is None:
-        return False
-    try:
-        parse_subscriptions(text)
-    except ValueError as e:
-        print(f"subscription-alerts: fetched list ignored: {e}", file=sys.stderr)
-        return False
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=cache.parent, prefix=".limits-")
-    with os.fdopen(fd, "w") as f:
-        f.write(text)
-    os.replace(tmp, cache)
-    return True
-
-
-def fetch_from_beefy():
-    host, path = REMOTE
-    try:
-        r = subprocess.run(["ssh", "-o", "ConnectTimeout=5", "-o", "BatchMode=yes", host, "cat", path],
-                           capture_output=True, text=True, timeout=20)
-    except (subprocess.TimeoutExpired, OSError):
-        return None
-    return r.stdout if r.returncode == 0 else None
+def list_age_days(text, now):
+    gen = dt.datetime.fromisoformat(json.loads(text)["generated"].replace("Z", "+00:00"))
+    return (now - gen.timestamp()) / 86400
 
 
 def send_oob(msg):
     return subprocess.run([str(OOB), msg]).returncode == 0
 
 
-def run(state_dir, fetch, send, today, now, domains_text=None):
-    cache, state_file = state_dir / "limits.toml", state_dir / "state.json"
+def run(state_dir, due_json, send, today, now):
+    state_file = state_dir / "state.json"
     state_dir.mkdir(parents=True, exist_ok=True)
-    refresh_cache(cache, fetch)
-    errors, subs, age = 0, [], 0
-    if not cache.exists():
-        print("subscription-alerts: no cached list and beefy not reachable", file=sys.stderr)
-        errors = 1
-    else:
-        age = cache_age_days(cache, now)
-        if is_stale(age):
-            print(f"subscription-alerts: cached list is {int(age)} days old (beefy not reachable)", file=sys.stderr)
-        try:
-            subs = parse_subscriptions(cache.read_text())
-        except ValueError as e:
-            print(f"subscription-alerts: cached list unusable: {e}", file=sys.stderr)
-            errors = 1
     try:
-        dtext = DOMAINS_TOML.read_text() if domains_text is None else domains_text
-        subs += domain_subscriptions(dtext) + ddns_subscriptions(dtext)
-    except (OSError, tomllib.TOMLDecodeError) as e:
-        print(f"subscription-alerts: domains.toml unusable: {e}", file=sys.stderr)
-        errors = 1
-    if not subs:
+        text = Path(due_json).read_text()
+        subs, age = parse_due(text), list_age_days(text, now)
+    except (OSError, ValueError, KeyError) as e:
+        print(f"subscription-alerts: {due_json} unusable: {e}", file=sys.stderr)
         return 1
+    if is_stale(age):
+        print(f"subscription-alerts: due-date list is {int(age)} days old (due-dates build failing)", file=sys.stderr)
     try:
         state = json.loads(state_file.read_text())
     except (OSError, ValueError):
@@ -232,17 +199,16 @@ def run(state_dir, fetch, send, today, now, domains_text=None):
         else:
             failed += 1
             print(f"subscription-alerts: send failed for {g['stage']} {g['expires']}", file=sys.stderr)
-    if not errors:
-        prune(state, subs)
+    prune(state, subs)
     state_file.write_text(json.dumps(state, indent=1, sort_keys=True))
-    return 1 if failed or errors else 0
+    return 1 if failed else 0
 
 
 def main():
     if sys.argv[1:] == ["--test"]:
         return 0 if send_oob(test_message()) else 1
     now = dt.datetime.now(dt.timezone.utc)
-    return run(STATE_DIR, fetch_from_beefy, send_oob, zurich_today(now), time.time())
+    return run(STATE_DIR, DUE_JSON, send_oob, zurich_today(now), time.time())
 
 
 if __name__ == "__main__":

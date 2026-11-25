@@ -1,5 +1,5 @@
 [Unit]
-Description=Telegram warnings for subscription deadlines (Seerr indexer-bar/limits.toml on beefy)
+Description=Telegram warnings for due dates (Due-Dates due-dates.json)
 Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
 After=network-online.target
 Wants=network-online.target

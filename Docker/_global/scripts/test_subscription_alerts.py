@@ -15,22 +15,27 @@ sa = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sa)
 
 D = dt.date
-TOML = """
-[[subscriptions]]
-name = "Treasure Maps"
-kind = "indexer, free User API"
-expires = 2026-11-18
+GEN = "2026-10-01T03:00:00Z"
 
-[[subscriptions]]
-name = "Eweka"
-kind = "Usenet provider"
-expires = 2026-11-18
 
-[[subscriptions]]
-name = "NZBgeek"
-kind = "indexer"
-lifetime = true
-"""
+def item(id, title, kind, date, category="", lead=None, alert="telegram", **extra):
+    lead = lead if lead is not None else ([5, 3, 1, 0] if kind == "ddns" else [30, 7, 0])
+    return {"id": id, "title": title, "kind": kind, "category": category, "date": date, "lifetime": date is None and kind == "subscription",
+            "source": "manual", "lead": lead, "alert": alert, "show": [], **extra}
+
+
+SUBS = [item("tm", "Treasure Maps", "subscription", "2026-11-18", "indexer, free User API"),
+        item("ew", "Eweka", "subscription", "2026-11-18", "Usenet provider"),
+        item("geek", "NZBgeek", "subscription", None, "indexer")]
+DOMAIN = item("dom", "holy-grail.ch", "domain", "2027-02-17", "domain, GoDaddy (DNS Cloudflare)", registrar="GoDaddy", renew="yearly at godaddy.com", dns="Cloudflare")
+DDNS_ITEMS = [item("a", "a.ddns.net", "ddns", "2026-12-10", "No-IP hostname", confirmed="2026-11-10"),
+              item("b", "b.ddns.net", "ddns", "2026-12-10", "No-IP hostname", confirmed="2026-11-10")]
+OTHER = [item("cert", "TLS certificate x", "certificate", "2026-11-20", alert="prometheus"),
+         item("film", "Film leaves the bin", "info", "2026-11-18", alert="none")]
+
+
+def due_json(items, generated=GEN):
+    return json.dumps({"version": 1, "generated": generated, "items": items})
 
 
 def subs(*rows):
@@ -135,7 +140,7 @@ def test_message_layout_single():
     assert lines[3] == "• <b>Treasure Maps</b> · indexer, free User API"
     assert lines[4] == ""
     assert lines[5].startswith("<blockquote expandable>") and m.endswith("</blockquote>")
-    assert "<code>indexer-bar/limits.toml</code>" in m and "`" not in m
+    assert "<code>Due-Dates/due-dates.toml</code>" in m and "`" not in m
 
 
 def test_message_layout_group():
@@ -166,139 +171,135 @@ def test_html_is_escaped():
 
 def test_cache_age_only_when_old():
     g = sa.pending(subs(("A", D(2026, 11, 18))), D(2026, 11, 18), {})[0]
-    assert "list" not in sa.render(g, 0).lower().replace("limits.toml", "")
-    assert "Subscription list is 3 days old" in sa.render(g, 3)
-    assert "⚠️ Subscription list is 9 days old (beefy not reachable)" in sa.render(g, 9)
+    assert "list is" not in sa.render(g, 0).lower()
+    assert "Due-date list is 3 days old" in sa.render(g, 3)
+    assert "⚠️ Due-date list is 9 days old (due-dates build failing)" in sa.render(g, 9)
 
 
 def test_stale_threshold():
     assert not sa.is_stale(7) and sa.is_stale(8)
 
 
-def test_parse_subscriptions_rejects_garbage():
-    assert [s["name"] for s in sa.parse_subscriptions(TOML)] == ["Treasure Maps", "Eweka", "NZBgeek"]
-    for bad in ("not = [toml", "x = 1", '[[subscriptions]]\nname = "A"\n'):
+def test_parse_due_keeps_telegram_items_only():
+    subs = sa.parse_due(due_json(SUBS + [DOMAIN] + DDNS_ITEMS + OTHER))
+    assert [s["name"] for s in subs] == ["Treasure Maps", "Eweka", "NZBgeek", "holy-grail.ch", "a.ddns.net", "b.ddns.net"]
+    assert subs[0] == {"name": "Treasure Maps", "kind": "indexer, free User API", "expires": D(2026, 11, 18), "lead": [30, 7, 0]}
+    assert subs[2]["lifetime"] and "expires" not in subs[2]
+    assert subs[4]["ddns"] and subs[4]["expires"] == D(2026, 12, 10)
+
+
+def test_parse_due_rejects_garbage_and_empty_lists():
+    for bad in ("not json", "[]", json.dumps({"items": []}), json.dumps({"items": [{"title": "x"}]})):
         try:
-            sa.parse_subscriptions(bad)
+            sa.parse_due(bad)
         except ValueError:
             continue
         raise AssertionError(bad)
 
 
-def test_refresh_cache_keeps_old_copy_when_beefy_is_down():
-    with tempfile.TemporaryDirectory() as d:
-        cache = Path(d) / "limits.toml"
-        cache.write_text(TOML)
-        old = time.time() - 5 * 86400
-        os.utime(cache, (old, old))
-        assert sa.refresh_cache(cache, lambda: None) is False
-        assert cache.read_text() == TOML
-        assert abs(cache.stat().st_mtime - old) < 2
-        assert abs(sa.cache_age_days(cache, time.time()) - 5) < 0.01
+def test_item_without_date_is_skipped():
+    assert sa.parse_due(due_json(SUBS[:1] + [item("d", "d.ch", "domain", None)])) == sa.parse_due(due_json(SUBS[:1]))
 
 
-def test_refresh_cache_ignores_invalid_fetch():
-    with tempfile.TemporaryDirectory() as d:
-        cache = Path(d) / "limits.toml"
-        cache.write_text(TOML)
-        assert sa.refresh_cache(cache, lambda: "garbage = [") is False
-        assert cache.read_text() == TOML
+def test_stage_for_lead_lists():
+    for left in range(-3, 40):
+        assert sa.stage_for(left, [30, 7, 0]) == sa.stage(left), left
+        assert sa.stage_for(left, [5, 3, 1, 0], ddns=True) == sa.stage(left, True), left
+    want = {8: None, 7: "yellow", 1: "yellow", 0: "red", -1: "expired", -2: None}
+    for left, st in want.items():
+        assert sa.stage_for(left, [7, 0]) == st, left
 
 
-def test_refresh_cache_writes_new_copy():
-    with tempfile.TemporaryDirectory() as d:
-        cache = Path(d) / "limits.toml"
-        assert sa.refresh_cache(cache, lambda: TOML) is True
-        assert cache.read_text() == TOML
-        assert sa.cache_age_days(cache, time.time()) < 0.01
+def test_reminder_sequence_with_its_own_lead():
+    s = [{"name": "Backup decision", "kind": "", "expires": D(2026, 12, 22), "lead": [7, 0], "reminder": True, "howto": "Delete it."}]
+    state, seen = {}, []
+    day = D(2026, 12, 1)
+    while day <= D(2026, 12, 25):
+        for g in sa.pending(s, day, state):
+            seen.append((day, g["stage"], sa.render(g, 0).split("\n")[0]))
+            sa.mark(state, g)
+        day += dt.timedelta(days=1)
+    assert seen == [(D(2026, 12, 15), "yellow", "🟡 <b>Backup decision due in 7 days</b>"),
+                    (D(2026, 12, 22), "red", "🔴 <b>Backup decision due today</b>"),
+                    (D(2026, 12, 23), "expired", "🔴 <b>Backup decision was due yesterday</b>")]
 
 
-def run(tmp, fetch, send, today, now=None):
-    return sa.run(Path(tmp), fetch, send, today, now or time.time())
+def test_token_howto_and_the_date_hint():
+    s = sa.parse_due(due_json([item("hub", "Docker Hub token", "token", "2027-11-15", "WG Chores image builds", howto="New token on hub.docker.com.")]))
+    m = sa.render(sa.pending(s, D(2027, 10, 16), {})[0], 0)
+    assert "🟡 <b>Docker Hub token ends in 30 days</b>" in m
+    assert "New token on hub.docker.com. Then set the new date (<code>date</code>) in <code>Due-Dates/due-dates.toml</code> (fastpi)." in m
+
+
+def json_age_days(generated, now):
+    return sa.list_age_days(due_json(SUBS, generated), now)
+
+
+def test_list_age_from_generated():
+    now = dt.datetime(2026, 10, 10, 3, 0, tzinfo=dt.timezone.utc).timestamp()
+    assert abs(json_age_days("2026-10-01T03:00:00Z", now) - 9) < 0.01
+
+
+def write_due(d, items, generated=None):
+    p = Path(d) / "due-dates.json"
+    p.write_text(due_json(items, generated or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+    return p
+
+
+def run(tmp, items, send, today, now=None):
+    return sa.run(Path(tmp) / "state", write_due(tmp, items), send, today, now or time.time())
 
 
 def test_run_sends_marks_and_does_not_repeat():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, lambda: TOML, lambda m: sent.append(m) or True, D(2026, 10, 26)) == 0
+        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 26)) == 0
         assert len(sent) == 1 and "Treasure Maps" in sent[0] and "Eweka" in sent[0] and "end in 23 days" in sent[0]
-        run(d, lambda: TOML, lambda m: sent.append(m) or True, D(2026, 10, 27))
+        run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 27))
         assert len(sent) == 1
-        assert json.loads((Path(d) / "state.json").read_text())
+        assert json.loads((Path(d) / "state" / "state.json").read_text())
 
 
 def test_run_failed_send_is_retried_next_time():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, lambda: TOML, lambda m: False, D(2026, 10, 26)) == 1
-        assert run(d, lambda: TOML, lambda m: sent.append(m) or True, D(2026, 10, 26)) == 0
+        assert run(d, SUBS, lambda m: False, D(2026, 10, 26)) == 1
+        assert run(d, SUBS, lambda m: sent.append(m) or True, D(2026, 10, 26)) == 0
         assert len(sent) == 1
 
 
-def test_run_beefy_down_uses_cache_and_mentions_age():
+def test_run_old_list_still_alerts_and_mentions_age():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        run(d, lambda: TOML, lambda m: True, D(2026, 10, 1))
-        cache = Path(d) / "limits.toml"
-        old = time.time() - 9 * 86400
-        os.utime(cache, (old, old))
-        run(d, lambda: None, lambda m: sent.append(m) or True, D(2026, 11, 11))
-        assert len(sent) == 1 and "end in 7 days" in sent[0] and "9 days old (beefy not reachable)" in sent[0]
-        assert cache.read_text() == TOML
+        p = write_due(d, SUBS, "2026-11-02T03:00:00Z")
+        now = dt.datetime(2026, 11, 11, 4, 0, tzinfo=dt.timezone.utc).timestamp()
+        assert sa.run(Path(d) / "state", p, lambda m: sent.append(m) or True, D(2026, 11, 11), now) == 0
+        assert len(sent) == 1 and "end in 7 days" in sent[0] and "9 days old (due-dates build failing)" in sent[0]
 
 
-def test_run_without_any_cache_is_an_error_not_a_crash():
+def test_run_without_the_list_is_an_error_not_a_crash():
     with tempfile.TemporaryDirectory() as d:
-        assert run(d, lambda: None, lambda m: True, D(2026, 10, 26)) == 1
+        assert sa.run(Path(d) / "state", Path(d) / "missing.json", lambda m: True, D(2026, 10, 26), time.time()) == 1
 
 
-DOMAINS = """
-[domains."holy-grail.ch"]
-expires = 2027-02-17
-registrar = "GoDaddy"
-renew = "yearly at godaddy.com"
-dns = "Cloudflare"
-
-[domains."anniversary-only.ch"]
-
-[ddns."x.ddns.net"]
-"""
-
-
-def test_domains_with_a_set_end_date_are_subscriptions():
-    assert sa.domain_subscriptions(DOMAINS) == [{"name": "holy-grail.ch", "kind": "domain, GoDaddy (DNS Cloudflare)", "expires": D(2027, 2, 17),
-                                                 "howto": "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com); Cloudflare only does the DNS. Then set the new date (<code>expires</code>) in <code>grafana/status-exporter/domains.toml</code> (fastpi)."}]
+def test_domain_howto():
+    s = sa.parse_due(due_json([DOMAIN]))
+    assert s[0]["howto"] == "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com); Cloudflare only does the DNS. Then set the new date (<code>date</code>) in <code>Due-Dates/due-dates.toml</code> (fastpi)."
 
 
 def test_run_warns_for_a_domain_with_its_own_howto():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2027, 1, 20), time.time(), DOMAINS) == 0
+        assert run(d, SUBS + [DOMAIN], lambda m: sent.append(m) or True, D(2027, 1, 20)) == 0
         assert len(sent) == 1 and "holy-grail.ch ends in 28 days" in sent[0] and "· domain, GoDaddy (DNS Cloudflare)" in sent[0]
-        assert "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com)" in sent[0] and "limits.toml" not in sent[0]
-
-
-def test_run_domain_warns_even_without_the_beefy_list():
-    sent = []
-    with tempfile.TemporaryDirectory() as d:
-        assert sa.run(Path(d), lambda: None, lambda m: sent.append(m) or True, D(2027, 2, 12), time.time(), DOMAINS) == 1
-        assert len(sent) == 1 and "holy-grail.ch ends in 5 days" in sent[0]
-
-
-DDNS = """
-[ddns."a.ddns.net"]
-confirmed = 2026-11-10
-[ddns."b.ddns.net"]
-confirmed = 2026-11-10
-[ddns."old.ddns.net"]
-"""
+        assert "Renew holy-grail.ch at GoDaddy (yearly at godaddy.com)" in sent[0]
 
 
 def ddns_subs():
-    return sa.ddns_subscriptions(DDNS)
+    return sa.parse_due(due_json(DDNS_ITEMS))
 
 
-def test_ddns_end_date_is_confirmed_plus_30_and_no_confirmed_means_no_timer():
+def test_ddns_items_are_flagged():
     got = ddns_subs()
     assert [(s["name"], s["expires"], s["kind"]) for s in got] == [("a.ddns.net", D(2026, 12, 10), "No-IP hostname"), ("b.ddns.net", D(2026, 12, 10), "No-IP hostname")]
     assert all(s["ddns"] for s in got)
@@ -330,7 +331,7 @@ def test_ddns_message_layout():
     assert lines[0] == "🟡 <b>No-IP confirm due in 5 days</b>"
     assert lines[2] == "📅 Thu, 10 Dec 2026"
     assert "• <b>a.ddns.net</b> · No-IP hostname" in m and "• <b>b.ddns.net</b> · No-IP hostname" in m
-    assert "noip.com" in m and "Dynamic DNS" in m and "No-IP confirmed" in m and "confirmed = " in m and "limits.toml" not in m
+    assert "noip.com" in m and "Dynamic DNS" in m and "No-IP confirmed" in m and "confirmed = " in m and "Due-Dates/due-dates.toml" in m
     assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 10), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm last day</b>"
     assert sa.render(sa.pending(ddns_subs(), D(2026, 12, 11), {})[0], 0).split("\n")[0] == "🔴 <b>No-IP confirm deadline passed</b>"
     one = sa.pending(ddns_subs()[:1], D(2026, 12, 9), {})[0]
@@ -342,9 +343,9 @@ def test_ddns_message_layout():
 def test_run_sends_ddns_once():
     sent = []
     with tempfile.TemporaryDirectory() as d:
-        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 5), time.time(), DDNS) == 0
+        assert run(d, SUBS + DDNS_ITEMS, lambda m: sent.append(m) or True, D(2026, 12, 5)) == 0
         assert len([m for m in sent if "No-IP" in m]) == 1
-        assert sa.run(Path(d), lambda: TOML, lambda m: sent.append(m) or True, D(2026, 12, 6), time.time(), DDNS) == 0
+        assert run(d, SUBS + DDNS_ITEMS, lambda m: sent.append(m) or True, D(2026, 12, 6)) == 0
         assert len([m for m in sent if "No-IP" in m]) == 1
 
 

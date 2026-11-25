@@ -13,7 +13,7 @@
 | `migrate-rollback-tags.sh` | one-shot: old `<repo>:rollback-*` tags -> `rollback.invalid/` (tags only). Test: `./test_migrate_rollback_tags.sh` |
 | `oob-alert.sh` | Telegram alert that bypasses the edge; `--check` proves the path without sending (batch start), `--test` sends a 🧪 message (to `TEST_CHAT_ID` in `oob-alert.env` if set, else the alert chat). Test: `./test_oob_alert.sh` |
 | `maintenance-silence.sh on [hours] [reason] \| off \| status` | Alertmanager silence for batch/upgrade work (crash loops, container down/unhealthy, file changes, reboots, own SSH logins), default 4 h, max 24 h; only touches its own silences. Test: `./test_maintenance_silence.sh` |
-| `subscription-alerts.py` | Telegram warnings for subscription deadlines, see below |
+| `subscription-alerts.py` | Telegram warnings for the due dates (`../Due-Dates`), see below |
 | `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
 | `customization_check_exporter.py` | runs `post-update-check.sh all` and counts `port_updater` reattaches every 2 h, publishes to Prometheus, see below |
 | `ctest.sh` | throwaway test container that cannot change anything, see below |
@@ -99,14 +99,14 @@ When one project pulls a newer image under a tag others use too (`caddy:alpine`,
 ## subscription-alerts
 | | |
 |---|---|
-| What | `subscription-alerts.py`: reads the `[[subscriptions]]` of Seerr's `indexer-bar/limits.toml` (beefy) and the domains with `expires` in `grafana/status-exporter/domains.toml` (holy-grail.ch: GoDaddy, yearly, paid until 2027-02-17; Cloudflare only DNS), sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts |
-| Stages | 🟡 ≤ 30 days left, 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"). Same colours as the Seerr bar. Services on the same end date and stage share one message |
-| Once | each stage once per (service, end date) in `/var/lib/subscription-alerts/state.json`. Renewal = change `expires`: the new date starts fresh, the old date's warnings are dropped. First run late (e.g. 23 days left) sends only the current stage. A failed send is retried at the next run |
-| When | `subscription-alerts.timer` daily 05:37 Europe/Zurich (low-power hours, outside the DST hour and the nightly jobs), 5 min after boot, catch-up if missed. fastpi only, beefy is never woken |
-| List cache | `/var/lib/subscription-alerts/limits.toml` (also read by ABR's requests bar for `seerr = true` entries, `Audiobook-Requests/README.md`): every run tries `ssh beefy-direct cat …/limits.toml` (5 s timeout); valid copy replaces the cache, otherwise the old one stays. Older than 7 days: logged and said in the message details |
+| What | `subscription-alerts.py`: reads `/var/lib/due-dates/due-dates.json` (`../Due-Dates`: subscriptions, domains, No-IP, tokens, reminders), items with `alert = "telegram"`, sends Telegram via `oob-alert.sh`. `lifetime = true` never alerts. Domains get the registrar how-to, No-IP the confirm how-to, others their `howto` |
+| Stages | from the item's `lead` days: default 🟡 ≤ 30 days left, 🟠 ≤ 7 days, 🔴 on the end date, 🔴 the day after ("expired yesterday"); No-IP 5 / 3 / 1 / 0; `kind = "reminder"` says "due". Same colours as the Seerr bar. Items on the same date and stage share one message |
+| Once | each stage once per (title, date) in `/var/lib/subscription-alerts/state.json`. Renewal = change the date: the new date starts fresh, the old date's warnings are dropped. First run late (e.g. 23 days left) sends only the current stage. A failed send is retried at the next run |
+| When | `subscription-alerts.timer` daily 05:37 Europe/Zurich (low-power hours, outside the DST hour and the nightly jobs), 5 min after boot, catch-up if missed. fastpi only, never asks beefy |
+| List age | the list's `generated` time; older than 7 days (due-dates build failing): logged and said in the message details. The old `/var/lib/subscription-alerts/limits.toml` cache is no longer read |
 | Install | `sudo install -m 0644 ../systemd/subscription-alerts.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now subscription-alerts.timer` |
 | By hand | `systemctl start subscription-alerts.service` then `journalctl -u subscription-alerts -n 5`; `scripts/subscription-alerts.py --test` sends one 🧪 test message |
-| Renew | change `expires` in `Seerr/indexer-bar/limits.toml` on beefy and commit (next beefy-reachable run picks it up; to force: the command above) |
+| Renew | change the date in `Docker/Due-Dates/due-dates.toml` and commit (list rebuilt within 10 min; to force: `systemctl start due-dates.service subscription-alerts.service`) |
 | Test | `python3 scripts/test_subscription_alerts.py` |
 
 ## ctest

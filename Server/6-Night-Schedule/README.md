@@ -43,11 +43,11 @@ All fixed-time jobs on fastpi, in night order (`systemctl list-timers` is the tr
 | 05:07 (+≤10 min) | `crowdsec-autoupdate` | `Docker/CrowdSec` |
 | Sun 05:30 | `image-cleanup` | old images, rollback tags kept 14 d (`Docker/_global/UPDATE-RUNBOOK.md`) |
 | 05:32 / 05:44 / 05:46 | cron daily / weekly / monthly | `/etc/crontab` |
-| 05:37 | `subscription-alerts` | Telegram warnings (`Docker/grafana`) |
+| 05:37 | `subscription-alerts` | Telegram warnings for the due dates (`Docker/Due-Dates`) |
 | 05:43 | `mam-points` | `Docker/_global/scripts/README.md` |
 | 05:50 | `status-exporter-daily` | certs, domains (`Docker/grafana`) |
 
-Pollers (every few minutes, any time): `security-access`, `security-av-hits`, `beefy-idle-pull`, `beefy-night-downloads-poll`, `status-exporter`, `smart-exporter` (30 min, never wakes a parked disk), `crowdsec-exporter`, `abr-bar-usage` (1 min), `avatar-sync` (only while a pick is pending), `tower-flash-backup` (user, hourly).
+Pollers (every few minutes, any time): `security-access`, `security-av-hits`, `beefy-idle-pull`, `beefy-night-downloads-poll`, `status-exporter`, `smart-exporter` (30 min, never wakes a parked disk), `crowdsec-exporter`, `abr-bar-usage` (1 min), `due-dates` (10 min, file reads only), `avatar-sync` (only while a pick is pending), `tower-flash-backup` (user, hourly).
 
 `security-av` never wakes beefy or tower (`fetch_nowake`): a host the Waker sees down is skipped. beefy is held up 03:58-04:45 (`HomeLab-BeefyServer`, `Server/9-Night-Schedule.md`).
 
