@@ -1,0 +1,35 @@
+# Due dates list for beefy's Seerr bar - https://due-dates.holy-grail.ch/due-dates.json (Docker/Due-Dates).
+# LAN/VPN only (local-networks@file), no public DNS record. No Holy Grail login: a machine reads it, read-only, and it holds only what the public repo holds.
+http:
+  routers:
+    due-dates:
+      rule: "Host(`due-dates.holy-grail.ch`)"
+      entryPoints: ["websecure"]
+      priority: 1
+      service: due-dates
+      middlewares:
+        - local-networks@file
+        - default-rate-limit@file
+        - due-dates-secure-headers
+      tls:
+        certResolver: cloudflare
+
+  middlewares:
+    due-dates-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: "no-referrer"
+        frameDeny: true
+        contentSecurityPolicy: "default-src 'none'; frame-ancestors 'none'"
+        customResponseHeaders:
+          Server: ""
+
+  services:
+    due-dates:
+      loadBalancer:
+        servers:
+          - url: "http://due-dates:80"
+        passHostHeader: true
