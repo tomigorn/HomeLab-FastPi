@@ -1,0 +1,12 @@
+[Unit]
+Description=Regenerate the homelab architecture page nightly and after boot
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+
+[Timer]
+# 04:35 is inside beefy's 03:58-04:45 window (the nightly run sees beefy awake) and after fastpi's 04:06 backup; never wakes beefy or tower
+OnCalendar=*-*-* 04:35:00 Europe/Zurich
+OnBootSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

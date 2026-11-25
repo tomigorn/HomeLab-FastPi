@@ -1,0 +1,33 @@
+[Unit]
+Description=Generate the notes page homelab-architecture.md from docker inspect, Traefik config, backup and update lists
+Documentation=file:///home/pi/Projects/Docker/_global/scripts/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+Environment=HOME=/home/pi
+ExecStart=/usr/bin/python3 /home/pi/Projects/Docker/_global/scripts/arch_page.py
+TimeoutStartSec=300
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/notes/docs /home/pi/.cache/arch-page
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

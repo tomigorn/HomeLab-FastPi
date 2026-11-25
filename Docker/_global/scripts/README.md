@@ -17,6 +17,7 @@
 | `mam-points.py` | MyAnonamouse bonus-points estimator + Telegram warnings, see below |
 | `customization_check_exporter.py` | runs `post-update-check.sh all` and counts `port_updater` reattaches every 2 h, publishes to Prometheus, see below |
 | `ctest.sh` | throwaway test container that cannot change anything, see below |
+| `arch_page.py` | generates the notes page `homelab-architecture.md` (all containers of fastpi, beefy, tower), see below |
 
 ## customization-check
 Closes the gap that `post-update-check.sh` and `smoke-test.sh` only run by hand: on 2026-11-06 a broken gluetun network went 13 h without an alert.
@@ -110,3 +111,17 @@ When one project pulls a newer image under a tag others use too (`caddy:alpine`,
 | Install | `sudo install -d -o pi -g pi /var/lib/mam-points && ln -sf $PWD/mam-points.py ~/.local/bin/mam-points && sudo install -m 0644 ../systemd/mam-points.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mam-points.timer` |
 | By hand | `systemctl start mam-points.service` then `journalctl -u mam-points -n 5` |
 | Test | `python3 scripts/test_mam_points.py` |
+
+## arch-page
+One generated notes page with the real homelab, so nobody re-reads compose files and `docker inspect`. Lives here (not in `Docker/Notes/`) because it describes the whole host and its unit sits next to the other host timers in `../systemd/`.
+
+| | |
+|---|---|
+| Output | `~/notes/docs/homelab-architecture.md` (written atomically; the notes build picks it up), linked from the notes index and nav |
+| Sources | fastpi: `docker inspect`, `Traefik/traefik/dynamic/*.yml` (hostnames, SSO = `authentik@file` middleware or OIDC/OAUTH env **names**), `auto-update.conf`, `Server/5-Backup/backup.sh --list` (paths vs. each container's rw mounts). beefy: one `ssh beefy-direct` call (inspect, its `auto-update.conf`, `beefy-backup.sh --list`), never wakes it; asleep = cached section "as of <time>" in `~/.cache/arch-page/beefy.json` (parsed rows only, no env). tower: never contacted, Waker `/status` + the stack scripts in `~/backups/tower-flash/latest` |
+| Never on the page | env values, tokens, labels; a test checks this |
+| Flags | `!ip` unpinned network IP, `!hc` running without healthcheck: facts, not a policy |
+| When | `arch-page.timer` 04:35 Europe/Zurich (inside beefy's night window) and 10 min after boot, catch-up if missed |
+| Install | `sudo install -m 0644 ../systemd/arch-page.{service,timer} /etc/systemd/system/ && mkdir -p -m 0700 ~/.cache/arch-page && sudo systemctl daemon-reload && sudo systemctl enable --now arch-page.timer` |
+| By hand | `systemctl start arch-page.service`, or `python3 scripts/arch_page.py --print` |
+| Test | `python3 scripts/test_arch_page.py`, unit sandbox: `scripts/test_unit_sandbox.sh` |
