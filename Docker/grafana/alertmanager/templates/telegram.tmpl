@@ -20,7 +20,7 @@
 {{- end }}
 
 {{ define "tg.digest" -}}
-{{ if eq .CommonLabels.alertname "DailyDigest" }}🌅{{ else }}📋{{ end }} <b>{{ .CommonAnnotations.summary }}</b>
+{{ if eq .CommonLabels.alertname "DailyDigest" }}🌆{{ else }}📋{{ end }} <b>{{ .CommonAnnotations.summary }}</b>
 {{ range .Alerts }}
 {{ .Annotations.description | safeHtml }}
 {{ end }}
@@ -37,17 +37,6 @@
 {{ end }}
 <blockquote expandable>{{ range .Alerts.Firing }}{{ .Annotations.description | safeHtml }}
 {{ end }}</blockquote>
-{{- end }}
-
-{{/* BeefyAwakeLong: firing says since when and what holds beefy up; resolved says how long it was up (awake_since is the boot time from Prometheus, local; resolved cannot parse it in a template, so StartsAt - 6 h stands in for the wake, a lower bound). */}}
-{{ define "tg.beefyawake" -}}
-{{ if eq .Status "resolved" }}{{ range .Alerts }}✅ <b>beefy is asleep again</b> (awake ~{{ printf "%.1f" (.EndsAt.Sub (.StartsAt.Add -21600000000000)).Hours }} h){{ end }}
-{{- else }}{{ range .Alerts.Firing }}🟠 <b>{{ .Annotations.summary }}</b>
-
-📅 awake since {{ reReplaceAll `^(\d{4}-\d\d-\d\d \d\d:\d\d).*` "$1" .Annotations.awake_since }}
-{{ .Annotations.awake_by | trimSpace | safeHtml }}
-<blockquote expandable>💡 {{ .Annotations.description | safeHtml }}</blockquote>{{ end }}
-{{- end }}
 {{- end }}
 
 {{/* PlugSwitchedUnexpectedly, ServerPowerLost (POSTed by Home Assistant, packages/plug_watch.yaml), BeefyWakeFailed, BeefyWakeRecovered (POSTed by Beefy-Waker): annotations time and details arrive as plain text and • bullets; 🧪 when labelled test. */}}

@@ -130,7 +130,7 @@ groups:
           description: >-
             Critical CVEs in running images on {{ $labels.host }}, usually fixed by a newer tag (Cup: https://cup.holy-grail.ch/). Worst first: <code>/var/lib/security-scan/image-cves-{{ $labels.host }}.txt</code> on fastpi.
 
-      # Per finding, not per count: fires for each fixable CRITICAL/HIGH (image, CVE, package) first seen in the last 24 h, from the hourly code scan (scope code-<repo>) or the nightly running-image scan (scope = host). Images new to the scan are baselined, so this is "a new CVE in something we already run", not the backlog. notify: digest: listed once per CVE in the 06:30 daily digest (daily-digest.yml), no message of its own.
+      # Per finding, not per count: fires for each fixable CRITICAL/HIGH (image, CVE, package) first seen in the last 24 h, from the hourly code scan (scope code-<repo>) or the nightly running-image scan (scope = host). Images new to the scan are baselined, so this is "a new CVE in something we already run", not the backlog. notify: digest: listed once per CVE in the 19:00 daily digest (daily-digest.yml), no message of its own.
       - alert: NewFixableImageVulnerability
         expr: security_new_vuln_info == 1
         for: 0m

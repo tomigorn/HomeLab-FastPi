@@ -1,136 +1,136 @@
 # promtool test rules tests/daily-digest_test.yml
-# promtool time 0 is Thursday 1970-01-01 00:00 UTC (CET, UTC+1): 06:30 local on 2 January = 1d5h30m. 1 June (CEST, UTC+2) = 151d, 06:30 local = 151d4h30m.
+# promtool time 0 is Thursday 1970-01-01 00:00 UTC (CET, UTC+1): 19:00 local on 2 January = 1d18h. 1 June (CEST, UTC+2) = 151d, 19:00 local = 151d17h. Every series starts 750 min late so the day ends at 19:00.
 rule_files:
   - ../rules/weekly-digest.yml
   - ../rules/daily-digest.yml
   - ../rules/storage-trends.yml
 evaluation_interval: 1m
 tests:
-  - name: winter 06:30 CET, realistic day, lists capped
+  - name: winter 19:00 CET, realistic day, lists capped
     interval: 1m
     input_series:
       - series: 'ALERTS{alertstate="firing",alertname="SecurityScanFailing",notify="digest",severity="warning",subject="cup-fastpi"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="SecurityScanFailing",notify="digest",severity="warning",subject="cup-beefy"}'
-        values: '1x600'
+        values: '_x750 1x600'
       - series: 'ALERTS{alertstate="firing",alertname="SecurityScanFailing",notify="digest",severity="warning",subject="logins-tower"}'
-        values: '1x600'
+        values: '_x750 1x600'
       - series: 'ALERTS{alertstate="firing",alertname="SshLoginOutsideLan",notify="digest",severity="warning",host="fastpi",user="pi",source_class="vpn"}'
-        values: '_x1000 1x60'
+        values: '_x750 _x1000 1x60'
       - series: 'ALERTS{alertstate="firing",alertname="HostRebooted",notify="digest",severity="info",job="raspberry-pi",instance="node-exporter:9100"}'
-        values: '_x1200 1x360'
+        values: '_x750 _x1200 1x360'
       - series: 'ALERTS{alertstate="firing",alertname="AutoUpdateNightly",notify="digest",severity="info",host="fastpi"}'
-        values: '_x1560 1x60'
+        values: '_x750 _x1560 1x60'
       - series: 'ALERTS{alertstate="firing",alertname="NewFixableImageVulnerability",notify="digest",severity="info",id="CVE-2026-1"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="CriticalImageVulnerabilities",notify="weekly",severity="info",host="fastpi"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="DeadMansSwitch",severity="deadman"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="ContainerCrashLooping",severity="warning",name="authentik-server",project="authentik"}'
-        values: '_x1400 1x20'
+        values: '_x750 _x1400 1x20'
       - series: 'ALERTS{alertstate="pending",alertname="ContainerDown",severity="warning",name="x"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="BeefyWakeLoop",severity="warning",job="blackbox-beefy",instance="beefy"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'security_new_vuln_info{scope="fastpi",image="grafana/grafana:13.2.4",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="grafana/grafana:13.2.4",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/duckdns:latest",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/duckdns:latest",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/bazarr@sha256:946dc8c5bb53",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="lscr.io/linuxserver/bazarr@sha256:946dc8c5bb53",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="ghcr.io/home-assistant/home-assistant:stable",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="ghcr.io/home-assistant/home-assistant:stable",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="nginxinc/nginx-unprivileged:alpine",id="CVE-2026-92392",pkg="curl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="fastpi",image="nginxinc/nginx-unprivileged:alpine",id="CVE-2026-92392",pkg="libcurl",severity="HIGH"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="beefy",image="influxdb:2.9.1",id="CVE-2026-84782",pkg="openssl",severity="CRITICAL"}'
-        values: '_x1000 1x800'
+        values: '_x750 _x1000 1x800'
       - series: 'security_new_vuln_info{scope="beefy",image="old:1",id="CVE-2025-1",pkg="zlib",severity="HIGH"}'
-        values: '1x100 0x1700'
+        values: '_x750 1x100 0x1700'
       - series: 'auto_update_last_run_timestamp_seconds{host="fastpi"}'
-        values: '94200x1800'
+        values: '_x750 139200x1800'
       - series: 'auto_update_last_run_timestamp_seconds{host="beefy"}'
-        values: '97920x1800'
+        values: '_x750 142920x1800'
       - series: 'auto_update_result{host="fastpi",project="Grafana",result="updated"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'auto_update_result{host="fastpi",project="Docker-Socket-Proxy",result="drift"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'auto_update_result{host="fastpi",project="Seerr",result="waiting"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'auto_update_result{host="fastpi",project="Traefik",result="major_held"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'auto_update_result{host="fastpi",project="Caddy",result="current"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'auto_update_result{host="beefy",project="Jellyfin",result="current"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
-        values: '0x1080 1x360 0x359'
+        values: '_x750 0x1080 1x360 0x359'
       - series: 'probe_success{job="blackbox-tower",instance="192.168.1.101:22"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'beefy_storage_size_bytes{branch="ssd"}'
-        values: '1000000000000x1800'
+        values: '_x750 1000000000000x1800'
       - series: 'beefy_storage_avail_bytes{branch="ssd"}'
-        values: '300000000000-10000000x1800'
+        values: '_x750 300000000000-10000000x1800'
       - series: 'node_filesystem_size_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
-        values: '1000000000000x1800'
+        values: '_x750 1000000000000x1800'
       - series: 'node_filesystem_free_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
-        values: '600000000000x1800'
+        values: '_x750 600000000000x1800'
       - series: 'node_filesystem_avail_bytes{job="raspberry-pi",instance="node-exporter:9100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/seagate-black"}'
-        values: '550000000000x1800'
+        values: '_x750 550000000000x1800'
       - series: 'beefy_storage_size_bytes{branch="hdd"}'
-        values: '1000000000000x1800'
+        values: '_x750 1000000000000x1800'
       - series: 'beefy_storage_avail_bytes{branch="hdd"}'
-        values: '500000000000x1800'
+        values: '_x750 500000000000x1800'
       - series: 'beefy_disk_smart_raw{disk="ssd",attribute="Total_LBAs_Written"}'
-        values: '2000000000x1800'
+        values: '_x750 2000000000x1800'
       - series: 'beefy_disk_smart_raw{disk="hdd",attribute="Start_Stop_Count"}'
-        values: '100x600 107x1200'
+        values: '_x750 100x600 107x1200'
       - series: 'beefy_disk_smart_raw{disk="hdd",attribute="Power_Cycle_Count"}'
-        values: '50x600 52x1200'
+        values: '_x750 50x600 52x1200'
       - series: 'beefy_mover_last_run_timestamp_seconds'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_mover_dry_run'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'beefy_mover_moved_titles'
-        values: '12x1800'
+        values: '_x750 12x1800'
       - series: 'beefy_mover_moved_bytes'
-        values: '85000000000x1800'
+        values: '_x750 85000000000x1800'
       - series: 'beefy_mover_ssd_used_ratio{when="before"}'
-        values: '0.78x1800'
+        values: '_x750 0.78x1800'
       - series: 'beefy_mover_ssd_used_ratio{when="after"}'
-        values: '0.66x1800'
+        values: '_x750 0.66x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="guard_removed",app="radarr",title="Wrong Film & Co (2024)"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="stalled",app="sonarr",title="Old Show S01E01"}'
-        values: '12000x1800'
+        values: '_x750 57000x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="partial_imported",app="sonarr",title="Some Show (2019) S04: imported 8 of 10, searching E09, E10"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="subtitle_repaired",app="bazarr",title="Some Film (2023)"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="subtitle_suspect",app="bazarr",title="Other Show S02E03"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
     alert_rule_test:
-      - eval_time: 1d5h29m
+      - eval_time: 1d17h59m
         alertname: DailyDigest
         exp_alerts: []
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• ✅ <b>Computer restarted</b> (fastpi)\n• ⏳ <b>Security check keeps failing</b> ×3 (cup-beefy, cup-fastpi …)\n• ✅ <b>SSH login from outside the home network</b> (fastpi, via VPN)\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• ✅ <b>App keeps crashing and restarting</b> (authentik-server)\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• <b>CVE-2026-84782</b> CRITICAL · in openssl · 1 image: influxdb:2.9.1\n• <b>CVE-2026-92392</b> HIGH · in curl, libcurl · 5 images: home-assistant:stable, grafana:13.2.4, bazarr …\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• beefy: nothing changed\n• fastpi: 🔁 Docker-Socket-Proxy, ✅ Grafana, ⏳ Traefik · ⏳ 1 waiting\n\n<b>💤 Time switched on (24 h)</b> · beefy 6.0 h · tower 0.0 h\n\n<b>🗄️ Storage</b> · SSD 72 % of 80 % — limit in ~6 days · HDD 50 % of 90 % · audiobooks 42 % of 80 %\n• SSD has written 1.0 TB in total\n• last 24 h: HDD started 7×, beefy switched on 2×\n• moved from SSD to HDD: 12 titles, 85 GB (SSD was 78 % full, now 66 %)\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• wrong release removed · Wrong Film &amp; Co (2024)\n• season only partly added · Some Show (2019) S04: imported 8 of 10, searching E09, E10\n• subtitle fixed (broken letters) · Some Film (2023)\n• please check this subtitle (odd letters) · Other Show S02E03\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
-      - eval_time: 1d6h
+      - eval_time: 1d18h30m
         alertname: DailyDigest
         exp_alerts: []
 
@@ -138,28 +138,28 @@ tests:
   - name: expiry and disks section only with something due
     interval: 1m
     input_series:
-      # at 1d5h30m (106200 s): cert 10 d left, cert 60 d left, domain 20 d, subscription 5 d and one ended, subscription 90 d
+      # at 1d18h (151200 s): cert 10 d left, cert 60 d left, domain 20 d, subscription 5 d and one ended, subscription 90 d
       - series: 'tls_cert_not_after_timestamp_seconds{host="sso.holy-grail.ch"}'
-        values: '970200x1800'
+        values: '_x750 1015200x1800'
       - series: 'tls_cert_not_after_timestamp_seconds{host="far.holy-grail.ch"}'
-        values: '5290200x1800'
+        values: '_x750 5335200x1800'
       - series: 'domain_expiry_timestamp_seconds{domain="holy-grail.ch",source="anniversary"}'
-        values: '1834200x1800'
+        values: '_x750 1879200x1800'
       - series: 'subscription_expiry_timestamp_seconds{name="Eweka",kind="Usenet provider"}'
-        values: '538200x1800'
+        values: '_x750 583200x1800'
       - series: 'subscription_expiry_timestamp_seconds{name="Old & Gone",kind="indexer"}'
-        values: '0x1800'
+        values: '_x750 45000x1800'
       - series: 'subscription_expiry_timestamp_seconds{name="ProtonVPN Plus",kind="VPN"}'
-        values: '7882200x1800'
+        values: '_x750 7927200x1800'
       - series: 'ALERTS{alertstate="firing",alertname="SmartPendingSectors",severity="warning",host="fastpi",disk="seagate-red"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Disk has unreadable spots</b> (fastpi)\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n\n<b>⏰ Act soon</b>\n• 🔐 sso.holy-grail.ch: certificate ends in 10 days\n• 🌐 holy-grail.ch: domain renewal due in 20 days\n• 💳 Eweka subscription ends in 5 days\n• 💳 Old &amp; Gone subscription has ended\n• 💽 fastpi seagate-red: disk problem (SmartPendingSectors)\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
@@ -168,105 +168,105 @@ tests:
     input_series:
       # alert_silenced as json-exporter exports it (Alertmanager /api/v2/alerts, silenced only): all alert labels in one JSON label
       - series: 'ALERTS{alertstate="firing",alertname="ClamavScanStale",severity="info",host="tower"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       # same alert on another host, not silenced: still listed
       - series: 'ALERTS{alertstate="firing",alertname="ClamavScanStale",severity="info",host="beefy"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="TowerUpButNextcloudDown",severity="warning",job="blackbox-tower",instance="tower"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'ALERTS{alertstate="firing",alertname="BeefyWakeLoop",severity="warning",job="blackbox-beefy",instance="beefy"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'alert_silenced{alertname="ClamavScanStale",alert_labels="{\"alertname\":\"ClamavScanStale\",\"host\":\"tower\",\"severity\":\"info\"}",job="alertmanager-silences",instance="alertmanager-silences"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'alert_silenced{alertname="TowerUpButNextcloudDown",alert_labels="{\"alertname\":\"TowerUpButNextcloudDown\",\"instance\":\"tower\",\"job\":\"blackbox-tower\",\"severity\":\"warning\"}",job="alertmanager-silences",instance="alertmanager-silences"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="radarr",title="1337x (Prowlarr)"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="sonarr",title="1337x (Prowlarr), 1337x (old-rare) (Prowlarr)"}'
-        values: '98000x1800'
+        values: '_x750 143000x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="sonarr",title="Too Old (Prowlarr)"}'
-        values: '1000x1800'
+        values: '_x750 46000x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="malware_removed",app="sonarr",title="Fake Show S01: Fake.S01E01"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_recovered",app="prowlarr",title="1337x"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="brand_new_thing",app="sonarr",title="Something"}'
-        values: '98400x1800'
-      # at 1d5h30m (106200 s): No-IP hostname 29 d and 4 d left, Usenet provider 29 d left
+        values: '_x750 143400x1800'
+      # at 1d18h (151200 s): No-IP hostname 29 d and 4 d left, Usenet provider 29 d left
       - series: 'subscription_expiry_timestamp_seconds{name="far.ddns.net",kind="No-IP hostname"}'
-        values: '2611800x1800'
+        values: '_x750 2656800x1800'
       - series: 'subscription_expiry_timestamp_seconds{name="near.ddns.net",kind="No-IP hostname"}'
-        values: '451800x1800'
+        values: '_x750 496800x1800'
       - series: 'subscription_expiry_timestamp_seconds{name="Eweka",kind="Usenet provider"}'
-        values: '2611800x1800'
+        values: '_x750 2656800x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
-              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• ⏳ <b>Virus scan has not run for a long time</b> (beefy)\n• 🔇 2 switched off on purpose: Virus scan has not run for a long time, tower is on but Nextcloud is broken\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• brand new thing · Something\n• indexer 1337x works again\n• fake download removed · Fake Show S01: Fake.S01E01\n• 1337x, 1337x (old-rare) ×2 paused: too many searches\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n\n<b>⏰ Act soon</b>\n• 💳 Eweka subscription ends in 29 days\n• 💳 near.ddns.net hostname: confirm within 4 days\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+              summary: "Evening summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• ⏳ <b>Virus scan has not run for a long time</b> (beefy)\n• 🔇 1 switched off on purpose: Virus scan has not run for a long time\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>Computer wakes up again and again</b> (beefy)\n• 🔇 1 switched off on purpose: tower is on but Nextcloud is broken\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• brand new thing · Something\n• indexer 1337x works again\n• fake download removed · Fake Show S01: Fake.S01E01\n• 1337x, 1337x (old-rare) ×2 paused: too many searches\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n\n<b>⏰ Act soon</b>\n• 💳 Eweka subscription ends in 29 days\n• 💳 near.ddns.net hostname: confirm within 4 days\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
   - name: only silenced alerts, downloads capped at 5 lines with the merged rate-limit line, No-IP alone at 29 d shows no expiry section
     interval: 1m
     input_series:
       - series: 'ALERTS{alertstate="firing",alertname="SecurityScanStale",severity="warning",job="raspberry-pi",instance="node-exporter:9100",subject="av-tower"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'alert_silenced{alertname="SecurityScanStale",alert_labels="{\"alertname\":\"SecurityScanStale\",\"instance\":\"node-exporter:9100\",\"job\":\"raspberry-pi\",\"severity\":\"warning\",\"subject\":\"av-tower\"}",job="alertmanager-silences",instance="alertmanager-silences"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="failed",app="sonarr",title="Show A S01E01"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="failed",app="sonarr",title="Show B S01E01"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="stalled",app="sonarr",title="Show C S01E01"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="auto_imported",app="radarr",title="Film D (2020)"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="subtitle_forced_unverified",app="bazarr",title="Show E S01E01 · en"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="radarr",title="1337x (Prowlarr)"}'
-        values: '98400x1800'
+        values: '_x750 143400x1800'
       - series: 'beefy_watchdog_event_timestamp_seconds{kind="indexer_rate_limited",app="sonarr",title="1337x (Prowlarr)"}'
-        values: '98000x1800'
+        values: '_x750 143000x1800'
       - series: 'subscription_expiry_timestamp_seconds{name="far.ddns.net",kind="No-IP hostname"}'
-        values: '2611800x1800'
+        values: '_x750 2656800x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
-              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• 🔇 1 switched off on purpose: Security check has not run for a long time\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• added to the library · Film D (2020)\n• failed, searching again · Show A S01E01\n• failed, searching again · Show B S01E01\n• stuck, searching again · Show C S01E01\n• 1337x ×2 paused: too many searches\n• … 7 events in total\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+              summary: "Evening summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• 🔇 1 switched off on purpose: Security check has not run for a long time\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎬 Downloads (fixed by themselves)</b>\n• added to the library · Film D (2020)\n• failed, searching again · Show A S01E01\n• failed, searching again · Show B S01E01\n• stuck, searching again · Show C S01E01\n• 1337x ×2 paused: too many searches\n• … 7 events in total\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
   - name: playback - one picture conversion with HDR to SDR and one sound conversion, newest first
     interval: 1m
     input_series:
-      # at 1d5h30m (106200 s): last poll 20 min ago
+      # at 1d18h (151200 s): last poll 20 min ago
       - series: 'jellyfin_playback_plays_24h{method="direct"}'
-        values: '12x1800'
+        values: '_x750 12x1800'
       - series: 'jellyfin_playback_plays_24h{method="remux"}'
-        values: '2x1800'
+        values: '_x750 2x1800'
       - series: 'jellyfin_playback_plays_24h{method="audio"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_plays_24h{method="video"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
-        values: '105000x1800'
+        values: '_x750 150000x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Some Show S03E01",method="video",reasons="ContainerNotSupported,VideoCodecTagNotSupported",hdr_to_sdr="yes",started="100000"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="bob",client="Infuse",device="Apple TV",title="Some Film (2021)",method="audio",reasons="AudioCodecNotSupported,AudioChannelsNotSupported",hdr_to_sdr="no",started="103000"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n16 plays: 12 direct · 2 repackaged · 1 sound converted · 1 picture converted\n• bob · Infuse on Apple TV · Some Film (2021) · sound converted (sound codec, sound channels)\n• jane · Jellyfin Web on Safari iPhone · Some Show S03E01 · picture converted (file format, picture codec tag, HDR → SDR)\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
@@ -274,34 +274,34 @@ tests:
     interval: 1m
     input_series:
       - series: 'jellyfin_playback_plays_24h{method="audio"}'
-        values: '3x1800'
+        values: '_x750 3x1800'
       - series: 'jellyfin_playback_plays_24h{method="video"}'
-        values: '5x1800'
+        values: '_x750 5x1800'
       - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
-        values: '105000x1800'
+        values: '_x750 150000x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Android",device="Pixel 9",title="Tom & Jerry (1940)",method="video",reasons="",hdr_to_sdr="yes",started="100008"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="bob",client="Jellyfin Web",device="Firefox Windows",title="A Very Long Series Name That Goes On S01E01",method="audio",reasons="",hdr_to_sdr="no",started="100007"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Infuse",device="Apple TV",title="Other Show S02E03",method="audio",reasons="BrandNewReason,AudioIsExternal",hdr_to_sdr="no",started="100006"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="bob",client="Jellyfin Web",device="Edge Windows",title="Film E (2020)",method="video",reasons="VideoRangeTypeNotSupported,ContainerBitrateExceedsLimit,SubtitleCodecNotSupported",hdr_to_sdr="no",started="100005"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Chrome Linux",title="Film D (2019)",method="video",reasons="VideoCodecNotSupported,VideoBitDepthNotSupported,VideoProfileNotSupported",hdr_to_sdr="no",started="100004"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="bob",client="Jellyfin Web",device="Safari Mac",title="Film C (2018)",method="audio",reasons="AudioCodecNotSupported",hdr_to_sdr="no",started="100003"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari Mac",title="Film B (2017)",method="video",reasons="ContainerNotSupported",hdr_to_sdr="no",started="100002"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari Mac",title="Film A (2016)",method="video",reasons="ContainerNotSupported",hdr_to_sdr="no",started="100001"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n8 plays: 0 direct · 0 repackaged · 3 sound converted · 5 picture converted\n• jane · Jellyfin Android on Pixel 9 · Tom &amp; Jerry (1940) · picture converted (HDR → SDR)\n• bob · Jellyfin Web on Firefox Windows · A Very Long Series Name That Goes On S01… · sound converted\n• jane · Infuse on Apple TV · Other Show S02E03 · sound converted (BrandNewReason, external sound file)\n• bob · Jellyfin Web on Edge Windows · Film E (2020) · picture converted (HDR type, bitrate limit, subtitles burned in)\n• jane · Jellyfin Web on Chrome Linux · Film D (2019) · picture converted (picture codec, picture bit depth, picture profile)\n• bob · Jellyfin Web on Safari Mac · Film C (2018) · sound converted (sound codec)\n• … 8 conversions in total\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
@@ -309,22 +309,22 @@ tests:
     interval: 1m
     input_series:
       - series: 'jellyfin_playback_plays_24h{method="direct"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_plays_24h{method="remux"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="audio"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="video"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
-        values: '105000x1800'
+        values: '_x750 150000x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n1 play: 1 direct · 0 repackaged · 0 sound converted · 0 picture converted\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
@@ -332,46 +332,76 @@ tests:
     interval: 1m
     input_series:
       - series: 'jellyfin_playback_plays_24h{method="direct"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="remux"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="audio"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="video"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
-        values: '105000x1800'
+        values: '_x750 150000x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
 
 
   - name: playback - watch last polled more than 24 h ago, no data
     interval: 1m
     input_series:
-      # at 1d5h30m (106200 s): last poll more than 24 h before (beefy-idle-pull keeps the old copy)
+      # at 1d18h (151200 s): last poll more than 24 h before (beefy-idle-pull keeps the old copy)
       - series: 'jellyfin_playback_plays_24h{method="direct"}'
-        values: '3x1800'
+        values: '_x750 3x1800'
       - series: 'jellyfin_playback_plays_24h{method="remux"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="audio"}'
-        values: '0x1800'
+        values: '_x750 0x1800'
       - series: 'jellyfin_playback_plays_24h{method="video"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
       - series: 'jellyfin_playback_watch_last_poll_timestamp_seconds'
-        values: '19000x1800'
+        values: '_x750 64000x1800'
       - series: 'jellyfin_playback_converted_info{user="jane",client="Jellyfin Web",device="Safari iPhone",title="Old Show S01E01",method="video",reasons="ContainerNotSupported",hdr_to_sdr="no",started="10000"}'
-        values: '1x1800'
+        values: '_x750 1x1800'
     alert_rule_test:
-      - eval_time: 1d5h30m
+      - eval_time: 1d18h
         alertname: DailyDigest
         exp_alerts:
           - exp_labels: {severity: info}
             exp_annotations:
-              summary: "Morning summary – 2 Jan (last 24 h)"
+              summary: "Evening summary – 2 Jan (last 24 h)"
               description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• none\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• none\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b>\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"
+  - name: alerts routed to the digest by name or severity info, synthetic test alerts left out, notes from scripts within 24 h, sorted by source
+    interval: 1m
+    input_series:
+      - series: 'ALERTS{alertstate="firing",alertname="ClaudeRemoteRestartBlocked",severity="warning",job="raspberry-pi",instance="node-exporter:9100"}'
+        values: '_x1500 1x120'
+      - series: 'ALERTS{alertstate="firing",alertname="ContainerImageStale",severity="info",host="beefy",container="jellyfin"}'
+        values: '1x2600'
+      - series: 'ALERTS{alertstate="firing",alertname="RootkitWarning",severity="info",host="fastpi",tool="rkhunter"}'
+        values: '1x2600'
+      - series: 'ALERTS{alertstate="firing",alertname="ContainerDown",severity="warning",name="jellyfin"}'
+        values: '_x2000 1x600'
+      - series: 'ALERTS{alertstate="firing",alertname="DailyDigestPreview",severity="info",test="digest-preview"}'
+        values: '_x2000 1x600'
+      - series: 'probe_success{job="blackbox-beefy",instance="beefy"}'
+        values: '0x2600'
+      # at 1d18h (151200 s): two notes within 24 h, one older
+      - series: 'homelab_digest_note_timestamp_seconds{source="restore-test",text="Backup restore test passed: 12 files, 3 SQLite dumps"}'
+        values: '140000x2600'
+      - series: 'homelab_digest_note_timestamp_seconds{source="netns-watch",text="restarted qbit & sab <2>"}'
+        values: '150000x2600'
+      - series: 'homelab_digest_note_timestamp_seconds{source="mam-points",text="too old"}'
+        values: '60000x2600'
+    alert_rule_test:
+      - eval_time: 1d18h
+        alertname: DailyDigest
+        exp_alerts:
+          - exp_labels: {severity: info}
+            exp_annotations:
+              summary: "Evening summary – 2 Jan (last 24 h)"
+              description: "⏳ still a problem · ✅ fixed by itself\n\n<b>🔕 Only shown here (no separate message)</b>\n• ✅ <b>Nightly Claude restart postponed</b> (fastpi)\n• ⏳ <b>App uses an old image (update missing)</b> (beefy)\n\n<b>🔔 Problems (each was also sent as its own message)</b>\n• ⏳ <b>App is not running</b> (jellyfin)\n• ⏳ <b>Rootkit check found something new</b> (fastpi)\n\n<b>📨 Notes from scripts</b>\n• netns-watch: restarted qbit &amp; sab &lt;2&gt;\n• restore-test: Backup restore test passed: 12 files, 3 SQLite dumps\n\n<b>🛡️ Security holes with a fix ready (CVE)</b>\n• none\n\n<b>📦 Automatic updates last night</b>\n✅ updated · ❌ failed · ⏳ waiting or held back · 📦 new version, waits for you · 🔁 recreated\n• no update run in the last 24 h\n\n<b>💤 Time switched on (24 h)</b> · beefy 0.0 h\n\n<b>🎞️ Playback (last 24 h)</b>\n• no data from beefy\n<blockquote expandable>Small problems at night (22:00–07:00) wait until 07:00. Updates and old security holes: Monday summary. History: Grafana → updates-security.</blockquote>"

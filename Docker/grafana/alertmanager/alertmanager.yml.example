@@ -29,7 +29,7 @@ global:
 templates:
   - /etc/alertmanager/templates/*.tmpl
 
-# Quiet hours for everything that is not critical (alerts still firing at 07:00 are sent then; what fired and cleared overnight is in the 06:30 daily digest).
+# Quiet hours for everything that is not critical (alerts still firing at 07:00 are sent then; what fired and cleared overnight is in the 19:00 daily digest).
 # Muted notifications are dropped, not queued: Alertmanager sends a still-firing group at the first group_interval after the window ends.
 time_intervals:
   - name: quiet-hours
@@ -45,8 +45,10 @@ time_intervals:
 #   critical             Telegram + email, with resolved, any time
 #   malware, heartbeat   email (+ Telegram for malware), any time
 #   intrusion            Telegram + email, any time (SSH login from unknown source/user, changed key/sudo/sshd file, future-dated beefy snapshot)
-#   warning / info       Telegram only, no resolved, muted 22:00-07:00
-#   notify=digest|weekly no message: listed in the 06:30 DailyDigest or the Monday WeeklyUpdateDigest
+#   other warnings       Telegram only, no resolved, muted 22:00-07:00, once per episode
+#   digest-only          no message: notify=digest, the INFO names below and every other severity=info, listed in the 19:00 DailyDigest
+#   notify=weekly        no message: listed in the Monday WeeklyUpdateDigest
+# Routing policy (ACTION / AUTO-FIX / INFO / DROP per message type): Docker/grafana/README.md "Alert routing".
 route:
   receiver: telegram
   # Group by alert name so "all endpoints down" arrives as ONE message rather than
@@ -81,7 +83,7 @@ route:
       group_wait: 0s
       repeat_interval: 720h
 
-    # Daily (06:30) and weekly (Monday 05:00) digests: fire for under an hour, no resolved message, exempt from quiet hours (they are the summary of them).
+    # Daily (19:00) and weekly (Monday 05:00) digests: fire for under an hour, no resolved message, exempt from quiet hours (they are the summary of them).
     - matchers:
         - alertname=~"DailyDigest|WeeklyUpdateDigest"
       receiver: telegram-digest
@@ -107,7 +109,7 @@ route:
       group_by: ['alertname', 'host']
       repeat_interval: 168h
 
-    # Intrusion signs (security-posture.yml, backup.yml): email + Telegram at once, never muted, so a 23:00 login does not wait for the 06:30 digest. vpn/tunnel logins carry notify=digest and stop above.
+    # Intrusion signs (security-posture.yml, backup.yml): email + Telegram at once, never muted, so a 23:00 login does not wait for the 19:00 digest. vpn/tunnel logins carry notify=digest and stop above.
     - matchers:
         - alertname=~"SshLoginOutsideLan|SshLoginUnexpectedUser|SecurityFileChanged|BeefyBackupSnapshotInFuture"
       receiver: telegram-and-email
@@ -144,29 +146,33 @@ route:
       # No grouping delay: there is only ever one of these.
       group_wait: 0s
 
-    # beefy awake 6 h (prometheus/rules/beefy-power.yml): one message per episode (tg.beefyawake); how long it was up is in the daily digest.
+    # Known, slow-moving states: once per episode, again only when the rule fires anew (wake loops hold 6 h, rootkit fires on a changed finding set).
     - matchers:
-        - alertname="BeefyAwakeLong"
-      receiver: telegram-beefy-awake
-      repeat_interval: 720h
-      mute_time_intervals: [quiet-hours]
-
-    # Known, slow-moving states: once per episode, again only when the rule fires anew (wake loops hold 6 h, rootkit fires on a changed finding set, tower staleness only after tower was awake at scan time).
-    - matchers:
-        - alertname=~"BeefyWakeLoop|TowerWakeLoop|RootkitWarning|SecurityScanStale|ClamavScanStale"
+        - alertname=~"BeefyWakeLoop|TowerWakeLoop|RootkitWarning"
       receiver: telegram
       repeat_interval: 720h
       mute_time_intervals: [quiet-hours]
 
-    # Info: Telegram only, at most weekly.
+    # Email cannot deliver (info): the owner must fix the mail relay, so Telegram.
+    - matchers:
+        - alertname="AlertNotificationsFailing"
+      receiver: telegram
+      repeat_interval: 720h
+      mute_time_intervals: [quiet-hours]
+
+    # INFO by name: nothing to do today (self-healing, auto-renewing, already handled), listed in the 19:00 DailyDigest only. Same list as homelab:alert_digest_only in prometheus/rules/daily-digest.yml (test_routing.py checks).
+    - matchers:
+        - alertname=~"BeefyAwakeLong|BeefyHddSpinningUpTooOften|ClaudeRemoteRestartBlocked|ContainerUnhealthy|HostOomKill|HostRebootedUnclean|JellyfinPlaybackStutter|PortUpdaterReattachLoop|PublicCertExpiringSoon|SecurityScanStale|TlsCertExpiringSoon"
+      receiver: "null"
+
+    # Every other severity=info: digest only.
     - matchers:
         - severity="info"
-      receiver: telegram
-      repeat_interval: 168h
-      mute_time_intervals: [quiet-hours]
+      receiver: "null"
 
-    # Everything else (warning): Telegram only, daily repeat. The root route cannot carry mute_time_intervals, hence this catch-all.
+    # Everything else (warning): Telegram only, once per episode (the 19:00 digest lists it daily while it lasts). The root route cannot carry mute_time_intervals, hence this catch-all.
     - receiver: telegram
+      repeat_interval: 720h
       mute_time_intervals: [quiet-hours]
 
 receivers:
@@ -249,14 +255,6 @@ receivers:
         parse_mode: HTML
         send_resolved: false
         message: '{{ template "tg.message" . }}'
-
-  - name: telegram-beefy-awake
-    telegram_configs:
-      - bot_token_file: /secrets/telegram_bot_token
-        chat_id: -1001234567890   # <-- your group chat id (NEGATIVE)
-        parse_mode: HTML
-        send_resolved: false
-        message: '{{ template "tg.beefyawake" . }}'
 
   - name: telegram-digest
     telegram_configs:

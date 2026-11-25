@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import yaml
 
 HERE = Path(__file__).resolve().parent
+DIGEST_RULES = HERE.parent / "prometheus" / "rules" / "daily-digest.yml"
 CONFIG = Path(sys.argv.pop(1)).resolve() if len(sys.argv) > 1 else HERE / "alertmanager.yml.example"
 IMAGE = "quay.io/prometheus/alertmanager:v0.34.1"
 ZRH = ZoneInfo("Europe/Zurich")
@@ -44,13 +45,24 @@ CASES = [
     ({"alertname": "UnraidUpdateAvailable", "severity": "info", "notify": "weekly"}, "null", None),
     ({"alertname": "DailyDigest", "severity": "info"}, "telegram-digest", False),
     ({"alertname": "WeeklyUpdateDigest", "severity": "info"}, "telegram-digest", False),
-    ({"alertname": "BeefyAwakeLong", "severity": "warning"}, "telegram-beefy-awake", True),
+    ({"alertname": "BeefyAwakeLong", "severity": "warning"}, "null", None),
+    ({"alertname": "ClaudeRemoteRestartBlocked", "severity": "warning"}, "null", None),
+    ({"alertname": "ContainerUnhealthy", "severity": "warning", "name": "jellyfin"}, "null", None),
+    ({"alertname": "HostOomKill", "severity": "warning"}, "null", None),
+    ({"alertname": "TlsCertExpiringSoon", "severity": "warning", "host": "sso.holy-grail.ch"}, "null", None),
+    ({"alertname": "ContainerImageStale", "severity": "info", "host": "beefy"}, "null", None),
+    ({"alertname": "ClamavScanStale", "severity": "info", "host": "beefy"}, "null", None),
+    ({"alertname": "CveAcceptanceExpired", "severity": "info"}, "null", None),
+    ({"alertname": "SomeNewInfoRule", "severity": "info"}, "null", None),
+    ({"alertname": "TowerUpButNextcloudDown", "severity": "warning"}, "telegram", True),
+    ({"alertname": "CustomizationCheckFailing", "severity": "warning", "id": "x"}, "telegram", True),
+    ({"alertname": "BackupStale", "severity": "warning"}, "telegram", True),
     ({"alertname": "BeefyWakeLoop", "severity": "warning"}, "telegram", True),
     ({"alertname": "RootkitWarning", "severity": "info"}, "telegram", True),
-    ({"alertname": "SecurityScanStale", "severity": "warning", "subject": "av-tower"}, "telegram", True),
+    ({"alertname": "SecurityScanStale", "severity": "warning", "subject": "av-tower"}, "null", None),
     ({"alertname": "AlertNotificationsFailing", "severity": "info", "integration": "telegram"}, "email", False),
     ({"alertname": "AlertNotificationsFailing", "severity": "info", "integration": "email"}, "telegram", True),
-    ({"alertname": "HostRebootedUnclean", "severity": "warning"}, "telegram", True),
+    ({"alertname": "HostRebootedUnclean", "severity": "warning"}, "null", None),
     ({"alertname": "MalwareQuarantined", "severity": "warning", "host": "fastpi", "test": "eicar"}, "telegram-test", False),
     ({"alertname": "SyntheticCheck", "severity": "critical", "test": "batch"}, "telegram-test", False),
     ({"alertname": "PlugSwitchedUnexpectedly", "severity": "critical", "host": "tower", "at": "20261102004422"}, "telegram-power", False),
@@ -140,6 +152,22 @@ class Routing(unittest.TestCase):
             for kind in ("email_configs", "telegram_configs", "webhook_configs"):
                 for c in r.get(kind, []):
                     self.assertEqual(c.get("send_resolved", True), r["name"] == "critical", (r["name"], kind))
+
+    def test_digest_only_lists_match_the_daily_digest(self):
+        rules = yaml.safe_load(DIGEST_RULES.read_text())["groups"][0]["rules"]
+        expr = next(r["expr"] for r in rules if r.get("record") == "homelab:alert_digest_only")
+        by_name = re.search(r'notify="",test="",alertname=~"([^"]+)"', expr).group(1)
+        keep_info = re.search(r'severity="info",alertname!~"([^"]+)"', expr).group(1)
+        routes = [r for r in self.cfg["route"]["routes"] if r.get("receiver") == "null"]
+        self.assertIn([f'alertname=~"{by_name}"'], [r.get("matchers") for r in routes])
+        self.assertIn(['severity="info"'], [r.get("matchers") for r in routes])
+        for name in by_name.split("|"):
+            self.assertEqual(route_for(self.cfg["route"], {"alertname": name, "severity": "warning"}).get("receiver"), "null", name)
+        for name in keep_info.split("|"):
+            self.assertNotEqual(route_for(self.cfg["route"], {"alertname": name, "severity": "info", "integration": "email", "host": "beefy", "at": "1"}).get("receiver"), "null", name)
+
+    def test_warnings_once_per_episode(self):
+        self.assertEqual(self.cfg["route"]["routes"][-1].get("repeat_interval"), "720h")
 
     def test_no_mute_on_root(self):
         self.assertNotIn("mute_time_intervals", self.cfg["route"])

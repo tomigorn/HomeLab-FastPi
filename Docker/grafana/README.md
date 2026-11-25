@@ -150,7 +150,7 @@ blackbox jobs in `prometheus/prometheus.yml`, rules in `prometheus/rules/public-
 | Alert | Fires when |
 |---|---|
 | `BeefyWakeLoop` | > 60 up/down changes in 24 h (planned wakes give 7-41), holds 6 h after it drops below; one message per episode |
-| `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. Telegram only (`telegram-beefy-awake`, tg.beefyawake): one message per episode, no repeat, no resolved message; "awake since" is the boot time; hours awake per day are in the daily digest. Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
+| `BeefyAwakeLong` | up 6 h since beefy's own boot time (`beefy_boot_time_seconds`, so a Prometheus restart cannot fire it early) with fresh idle metrics (< 15 min) (warning). Not new between 03:58 and 04:45 local; one already firing carries on. No message of its own since 2026-11-25 (INFO, see Alert routing): listed in the 19:00 daily digest with the hours awake per day. Says what keeps it awake from `beefy_idle_busy{reason}` / `beefy_idle_info{detail}`: the idle watcher on beefy writes them, `Server/4-Security-Monitoring/beefy-idle-pull.timer` copies them every 5 min to `beefy_idle.prom` (removed while beefy is down) |
 
 ## Jellyfin Popular movies and shows
 
@@ -315,7 +315,7 @@ sudo systemctl start library-exporter.service && cat /var/lib/node-exporter/text
 
 ## Alert routing
 
-`alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`, same structure). Telegram layout: `alertmanager/templates/telegram.tmpl` (directory mount, edits live after an `amtool`-checked reload). Edit the live file in place (same inode), then `docker exec alertmanager amtool check-config /etc/alertmanager/alertmanager.yml && docker kill -s HUP alertmanager`.
+`alertmanager/alertmanager.yml` (gitignored; template `alertmanager.yml.example`, same structure). Telegram layout: `alertmanager/templates/telegram.tmpl` (directory mount, edits live after an `amtool`-checked reload). Edit the live file in place (same inode; `sed -i` makes a new one the container does not see: then `docker compose up -d --force-recreate --no-deps alertmanager`), then `docker exec alertmanager amtool check-config /etc/alertmanager/alertmanager.yml && docker kill -s HUP alertmanager`.
 
 | Alerts | Channel | When |
 |---|---|---|
@@ -328,23 +328,60 @@ sudo systemctl start library-exporter.service && cat /var/lib/node-exporter/text
 | `BeefyWakeFailed` 🆘 (critical), `BeefyWakeRecovered` ✅ (info) (POSTed by Beefy-Waker, `Beefy-Waker/app/recovery.py`) | `telegram-power` (layout `tg.power`), no resolved | at once, any time, one message per event (label `at`) |
 | `AlertingHeartbeat` | email | every 28 days |
 | `DeadMansSwitch` | healthchecks.io webhook (it alerts by Telegram + email) | every 4 min |
-| other warnings | Telegram, no resolved | at once, muted 22:00-07:00, repeat 24 h |
-| other info | Telegram, no resolved | at once, muted 22:00-07:00, repeat 7 d |
-| `BeefyWakeLoop`, `TowerWakeLoop`, `RootkitWarning`, `SecurityScanStale`, `ClamavScanStale`, `BeefyAwakeLong` | Telegram, no resolved | once per episode, muted 22:00-07:00 |
-| label `notify: digest` (50 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`, expiry/SMART exporter health) | no message (`null`), listed in `DailyDigest` | daily 06:30 |
+| other warnings | Telegram, no resolved | at once, muted 22:00-07:00, once per episode (the digest lists it daily while it lasts) |
+| `AlertNotificationsFailing` (email broken) | Telegram, no resolved | at once, muted 22:00-07:00 |
+| `BeefyWakeLoop`, `TowerWakeLoop`, `RootkitWarning` | Telegram, no resolved | once per episode, muted 22:00-07:00 |
+| label `notify: digest` (50 rules: scanner/collector health, host warnings, CrowdSec hygiene, slow posture, VPN/tunnel SSH logins, `NewFixableImageVulnerability`, `AutoUpdateNightly`, `AudioLanguageNotFound`, `HostRebooted`, expiry/SMART exporter health), the INFO names below, every other `severity: info` | no message (`null`), listed in `DailyDigest` (`homelab:alert_digest_only`) | daily 19:00 |
 | label `notify: weekly` (`ContainerImageUpdatesAvailable`, `UnraidUpdateAvailable`, `CriticalImageVulnerabilities`) | no message, figures in `WeeklyUpdateDigest` | Monday 05:00 |
-| `DailyDigest`, `WeeklyUpdateDigest` | `telegram-digest` | 06:30 daily, Monday 05:00, never muted |
+| `DailyDigest`, `WeeklyUpdateDigest` | `telegram-digest` | 19:00 daily, Monday 05:00, never muted |
 | `AlertNotificationsFailing{integration="telegram"}` | email | at once |
 | any label `test=…` | `telegram-test`, marked 🧪, never email | only when sent on purpose |
 
 - **Quiet hours** (`time_intervals: quiet-hours`, Europe/Zurich, DST-safe): muted sends are dropped; a group still firing at 07:00 is sent then, one that fired and cleared overnight is in the digest.
-- **Daily digest** = Telegram "Morning summary – 13 Nov (last 24 h)" (`prometheus/rules/daily-digest.yml`, plain English on purpose; title is the rule summary). Sections: only shown here (`notify: digest`), problems (each also sent), security holes with a fix ready (CVE), automatic updates last night (✅ updated, ❌ failed, ⏳ waiting or held back, 📦 new version waits for you, 🔁 recreated), time switched on (beefy/tower), 🗄️ storage (beefy SSD/HDD and audiobook disk used % of their limit, "limit in ~N days" under a year, SSD TB written, HDD starts and beefy switch-ons, last mover run), downloads fixed by themselves (queue-watchdog events; indexer events as "indexer X works again" and "X paused: too many searches"), 🎞️ playback (plays by method, then the newest conversions: user · app on device · title · picture/sound converted (reasons in plain English via `dg.why`, unknown ones raw, HDR → SDR); no section on a day without plays, "no data from beefy" when the metrics are missing or the watch's last poll is older than 24 h), and only when something is due "Act soon" (see Expiry and disk health). Alert IDs become plain sentences via the `dg.name` template at the top of the description (unknown IDs show as they are: add a line there for a new alert); the subject (host, name) is in brackets, `node-exporter:9100` becomes the host name. Silenced alerts: `🔇 n switched off on purpose: …` (`homelab:alert_silenced`, json-exporter module `alertmanager`). Lists capped (8/6/5/6/5/6/4) to stay under 4096 characters.
-- **New alert rule:** pick its line above; give it `notify: digest` if it needs no action today.
+- **Daily digest** = Telegram "Evening summary – 13 Nov (last 24 h)" at 19:00 (`prometheus/rules/daily-digest.yml`, plain English on purpose; title is the rule summary). Sections: only shown here (`homelab:alert_digest_only`), problems (each also sent, `homelab:alert_sent`), 📨 notes from scripts (`notify.sh digest`, last 24 h, only when there are some, capped at 6), security holes with a fix ready (CVE), automatic updates last night (✅ updated, ❌ failed, ⏳ waiting or held back, 📦 new version waits for you, 🔁 recreated), time switched on (beefy/tower), 🗄️ storage (beefy SSD/HDD and audiobook disk used % of their limit, "limit in ~N days" under a year, SSD TB written, HDD starts and beefy switch-ons, last mover run), downloads fixed by themselves (queue-watchdog events; indexer events as "indexer X works again" and "X paused: too many searches"), 🎞️ playback (plays by method, then the newest conversions: user · app on device · title · picture/sound converted (reasons in plain English via `dg.why`, unknown ones raw, HDR → SDR); no section on a day without plays, "no data from beefy" when the metrics are missing or the watch's last poll is older than 24 h), and only when something is due "Act soon" (see Expiry and disk health). Alert IDs become plain sentences via the `dg.name` template at the top of the description (unknown IDs show as they are: add a line there for a new alert); the subject (host, name) is in brackets, `node-exporter:9100` becomes the host name. Silenced alerts: `🔇 n switched off on purpose: …` (`homelab:alert_silenced`, json-exporter module `alertmanager`). Lists capped (8/6/5/6/5/6/4) to stay under 4096 characters.
+- **New alert rule:** pick its class in the routing policy below; give it `notify: digest` if it needs no action today (or `severity: info`, which never pages).
+
+### Routing policy (owner 2026-11-22/25: Telegram only for "you must do X")
+
+| Class | Meaning | Where it goes |
+|---|---|---|
+| ACTION | the owner must do something | Telegram at once (warnings once per episode, muted 22:00-07:00; critical, intrusion, malware, power any time) |
+| AUTO-FIX | a safe automatic fix runs, the result is logged | digest (fix done) or ACTION (fix failed) |
+| INFO | good to know, nothing to do today | 19:00 daily digest only |
+| DROP | nobody needs it | logs / Grafana only |
+
+| Sender / message type | 30 days to 2026-11-25 | Class |
+|---|---|---|
+| Alertmanager, all Telegram sends (measured, `alertmanager_notifications_total`) | 548 (≈ 18/day) | – |
+| `ClaudeRemoteRestartBlocked` | 21 | INFO (restart waits for a running session, ends by itself) |
+| `BeefyAwakeLong` | 17 | INFO (hours awake are in the digest) |
+| `ContainerImageStale`, `ClamavScanStale`, `DownloadIntegrity*`, `CveAcceptanceExpired`, `AlertmanagerDown`, other `severity: info` | 10, 2, 1, 0, 0 | INFO |
+| `SecurityScanStale` | 9 | INFO (stale scanner; `SecurityScanFailing` was already digest) |
+| `JellyfinPlaybackStutter`, `BeefyHddSpinningUpTooOften`, `HostOomKill`, `HostRebootedUnclean` | 6, 2, 2, 0 | INFO (already over, the digest lists it) |
+| `PortUpdaterReattachLoop` | 5 | AUTO-FIX (port_updater already restarted the VPN clients) → digest |
+| `ContainerUnhealthy` (non-edge) | 0 fired | AUTO-FIX idea: autoheal (needs the Docker socket, owner decision) → digest for now |
+| `TlsCertExpiringSoon`, `PublicCertExpiringSoon` | 0 | AUTO-FIX (Traefik renews) → digest; `TlsCertExpiryCritical` stays ACTION |
+| `TowerUpButNextcloudDown` | 14 (+ daily repeats, 390 h firing) | ACTION, once per episode |
+| `JobHeartbeatStale`, `SystemdUnitFailed`, `CustomizationCheckFailing`, `BackupStale`, `ContainerDown`, `ContainerCrashLooping`, other warnings | 14, 2, 13, 2, 2, 5 | ACTION, once per episode |
+| `severity: critical`, intrusion, malware, edge `ContainerDown`, power (`telegram-power`), `RootkitWarning`, wake loops | ≈ 20 | ACTION, as before |
+| `notify: digest` / `weekly` rules (`NewFixableImageVulnerability` 1047 starts, `AutoUpdateNightly` 54, …) | 0 messages | INFO, as before |
+| `DailyDigest`, `WeeklyUpdateDigest` | 29, 4 | the digest itself |
+| `subscription-alerts.py` yellow stage (30 / 5 days ahead) | 0 (state empty) | INFO → `notify.sh digest`; orange, red, expired stay ACTION |
+| `oob-alert.sh` callers on fastpi (auto-update/rebuild rollback failed, Authentik lockout/session-ttl apply failed, mouse netns-watch gave up, mam-points cap, container-exporter fallback while Alertmanager is down) | 0 logged | ACTION, unchanged |
+| `restore-test.sh` monthly summary (fastpi) | ≈ 1 | success = INFO (should call `notify.sh digest`), failure = ACTION |
+| beefy `oob-alert.sh` callers (queue-watchdog "check by hand", abs-key-rotate, seerr/flaresolverr rebuild, beefy-backup/restore-test failures) | not logged (≈ < 1/day, estimate) | ACTION; queue-watchdog removals already go to the digest |
+| beefy `delete-early.py` owner copy of a user's early delete | not logged | INFO (needs a beefy digest file pulled by `beefy-idle-pull.sh`, not built yet) |
+| Seerr (Telegram agent off, webhook to Floppy only), Miniflux (removed 2026-11-24) | 0 | – |
+| healthchecks.io (dead-man's switch), Stonks price alerts (own bot, set by the owner) | rare | ACTION, unchanged |
+| DROP | – | none found: every type is either needed or already in the digest |
+
+Estimate after the change: ≈ 3 immediate messages a day (from ≈ 18) plus the one 19:00 digest.
+Scripts: `Docker/_global/scripts/notify.sh action <html>` (Telegram now via `oob-alert.sh`) or `notify.sh digest <source> <text>` (digest note); `oob-alert.sh` stays the independent emergency path.
 - **Maintenance:** `Docker/_global/scripts/maintenance-silence.sh on [hours] [reason]` before batch or upgrade work, `off` after: silences ContainerCrashLooping, ContainerDown, ContainerUnhealthy, SecurityFileChanged, HostRebooted, SshLoginOutsideLan; the digest still lists them.
 - **Tests:** no separate test chat exists, so 🧪 messages go to the alert group, only when sent on purpose (a POSTed alert with a `test` label, `oob-alert.sh --test`). To check the path without a message: `oob-alert.sh --check`.
 
 ```bash
-python3 alertmanager/test_routing.py [alertmanager/alertmanager.yml]   # receivers via amtool + quiet-hour muting; default: the template
+python3 alertmanager/test_routing.py [alertmanager/alertmanager.yml]   # receivers via amtool + quiet-hour muting + digest list same as daily-digest.yml; default: the template
 docker exec alertmanager amtool config routes test --config.file=/etc/alertmanager/alertmanager.yml alertname=X severity=warning
 ```
 
