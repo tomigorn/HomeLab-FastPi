@@ -198,7 +198,8 @@ setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; mkdir -p "$T/data/db"; echo s
 mkdir -p "$T/backups/pre-update/$TODAY"; chmod 755 "$T/backups" "$T/backups/pre-update" "$T/backups/pre-update/$TODAY"
 um=$(umask); umask 022; CHECK=true run recreate "$T/data/db" vol:demo_data; umask "$um"
 B="$T/backups/pre-update/$TODAY/demo"
-[[ -s $B/db.tgz && -s $B/vol-demo_data.tgz ]] && ok "bind dir and volume backed up" || bad "backups written" "$(ls -la "$B" 2>&1)"
+bk_db=$(ls "$B"/*_data_db-[0-9]*.tgz 2>/dev/null | head -1); bk_vol=$(ls "$B"/vol-demo_data-[0-9]*.tgz 2>/dev/null | head -1)
+[[ -s $bk_db && -s $bk_vol ]] && ok "bind dir and volume backed up" || bad "backups written" "$(ls -la "$B" 2>&1)"
 m=$(stat -c '%a %n' "$T/backups/pre-update" "$T/backups/pre-update/$TODAY" "$B" | awk '$1!="700"')
 [[ -z $m ]] && ok "pre-update, date and project dirs 0700" || bad "backup dirs 0700" "$m"
 m=$(find "$B" \( -type f -o -type d \) -perm /077 -printf '%m %p\n')
@@ -250,7 +251,25 @@ mkdir -p "$T/locked/data"; echo keep > "$T/locked/data/app.db"; chmod 000 "$T/lo
 FAKE_LOCKED="$T/locked" CHECK=true run pull "$T/locked/data"
 chmod 700 "$T/locked"
 [[ $rc == 0 && $out == *"OK demo"* && $out != *missing* ]] && ok "exit 0, path not reported missing" || bad "root-only path accepted" "rc=$rc $out"
-[[ -s $T/backups/pre-update/$TODAY/demo/data.tgz ]] && ok "root-only path backed up" || bad "root-only path backed up" "$(ls -la "$T/backups/pre-update/$TODAY/demo" 2>&1)"
+[[ -n $(find "$T/backups/pre-update/$TODAY/demo" -name '*_locked_data-*.tgz' -size +0) ]] && ok "root-only path backed up" || bad "root-only path backed up" "$(ls -la "$T/backups/pre-update/$TODAY/demo" 2>&1)"
+
+echo "two backup paths with the same basename (qBittorrent and SABnzbd config): own archives, each restored from its own"
+setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; echo "img:1 sha:new" > "$T/pullmap"
+mkdir -p "$T/data/qb/config" "$T/data/sab/config"; echo qb > "$T/data/qb/config/x"; echo sab > "$T/data/sab/config/x"
+CHECK=$OLDCHECK run pull "$T/data/qb/config" "$T/data/sab/config"
+M=$(ls "$T"/backups/pre-update/$TODAY/demo/backups-*.list | tail -1)
+[[ $(cut -d'|' -f2 "$M" | sort -u | wc -l) == 2 ]] && ok "two distinct archives in the manifest" || bad "distinct archives" "$(cat "$M")"
+grep -q "data_qb_config-[0-9]\{6\}.*\.tgz$" "$M" && grep -q "data_sab_config-[0-9]\{6\}.*\.tgz$" "$M" && ok "archive name carries the full path and the time" || bad "archive name from path + stamp" "$(cat "$M")"
+[[ $rc == 1 && $(cat "$T/data/qb/config/x") == qb && $(cat "$T/data/sab/config/x") == sab ]] && ok "rollback restores each path from its own archive" || bad "each path restored from its own archive" "rc=$rc qb=$(cat "$T/data/qb/config/x") sab=$(cat "$T/data/sab/config/x")"
+
+echo "a second run on the same day keeps the first run's backups"
+setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; mkdir -p "$T/data/db"; echo first > "$T/data/db/app.db"
+CHECK=true run recreate "$T/data/db" vol:demo_data; echo second > "$T/data/db/app.db"
+CHECK=true run recreate "$T/data/db" vol:demo_data
+B="$T/backups/pre-update/$TODAY/demo"
+[[ $(ls "$B"/*_data_db-*.tgz 2>/dev/null | wc -l) == 2 && $(ls "$B"/vol-demo_data-*.tgz 2>/dev/null | wc -l) == 2 && $(ls "$B"/backups-*.list | wc -l) == 2 ]] && ok "two archives per path, two manifests" || bad "second run overwrote the first" "$(ls "$B")"
+first=$(head -1 "$(ls "$B"/backups-*.list | head -1)" | cut -d'|' -f2)
+[[ $(tar xzf "$first" -O 2>/dev/null) == first ]] && ok "first run's archive still holds the first data" || bad "first archive intact" "$first"
 
 echo "volume backup fails: update aborted"
 setup img:1; printf 'img:1 sha:old\n' > "$T/tags"; echo "img:1 sha:new" > "$T/pullmap"; touch "$T/runfail"

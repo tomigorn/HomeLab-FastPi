@@ -11,7 +11,7 @@
 # Env: SERVICES (pull/build/recreate only these, --no-deps; every name must be a service of the project (docker compose config --services), else exit 2 before anything changes; the verify still covers the whole project), WAIT (45), CHECK (functional check, a shell command; retried CHECK_TRIES=6 times 10 s apart),
 #      POST_CHECK=0 (skip the customization check: post-update-check.sh runs after CHECK whenever _global/post-update.d/<dir name>.sh exists, Docker/CUSTOMIZATIONS.md),
 #      TEST_FORCE_FAIL=1 (the verify fails: rollback drill). Exit 0 ok, 1 rolled back, 2 nothing changed (no project, the build failed, a backup failed or a backup path is missing), 3 rollback did not verify or the data restore failed.
-# Backups: a failed or empty backup, or a missing path, aborts before up -d (old images re-tagged, stopped containers started again). A rollback after an image change restores this run's backups first (the failed data stays next to it as <path>.failed-update-<time>, a volume's as vol-<name>.failed-update-<time>.tgz); if that restore fails the services stay stopped (exit 3): the old image never starts on migrated data.
+# Backups: <full path, / as _>-<HHMMSS>.tgz and vol-<name>-<HHMMSS>.tgz, listed per run in backups-<HHMMSS>.list. A failed or empty backup, or a missing path, aborts before up -d (old images re-tagged, stopped containers started again). A rollback after an image change restores this run's backups first (the failed data stays next to it as <path>.failed-update-<time>, a volume's as vol-<name>.failed-update-<time>.tgz); if that restore fails the services stay stopped (exit 3): the old image never starts on migrated data.
 set -uo pipefail
 umask 077
 # beefy: buntu is outside the docker group on purpose; by hand it goes through sudo, the auto-update service has the group.
@@ -64,7 +64,9 @@ echo "=== $proj ($dir) mode=$mode"
 # backup paths are checked as root, like the sudo tar that backs them up (a data dir may sit under a folder pi cannot enter)
 exists() { [[ -e $1 ]] || sudo -n test -e "$1"; }
 for b in "$@"; do [[ $b == vol:* ]] || exists "$b" || { echo "  backup: FAIL $b(missing)"; echo "ABORTED $proj: backup path missing, nothing changed"; exit 2; }; done
-stamp=$(date +%H%M%S); snap="$bk/compose-snapshot-$stamp"; from_pending=0
+stamp=$(date +%H%M%S); n=1
+while [[ -e $bk/compose-snapshot-$stamp || -e $bk/backups-$stamp.list ]]; do n=$((n + 1)); stamp=$(date +%H%M%S)-$n; done
+snap="$bk/compose-snapshot-$stamp"; from_pending=0
 if [[ -f $pending/taken ]] && (( $(date +%s) - $(stat -c %Y "$pending/taken") < 43200 )); then
   mv "$pending" "$snap"; from_pending=1; echo "  snapshot: the one taken before the edit -> $snap"
 else
@@ -132,8 +134,8 @@ if (( $# )); then docker compose stop ${SERVICES:-} 2>&1 | grep -E 'Stopped|Erro
 # one "<path or vol:name>|<tgz>" line per backup of this run: the rollback restores exactly these
 manifest="$bk/backups-$stamp.list"; : > "$manifest"; bkfail=""
 for b in "$@"; do
-  if [[ $b == vol:* ]]; then v=${b#vol:}; f="$bk/vol-$v.tgz"; docker run --rm -v "$v":/from:ro "$HELPER_IMAGE" tar czf - -C /from . > "$f"
-  elif exists "$b"; then f="$bk/$(basename "$b").tgz"; sudo tar czf - -C "$(dirname "$b")" "$(basename "$b")" > "$f"
+  if [[ $b == vol:* ]]; then v=${b#vol:}; f="$bk/vol-$v-$stamp.tgz"; docker run --rm -v "$v":/from:ro "$HELPER_IMAGE" tar czf - -C /from . > "$f"
+  elif exists "$b"; then a=$(realpath -m -- "$b"); a=${a#/}; f="$bk/${a//\//_}-$stamp.tgz"; sudo tar czf - -C "$(dirname "$b")" "$(basename "$b")" > "$f"
   else bkfail+=" $b(missing)"; continue; fi
   if (( $? == 0 )) && [[ -s $f ]]; then echo "$b|$f" >> "$manifest"; echo "  backup: $b -> $f"; else bkfail+=" $b"; fi
 done
