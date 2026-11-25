@@ -33,6 +33,20 @@ BINCLUDES=(
 )
 BEXPECT=(seerr/db/db.sqlite3 jellyfin/data/data/jellyfin.db radarr/radarr.db sonarr/sonarr.db)
 KEK=/srv/appdata/dt5/.dependency-track/keys/secret-management-kek.json
+# name|path inside the staging sqlite dir|table:min_rows,... (a table needs at least min_rows rows)
+FDB_SPEC=${FDB_SPEC:-'home-assistant-recorder|/home/pi/Projects/Docker/Home-Assistant/config/home-assistant_v2.db|states:1000
+home-assistant-zigbee|/home/pi/Projects/Docker/Home-Assistant/config/zigbee.db|endpoints_v16:1
+wg-easy|/home/pi/Projects/Docker/WireguardVPN/wg-easy-v15/wg-easy.db|users_table:1,clients_table:1
+audiobookshelf|/home/pi/Projects/Docker/audiobookshelf/audiobookshelf/config/absdatabase.sqlite|libraryItems:1
+stonks|/home/pi/Projects/Docker/Stonks/data/stonks.db|transactions:1
+grafana|/var/lib/docker/volumes/monitoring__grafana_grafana_data/_data/grafana.db|user:1
+crowdsec|/var/lib/docker/volumes/crowdsec_crowdsec_data/_data/crowdsec.db|machines:1
+wg-chores-v2|/var/lib/docker/volumes/wg-chores-v2_wg-chores-v2-data/_data/wg-chores.db|chores:1
+audiobook-requests|/home/pi/Projects/Docker/Audiobook-Requests/config/db.sqlite|user:1
+sabnzbd-history|/mnt/seagate-red/sabnzbd/config/admin/history1.db|history:0
+prowlarr-mouse|/mnt/seagate-red/prowlarr/config/prowlarr.db|Indexers:1
+navidrome|/home/pi/Projects/Docker/Navidrome/data/navidrome.db|user:1'}
+HOSTL=fastpi
 COUNTS="select 'users', count(*) from authentik_core_user union all select 'groups', count(*) from authentik_core_group union all select 'apps', count(*) from authentik_core_application"
 
 R() { restic -o sftp.command="$SSHC" "$@"; }
@@ -44,10 +58,33 @@ esc() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' <<<"$*"; }
 START=$(date +%s)
 STATUS=0 AGE=0 BYTES=0 RSECS=0 BSTATUS=0 BAGE=0 FASTPI_RUN=1 NDB=0 NCMP=0 NDIFF=0
 FAILS=() NOTES=()
+declare -A DBRES=() DBENG=() OLDOK=() OLDTS=()
 WORK="" PG=""
 fail() { FAILS+=("$(esc "$*")"); log "FAIL $*"; }
 note() { NOTES+=("$(esc "$*")"); log "$*"; }
 
+load_old() {
+    local l k
+    while IFS= read -r l; do
+        k=$(sed -nE 's/^db_restore_test_(ok|last_success_timestamp_seconds)\{host="'$HOSTL'",db="([^"]+)",engine="([^"]+)"\} ([0-9]+)$/\2|\3|\1|\4/p' <<<"$l")
+        [ -n "$k" ] || continue
+        IFS='|' read -r n e kind v <<<"$k"
+        DBENG[$n]=$e
+        if [ "$kind" = ok ]; then OLDOK[$n]=$v; else OLDTS[$n]=$v; fi
+    done < <(grep -s '^db_restore_test_' "$PROM")
+}
+db_metric_lines() {
+    local n ok ts now; now=$(date +%s)
+    # no TYPE/HELP: the beefy copy has none, and node-exporter rejects a family typed in one textfile and untyped in another
+    for n in "${!DBENG[@]}"; do
+        ok=${DBRES[$n]:-${OLDOK[$n]:-0}}
+        echo "db_restore_test_ok{host=\"$HOSTL\",db=\"$n\",engine=\"${DBENG[$n]}\"} $ok"
+    done | sort
+    for n in "${!DBENG[@]}"; do
+        ts=${OLDTS[$n]:-0}; [ "${DBRES[$n]:-}" = 1 ] && ts=$now
+        echo "db_restore_test_last_success_timestamp_seconds{host=\"$HOSTL\",db=\"$n\",engine=\"${DBENG[$n]}\"} $ts"
+    done | sort
+}
 write_metric() {
     local now ok; now=$(date +%s)
     ok=$(grep -s '^backup_restore_test_last_success_timestamp_seconds ' "$PROM" | awk '{print $2}')
@@ -73,6 +110,7 @@ backup_restore_test_restore_bytes $BYTES
 backup_restore_test_restore_seconds $RSECS
 # TYPE backup_restore_test_duration_seconds gauge
 backup_restore_test_duration_seconds $((now-START))
+$(db_metric_lines)
 EOM
     chmod 644 "$PROM.tmp"; mv "$PROM.tmp" "$PROM"
 }
@@ -85,6 +123,7 @@ trap cleanup EXIT
 trap 'log "terminated"; exit 1' TERM INT
 
 umask 077
+load_old
 WORK=$(mktemp -d "$WORK_BASE/fastpi-restore-test.XXXXXX")
 
 fastpi_part() {
@@ -120,6 +159,27 @@ while IFS= read -r -d '' db; do
 done < <(find "$WORK$STAGE/sqlite" -type f -print0 2>/dev/null)
 [ "$NDB" -gt 0 ] || [ -z "$STIME" ] || fail "no SQLite dumps in the snapshot"
 
+check_sqlite_db() {
+    local name=$1 path=$2 tables=$3 f r t min n before=${#FAILS[@]}
+    DBENG[$name]=sqlite
+    f="$WORK$STAGE/sqlite$path"
+    if [ ! -f "$f" ]; then fail "$name: dump missing from the snapshot"; DBRES[$name]=0; return; fi
+    r=$(sqlite3 -readonly "$f" "pragma integrity_check" 2>&1 | head -1)
+    case "$r" in *"unknown function"*) r=$(sqlite3 -readonly "$f" "pragma quick_check" 2>&1 | head -1) ;; esac
+    [ "$r" = ok ] || fail "$name: integrity_check: $r"
+    for t in ${tables//,/ }; do
+        min=${t#*:}; t=${t%%:*}
+        n=$(sqlite3 -readonly "$f" "select count(*) from \"$t\"" 2>&1)
+        { [ "$n" -ge "$min" ] 2>/dev/null; } || fail "$name: table $t has ${n:-?} rows, expected at least $min"
+    done
+    [ ${#FAILS[@]} -eq "$before" ] && DBRES[$name]=1 || DBRES[$name]=0
+}
+if [ -n "$STIME" ]; then
+    while IFS='|' read -r name path tables; do
+        [ -n "$name" ] && check_sqlite_db "$name" "$path" "$tables"
+    done <<<"$FDB_SPEC"
+fi
+
 NDIFF=0 NCMP=0
 if [ -n "$STIME" ]; then
     while IFS= read -r -d '' f; do
@@ -135,6 +195,8 @@ fi
 
 DUMP="$WORK$STAGE/dumps/authentik.pgdump"
 AK="not tested"
+DBENG[authentik]=postgres
+AKF=${#FAILS[@]}
 if [ -s "$DUMP" ]; then
     PG=restore-test-pg-$$
     if docker run -d --rm --name "$PG" --network none --memory 768m --mount type=tmpfs,destination=/var/lib/postgresql \
@@ -156,6 +218,7 @@ if [ -s "$DUMP" ]; then
 else
     fail "Authentik dump missing"
 fi
+[ ${#FAILS[@]} -eq "$AKF" ] && DBRES[authentik]=1 || DBRES[authentik]=0
 }
 
 beefy_part() {

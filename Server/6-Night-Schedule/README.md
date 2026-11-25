@@ -12,7 +12,7 @@ All recurring jobs run 22:00-06:00 (low tariff), nothing 02:00-03:00 (DST), time
 | `/etc/crontab` cron.daily / weekly (Sun) / monthly (1st) | 06:25 / 06:47 / 06:52 | 05:32 / 05:44 / 05:46 (rkhunter, chkrootkit stay daily) |
 | `security-av` | 04:20, 05:40, 06:40 | 04:20, 05:40, 05:50 |
 | `clamav-hostscan` (whole-host ClamAV, `Docker/antivirus/README.md`) | Sun 01:30, ran ~12 h into the day | timer 22:30 nightly, scans only 22:00-06:00 and all day Sunday, idle priority, resumes where it stopped (one pass a week, ~289 000 files; stops at 06:00 without waiting for 02:00-03:00, DST-safe) |
-| `fastpi-restore-test` | new | first Tuesday of the month 04:33, inside beefy's 03:58-04:45 window, never wakes beefy (`Server/5-Backup/README.md` "Monthly restore test") |
+| `fastpi-restore-test` | new | every Tuesday 04:33, inside beefy's 03:58-04:45 window, never wakes beefy (`Server/5-Backup/README.md` "Weekly restore test") |
 | `beefy-repo-maint` | new | 05:07 daily: retention of beefy's backup repo on fastpi (local, beefy not needed), prune Sunday, check Wednesday (`Server/5-Backup/README.md` "beefy → fastpi") |
 | `beefy-backup` (beefy) | new | 04:26 on beefy: backup to fastpi's append-only server, inside the window (`HomeLab-BeefyServer`, `Server/10-Backup.md`) |
 | `beefy-night-downloads-wake` | new | 22:05, wakes beefy only when downloads wait for the night (`Docker/Beefy-Waker/README.md` "Night downloads wake") |
@@ -36,7 +36,7 @@ All fixed-time jobs on fastpi, in night order (`systemctl list-timers` is the tr
 | 04:06 | `fastpi-backup` | restic to beefy (`Server/5-Backup`) |
 | 04:12 | `usage-collector` | `Docker/grafana` |
 | 04:20, 05:40, 05:50 | `security-av` | `Server/4-Security-Monitoring` |
-| first Tue 04:33 | `fastpi-restore-test` | `Server/5-Backup` |
+| Tue 04:33 | `fastpi-restore-test` | `Server/5-Backup` |
 | 04:28 | `repo-drift` | repo-vs-live compare (`Docker/_global/scripts/README.md` "repo-drift") |
 | 05:00 | `clamav-scan` | new-files scan (`Docker/antivirus`) |
 | 05:07 | `beefy-repo-maint` | `Server/5-Backup` |

@@ -78,11 +78,13 @@ setup() {
 }
 run() {
     env PATH="$T/bin:$PATH" FAKE_BREPO="$T/brepo" FAKE_BSNAP="$T/bsnap" BREPO="$T/brepo" BPASS=/dev/null FAKE_LOG="$T/log" FAKE_MSG="$T/msg" FAKE_SNAP="$T/snap" FAKE_READY="$T/ready" \
-        WORK_BASE="$T/work" PROM="$T/prom" OOB="$T/bin/oob" LIVE_ROOT="$T/live" \
+        WORK_BASE="$T/work" PROM="$T/prom" OOB="$T/bin/oob" LIVE_ROOT="$T/live" FDB_SPEC="app|/data/app.db|t:1" \
         BEEFY_TCP="$T/up" LOCK="$T/lock" NOW="$(date -d 2026-10-29T04:33:00 +%s)" "$@" "$S" > "$T/out" 2>&1
 }
 status() { awk '/^backup_restore_test_last_status /{print $2}' "$T/prom"; }
 metric() { awk -v k="$1" '$1==k{print $2}' "$T/prom"; }
+dbok() { awk -v k="db_restore_test_ok{host=\"fastpi\",db=\"$1\",engine=\"$2\"}" '$1==k{print $2}' "$T/prom"; }
+dbts() { awk -v k="db_restore_test_last_success_timestamp_seconds{host=\"fastpi\",db=\"$1\",engine=\"$2\"}" '$1==k{print $2}' "$T/prom"; }
 
 setup; run; rc=$?
 [[ $rc == 0 && $(status) == 1 ]] && ok "healthy backup passes" || bad "healthy backup passes" "rc=$rc status=$(status) $(cat "$T/out")"
@@ -139,6 +141,35 @@ setup; run FAKE_RESTORED="users|0"
 
 setup; rm "$T/up"; run
 [[ $(status) == 2 && $(metric backup_restore_test_beefy_status) == 1 ]] && grep -q "fastpi repo skipped" "$T/msg" && grep -q "Beefy: snapshot" "$T/msg" && ok "beefy asleep: fastpi repo skipped, beefy repo still tested" || bad "beefy asleep: fastpi repo skipped, beefy repo still tested" "status=$(status) b=$(metric backup_restore_test_beefy_status) $(cat "$T/msg") $(cat "$T/out")"
+
+# per-database restore results
+setup; run
+[[ $(dbok app sqlite) == 1 && $(dbok authentik postgres) == 1 && $(dbts app sqlite) -gt 0 ]] && ok "per-DB metrics: SQLite and Authentik ok with last success" || bad "per-DB metrics: SQLite and Authentik ok with last success" "$(cat "$T/prom")"
+sqlite3 "$T/snap/var/lib/fastpi-backup-staging/sqlite/data/app.db" "delete from t;"; run
+[[ $(status) == 0 && $(dbok app sqlite) == 0 ]] && grep -q "app: table t has 0 rows" "$T/msg" && ok "empty key table fails that DB and names the table" || bad "empty key table fails that DB and names the table" "$(cat "$T/msg") $(grep db_restore "$T/prom")"
+[[ $(dbok authentik postgres) == 1 ]] && ok "other DBs stay ok when one fails" || bad "other DBs stay ok when one fails"
+
+setup; run; first=$(dbts app sqlite); sqlite3 "$T/snap/var/lib/fastpi-backup-staging/sqlite/data/app.db" "delete from t;"; sleep 1; run
+[[ $(dbok app sqlite) == 0 && $(dbts app sqlite) == "$first" ]] && ok "last success timestamp kept after a failed restore" || bad "last success timestamp kept after a failed restore" "$first $(dbts app sqlite)"
+
+setup; rm "$T/snap/var/lib/fastpi-backup-staging/sqlite/data/app.db"; run
+[[ $(status) == 0 && $(dbok app sqlite) == 0 ]] && grep -q "app: dump missing" "$T/msg" && ok "listed DB missing from the snapshot fails" || bad "listed DB missing from the snapshot fails" "$(cat "$T/msg")"
+
+setup; run; first=$(dbts app sqlite); rm "$T/up"; run
+[[ $(dbok app sqlite) == 1 && $(dbts app sqlite) == "$first" ]] && ok "beefy asleep: fastpi DB results carried over, not reset" || bad "beefy asleep: fastpi DB results carried over, not reset" "$(grep db_restore "$T/prom")"
+
+! grep -E '^# (TYPE|HELP) db_restore_test' "$T/prom" >/dev/null && ok "db_restore_test_* written without TYPE/HELP (same family comes untyped from beefy)" || bad "db_restore_test_* written without TYPE/HELP"
+
+# an expression index on an app-defined SQL function cannot run integrity_check in the plain CLI: fall back to quick_check
+cat > "$T/bin/sqlite3" <<'STUB'
+#!/usr/bin/env bash
+[[ $* == *"pragma integrity_check"* ]] && { echo "Error: in prepare, unknown function: ulower()"; exit 1; }
+exec /usr/bin/sqlite3 "$@"
+STUB
+chmod +x "$T/bin/sqlite3"
+setup; run
+[[ $(status) == 1 && $(dbok app sqlite) == 1 ]] && ok "unknown app function in integrity_check falls back to quick_check" || bad "unknown app function in integrity_check falls back to quick_check" "$(cat "$T/msg")"
+rm "$T/bin/sqlite3"
 
 echo "passed $PASS, failed $FAIL"
 [[ $FAIL == 0 ]]

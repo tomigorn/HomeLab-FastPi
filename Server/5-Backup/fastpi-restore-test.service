@@ -1,5 +1,5 @@
 [Unit]
-Description=Monthly restore test of the fastpi restic backup
+Description=Weekly restore test of the fastpi restic backup
 Documentation=file:///home/pi/Projects/Server/5-Backup/README.md
 After=network-online.target docker.service
 Wants=network-online.target
