@@ -7,14 +7,29 @@ set -euo pipefail
 
 DOCKER_DIR=/home/pi/Projects/Docker
 MANIFEST=${MANIFEST:-/home/pi/Projects/Docker/_global/docs/userns-remap-snapshot/touched-files.manifest}
+DAEMON_JSON=${DAEMON_JSON:-/etc/docker/daemon.json}
 ts(){ date -Is; }
+
+# drop only the userns-remap key: dns, log rotation and live-restore stay; the original is kept as daemon.json.bak-<time>
+remove_remap() {
+  [ -e "$DAEMON_JSON" ] || { echo "[$(ts)] no $DAEMON_JSON, nothing to remove"; return 0; }
+  local cur new
+  cur=$(sudo cat "$DAEMON_JSON") && jq -e . >/dev/null <<<"$cur" || { echo "[$(ts)] $DAEMON_JSON is not valid JSON: fix it by hand, docker NOT restarted"; return 1; }
+  if ! jq -e 'has("userns-remap")' >/dev/null <<<"$cur"; then echo "[$(ts)] no userns-remap key in $DAEMON_JSON, file left as it is"; return 0; fi
+  new=$(jq 'del(."userns-remap")' <<<"$cur")
+  sudo cp -p "$DAEMON_JSON" "$DAEMON_JSON.bak-$(date +%Y%m%d-%H%M%S)"
+  printf '%s\n' "$new" | sudo tee "$DAEMON_JSON.new" >/dev/null && sudo mv "$DAEMON_JSON.new" "$DAEMON_JSON"
+  echo "[$(ts)] userns-remap removed from $DAEMON_JSON (rest kept)"
+}
 
 panic() {
   echo "[$(ts)] PANIC rollback: removing remap, restarting docker"
-  sudo rm -f /etc/docker/daemon.json
+  remove_remap
   sudo systemctl restart docker
-  sleep 3
-  if docker info 2>/dev/null | grep -qi 'userns'; then
+  sleep "${RESTART_WAIT:-3}"
+  local secopts
+  secopts=$(docker info --format '{{.SecurityOptions}}' 2>/dev/null || true)
+  if grep -qi 'userns' <<<"$secopts"; then
     echo "[$(ts)] WARNING: docker info still reports userns — inspect manually"
   else
     echo "[$(ts)] remap OFF; original data-root active"

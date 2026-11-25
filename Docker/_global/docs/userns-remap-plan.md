@@ -224,7 +224,7 @@ Decision: lowest blast radius — **remap only the small stateless stacks, exemp
   files keep host uids). Done in-window AFTER `compose down` (DB consistency).
 - **Record touched compose files** to `_global/docs/userns-remap-snapshot/touched-files.manifest`
   as each `userns_mode: host` edit is made → `userns-rollback.sh full` reads it.
-- **Rollback:** `_global/scripts/userns-rollback.sh panic` (remove daemon.json + restart → original
+- **Rollback:** `_global/scripts/userns-rollback.sh panic` (remove the `userns-remap` key from daemon.json + restart → original
   root) or `full` (panic + git-revert manifest + revert the 2 chowns).
 
 ### OPEN ITEM to validate live before `--go` (do NOT skip)
