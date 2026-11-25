@@ -97,7 +97,7 @@ beefy: verbatim copy in the beefy repo (`Docker/_global/scripts/job_heartbeat.py
 
 ## Authentik metrics
 
-Job `authentik` scrapes `authentik-server:9300` over the `authentik_authentik_internal` network (Prometheus joins it; the port is not published). Forward-auth latency = `authentik_main_request_duration_seconds{dest="embedded_outpost"}` (summary quantiles, Traefik calls the outpost directly so it is not in Traefik metrics); `dest="core"` is the Django side. Dashboard `fastpi-resources`, row "Authentik workers" (RAM, SSO latency from Traefik, forward-auth latency); baseline `~/reports/2026-11-10/authentik-workers-baseline.md`.
+Job `authentik` scrapes `authentik-server:9300` over the `authentik_authentik_internal` network (Prometheus joins it; the port is not published). Forward-auth latency = `authentik_main_request_duration_seconds{dest="embedded_outpost"}` (summary quantiles, Traefik calls the outpost directly so it is not in Traefik metrics); `dest="core"` is the Django side. Dashboard `fastpi-resources`, row "Authentik workers" (RAM, SSO latency from Traefik, forward-auth latency); baseline `~/notes/docs/claude/reports/archive/2026-11-10/authentik-workers-baseline.md`, 14-day comparison `~/notes/docs/claude/authentik-workers-comparison.md`.
 
 ## Activity metrics
 
