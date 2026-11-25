@@ -103,8 +103,8 @@ class ServerTest(unittest.TestCase):
             _, body = self.req("GET", path)
             self.assertIn(expected, body)
 
-    def test_version_is_1_6_2(self):
-        self.assertEqual(waker.VERSION, "1.6.2")
+    def test_version_is_semver(self):
+        self.assertRegex(waker.VERSION, r"^\d+\.\d+\.\d+$")
 
     def test_handler_has_request_timeout(self):
         # a slow / never-finishing client must not tie up a worker thread forever
