@@ -64,8 +64,8 @@ echo "=== $proj ($dir) mode=$mode"
 # backup paths are checked as root, like the sudo tar that backs them up (a data dir may sit under a folder pi cannot enter)
 exists() { [[ -e $1 ]] || sudo -n test -e "$1"; }
 for b in "$@"; do [[ $b == vol:* ]] || exists "$b" || { echo "  backup: FAIL $b(missing)"; echo "ABORTED $proj: backup path missing, nothing changed"; exit 2; }; done
-stamp=$(date +%H%M%S); n=1
-while [[ -e $bk/compose-snapshot-$stamp || -e $bk/backups-$stamp.list ]]; do n=$((n + 1)); stamp=$(date +%H%M%S)-$n; done
+stamp=$(date +%H%M%S)
+while [[ -e $bk/compose-snapshot-$stamp || -e $bk/backups-$stamp.list ]]; do sleep 1; stamp=$(date +%H%M%S); done
 snap="$bk/compose-snapshot-$stamp"; from_pending=0
 if [[ -f $pending/taken ]] && (( $(date +%s) - $(stat -c %Y "$pending/taken") < 43200 )); then
   mv "$pending" "$snap"; from_pending=1; echo "  snapshot: the one taken before the edit -> $snap"
