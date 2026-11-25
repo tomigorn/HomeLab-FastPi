@@ -491,6 +491,25 @@ def test_apply_pull_skips_locally_built_services():
     assert "--ignore-buildable" in pull
 
 
+def test_suggested_commands_carry_the_rows_check():
+    import shlex
+    check = "curl -sf http://x/ | python3 -c 'import sys'"
+    row = {"project": "Cup", "tier": "notify", "services": [], "backups": ["vol:v"], "check": check}
+    c = _ctr("cup", "cup:1", "sha:a", project="cup", workdir=str(DOCKER / "Cup"), service="cup")
+    for cmd in (update_command(row), drift_command(row, ["cup"]), auto_update.stale_command(c, row)):
+        words = shlex.split(cmd)
+        assert words[0] == "CHECK=" + check, cmd
+        assert any(w.endswith("update-project.sh") for w in words), cmd
+    plain = dict(row, check="")
+    for cmd in (update_command(plain), drift_command(plain, ["cup"]), auto_update.stale_command(c, plain), auto_update.stale_command(c)):
+        assert "CHECK=" not in cmd, cmd
+
+
+def test_authentik_check_waits_out_the_totp_window():
+    rows = _rows_of("Authentik")
+    assert rows and all(r["check"].startswith("sleep 35;") for r in rows), rows
+
+
 if __name__ == "__main__":
     import traceback
     fns = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

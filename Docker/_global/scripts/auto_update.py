@@ -30,6 +30,7 @@ import html
 import json
 import os
 import platform
+import shlex
 import shutil
 import socket
 import subprocess
@@ -157,15 +158,20 @@ def drop_namespace_providers(row: dict, config: dict) -> dict:
                 backups=[b for b in row["backups"] if b.rstrip("/").rsplit("/", 1)[-1] not in providers])
 
 
+def _check_prefix(row: dict | None) -> str:
+    """CHECK='<the row's functional check>' , so a suggested command run by hand rolls back on a functional failure too."""
+    return f"CHECK={shlex.quote(row['check'])} " if row and row.get("check") else ""
+
+
 def drift_command(row: dict, services: list[str]) -> str:
     tail = "".join(f" {b}" for b in row["backups"])
-    return f"SERVICES='{' '.join(sorted(services))}' {SCRIPTS}/update-project.sh {DOCKER / row['project']} recreate{tail}"
+    return f"{_check_prefix(row)}SERVICES='{' '.join(sorted(services))}' {SCRIPTS}/update-project.sh {DOCKER / row['project']} recreate{tail}"
 
 
 def update_command(row: dict) -> str:
     svc = f"SERVICES='{' '.join(row['services'])}' " if row["services"] else ""
     tail = "".join(f" {b}" for b in row["backups"])
-    return f"{svc}{SCRIPTS}/update-project.sh {DOCKER / row['project']} pull{tail}"
+    return f"{_check_prefix(row)}{svc}{SCRIPTS}/update-project.sh {DOCKER / row['project']} pull{tail}"
 
 
 def _esc(v: str) -> str:
@@ -467,8 +473,14 @@ def stale_containers() -> list[dict]:
     return find_stale(cs, tags)
 
 
-def stale_command(c: dict) -> str:
-    return f"SERVICES={c['service']} {SCRIPTS}/update-project.sh {c['workdir']} recreate"
+def stale_command(c: dict, row: dict | None = None) -> str:
+    return f"{_check_prefix(row)}SERVICES={c['service']} {SCRIPTS}/update-project.sh {c['workdir']} recreate"
+
+
+def row_of(c: dict, rows: list[dict]) -> dict | None:
+    """The conf row that covers a container (its project dir and service), if any."""
+    hits = [r for r in rows if c["workdir"] and Path(c["workdir"]) == DOCKER / r["project"]]
+    return next((r for r in hits if not r["services"] or c["service"] in r["services"]), None)
 
 
 def fix_stale(rows: list[dict], state: dict, results: list[dict], applied: int, dry: bool, skip: set[str] = frozenset()) -> int:
@@ -477,7 +489,7 @@ def fix_stale(rows: list[dict], state: dict, results: list[dict], applied: int, 
     bad = state.setdefault("stale_bad", {})
     plans, report = stale_plan(stale, rows, DOCKER, bad)
     for c in report:
-        log(f"  stale: {c['name']} ({c['project']}/{c['service']}) runs {_short(c['image'])}, {c['ref']} is on {_short(c['want'])}: {c['why']}; to recreate: {stale_command(c)}")
+        log(f"  stale: {c['name']} ({c['project']}/{c['service']}) runs {_short(c['image'])}, {c['ref']} is on {_short(c['want'])}: {c['why']}; to recreate: {stale_command(c, row_of(c, rows))}")
     for p in plans:
         row, first = p["row"], p["stale"][0]
         log(f"== {row['project']} ({row['tier']}): stale on a shared tag: {', '.join(c['name'] for c in p['stale'])}")
@@ -487,7 +499,7 @@ def fix_stale(rows: list[dict], state: dict, results: list[dict], applied: int, 
             continue
         if any(crosses_major(image_version(c["image"]), image_version(c["want"])) for c in p["stale"]):
             log("  major jump, not recreated")
-            results.append(dict(base, result="major_held", command=stale_command(first)))
+            results.append(dict(base, result="major_held", command=stale_command(first, row)))
             continue
         if past_deadline(APPLY_BY, time.localtime()) or (MAX_APPLY and applied >= MAX_APPLY):
             results.append(dict(base, result="deferred"))
