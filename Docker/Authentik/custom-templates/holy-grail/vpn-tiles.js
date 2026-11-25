@@ -2,7 +2,7 @@
   "use strict";
 
   var DOMAIN = ".holy-grail.ch";
-  var LOCAL_ONLY = ["adguard", "bazarr", "grafana", "ha", "portainer", "prowlarr", "prowlarr-audiobooks", "qbittorrent",
+  var LOCAL_ONLY = ["adguard", "bazarr", "due-dates", "grafana", "ha", "portainer", "prowlarr", "prowlarr-audiobooks", "qbittorrent",
     "qbittorrent-audiobooks", "radarr", "sabnzbd", "sabnzbd-audiobooks", "sonarr", "stonks", "traefik",
     "vpn-status-beefy", "vpn-status-mouse", "wg-easy", "wiki-admin"];
   // Traefik answers 403 here from outside (router authentik-admin, local-networks@file).
